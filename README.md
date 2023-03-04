@@ -2,7 +2,7 @@
 
 **What's the value of someone reading your message?**
 
-Email headers like `Disposition-Notification-To` ask mail clients to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give the recepient a chance to give consent when sending a receipt.
+Email headers like `Disposition-Notification-To` ask mail clients to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give more explicit right-to-consent for sending a receipt.
 
 This smart contract operates on the [Stellar](https://stellar.org/) blockchain since it has reasonable transaction fees and is highly scalable across independent communities.
 
