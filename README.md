@@ -6,7 +6,7 @@ Email headers like `Disposition-Notification-To` ask mail clients to send back r
 
 This smart contract operates on the [Stellar](https://stellar.org/) blockchain since it has reasonable transaction fees and is highly scalable across independent communities.
 
-### How it works
+## How it works
 
 - Token distribution service receives an email read receipt
   - Query `communi.email` for the email's sender address hash
