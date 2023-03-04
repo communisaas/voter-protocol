@@ -9,9 +9,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk = "0.6.0"
-
-[dev_dependencies]
+crypto-hash = "0.3.4"
 soroban-sdk = { version = "0.6.0", features = ["testutils"] }
 
 [features]
