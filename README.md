@@ -9,8 +9,8 @@ This smart contract operates on the [Stellar](https://stellar.org/) blockchain s
 ### How it works
 
 - Token distribution service receives an email read receipt
-  - Query `communi.email` for the email's sender address
-  - Hash & package it with the read receipt (which should have that same address as plaintext metadata)
+  - Query `communi.email` for the email's sender address hash
+  - Package it with the read receipt (which should have the unhashed address as plaintext metadata)
   - Send token & data to contract address
 
 > and then
