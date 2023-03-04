@@ -1,8 +1,6 @@
 # Read tokens (in-progress)
 
-***
-
-## What's the value of someone reading your message?
+**What's the value of someone reading your message?**
 
 Email headers like `Disposition-Notification-To` ask mail clients to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give the recepient a chance to give consent when sending a receipt.
 
