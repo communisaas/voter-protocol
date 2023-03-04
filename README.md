@@ -8,6 +8,8 @@ This smart contract operates on the [Stellar](https://stellar.org/) blockchain s
 
 ## How it works
 
+[Soroban SDK](https://soroban.stellar.org/docs/)
+
 - Token distribution service receives an email read receipt
   - Query `communi.email` for the email's sender address hash
   - Package it with the read receipt (which should have the unhashed address as plaintext metadata)
