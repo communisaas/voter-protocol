@@ -4,11 +4,9 @@
 
 Email headers like `Disposition-Notification-To` ask mail clients to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give more explicit right-to-consent for sending a receipt.
 
-This smart contract operates on the [Stellar](https://stellar.org/) blockchain since it has reasonable transaction fees and is highly scalable across independent communities.
+This smart contract operates on the [Solana](https://solana.com/) blockchain since it has reasonable transaction fees and throughput.
 
 ## How it works
-
-[Soroban SDK](https://soroban.stellar.org/docs/)
 
 - Token distribution service receives an email read receipt
   - Query `communi.email` for the email's sender address hash
