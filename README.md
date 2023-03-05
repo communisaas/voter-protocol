@@ -2,7 +2,7 @@
 
 **What's the value of someone reading your message?**
 
-Email headers like `Return-Receipt-To` ask mail clients to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give more explicit right-to-consent for sending a receipt.
+Email headers like `Return-Receipt-To` ask common mail clients/apps to send back read receipts/open events. These events are more reliable than what tracking pixels provide, and give more explicit right-to-consent for sending a receipt.
 
 This smart contract operates on the [Solana](https://solana.com/) blockchain since it has reasonable transaction fees and throughput.
 
