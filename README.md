@@ -19,7 +19,7 @@ Receipient opens email message
   1. Email read receipt ([MDN](https://joinup.ec.europa.eu/collection/ict-standards-procurement/solution/mdn-message-disposition-notification/about)) sent
   2. Token distribution service queries `communi.email` for the email's private key 
       - Check it against the public key 
-  3. If keys check out, send token & public key to contract address
+  3. If keys check out, execute contract
 
 > and then
 
