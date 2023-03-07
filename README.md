@@ -15,6 +15,8 @@ Message sender enables verified read receipts & sends email through `communi.ema
 3. Email is sent with transport layer security (TLS)
 4. Contract is created containing seed phrase (it's a pre-shared key)
 
+> and then
+
 Receipient opens email message
   1. Email read receipt ([MDN](https://joinup.ec.europa.eu/collection/ict-standards-procurement/solution/mdn-message-disposition-notification/about)) sent
   2. Token distribution service queries `communi.email` for the email's private key 
