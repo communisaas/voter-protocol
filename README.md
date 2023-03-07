@@ -9,7 +9,7 @@ This smart contract operates on the [Solana](https://solana.com/) blockchain sin
 ## How it works
 
 Message sender enables verified read receipts & sends email through `communi.email`
-1. A public-private key pair is generated from the message body, subject, and sender email address
+1. A public-private key pair is generated
     - A seed phrase is also derived from the public key
 2. Public key is appended server-side as metadata to the email
 3. Email is sent with transport layer security (TLS)
