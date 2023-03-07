@@ -8,15 +8,23 @@ This smart contract operates on the [Solana](https://solana.com/) blockchain sin
 
 ## How it works
 
-- Token distribution service receives an email read receipt
-  - Query `communi.email` for the email's sender address hash
-  - Package it with the read receipt (which should have the unhashed address as plaintext metadata)
-  - Send token & data to contract address
+Message sender enables verified read receipts & sends email through `communi.email`
+1. A public-private key pair is generated from the message body, subject, and sender email address
+    - A seed phrase is also derived from the public key
+2. Public key is appended server-side as metadata to the email
+3. Email is sent with transport layer security (TLS)
+4. Contract is created containing seed phrase (it's a pre-shared key)
+
+Receipient opens email message
+  1. Email read receipt ([MDN](https://joinup.ec.europa.eu/collection/ict-standards-procurement/solution/mdn-message-disposition-notification/about)) sent
+  2. Token distribution service queries `communi.email` for the email's private key 
+      - Check it against the public key 
+  3. If keys check out, send token & public key to contract address
 
 > and then
 
-- Contract validates hash of sender address between `communi.email` and incoming receipt
-  - If good hash:
+Contract validates public key by reconstructing the seed phrase
+  - If good key:
     - token now free for the email sender to withdraw
   - Else bad hash:
     - no token
