@@ -24,7 +24,7 @@ Receipient opens email message
 
 > and then
 
-Contract validates public key by checking email signature
+Contract validates email signature by checking public key
   - If good signature:
     - token now free for the email sender to withdraw
   - Else:
