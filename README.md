@@ -18,7 +18,7 @@ Message sender enables verified read receipts & sends email through [communi.ema
 
 Receipient opens email message
   1. Email read receipt ([MDN](https://joinup.ec.europa.eu/collection/ict-standards-procurement/solution/mdn-message-disposition-notification/about)) sent
-  2. Token distribution service queries [communi.email](communi.email) for the email headers
+  2. Endpoint within [communi.email](communi.email) queries original email headers
       - Check if properties match
   3. If email checks out, execute contract with email signature
 
