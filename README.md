@@ -8,24 +8,29 @@ This smart contract operates on the [Solana](https://solana.com/) blockchain sin
 
 ## How it works
 
-Message sender enables verified read receipts & sends email through [communi.email](communi.email)
-1. A public-private key pair is generated server-side
-2. Private key signs the email & message headers are mirrored to database
-3. Email is sent with transport layer security (TLS)
-4. Contract is created containing public key
+A writer publishes an email message template onto the platform, directed at a decision-maker who is vetted by the community.
+
+A message sender enables verified read receipts & sends email through [communi.email](communi.email)
+
+> so
+
+1. A [public-private key pair](https://www.cloudflare.com/learning/ssl/how-does-public-key-encryption-work/) is generated server-side
+2. Private key signs the email, and the signature is appended as a [subaddress](https://datatracker.ietf.org/doc/html/rfc5233); message headers are mirrored to a database
+3. Email is dispatched, secured via [Transport Layer Security (TLS)](https://www.cloudflare.com/learning/ssl/transport-layer-security-tls/)
+4. Smart contract containing the public key is created on the Solana blockchain
 
 > and then
 
 Receipient opens email message
-  1. Email read receipt ([MDN](https://joinup.ec.europa.eu/collection/ict-standards-procurement/solution/mdn-message-disposition-notification/about)) sent
+  1. Email read receipt ([MDN](https://datatracker.ietf.org/doc/html/rfc8098)) sent
   2. Endpoint within [communi.email](communi.email) queries original email headers
       - Check if properties match
-  3. If email checks out, execute contract with email signature
+  3. If email checks out, and email-writer-sender trio has not already successfully executed on the blockchain, execute contract to verify email signature
 
 > and then
 
 Contract validates email signature by checking public key
   - If good signature:
-    - token now free for the email sender to withdraw
+    - token now free for the email sender and writer to withdraw
   - Else:
     - no token
