@@ -101,7 +101,7 @@ By tokenizing read receipts, we incentivize meaningful communication, ensuring t
 
 READ tokens not only signify successful engagement, but also serve as the governance tool for Communique as it evolves into a [decentralized autonomous organization (DAO)](https://ethereum.org/en/dao/). Token holders become official stakeholders of a public treasury, with influence over the platform's direction.
 
-Communique envisages significant growth potential in digital advocacy. One opportunity lies in linking the [Communicating with Congress (CWC) API](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) directly with the public. This connection would enable American citizens to amplify their voices on the House floor, while receiving verification of message receipt and acknowledgment.
+Communique envisages significant growth potential in digital advocacy. One opportunity lies in linking the Communicating with Congress (CWC) API directly with the public. This connection would enable American citizens to amplify their voices on the [House](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) and [Senate](https://www.senate.gov/senators/scwc.htm) floor, while receiving verification of message receipt and acknowledgment.
 
 Furthermore, Communique plans to integrate with other governmental and non-governmental decision-making bodies, scale our platform globally, and foster partnerships with mission-aligned organizations. These steps, guided by our READ token holders, will help Communique shape the future of digital advocacy.
 
