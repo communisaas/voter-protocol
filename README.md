@@ -27,7 +27,7 @@ Receipient opens email message
       - Check if properties match
   3. If email checks out, and email-writer-sender trio has not already successfully executed on the blockchain, execute contract to verify email signature
 
-> and then
+> finally
 
 Contract validates email signature by checking public key
   - If good signature:
