@@ -1,4 +1,4 @@
-# VOTER: The Democracy Protocol
+# Verified Outreach to Elected Representatives: The Democracy Protocol
 
 *Building verifiable political participation at scale*
 
@@ -14,7 +14,7 @@ Civic participation continues declining among younger demographics. Voter turnou
 
 Yet underneath this apparent civic decay lies unprecedented infrastructure for coordination and verification. Monad processes 10,000 transactions per second at sub-penny costs. EigenLayer's $13.01 billion in restaked ETH² secures verifiable computing networks. Self Protocol's millions of verified users prove demand for privacy-preserving identity at scale. The tools for tokenizing democracy now match the sophistication of modern financial infrastructure.
 
-VOTER leverages this convergence to create the first protocol for verified political participation, transforming civic engagement from unpaid labor into stakeholder capitalism for democracy itself.
+Verified Outreach to Elected Representatives (VOTER) leverages this convergence to create the first protocol for verified political participation, transforming civic engagement from unpaid labor into stakeholder capitalism for democracy itself.
 
 ## Architecture as Political Philosophy
 
