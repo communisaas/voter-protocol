@@ -16,7 +16,7 @@ The Communiqué platform implements a hybrid token architecture designed to sepa
 - **Purpose**: Platform governance and economic incentives
 - **Properties**: ERC-20 compatible, tradeable, stakeable
 - **Creation**: Earned 1:1 with VOTER records
-- **Function**: Governance voting, fee discounts, rewards distribution
+- **Function**: Governance voting and rewards distribution
 
 ## Token Economics
 
@@ -46,9 +46,8 @@ Verified Action → VOTER Record (Non-transferable) + CIVIC Token (Tradeable)
 - Select community moderators and validators
 
 **Economic Benefits:**
-- Reduced platform fees (up to 50% discount)
 - Access to premium features (analytics, bulk messaging tools)
-- Staking rewards from transaction fee pool
+- Staking rewards from protocol revenue distribution
 - Priority access to new features and campaigns
 
 **Network Effects:**
