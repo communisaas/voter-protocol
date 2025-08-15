@@ -111,7 +111,7 @@ International expansion provides additional growth vectors through parliamentary
 
 ### Detailed Architecture
 
-VOTER's technical architecture prioritizes security, scalability, and user experience through careful separation of concerns across three blockchain layers. The Monad execution layer handles high-frequency operations including credit transfers, governance voting, staking mechanisms, and social interactions through leaderboards and achievement systems. Parallel execution architecture enables 10,000+ transactions per second with sub-second finality, supporting viral adoption during major political events while maintaining low transaction costs.
+VOTER's technical architecture prioritizes security, scalability, and user experience through careful separation of concerns across three blockchain layers. The Monad execution layer handles high-frequency operations including credit transfers, governance voting, staking mechanisms, and social interactions through leaderboards and achievement systems. Parallel execution architecture enables 10,000+ transactions per second with sub-second finality, supporting mass adoption during major political events while maintaining low transaction costs.
 
 EigenLayer verification layer provides cryptographic proof generation for civic actions through specialized Autonomous Verifiable Services. Congressional message verification integrates with official CWC systems to confirm delivery and authenticity. Identity attestation services validate Self Protocol zero-knowledge proofs. Cross-chain bridges relay verification proofs to the execution layer for credit distribution.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Communiqué is a civic engagement platform designed to tokenize democratic participation in the post-GENIUS Act era. The project leverages Monad Protocol's high-performance EVM infrastructure to create viral, gamified civic engagement that can compete with memecoins for user attention while generating real democratic impact.
+Communiqué is a civic engagement platform designed to tokenize democratic participation in the post-GENIUS Act era. The project leverages Monad Protocol's high-performance EVM infrastructure to create engaging, gamified civic participation that provides meaningful feedback while generating real democratic impact.
 
 ### Core Innovation: Hybrid Token Architecture
 - **VOTER Records**: Non-transferable, soul-bound proof of civic actions (prevent commodification of democracy)
@@ -35,12 +35,12 @@ The platform is designed for the pro-crypto regulatory environment following Tru
 - Bank Secrecy Act compliance built-in
 - Integration with emerging stablecoin frameworks
 
-### Viral Mechanics Design
-The platform competes with $140B+ memecoin market through:
-- Civic leaderboards and district competitions
-- Social proof and achievement systems
-- Economic rewards scaling with engagement
-- Memetic content generation from civic actions
+### Engagement Mechanics Design
+The platform provides compelling civic participation through:
+- Civic impact tracking and representative responsiveness metrics
+- Social recognition and achievement systems based on real outcomes
+- Economic rewards for verified democratic participation
+- Authentic content showcasing civic influence and policy outcomes
 
 ## Smart Contract Architecture
 
@@ -59,8 +59,8 @@ The platform competes with $140B+ memecoin market through:
 ### CommuniqueCore.sol
 - Orchestrates VOTER record creation + CIVIC token minting
 - Batch processing for efficiency on high-TPS Monad
-- Platform statistics and leaderboard functions
-- Configurable reward structures
+- Platform statistics and civic impact tracking functions
+- Configurable reward structures for different action types
 
 ## Development Commands
 
@@ -87,10 +87,10 @@ npm run test                  # Run frontend tests
 - CIVIC tokens provide economic incentives without commodifying democracy
 - Clear distinction prevents "buying political influence" narrative
 
-### Viral Engagement Without Compromise
-- Gamification mechanics borrowed from social media/gaming
-- Economic incentives compete with memecoin speculation
-- Real democratic impact distinguishes from pure speculation
+### Engaging Participation Without Compromise
+- Meaningful gamification mechanics that track real civic impact
+- Economic incentives based on verified democratic participation
+- Authentic democratic outcomes distinguish from pure speculation
 
 ### Institutional-Grade Security
 - Multi-sig governance for critical functions
@@ -113,10 +113,10 @@ npm run test                  # Run frontend tests
 - Privacy-preserving verification where possible
 
 ### Social Media Integration
-- Viral sharing of civic achievements
-- Cross-platform civic action feeds
-- Influencer partnership integrations
-- Real-time civic event streaming
+- Authentic sharing of civic achievements and policy impact
+- Cross-platform feeds showcasing verified democratic participation
+- Content creator partnerships focused on civic education
+- Real-time coverage of democratic processes and outcomes
 
 ## Market Context (August 2025)
 
@@ -128,7 +128,7 @@ npm run test                  # Run frontend tests
 
 ### Opportunity
 - First-mover advantage in tokenized civic engagement
-- Intersection of viral memecoin mechanics + authentic democratic participation
+- Intersection of engaging mechanics + authentic democratic participation
 - Post-GENIUS Act regulatory clarity enables compliant tokenomics
 - Monad's performance enables mass adoption without blockchain friction
 
@@ -139,8 +139,8 @@ npm run test                  # Run frontend tests
 3. **Identity Verification**: Implement KYC/address verification for VOTER eligibility
 4. **Frontend Development**: Build viral engagement UI with SvelteKit
 5. **Mobile App**: iOS/Android apps for maximum accessibility
-6. **Social Integration**: Cross-platform sharing and viral mechanics
-7. **Analytics Dashboard**: Real-time civic engagement and impact tracking
+6. **Social Integration**: Cross-platform sharing and authentic civic content
+7. **Analytics Dashboard**: Real-time civic engagement and democratic impact tracking
 
 ## Security Considerations
 
@@ -150,4 +150,4 @@ npm run test                  # Run frontend tests
 - Identity verification balances privacy with authenticity
 - Emergency controls for crisis situations
 
-This platform represents the convergence of memecoin virality with authentic civic engagement—positioning democracy to compete for attention in the digital economy while creating real political impact.
+This platform represents the convergence of engaging digital mechanics with authentic civic participation—positioning democracy to thrive in the digital economy while creating measurable political impact.

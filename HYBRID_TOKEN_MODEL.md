@@ -66,7 +66,7 @@ Verified Action → VOTER Record (Non-transferable) + CIVIC Tokens (10 per actio
 ### Competitive Advantages
 - **First-mover advantage** in tokenized civic engagement
 - **Regulatory clarity** under Trump administration crypto policies
-- **Viral potential** in $140B+ memecoin market
+- **Growth potential** in expanding digital civic engagement market
 - **Institutional backing** through Monad ecosystem
 
 ## Technical Implementation
@@ -151,6 +151,6 @@ contract CIVICToken is ERC20, ERC20Votes {
 
 ## Conclusion
 
-The hybrid token model positions Communiqué at the intersection of the $140B+ memecoin market and the growing demand for authentic democratic participation. By separating proof-of-civic-engagement from economic speculation, we create sustainable incentives for verified political action while building a platform that can scale to millions of users in the post-GENIUS Act regulatory environment.
+The hybrid token model positions Communiqué at the intersection of digital economic incentives and the growing demand for authentic democratic participation. By separating proof-of-civic-engagement from pure speculation, we create sustainable incentives for verified political action while building a platform that can scale to millions of users in the post-GENIUS Act regulatory environment.
 
 This isn't just another governance token—it's the foundation for tokenizing democracy itself.
