@@ -8,7 +8,7 @@ Communiqué is a civic engagement platform designed to tokenize democratic parti
 
 ### Core Innovation: Hybrid Token Architecture
 - **VOTER Records**: Non-transferable, soul-bound proof of civic actions (prevent commodification of democracy)
-- **CIVIC Tokens**: Tradeable governance tokens earned 1:1 with civic actions (economic incentives + platform governance)
+- **CIVIC Tokens**: Tradeable governance tokens minted per verified civic action (10 CIVIC per congressional message, configurable per action type)
 
 ## Technology Stack
 

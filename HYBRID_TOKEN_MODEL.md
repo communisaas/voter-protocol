@@ -15,14 +15,14 @@ The Communiqué platform implements a hybrid token architecture designed to sepa
 ### CIVIC Tokens (Tradeable)
 - **Purpose**: Platform governance and economic incentives
 - **Properties**: ERC-20 compatible, tradeable, stakeable
-- **Creation**: Earned 1:1 with VOTER records
+- **Creation**: Minted per verified civic action (10 CIVIC per congressional message, configurable per action type)
 - **Function**: Governance voting and rewards distribution
 
 ## Token Economics
 
 ### VOTER Record Creation
 ```
-Verified Action → VOTER Record (Non-transferable) + CIVIC Token (Tradeable)
+Verified Action → VOTER Record (Non-transferable) + CIVIC Tokens (10 per action, configurable)
 ```
 
 **Eligible Actions:**

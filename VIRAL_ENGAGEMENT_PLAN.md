@@ -28,19 +28,21 @@ In a world where memecoins hit $72B market caps overnight, civic engagement need
 
 ### 2. Economic Gamification
 
-**CIVIC Token Rewards Ladder:**
+**Base CIVIC Token Rewards (Per Contract Configuration):**
 ```
-Actions 1-10:    10 CIVIC each    (Learning Phase)
-Actions 11-50:   15 CIVIC each    (Building Momentum) 
-Actions 51-100:  20 CIVIC each    (Power User)
-Actions 100+:    25 CIVIC each    (Civic Champion)
+CWC Messages:        10 CIVIC each   (Congressional outreach)
+Direct Action:       5 CIVIC each    (Campaign participation)
+Community Organizing: 20 CIVIC each  (Local mobilization)
+Policy Advocacy:     10 CIVIC each   (Policy campaigns)
 ```
 
-**Bonus Multipliers:**
+**Potential Bonus Multipliers (Future Implementation):**
 - 2x CIVIC during "Crisis Weeks" (major policy debates)
 - 1.5x CIVIC for first-time actions (CWC virgin bonus)
-- 3x CIVIC for organizing community actions
-- 5x CIVIC for verifiable policy impact (tracked outcomes)
+- Additional organizing bonuses (beyond base 20 CIVIC)
+- Impact multipliers for verifiable policy outcomes
+
+*Note: Current contracts use fixed per-action-type rewards; multipliers would require governance-approved updates*
 
 **Staking Incentives:**
 - Higher APR for longer stake durations

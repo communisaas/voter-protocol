@@ -2,7 +2,13 @@
 
 ## Executive Summary
 
-The VOTER token platform leverages a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
+The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
+
+**Current Implementation Status (August 2025):**
+- ✅ **Monad execution layer**: Deployed with CIVIC token, governance, and core contracts
+- ✅ **EIP-712 multisig verification**: Current verification mechanism for civic actions
+- 🔄 **EigenCloud AVS integration**: Planned future upgrade for decentralized verification
+- 🔄 **Cross-chain bridges**: Future implementation for advanced proof relay
 
 ## Architectural Overview
 
@@ -110,10 +116,12 @@ The VOTER token platform leverages a hybrid architecture combining Monad's high-
 
 ### Smart Contract Architecture
 
-**Monad Contracts (Enhanced):**
+**Current Implementation - Monad Contracts:**
+
+*Note: Current implementation uses EIP-712 multisig verification instead of EigenCloud AVS*
 
 ```solidity
-// CIVICToken.sol (Updated)
+// CIVICToken.sol (Current Implementation)
 contract CIVICToken {
     // Existing functionality plus:
     mapping(bytes32 => bool) public verifiedActions;
@@ -147,10 +155,10 @@ contract CIVICToken {
 }
 ```
 
-**EigenCloud AVS (New):**
+**EigenCloud AVS (Planned Future Implementation):**
 
 ```solidity
-// CivicVerifierAVS.sol
+// CivicVerifierAVS.sol - FUTURE IMPLEMENTATION
 contract CivicVerifierAVS is AVSContract {
     struct CivicAction {
         address citizen;
@@ -188,10 +196,10 @@ contract CivicVerifierAVS is AVSContract {
 }
 ```
 
-**Bridge Contracts:**
+**Bridge Contracts (Planned Future Implementation):**
 
 ```solidity
-// VerificationBridge.sol
+// VerificationBridge.sol - FUTURE IMPLEMENTATION
 contract VerificationBridge {
     address public monadTarget;
     address public eigenCloudSource;
