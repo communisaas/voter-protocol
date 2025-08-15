@@ -33,6 +33,8 @@ contract DeployGovernance is Script {
         registry.grantRole(registry.DEFAULT_ADMIN_ROLE(), address(timelock));
         civic.grantRole(civic.DEFAULT_ADMIN_ROLE(), address(timelock));
 
+        // If using multisig verifier, timelock should admin it as well (set externally via proposal)
+
         vm.stopBroadcast();
 
         console2.log("Timelock:", address(timelock));

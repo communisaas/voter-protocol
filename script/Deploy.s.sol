@@ -22,6 +22,12 @@ contract Deploy is Script {
 
         CommuniqueCore core = new CommuniqueCore(address(registry), address(civic), verifier);
 
+        // Optional: deploy VOTERPoints and wire to registry
+        // Comment out if not desired in a given environment
+        // VOTERPoints points = new VOTERPoints(msg.sender);
+        // registry.setVOTERPoints(address(points));
+        // points.grantRole(points.MINTER_ROLE(), address(registry));
+
         // Wire roles
         civic.grantRole(civic.MINTER_ROLE(), address(core));
         registry.grantRole(registry.VERIFIER_ROLE(), address(core));
