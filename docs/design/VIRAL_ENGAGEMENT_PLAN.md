@@ -28,21 +28,19 @@ In a world where memecoins hit $72B market caps overnight, civic engagement need
 
 ### 2. Economic Gamification
 
-**Base CIVIC Token Rewards (Per Contract Configuration):**
+**Agent-Optimized CIVIC Token Rewards:**
 ```
-CWC Messages:        10 CIVIC each   (Congressional outreach)
-Direct Action:       5 CIVIC each    (Campaign participation)
-Community Organizing: 20 CIVIC each  (Local mobilization)
-Policy Advocacy:     10 CIVIC each   (Policy campaigns)
+CWC Messages:        Congressional message verification + delivery confirmation
+Direct Action:       Verified campaign participation and advocacy events
 ```
 
-**Impact-Based Bonus Rewards (Future Implementation):**
-- Enhanced rewards during major legislative periods when civic engagement is most crucial
-- "First Contact" bonus for citizens engaging with representatives for the first time
-- Additional organizing bonuses for verified community mobilization
-- Impact multipliers for measurable policy influence and representative responses
+**Dynamic Reward Features:**
+- Real-time adjustment during major legislative periods
+- Personalized bonuses based on civic engagement history
+- Context-aware multipliers for high-impact actions
+- Continuous optimization through agent learning
 
-*Note: Current contracts use fixed per-action-type rewards; impact-based bonuses would require governance-approved updates*
+*Note: Agents replace fixed reward schedules with intelligent optimization*
 
 **Staking Incentives:**
 - Higher APR for longer stake durations

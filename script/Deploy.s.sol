@@ -6,6 +6,8 @@ import {CIVICToken} from "../contracts/CIVICToken.sol";
 import {VOTERRegistry} from "../contracts/VOTERRegistry.sol";
 import {ActionVerifierMultiSig} from "../contracts/ActionVerifierMultiSig.sol";
 import {CommuniqueCore} from "../contracts/CommuniqueCore.sol";
+import {AgentParameters} from "../contracts/AgentParameters.sol";
+import {AgentConsensusGateway} from "../contracts/AgentConsensusGateway.sol";
 
 contract Deploy is Script {
     function run() external {
@@ -20,13 +22,12 @@ contract Deploy is Script {
         ActionVerifierMultiSig multi = new ActionVerifierMultiSig(msg.sender, 2);
         address verifier = address(multi);
 
-        CommuniqueCore core = new CommuniqueCore(address(registry), address(civic), verifier);
+        AgentParameters params = new AgentParameters(msg.sender);
+        CommuniqueCore core = new CommuniqueCore(address(registry), address(civic), verifier, address(params));
+        AgentConsensusGateway gateway = new AgentConsensusGateway(msg.sender);
+        core.setConsensus(address(gateway));
 
-        // Optional: deploy VOTERPoints and wire to registry
-        // Comment out if not desired in a given environment
-        // VOTERPoints points = new VOTERPoints(msg.sender);
-        // registry.setVOTERPoints(address(points));
-        // points.grantRole(points.MINTER_ROLE(), address(registry));
+        // VOTERPoints removed
 
         // Wire roles
         civic.grantRole(civic.MINTER_ROLE(), address(core));
@@ -38,6 +39,8 @@ contract Deploy is Script {
         console2.log("Registry:", address(registry));
         console2.log("Verifier:", verifier);
         console2.log("Core:", address(core));
+        console2.log("Params:", address(params));
+        console2.log("ConsensusGateway:", address(gateway));
     }
 }
 

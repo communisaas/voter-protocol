@@ -4,27 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Communiqué is a civic engagement platform designed to tokenize democratic participation in the post-GENIUS Act era. The project leverages Monad Protocol's high-performance EVM infrastructure to create engaging, gamified civic participation that provides meaningful feedback while generating real democratic impact.
+Communiqué is an agentic civic engagement platform that uses multi-agent systems to optimize democratic participation. The project replaces hardcoded blockchain mechanics with intelligent agents that adapt to real human behavior and political dynamics.
 
-### Core Innovation: Hybrid Token Architecture
-- **VOTER Records**: Non-transferable, soul-bound proof of civic actions (prevent commodification of democracy)
-- **CIVIC Tokens**: Tradeable governance tokens minted per verified civic action (10 CIVIC per congressional message, configurable per action type)
+### Core Innovation: Agentic Democracy Architecture
+- **VOTER Records**: Non-transferable proof of civic actions, verified by agent consensus
+- **CIVIC Tokens**: Dynamically minted governance tokens with agent-optimized reward calculations
+- **Agent Network**: Specialized AI agents handle verification, economics, governance, and optimization
 
 ## Technology Stack
 
+### Agent Infrastructure
+- **Coordination**: LangGraph for multi-agent orchestration
+- **Workflows**: Temporal for agent workflow management
+- **Memory**: ChromaDB for vector-based agent learning
+- **Automation**: N8N for civic action processing pipelines
+- **AI Models**: Claude 3.5 Sonnet for agent intelligence
+
 ### Blockchain Infrastructure
 - **Primary Chain**: Monad Protocol (10,000 TPS, 1-second finality, <1¢ fees)
-- **Smart Contracts**: Solidity 0.8.19, OpenZeppelin libraries
-- **Architecture**: Three core contracts:
-  - `VOTERRegistry.sol`: Non-transferable civic action records
-  - `CIVICToken.sol`: ERC-20 governance token with voting, staking, rewards
-  - `CommuniqueCore.sol`: Orchestration layer between VOTER and CIVIC systems
+- **Smart Contracts**: Solidity 0.8.19, agent-integrated architecture
+- **Architecture**: Agent-coordinated contracts:
+  - `VOTERRegistry.sol`: Civic action records with agent-verified registration
+  - `CIVICToken.sol`: Mint on verified actions
+  - `CommuniqueCore.sol`: Orchestrates records + mint, enforces rate/caps
+  - `AgentParameters.sol`: On-chain parameter surface
+  - `AgentConsensusGateway.sol`: Agent write-path for verification marks
 
-### Planned Frontend/Backend
-- **Frontend**: SvelteKit with viral engagement UI
-- **Backend**: Node.js with CockroachDB
-- **Integrations**: Congressional CWC API, identity verification services
-- **Storage**: Hybrid on-chain metadata + off-chain sensitive data
+### Agent-Driven Services
+- **Agent Swarm**: SupplyAgent, VerificationAgent, MarketAgent, ImpactAgent
+- **Dynamic Parameters**: No hardcoded constants, all agent-optimized
+- **Emergent Governance**: Agent-coordinated proposal and voting systems
+- **Continuous Learning**: Vector memory for pattern recognition and optimization
 
 ## Key Development Concepts
 
@@ -35,12 +45,12 @@ The platform is designed for the pro-crypto regulatory environment following Tru
 - Bank Secrecy Act compliance built-in
 - Integration with emerging stablecoin frameworks
 
-### Engagement Mechanics Design
-The platform provides compelling civic participation through:
-- Civic impact tracking and representative responsiveness metrics
-- Social recognition and achievement systems based on real outcomes
-- Economic rewards for verified democratic participation
-- Authentic content showcasing civic influence and policy outcomes
+### Agentic Development Approach
+The platform uses intelligent automation throughout:
+- Agent-optimized reward calculations based on real civic impact
+- Dynamic verification thresholds that adapt to user behavior
+- Emergent economic parameters that optimize for engagement
+- Self-modifying governance that evolves with community needs
 
 ## Smart Contract Architecture
 
@@ -64,20 +74,25 @@ The platform provides compelling civic participation through:
 
 ## Development Commands
 
-When the codebase is established, common commands will include:
+Agent-driven development workflow:
 
 ```bash
 # Smart contract development
 npm install                    # Install dependencies
-npx hardhat compile           # Compile contracts
-npx hardhat test              # Run contract tests
-npx hardhat deploy --network monad  # Deploy to Monad
+npx hardhat compile           # Compile agent-integrated contracts
+npx hardhat test              # Run agent consensus tests
+npx hardhat deploy --network monad  # Deploy agentic architecture
 
-# Frontend development
-npm run dev                   # Start SvelteKit dev server
-npm run build                 # Build production frontend
-npm run lint                  # Run linting
-npm run test                  # Run frontend tests
+# Agent infrastructure
+docker-compose up             # Start agent coordination stack
+npm run agents:deploy         # Deploy LangGraph + Temporal + N8N
+npm run agents:test           # Test multi-agent consensus
+npm run memory:sync           # Sync ChromaDB vector memory
+
+# Development automation
+npm run optimize              # Run agent optimization cycles
+npm run evolve                # Deploy parameter evolution
+npm run monitor               # Monitor agent performance
 ```
 
 ## Critical Design Principles

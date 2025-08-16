@@ -26,7 +26,7 @@ Three layers mirror the work of a constitutional system:
 
 1. **Identity — eligibility without surveillance.** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]).
 
-2. **Verification — administration without guesswork.** A verifier network checks actions before any reward or reputation accrues. Today this is EIP‑712 threshold signatures. Next, an EigenLayer Autonomous Verifiable Service (AVS) posts delivery and integrity proofs secured by restaked ETH ([DefiLlama](https://defillama.com/protocol/eigenlayer) [5]).
+2. **Verification — administration without guesswork.** A multi-agent verifier network checks actions before any reward or reputation accrues. Distributed consensus replaces centralized operators, with specialized agents handling different verification aspects.
 
 3. **Execution — treasury and records.** Monad writes receipts, reputation, and credits with consumer latency and Ethereum Virtual Machine (EVM) compatibility ([docs.monad.xyz](https://docs.monad.xyz/) [4]).
 
@@ -36,10 +36,10 @@ This architecture transforms civic participation from charity work into stakehol
 
 ## Where this becomes a market
 
-We do not sell votes or outcomes. We sell signal.
+We do not sell votes or outcomes. We sell verified civic action infrastructure.
 
-* **Public‑affairs and advocacy teams** buy authenticated outreach and delivery receipts that staff will read.
-* **Legislative offices** want fewer junk campaigns and structured intake that fits existing workflows. **Both the House and the Senate route through Communicating with Congress (CWC)**; we conform to the secure XML schema and rate limits, and we log confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
+* **CWC Message Verification**: Authenticated congressional outreach through official Communicating with Congress API, with delivery confirmations and structured data that congressional offices actually process. **Both the House and the Senate route through Communicating with Congress (CWC)**; we conform to the secure XML schema and rate limits, and we log confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
+* **Direct Action Verification**: Proof of participation in verified political events, campaigns, and advocacy activities with cryptographic attestation.
 * **Researchers and media** license privacy‑preserving panels and district time series.
 
 The budgets are not imaginary. The 2024 federal election cycle cleared ~$15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [10]); federal lobbying is a steady multibillion annual line ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [11]); public‑affairs SaaS has nine‑figure revenue signals (e.g., FiscalNote's 4k+ customers and ~$100M revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [12]).
@@ -59,7 +59,7 @@ Platform economics create network effects that strengthen with adoption. Citizen
 The protocol separates **proof of participation** from **who pays for the pipes**.
 
 * **VOTER Records** are non‑transferable proofs that memorialize verified actions and build civic reputation.
-* **CIVIC Tokens** are tradeable ERC-20 governance tokens minted immediately upon verified civic actions. 10 CIVIC per congressional message, configurable per action type.
+* **CIVIC Tokens** are tradeable ERC-20 governance tokens minted upon verified civic actions. Reward amounts determined dynamically by agent optimization rather than fixed constants.
 * **Institutional Credits** are USD‑priced balances that fund verified outreach, analytics, and receipts.
 
 **Bright‑line rules.** We do not reward registering to vote, voting, or choosing a candidate ([52 U.S.C. §10307(c)](https://www.law.cornell.edu/uscode/text/52/10307) [13]; [18 U.S.C. §597](https://www.law.cornell.edu/uscode/text/18/597) [14]). We block foreign funds for U.S. election activity ([52 U.S.C. §30121](https://www.law.cornell.edu/uscode/text/52/30121) [15]; [FEC guidance](https://www.fec.gov/help-candidates-and-committees/foreign-nationals/) [16]). Several states restrict per‑signature compensation for petitions, so we do not enable per‑signature bounties ([Ballotpedia overview](https://ballotpedia.org/Pay-per-signature_for_ballot_initiative_signature_gatherers) [17]).
@@ -104,10 +104,10 @@ International expansion provides additional growth vectors through parliamentary
 
 ## Technical Implementation and Security
 
-* **Contracts:** `VOTERRegistry` for zk eligibility; `ActionVerifierMultiSig` for EIP‑712 attestations; `CommuniqueCore` for action processing and anti‑spam; `VOTERPoints` for ERC‑5192 semantics; `CreditVault` for accounting.
-* **Indexing:** subgraph for leaderboards and district stats.
-* **Security:** fuzzing, Slither, audits, signer rotation, pause controls. No PII on‑chain.
-* **Roadmap:** migrate attestations to an EigenLayer AVS; cross‑chain proof relay; public dashboards for signer sets and timelock queues.
+* **Contracts:** `VOTERRegistry` for zk eligibility; `CommuniqueCore` for orchestration; `CIVICToken` for rewards; `AgentParameters` for dynamic config; `AgentConsensusGateway` for verifier writes; `CreditVault` for accounting.
+* **Agent Infrastructure:** LangGraph coordination, Temporal workflows, ChromaDB memory, N8N automation pipelines.
+* **Security:** Multi-agent verification, distributed consensus, continuous optimization, memory-based learning. No PII on‑chain.
+* **Evolution:** Self-modifying parameters, emergent governance, agent-optimized economics, adaptive verification thresholds.
 
 ### Detailed Architecture
 
@@ -146,7 +146,14 @@ Publish the methods. Publish the results.
 
 **Shipped.** On‑chain enforcement for verified actions and anti‑spam intervals. ZK registration path. Governance scaffold. Reward accounting fixed. Indexing online.
 
-**In progress.** Production multisig verifier with governance‑managed signer set. Timelock‑constrained admin. ERC‑5192 semantics and deactivation policy. Comprehensive unit and fuzz tests, static analysis, and external audit pre‑mainnet.
+**In progress.** Agent parameterization and consensus gateway wired in repo. Next: CWC integration via n8n, parameter clamps/caps, timelock + guardian.
+
+Param keys (via `AgentParameters`):
+- `reward:CWC_MESSAGE`, `reward:DIRECT_ACTION`
+- `minActionInterval`
+- `maxDailyMintPerUser`, `maxDailyMintProtocol`
+- `maxRewardPerAction` (optional clamp)
+- `pause:Global` (0/1)
 
 **Planned.** AVS migration for delivery and identity attestations. Cross‑chain proof relay. Transparency dashboards. Expanded Senate and state integrations.
 
@@ -154,23 +161,24 @@ Publish the methods. Publish the results.
 
 Current implementation status and development roadmap are documented in detail:
 
-- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Comprehensive 6-phase development plan
+- **[Agentic Architecture](docs/architecture/AGENTIC_ARCHITECTURE.md)** - Multi-agent system design principles
+- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Agent-based development plan
 - **[Design Documents](docs/design/)** - Architecture specifications and engagement strategy
 - **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies
 
 #### Current Status
-- Core smart contracts deployed with verified action processing
-- ZK identity verification via Self Protocol integration
-- EIP-712 threshold verification for action authenticity
-- Configurable anti-spam and reward mechanisms
-- Governance scaffolding with timelock controls
+- Core smart contracts with agent integration points
+- Multi-agent verification framework design
+- LangGraph coordination infrastructure
+- Vector memory system for agent learning
+- Dynamic parameter adjustment mechanisms
 
 #### Critical Priorities
-- Replace OPERATOR_ROLE with decentralized oracle network
-- Complete CWC API integration for congressional message delivery
-- Implement supply cap governance for sustainable tokenomics
-- Comprehensive security audit and formal verification
-- Production-ready frontend and mobile applications
+- Deploy multi-agent consensus system
+- Implement agent-optimized reward calculations
+- Complete CWC API integration with agent verification
+- Establish Temporal workflow orchestration
+- Launch N8N automation pipelines for civic actions
 
 ---
 

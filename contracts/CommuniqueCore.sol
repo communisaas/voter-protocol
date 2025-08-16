@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 
 import "./VOTERRegistry.sol";
 import "./CIVICToken.sol";
-import "./ActionVerifierMultiSig.sol";
 import "./interfaces/IActionVerifier.sol";
+import "./interfaces/IAgentConsensus.sol";
+import "./AgentParameters.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -15,18 +16,15 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * @notice Coordinates between VOTER registry and CIVIC token systems
  */
 contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     
     VOTERRegistry public immutable voterRegistry;
     CIVICToken public immutable civicToken;
     IActionVerifier public immutable verifier; // threshold EIP-712
+    IAgentConsensus public consensus; // optional agent consensus override
+    AgentParameters public immutable params;
     
-    struct ActionReward {
-        VOTERRegistry.ActionType actionType;
-        uint256 civicReward;
-        bool active;
-    }
+    struct ActionReward { VOTERRegistry.ActionType actionType; uint256 civicReward; bool active; }
     
     struct PlatformStats {
         uint256 totalUsers;
@@ -43,13 +41,15 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         bytes32 districtHash;
     }
     
-    mapping(VOTERRegistry.ActionType => ActionReward) public actionRewards;
+    mapping(VOTERRegistry.ActionType => bool) public actionActive;
     mapping(address => uint256) public userLastActionTime;
+    mapping(uint256 => uint256) public protocolDailyMinted;
+    mapping(address => mapping(uint256 => uint256)) public userDailyMinted;
     mapping(bytes32 => address[]) public districtUsers;
     mapping(address => bool) public registeredUsers;
     
-    uint256 public constant CIVIC_PER_ACTION = 10 * 10**18; // 10 CIVIC per action
-    uint256 public minActionInterval = 1 hours; // Anti-spam measure
+    // Dynamic rewards: configured by admin or external agent processes (no hardcoded constants)
+    uint256 public minActionInterval = 1 hours; // default; can be overridden via params
     uint256 public totalCivicMinted;
     uint256 public totalRegisteredUsers;
     
@@ -60,27 +60,20 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 civicRewarded,
         bytes32 actionHash
     );
-    event RewardUpdated(VOTERRegistry.ActionType actionType, uint256 newReward);
+    event RewardFlagUpdated(VOTERRegistry.ActionType actionType, bool active);
     
-    modifier onlyOperator() {
-        require(hasRole(OPERATOR_ROLE, msg.sender), "Not authorized operator");
-        _;
-    }
-    
-    constructor(address _voterRegistry, address _civicToken, address _verifier) {
+    constructor(address _voterRegistry, address _civicToken, address _verifier, address _params) {
         voterRegistry = VOTERRegistry(_voterRegistry);
         civicToken = CIVICToken(_civicToken);
         verifier = IActionVerifier(_verifier);
+        params = AgentParameters(_params);
         
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
-        _grantRole(OPERATOR_ROLE, msg.sender);
         
         // Initialize default rewards
-        _setActionReward(VOTERRegistry.ActionType.CWC_MESSAGE, CIVIC_PER_ACTION, true);
-        _setActionReward(VOTERRegistry.ActionType.DIRECT_ACTION, CIVIC_PER_ACTION / 2, true);
-        _setActionReward(VOTERRegistry.ActionType.COMMUNITY_ORGANIZING, CIVIC_PER_ACTION * 2, true);
-        _setActionReward(VOTERRegistry.ActionType.POLICY_ADVOCACY, CIVIC_PER_ACTION, true);
+        actionActive[VOTERRegistry.ActionType.CWC_MESSAGE] = true;
+        actionActive[VOTERRegistry.ActionType.DIRECT_ACTION] = true;
     }
     
     /**
@@ -88,7 +81,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
      * @param user Address of the user
      * @param districtHash Hash of the user's congressional district
      */
-    function registerUser(address user, bytes32 districtHash, bytes calldata selfProof) external onlyOperator {
+    function registerUser(address user, bytes32 districtHash, bytes calldata selfProof) external {
         require(!registeredUsers[user], "User already registered");
         
         // Verify user in VOTER registry via Self Protocol proof
@@ -113,21 +106,21 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         VOTERRegistry.ActionType actionType,
         bytes32 actionHash,
         string memory metadata
-    ) external onlyOperator nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused {
+        require(!_isGlobalPaused(), "Global pause");
         require(registeredUsers[user], "User not registered");
-        require(actionRewards[actionType].active, "Action type not supported");
-        require(
-            block.timestamp >= userLastActionTime[user] + minActionInterval,
-            "Action too frequent"
-        );
+        require(actionActive[actionType], "Action type not supported");
+        uint256 interval = _getMinActionInterval();
+        require(block.timestamp >= userLastActionTime[user] + interval, "Action too frequent");
         
         // Ensure off-chain/oracle verification exists
-        require(verifier.isVerifiedAction(actionHash), "Action not verified");
+        require(_isVerified(actionHash), "Action not verified");
         // Create VOTER record (non-transferable proof)
         voterRegistry.createVOTERRecord(user, actionType, actionHash, metadata);
         
         // Mint CIVIC tokens (tradeable rewards)
-        uint256 civicReward = actionRewards[actionType].civicReward;
+        uint256 civicReward = _clampedReward(_getRewardFor(actionType));
+        _enforceDailyCaps(user, civicReward);
         if (civicReward > 0) {
             civicToken.mintForCivicAction(
                 user,
@@ -135,6 +128,9 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                 _actionTypeToString(actionType)
             );
             totalCivicMinted += civicReward;
+            uint256 day = _currentDay();
+            userDailyMinted[user][day] += civicReward;
+            protocolDailyMinted[day] += civicReward;
         }
         
         userLastActionTime[user] = block.timestamp;
@@ -154,7 +150,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         VOTERRegistry.ActionType[] memory actionTypes,
         bytes32[] memory actionHashes,
         string[] memory metadataArray
-    ) external onlyOperator nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused {
+        require(!_isGlobalPaused(), "Global pause");
         require(
             users.length == actionTypes.length &&
             actionTypes.length == actionHashes.length &&
@@ -165,12 +162,12 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < users.length; i++) {
             // Skip if user not registered or action too frequent
             if (!registeredUsers[users[i]] ||
-                block.timestamp < userLastActionTime[users[i]] + minActionInterval) {
+                block.timestamp < userLastActionTime[users[i]] + _getMinActionInterval()) {
                 continue;
             }
             
-            if (actionRewards[actionTypes[i]].active) {
-                require(verifier.isVerifiedAction(actionHashes[i]), "Action not verified");
+            if (actionActive[actionTypes[i]]) {
+                require(_isVerified(actionHashes[i]), "Action not verified");
                 voterRegistry.createVOTERRecord(
                     users[i],
                     actionTypes[i],
@@ -178,7 +175,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                     metadataArray[i]
                 );
                 
-                uint256 civicReward = actionRewards[actionTypes[i]].civicReward;
+                uint256 civicReward = _clampedReward(_getRewardFor(actionTypes[i]));
+                _enforceDailyCaps(users[i], civicReward);
                 if (civicReward > 0) {
                     civicToken.mintForCivicAction(
                         users[i],
@@ -186,6 +184,9 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                         _actionTypeToString(actionTypes[i])
                     );
                     totalCivicMinted += civicReward;
+                    uint256 day = _currentDay();
+                    userDailyMinted[users[i]][day] += civicReward;
+                    protocolDailyMinted[day] += civicReward;
                 }
                 
                 userLastActionTime[users[i]] = block.timestamp;
@@ -235,40 +236,61 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
             leaderboard[i] = LeaderboardEntry({
                 citizen: user,
                 actionCount: totalActions,
-                civicEarned: civicToken.civicActions(user) * CIVIC_PER_ACTION,
+                civicEarned: 0,
                 districtHash: districtHash
             });
         }
         
         return leaderboard;
     }
-    
-    /**
-     * @dev Set reward amount for action type
-     * @param actionType Type of civic action
-     * @param reward Amount of CIVIC tokens to reward
-     * @param active Whether this action type is currently supported
-     */
-    function setActionReward(
-        VOTERRegistry.ActionType actionType,
-        uint256 reward,
-        bool active
-    ) external onlyRole(ADMIN_ROLE) {
-        _setActionReward(actionType, reward, active);
+
+    function setConsensus(address newConsensus) external onlyRole(ADMIN_ROLE) {
+        consensus = IAgentConsensus(newConsensus);
+    }
+
+    function _isVerified(bytes32 actionHash) internal view returns (bool) {
+        if (address(consensus) != address(0)) {
+            return consensus.isVerified(actionHash);
+        }
+        return verifier.isVerifiedAction(actionHash);
     }
     
-    function _setActionReward(
-        VOTERRegistry.ActionType actionType,
-        uint256 reward,
-        bool active
-    ) internal {
-        actionRewards[actionType] = ActionReward({
-            actionType: actionType,
-            civicReward: reward,
-            active: active
-        });
-        
-        emit RewardUpdated(actionType, reward);
+    /**
+     * @dev Enable/disable support for an action type
+     * @param actionType Type of civic action
+     * @param active Whether this action type is currently supported
+     */
+    function setActionActive(VOTERRegistry.ActionType actionType, bool active) external onlyRole(ADMIN_ROLE) {
+        actionActive[actionType] = active;
+        emit RewardFlagUpdated(actionType, active);
+    }
+
+    function _enforceDailyCaps(address user, uint256 amount) internal view {
+        if (amount == 0) return;
+        uint256 day = _currentDay();
+        uint256 maxUser = params.getUint(keccak256("maxDailyMintPerUser"));
+        uint256 maxProtocol = params.getUint(keccak256("maxDailyMintProtocol"));
+        if (maxUser > 0) {
+            uint256 nextUserTotal = userDailyMinted[user][day] + amount;
+            require(nextUserTotal <= maxUser, "User daily cap");
+        }
+        if (maxProtocol > 0) {
+            uint256 nextProtocolTotal = protocolDailyMinted[day] + amount;
+            require(nextProtocolTotal <= maxProtocol, "Protocol daily cap");
+        }
+    }
+
+    function _getRewardFor(VOTERRegistry.ActionType actionType) internal view returns (uint256) {
+        bytes32 key = actionType == VOTERRegistry.ActionType.CWC_MESSAGE
+            ? keccak256("reward:CWC_MESSAGE")
+            : keccak256("reward:DIRECT_ACTION");
+        return params.getUint(key);
+    }
+
+    function _clampedReward(uint256 base) internal view returns (uint256) {
+        uint256 maxPerAction = params.getUint(keccak256("maxRewardPerAction"));
+        if (maxPerAction == 0) return base;
+        return base > maxPerAction ? maxPerAction : base;
     }
     
     /**
@@ -289,8 +311,6 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     function _actionTypeToString(VOTERRegistry.ActionType actionType) internal pure returns (string memory) {
         if (actionType == VOTERRegistry.ActionType.CWC_MESSAGE) return "CWC_MESSAGE";
         if (actionType == VOTERRegistry.ActionType.DIRECT_ACTION) return "DIRECT_ACTION";
-        if (actionType == VOTERRegistry.ActionType.COMMUNITY_ORGANIZING) return "COMMUNITY_ORGANIZING";
-        if (actionType == VOTERRegistry.ActionType.POLICY_ADVOCACY) return "POLICY_ADVOCACY";
         return "UNKNOWN";
     }
     
@@ -306,11 +326,18 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Update minimum action interval
-     * @param newInterval New minimum interval in seconds
+     * @dev Read minimum action interval, falling back to default when unset
      */
-    function updateActionInterval(uint256 newInterval) external onlyRole(ADMIN_ROLE) {
-        require(newInterval >= 5 minutes && newInterval <= 7 days, "Invalid interval");
-        minActionInterval = newInterval;
+    function _getMinActionInterval() internal view returns (uint256) {
+        uint256 configured = params.getUint(keccak256("minActionInterval"));
+        return configured == 0 ? minActionInterval : configured;
+    }
+
+    function _isGlobalPaused() internal view returns (bool) {
+        return params.getUint(keccak256("pause:Global")) != 0;
+    }
+
+    function _currentDay() internal view returns (uint256) {
+        return block.timestamp / 1 days;
     }
 }

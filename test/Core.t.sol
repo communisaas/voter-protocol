@@ -7,6 +7,8 @@ import {VOTERRegistry} from "../contracts/VOTERRegistry.sol";
 import {ActionVerifierMultiSig} from "../contracts/ActionVerifierMultiSig.sol";
 import {CommuniqueCore} from "../contracts/CommuniqueCore.sol";
 import {ISelfProtocol} from "../contracts/interfaces/ISelfProtocol.sol";
+import {AgentParameters} from "../contracts/AgentParameters.sol";
+import {AgentConsensusGateway} from "../contracts/AgentConsensusGateway.sol";
 
 contract DummySelf is ISelfProtocol {
     mapping(address => bool) public isVerified;
@@ -30,6 +32,8 @@ contract CoreTest is Test {
     CIVICToken civic;
     VOTERRegistry registry;
     ActionVerifierMultiSig verifier;
+    AgentParameters params;
+    AgentConsensusGateway gateway;
     CommuniqueCore core;
     DummySelf self;
 
@@ -45,12 +49,74 @@ contract CoreTest is Test {
         verifier = new ActionVerifierMultiSig(admin, 1);
         signerPk = 0xA11CE;
         signer = vm.addr(signerPk);
-        core = new CommuniqueCore(address(registry), address(civic), address(verifier));
+        params = new AgentParameters(admin);
+        core = new CommuniqueCore(address(registry), address(civic), address(verifier), address(params));
 
         civic.grantRole(civic.MINTER_ROLE(), address(core));
         registry.grantRole(registry.VERIFIER_ROLE(), address(core));
 
+        // Configure dynamic rewards via AgentParameters
+        params.setUint(keccak256("reward:CWC_MESSAGE"), 10e18);
+        params.setUint(keccak256("reward:DIRECT_ACTION"), 5e18);
+
         // Core will perform verification via registry during registration
+    }
+
+    function test_ConsensusGateway_AllowsProcessing() public {
+        // Use agent consensus path
+        gateway = new AgentConsensusGateway(admin);
+        core.grantRole(core.ADMIN_ROLE(), admin);
+        core.setConsensus(address(gateway));
+
+        // Prepare action and mark verified via gateway
+        bytes32 actionHash = keccak256("gw");
+        gateway.markVerified(actionHash, true);
+
+        // Register user
+        bytes memory selfProof = hex"01";
+        core.registerUser(user, bytes32(uint256(7)), selfProof);
+
+        // Bypass interval
+        vm.warp(block.timestamp + 2 hours);
+
+        // Params
+        params.setUint(keccak256("reward:CWC_MESSAGE"), 10e18);
+        params.setUint(keccak256("maxDailyMintPerUser"), 1_000_000e18);
+        params.setUint(keccak256("maxDailyMintProtocol"), 1_000_000e18);
+
+        uint256 beforeBal = civic.balanceOf(user);
+        core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, actionHash, "ipfs");
+        uint256 afterBal = civic.balanceOf(user);
+        assertGt(afterBal, beforeBal, "mint failed via gateway");
+    }
+
+    function test_DailyCap_PerUser_Enforced() public {
+        // Use gateway for convenience
+        gateway = new AgentConsensusGateway(admin);
+        core.grantRole(core.ADMIN_ROLE(), admin);
+        core.setConsensus(address(gateway));
+
+        // Register user
+        bytes memory selfProof = hex"01";
+        core.registerUser(user, bytes32(uint256(8)), selfProof);
+
+        // Params: two actions of 60e18 will exceed 100e18 cap; reduce interval to allow quick second action
+        params.setUint(keccak256("reward:CWC_MESSAGE"), 60e18);
+        params.setUint(keccak256("maxDailyMintPerUser"), 100e18);
+        params.setUint(keccak256("maxDailyMintProtocol"), 1_000_000e18);
+        params.setUint(keccak256("minActionInterval"), 1);
+
+        // First action
+        bytes32 a1 = keccak256("cap1");
+        gateway.markVerified(a1, true);
+        core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, a1, "m1");
+
+        // Second action after interval hits user cap
+        vm.warp(block.timestamp + 2);
+        bytes32 a2 = keccak256("cap2");
+        gateway.markVerified(a2, true);
+        vm.expectRevert(bytes("User daily cap"));
+        core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, a2, "m2");
     }
 
     function test_ProcessAction_MintsAndRecords() public {
@@ -66,7 +132,7 @@ contract CoreTest is Test {
         verifier.verifyAndMark(actionHash, sigs);
 
         // Register in core mapping
-        core.grantRole(core.OPERATOR_ROLE(), admin);
+        // no operator role; caller can register
         // Provide a dummy self-proof
         bytes memory selfProof = hex"01";
         core.registerUser(user, bytes32(uint256(42)), selfProof);
@@ -75,6 +141,10 @@ contract CoreTest is Test {
         vm.warp(block.timestamp + 2 hours);
 
         uint256 balBefore = civic.balanceOf(user);
+        // Set caps sufficiently high for this test
+        params.setUint(keccak256("maxDailyMintPerUser"), 1_000_000e18);
+        params.setUint(keccak256("maxDailyMintProtocol"), 1_000_000e18);
+        params.setUint(keccak256("maxRewardPerAction"), 100e18);
         core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, actionHash, "ipfs");
         uint256 balAfter = civic.balanceOf(user);
 

@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol
 import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 
-import {CIVICToken} from "./CIVICToken.sol";
 
 contract CivicTimelock is TimelockController {
     constructor(

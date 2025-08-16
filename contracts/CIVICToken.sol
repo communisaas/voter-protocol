@@ -18,7 +18,6 @@ contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18; // 1 billion CIVIC
     uint256 public constant INITIAL_MINT_CAP = 100_000_000 * 10**18; // 100M for initial distribution
     
     struct StakeInfo {
@@ -70,7 +69,6 @@ contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
         uint256 amount,
         string memory actionType
     ) external onlyMinter whenNotPaused {
-        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
         require(to != address(0), "Invalid recipient");
         
         _mint(to, amount);

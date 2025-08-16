@@ -19,9 +19,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     
     enum ActionType {
         CWC_MESSAGE,
-        DIRECT_ACTION,
-        COMMUNITY_ORGANIZING,
-        POLICY_ADVOCACY
+        DIRECT_ACTION
     }
     
     struct VOTERRecord {
@@ -49,8 +47,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     mapping(address => VOTERRecord[]) public citizenRecords;
     mapping(bytes32 => bool) public actionHashUsed;
     
-    // Optional: external SBT/points contract for ERC-5192 semantics
-    address public voterPoints;
+    // External SBT/points removed
     mapping(bytes32 => uint256) public districtActionCounts;
     
     uint256 public totalRecords;
@@ -63,8 +60,6 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         bytes32 actionHash,
         bytes32 districtHash
     );
-    
-    event VOTERPointsMinted(address indexed to, uint256 indexed tokenId, bytes32 actionHash);
     
     event CitizenVerified(
         address indexed citizen,
@@ -90,12 +85,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
-    /**
-     * @dev Set external VOTERPoints contract (ERC-5192-like SBT). Admin-only.
-     */
-    function setVOTERPoints(address points) external onlyRole(ADMIN_ROLE) {
-        voterPoints = points;
-    }
+    // VOTERPoints concept removed
     
     /**
      * @dev Verify a citizen's identity through Self Protocol
@@ -183,23 +173,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             districtHash
         );
 
-        // Optional SBT mint
-        if (voterPoints != address(0)) {
-            // tokenId = totalRecords (1-based) for simplicity
-            (bool ok, ) = voterPoints.call(
-                abi.encodeWithSignature(
-                    "mintRecordSBT(address,uint256,uint8,bytes32,bytes32,bytes32)",
-                    citizen,
-                    totalRecords,
-                    uint8(actionType),
-                    actionHash,
-                    districtHash,
-                    newRecord.metadataHash
-                )
-            );
-            require(ok, "VOTERPoints mint failed");
-            emit VOTERPointsMinted(citizen, totalRecords, actionHash);
-        }
+        // SBT mint removed
     }
     
     /**
