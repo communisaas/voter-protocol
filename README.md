@@ -26,13 +26,35 @@ Three layers mirror the work of a constitutional system:
 
 1. **Identity — eligibility without surveillance.** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]).
 
-2. **Verification — administration without guesswork.** A multi-agent verifier network checks actions before any reward or reputation accrues. Distributed consensus replaces centralized operators, with specialized agents handling different verification aspects.
+2. **Verification — administration without guesswork.** A multi-agent verifier network checks actions before any reward or reputation accrues. Distributed consensus replaces centralized operators, with specialized AI agents handling different verification aspects.
 
 3. **Execution — treasury and records.** Monad writes receipts, reputation, and credits with consumer latency and Ethereum Virtual Machine (EVM) compatibility ([docs.monad.xyz](https://docs.monad.xyz/) [4]).
 
 The outcome is simple: a public record of participation that offices can trust and citizens can carry.
 
 This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself, creating network effects that strengthen with adoption and sustainable competitive advantages through technical integration.
+
+## Agentic Democracy: AI-Coordinated Governance
+
+VOTER replaces hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation:
+
+### Agent Network Architecture
+
+* **VerificationAgent**: Validates civic actions through multi-source verification, adapting verification thresholds based on action patterns and network conditions
+* **SupplyAgent**: Dynamically adjusts CIVIC token minting rates based on participation levels, economic conditions, and governance goals
+* **MarketAgent**: Monitors and optimizes economic incentives to maintain sustainable engagement without distorting democratic authenticity
+* **ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems
+
+### Emergent Parameter Optimization
+
+Unlike traditional protocols with hardcoded constants, VOTER's agents continuously optimize key parameters:
+
+* **Reward calculations** adapt based on civic impact measurement rather than fixed "10 CIVIC per message" rules
+* **Verification thresholds** adjust based on network conditions and spam detection patterns
+* **Economic incentives** evolve to maintain authentic democratic participation vs. speculative gaming
+* **Governance proposals** emerge from agent analysis of community needs and participation patterns
+
+This agentic approach enables the platform to evolve with changing political dynamics, user behavior, and technological capabilities while maintaining democratic authenticity and preventing manipulation.
 
 ## Where this becomes a market
 
