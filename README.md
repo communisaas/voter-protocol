@@ -150,42 +150,27 @@ Publish the methods. Publish the results.
 
 **Planned.** AVS migration for delivery and identity attestations. Cross‑chain proof relay. Transparency dashboards. Expanded Senate and state integrations.
 
-### Detailed Roadmap
+### Implementation Status and Next Steps
 
-#### Shipped
-- Verification enforced on-chain for all actions
-  - `CommuniqueCore.processCivicAction` and `batchProcessActions` require a verified `actionHash`.
-  - Added `ActionVerifierMultiSig` (EIP‑712, threshold signatures) as the on-chain verifier.
-- ZK identity path on registration
-  - `registerUser(user, districtHash, selfProof)` now calls `VOTERRegistry.verifyCitizenWithSelf(...)`.
-- Anti‑spam is configurable
-  - `minActionInterval` with admin setter and bounds checks.
-- Reward payout fixed
-  - Credit accounting through dedicated vault (no unintended mint inflation).
-- Tooling and scripts
-  - Foundry + OZ setup, `script/Deploy.s.sol`, initial tests, and governance scaffold (`CivicTimelock`, `CivicGovernor`).
+Current implementation status and development roadmap are documented in detail:
 
-#### In progress (hard commitments)
-- Decentralized verification as default
-  - Use `ActionVerifierMultiSig` in production; manage signer set and `signerThreshold` via governance.
-- Real governance and constrained admin
-  - Route parameter changes (rewards, intervals, pausing, roles) through `CivicGovernor` + `CivicTimelock`.
-- VOTER records standardization
-  - Adopt SBT semantics (e.g., ERC‑5192), switch `metadata` to `bytes32` hash, document deactivation policy.
-- Per-action CIVIC minting optimization
-  - Maintain immediate CIVIC rewards for verified actions via `mintForCivicAction`
-  - Configure reward amounts per action type through governance
-  - Implement dynamic rate limiting to prevent spam while preserving authentic engagement
-- Test and security hardening
-  - Forge unit + fuzz tests for rate limits, duplicate action hashes, pause paths; Slither static analysis; audit pre‑mainnet.
+- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Comprehensive 6-phase development plan
+- **[Design Documents](docs/design/)** - Architecture specifications and engagement strategy
+- **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies
 
-#### Planned (next milestones)
-- AVS integration
-  - Replace the multisig verifier with a production EigenLayer AVS for CWC delivery and identity attestation proofs.
-- Cross‑chain bridge
-  - Proof relay contract to mint rewards from verified actions across domains.
-- Public transparency
-  - Dashboard for signer set, queued/executed timelock ops, and verification stats.
+#### Current Status
+- Core smart contracts deployed with verified action processing
+- ZK identity verification via Self Protocol integration
+- EIP-712 threshold verification for action authenticity
+- Configurable anti-spam and reward mechanisms
+- Governance scaffolding with timelock controls
+
+#### Critical Priorities
+- Replace OPERATOR_ROLE with decentralized oracle network
+- Complete CWC API integration for congressional message delivery
+- Implement supply cap governance for sustainable tokenomics
+- Comprehensive security audit and formal verification
+- Production-ready frontend and mobile applications
 
 ---
 

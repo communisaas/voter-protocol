@@ -132,15 +132,30 @@ npm run test                  # Run frontend tests
 - Post-GENIUS Act regulatory clarity enables compliant tokenomics
 - Monad's performance enables mass adoption without blockchain friction
 
-## Future Development Priorities
+## Documentation Structure
 
-1. **Smart Contract Deployment**: Deploy and verify contracts on Monad testnet
-2. **CWC Integration**: Build API integration with Congressional communication system
-3. **Identity Verification**: Implement KYC/address verification for VOTER eligibility
-4. **Frontend Development**: Build viral engagement UI with SvelteKit
-5. **Mobile App**: iOS/Android apps for maximum accessibility
-6. **Social Integration**: Cross-platform sharing and authentic civic content
-7. **Analytics Dashboard**: Real-time civic engagement and democratic impact tracking
+Comprehensive documentation is organized in the `docs/` folder:
+
+- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Complete 6-phase development plan addressing security vulnerabilities, infrastructure completion, and sustainable economic mechanisms
+- **[Design Documents](docs/design/)** - Architecture specifications and engagement strategy including:
+  - `VIRAL_ENGAGEMENT_PLAN.md` - Principled engagement mechanics for ETH community acceptance
+- **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies including:
+  - `SECURITY_ANALYSIS.md` - Comprehensive security audit findings and fixes
+
+## Current Development Status
+
+### Critical Security Issues Identified
+- **OPERATOR_ROLE Vulnerability**: Single operator can mint unlimited tokens (needs decentralized oracle network)
+- **Supply Cap Issue**: 1B token cap / 10 per action = 100M max actions (needs governance-controlled expansion)
+- **Staking Bug**: Voting power loss after unstaking breaks governance participation
+- **Missing External Verification**: CWC API integration exists as interface only, no implementation
+
+### Immediate Priorities
+1. **Security Hardening**: Replace centralized minting with multi-sig oracle consensus
+2. **CWC Integration**: Complete congressional message verification system
+3. **Identity Verification**: Implement Self Protocol ZK proof verification
+4. **Supply Management**: Add governance mechanisms for token supply expansion
+5. **Frontend Development**: Production-ready web and mobile applications
 
 ## Security Considerations
 
