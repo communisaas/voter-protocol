@@ -12,7 +12,7 @@ The problem isn't technology. It's incentive design. Speculation rewards attenti
 
 Civic participation continues declining among younger demographics. Voter turnout in off-year elections remains low among 18-29 year olds. Congressional approval ratings remain historically low. The attention economy increasingly rewards financial speculation over democratic citizenship.
 
-Under the noise is new capacity for coordination. Monad clears consumer‑scale transactions at sub‑penny costs ([docs.monad.xyz](https://docs.monad.xyz/) [4]). EigenLayer's restaked security powers verifiable services ([DefiLlama](https://defillama.com/protocol/eigenlayer) [5]). Self Protocol proves human eligibility without exposing identity ([Self docs](https://docs.self.xyz/) [6]; [Businesswire](https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users) [7]). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
+Under the noise is new capacity for coordination. Monad provides cheap EVM anchoring for receipts and registries; we optionally mirror to an ETH L2 (ERC‑8004 registries) when ETH‑native consumers need on‑chain reads. Self Protocol proves human eligibility without exposing identity ([Self docs](https://docs.self.xyz/) [7]; [Businesswire](https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users) [8]). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical "we got it" form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
@@ -26,9 +26,9 @@ Three layers mirror the work of a constitutional system:
 
 1. **Identity — eligibility without surveillance.** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]).
 
-2. **Verification — administration without guesswork.** A multi-agent verifier network checks actions before any reward or reputation accrues. Distributed consensus replaces centralized operators, with specialized AI agents handling different verification aspects.
+2. **Verification — administration without guesswork.** A verifier gateway checks adapter receipts (e.g., CWC delivery or mail routing) before any reward or reputation accrues. Hash receipts are pinned to IPFS and attested on Monad (no PII on‑chain). Distributed agents can coordinate off‑chain or in TEEs; outcomes are anchored to Monad for auditability.
 
-3. **Execution — treasury and records.** Monad writes receipts, reputation, and credits with consumer latency and Ethereum Virtual Machine (EVM) compatibility ([docs.monad.xyz](https://docs.monad.xyz/) [4]).
+3. **Execution — treasury and records.** Monad anchors registries/attestations; treasuries remain on ETH/L2 (Safe). No routine bridging.
 
 The outcome is simple: a public record of participation that offices can trust and citizens can carry.
 
@@ -116,7 +116,7 @@ VOTER's moat is architectural: zk identity, pre‑mint verification, delivery co
 
 ### Strategic Advantages
 
-The civic technology market suffers from fragmentation across dozens of single-purpose tools with limited integration and no sustainable business models. VOTER provides comprehensive infrastructure for verified civic engagement, creating defensible competitive advantages through technical integration and network effects. The combination of Self Protocol identity verification, EigenLayer action verification, and Monad high-performance execution cannot be easily replicated by competitors using traditional infrastructure.
+The civic technology market suffers from fragmentation across dozens of single-purpose tools with limited integration and no sustainable business models. VOTER provides comprehensive infrastructure for verified civic engagement, creating defensible competitive advantages through technical integration and network effects. The combination of Self Protocol identity and Monad anchoring (with optional L2 ERC‑8004 mirror) provides verifiable receipts on‑chain while retaining access to ETH/L2 liquidity.
 
 Market timing favors platforms that can capture political attention while maintaining democratic legitimacy. Regulatory clarity enables compliant incentivization of civic activities. Advanced blockchain infrastructure provides consumer-friendly experience without technical complexity. Political polarization creates demand for verified information sources and authentic engagement tools.
 
@@ -131,13 +131,9 @@ International expansion provides additional growth vectors through parliamentary
 * **Security:** Multi-agent verification, distributed consensus, continuous optimization, memory-based learning. No PII on‑chain.
 * **Evolution:** Self-modifying parameters, emergent governance, agent-optimized economics, adaptive verification thresholds.
 
-### Detailed Architecture
+### Detailed Architecture (Monad Anchoring)
 
-VOTER's technical architecture prioritizes security, scalability, and user experience through careful separation of concerns across three blockchain layers. The Monad execution layer handles high-frequency operations including credit transfers, governance voting, staking mechanisms, and social interactions through leaderboards and achievement systems. Parallel execution architecture enables 10,000+ transactions per second with sub-second finality, supporting mass adoption during major political events while maintaining low transaction costs.
-
-EigenLayer verification layer provides cryptographic proof generation for civic actions through specialized Autonomous Verifiable Services. Congressional message verification integrates with official CWC systems to confirm delivery and authenticity. Identity attestation services validate Self Protocol zero-knowledge proofs. Cross-chain bridges relay verification proofs to the execution layer for credit distribution.
-
-Self Protocol identity layer generates zero-knowledge proofs of citizen eligibility through government passport verification. Privacy-preserving age and citizenship attestations enable compliance with voting age requirements without exposing personal information. Sybil resistance through unique passport mapping prevents duplicate account creation while maintaining anonymity.
+VOTER's technical architecture prioritizes security, simplicity, and UX. Monad serves as the anchoring layer for registry/attest receipts. Certified legislative adapters (e.g., CWC) generate receipts that are pinned to IPFS and attested on Monad. Treasuries remain on ETH/L2 (Safe). Self Protocol provides zk eligibility proofs; no PII is stored on‑chain.
 
 Security measures include comprehensive smart contract auditing, multi-signature governance mechanisms, emergency pause functionality, and redundant infrastructure. Privacy protections ensure no personal information is stored on-chain while maintaining verification capabilities. Platform monitoring includes real-time verification of civic action authenticity, automated detection of coordination and manipulation attempts, and comprehensive logging for audit and compliance purposes.
 
@@ -211,12 +207,13 @@ Current implementation status and development roadmap are documented in detail:
 1. Al Jazeera, "Trump-linked meme coins see trading volumes near $40bn on inauguration," January 20, 2025
 2. Congressional Management Foundation, "Summary of Constituent Correspondence Tactics," 2024
 3. Fireside21, "Congressional Staffer Communication Survey," 2024  
-4. Monad Documentation, docs.monad.xyz
-5. DeFiLlama, EigenLayer Protocol Statistics
-6. Self Protocol Documentation, docs.self.xyz
-7. BusinessWire, "Google Cloud Integrates with Self Protocol," July 23, 2025
-8. House.gov, "Communicating with Congress (CWC) Overview"
-9. House.gov, "CWC Advocacy Vendor Level of Service Standards"
+4. ERC‑8004: Trustless Agents, https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md
+5. Monad Docs, https://docs.monad.xyz
+6. EAS: Ethereum Attestation Service, https://docs.attest.sh
+7. Self Protocol Documentation, docs.self.xyz
+8. BusinessWire, "Google Cloud Integrates with Self Protocol," July 23, 2025
+9. House.gov, "Communicating with Congress (CWC) Overview"
+10. House.gov, "CWC Advocacy Vendor Level of Service Standards"
 10. OpenSecrets, "2024 Election Spending Projections," October 2024
 11. Bloomberg Government, "Federal Lobbying Report," 2024
 12. FiscalNote, "Q4 2024 Financial Results," 2025

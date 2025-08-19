@@ -218,4 +218,4 @@ The $140B memecoin market proves that attention and economic incentives can crea
 
 The key is making civic engagement feel meaningful and impactful, not just another social media experience. We're not just competing with other civic platforms—we're building infrastructure that makes democracy work better in the digital age.
 
-In August 2025, making democracy engaging isn't just possible—it's essential for the evolution of civic participation in the attention economy.
+Making democracy engaging is essential for the evolution of civic participation in the attention economy.

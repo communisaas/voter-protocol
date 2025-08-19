@@ -1,7 +1,26 @@
 # VOTER Protocol Implementation Roadmap
 
 ## Executive Summary
-This roadmap outlines the agent-based implementation plan to transform VOTER Protocol from hardcoded smart contracts into an adaptive, intelligent democratic infrastructure. The plan replaces centralized operations with multi-agent systems and removes artificial constraints through dynamic optimization.
+This roadmap outlines an agent‑based implementation anchored on Monad. Agents operate off‑chain/TEE, anchor receipts to Monad, and optionally mirror registries to an ETH L2 (ERC‑8004) when partners require on‑chain reads.
+
+Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad](https://docs.monad.xyz)
+
+### Economic context (read this first)
+
+How value flows (reality):
+- Issuance: CIVIC per verified action; parameters enforced on‑chain. Verification receipts are anchored on Monad.
+- Verification: MultiSig or agent gateway marks verified based on adapter receipts (CWC/mail routing). CIDs are pinned and attested on Monad.
+- Demand/utility: Governance + platform utility. Core revenue is USD‑denominated institutional credits for verified outreach/analytics.
+- Policy: Agents (or admins) tune rewards elastically; clamps and caps prevent runaway issuance.
+
+What this means economically:
+- Broad distribution to active participants vs. scarcity premium for early holders.
+- Inflation scales with engagement but is bounded by on‑chain caps/clamps; agents reduce rewards during surges.
+- Sustainability comes from USD credits; token issuance is an incentive layer, not the revenue source. Optional sinks (staking, buybacks) can be added later if needed.
+
+Operate in two modes:
+- Classic mode: MultiSig verification + fixed rewards.
+- Agentic mode: AgentConsensusGateway + dynamic rewards; admin via DAO.
 
 ### Current Implementation Status
 
@@ -14,11 +33,11 @@ This roadmap outlines the agent-based implementation plan to transform VOTER Pro
 - Tests: forge build/tests green for core flows
 
 **To do (must):**
-- CWC integration: real delivery confirmations; gateway marks verified
-- Param safety: add clamps and quotas (per-user/per-day, protocol/day)
-- Observability: metrics, anomaly auto-tightening (raise interval / lower rewards / pause)
-- Governance: timelock on role/param changes; break-glass pause
-- E2E tests: agent-consensus path; param override behavior; caps invariants
+- CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Monad
+- Param safety: clamps and quotas (per-user/day, protocol/day)
+- Observability: metrics, anomaly auto‑tightening (raise interval / lower rewards / pause)
+- Governance: timelock/DAO for role/param changes; guardian pause
+- E2E tests: agent‑consensus path; param override behavior; caps invariants
 
 **Later (nice):**
 - Treasury ops, market making (if needed)
@@ -61,9 +80,9 @@ This roadmap outlines the agent-based implementation plan to transform VOTER Pro
 ## Risk Assessment & Mitigation
 
 ### Technical Risks
-- **Smart Contract Vulnerabilities**: Mitigated through comprehensive auditing and formal verification
-- **Oracle Failure**: Addressed via redundant oracle networks and fallback mechanisms
-- **Scalability Issues**: Solved through Layer 2 integration and optimistic rollups
+- **Smart Contract Vulnerabilities**: Mitigated via audits
+- **Anchoring/Indexing Availability**: Multi‑provider RPC/indexer redundancy; retries via orchestrator
+- **Bridge Risk**: Avoid routine bridging; batch when required via trusted routes
 
 ### Economic Risks
 - **Token Value Volatility**: Managed through treasury operations and liquidity provision
@@ -108,10 +127,9 @@ This roadmap outlines the agent-based implementation plan to transform VOTER Pro
 
 ## Post-Launch Evolution
 
-### Expansion Phase
-- **Multi-Chain Deployment**: Polygon, Arbitrum, and other L2 solutions
-- **International Markets**: Expansion to Canada, UK, and EU with localized civic systems
-- **Advanced Features**: Predictive civic analytics and AI-powered action recommendations
+- **Composability**: Optional L2 ERC‑8004 mirror for on‑chain reads; add Solana adapter
+- **International Markets**: Global adapters (certified APIs/forms) with invariant user UX
+- **Advanced Features**: Predictive civic analytics and AI‑assisted action recommendations
 
 ### Long-Term Vision
 - **Global Civic Network**: Worldwide democratic participation platform

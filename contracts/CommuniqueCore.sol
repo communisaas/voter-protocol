@@ -17,12 +17,16 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  */
 contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     
     VOTERRegistry public immutable voterRegistry;
     CIVICToken public immutable civicToken;
     IActionVerifier public immutable verifier; // threshold EIP-712
     IAgentConsensus public consensus; // optional agent consensus override
     AgentParameters public immutable params;
+    
+    // Network analysis capability
+    address public networkAnalyzer;
     
     struct ActionReward { VOTERRegistry.ActionType actionType; uint256 civicReward; bool active; }
     
@@ -70,6 +74,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
+        _grantRole(PAUSER_ROLE, msg.sender);
         
         // Initialize default rewards
         actionActive[VOTERRegistry.ActionType.CWC_MESSAGE] = true;
@@ -247,6 +252,10 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     function setConsensus(address newConsensus) external onlyRole(ADMIN_ROLE) {
         consensus = IAgentConsensus(newConsensus);
     }
+    
+    function setNetworkAnalyzer(address _analyzer) external onlyRole(ADMIN_ROLE) {
+        networkAnalyzer = _analyzer;
+    }
 
     function _isVerified(bytes32 actionHash) internal view returns (bool) {
         if (address(consensus) != address(0)) {
@@ -270,13 +279,20 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 day = _currentDay();
         uint256 maxUser = params.getUint(keccak256("maxDailyMintPerUser"));
         uint256 maxProtocol = params.getUint(keccak256("maxDailyMintProtocol"));
+        
         if (maxUser > 0) {
             uint256 nextUserTotal = userDailyMinted[user][day] + amount;
-            require(nextUserTotal <= maxUser, "User daily cap");
+            require(nextUserTotal <= maxUser, "User daily cap exceeded");
         }
         if (maxProtocol > 0) {
             uint256 nextProtocolTotal = protocolDailyMinted[day] + amount;
-            require(nextProtocolTotal <= maxProtocol, "Protocol daily cap");
+            require(nextProtocolTotal <= maxProtocol, "Protocol daily cap exceeded");
+            
+            // Additional protection: ensure total doesn't exceed emergency threshold
+            uint256 emergencyLimit = params.getUint(keccak256("emergencyDailyLimit"));
+            if (emergencyLimit > 0) {
+                require(nextProtocolTotal <= emergencyLimit, "Emergency limit exceeded");
+            }
         }
     }
 
@@ -317,11 +333,11 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Emergency functions
      */
-    function pause() external onlyRole(ADMIN_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
     
-    function unpause() external onlyRole(ADMIN_ROLE) {
+    function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
     

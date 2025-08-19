@@ -4,7 +4,7 @@
 
 The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
 
-**Current Implementation Status (August 2025):**
+**Current Implementation Status:**
 - ✅ **Monad execution layer**: Deployed with CIVIC token, governance, and core contracts
 - ✅ **EIP-712 multisig verification**: Current verification mechanism for civic actions
 - 🔄 **EigenCloud AVS integration**: Planned future upgrade for decentralized verification
@@ -12,43 +12,49 @@ The VOTER token platform is designed for a hybrid architecture combining Monad's
 
 ## Architectural Overview
 
+```mermaid
+flowchart TB
+  UI["User Interfaces (Web/Mobile)"] --> Self["Self.xyz Identity"]
+  Self --> App["Application Logic (CWC + District Mapping + Self Integration)"]
+  App --> Monad["Monad (Execution)"]
+  App --> Eigen["EigenCloud (Verification)"]
+  Eigen --> Bridge["Bridge Layer"]
+  Bridge --> Monad
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        User Interface Layer                     │
-│              SvelteKit + Mobile Apps + Web Extensions           │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────────┐
-│                  Self.xyz Identity Layer                        │
-│        Zero-Knowledge Passport Verification & Sybil Resistance  │
-│     Phone Number Wallets + Privacy-Preserving Age/Country Proof │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────────┐
-│                     Application Logic Layer                     │
-│       Congressional CWC API + District Mapping + Self Integration│
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-          ┌───────────────┴───────────────┐
-          │                               │
-┌─────────▼─────────┐              ┌──────▼──────┐
-│   Monad Layer     │              │ EigenCloud  │
-│  (Execution)      │◄────────────►│ (Verification) │
-│                   │              │             │
-│ • CIVIC Token     │              │ • EigenVerify │
-│ • Governance      │              │ • EigenDA    │
-│ • Staking         │              │ • Self.xyz   │
-│ • Leaderboards    │              │   Integration│
-│ • Gamification    │              │ • CWC Proof  │
-│ • Self Hooks      │              │ • ZK Identity│
-└───────────────────┘              └─────────────┘
-          │                               │
-          └───────────────┬───────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                    Bridge Layer                                 │
-│    Three-Layer Coordination: Self → EigenCloud → Monad         │
-└─────────────────────────────────────────────────────────────────┘
+
+```mermaid
+flowchart TB
+  subgraph Monad [Monad Layer (Execution)]
+    Core["CommuniqueCore"]
+    Token["CIVICToken (ERC20Votes)"]
+    Registry["VOTERRegistry"]
+    Params["AgentParameters"]
+  end
+  Core --> Token
+  Core --> Registry
+  Core -->|read bounds/knobs| Params
+```
+
+```mermaid
+flowchart TB
+  subgraph EigenCloud [EigenCloud Layer (Verification)]
+    AVS["Civic Action Verifier AVS"]
+    CWC["CWC Prover"]
+    ID["Identity Attestation"]
+    Dispute["Dispute Resolution"]
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant App as App Logic
+  participant Eigen as EigenCloud AVS
+  participant Bridge as Bridge
+  participant Monad as Monad Core
+  App->>Eigen: Submit verification request
+  Eigen-->>Bridge: ActionVerified(proof)
+  Bridge->>Monad: relayVerification(actionHash, proof)
+  Monad-->>Monad: mintForCivicAction
 ```
 
 ## Layer Responsibilities
@@ -112,121 +118,33 @@ The VOTER token platform is designed for a hybrid architecture combining Monad's
 - **Proof Aggregator**: Bundle multiple verifications for efficiency
 - **Emergency Circuit Breaker**: Halt operations if verification fails
 
+### Control Plane on Monad (cheap EVM anchoring) + Optional L2 Mirror
+
+- **Foundation on Monad (anchoring & composability)**
+  - Integrity rails: anchor registries/attestations as IPFS CIDs on Monad with minimal on‑chain readable fields (status, timestamp, ids). Heavy payloads remain off‑chain; batches commit with Merkle roots for amortized gas. Source: docs.monad.xyz (throughput/cost).
+  - Agents remain off‑chain/TEE; on‑chain stores only facts required for trust and machine composability.
+
+- **Optional ETH/L2 interop**
+  - Mirror ERC‑8004 registries (Identity/Validation/Reputation) on a major L2 (Base/OP) when ETH‑native consumers need on‑chain reads. Ensure entries are storage‑backed (not events‑only), per composability feedback in the thread.
+
+- (optional) Validation marketplaces
+  - If we require marketplace‑secured validation services, we can integrate a validation marketplace in the future. Not required for mail receipts.
+
+Summary: we operate on Monad for cheap, EVM‑native anchoring and composability; mirror minimal trust signals to an ETH L2 (ERC‑8004) only when partners require it; liquidity and treasury sit on ETH/L2 (Safe), with no routine asset moves.
+
+### ERC‑8004 Interop (optional, in progress)
+
+- Context: [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098) defines on‑chain Identity/Reputation/Validation registries for agent trust.
+- Our approach: Monad is source‑of‑truth for Validation (attestations). We optionally mirror Identity/Validation/Reputation to an ETH L2 ERC‑8004 registry for ETH‑native consumption. Ensure storage fields are on‑chain readable (not events‑only), per thread feedback.
+
 ## Technical Implementation
 
-### Smart Contract Architecture
+### On‑chain Anchoring (Monad)
 
-**Current Implementation - Monad Contracts:**
+- Registry (Monad): Stores template/channel CIDs and simple version graph; emits events for indexers; no PII
+- Attest (Monad): Writes hash attestations for verification receipts (CWC/mail routing); supports revocations
 
-*Note: Current implementation uses EIP-712 multisig verification instead of EigenCloud AVS*
-
-```solidity
-// CIVICToken.sol (Current Implementation)
-contract CIVICToken {
-    // Existing functionality plus:
-    mapping(bytes32 => bool) public verifiedActions;
-    
-    event ActionVerificationRequested(
-        address indexed user,
-        bytes32 indexed actionHash,
-        uint256 timestamp
-    );
-    
-    function requestActionVerification(
-        bytes32 actionHash,
-        bytes calldata proof
-    ) external {
-        emit ActionVerificationRequested(msg.sender, actionHash, block.timestamp);
-        // Bridge will relay to EigenCloud for verification
-    }
-    
-    function mintFromVerifiedAction(
-        address user,
-        uint256 amount,
-        bytes32 actionHash,
-        bytes calldata eigenProof
-    ) external onlyVerificationOracle {
-        require(!verifiedActions[actionHash], "Action already verified");
-        require(_validateEigenProof(eigenProof), "Invalid verification proof");
-        
-        verifiedActions[actionHash] = true;
-        _mint(user, amount);
-    }
-}
-```
-
-**EigenCloud AVS (Planned Future Implementation):**
-
-```solidity
-// CivicVerifierAVS.sol - FUTURE IMPLEMENTATION
-contract CivicVerifierAVS is AVSContract {
-    struct CivicAction {
-        address citizen;
-        bytes32 actionHash;
-        ActionType actionType;
-        bytes32 districtHash;
-        uint256 timestamp;
-        bytes metadata;
-    }
-    
-    mapping(bytes32 => CivicAction) public actions;
-    mapping(bytes32 => bool) public verifiedActions;
-    
-    function verifyCivicAction(
-        bytes32 actionHash,
-        bytes calldata cwcProof,
-        bytes calldata identityProof
-    ) external returns (bool) {
-        // 1. Verify Congressional message delivery through CWC API
-        require(_verifyCWCDelivery(cwcProof), "CWC delivery not verified");
-        
-        // 2. Verify citizen identity and district eligibility
-        require(_verifyIdentity(identityProof), "Identity not verified");
-        
-        // 3. Check for spam/duplicate actions
-        require(_checkActionValidity(actionHash), "Invalid action");
-        
-        verifiedActions[actionHash] = true;
-        
-        // 4. Emit verification event for bridge to relay
-        emit ActionVerified(actionHash, block.timestamp);
-        
-        return true;
-    }
-}
-```
-
-**Bridge Contracts (Planned Future Implementation):**
-
-```solidity
-// VerificationBridge.sol - FUTURE IMPLEMENTATION
-contract VerificationBridge {
-    address public monadTarget;
-    address public eigenCloudSource;
-    
-    mapping(bytes32 => bool) public processedProofs;
-    
-    function relayVerification(
-        bytes32 actionHash,
-        address citizen,
-        uint256 civicReward,
-        bytes calldata eigenProof
-    ) external onlyRelayer {
-        require(!processedProofs[actionHash], "Already processed");
-        require(_validateEigenProof(eigenProof), "Invalid proof");
-        
-        processedProofs[actionHash] = true;
-        
-        // Mint CIVIC tokens on Monad based on EigenCloud verification
-        ICIVICToken(monadTarget).mintFromVerifiedAction(
-            citizen,
-            civicReward,
-            actionHash,
-            eigenProof
-        );
-    }
-}
-```
+Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror minimal trust signals to L2 ERC‑8004 registries only when partners require on‑chain reads.
 
 ## Data Flow
 
@@ -355,7 +273,7 @@ interface VerificationProof {
 
 ### Market Positioning
 - **First Hybrid Architecture**: Novel combination of execution and verification layers
-- **Institutional Grade**: EigenLayer's $13B TVL provides credibility
+- **Institutional Grade**: Validated anchoring and optional ERC‑8004 mirrors provide composability and credibility
 - **Viral Potential**: Monad's performance enables memecoin-level adoption
 - **Democratic Impact**: Verifiable civic engagement creates real political change
 

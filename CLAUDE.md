@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Communiqué is an agentic civic engagement platform that uses multi-agent systems to optimize democratic participation. The project replaces hardcoded blockchain mechanics with intelligent agents that adapt to real human behavior and political dynamics.
+Communiqué is an agentic civic engagement platform that uses multi‑agent systems to optimize democratic participation. User interaction is invariant (we always open the mail client); backend adapters handle certified legislative interfaces. Verification receipts are hashed, pinned to IPFS, and attested on Monad (no PII on‑chain). Optional L2 mirrors use ERC‑8004 registries for ETH‑native consumption.
 
 ### Core Innovation: Agentic Democracy Architecture
 - **VOTER Records**: Non-transferable proof of civic actions, verified by agent consensus
@@ -21,14 +21,9 @@ Communiqué is an agentic civic engagement platform that uses multi-agent system
 - **AI Models**: Claude 3.5 Sonnet for agent intelligence
 
 ### Blockchain Infrastructure
-- **Primary Chain**: Monad Protocol (10,000 TPS, 1-second finality, <1¢ fees)
-- **Smart Contracts**: Solidity 0.8.19, agent-integrated architecture
-- **Architecture**: Agent-coordinated contracts:
-  - `VOTERRegistry.sol`: Civic action records with agent-verified registration
-  - `CIVICToken.sol`: Mint on verified actions
-  - `CommuniqueCore.sol`: Orchestrates records + mint, enforces rate/caps
-  - `AgentParameters.sol`: On-chain parameter surface
-  - `AgentConsensusGateway.sol`: Agent write-path for verification marks
+- **Anchoring (EVM)**: Monad as primary on‑chain anchor (registries/attestations)
+- **Optional L2 Mirror**: ERC‑8004 Identity/Validation/Reputation registries on a major L2 when partners require on‑chain reads
+- **Contracts**: `VOTERRegistry.sol`, `CIVICToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
 
 ### Agent-Driven Services
 - **Agent Swarm**: SupplyAgent, VerificationAgent, MarketAgent, ImpactAgent
@@ -38,12 +33,10 @@ Communiqué is an agentic civic engagement platform that uses multi-agent system
 
 ## Key Development Concepts
 
-### Post-GENIUS Act Compliance
-The platform is designed for the pro-crypto regulatory environment following Trump's GENIUS Act (July 2025):
-- CIVIC tokens structured as utility tokens (governance + fee discounts)
-- Clear functional utility beyond speculation
-- Bank Secrecy Act compliance built-in
-- Integration with emerging stablecoin frameworks
+### Compliance posture
+- Utility‑first design; CIVIC is used for governance/utility, not vote buying
+- No PII on‑chain; off‑chain KYC/attestations only where legally required
+- Clear separation between verified participation records and incentives
 
 ### Agentic Development Approach
 The platform uses intelligent automation throughout:
@@ -54,11 +47,13 @@ The platform uses intelligent automation throughout:
 
 ## Smart Contract Architecture
 
-### VOTERRegistry.sol
-- Stores immutable, non-transferable civic action records
-- Citizen verification tied to congressional districts
-- Anti-spam measures and quality scoring
-- Public auditability of democratic participation
+### On-chain Anchors (Monad)
+- Registry (Monad): Stores IPFS CIDs (templates/channels/version graph)
+- Attest (Monad): Attests hash receipts (CWC/mail routing); supports revocations
+- Optional: ERC‑8004 mirror on L2 for on‑chain reads by ETH‑native consumers
+
+### EVM Contracts (optional)
+- `VOTERRegistry.sol`, `CIVICToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
 
 ### CIVICToken.sol
 - ERC-20 with voting extensions (ERC20Votes, ERC20Permit)
@@ -66,34 +61,13 @@ The platform uses intelligent automation throughout:
 - Governance proposal creation and voting
 - Fee discount system based on civic engagement
 
-### CommuniqueCore.sol
-- Orchestrates VOTER record creation + CIVIC token minting
-- Batch processing for efficiency on high-TPS Monad
-- Platform statistics and civic impact tracking functions
-- Configurable reward structures for different action types
+### Cross-chain control
+- Avoid routine bridging; treasuries and liquidity remain on ETH/L2 (Safe). Bridge only for explicit flows; no MPC dependency required.
 
-## Development Commands
+## Development Notes
 
-Agent-driven development workflow:
-
-```bash
-# Smart contract development
-npm install                    # Install dependencies
-npx hardhat compile           # Compile agent-integrated contracts
-npx hardhat test              # Run agent consensus tests
-npx hardhat deploy --network monad  # Deploy agentic architecture
-
-# Agent infrastructure
-docker-compose up             # Start agent coordination stack
-npm run agents:deploy         # Deploy LangGraph + Temporal + N8N
-npm run agents:test           # Test multi-agent consensus
-npm run memory:sync           # Sync ChromaDB vector memory
-
-# Development automation
-npm run optimize              # Run agent optimization cycles
-npm run evolve                # Deploy parameter evolution
-npm run monitor               # Monitor agent performance
-```
+- EVM contracts: build/test with Foundry/Hardhat for token/treasury/components
+- Agent stack: LangGraph/Temporal/N8N off‑chain; anchor outcomes to Monad; schedule maintenance via workflow orchestrator
 
 ## Critical Design Principles
 
@@ -115,11 +89,10 @@ npm run monitor               # Monitor agent performance
 
 ## Integration Points
 
-### Congressional CWC System
-- Direct integration with official Congressional communication system
-- Message delivery verification
-- Representative response tracking
-- District-based user verification
+### Legislative Adapters (e.g., CWC)
+- Invariant UX: we open the user’s mail client with prepared content
+- Backend adapters translate/submit to certified APIs/forms where required (e.g., CWC)
+- Receipts (delivery confirmations/mail routing) are hashed, pinned to IPFS, and attested on Monad
 
 ### Identity Verification
 - Government ID verification for VOTER record eligibility
@@ -145,7 +118,6 @@ npm run monitor               # Monitor agent performance
 - First-mover advantage in tokenized civic engagement
 - Intersection of engaging mechanics + authentic democratic participation
 - Post-GENIUS Act regulatory clarity enables compliant tokenomics
-- Monad's performance enables mass adoption without blockchain friction
 
 ## Documentation Structure
 

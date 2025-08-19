@@ -1,12 +1,14 @@
-# Hybrid Token Model: VOTER + CIVIC
+# Token Model: VOTER Records + CIVIC
 
 ## Executive Summary
 
-The Communiqué platform implements a hybrid token architecture designed to separate authentic democratic participation from economic speculation while still providing sustainable incentives for civic engagement.
+We separate authentic participation from incentives, with all verification receipts anchored on Monad (hashes only; no PII). Optionally mirror to an ETH L2 (ERC‑8004 registries) when partners need on‑chain reads.
+
+Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad docs](https://docs.monad.xyz)
 
 ## The Two-Token System
 
-### VOTER Records (Non-Transferable)
+### VOTER Records (Non‑Transferable)
 - **Purpose**: Immutable proof of verified civic action
 - **Properties**: Non-transferable, soul-bound, permanent
 - **Creation**: 1:1 with verified civic actions (CWC messages, direct action campaigns)
@@ -25,17 +27,15 @@ The Communiqué platform implements a hybrid token architecture designed to sepa
 Verified Action → VOTER Record (Non-transferable) + CIVIC Tokens (10 per action, configurable)
 ```
 
-**Eligible Actions:**
-- Congressional messages through CWC system
-- Direct action campaign participation
-- Community organizing activities
-- Policy advocacy communications
+**Eligible Actions (examples):**
+- Certified legislative submissions (via adapters)
+- Direct outreach (mailto‑based)
+- Community organizing/advocacy with verifiable receipts
 
-**Verification Requirements:**
-- Identity verification (government ID)
-- Address verification (congressional district mapping)
-- Action authenticity (CWC delivery confirmation)
-- Anti-spam measures (rate limiting, quality scoring)
+**Verification Requirements (policy‑driven):**
+- Identity/address attestation (when required by adapter)
+- Action authenticity (submission receipts, mail routing receipts)
+- Anti‑spam measures (rate limits, quality scoring)
 
 ### CIVIC Token Utility
 
@@ -57,17 +57,14 @@ Verified Action → VOTER Record (Non-transferable) + CIVIC Tokens (10 per actio
 
 ## Market Positioning
 
-### Post-GENIUS Act Compliance
-- CIVIC tokens structured as utility tokens, not securities
-- Clear functional purpose beyond speculation
-- Compliance with Bank Secrecy Act requirements
-- Integration with emerging stablecoin frameworks
+### Compliance posture
+- Utility‑first design; clear functional purpose
+- Minimal on‑chain data; off‑chain KYC when legally required
 
 ### Competitive Advantages
-- **First-mover advantage** in tokenized civic engagement
-- **Regulatory clarity** under Trump administration crypto policies
-- **Growth potential** in expanding digital civic engagement market
-- **Institutional backing** through Monad ecosystem
+- Verifiable participation receipts anchored on Monad
+- UX mirrors email; zero lift for end users
+- Optional L2 ERC‑8004 mirror for ETH‑native composability
 
 ## Technical Implementation
 
@@ -100,20 +97,18 @@ contract CIVICToken is ERC20, ERC20Votes {
 
 ## Growth Strategy
 
-### Phase 1: Foundation (Months 1-6)
-- Deploy core smart contracts on Monad testnet
-- Build CWC integration and user verification
-- Launch with 1,000 verified civic actors
+### Phase 1: Foundation (Months 1‑6)
+- Deploy Monad contracts: Registry, Attest
+- Ship certified adapter (e.g., CWC) + mail routing receipts
+- Launch with verified civic actors; “Verify on‑chain” links
 
-### Phase 2: Viral Growth (Months 6-12)
-- Gamification features and leaderboards
-- Social sharing and referral programs
-- Target 100,000+ verified users
+### Phase 2: Growth (Months 6‑12)
+- Gamification/leaderboards; referrals
+- Optional L2 ERC‑8004 mirror for registries if partners require reads
 
-### Phase 3: Ecosystem (Months 12-24)
-- Cross-platform integrations
-- Institutional partnerships
-- Global expansion beyond US Congress
+### Phase 3: Ecosystem (Months 12‑24)
+- Additional adapters (other legislatures)
+- Partnerships; global expansion
 
 ## Risk Mitigation
 

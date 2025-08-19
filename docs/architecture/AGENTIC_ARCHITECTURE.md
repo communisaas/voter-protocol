@@ -4,14 +4,16 @@
 
 Traditional smart contracts are authoritarian code: hardcoded constants, centralized operators, artificial scarcity enforced through mathematics. We reject this model entirely.
 
-The VOTER protocol implements **agentic governance** - intelligent systems that adapt to human behavior rather than constraining it.
+The VOTER protocol implements **agentic governance** with agents off‑chain/TEE, on‑chain anchoring on a cheap EVM (Monad), and optional mirrors on a major L2 for composability (ERC‑8004‑style registries).
+
+Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 
 ## Core Principles
 
 ### 1. No Artificial Scarcity
 ```solidity
 // OLD: Tyrannical hardcoding
-uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18;
+// Removed: hardcoded MAX_SUPPLY (dynamic, bounded by params in current design)
 
 // NEW: Agent-determined abundance
 mapping(bytes32 => uint256) public agentParameters;
@@ -56,13 +58,13 @@ class SupplyAgent:
         return optimal_supply
 ```
 
-**2. Verification Agent Network**
+**2. Verification Agent Network (anchored on Monad)**
 ```python
 class VerificationAgent:
     def verify_civic_action(self, action):
-        # Multi-agent consensus
-        # No single authority
-        # Distributed validation
+        # Multi-agent consensus (off-chain or TEE)
+        # Anchor hash receipt on Monad (attest contract)
+        # No PII on-chain
         return verification_score
 ```
 
@@ -88,7 +90,7 @@ class ImpactAgent:
 
 ### Agent Coordination Framework
 
-**Using LangGraph + Temporal Workflows:**
+**Off-chain workflows + on-chain anchoring:**
 
 ```python
 from langgraph import StateGraph
@@ -107,9 +109,9 @@ class DemocracyCoordinator:
             supply_decision, verification_rules, market_params
         ])
         
-        # Execute if consensus reached
+        # Execute if consensus reached: batch receipts, anchor root on-chain
         if consensus.confidence > THRESHOLD:
-            await self.execute_decisions(consensus)
+            await self.anchor_batch(consensus.outcomes)
 ```
 
 ## Technical Implementation
@@ -122,16 +124,12 @@ contract AgenticCivic {
     mapping(bytes32 => uint256) public parameters;
     mapping(address => bool) public authorizedAgents;
     
-    modifier onlyAgentConsensus() {
-        require(hasAgentConsensus(msg.data), "Consensus required");
-        _;
-    }
+    // On-chain governance enforces allowlisted agent accounts / DAO
     
     function updateParameter(
         bytes32 key, 
-        uint256 value,
-        bytes[] calldata agentSignatures
-    ) external onlyAgentConsensus {
+        uint256 value
+    ) external /* onlyDAO */ {
         parameters[key] = value;
         emit ParameterEvolved(key, value, block.timestamp);
     }
@@ -152,7 +150,7 @@ contract AgenticCivic {
 
 ### Agent Integration Stack
 
-**N8N Workflow Engine:**
+**Workflow Engine (off-chain):**
 ```yaml
 # Civic Action Processing Workflow
 nodes:
@@ -171,9 +169,9 @@ nodes:
     model: "claude-3.5-sonnet"
     prompt: "Calculate consensus from agent outputs"
     
-  - name: "Dynamic Mint"
-    type: "smart-contract"
-    function: "mintDynamic"
+  - name: "Attest Receipt"
+    type: "anchor"
+    contract: "Attest (Monad)"
 ```
 
 **Vector Memory System:**
