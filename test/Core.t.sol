@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import {CIVICToken} from "../contracts/CIVICToken.sol";
+import {VOTERToken} from "../contracts/VOTERToken.sol";
 import {VOTERRegistry} from "../contracts/VOTERRegistry.sol";
 import {ActionVerifierMultiSig} from "../contracts/ActionVerifierMultiSig.sol";
 import {CommuniqueCore} from "../contracts/CommuniqueCore.sol";
@@ -30,7 +30,7 @@ contract DummySelf is ISelfProtocol {
 }
 
 contract CoreTest is Test {
-    CIVICToken civic;
+    VOTERToken voter;
     VOTERRegistry registry;
     ActionVerifierMultiSig verifier;
     AgentParameters params;
@@ -45,20 +45,20 @@ contract CoreTest is Test {
 
     function setUp() public {
         self = new DummySelf();
-        civic = new CIVICToken();
+        voter = new VOTERToken();
         registry = new VOTERRegistry(address(self));
         verifier = new ActionVerifierMultiSig(admin, 1);
         signerPk = 0xA11CE;
         signer = vm.addr(signerPk);
         params = new AgentParameters(admin);
         vm.prank(address(this)); // Impersonate CoreTest (who has DEFAULT_ADMIN_ROLE on VOTERRegistry)
-        core = new CommuniqueCore(address(registry), address(civic), address(verifier), address(params));
+        core = new CommuniqueCore(address(registry), address(voter), address(verifier), address(params));
         vm.stopPrank(); // Stop impersonating
 
         // Grant CommuniqueCore the EPISTEMIC_AGENT_ROLE on VOTERRegistry
         // voterRegistry.grantRole(VOTERRegistry.EPISTEMIC_AGENT_ROLE, address(core));
 
-        civic.grantRole(civic.MINTER_ROLE(), address(core));
+        voter.grantRole(voter.MINTER_ROLE(), address(core));
         registry.grantRole(registry.VERIFIER_ROLE(), address(core));
 
         // Grant AGENT_ROLE to the test contract for AgentConsensusGateway interactions
@@ -99,9 +99,9 @@ contract CoreTest is Test {
         vm.prank(admin); // Ensure admin is msg.sender for setUint
         params.setUint(keccak256("maxDailyMintProtocol"), 1000000e18); // Adjusted to fit within AgentParameters maxValues
 
-        uint256 beforeBal = civic.balanceOf(user);
+        uint256 beforeBal = voter.balanceOf(user);
         core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, actionHash, "ipfs", 0);
-        uint256 afterBal = civic.balanceOf(user);
+        uint256 afterBal = voter.balanceOf(user);
         assertGt(afterBal, beforeBal, "mint failed via gateway");
     }
 
@@ -134,8 +134,10 @@ contract CoreTest is Test {
         // Second action after interval hits user cap
         vm.warp(block.timestamp + 1 minutes + 2); // Ensure enough time passes
         vm.roll(block.number + 1); // Mine a new block to ensure timestamp updates
-        vm.expectRevert(bytes("User daily cap"));
         bytes32 a2 = keccak256("cap2");
+        vm.prank(admin); // Mark second action as verified
+        gateway.markVerified(a2, true);
+        vm.expectRevert(bytes("User daily cap exceeded"));
         core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, a2, "m2", 0);
     }
 
@@ -160,15 +162,15 @@ contract CoreTest is Test {
         // Fast-forward to bypass interval check
         vm.warp(block.timestamp + 2 hours);
 
-        uint256 balBefore = civic.balanceOf(user);
+        uint256 balBefore = voter.balanceOf(user);
         // Set caps sufficiently high for this test
         params.setUint(keccak256("maxDailyMintPerUser"), 10000e18); // Adjusted to fit within AgentParameters maxValues
         params.setUint(keccak256("maxDailyMintProtocol"), 1000000e18); // Adjusted to fit within AgentParameters maxValues
         params.setUint(keccak256("maxRewardPerAction"), 100e18);
         core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, actionHash, "ipfs", 0);
-        uint256 balAfter = civic.balanceOf(user);
+        uint256 balAfter = voter.balanceOf(user);
 
-        assertGt(balAfter, balBefore, "CIVIC not minted");
+        assertGt(balAfter, balBefore, "VOTER not minted");
 
         // Ensure record exists
         VOTERRegistry.VOTERRecord[] memory records = registry.getCitizenRecords(user);

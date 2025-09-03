@@ -28,8 +28,8 @@ contract AgentParameters is AccessControl {
         maxValues[keccak256("maxRewardPerAction")] = 100e18; // New: max for individual action reward
 
         // Set min bounds (new)
-        minValues[keccak256("reward:CWC_MESSAGE")] = 1e18; // Example: min 1 CIVIC
-        minValues[keccak256("reward:DIRECT_ACTION")] = 1e18; // Example: min 1 CIVIC
+        minValues[keccak256("reward:CWC_MESSAGE")] = 1e18; // Example: min 1 VOTER
+        minValues[keccak256("reward:DIRECT_ACTION")] = 1e18; // Example: min 1 VOTER
         minValues[keccak256("maxDailyMintPerUser")] = 0; // Can be 0
         minValues[keccak256("maxDailyMintProtocol")] = 0; // Can be 0
         minValues[keccak256("minActionInterval")] = 1 minutes; // Example: min 1 minute interval

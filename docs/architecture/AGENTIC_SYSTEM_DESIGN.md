@@ -4,7 +4,7 @@
 
 Traditional smart contracts are authoritarian code: hardcoded constants, centralized operators, artificial scarcity enforced through mathematics. We reject this model entirely.
 
-The VOTER protocol implements **agentic governance** with agents off‑chain/TEE, on‑chain anchoring on a cheap EVM (Monad), and optional mirrors on a major L2 for composability (ERC‑8004‑style registries).
+The VOTER protocol implements **agentic governance** with agents off‑chain/TEE, on‑chain anchoring on a cheap EVM (Monad), and ERC‑8004 registries on L2. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Cheap EVM anchoring enables massive scale while maintaining cryptographic integrity.
 
 Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 
@@ -37,7 +37,7 @@ Every parameter becomes agent-optimized, but always within predefined, auditable
 - Economic incentives (bounded for stability)
 - Governance parameters (with fail-safes)
 
-**Robustness Principle:** Agents dynamically adjust parameters, but the system maintains hard-coded, transparent guardrails. This prevents unintended consequences from emergent agent behavior and ensures predictable system behavior.
+**Robustness Principle:** Agents dynamically adjust parameters, but the system maintains auditable, transparent guardrails. This prevents unintended consequences from emergent agent behavior and ensures predictable system behavior.
 
 ### 3. Distributed Consensus (Beyond Central Operators)
 Instead of `OPERATOR_ROLE`, we implement multi-agent consensus, complemented by human-governed circuit breakers:
@@ -94,6 +94,17 @@ class ImpactAgent:
         return impact_metrics
 ```
 
+**5. Reputation Agent**
+```python
+class ReputationAgent:
+    def build_credibility_scores(self, participants):
+        # Track challenge market participation quality
+        # Evaluate information sourcing standards
+        # Assess constructive discourse contribution
+        # Write to ERC-8004 Reputation Registry (built for AI agents, used by humans)
+        return credibility_scores
+```
+
 ### Agent Coordination Framework
 
 **Off-chain workflows + on-chain anchoring:**
@@ -109,10 +120,16 @@ class DemocracyCoordinator:
         supply_decision = await self.supply_agent.optimize()
         verification_rules = await self.verification_agent.update()
         market_params = await self.market_agent.adjust()
+        impact_metrics = await self.impact_agent.measure()
+        reputation_scores = await self.reputation_agent.build_credibility()
         
         # Consensus mechanism
         consensus = await self.achieve_consensus([
-            supply_decision, verification_rules, market_params
+            supply_decision, 
+            verification_rules, 
+            market_params, 
+            impact_metrics, 
+            reputation_scores
         ])
         
         # Execute if consensus reached: batch receipts, anchor root on-chain
@@ -122,15 +139,21 @@ class DemocracyCoordinator:
 
 ### Robust Information Elicitation (Carroll Mechanisms)
 
-Building on the principles of robustness in mechanism design, particularly those explored by Gabriel Carroll, the VOTER protocol ensures the integrity and relevance of information processed by its agents. Traditional systems often struggle with private information and the difficulty of incorporating nuanced, disputable claims into decision-making. Inspired by "Carroll Mechanisms" as described in recent research (e.g., Connor McCormick's work on Epistocracy), we implement mechanisms that incentivize the revelation of critical information and handle disputes about its veracity and relevance.
+Building on the principles of robustness in mechanism design, particularly those explored by Gabriel Carroll, the VOTER protocol ensures the integrity and relevance of information processed by its agents. Traditional systems often struggle with private information and the difficulty of incorporating nuanced, disputable claims into decision-making. Inspired by "Carroll Mechanisms" as described in recent mechanism design research, we implement systems that incentivize the revelation of critical information and handle disputes about its veracity and relevance.
 
 Our agentic system now incorporates:
 
-*   **Disputable Counterpositions (DCPs):** Any verifiable factual claim within a civic action's content (email template or personalization block) can become a "proposition" subject to an off-chain counterposition market. This formalizes disagreement, allowing agents (primarily the `VerificationAgent` and `MarketAgent`) to explicitly "bet" on the truthfulness of claims or proposed counter-claims. The outcome of these markets determines a `credibilityScore` for the civic action, anchored on-chain in `VOTERRegistry.sol`'s `VOTERRecord`.
-*   **Epistemic Leverage (EL):** We incentivize users to contribute highly informative, verifiable, and potentially "surprising" information, especially in personalization blocks. The `VerificationAgent` and `ImpactAgent` assess the verifiability and impact of such contributions. The `MarketAgent` calculates an "epistemic leverage bonus" (a multiplier from `AgentParameters.sol`) applied to the base `CIVIC` reward for the civic action, minted via `CommuniqueCore.sol`. This rewards users for revealing valuable insights that shift collective understanding.
-*   **Doubting Mechanisms (DM):** To combat misinformation and low-quality contributions, users who consistently submit misleading or false claims (as determined by counterposition markets) are penalized. The `ImpactAgent` tracks the performance of claims made by users and updates their `epistemicReputationScore` in `VOTERRegistry.sol`. Users with low reputation scores or those who propagate disproven information may face `CIVIC` slashing (via `CommuniqueCore.sol` interacting with `CIVICToken.sol`) or reduced influence. This fosters intellectual honesty and discourages gaming.
+### Challenge Market Integration
 
-These mechanisms, rooted in Carroll's work on designing robust incentives under uncertainty, enhance the `VerificationAgent`'s ability to assess authenticity, the `ImpactAgent`'s capacity to measure true civic outcomes, and the overall system's resilience to information asymmetry and manipulation. The goal is to move beyond simple verification to a system that actively elicits and validates the underlying "story" or causal model behind civic actions and their impact.
+**Challenge Markets:** Any claim in civic actions can be disputed through staked challenges. The `VerificationAgent` and `MarketAgent` coordinate resolution through community consensus mechanisms rather than truth determination. Outcomes determine credibility scores anchored on-chain in `VOTERRegistry.sol` and written to ERC-8004 infrastructure for portable reputation.
+
+**Quality Discourse Rewards:** The `MarketAgent` calculates quality bonuses for information sourcing standards and constructive engagement. The `ReputationAgent` tracks participation patterns and writes credibility scores to the ERC-8004 Reputation Registry.
+
+**Credibility Building:** Rather than penalizing "false" claims, the system rewards good faith participation and quality sourcing. The `ReputationAgent` coordinates with other agents to prioritize high-reputation participants in congressional routing while requiring additional verification stakes for low-reputation claims.
+
+These mechanisms enhance agent coordination for information quality assessment while avoiding centralized truth determination. The goal is robust credibility infrastructure that incentivizes constructive democratic discourse.
+
+**Quality discourse pays. Bad faith costs.**
 
 ## Technical Implementation
 
@@ -168,8 +191,6 @@ contract AgenticCivic {
         
         emit DynamicMint(to, amount, multiplier);
     }
-}
-```
 }
 ```
 
@@ -255,16 +276,16 @@ class EquilibriumEngine:
 
 ### Self-Regulating Supply within Safety Rails
 
-The system maintains health through feedback loops, with hard-coded safety rails preventing extreme deviations:
-- High participation → Lower per-action rewards (clamped by min) → Economic balance
-- Low participation → Higher incentives (clamped by max) → Increased engagement
-- Dynamic supply within defined caps → Natural market equilibrium within auditable limits
+The system maintains health through feedback loops, with protocol-enforced safety rails preventing extreme deviations:
+- High participation: lower per-action rewards (clamped by min) create economic balance
+- Low participation: higher incentives (clamped by max) drive increased engagement  
+- Dynamic supply within defined caps: natural market equilibrium within auditable limits
 
 ## Governance Evolution
 
 ### Multi-Agent Democracy
 
-Traditional governance: Token holders vote on proposals
+Traditional governance: Token holders vote on proposals  
 **Agentic governance:** Specialized agents optimize different aspects continuously
 
 ```python
@@ -279,7 +300,7 @@ class GovernanceEvolution:
             # Coordinate optimizations
             integrated_update = await self.coordinator.integrate([
                 supply_optimization,
-                security_updates, 
+                security_updates,
                 user_experience
             ])
             
@@ -292,18 +313,12 @@ class GovernanceEvolution:
 
 ### Emergent Protocol Evolution
 
-The protocol evolves based on usage patterns:
-- Agents identify inefficiencies
-- Propose improvements
-- Test in simulation
-- Deploy if successful
-- Monitor outcomes
-- Iterate continuously
+The protocol evolves based on usage patterns: Agents identify inefficiencies, propose improvements, test in simulation, deploy if successful, monitor outcomes, and iterate continuously.
 
-## Implementation Checklist (what exists vs what remains)
+## Implementation Status
 
 ### Exists in repo
-- On-chain: `VOTERRegistry`, `CIVICToken`, `CommuniqueCore` (no operator), `AgentParameters`, `AgentConsensusGateway`
+- On-chain: `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` (no operator), `AgentParameters`, `AgentConsensusGateway`
 - Tests: verified action path with multisig; dynamic rewards via parameters
 - **Robustness: Parameter safety rails (min/max clamps, caps) implemented in `AgentParameters` and enforced in `CommuniqueCore`.**
 

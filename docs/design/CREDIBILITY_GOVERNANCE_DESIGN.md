@@ -12,7 +12,7 @@ Democracy deserves better than this authoritarian architecture.
 
 ## The Agentic Alternative: Intelligent Agents within Robust Frameworks
 
-Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, adapt, and optimize for human flourishing, always operating within a robust, auditable framework:
+Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, adapt, and optimize for human flourishing, always operating within a robust, auditable framework. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This creates infrastructure that serves both AI coordination and portable democratic reputation—democracy that hints at evolved governance through credibility rather than pure representation.
 
 ### Specialized Agent Roles
 
@@ -20,7 +20,7 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 - Monitors network participation patterns
 - Adjusts supply based on civic engagement levels
 - Prevents both inflation and artificial scarcity, operating within on-chain mint caps.
-- No arbitrary caps, but intelligent equilibrium enforced by hard safety rails.
+- No arbitrary caps, but intelligent equilibrium enforced by auditable safety rails.
 
 **VerificationAgent**: Coordinates action validation with resilient mechanisms
 - Orchestrates Self Protocol + CWC API integration, with fallback options.
@@ -39,6 +39,12 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 - Provides feedback loops for continuous improvement, ensuring rewards align with actual democratic influence.
 - Rewards actual democratic influence over mere activity, with mechanisms to prevent gaming.
 
+**ReputationAgent**: Builds credibility scores from discourse quality and challenge market participation
+- Tracks challenge market participation quality and information sourcing standards
+- Coordinates with other agents to prioritize high-reputation participants in congressional routing
+- Writes credibility scores to ERC-8004 Reputation Registry for portable democratic reputation
+- Evaluates constructive discourse contribution and good faith engagement patterns
+
 ### Agent Coordination: Resilient Orchestration
 
 Using **LangGraph** for multi-agent orchestration, designed for resilience and auditable decision-making:
@@ -50,11 +56,12 @@ class DemocracyCoordinator:
         verification_rules = await self.verification_agent.update_thresholds()
         reward_structure = await self.market_agent.optimize_incentives()
         impact_metrics = await self.impact_agent.measure_outcomes()
+        reputation_scores = await self.reputation_agent.update_credibility()
         
         # Consensus mechanism, designed to be robust to incomplete information
         consensus = await self.achieve_consensus([
             supply_params, verification_rules, 
-            reward_structure, impact_metrics
+            reward_structure, impact_metrics, reputation_scores
         ])
         
         # Execute if agents agree, with on-chain enforcement of safety rails
@@ -68,30 +75,48 @@ class DemocracyCoordinator:
 Agents calculate optimal supply based on actual demand and participation, but always within auditable, on-chain minimum and maximum bounds. This ensures stability and prevents runaway issuance.
 
 ### 2. Adaptive Parameters with Safety Rails
-Every parameter becomes agent-optimized, but operates within predefined, hard-coded safety rails. Reward amounts, verification thresholds, governance rules - all evolve based on observed outcomes, while preventing extreme deviations.
+Every parameter becomes agent-optimized, but operates within predefined, auditable safety rails. Reward amounts, verification thresholds, governance rules - all evolve based on observed outcomes, while preventing extreme deviations.
 
 ### 3. Distributed Authority with Circuit Breakers
 Multi-agent consensus replaces single operators. No god modes, no central control, just distributed intelligence serving human needs, complemented by human-governed emergency circuit breakers for ultimate safety.
 
-### 4. Continuous Learning for Resilience & Epistemic Robustness
-Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning is geared towards enhancing the protocol's resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Furthermore, inspired by Carroll Mechanisms (Gabriel Carroll, Connor McCormick), this learning will incorporate principles of epistemic robustness, actively seeking to identify and resolve conflicting information and incentivize truthful revelation from agents and participants.
+### 4. Continuous Learning for Resilience 
+Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning enhances protocol resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Carroll Mechanisms provide consensus tools for resolving information disputes and incentivizing quality discourse among participants.
 
-## Robust Information Aggregation and Dispute Resolution
+## Credibility Infrastructure and Challenge Markets
 
-Beyond simply collecting data, a robust agentic democracy requires mechanisms to aggregate information effectively, resolve conflicting claims, and incentivize the revelation of private, relevant knowledge. Drawing inspiration from Carroll Mechanisms (Gabriel Carroll, Connor McCormick), particularly the concept of Epistocracy, we have implemented and envision the following:
+Carroll Mechanisms solve democracy's information quality problem through market-based consensus rather than centralized fact-checking. The system builds portable credibility that follows participants across platforms:
 
-*   **Formalizing Disagreement (Disputable Counterpositions):** Instead of merely ignoring conflicting information, the protocol now formalizes disagreement. Any verifiable factual claim within a civic action's content (email template or personalization block) can become a "proposition" subject to an off-chain counterposition market. Agents (primarily the `VerificationAgent` and `MarketAgent`) explicitly "bet" on the truthfulness of claims or proposed counter-claims. The outcome of these markets determines a `credibilityScore` for the civic action, which is anchored on-chain in `VOTERRegistry.sol`'s `VOTERRecord`. This makes the underlying "story" or causal model behind decisions explicit and subject to market-like forces.
-*   **Incentivizing Truthful Revelation (Epistemic Leverage):** Mechanisms are designed to reward agents or participants who reveal information that is surprising or goes against their immediate self-interest, but ultimately benefits the collective decision-making process. This "epistemic leverage" is calculated by the `MarketAgent` and applied as a bonus multiplier (configured in `AgentParameters.sol`) to the base `CIVIC` reward for the civic action, minted via `CommuniqueCore.sol`. This helps overcome the private information problem inherent in many systems.
-*   **Dynamic Relevance Weighting:** The system dynamically adjusts the "weight" or influence of different pieces of information based on their proven relevance and veracity. This involves a secondary mechanism (managed by the `MarketAgent`) that governs the influence of counterpositions (the `q` parameter, with bounds configured in `AgentParameters.sol`).
-*   **Resilient Dispute Resolution:** For high-ambiguity questions where traditional consensus-based resolution is insufficient, the system utilizes non-resolving market-like mechanisms. The goal is to create stable "attractor basins" of information that guide collective understanding, rather than forcing premature, potentially incorrect, resolutions.
-*   **Combating Manipulation (Doubting Mechanisms):** Mechanisms are implemented to penalize agents or participants who attempt to manipulate the information landscape by introducing irrelevant or false claims. The `ImpactAgent` tracks the performance of claims made by users in counterposition markets and updates their `epistemicReputationScore` in `VOTERRegistry.sol`. Users with low reputation scores or those who propagate disproven information may face `CIVIC` slashing (via `CommuniqueCore.sol` interacting with `CIVICToken.sol` and configured in `AgentParameters.sol`) or reduced influence. This fosters a more trustworthy information environment.
+### Challenge Market Framework
+* **Disputable Claims:** Any claim in civic actions can be challenged through staked disputes
+* **Community Consensus:** Markets resolve through participant evaluation, not truth determination  
+* **Quality Discourse:** Rewards focus on sourcing standards and constructive engagement
+* **Reputation Building:** Track record of good faith participation builds credibility over time
 
-These mechanisms aim to ensure that the collective intelligence of the agent network is not only vast but also accurate, resilient to manipulation, and capable of navigating complex, uncertain information landscapes.
+### ERC-8004 Reputation Registry Integration
+The ReputationAgent coordinates with other agents to build credibility scores based on:
+* Challenge market participation quality
+* Information sourcing standards  
+* Constructive discourse contribution
+* Historical engagement patterns
+
+High-reputation participants get priority congressional routing. Low-reputation claims require additional verification stakes. Reputation becomes portable political capital across democratic platforms.
+
+### Market Resolution Mechanisms  
+Rather than determining truth, challenge markets evaluate:
+* Quality of sources cited
+* Reasoning and evidence provided
+* Good faith engagement with counterarguments
+* Constructive contribution to democratic discourse
+
+This creates incentives for quality information without establishing centralized authorities to determine what's "true."
+
+**Quality discourse pays. Bad faith costs.**
 
 ## Technical Implementation
 
 ### Memory System
-ChromaDB vector database stores agent decisions and outcomes:
+ChromaDB vector database stores agent decisions and outcomes, anchored on cheap EVM for verification receipts:
 ```python
 class AgentMemory:
     def remember_outcome(self, decision, context, result):
@@ -157,8 +182,8 @@ Instead of fixed voting rules, governance evolves, but with built-in safeguards:
 ## Examples in Action
 
 ### Scenario: Major Legislative Vote
-Traditional system: Fixed 10 CIVIC per message, regardless of importance
-Agent system: ImpactAgent recognizes critical vote, MarketAgent increases rewards to 50 CIVIC, SupplyAgent adjusts total allocation, VerificationAgent tightens validation
+Traditional system: Fixed 10 VOTER per message, regardless of importance
+Agent system: ImpactAgent recognizes critical vote, MarketAgent increases rewards to 50 VOTER, SupplyAgent adjusts total allocation, VerificationAgent tightens validation
 
 ### Scenario: Low Civic Engagement Period  
 Traditional system: Same rewards, participation drops
@@ -202,4 +227,3 @@ The future of civic technology is agentic and robust: systems that learn, adapt,
 
 *Built with intelligence, optimized by experience, serving human agency, and designed for resilience.*
 
-*Built with intelligence, optimized by experience, serving human agency.*

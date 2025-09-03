@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./VOTERRegistry.sol";
-import "./CIVICToken.sol";
+import "./VOTERToken.sol";
 import "./interfaces/IActionVerifier.sol";
 import "./interfaces/IAgentConsensus.sol";
 import "./AgentParameters.sol";
@@ -14,14 +14,14 @@ import "forge-std/console.sol";
 /**
  * @title CommuniqueCore
  * @dev Core orchestration contract for the Communiqué platform
- * @notice Coordinates between VOTER registry and CIVIC token systems
+ * @notice Coordinates between VOTER registry and VOTER token systems
  */
 contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     
     VOTERRegistry public immutable voterRegistry;
-    CIVICToken public immutable civicToken;
+    VOTERToken public immutable voterToken;
     IActionVerifier public immutable verifier; // threshold EIP-712
     IAgentConsensus public consensus; // optional agent consensus override
     AgentParameters public immutable params;
@@ -67,9 +67,9 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     );
     event RewardFlagUpdated(VOTERRegistry.ActionType actionType, bool active);
     
-    constructor(address _voterRegistry, address _civicToken, address _verifier, address _params) {
+    constructor(address _voterRegistry, address _voterToken, address _verifier, address _params) {
         voterRegistry = VOTERRegistry(_voterRegistry);
-        civicToken = CIVICToken(_civicToken);
+        voterToken = VOTERToken(_voterToken);
         verifier = IActionVerifier(_verifier);
         params = AgentParameters(_params);
         
@@ -118,20 +118,20 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         require(registeredUsers[user], "User not registered");
         require(actionActive[actionType], "Action type not supported");
         uint256 interval = _getMinActionInterval();
-        require(block.timestamp >= userLastActionTime[user] + interval, "Action too frequent");
+        require(userLastActionTime[user] == 0 || block.timestamp >= userLastActionTime[user] + interval, "Action too frequent");
         
         // Ensure off-chain/oracle verification exists
         require(_isVerified(actionHash), "Action not verified");
         // Create VOTER record (non-transferable proof) with credibility score
         voterRegistry.createVOTERRecord(user, actionType, actionHash, metadata, _credibilityScore); // Pass new score
 
-        // Mint CIVIC tokens (tradeable rewards)
+        // Mint VOTER tokens (tradeable rewards)
         uint256 civicReward = _clampedReward(_getRewardFor(actionType));
         // Apply Epistemic Leverage bonus
         civicReward = _applyEpistemicLeverageBonus(user, civicReward, _credibilityScore); // New call
         _enforceDailyCaps(user, civicReward);
         if (civicReward > 0) {
-            civicToken.mintForCivicAction(
+            voterToken.mintForCivicAction(
                 user,
                 civicReward,
                 _actionTypeToString(actionType)
@@ -173,7 +173,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < users.length; i++) {
             // Skip if user not registered or action too frequent
             if (!registeredUsers[users[i]] ||
-                block.timestamp < userLastActionTime[users[i]] + _getMinActionInterval()) {
+                (userLastActionTime[users[i]] != 0 && block.timestamp < userLastActionTime[users[i]] + _getMinActionInterval())) {
                 continue;
             }
             
@@ -191,7 +191,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                 civicReward = _applyEpistemicLeverageBonus(users[i], civicReward, credibilityScores[i]); // Apply bonus
                 _enforceDailyCaps(users[i], civicReward);
                 if (civicReward > 0) {
-                    civicToken.mintForCivicAction(
+                    voterToken.mintForCivicAction(
                         users[i],
                         civicReward,
                         _actionTypeToString(actionTypes[i])

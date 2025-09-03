@@ -26,7 +26,7 @@ contract CivicGovernor is
     GovernorVotesQuorumFraction
 {
     constructor(IVotes _token)
-        Governor("CIVIC-Governor")
+        Governor("VOTER-Governor")
         GovernorSettings(1 /* 1 block */, 45818 /* ~1 week */, 0 /* proposal threshold */)
         GovernorVotes(_token)
         GovernorVotesQuorumFraction(4) // 4% quorum

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import {CIVICToken} from "../contracts/CIVICToken.sol";
+import {VOTERToken} from "../contracts/VOTERToken.sol";
 import {VOTERRegistry} from "../contracts/VOTERRegistry.sol";
 import {ActionVerifierMultiSig} from "../contracts/ActionVerifierMultiSig.sol";
 import {CommuniqueCore} from "../contracts/CommuniqueCore.sol";
@@ -18,14 +18,14 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerPk);
 
-        CIVICToken civic = new CIVICToken();
+        VOTERToken voter = new VOTERToken();
         VOTERRegistry registry = new VOTERRegistry(selfProtocol);
         // Use multisig verifier by default
         ActionVerifierMultiSig multi = new ActionVerifierMultiSig(msg.sender, 2);
         address verifier = address(multi);
 
         AgentParameters params = new AgentParameters(msg.sender);
-        CommuniqueCore core = new CommuniqueCore(address(registry), address(civic), verifier, address(params));
+        CommuniqueCore core = new CommuniqueCore(address(registry), address(voter), verifier, address(params));
         AgentConsensusGateway gateway = new AgentConsensusGateway(msg.sender);
         AgentConsensusThreshold threshold = new AgentConsensusThreshold(msg.sender, 2);
         // Default to threshold consensus; can switch via governance to gateway or multisig-only
@@ -33,12 +33,12 @@ contract Deploy is Script {
 
         // Timelock + Governor
         CivicTimelock timelock = new CivicTimelock(2 days, new address[](0), new address[](0), msg.sender);
-        CivicGovernor governor = new CivicGovernor(civic);
+        CivicGovernor governor = new CivicGovernor(voter);
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
 
         // Wire roles
-        civic.grantRole(civic.MINTER_ROLE(), address(core));
+        voter.grantRole(voter.MINTER_ROLE(), address(core));
         registry.grantRole(registry.VERIFIER_ROLE(), address(core));
         core.grantRole(core.PAUSER_ROLE(), address(timelock));
         params.grantRole(params.PARAM_SETTER_ROLE(), address(timelock));
@@ -55,10 +55,10 @@ contract Deploy is Script {
         params.renounceRole(DEFAULT_ADMIN, msg.sender);
         params.renounceRole(params.PARAM_SETTER_ROLE(), msg.sender);
         // Token admin
-        civic.grantRole(DEFAULT_ADMIN, address(timelock));
-        civic.grantRole(civic.ADMIN_ROLE(), address(timelock));
-        civic.renounceRole(DEFAULT_ADMIN, msg.sender);
-        civic.renounceRole(civic.ADMIN_ROLE(), msg.sender);
+        voter.grantRole(DEFAULT_ADMIN, address(timelock));
+        voter.grantRole(voter.ADMIN_ROLE(), address(timelock));
+        voter.renounceRole(DEFAULT_ADMIN, msg.sender);
+        voter.renounceRole(voter.ADMIN_ROLE(), msg.sender);
         // Registry admin
         registry.grantRole(DEFAULT_ADMIN, address(timelock));
         registry.grantRole(registry.ADMIN_ROLE(), address(timelock));
@@ -73,7 +73,7 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        console2.log("CIVIC:", address(civic));
+        console2.log("VOTER:", address(voter));
         console2.log("Registry:", address(registry));
         console2.log("Verifier:", verifier);
         console2.log("Core:", address(core));

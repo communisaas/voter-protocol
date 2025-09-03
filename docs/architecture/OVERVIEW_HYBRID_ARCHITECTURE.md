@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
+The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
 
 **Current Implementation Status:**
-- ✅ **Monad execution layer**: Deployed with CIVIC token, governance, and core contracts
-- ✅ **EIP-712 multisig verification**: Current verification mechanism for civic actions
-- 🔄 **EigenCloud AVS integration**: Planned future upgrade for decentralized verification
-- 🔄 **Cross-chain bridges**: Future implementation for advanced proof relay
+- 🔧 **Monad execution layer**: Core contracts built with VOTER token, agent-optimized governance
+- 🔧 **Multi-agent verification**: AgentConsensusGateway architecture designed for civic actions
+- 🔧 **Cheap EVM anchoring**: Verification receipt and registry contracts ready for deployment
+- 🔄 **EigenCloud AVS integration**: Planned for enhanced decentralized verification
 
 ## Architectural Overview
 
@@ -26,7 +26,7 @@ flowchart TB
 flowchart TB
   subgraph Monad [Monad Layer (Execution)]
     Core["CommuniqueCore"]
-    Token["CIVICToken (ERC20Votes)"]
+    Token["VOTERToken (ERC20Votes)"]
     Registry["VOTERRegistry"]
     Params["AgentParameters"]
   end
@@ -76,21 +76,21 @@ sequenceDiagram
 - Government-grade document verification without document exposure
 - Selective disclosure of only necessary attributes
 
-### Monad Layer: High-Performance Execution
+### Monad Layer: Cheap EVM Anchoring + Agent Optimization
 
-**Purpose**: Handle high-frequency operations requiring speed and low costs
+**Purpose**: Handle high-frequency operations with agent-optimized parameters and cheap EVM anchoring
 
 **Components:**
-- **CIVIC Token Contract**: ERC-20 governance token with staking and voting
-- **Governance System**: Proposal creation, voting, and execution
-- **Gamification Engine**: Leaderboards, achievements, social features
-- **User Management**: Onboarding, profiles, fee discounts
+- **VOTER Token Contract**: ERC-20 governance token with agent-optimized rewards
+- **Agent Governance**: Multi-agent consensus for dynamic parameter optimization
+- **Carroll Mechanisms**: Challenge markets and credibility infrastructure  
+- **ERC-8004 Integration**: Human-AI reputation registry mirroring
 
 **Performance Benefits:**
-- 10,000 TPS for mass user interactions
+- High throughput for mass civic engagement
 - 1-second finality for immediate feedback
-- <1¢ fees for micro-transactions
-- Full EVM compatibility for existing tooling
+- Sub-cent fees enable micro-civic-actions
+- Cheap EVM anchoring for verification receipts
 
 ### EigenCloud Layer: Cryptographic Verification
 
@@ -118,24 +118,25 @@ sequenceDiagram
 - **Proof Aggregator**: Bundle multiple verifications for efficiency
 - **Emergency Circuit Breaker**: Halt operations if verification fails
 
-### Control Plane on Monad (cheap EVM anchoring) + Optional L2 Mirror
+### Agent-Optimized Control Plane
 
-- **Foundation on Monad (anchoring & composability)**
-  - Integrity rails: anchor registries/attestations as IPFS CIDs on Monad with minimal on‑chain readable fields (status, timestamp, ids). Heavy payloads remain off‑chain; batches commit with Merkle roots for amortized gas. Source: docs.monad.xyz (throughput/cost).
-  - Agents remain off‑chain/TEE; on‑chain stores only facts required for trust and machine composability.
+**Monad Foundation (Cheap EVM Anchoring)**
+- Integrity rails: anchor registries/attestations as IPFS CIDs on Monad with minimal on‑chain readable fields
+- Agent parameters: dynamic optimization within auditable bounds stored on-chain
+- Heavy payloads remain off‑chain; batches commit with Merkle roots for amortized gas
+- Agents remain off‑chain/TEE; on‑chain stores only facts required for trust and composability
 
-- **Optional ETH/L2 interop**
-  - Mirror ERC‑8004 registries (Identity/Validation/Reputation) on a major L2 (Base/OP) when ETH‑native consumers need on‑chain reads. Ensure entries are storage‑backed (not events‑only), per composability feedback in the thread.
+**ERC‑8004 Human-AI Infrastructure**  
+- Mirror Identity/Validation/Reputation registries to ETH L2 for cross-platform composability
+- ERC-8004 serves both AI agent coordination and human civic reputation
+- Storage‑backed entries (not events‑only) ensure proper on‑chain reads for partners
 
-- (optional) Validation marketplaces
-  - If we require marketplace‑secured validation services, we can integrate a validation marketplace in the future. Not required for mail receipts.
+**Economic Infrastructure**
+- Liquidity and treasury remain on ETH/L2 (Safe) with no routine asset bridging
+- Agent-optimized reward calculations replace hardcoded parameters
+- Challenge markets and Carroll Mechanisms for quality discourse incentives
 
-Summary: we operate on Monad for cheap, EVM‑native anchoring and composability; mirror minimal trust signals to an ETH L2 (ERC‑8004) only when partners require it; liquidity and treasury sit on ETH/L2 (Safe), with no routine asset moves.
-
-### ERC‑8004 Interop (optional, in progress)
-
-- Context: [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098) defines on‑chain Identity/Reputation/Validation registries for agent trust.
-- Our approach: Monad is source‑of‑truth for Validation (attestations). We optionally mirror Identity/Validation/Reputation to an ETH L2 ERC‑8004 registry for ETH‑native consumption. Ensure storage fields are on‑chain readable (not events‑only), per thread feedback.
+**Quality discourse pays. Bad faith costs.**
 
 ## Technical Implementation
 
@@ -150,17 +151,17 @@ Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror mini
 
 ### Civic Action Processing
 
-1. **User Action**: Citizen sends message through CWC integration
+1. **User Action**: Citizen sends message through CWC integration via mail client
 2. **Initial Recording**: Action recorded on Monad with "pending verification" status
-3. **Verification Request**: Bridge submits action to EigenCloud AVS for verification
-4. **EigenCloud Processing**: 
-   - Verify CWC delivery confirmation
-   - Validate citizen identity and district eligibility
-   - Check for spam/gaming attempts
-   - Generate cryptographic proof of verification
-5. **Bridge Relay**: Verification proof relayed back to Monad
-6. **Token Minting**: CIVIC tokens minted based on verified action
-7. **User Notification**: Real-time notification of successful verification
+3. **Agent Verification**: Multi-agent consensus evaluates action authenticity and quality
+4. **Agent Processing**: 
+   - VerificationAgent confirms CWC delivery
+   - ReputationAgent updates ERC-8004 credibility scores
+   - SupplyAgent calculates agent-optimized VOTER rewards
+   - MarketAgent processes any challenge market outcomes
+5. **Consensus Execution**: Agent consensus triggers on-chain parameter updates
+6. **Token Minting**: VOTER tokens minted based on agent-determined amounts
+7. **User Notification**: Real-time notification with credibility and reward updates
 
 ### Verification Proof Structure
 
@@ -208,7 +209,7 @@ interface VerificationProof {
 
 - **Immediate Feedback**: User sees action recorded instantly on Monad (1 second)
 - **Verification Complete**: EigenCloud proof generated (30-60 seconds)
-- **Token Reward**: CIVIC tokens minted after verification (2-3 minutes total)
+- **Token Reward**: VOTER tokens minted after verification (2-3 minutes total)
 
 ## Security Model
 
@@ -249,7 +250,7 @@ interface VerificationProof {
 ## Deployment Strategy
 
 ### Phase 1: Monad Foundation (Months 1-2)
-- Deploy enhanced CIVIC token with verification hooks
+- Deploy enhanced VOTER token with verification hooks
 - Launch gamification and governance features
 - Build user base with basic civic engagement
 
@@ -263,22 +264,46 @@ interface VerificationProof {
 - Launch advanced features requiring cryptographic proofs
 - Scale to national civic engagement levels
 
+## Carroll Mechanisms: Credibility Infrastructure
+
+### Challenge Markets for Quality Discourse
+- **Disputable Claims**: Any claim in civic actions can be challenged through staked disputes
+- **Community Consensus**: Markets resolve through participant evaluation, not truth determination
+- **Quality Discourse Rewards**: Rewards focus on sourcing standards and constructive engagement
+- **Portable Reputation**: ERC-8004 credibility scores follow participants across platforms
+
+### Multi-Agent Coordination
+```mermaid
+flowchart TB
+  Supply["SupplyAgent"] --> Consensus["Agent Consensus"]
+  Verify["VerificationAgent"] --> Consensus
+  Market["MarketAgent"] --> Consensus
+  Impact["ImpactAgent"] --> Consensus
+  Reputation["ReputationAgent"] --> Consensus
+  Consensus --> ERC8004["ERC-8004 Registry"]
+  Consensus --> Monad["Monad Execution"]
+```
+
+**Quality discourse pays. Bad faith costs.**
+
 ## Competitive Advantages
 
 ### Technical Benefits
 - **Performance + Security**: Best of both execution speed and verification integrity
-- **Future-Proof**: Positioned in both major 2025 blockchain ecosystems
+- **Human-AI Infrastructure**: ERC-8004 serves both AI agent coordination and human civic reputation
 - **Regulatory Compliance**: Cryptographic proofs provide audit trail
 - **Developer Experience**: Familiar EVM tools plus cutting-edge verification
 
 ### Market Positioning
-- **First Hybrid Architecture**: Novel combination of execution and verification layers
-- **Institutional Grade**: Validated anchoring and optional ERC‑8004 mirrors provide composability and credibility
+- **First Human-AI Democracy**: Infrastructure that serves both humans and AI agents
+- **Institutional Grade**: Validated anchoring and ERC‑8004 mirrors provide composability and credibility
 - **Viral Potential**: Monad's performance enables memecoin-level adoption
 - **Democratic Impact**: Verifiable civic engagement creates real political change
 
 ## Conclusion
 
-The hybrid Monad + EigenCloud architecture provides the optimal foundation for tokenizing civic engagement at scale. By combining high-performance execution with cryptographic verification, the platform can deliver both the viral growth mechanics needed to compete for user attention and the authentic democratic participation required for real political impact.
+The hybrid Monad + EigenCloud architecture provides optimal foundation for agent-optimized democratic participation at scale. By combining cheap EVM anchoring with multi-agent consensus, the platform delivers both viral growth mechanics and authentic civic impact through portable ERC-8004 reputation.
 
-This architecture positions the VOTER token platform uniquely at the intersection of DeFi performance, verification infrastructure, and civic technology—creating sustainable competitive advantages in the tokenized democracy space.
+This architecture positions the VOTER Protocol uniquely at the intersection of human-AI infrastructure, agent optimization, and democratic technology—infrastructure that serves both humans and AI agents in building better governance.
+
+**Quality discourse pays. Bad faith costs. Democracy scales.**

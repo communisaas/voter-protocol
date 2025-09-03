@@ -9,11 +9,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
- * @title CIVICToken
+ * @title VOTERToken
  * @dev Governance token for Communiqué platform
  * @notice Earned through verified civic engagement, used for platform governance
  */
-contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, ReentrancyGuard, Pausable {
+contract VOTERToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
@@ -48,8 +48,8 @@ contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     }
     
     constructor() 
-        ERC20("CIVIC Governance Token", "CIVIC")
-        ERC20Permit("CIVIC Governance Token")
+        ERC20("VOTER Governance Token", "VOTER")
+        ERC20Permit("VOTER Governance Token")
     {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -59,7 +59,7 @@ contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     }
     
     /**
-     * @dev Mint CIVIC tokens for verified civic actions
+     * @dev Mint VOTER tokens for verified civic actions
      * @param to Address to mint tokens to
      * @param amount Amount of tokens to mint
      * @param actionType Type of civic action performed
@@ -78,7 +78,7 @@ contract CIVICToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     }
     
     /**
-     * @dev Stake CIVIC tokens for governance voting power and rewards
+     * @dev Stake VOTER tokens for governance voting power and rewards
      * @param amount Amount of tokens to stake
      * @param duration Duration to lock tokens (in seconds)
      */
