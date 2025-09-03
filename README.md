@@ -34,17 +34,19 @@ The outcome is simple: a public record of participation that offices can trust a
 
 This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself, creating network effects that strengthen with adoption and sustainable competitive advantages through technical integration, hinting at a new paradigm for collective decision-making.
 
-## Agentic Democracy: AI-Coordinated Governance for Epistemic Integrity
+## Agentic Democracy: AI-Coordinated Governance for Information Quality
 
 VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
 
-**Carroll Mechanisms** solve democracy's information problem. Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth:
+**Carroll Mechanisms** solve democracy's information problem. Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth, anchored by ERC-8004 reputation infrastructure:
 
 * **Challenge Markets:** Any claim in templates or messages can be disputed. Put money where your mouth is.
 * **Information Rewards:** Higher payouts for surprising, verifiable insights that change minds or reveal new data.  
 * **Accountability Stakes:** Spread misinformation, pay the price when markets prove you wrong.
 
-This turns every civic action into verified signal. Agents evolve with political dynamics while authentic information wins.
+**Reputation Aggregation:** Challenge outcomes, prediction accuracy, and information quality build cumulative credibility scores in the ERC-8004 Reputation Registry. High-reputation participants get priority routing to congressional offices. Low-reputation claims require additional verification.
+
+This creates **portable democratic credibility**—reputation that follows you across platforms. Every civic action builds verified signal that other democratic tools can trust.
 
 ### Agent Network Architecture
 
@@ -52,6 +54,7 @@ This turns every civic action into verified signal. Agents evolve with political
 * **SupplyAgent**: Dynamically adjusts CIVIC token minting rates based on participation levels, economic conditions, and governance goals
 * **MarketAgent**: Monitors and optimizes economic incentives to maintain sustainable engagement without distorting democratic authenticity
 * **ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems
+* **ReputationAgent**: Tracks prediction accuracy, challenge market outcomes, and information quality over time. Writes credibility scores to ERC-8004 Reputation Registry and coordinates with other agents to prioritize high-reputation participants in congressional routing
 
 ### Emergent Parameter Optimization
 
@@ -111,17 +114,48 @@ Trust assumptions fail at scale. Email can be automated. Phone numbers can be bo
 * **Identity:** zk proofs of age, citizenship, and uniqueness via passport NFC ([Self docs](https://docs.self.xyz/) [6]).
 * **Delivery:** **House and Senate messages flow through CWC's secure XML**; deliveries get confirmations that anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
 * **Authenticity:** rate limits, duplicate‑content checks, anomaly detection, and appealable challenges, guided by staff‑workflow evidence ([Congressional Management Foundation](https://www.congressfoundation.org/news/110-mail-operations) [2]).
-*   **Content Veracity:** Beyond delivery, agents leverage Carroll Mechanisms to assess the truthfulness and relevance of claims made within messages, ensuring higher-quality information reaches representatives.
+* **Information Quality:** Messages from high-reputation participants (tracked in ERC-8004 Reputation Registry) get priority congressional routing. Low-reputation claims trigger additional verification through challenge markets. Historical accuracy determines message weighting and reward multipliers.
 
 More verified actions produce better aggregates. Better aggregates attract researchers and media. That revenue funds better tools and stronger incentives. The flywheel is civic, not speculative.
 
 This verification infrastructure creates network effects that compound with adoption, positioning VOTER as infrastructure for scalable democratic engagement that traditional civic platforms cannot match.
 
+## Credibility Infrastructure: Portable Democratic Reputation
+
+VOTER creates the first **portable reputation system for democratic participation**. Unlike platform-locked karma or follower counts, ERC-8004 reputation follows participants across the democratic ecosystem.
+
+### The Credibility Flywheel
+
+**Better Predictions → Higher Reputation → More Influence → Better Outcomes**
+
+- High-reputation templates get priority congressional routing
+- Accurate predictions earn multiplied CIVIC rewards  
+- Credible participants become democratic influencers whose endorsements carry weight
+- Quality information providers attract followers and premium subscriptions
+
+### Cross-Platform Democratic Infrastructure
+
+Future democratic tools inherit VOTER's reputation layer:
+- **Candidate platforms** weight endorsements by civic credibility scores
+- **Policy research** filters contributors by prediction track records  
+- **Media outlets** source expert analysis from verified civic participants
+- **Academic institutions** access reputation-weighted datasets for political science research
+
+### ERC-8004 Agent Economy Integration
+
+VOTER reputation becomes **verifiable credentials for democratic agents**:
+- AI assistants cite information from high-reputation civic participants
+- Automated policy analysis tools weight sources by credibility scores
+- Cross-chain governance systems import VOTER reputation for voting power
+- Democratic service marketplaces use reputation for service provider discovery
+
+This transforms VOTER from a civic action tool into **foundational infrastructure for trustworthy democratic participation at scale**.
+
 ## Competitive Landscape and Positioning
 
 Single‑purpose tools fragment the space. Petition sites move signatures that never turn into meetings. Form‑email vendors flood inboxes without cryptographic signal; staff triage suffers ([CMF blog on form emails](https://www.congressfoundation.org/news/blog/1486) [18]).
 
-VOTER's moat is architectural: zk identity, pre‑mint verification, delivery confirmations, and a compliance‑first incentive model. The integration path runs through the channels offices already accept (CWC, structured exports).
+**VOTER's moat is credibility infrastructure.** Beyond zk identity and delivery confirmations, we build **portable democratic reputation** through ERC-8004 reputation systems. Other civic platforms verify *actions*—we verify *information quality*. Congressional offices get better signal. Citizens carry reputation across platforms. Democratic tools built on VOTER inherit trust from day one.
 
 ### Strategic Advantages
 
