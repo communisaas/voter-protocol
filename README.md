@@ -16,27 +16,31 @@ Under the noise is new capacity for coordination. Monad provides cheap EVM ancho
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical "we got it" form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
-VOTER leverages this convergence to create the first protocol for verified political participation, transforming civic engagement from unpaid labor into stakeholder ownership of democratic infrastructure itself.
+VOTER leverages this convergence to create the first protocol for verifiable political participation, transforming civic engagement from unpaid labor into stakeholder ownership of democratic infrastructure itself. In an era defined by information overload and the erosion of trust, the integrity of democratic participation is paramount. The VOTER Protocol is building verifiable political participation at scale, not just by capturing attention, but by ensuring the **epistemic robustness** of civic engagement. We address the fundamental challenge of information quality and truthfulness in democratic discourse, transforming civic action into a verifiable, privacy-preserving, and epistemically sound contribution.
 
-## Architecture as Political Philosophy
+## Architecture as Political Philosophy: Evolving Governance for the Digital Age
 
 VOTER starts where legitimacy starts: verification. Each action produces a mathematical claim about authenticity. That claim scales from a single message to district‑level sentiment without revealing who you are.
 
-Three layers mirror the work of a constitutional system:
+Our architecture is designed for a future of trustless agents and verifiable interactions, aligning with emerging standards like ERC-8004 for agent interoperability and verifiable credentials. Three layers mirror the work of a constitutional system:
 
-1. **Identity — eligibility without surveillance.** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]).
+1.  **Identity — eligibility without surveillance (ERC-8004 Identity Registry).** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]). This forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving agent interactions.
 
-2. **Verification — administration without guesswork.** A verifier gateway checks adapter receipts (e.g., CWC delivery or mail routing) before any reward or reputation accrues. Hash receipts are pinned to IPFS and attested on Monad (no PII on‑chain). Distributed agents can coordinate off‑chain or in TEEs; outcomes are anchored to Monad for auditability.
+2.  **Verification — administration without guesswork (ERC-8004 Validation Registry).** A verifier gateway checks adapter receipts (e.g., CWC delivery or mail routing) before any reward or reputation accrues. Hash receipts are pinned to IPFS and attested on Monad (no PII on‑chain). Distributed agents can coordinate off‑chain or in TEEs; outcomes are anchored to Monad for auditability. This process contributes to an ERC-8004 compliant validation registry, ensuring the integrity of civic actions and agent attestations.
 
-3. **Execution — treasury and records.** Monad anchors registries/attestations; treasuries remain on ETH/L2 (Safe). No routine bridging.
+3.  **Execution — treasury and records.** Monad anchors registries/attestations; treasuries remain on ETH/L2 (Safe). No routine bridging.
 
-The outcome is simple: a public record of participation that offices can trust and citizens can carry.
+The outcome is simple: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
 
-This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself, creating network effects that strengthen with adoption and sustainable competitive advantages through technical integration.
+This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself, creating network effects that strengthen with adoption and sustainable competitive advantages through technical integration, hinting at a new paradigm for collective decision-making.
 
-## Agentic Democracy: AI-Coordinated Governance
+## Agentic Democracy: AI-Coordinated Governance for Epistemic Integrity
 
-VOTER replaces hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation, now enhanced with Carroll Mechanisms for robust information elicitation and dispute resolution.
+VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. This is not merely about automation; it's about building a system that actively cultivates **epistemic integrity** within democratic participation. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation, now fundamentally enhanced by **Carroll Mechanisms** for robust information elicitation and dispute resolution. These mechanisms create an 'epistemic layer' that ensures the quality and veracity of information flowing through the system:
+    *   **Disputable Counterpositions:** Formalizing disagreement by allowing claims within civic actions (e.g., email templates, personalization blocks) to be openly challenged and debated through incentivized markets.
+    *   **Epistemic Leverage:** Rewarding users who contribute highly informative, verifiable, and potentially 'surprising' insights that genuinely advance collective understanding.
+    *   **Doubting Mechanisms:** Penalizing the propagation of misinformation and incentivizing intellectual honesty by holding users accountable for claims disproven through open market mechanisms.
+    This agentic approach enables the platform to evolve with changing political dynamics, user behavior, and technological capabilities while maintaining authenticity and preventing manipulation by ensuring the integrity of information itself.
 
 ### Agent Network Architecture
 
@@ -103,6 +107,7 @@ Trust assumptions fail at scale. Email can be automated. Phone numbers can be bo
 * **Identity:** zk proofs of age, citizenship, and uniqueness via passport NFC ([Self docs](https://docs.self.xyz/) [6]).
 * **Delivery:** **House and Senate messages flow through CWC's secure XML**; deliveries get confirmations that anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
 * **Authenticity:** rate limits, duplicate‑content checks, anomaly detection, and appealable challenges, guided by staff‑workflow evidence ([Congressional Management Foundation](https://www.congressfoundation.org/news/110-mail-operations) [2]).
+*   **Content Veracity:** Beyond delivery, agents leverage Carroll Mechanisms to assess the truthfulness and relevance of claims made within messages, ensuring higher-quality information reaches representatives.
 
 More verified actions produce better aggregates. Better aggregates attract researchers and media. That revenue funds better tools and stronger incentives. The flywheel is civic, not speculative.
 
@@ -144,10 +149,10 @@ Security measures include comprehensive smart contract auditing, multi-signature
 
 ## What each stakeholder gets
 
-**Citizens** get one‑tap verified messages, attendance receipts, and a reputation they can carry without exposing identity.
-**Organizers** get verified recruitment, templated outreach, rate‑limited blast, and analytics that survive staff filters.
-**Government staff** get structured intake, deduplication, cryptographic filtering, and exportable audit trails.
-**Researchers** get privacy‑preserving aggregates with differential privacy and k‑anonymity thresholds.
+**Citizens** get one‑tap verified messages, attendance receipts, and a reputation they can carry without exposing identity, built on a foundation of **epistemically robust contributions**.
+**Organizers** get verified recruitment, templated outreach, rate‑limited blast, and analytics that survive staff filters, powered by **higher-quality, verifiable information**.
+**Government staff** get structured intake, deduplication, cryptographic filtering, and exportable audit trails, now with **enhanced content veracity and reduced misinformation**.
+**Researchers** get privacy‑preserving aggregates with differential privacy and k‑anonymity thresholds, derived from a dataset of **epistemically vetted civic actions**.
 
 ## How we will prove it works
 
@@ -179,9 +184,9 @@ Param keys (via `AgentParameters`):
 
 Current implementation status and development roadmap are documented in detail:
 
-- **[Agentic Architecture](docs/architecture/AGENTIC_ARCHITECTURE.md)** - Multi-agent system design principles
-- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Agent-based development plan
-- **[Design Documents](docs/design/)** - Architecture specifications and engagement strategy
+- **[Agentic System Design](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - Multi-agent system design principles
+- **[Development Roadmap](docs/implementation/DEVELOPMENT_ROADMAP.md)** - Agent-based development plan
+- **[Design Documents](docs/design/)** - Epistocratic governance and engagement strategy
 - **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies
 
 #### Current Status
