@@ -6,7 +6,7 @@
 
 ## The Attention War
 
-Democracy has a distribution problem. While [TRUMP‑linked memecoins touched ~$40B in 24 hours on Inauguration Day](https://www.aljazeera.com/economy/2025/1/20/trump-linked-meme-coins-see-trading-volumes-near-40bn-on-inauguration) [1], a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers and slippage overnight. And even though **both chambers route constituent messages through Communicating with Congress (CWC)** on the backend, the public experience is still a patchwork of webforms with shifting fields and limits, plus auto‑replies most people never open ([CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CMF summary](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
+Democracy has a distribution problem. While [TRUMP‑linked memecoins touched ~$40B in 24 hours on Inauguration Day](https://www.aljazeera.com/economy/2025/1/20/trump-linked-meme-coins-see-trading-volumes-near-40bn-on-inauguration) [1], a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers and slippage overnight. **Both chambers route constituent messages through Communicating with Congress (CWC)** on the backend. But the public experience is still a patchwork of webforms with shifting fields and limits. Auto‑replies go unopened ([CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CMF summary](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
 The problem isn't technology. It's incentive design. Speculation rewards attention with immediate, personal feedback. Democratic participation offers delayed, uncertain outcomes with no personal value accrual. When TikTok optimizes for engagement over truth and Robinhood gamifies markets, civic work reads like homework in a world built for dopamine.
 
@@ -16,13 +16,13 @@ Under the noise is new capacity for coordination. Monad provides cheap EVM ancho
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical "we got it" form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
-VOTER leverages this convergence to create the first protocol for verifiable political participation, transforming civic engagement from unpaid labor into stakeholder ownership of democratic infrastructure itself. In an era defined by information overload and the erosion of trust, the integrity of democratic participation is paramount. The VOTER Protocol is building verifiable political participation at scale, not just by capturing attention, but by ensuring the **epistemic robustness** of civic engagement. We address the fundamental challenge of information quality and truthfulness in democratic discourse, transforming civic action into a verifiable, privacy-preserving, and epistemically sound contribution.
+VOTER leverages this convergence to create the first protocol for verifiable political participation. Civic engagement transforms from unpaid labor into stakeholder ownership of democratic infrastructure itself. Information overload and eroding trust plague democracy. VOTER builds verifiable political participation at scale by ensuring information quality and truthfulness in democratic discourse. Civic action becomes verifiable, privacy-preserving, and credible.
 
 ## Architecture as Political Philosophy: Evolving Governance for the Digital Age
 
 VOTER starts where legitimacy starts: verification. Each action produces a mathematical claim about authenticity. That claim scales from a single message to district‑level sentiment without revealing who you are.
 
-Our architecture is designed for a future of trustless agents and verifiable interactions, aligning with emerging standards like ERC-8004 for agent interoperability and verifiable credentials. Three layers mirror the work of a constitutional system:
+Our architecture builds for trustless agents and verifiable interactions. ERC-8004 provides the standards. Three layers mirror constitutional systems:
 
 1.  **Identity — eligibility without surveillance (ERC-8004 Identity Registry).** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]). This forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving agent interactions.
 
@@ -32,7 +32,7 @@ Our architecture is designed for a future of trustless agents and verifiable int
 
 The outcome is simple: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
 
-This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself, creating network effects that strengthen with adoption and sustainable competitive advantages through technical integration, hinting at a new paradigm for collective decision-making.
+This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself. Network effects strengthen with adoption. Technical integration creates sustainable competitive advantages. This hints at a new paradigm for collective decision-making.
 
 ## Agentic Democracy: AI-Coordinated Governance for Information Quality
 
@@ -65,7 +65,7 @@ Unlike traditional protocols with hardcoded constants, VOTER's agents continuous
 * **Economic incentives** evolve to maintain authentic democratic participation vs. speculative gaming
 * **Governance proposals** emerge from agent analysis of community needs and participation patterns
 
-This agentic approach enables the platform to evolve with changing political dynamics, user behavior, and technological capabilities while maintaining democratic authenticity and preventing manipulation.
+Agents evolve with political dynamics and user behavior. Democratic authenticity stays intact.
 
 ## Where this becomes a market
 
@@ -85,7 +85,7 @@ The platform generates revenue through multiple streams while maintaining public
 * **Premium subscriptions** ranging from $15/month for advanced analytics to $500/month for enterprise API access serve political organizations and researchers  
 * **Data licensing** agreements with academic institutions and media organizations provide additional revenue while maintaining strict privacy protections
 
-Platform economics create network effects that strengthen with adoption. Citizens join because their civic actions generate verifiable value. Representatives benefit from higher-quality constituent communication through cryptographic filtering. Political organizations gain access to authentic grassroots mobilization tools. Researchers access verified civic engagement datasets. Each participant's value increases with network size, creating sustainable competitive advantages.
+Platform economics create network effects that strengthen with adoption. Citizens join because their civic actions generate verifiable value. Representatives benefit from higher-quality constituent communication through cryptographic filtering. Political organizations gain access to authentic grassroots mobilization tools. Researchers access verified civic engagement datasets. Each participant's value increases with network size.
 
 ## Incentive Design for Democratic Participation
 
@@ -159,13 +159,13 @@ Single‑purpose tools fragment the space. Petition sites move signatures that n
 
 ### Strategic Advantages
 
-The civic technology market suffers from fragmentation across dozens of single-purpose tools with limited integration and no sustainable business models. VOTER provides comprehensive infrastructure for verified civic engagement, creating defensible competitive advantages through technical integration and network effects. The combination of Self Protocol identity and Monad anchoring (with optional L2 ERC‑8004 mirror) provides verifiable receipts on‑chain while retaining access to ETH/L2 liquidity.
+The civic technology market suffers from fragmentation across dozens of single-purpose tools with limited integration and no sustainable business models. VOTER provides comprehensive infrastructure for verified civic engagement. Technical integration and network effects create defensible competitive advantages. Self Protocol identity plus Monad anchoring provides verifiable receipts on‑chain while retaining access to ETH/L2 liquidity.
 
-Market timing favors platforms that can capture political attention while maintaining democratic legitimacy. Regulatory clarity enables compliant incentivization of civic activities. Advanced blockchain infrastructure provides consumer-friendly experience without technical complexity. Political polarization creates demand for verified information sources and authentic engagement tools.
+Market timing favors platforms that capture political attention while maintaining democratic legitimacy. Regulatory clarity enables compliant incentivization of civic activities. Advanced blockchain infrastructure provides consumer-friendly experience without technical complexity. Political polarization creates demand for verified information sources and authentic engagement tools.
 
 ### International Expansion Opportunities
 
-International expansion provides additional growth vectors through parliamentary democracy integration. The European Union represents a substantial addressable market for verified civic engagement tools. Commonwealth countries including Canada, Australia, and the United Kingdom offer familiar regulatory environments and political systems compatible with VOTER infrastructure. Strategic partnerships with government offices, academic institutions, and media organizations accelerate adoption while establishing VOTER as democracy infrastructure rather than partisan political tool.
+International expansion: parliamentary democracy integration across major markets. The EU offers massive scale for verified civic engagement. Commonwealth countries—Canada, Australia, UK—provide familiar regulatory environments and compatible political systems. Strategic partnerships with government offices, academic institutions, and media organizations accelerate adoption while positioning VOTER as democracy infrastructure, not partisan politics.
 
 ## Technical Implementation and Security
 
@@ -187,10 +187,10 @@ Security measures include comprehensive smart contract auditing, multi-signature
 
 ## What each stakeholder gets
 
-**Citizens** get one‑tap verified messages, attendance receipts, and a reputation they can carry without exposing identity, built on a foundation of **epistemically robust contributions**.
-**Organizers** get verified recruitment, templated outreach, rate‑limited blast, and analytics that survive staff filters, powered by **higher-quality, verifiable information**.
-**Government staff** get structured intake, deduplication, cryptographic filtering, and exportable audit trails, now with **enhanced content veracity and reduced misinformation**.
-**Researchers** get privacy‑preserving aggregates with differential privacy and k‑anonymity thresholds, derived from a dataset of **epistemically vetted civic actions**.
+**Citizens** get one‑tap verified messages, attendance receipts, and portable reputation without exposing identity.
+**Organizers** get verified recruitment, templated outreach, rate‑limited blast, and analytics that survive staff filters.
+**Government staff** get structured intake, deduplication, cryptographic filtering, and exportable audit trails with quality information filtering.
+**Researchers** get privacy‑preserving aggregates with differential privacy and k‑anonymity thresholds from verified civic action datasets.
 
 ## How we will prove it works
 
