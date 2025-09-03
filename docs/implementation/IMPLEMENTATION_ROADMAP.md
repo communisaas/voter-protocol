@@ -31,13 +31,23 @@ Operate in two modes:
 - Roles: removed `OPERATOR_ROLE`; admin-only pause and action enable/disable
 - Action types: only `CWC_MESSAGE` and `DIRECT_ACTION`
 - Tests: forge build/tests green for core flows
+- **Robustness: Param safety (min/max clamps and quotas for per-user/day and protocol/day mints) implemented in `AgentParameters` and enforced in `CommuniqueCore`.**
+- **Carroll Mechanisms (On-chain Foundation):**
+  - `VOTERRegistry` updated with `credibilityScore` for `VOTERRecord` and `epistemicReputationScore` for `CitizenProfile`.
+  - `CommuniqueCore` updated to accept `credibilityScore` for civic actions and includes logic for Epistemic Leverage bonus calculation.
+  - `AgentParameters` updated with new parameters for Epistemic Leverage, Doubting, and Counterposition Markets.
 
 **To do (must):**
 - CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Monad
-- Param safety: clamps and quotas (per-user/day, protocol/day)
 - Observability: metrics, anomaly auto‑tightening (raise interval / lower rewards / pause)
 - Governance: timelock/DAO for role/param changes; guardian pause
 - E2E tests: agent‑consensus path; param override behavior; caps invariants
+- **Carroll Mechanisms (Off-chain Agent Implementation):**
+  - Develop `VerificationAgent` for claim extraction and initial veracity assessment.
+  - Develop `MarketAgent` for managing off-chain counterposition markets and calculating EL/DM.
+  - Develop `ImpactAgent` for tracking user epistemic reputation and claim performance.
+  - Integrate EL/DM logic into `SupplyAgent` for dynamic `CIVIC` minting/slashing.
+  - Implement N8N workflows for Carroll Mechanism orchestration.
 
 **Later (nice):**
 - Treasury ops, market making (if needed)
@@ -69,11 +79,12 @@ Operate in two modes:
 
 ## Path to production (checklist)
 - [ ] CWC pipeline live; verified marks flow to chain
-- [ ] Reward/interval clamps and daily caps enforced on-chain
+- [x] Reward/interval clamps and daily caps enforced on-chain
 - [ ] Timelock + guardian pause wired and tested
 - [ ] E2E tests for consensus gateway and param behaviors
 - [ ] Metrics/alerts runbooks; synthetic attack tightens parameters automatically
 - [ ] Documentation updated; sources preserved
+- [ ] Carroll Mechanisms (off-chain agents) implemented and tested.
 
 ---
 

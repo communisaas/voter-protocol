@@ -8,14 +8,14 @@ The VOTER protocol implements **agentic governance** with agents off‑chain/TEE
 
 Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 
-## Core Principles
+## Core Principles: Resilient Agentic Democracy
 
-### 1. No Artificial Scarcity
+### 1. Resilient Abundance (Beyond Artificial Scarcity)
 ```solidity
 // OLD: Tyrannical hardcoding
 // Removed: hardcoded MAX_SUPPLY (dynamic, bounded by params in current design)
 
-// NEW: Agent-determined abundance
+// NEW: Agent-determined abundance within robust, auditable bounds
 mapping(bytes32 => uint256) public agentParameters;
 function getOptimalSupply() external view returns (uint256) {
     return ISupplyAgent(supplyAgent).calculateOptimal();
@@ -28,19 +28,25 @@ function getOptimalSupply() external view returns (uint256) {
 - Turns civic engagement into speculation
 - Violates democratic principle of equal access
 
-### 2. No Hardcoded Constants
-Every parameter becomes agent-optimized:
-- Token rewards per action
-- Verification thresholds  
-- Economic incentives
-- Governance parameters
+**Robustness Principle:** While agents optimize for abundance, the protocol enforces explicit, auditable minimum and maximum bounds on key parameters, ensuring stability and preventing runaway issuance even under extreme conditions or agent misbehavior.
 
-### 3. No Central Operators
-Instead of `OPERATOR_ROLE`, we implement multi-agent consensus:
+### 2. Adaptive Parameters (Beyond Hardcoded Constants)
+Every parameter becomes agent-optimized, but always within predefined, auditable safety rails:
+- Token rewards per action (clamped by min/max)
+- Verification thresholds (with defined ranges)
+- Economic incentives (bounded for stability)
+- Governance parameters (with fail-safes)
+
+**Robustness Principle:** Agents dynamically adjust parameters, but the system maintains hard-coded, transparent guardrails. This prevents unintended consequences from emergent agent behavior and ensures predictable system behavior.
+
+### 3. Distributed Consensus (Beyond Central Operators)
+Instead of `OPERATOR_ROLE`, we implement multi-agent consensus, complemented by human-governed circuit breakers:
 - Multiple specialized agents
 - Distributed decision making
 - Consensus-based execution
-- No single points of failure
+- No single points of failure, but with human-activated emergency pauses for ultimate safety.
+
+**Robustness Principle:** Decentralization is balanced with the ability to intervene in emergencies, providing a robust safety net against unforeseen systemic risks.
 
 ## The Agent Architecture
 
@@ -114,13 +120,26 @@ class DemocracyCoordinator:
             await self.anchor_batch(consensus.outcomes)
 ```
 
+### Robust Information Elicitation (Carroll Mechanisms)
+
+Building on the principles of robustness in mechanism design, particularly those explored by Gabriel Carroll, the VOTER protocol ensures the integrity and relevance of information processed by its agents. Traditional systems often struggle with private information and the difficulty of incorporating nuanced, disputable claims into decision-making. Inspired by "Carroll Mechanisms" as described in recent research (e.g., Connor McCormick's work on Epistocracy), we implement mechanisms that incentivize the revelation of critical information and handle disputes about its veracity and relevance.
+
+Our agentic system now incorporates:
+
+*   **Disputable Counterpositions (DCPs):** Any verifiable factual claim within a civic action's content (email template or personalization block) can become a "proposition" subject to an off-chain counterposition market. This formalizes disagreement, allowing agents (primarily the `VerificationAgent` and `MarketAgent`) to explicitly "bet" on the truthfulness of claims or proposed counter-claims. The outcome of these markets determines a `credibilityScore` for the civic action, anchored on-chain in `VOTERRegistry.sol`'s `VOTERRecord`.
+*   **Epistemic Leverage (EL):** We incentivize users to contribute highly informative, verifiable, and potentially "surprising" information, especially in personalization blocks. The `VerificationAgent` and `ImpactAgent` assess the verifiability and impact of such contributions. The `MarketAgent` calculates an "epistemic leverage bonus" (a multiplier from `AgentParameters.sol`) applied to the base `CIVIC` reward for the civic action, minted via `CommuniqueCore.sol`. This rewards users for revealing valuable insights that shift collective understanding.
+*   **Doubting Mechanisms (DM):** To combat misinformation and low-quality contributions, users who consistently submit misleading or false claims (as determined by counterposition markets) are penalized. The `ImpactAgent` tracks the performance of claims made by users and updates their `epistemicReputationScore` in `VOTERRegistry.sol`. Users with low reputation scores or those who propagate disproven information may face `CIVIC` slashing (via `CommuniqueCore.sol` interacting with `CIVICToken.sol`) or reduced influence. This fosters intellectual honesty and discourages gaming.
+
+These mechanisms, rooted in Carroll's work on designing robust incentives under uncertainty, enhance the `VerificationAgent`'s ability to assess authenticity, the `ImpactAgent`'s capacity to measure true civic outcomes, and the overall system's resilience to information asymmetry and manipulation. The goal is to move beyond simple verification to a system that actively elicits and validates the underlying "story" or causal model behind civic actions and their impact.
+
 ## Technical Implementation
 
 ### Smart Contract Architecture
 
 ```solidity
 contract AgenticCivic {
-    // No constants, only agent-determined parameters
+    // Parameters are agent-determined but enforced within robust bounds
+    // via AgentParameters contract.
     mapping(bytes32 => uint256) public parameters;
     mapping(address => bool) public authorizedAgents;
     
@@ -130,7 +149,9 @@ contract AgenticCivic {
         bytes32 key, 
         uint256 value
     ) external /* onlyDAO */ {
-        parameters[key] = value;
+        // This function would interact with AgentParameters to set values,
+        // which enforces min/max bounds.
+        parameters[key] = value; // Simplified for illustration
         emit ParameterEvolved(key, value, block.timestamp);
     }
     
@@ -139,12 +160,16 @@ contract AgenticCivic {
         uint256 baseAmount,
         uint256 multiplier
     ) external onlyAgentConsensus {
-        // No supply cap - agents determine optimal amount
+        // Supply is dynamically determined by agents, but subject to
+        // protocol-wide and per-user daily mint caps enforced by CommuniqueCore,
+        // which reads bounds from AgentParameters.
         uint256 amount = baseAmount * multiplier;
         _mint(to, amount);
         
         emit DynamicMint(to, amount, multiplier);
     }
+}
+```
 }
 ```
 
@@ -203,11 +228,11 @@ class AgentMemory:
         )
 ```
 
-## Economic Model: Post-Scarcity Civic Engagement
+## Economic Model: Resilient Civic Engagement
 
-### Abundance Through Intelligence
+### Abundance Through Intelligence within Robust Bounds
 
-Instead of artificial limits, we create **natural equilibrium** through agent optimization:
+Instead of artificial limits, we create **natural equilibrium** through agent optimization, always constrained by auditable, on-chain bounds:
 
 ```python
 class EquilibriumEngine:
@@ -216,7 +241,8 @@ class EquilibriumEngine:
         impact = self.assess_impact(action)
         network_health = self.check_health()
         
-        # No caps, just optimal distribution
+        # Agents determine optimal distribution, but final mint amount
+        # is clamped by on-chain min/max reward and daily caps.
         optimal_amount = self.ml_model.predict({
             'demand': demand,
             'impact': impact,
@@ -224,15 +250,15 @@ class EquilibriumEngine:
             'historical_outcomes': self.memory.query_similar()
         })
         
-        return optimal_amount
+        return optimal_amount # This amount is then clamped by smart contract
 ```
 
-### Self-Regulating Supply
+### Self-Regulating Supply within Safety Rails
 
-The system maintains health through feedback loops:
-- High participation → Lower per-action rewards → Economic balance
-- Low participation → Higher incentives → Increased engagement
-- No artificial caps → Natural market equilibrium
+The system maintains health through feedback loops, with hard-coded safety rails preventing extreme deviations:
+- High participation → Lower per-action rewards (clamped by min) → Economic balance
+- Low participation → Higher incentives (clamped by max) → Increased engagement
+- Dynamic supply within defined caps → Natural market equilibrium within auditable limits
 
 ## Governance Evolution
 
@@ -279,10 +305,11 @@ The protocol evolves based on usage patterns:
 ### Exists in repo
 - On-chain: `VOTERRegistry`, `CIVICToken`, `CommuniqueCore` (no operator), `AgentParameters`, `AgentConsensusGateway`
 - Tests: verified action path with multisig; dynamic rewards via parameters
+- **Robustness: Parameter safety rails (min/max clamps, caps) implemented in `AgentParameters` and enforced in `CommuniqueCore`.**
 
 ### To build next
 - CWC verification workflow (n8n) writing to `AgentConsensusGateway`
-- Parameter safety rails (clamps, caps), telemetry, anomaly auto-tightening
+- Telemetry, anomaly auto-tightening
 - Timelock and guardian pause; minimal admin UI & public endpoints
 
 ## Anti-Patterns to Avoid
@@ -299,15 +326,15 @@ modifier onlyOwner() { ... }
 uint256 constant REWARD_AMOUNT = 100;
 ```
 
-### Agentic Alternatives
+### Agentic Alternatives (with Robustness)
 ```solidity
-// DO: Agent-determined parameters
+// DO: Agent-determined parameters within auditable min/max bounds
 function getOptimalLimit() external view returns (uint256);
 
-// DO: Distributed consensus
+// DO: Distributed consensus with human-governed circuit breakers
 modifier onlyAgentConsensus() { ... }
 
-// DO: Dynamic economics
+// DO: Dynamic economics clamped by on-chain safety rails
 function calculateReward(Action memory action) external view returns (uint256);
 ```
 

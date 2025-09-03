@@ -9,6 +9,7 @@ import "./AgentParameters.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "forge-std/console.sol";
 
 /**
  * @title CommuniqueCore
@@ -110,7 +111,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         address user,
         VOTERRegistry.ActionType actionType,
         bytes32 actionHash,
-        string memory metadata
+        string memory metadata,
+        uint256 _credibilityScore // New parameter
     ) external nonReentrant whenNotPaused {
         require(!_isGlobalPaused(), "Global pause");
         require(registeredUsers[user], "User not registered");
@@ -120,11 +122,13 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         
         // Ensure off-chain/oracle verification exists
         require(_isVerified(actionHash), "Action not verified");
-        // Create VOTER record (non-transferable proof)
-        voterRegistry.createVOTERRecord(user, actionType, actionHash, metadata);
-        
+        // Create VOTER record (non-transferable proof) with credibility score
+        voterRegistry.createVOTERRecord(user, actionType, actionHash, metadata, _credibilityScore); // Pass new score
+
         // Mint CIVIC tokens (tradeable rewards)
         uint256 civicReward = _clampedReward(_getRewardFor(actionType));
+        // Apply Epistemic Leverage bonus
+        civicReward = _applyEpistemicLeverageBonus(user, civicReward, _credibilityScore); // New call
         _enforceDailyCaps(user, civicReward);
         if (civicReward > 0) {
             civicToken.mintForCivicAction(
@@ -154,13 +158,15 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         address[] memory users,
         VOTERRegistry.ActionType[] memory actionTypes,
         bytes32[] memory actionHashes,
-        string[] memory metadataArray
+        string[] memory metadataArray,
+        uint256[] memory credibilityScores // New parameter
     ) external nonReentrant whenNotPaused {
         require(!_isGlobalPaused(), "Global pause");
         require(
             users.length == actionTypes.length &&
             actionTypes.length == actionHashes.length &&
-            actionHashes.length == metadataArray.length,
+            actionHashes.length == metadataArray.length &&
+            metadataArray.length == credibilityScores.length, // New check
             "Array length mismatch"
         );
         
@@ -177,10 +183,12 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                     users[i],
                     actionTypes[i],
                     actionHashes[i],
-                    metadataArray[i]
+                    metadataArray[i],
+                    credibilityScores[i] // Pass new score
                 );
                 
                 uint256 civicReward = _clampedReward(_getRewardFor(actionTypes[i]));
+                civicReward = _applyEpistemicLeverageBonus(users[i], civicReward, credibilityScores[i]); // Apply bonus
                 _enforceDailyCaps(users[i], civicReward);
                 if (civicReward > 0) {
                     civicToken.mintForCivicAction(
@@ -237,7 +245,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         // Simple sampling - use only required fields to avoid stack depth
         for (uint256 i = 0; i < actualLimit && i < users.length; i++) {
             address user = users[i];
-            (, , uint256 totalActions, , , , ) = voterRegistry.citizenProfiles(user);
+            (, , uint256 totalActions, , , , , ) = voterRegistry.citizenProfiles(user);
             leaderboard[i] = LeaderboardEntry({
                 citizen: user,
                 actionCount: totalActions,
@@ -305,8 +313,17 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
 
     function _clampedReward(uint256 base) internal view returns (uint256) {
         uint256 maxPerAction = params.getUint(keccak256("maxRewardPerAction"));
-        if (maxPerAction == 0) return base;
-        return base > maxPerAction ? maxPerAction : base;
+        uint256 minPerAction = params.getUint(keccak256("minRewardPerAction")); // New: get min
+        
+        uint256 clamped = base;
+        if (maxPerAction > 0) {
+            clamped = clamped > maxPerAction ? maxPerAction : clamped;
+        }
+        // New: clamp minimum
+        if (minPerAction > 0) {
+            clamped = clamped < minPerAction ? minPerAction : clamped;
+        }
+        return clamped;
     }
     
     /**
@@ -340,6 +357,10 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
+
+    function updateCitizenEpistemicReputation(address citizen, uint256 newScore) external onlyRole(ADMIN_ROLE) { // ADMIN_ROLE for now, could be a new specific role
+        voterRegistry.updateEpistemicReputation(citizen, newScore);
+    }
     
     /**
      * @dev Read minimum action interval, falling back to default when unset
@@ -351,6 +372,27 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
 
     function _isGlobalPaused() internal view returns (bool) {
         return params.getUint(keccak256("pause:Global")) != 0;
+    }
+
+    function _applyEpistemicLeverageBonus(
+        address user, // User who performed the action
+        uint256 baseReward,
+        uint256 credibilityScore // Credibility of the action's content
+    ) internal view returns (uint256) {
+        // Get epistemic leverage multiplier from AgentParameters
+        uint256 epistemicLeverageMultiplier = params.getUint(keccak256("epistemicLeverageMultiplier"));
+        // Get minimum credibility score for bonus eligibility
+        uint256 minCredibilityForBonus = params.getUint(keccak256("minCredibilityForBonus"));
+
+        if (epistemicLeverageMultiplier == 0 || credibilityScore < minCredibilityForBonus) {
+            return baseReward; // No bonus if multiplier is zero or score is too low
+        }
+
+        // Example calculation: bonus scales with credibility score
+        // This logic can be refined by the MarketAgent off-chain and configured via params
+        uint256 bonusAmount = (baseReward * credibilityScore * epistemicLeverageMultiplier) / 10000; // Scale by 10000 for percentage
+
+        return baseReward + bonusAmount;
     }
 
     function _currentDay() internal view returns (uint256) {

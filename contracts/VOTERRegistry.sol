@@ -14,6 +14,7 @@ import "./interfaces/ISelfProtocol.sol";
 contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant EPISTEMIC_AGENT_ROLE = keccak256("EPISTEMIC_AGENT_ROLE");
     
     ISelfProtocol public immutable selfProtocol;
     
@@ -31,6 +32,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         bool verified;
         string metadata; // IPFS hash for additional data (legacy)
         bytes32 metadataHash; // canonical bytes32 metadata hash (planned default)
+        uint256 credibilityScore; // New: Score reflecting content veracity
     }
     
     struct CitizenProfile {
@@ -41,6 +43,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         bool isActive;
         bytes32 selfPassportHash;  // Self Protocol passport verification
         uint256 selfVerificationTime;
+        uint256 epistemicReputationScore; // New: Overall trustworthiness score
     }
     
     mapping(address => CitizenProfile) public citizenProfiles;
@@ -68,6 +71,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     );
     
     event CitizenDeactivated(address indexed citizen, string reason);
+    event EpistemicReputationUpdated(address indexed citizen, uint256 newScore);
     
     modifier onlyVerifiedCitizen() {
         require(citizenProfiles[msg.sender].verified && citizenProfiles[msg.sender].isActive, "Not verified citizen");
@@ -83,6 +87,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         selfProtocol = ISelfProtocol(_selfProtocol);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
+        _grantRole(EPISTEMIC_AGENT_ROLE, msg.sender); // Grant to deployer
     }
 
     // VOTERPoints concept removed
@@ -119,7 +124,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             joinedTimestamp: block.timestamp,
             isActive: true,
             selfPassportHash: passportHash,
-            selfVerificationTime: block.timestamp
+            selfVerificationTime: block.timestamp,
+            epistemicReputationScore: 0 // Initialize new field
         });
         
         totalVerifiedCitizens++;
@@ -140,7 +146,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         address citizen,
         ActionType actionType,
         bytes32 actionHash,
-        string memory metadata
+        string memory metadata,
+        uint256 _credibilityScore // New parameter
     ) external onlyVerifier nonReentrant whenNotPaused {
         require(citizenProfiles[citizen].verified && citizenProfiles[citizen].isActive, "Citizen not verified");
         require(!actionHashUsed[actionHash], "Action already recorded");
@@ -156,7 +163,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             citizen: citizen,
             verified: true,
             metadata: metadata,
-            metadataHash: keccak256(bytes(metadata))
+            metadataHash: keccak256(bytes(metadata)),
+            credibilityScore: _credibilityScore // Assign the new score
         });
         
         citizenRecords[citizen].push(newRecord);
@@ -246,5 +254,11 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
+    }
+
+    function updateEpistemicReputation(address citizen, uint256 newScore) external onlyRole(EPISTEMIC_AGENT_ROLE) {
+        require(citizenProfiles[citizen].verified, "Citizen not verified");
+        citizenProfiles[citizen].epistemicReputationScore = newScore;
+        emit EpistemicReputationUpdated(citizen, newScore);
     }
 }

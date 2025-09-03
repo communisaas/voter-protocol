@@ -36,7 +36,7 @@ This architecture transforms civic participation from charity work into stakehol
 
 ## Agentic Democracy: AI-Coordinated Governance
 
-VOTER replaces hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation:
+VOTER replaces hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation, now enhanced with Carroll Mechanisms for robust information elicitation and dispute resolution.
 
 ### Agent Network Architecture
 
@@ -223,3 +223,5 @@ Current implementation status and development roadmap are documented in detail:
 16. FEC, "Foreign Nationals Guidance"
 17. Ballotpedia, "Pay-per-signature Overview"
 18. Congressional Management Foundation, "Form Emails Blog"
+19. Gabriel Carroll, "Robust Mechanism Design" (General reference to his work on robust mechanism design)
+20. Connor McCormick, "Post on Disputable Counterpositions, Epistemic Leverage, and Doubting" (Specific post to be identified)
