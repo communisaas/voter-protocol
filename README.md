@@ -36,11 +36,15 @@ This architecture transforms civic participation from charity work into stakehol
 
 ## Agentic Democracy: AI-Coordinated Governance for Epistemic Integrity
 
-VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. This is not merely about automation; it's about building a system that actively cultivates **epistemic integrity** within democratic participation. Rather than fixed parameters, the platform uses specialized agents to optimize democratic participation, now fundamentally enhanced by **Carroll Mechanisms** for robust information elicitation and dispute resolution. These mechanisms create an 'epistemic layer' that ensures the quality and veracity of information flowing through the system:
-    *   **Disputable Counterpositions:** Formalizing disagreement by allowing claims within civic actions (e.g., email templates, personalization blocks) to be openly challenged and debated through incentivized markets.
-    *   **Epistemic Leverage:** Rewarding users who contribute highly informative, verifiable, and potentially 'surprising' insights that genuinely advance collective understanding.
-    *   **Doubting Mechanisms:** Penalizing the propagation of misinformation and incentivizing intellectual honesty by holding users accountable for claims disproven through open market mechanisms.
-    This agentic approach enables the platform to evolve with changing political dynamics, user behavior, and technological capabilities while maintaining authenticity and preventing manipulation by ensuring the integrity of information itself.
+VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
+
+**Carroll Mechanisms** solve democracy's information problem. Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth:
+
+* **Challenge Markets:** Any claim in templates or messages can be disputed. Put money where your mouth is.
+* **Information Rewards:** Higher payouts for surprising, verifiable insights that change minds or reveal new data.  
+* **Accountability Stakes:** Spread misinformation, pay the price when markets prove you wrong.
+
+This turns every civic action into verified signal. Agents evolve with political dynamics while authentic information wins.
 
 ### Agent Network Architecture
 
@@ -209,24 +213,24 @@ Current implementation status and development roadmap are documented in detail:
 
 **Sources**
 
-1. Al Jazeera, "Trump-linked meme coins see trading volumes near $40bn on inauguration," January 20, 2025
-2. Congressional Management Foundation, "Summary of Constituent Correspondence Tactics," 2024
-3. Fireside21, "Congressional Staffer Communication Survey," 2024  
+1. Al Jazeera, "Trump's new meme coin and crypto token soar on his first day in office," January 20, 2025, https://www.aljazeera.com/economy/2025/1/20/trumps-new-meme-coin-and-crypto-token-soar-on-his-first-day-in-office
+2. Congressional Management Foundation, "Summary of Constituent Correspondence Tactics," 2024, https://www.congressfoundation.org/office-toolkit-home/improve-casework-menu-item/1618-summary-of-constituent-correspondence-tactics
+3. Fireside21, "How Congressional Staffers Can Manage 81 Million Messages From Constituents," 2024, https://www.fireside21.com/resources/congressional-staffer-communication/
 4. ERC‑8004: Trustless Agents, https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md
 5. Monad Docs, https://docs.monad.xyz
 6. EAS: Ethereum Attestation Service, https://docs.attest.sh
-7. Self Protocol Documentation, docs.self.xyz
-8. BusinessWire, "Google Cloud Integrates with Self Protocol," July 23, 2025
-9. House.gov, "Communicating with Congress (CWC) Overview"
-10. House.gov, "CWC Advocacy Vendor Level of Service Standards"
-10. OpenSecrets, "2024 Election Spending Projections," October 2024
-11. Bloomberg Government, "Federal Lobbying Report," 2024
-12. FiscalNote, "Q4 2024 Financial Results," 2025
-13. 52 U.S.C. §10307(c) - Voting Rights Act
-14. 18 U.S.C. §597 - Federal Election Crimes
-15. 52 U.S.C. §30121 - Foreign National Contributions
-16. FEC, "Foreign Nationals Guidance"
-17. Ballotpedia, "Pay-per-signature Overview"
-18. Congressional Management Foundation, "Form Emails Blog"
-19. Gabriel Carroll, "Robust Mechanism Design" (General reference to his work on robust mechanism design)
-20. Connor McCormick, "Post on Disputable Counterpositions, Epistemic Leverage, and Doubting" (Specific post to be identified)
+7. Self Protocol Documentation, https://docs.self.xyz
+8. BusinessWire, "Google Cloud Integrates with Self Protocol," July 23, 2025 [Note: Specific article not found in search]
+9. House.gov, "Communicating with Congress (CWC) Overview," https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc
+10. House.gov, "CWC Advocacy Vendor Level of Service Standards," https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf
+11. OpenSecrets, "2024 election projected to be most expensive ever, $15.9 billion in spending," October 2024, https://indepthnh.org/2024/10/08/opensecrets-projects-2024-election-spending-to-exceed-previous-record/
+12. Bloomberg Government, "Federal Lobbying Report," 2024 [Note: Specific article not found in search]
+13. FiscalNote, "Fourth Quarter and Full Year 2024 Financial Results," March 2025, https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/
+14. 52 U.S.C. §10307(c) - Voting Rights Act
+15. 18 U.S.C. §597 - Federal Election Crimes
+16. 52 U.S.C. §30121 - Foreign National Contributions
+17. FEC, "Foreign nationals," https://www.fec.gov/help-candidates-and-committees/foreign-nationals/
+18. Ballotpedia, "Pay-per-signature for ballot initiative signature gatherers," https://ballotpedia.org/Pay-per-signature
+19. Congressional Management Foundation, "Form Emails Blog" [Note: Specific blog post not found in search]
+20. Gabriel Carroll, "Robust Mechanism Design" [Note: General reference to mechanism design work]
+21. Connor McCormick, "Disputable Counterpositions, Epistemic Leverage, and Doubting" [Note: Specific post to be identified]
