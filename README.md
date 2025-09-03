@@ -1,4 +1,4 @@
-# Verified Outreach to Elected Representatives: The Democracy Protocol
+# Verified Outreach to Elected Representatives: The VOTER Protocol
 
 *Building verifiable political participation at scale*
 
