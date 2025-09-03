@@ -1,4 +1,4 @@
-# Agentic Democracy Architecture
+# Adaptive System Architecture
 
 ## Death to Hardcoded Tyranny
 
@@ -8,7 +8,7 @@ The VOTER protocol implements **agentic governance** with agents off‑chain/TEE
 
 Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 
-## Core Principles: Resilient Agentic Democracy
+## Core Principles: Resilient Adaptive Systems
 
 ### 1. Resilient Abundance (Beyond Artificial Scarcity)
 ```solidity
@@ -31,7 +31,7 @@ function getOptimalSupply() external view returns (uint256) {
 **Robustness Principle:** While agents optimize for abundance, the protocol enforces explicit, auditable minimum and maximum bounds on key parameters, ensuring stability and preventing runaway issuance even under extreme conditions or agent misbehavior.
 
 ### 2. Adaptive Parameters (Beyond Hardcoded Constants)
-Every parameter becomes agent-optimized, but always within predefined, auditable safety rails:
+Every parameter becomes dynamically calibrated, but always within predefined, auditable safety rails:
 - Token rewards per action (clamped by min/max)
 - Verification thresholds (with defined ranges)
 - Economic incentives (bounded for stability)
@@ -355,7 +355,7 @@ function calculateReward(Action memory action) external view returns (uint256);
 
 ## Conclusion
 
-The VOTER protocol represents a fundamental shift from authoritarian code to **agentic democracy**:
+The VOTER protocol represents a fundamental shift from authoritarian code to **adaptive governance**:
 
 - **No artificial scarcity** - Abundance through intelligence
 - **No hardcoded tyranny** - Evolution through agents

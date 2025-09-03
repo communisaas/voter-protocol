@@ -69,13 +69,13 @@ class DemocracyCoordinator:
             await self.deploy_optimizations(consensus)
 ```
 
-## Core Principles: Robust Agentic Democracy
+## Core Principles: Intelligent Governance Frameworks
 
 ### 1. Resilient Abundance
 Agents calculate optimal supply based on actual demand and participation, but always within auditable, on-chain minimum and maximum bounds. This ensures stability and prevents runaway issuance.
 
 ### 2. Adaptive Parameters with Safety Rails
-Every parameter becomes agent-optimized, but operates within predefined, auditable safety rails. Reward amounts, verification thresholds, governance rules - all evolve based on observed outcomes, while preventing extreme deviations.
+Every parameter becomes dynamically calibrated, but operates within predefined, auditable safety rails. Reward amounts, verification thresholds, governance rules - all evolve based on observed outcomes, while preventing extreme deviations.
 
 ### 3. Distributed Authority with Circuit Breakers
 Multi-agent consensus replaces single operators. No god modes, no central control, just distributed intelligence serving human needs, complemented by human-governed emergency circuit breakers for ultimate safety.

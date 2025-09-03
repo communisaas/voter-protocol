@@ -5,7 +5,7 @@
 The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
 
 **Current Implementation Status:**
-- 🔧 **Monad execution layer**: Core contracts built with VOTER token, agent-optimized governance
+- 🔧 **Monad execution layer**: Core contracts built with VOTER token, adaptive governance
 - 🔧 **Multi-agent verification**: AgentConsensusGateway architecture designed for civic actions
 - 🔧 **Cheap EVM anchoring**: Verification receipt and registry contracts ready for deployment
 - 🔄 **EigenCloud AVS integration**: Planned for enhanced decentralized verification
@@ -78,10 +78,10 @@ sequenceDiagram
 
 ### Monad Layer: Cheap EVM Anchoring + Agent Optimization
 
-**Purpose**: Handle high-frequency operations with agent-optimized parameters and cheap EVM anchoring
+**Purpose**: Handle high-frequency operations with dynamically calibrated parameters and cheap EVM anchoring
 
 **Components:**
-- **VOTER Token Contract**: ERC-20 governance token with agent-optimized rewards
+- **VOTER Token Contract**: ERC-20 governance token with dynamically calibrated rewards
 - **Agent Governance**: Multi-agent consensus for dynamic parameter optimization
 - **Carroll Mechanisms**: Challenge markets and credibility infrastructure  
 - **ERC-8004 Integration**: Human-AI reputation registry mirroring
@@ -157,7 +157,7 @@ Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror mini
 4. **Agent Processing**: 
    - VerificationAgent confirms CWC delivery
    - ReputationAgent updates ERC-8004 credibility scores
-   - SupplyAgent calculates agent-optimized VOTER rewards
+   - SupplyAgent calculates performance-adjusted VOTER rewards
    - MarketAgent processes any challenge market outcomes
 5. **Consensus Execution**: Agent consensus triggers on-chain parameter updates
 6. **Token Minting**: VOTER tokens minted based on agent-determined amounts

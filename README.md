@@ -48,7 +48,7 @@ The outcome is simple: a public record of participation that offices can trust a
 
 This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself. Network effects strengthen with adoption. Technical integration creates sustainable competitive advantages. This hints at a new paradigm for collective decision-making.
 
-## Agentic Democracy: AI-Coordinated Governance for Information Quality
+## Adaptive Infrastructure: Information Quality Markets
 
 VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
 
@@ -70,14 +70,14 @@ This creates **portable democratic credibility**—reputation that follows you a
 * **ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems
 * **ReputationAgent**: Builds credibility scores from discourse quality and challenge market participation, coordinating priority routing for high-reputation participants
 
-### Emergent Parameter Optimization
+### Dynamic Parameter Calibration
 
-Unlike traditional protocols with hardcoded constants, VOTER's agents continuously optimize key parameters:
+Unlike traditional protocols with hardcoded constants, VOTER's infrastructure continuously calibrates key parameters:
 
 * **Reward calculations** adapt based on civic impact measurement rather than fixed "10 VOTER per message" rules
 * **Verification thresholds** adjust based on network conditions and spam detection patterns
 * **Economic incentives** evolve to maintain authentic democratic participation vs. speculative gaming
-* **Governance proposals** emerge from agent analysis of community needs and participation patterns
+* **Governance proposals** emerge from system analysis of community needs and participation patterns
 
 Agents evolve with political dynamics and user behavior. Democratic authenticity stays intact.
 
@@ -195,7 +195,7 @@ This transforms VOTER from a civic action tool into **foundational infrastructur
 
 **Technical Failure Modes:** Smart contract bugs drain treasuries. Oracle failures corrupt reputation data. Chain downtime breaks verification flows. **Mitigation:** Multi-sig governance, comprehensive audits, redundant oracle networks, cross-chain fallbacks. No single points of failure.
 
-**Market Dynamics:** VOTER token price crashes destroy incentives. Challenge markets get manipulated by whales. Information rewards favor existing power structures. **Mitigation:** Agent-optimized parameters adapt to market conditions, diverse funding sources beyond token appreciation, reputation weighting prevents pure wealth dominance.
+**Market Dynamics:** VOTER token price crashes destroy incentives. Challenge markets get manipulated by whales. Information rewards favor existing power structures. **Mitigation:** Dynamically calibrated parameters adapt to market conditions, diverse funding sources beyond token appreciation, reputation weighting prevents pure wealth dominance.
 
 **Adoption Friction:** Congressional offices resist new systems. Citizens don't understand crypto mechanics. Platform switching costs feel too high. **Mitigation:** CWC integration uses existing flows, fiat payment options, reputation portability creates switching benefits.
 
@@ -224,7 +224,7 @@ International expansion: parliamentary democracy integration across major market
 * **Contracts:** `VOTERRegistry` for zk eligibility; `CommuniqueCore` for orchestration; `VOTERToken` for rewards; `AgentParameters` for dynamic config; `AgentConsensusGateway` for verifier writes; `CreditVault` for accounting.
 * **Agent Infrastructure:** LangGraph coordination, Temporal workflows, ChromaDB memory, N8N automation pipelines.
 * **Security:** Multi-agent verification, distributed consensus, continuous optimization, memory-based learning. No PII on‑chain.
-* **Evolution:** Self-modifying parameters, emergent governance, agent-optimized economics, adaptive verification thresholds.
+* **Evolution:** Self-modifying parameters, emergent governance, adaptive economics, responsive verification thresholds.
 
 ### Detailed Architecture (Monad Anchoring)
 
@@ -287,7 +287,7 @@ Current implementation status and development roadmap are documented in detail:
 
 #### Critical Priorities
 - Deploy multi-agent consensus system
-- Implement agent-optimized reward calculations
+- Implement dynamically calibrated reward calculations
 - Complete CWC API integration with agent verification
 - Establish Temporal workflow orchestration
 - Launch N8N automation pipelines for civic actions

@@ -4,11 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Communiqué is an agentic civic engagement platform that uses multi‑agent systems to optimize democratic participation. User interaction is invariant (we always open the mail client); backend adapters handle certified legislative interfaces. Verification receipts are hashed, pinned to IPFS, and attested on Monad (no PII on‑chain). Optional L2 mirrors use ERC‑8004 registries for ETH‑native consumption.
+Communiqué is an adaptive civic engagement platform that integrates the VOTER Protocol for verifiable democratic participation. The platform uses multi‑agent systems to optimize civic engagement through the VOTER token economy and VOTER Records system. User interaction is invariant (we always open the mail client); backend adapters handle certified legislative interfaces. Verification receipts are hashed, pinned to IPFS, and attested on Monad (no PII on‑chain). Optional L2 mirrors use ERC‑8004 registries for ETH‑native consumption.
 
-### Core Innovation: Agentic Democracy Architecture
+**Core Philosophy**: ERC-8004 was built for AI agents. We extend it to human civic participants through the VOTER Protocol, creating infrastructure that serves both AI coordination and portable democratic reputation.
+
+### Core Innovation: VOTER Protocol within Communiqué
+The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
 - **VOTER Records**: Non-transferable proof of civic actions, verified by agent consensus
-- **CIVIC Tokens**: Dynamically minted governance tokens with agent-optimized reward calculations
+- **VOTER Tokens**: Dynamically minted governance tokens with performance-calibrated reward calculations
 - **Agent Network**: Specialized AI agents handle verification, economics, governance, and optimization
 
 ## Technology Stack
@@ -23,27 +26,34 @@ Communiqué is an agentic civic engagement platform that uses multi‑agent syst
 ### Blockchain Infrastructure
 - **Anchoring (EVM)**: Monad as primary on‑chain anchor (registries/attestations)
 - **Optional L2 Mirror**: ERC‑8004 Identity/Validation/Reputation registries on a major L2 when partners require on‑chain reads
-- **Contracts**: `VOTERRegistry.sol`, `CIVICToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
+- **Contracts**: `VOTERRegistry.sol`, `VOTERToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
 
 ### Agent-Driven Services
-- **Agent Swarm**: SupplyAgent, VerificationAgent, MarketAgent, ImpactAgent
-- **Dynamic Parameters**: No hardcoded constants, all agent-optimized
+- **Agent Swarm**: SupplyAgent, VerificationAgent, MarketAgent, ImpactAgent, ReputationAgent
+- **Dynamic Parameters**: No hardcoded constants, all dynamically calibrated
 - **Emergent Governance**: Agent-coordinated proposal and voting systems
 - **Continuous Learning**: Vector memory for pattern recognition and optimization
 
 ## Key Development Concepts
 
 ### Compliance posture
-- Utility‑first design; CIVIC is used for governance/utility, not vote buying
+- Utility‑first design; VOTER is used for governance/utility, not vote buying
 - No PII on‑chain; off‑chain KYC/attestations only where legally required
 - Clear separation between verified participation records and incentives
 
-### Agentic Development Approach
+### Adaptive Development Approach
 The platform uses intelligent automation throughout:
-- Agent-optimized reward calculations based on real civic impact
+- Dynamically calibrated reward calculations based on real civic impact
 - Dynamic verification thresholds that adapt to user behavior
 - Emergent economic parameters that optimize for engagement
 - Self-modifying governance that evolves with community needs
+
+### Carroll Mechanisms: Information Quality Markets
+**Quality discourse pays. Bad faith costs.**
+- Challenge markets for disputing claims with VOTER token stakes
+- Information rewards for surprising, verifiable insights
+- Reputation aggregation in ERC-8004 registries
+- Portable democratic credibility across platforms
 
 ## Smart Contract Architecture
 
@@ -52,14 +62,14 @@ The platform uses intelligent automation throughout:
 - Attest (Monad): Attests hash receipts (CWC/mail routing); supports revocations
 - Optional: ERC‑8004 mirror on L2 for on‑chain reads by ETH‑native consumers
 
-### EVM Contracts (optional)
-- `VOTERRegistry.sol`, `CIVICToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
+### EVM Contracts
+- `VOTERRegistry.sol`, `VOTERToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
 
-### CIVICToken.sol
+### VOTERToken.sol
 - ERC-20 with voting extensions (ERC20Votes, ERC20Permit)
 - Staking mechanism with APR rewards
 - Governance proposal creation and voting
-- Fee discount system based on civic engagement
+- Agent-optimized reward distribution
 
 ### Cross-chain control
 - Avoid routine bridging; treasuries and liquidity remain on ETH/L2 (Safe). Bridge only for explicit flows; no MPC dependency required.
@@ -73,7 +83,7 @@ The platform uses intelligent automation throughout:
 
 ### Separation of Democracy from Speculation
 - VOTER records prove civic participation but cannot be traded
-- CIVIC tokens provide economic incentives without commodifying democracy
+- VOTER tokens provide economic incentives without commodifying democracy
 - Clear distinction prevents "buying political influence" narrative
 
 ### Engaging Participation Without Compromise
@@ -123,26 +133,33 @@ The platform uses intelligent automation throughout:
 
 Comprehensive documentation is organized in the `docs/` folder:
 
-- **[Implementation Roadmap](docs/implementation/IMPLEMENTATION_ROADMAP.md)** - Complete 6-phase development plan addressing security vulnerabilities, infrastructure completion, and sustainable economic mechanisms
-- **[Design Documents](docs/design/)** - Architecture specifications and engagement strategy including:
-  - `VIRAL_ENGAGEMENT_PLAN.md` - Principled engagement mechanics for ETH community acceptance
-- **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies including:
-  - `SECURITY_ANALYSIS.md` - Comprehensive security audit findings and fixes
+### Architecture Documents (`docs/architecture/`)
+- **[AGENTIC_SYSTEM_DESIGN.md](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - Death to hardcoded tyranny: dynamically calibrated parameters
+- **[OVERVIEW_HYBRID_ARCHITECTURE.md](docs/architecture/OVERVIEW_HYBRID_ARCHITECTURE.md)** - Cheap EVM anchoring on Monad with optional L2 mirrors
+- **[TOKENOMICS_MODEL.md](docs/architecture/TOKENOMICS_MODEL.md)** - Dual token system: VOTER Records + VOTER Tokens
+
+### Design Documents (`docs/design/`)
+- **[CREDIBILITY_GOVERNANCE_DESIGN.md](docs/design/CREDIBILITY_GOVERNANCE_DESIGN.md)** - Intelligent agents within robust frameworks
+- **[ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Carroll Mechanisms and challenge markets
+
+### Implementation (`docs/implementation/`)
+- **[DEVELOPMENT_ROADMAP.md](docs/implementation/DEVELOPMENT_ROADMAP.md)** - Production readiness checklist and milestones
 
 ## Current Development Status
 
-### Critical Security Issues Identified
-- **OPERATOR_ROLE Vulnerability**: Single operator can mint unlimited tokens (needs decentralized oracle network)
-- **Supply Cap Issue**: 1B token cap / 10 per action = 100M max actions (needs governance-controlled expansion)
-- **Staking Bug**: Voting power loss after unstaking breaks governance participation
-- **Missing External Verification**: CWC API integration exists as interface only, no implementation
+### Recently Completed
+- **Token Migration**: Renamed from CIVIC to VOTER to avoid trademark conflict
+- **Rate Limiting Fix**: First-time users can now perform actions (fixed minActionInterval check)
+- **OPERATOR_ROLE Removal**: Eliminated centralized minting vulnerability
+- **Parameter Safety**: Implemented min/max bounds and daily caps in AgentParameters
+- **Multi-sig Verification**: ActionVerifierMultiSig with threshold signatures
 
 ### Immediate Priorities
-1. **Security Hardening**: Replace centralized minting with multi-sig oracle consensus
-2. **CWC Integration**: Complete congressional message verification system
-3. **Identity Verification**: Implement Self Protocol ZK proof verification
-4. **Supply Management**: Add governance mechanisms for token supply expansion
-5. **Frontend Development**: Production-ready web and mobile applications
+1. **CWC Integration**: Complete congressional message verification system with actual API calls
+2. **Identity Verification**: Implement Self Protocol ZK proof verification
+3. **Carroll Mechanisms**: Deploy challenge markets and reputation aggregation
+4. **Frontend Development**: Production-ready web and mobile applications
+5. **Agent Infrastructure**: Deploy LangGraph agents for parameter optimization
 
 ## Security Considerations
 
@@ -152,4 +169,4 @@ Comprehensive documentation is organized in the `docs/` folder:
 - Identity verification balances privacy with authenticity
 - Emergency controls for crisis situations
 
-This platform represents the convergence of engaging digital mechanics with authentic civic participation—positioning democracy to thrive in the digital economy while creating measurable political impact.
+Communiqué, powered by the VOTER Protocol, represents the convergence of engaging digital mechanics with authentic civic participation—positioning democracy to thrive in the digital economy while creating measurable political impact.

@@ -28,7 +28,7 @@ In a world where memecoins hit $72B market caps overnight, civic engagement need
 
 ### 2. Economic Gamification: Robust & Dynamic Incentives
 
-**Agent-Optimized VOTER Token Rewards:**
+**Dynamically Calibrated VOTER Token Rewards:**
 - **CWC Messages**: Congressional message verification + delivery confirmation  
 - **Direct Action**: Verified campaign participation and advocacy events
 - **Challenge Markets**: Quality discourse participation and consensus building
@@ -110,7 +110,7 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 
 ### Meaningful Feedback Loops
 1. **Action** → Message sent to representative via CWC integration
-2. **Verification** → Delivery confirmation + agent-optimized VOTER token reward 
+2. **Verification** → Delivery confirmation + performance-adjusted VOTER token reward 
 3. **Progress** → ERC-8004 credibility metrics update + engagement streak
 4. **Recognition** → Community sees verified civic participation + challenge market wins
 5. **Impact** → Policy outcomes tracked + representative response measurement
@@ -150,7 +150,7 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 ## Attention Competition Strategy: Robust Engagement in a Noisy World
 
 ### Against Memecoins
-- **Utility Over Speculation**: VOTER tokens provide economic value through real platform utility and agent-optimized rewards
+- **Utility Over Speculation**: VOTER tokens provide economic value through real platform utility and dynamically calibrated rewards
 - **Meaningful Community**: Deeper social connections around shared civic values vs. pump groups through ERC-8004 reputation
 - **Measurable Impact**: Verifiable democratic outcomes vs. price manipulation via cheap EVM anchoring on Monad
 - **Legitimacy**: Civic engagement builds social capital alongside economic returns through Carroll Mechanisms
@@ -158,14 +158,14 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 ### Against Social Media
 - **Purposeful Engagement**: Actions have real-world impact vs. empty scrolling through agent-verified civic outcomes
 - **Verified Impact**: Blockchain-proven civic actions vs. hollow likes via ERC-8004 reputation infrastructure  
-- **Economic Rewards**: Earn VOTER tokens vs. giving away data for free with agent-optimized reward calculations
+- **Economic Rewards**: Earn VOTER tokens vs. giving away data for free with adaptive reward calculations
 - **Social Status**: Portable democratic credibility > follower counts through challenge market participation
 
 ### Against Traditional Civic Platforms
 - **Immediate Gratification**: Instant VOTER rewards vs. delayed impact through cheap EVM anchoring verification
 - **Game Mechanics**: Carroll Mechanisms turn discourse quality into engaging challenge markets and reputation building
 - **Social Proof**: Public leaderboards and achievements built on tamper-proof ERC-8004 reputation infrastructure
-- **Economic Incentives**: Get paid to participate in democracy through agent-optimized rewards within auditable bounds
+- **Economic Incentives**: Get paid to participate in democracy through performance-based rewards within auditable bounds
 
 ## Success Metrics
 

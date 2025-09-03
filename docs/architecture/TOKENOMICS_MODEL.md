@@ -17,7 +17,7 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 ### VOTER Tokens (Tradeable)
 - **Purpose**: Platform governance and economic incentives
 - **Properties**: ERC-20 compatible, tradeable, stakeable
-- **Creation**: Minted per verified civic action with agent-optimized amounts based on impact measurement and market conditions
+- **Creation**: Minted per verified civic action with dynamically calibrated amounts based on impact measurement and market conditions
 - **Function**: Governance voting, challenge market staking, and rewards distribution
 
 ## Token Economics
