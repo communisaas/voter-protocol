@@ -33,13 +33,13 @@ Our architecture builds for trustless agents and verifiable interactions. ERC-80
 
 The outcome: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
 
-This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself. Network effects strengthen with adoption. Technical integration creates sustainable competitive advantages.
+The shift is simple: civic engagement stops being unpaid labor and becomes stakeholder ownership. More people participate, better data emerges, stronger network effects follow.
 
-## Adaptive Infrastructure: Information Quality Markets
+## Fixing Democracy's Information Problem
 
-VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
+VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation. **[How agents replace hardcoded tyranny →](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)**
 
-**Carroll Mechanisms** solve democracy's information problem. Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth, anchored by ERC-8004 reputation infrastructure:
+**Carroll Mechanisms** solve democracy's information problem ([Network Goods Institute](https://paragraph.com/@ngi/carroll-mechanisms) [21]). Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth, anchored by ERC-8004 reputation infrastructure. **[Information quality markets explained →](docs/design/CREDIBILITY_GOVERNANCE_DESIGN.md)**
 
 * **Challenge Markets:** Any claim in templates or messages can be disputed. Put money where your mouth is.
 * **Information Rewards:** Higher payouts for surprising, verifiable insights that change minds or reveal new data.  
@@ -70,11 +70,11 @@ Agents evolve with political dynamics and user behavior. Democratic authenticity
 
 **Quality discourse pays. Bad faith costs.**
 
-## Viral Democracy Strategy
+## Making Democracy Compete
 
 Democracy infrastructure must compete for attention in the memecoin economy. VOTER combines authentic civic impact with engaging mechanics: real-time civic health dashboards, achievement systems for verified participation, social proof for democratic influencers, and cross-platform reputation building. 
 
-The $140B memecoin market proves attention and economic incentives create massive adoption. We apply those mechanics to civic participation while maintaining democratic authenticity. Comprehensive viral strategy documented in **[Engagement & Gamification Strategy](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)**.
+The $140B memecoin market proves attention and economic incentives create massive adoption. We apply those mechanics to civic participation while maintaining democratic authenticity. **[Making democracy viral →](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)**
 
 ## Economic Tiers
 
@@ -85,25 +85,27 @@ Users send emails through Communiqué and earn VOTER tokens immediately. No wall
 Dispute template claims or message quality using earned VOTER tokens. Winners take stakes. Information rewards pay higher for surprising insights that change minds or reveal new data. Reputation multipliers based on historical participation patterns determine routing priority and future rewards. High-reputation participants get priority congressional routing. Low-reputation claims require additional verification stakes. Quality bonuses for sourcing standards and constructive engagement. Bad faith costs, quality discourse pays.
 
 **Tier 3: Template Infrastructure**
-Templates stored as IPFS CIDs on-chain. Template creators earn revenue share from successful usage metrics. Carroll Mechanisms solve democracy's information problem—political discourse drowns in noise because bad information travels as fast as good. Challenge markets determine template credibility through community consensus, not truth arbitration. Template challenges affect all users of that template. Usage challenges are one-on-one disputes. Good templates generate ongoing creator income through institutional revenue sharing.
+Templates stored as IPFS CIDs on-chain. Template creators build reputation and influence through successful usage. Carroll Mechanisms ([NGI](https://paragraph.com/@ngi/carroll-mechanisms) [21]) solve democracy's information problem—political discourse drowns in noise because bad information travels as fast as good. Challenge markets determine template credibility through community consensus, not truth arbitration. Template challenges affect all users of that template. Usage challenges are one-on-one disputes. Good templates earn creators credibility and priority routing, not revenue shares.
 
 **Tier 4: Institutional Revenue**
-Organizations buy USDC-backed credits for API access and data licensing. **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad. Revenue flows to template creators and protocol treasury through CreditVault.sol accounting system.
+Organizations buy USDC-backed credits for API access and data licensing (when we have something worth buying). **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad.
 
 **Tier 5: Platform Services**
 Analytics dashboards, bulk messaging, congressional response tracking. Premium features unlocked with VOTER token holdings. Cross-platform reputation via ERC-8004 registry.
 
 The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [10]). Federal lobbying: multibillion annual ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [11]). Public-affairs SaaS: nine-figure revenue (FiscalNote: $100M+ revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [12]).
 
-**Economic Flow:** Users participate for free and earn tokens. Those tokens fuel quality markets that determine template credibility. Successful templates generate institutional revenue from organizations who pay for verified civic data. Revenue flows back to template creators and funds premium platform services. Each tier supports the next. Users never pay. Organizations pay for democracy infrastructure.
+**Economic Flow:** Users participate for free and earn tokens. Those tokens fuel challenge markets where quality wins and bad faith loses. Token value comes from belief in democratic infrastructure, not immediate revenue. Maybe institutions pay for verified civic data someday. Maybe not. We build the infrastructure first, monetization comes when it comes. Users never pay. Quality discourse pays. **[The actual tokenomics →](docs/architecture/TOKENOMICS_MODEL.md)**
 
-## How We Get There: Adoption Strategy
+## How We Get There
+
+**[Full development roadmap →](docs/implementation/DEVELOPMENT_ROADMAP.md)**
 
 **Congressional Pilot Program:** Start with select congressional offices that already handle high message volumes effectively. Integrate VOTER verification with their existing CWC workflows. Demonstrate delivery confirmation, message quality filtering, constituent verification. Prove the system works before scaling.
 
 **Early User Onboarding:** Access through Communiqué with deterministic addresses. Users participate immediately without wallets. Virtual rewards accumulate as proof of concept. No friction, no learning curve. Just better civic engagement that pays.
 
-**Proof Points We'll Track:** Delivery confirmation rates via CWC integration. Template usage and creator revenue generation. Challenge market resolution accuracy and participation rates. User engagement with verified vs. unverified messaging tools.
+**Proof Points We'll Track:** Delivery confirmation rates via CWC integration. Template usage and credibility building. Challenge market resolution accuracy and participation rates. User engagement with verified vs. unverified messaging tools.
 
 **Network Effects Path:** Quality templates attract more users. More users generate better data for institutional customers. Institutional revenue funds better templates and infrastructure. Congressional offices prefer verified channels. Reputation portability attracts users from other platforms.
 
@@ -112,7 +114,7 @@ The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https:/
 
 ## Challenge Market Mechanics
 
-**Template Challenges:** Dispute template factual claims or sourcing standards. Affects all users of that template. Successful challenges earn revenue share from template usage.
+**Template Challenges:** Dispute template factual claims or sourcing standards. Affects all users of that template. Successful challenges win the defender's stake and boost challenger reputation.
 
 **Usage Challenges:** Challenge how someone used a template or their personal additions. One-on-one dispute resolution. Winners take stakes.
 
@@ -125,7 +127,7 @@ The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https:/
 
 Agents calculate rewards based on impact measurement—no hardcoded constants. Quality compounds through reputation multipliers. High-reputation participants get priority congressional routing.
 
-## Incentive Design for Democratic Participation
+## Paying People to Participate
 
 The protocol separates **proof of participation** from **who pays for the pipes**.
 
@@ -145,7 +147,7 @@ In a world where the President's memecoin cleared $40B in volume on inauguration
 
 **Bright-line rules remain.** We never reward voting, registering to vote, or choosing candidates. We block foreign funds. But contacting your representative? That's civic work, and in 2025's regulatory environment, compensating that work makes us competitive while cautious competitors wait for permission that already arrived.
 
-## Verification Infrastructure and Network Effects
+## Trust at Scale
 
 Trust assumptions fail at scale. Email can be automated. Phone numbers can be bought. Accounts can be generated. VOTER tightens the loop:
 
@@ -158,7 +160,7 @@ More verified actions produce better aggregates. Better aggregates attract resea
 
 This verification infrastructure creates network effects that compound with adoption, positioning VOTER as infrastructure for scalable democratic engagement that traditional civic platforms cannot match.
 
-## Credibility Infrastructure: Portable Democratic Reputation
+## Reputation That Follows You
 
 VOTER creates the first **portable reputation system for democratic participation**. Unlike platform-locked karma or follower counts, ERC-8004 reputation follows participants across the democratic ecosystem.
 
@@ -189,7 +191,7 @@ Our AI agents coordinate via ERC-8004. Your civic reputation lives on ERC-8004. 
 
 This transforms VOTER from a civic action tool into **foundational infrastructure for trustworthy democratic participation at scale**.
 
-## Risk Analysis: What Could Go Wrong
+## What Could Go Wrong
 
 **Regulatory Capture:** Established interests pressure regulators to classify VOTER as securities or ban foreign participation. **Mitigation:** Utility-first design, bright-line compliance rules, geographic segmentation. Lobbying budgets are real—we hire professionals before we need them.
 
@@ -205,7 +207,7 @@ This transforms VOTER from a civic action tool into **foundational infrastructur
 
 We're not naive about these risks. Each one gets addressed through technical design, economic incentives, and operational vigilance. The alternative—democracy infrastructure controlled by platforms optimizing for engagement over truth—is riskier.
 
-## Competitive Landscape and Positioning
+## Why We Win
 
 **Current Platforms vs. VOTER:**
 
@@ -227,7 +229,7 @@ Now is the right time. Political attention economy exists. Regulatory clarity al
 
 International expansion: parliamentary democracy integration across major markets. The EU offers massive scale for verified civic engagement. Commonwealth countries—Canada, Australia, UK—provide familiar regulatory environments and compatible political systems. Strategic partnerships with government offices, academic institutions, and media organizations accelerate adoption while positioning VOTER as democracy infrastructure, not partisan politics.
 
-## Technical Implementation and Security
+## How It Works
 
 * **Contracts:** `VOTERRegistry` for zk eligibility; `CommuniqueCore` for orchestration; `VOTERToken` for rewards; `AgentParameters` for dynamic config; `AgentConsensusGateway` for verifier writes; `CreditVault` for accounting.
 * **Agent Infrastructure:** LangGraph coordination, Temporal workflows, ChromaDB memory, N8N automation pipelines.
@@ -272,13 +274,13 @@ Run a pilot across all Congressional districts. Let users create and send templa
 
 Publish the methods. Publish the results.
 
-## Development Status: Core Systems Operational
+## Current Status
 
-**Core infrastructure deployed.** Smart contracts live: `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` with agent integration points. ZK registration path implemented. Governance scaffold operational. Reward accounting system with dynamic parameters. Tests green for core flows.
+**Smart contracts complete.** `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` with agent hooks tested. `ChallengeMarket`, `AgentParameters`, `AgentConsensusGateway` ready. Dynamic parameter system with safety rails. Tests passing. Not deployed.
 
-**Agent infrastructure operational.** Multi-agent consensus framework running. LangGraph workflows processing civic actions. Dynamic reward calculations active. ChromaDB vector memory for agent learning. Model-agnostic architecture supports any AI provider.
+**Agent code written.** Five specialized agents (Verification, Supply, Market, Impact, Reputation) with full logic. LangGraph coordinator and workflows complete. ChromaDB integration coded. FastAPI server ready. Not running.
 
-**Communiqué Integration active.** Early access enables immediate participation—no wallet required initially. Virtual rewards accumulate. Agent-verified civic actions. Connect anytime to claim rewards.
+**Communiqué integration built.** API endpoints in `/voter-proxy/` created. Server-side proxy routes implemented. Virtual reward tracking ready. Database schema prepared. Not connected to live services.
 
 **Next major milestones:** 
 - Complete Carroll Mechanisms for information quality markets
@@ -289,12 +291,14 @@ Publish the methods. Publish the results.
 
 ### Implementation Status and Next Steps
 
-Current implementation status and development roadmap are documented in detail:
+### Deep Dives
 
-- **[Agentic System Design](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - Multi-agent system design principles
-- **[Development Roadmap](docs/implementation/DEVELOPMENT_ROADMAP.md)** - Agent-based development plan
-- **[Design Documents](docs/design/)** - Credibility governance and engagement strategy
-- **[Security Analysis](docs/security/)** - Vulnerability assessments and mitigation strategies
+- **[How agents replace hardcoded tyranny](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - No more fixed parameters. Agents optimize for human flourishing.
+- **[The actual tokenomics](docs/architecture/TOKENOMICS_MODEL.md)** - Bootstrap economics without fantasy revenue splits
+- **[Monad + EigenCloud architecture](docs/architecture/OVERVIEW_HYBRID_ARCHITECTURE.md)** - Cheap anchoring meets cryptographic verification
+- **[Information quality markets](docs/design/CREDIBILITY_GOVERNANCE_DESIGN.md)** - How Carroll Mechanisms make quality discourse pay
+- **[Making democracy compete](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Viral mechanics for the attention economy
+- **[What we build next](docs/implementation/DEVELOPMENT_ROADMAP.md)** - From bootstrap to scale
 
 #### Current Status
 - Core smart contracts with agent integration points

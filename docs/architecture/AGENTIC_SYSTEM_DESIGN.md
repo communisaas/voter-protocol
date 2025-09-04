@@ -66,33 +66,58 @@ The ReputationAgent builds credibility scores by tracking challenge market parti
 
 ### Agent Coordination Framework
 
-**LangGraph Coordination Framework - Live and Operational:**
+**LangGraph Coordination Framework (Planned Architecture):**
 
 ```mermaid
-flowchart TD
-    A[Civic Action Submitted] --> B[Verification Agent]
-    B --> C[Supply Agent]
-    B --> D[Market Agent] 
-    B --> E[Reputation Agent]
-    B --> F[Impact Agent]
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
+flowchart LR
+    subgraph SA["Civic Action"]
+        A[User sends<br/>message]
+    end
     
-    C --> G[Consensus Calculator]
-    D --> G
-    E --> G
-    F --> G
+    subgraph SB["Agent Swarm"]
+        B[VerificationAgent<br/>validates action]
+        C[SupplyAgent<br/>calculates reward]
+        D[MarketAgent<br/>checks economics] 
+        E[ReputationAgent<br/>updates credibility]
+        F[ImpactAgent<br/>measures effect]
+    end
     
-    G --> H{Consensus Score > 0.8?}
-    H -->|Yes| I[Finalize Certification]
-    H -->|No| J[Reject Action]
+    subgraph SC["Consensus"]
+        G{{Multi-Agent<br/>Agreement}}
+    end
     
-    I --> K[Anchor Receipt on Monad]
-    I --> L[Update ERC-8004 Reputation]
-    I --> M[Mint VOTER Tokens]
+    subgraph SD["Outcomes"]
+        H[Monad<br/>anchoring]
+        I[ERC-8004<br/>reputation]
+        J[VOTER<br/>tokens]
+    end
+    
+    A -.->|triggers| B & C & D & E & F
+    B & C & D & E & F -->|scores| G
+    G -->|if consensus| H & I & J
+    G -.->|no consensus| A
+    
+    style SA fill:#1e293b,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
+    style SB fill:#1e293b,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style SC fill:#1e293b,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+    style SD fill:#1e293b,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+    
+    style A fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
+    style B fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style C fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style D fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style E fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style F fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style G fill:#78350f,stroke:#fbbf24,stroke-width:3px,color:#f1f5f9
+    style H fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+    style I fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+    style J fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
 ```
 
-The certification workflow orchestrates five specialized agents through LangGraph state management. Each civic action triggers parallel agent analysis covering verification, supply impact, market conditions, reputation updates, and civic impact assessment. Agents reach consensus through distributed decision-making rather than centralized gatekeeping. High-confidence consensus triggers certification with Monad anchoring, reputation updates, and token rewards.
+The planned certification workflow will orchestrate five specialized agents through LangGraph state management. Each civic action will trigger parallel agent analysis covering verification, supply impact, market conditions, reputation updates, and civic impact assessment. Agents will reach consensus through distributed decision-making rather than centralized gatekeeping. High-confidence consensus will trigger certification with Monad anchoring, reputation updates, and token rewards.
 
-**This isn't theoretical. This system is operational.**
+**This is the target architecture. Contracts exist, agents are in development.**
 
 ### Robust Information Elicitation (Carroll Mechanisms)
 
@@ -129,7 +154,7 @@ The AgentConsensusGateway validates multi-agent agreement before executing param
 
 **N8N Workflow Engine (off-chain):**
 
-Civic actions trigger webhook endpoints that activate parallel agent verification. The VerificationAgent, IdentityAgent, and ImpactAgent analyze submissions simultaneously rather than sequentially. Claude 3.5 Sonnet calculates consensus scores from agent outputs using sophisticated prompt engineering. High-confidence decisions automatically anchor hash receipts to Monad through the attest contract. 
+Civic actions trigger webhook endpoints that activate parallel agent verification. The VerificationAgent, IdentityAgent, and ImpactAgent analyze submissions simultaneously rather than sequentially. The coordinator calculates consensus scores from agent outputs through multi-agent agreement. High-confidence decisions automatically anchor hash receipts to Monad through the attest contract. 
 
 The workflow orchestrator manages agent coordination, failure recovery, and result persistence. No single point of failure disrupts the civic action pipeline.
 
@@ -179,10 +204,20 @@ The protocol evolves based on usage patterns: Agents identify inefficiencies, pr
 
 ## Implementation Status
 
-### Exists in repo
-- On-chain: `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` (no operator), `AgentParameters`, `AgentConsensusGateway`
-- Tests: verified action path with multisig; dynamic rewards via parameters
-- **Robustness: Parameter safety rails (min/max clamps, caps) implemented in `AgentParameters` and enforced in `CommuniqueCore`.**
+### What Exists in Repo
+
+**Smart Contracts (Complete):**
+- `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` - Core system
+- `AgentParameters`, `AgentConsensusGateway` - Agent infrastructure  
+- `ChallengeMarket`, `StakedVOTER` - Economic mechanisms
+- Parameter safety rails (min/max clamps) enforced in contracts
+- Forge tests passing
+
+**Agent Code (Complete):**
+- Five specialized agents with full business logic
+- LangGraph coordinator and state management
+- Complete workflows and FastAPI server
+- Not deployed or running
 
 ### To build next
 - CWC verification workflow (n8n) writing to `AgentConsensusGateway`
@@ -219,5 +254,3 @@ The VOTER protocol represents a fundamental shift from authoritarian code to **a
 This architecture enables true democratic participation at scale: systems that serve humans rather than constraining them, abundance rather than artificial scarcity, evolution rather than stagnation.
 
 **The future of democracy is agentic. The future of protocols is adaptive. The future of governance is emergent.**
-
-*Built with Claude, optimized by agents, serving humans.*

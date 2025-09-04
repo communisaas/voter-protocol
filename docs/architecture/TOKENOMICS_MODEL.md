@@ -1,8 +1,8 @@
-# Token Model: VOTER Records + VOTER
+# VOTER Tokenomics
 
-## Executive Summary
+## The Deal
 
-We separate authentic participation from incentives, with all verification receipts anchored on Monad for cheap EVM anchoring (hashes only; no PII). **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Mirror to an ETH L2 (ERC‑8004 registries) when ETH‑native consumers need on‑chain reads.
+Citizens do civic shit, get tokens. No PII on-chain, just hashes on Monad because it's cheap. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Mirror to ETH L2 when someone actually needs to read it.
 
 Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad docs](https://docs.monad.xyz)
 
@@ -25,17 +25,26 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 ### VOTER Record Creation
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart LR
-    A[Verified Civic Action] --> B[Non-transferable VOTER Record]
-    A --> C[Agent-optimized VOTER Tokens] 
-    A --> D[ERC-8004 Reputation Update]
+    A[Verified Civic Action] --> B[Non-transferable<br/>VOTER Record]
+    A --> C[Agent-optimized<br/>VOTER Tokens] 
+    A --> D[ERC-8004<br/>Reputation Update]
     
-    B --> E[Permanent Civic History]
-    C --> F[Governance Participation]
-    D --> G[Portable Credibility]
+    B --> E[Permanent<br/>Civic History]
+    C --> F[Governance<br/>Participation]
+    D --> G[Portable<br/>Credibility]
+    
+    style A fill:#1e3a8a,stroke:#60a5fa,stroke-width:3px,color:#f1f5f9
+    style B fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+    style C fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+    style D fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+    style E fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    style F fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    style G fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
 ```
 
-Every verified civic action creates three outcomes: a permanent, non-transferable record of participation; dynamically calculated VOTER tokens based on impact and market conditions; and portable reputation scores written to ERC-8004 registries that follow users across platforms.
+Do civic action, get three things: permanent record you can't trade, VOTER tokens based on actual impact, and reputation that follows you everywhere.
 
 **Eligible Actions (examples):**
 - Certified legislative submissions (via adapters)
@@ -53,28 +62,23 @@ Every verified civic action creates three outcomes: a permanent, non-transferabl
 
 The TemplateRegistry tracks message templates through their entire lifecycle. Each template stores its IPFS hash for decentralized content, creator address for attribution, creation block for timestamping, usage metrics for performance analysis, revenue totals for creator compensation, credibility scores from challenge market outcomes, and deprecation status for lifecycle management.
 
-Template challengers get tracked separately, enabling dispute resolution workflows. Creator revenue accumulation ensures transparent compensation distribution. The registry serves as the authoritative source for template economics and reputation.
+Template challengers get tracked separately, enabling dispute resolution workflows. The registry serves as the authoritative source for template credibility and reputation.
 
-**Revenue Distribution Architecture:**
+**How Economics Actually Work:**
 
-```mermaid
-pie title Template Revenue Distribution
-    "Creator Share" : 30
-    "Protocol Treasury" : 40
-    "Challenge Market Pool" : 20
-    "Infrastructure" : 10
-```
+Forget revenue splits for money that doesn't exist. Here's reality:
 
-**Revenue Flow Mechanics:**
-Institutional customers pay USD for verified civic engagement analytics and bulk outreach services. Revenue gets distributed across four pools: template creators receive 30% for contribution incentives, protocol treasury gets 40% for development and operations, challenge market pools receive 20% for dispute resolution rewards, and infrastructure maintenance takes 10% for system operations.
+**Bootstrap Phase (Now):**
+Citizens earn VOTER tokens for verified civic actions. Token value comes from speculation on democratic infrastructure's future. Challenge markets redistribute existing tokens - winners take losers' stakes. No institutional revenue required.
 
-Performance multipliers adjust creator shares based on template effectiveness, challenge market outcomes, and usage patterns. High-performing templates with strong credibility scores earn enhanced revenue shares.
+**Maybe Later (If Traction):**
+Institutions might pay for verified civic data. Protocol takes operational costs if revenue exists. Template creators build reputation, not revenue streams. We'll figure out splits when there's something to split.
 
-**Challenge Market State Machine:**
+**Challenge Market Mechanics:**
 - Template challenges trigger state transitions in TemplateRegistry
-- Successful challenges redistribute accumulated revenue share
+- Successful challenges win the opposing stake (redistribution, not new money)
 - Challenge resolution updates credibility scores automatically
-- Failed challenge attempts slash challenger stakes
+- Failed challenge attempts lose staked tokens to defender
 
 ### Carroll Mechanisms Economics
 
@@ -92,36 +96,35 @@ Performance multipliers adjust creator shares based on template effectiveness, c
 - Low-reputation claims require higher stakes to challenge template usage
 - Template creators build reputation through successful template performance metrics
 
-### VOTER Token Utility
+### What VOTER Tokens Actually Do
 
-**Governance Power:**
-- Vote on platform features and policies
-- Approve new action types for VOTER record creation
-- Decide on fee structures and reward distributions
-- Select community moderators and validators
+**Governance (if you care):**
+- Vote on shit that matters
+- Decide what counts as civic action  
+- Control the treasury (when there is one)
 
-**Economic Benefits:**
-- Access to premium features (analytics, bulk messaging tools)
-- Staking rewards from protocol revenue distribution
-- Priority access to new features and campaigns
-- Challenge market participation and winnings
-- Reputation-based reward multipliers
+**Economic Perks:**
+- Stake for yields (if value exists)
+- Win challenge markets by being right
+- Higher reputation = bigger rewards
+- Access premium features (when we build them)
 
-**Network Effects:**
-- Social credibility through verified civic history
-- Community building around shared causes
-- Cross-platform integration with civic organizations
+**Social Capital:**
+- Verified civic history follows you
+- Quality discourse builds real credibility  
+- Reputation that actually means something
 
-## Market Positioning
+## Why This Works
 
-### Regulatory Framework
-- Utility‑first design; clear functional purpose
-- Minimal on‑chain data; off‑chain KYC when legally required
+### Regulatory
+- It's utility, not securities
+- No PII on-chain
+- KYC only when legally required
 
-### Competitive Advantages
-- Verifiable participation receipts anchored on Monad
-- UX mirrors email; zero lift for end users
-- ERC‑8004 infrastructure serves both AI agent coordination and human civic reputation
+### Competitive Edge  
+- Verified receipts on cheap Monad
+- Email UX - normies can use it
+- ERC‑8004 serves both AI agents and humans
 
 ## Technical Implementation
 
@@ -145,20 +148,22 @@ The parameters contract stores agent-calculated values within auditable bounds. 
 - **Social platforms** for civic action sharing
 - **DeFi protocols** for VOTER token liquidity and yield
 
-## Growth Strategy
+## Path to Launch
 
-### Phase 1: Foundation (Months 1‑6)
-- Deploy Monad contracts: Registry, Attest
-- Ship certified adapter (e.g., CWC) + mail routing receipts
-- Launch with verified civic actors; “Verify on‑chain” links
+**First**: Get the core working
+- Deploy contracts when ready
+- Connect CWC integration
+- Test with real users
 
-### Phase 2: Growth (Months 6‑12)
-- Gamification/leaderboards; referrals
-- ERC‑8004 reputation infrastructure enables portable democratic credibility across platforms
+**Then**: Build network effects
+- Add gamification that actually engages
+- Make reputation portable via ERC-8004
+- Let quality content creators emerge
 
-### Phase 3: Ecosystem (Months 12‑24)
-- Additional adapters (other legislatures)
-- Partnerships; global expansion
+**Eventually**: Scale if it works
+- More legislative integrations if demand exists
+- International expansion if US succeeds
+- Partnerships when we have leverage
 
 ## Risk Analysis & Mitigation
 
@@ -168,36 +173,36 @@ The parameters contract stores agent-calculated values within auditable bounds. 
 - **International Compliance**: Modular framework adapts to different jurisdictions without compromising core functionality
 
 ### Technical Security
-- **Smart Contract Resilience**: Comprehensive audits and formal verification of all critical pathways
-- **Multi-Agent Consensus**: Distributed decision-making eliminates single points of failure
-- **Emergency Controls**: Human-governed circuit breakers provide ultimate safety without compromising agent optimization
+- **Smart Contracts**: Audited, not rugged
+- **Multi-Agent Consensus**: No single point of failure
+- **Emergency Controls**: Humans can hit the brakes
 
-### Economic Stability
-- **Agent-Optimized Parameters**: Dynamic supply adjusts to market conditions within auditable safety rails
-- **Diversified Revenue**: USD institutional credits provide stability beyond token appreciation
-- **Network Effects**: Growing reputation infrastructure creates sustainable competitive moats
+### Economic Stability  
+- **Dynamic Supply**: Agents adjust within safety rails
+- **Revenue**: Maybe institutions pay someday
+- **Network Effects**: Reputation creates real moats
 
-## Success Metrics
+## How We Know It's Working
 
-### Democratic Infrastructure Adoption
-- **Monthly active verified civic actors**: Building the verified citizen base
-- **Congressional messages via CWC integration**: Direct democratic engagement volume
-- **Cross-platform reputation portability**: ERC-8004 integration success
+### People Actually Use It
+- Citizens sending verified messages
+- Representatives actually responding
+- Reputation meaning something
 
-### Agent-Optimized Economics
-- **Dynamic reward effectiveness**: Agent optimization outperforming hardcoded parameters
-- **Challenge market quality**: Community consensus improving discourse standards
-- **Network effects strength**: Growing reputation infrastructure value
+### Economics Make Sense
+- Agents beat hardcoded params
+- Challenge markets surface quality
+- Network effects actually happening
 
-### Authentic Political Impact
-- **Representative response rates**: Verified constituents getting better signal-to-noise
-- **Policy engagement measurability**: Democracy infrastructure creating real outcomes
-- **Institutional adoption**: Government offices integrating with verification infrastructure
+### Real Political Impact  
+- Better signal-to-noise for offices
+- Measurable policy outcomes
+- Government offices caring
 
-## Conclusion
+## The Bottom Line
 
-The hybrid token model positions VOTER at the intersection of digital economic incentives and authentic democratic participation. By separating proof-of-civic-engagement from pure speculation, we create sustainable incentives for verified political action while building infrastructure that serves both humans and AI agents.
+We separate civic participation from speculation. Citizens earn tokens for real democratic action. Agents optimize instead of hardcoded bullshit. Challenge markets make quality discourse pay. Reputation actually follows you.
 
-Agent-optimized parameters replace hardcoded tyranny. Challenge markets surface truth through community consensus. ERC-8004 reputation creates portable democratic credibility. This isn't just another governance token—it's foundational infrastructure for democracy that competes in the attention economy.
+This isn't another governance token. It's democracy infrastructure that competes for attention while creating real political impact.
 
-**Quality discourse pays. Bad faith costs. Democracy scales.**
+**Quality discourse pays. Bad faith costs.**

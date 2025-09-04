@@ -47,27 +47,11 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 
 ### Agent Coordination: Resilient Orchestration
 
-Using **LangGraph** for multi-agent orchestration, designed for resilience and auditable decision-making:
-```python
-class DemocracyCoordinator:
-    async def optimize_democracy(self):
-        # Parallel agent optimization, with each agent operating within its defined robust bounds
-        supply_params = await self.supply_agent.calculate_optimal()
-        verification_rules = await self.verification_agent.update_thresholds()
-        reward_structure = await self.market_agent.optimize_incentives()
-        impact_metrics = await self.impact_agent.measure_outcomes()
-        reputation_scores = await self.reputation_agent.update_credibility()
-        
-        # Consensus mechanism, designed to be robust to incomplete information
-        consensus = await self.achieve_consensus([
-            supply_params, verification_rules, 
-            reward_structure, impact_metrics, reputation_scores
-        ])
-        
-        # Execute if agents agree, with on-chain enforcement of safety rails
-        if consensus.confidence > 0.8:
-            await self.deploy_optimizations(consensus)
-```
+**LangGraph Multi-Agent Orchestration:**
+
+The DemocracyCoordinator manages parallel agent optimization within defined robust bounds. Each specialized agent operates in its domain: SupplyAgent calculates optimal parameters, VerificationAgent updates thresholds, MarketAgent optimizes incentives, ImpactAgent measures outcomes, and ReputationAgent updates credibility scores.
+
+Consensus mechanisms handle incomplete information robustly. When agents achieve high confidence agreement (above 80%), optimizations deploy automatically with on-chain safety rail enforcement. Distributed decision-making eliminates single points of failure while maintaining auditable bounds.
 
 ## Core Principles: Intelligent Governance Frameworks
 
@@ -81,11 +65,11 @@ Every parameter becomes dynamically calibrated, but operates within predefined, 
 Multi-agent consensus replaces single operators. No god modes, no central control, just distributed intelligence serving human needs, complemented by human-governed emergency circuit breakers for ultimate safety.
 
 ### 4. Continuous Learning for Resilience 
-Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning enhances protocol resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Carroll Mechanisms provide consensus tools for resolving information disputes and incentivizing quality discourse among participants.
+Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning enhances protocol resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Information quality markets provide consensus tools for resolving disputes and incentivizing quality discourse among participants.
 
 ## Credibility Infrastructure and Challenge Markets
 
-Carroll Mechanisms solve democracy's information quality problem through market-based consensus rather than centralized fact-checking. The system builds portable credibility that follows participants across platforms:
+Information quality markets solve democracy's core problem: how do we reward good information without becoming truth police? Market-based consensus beats centralized fact-checking. The system builds portable credibility that follows participants across platforms:
 
 ### Advanced Challenge Market Governance
 * **Dispute Escalation Pathways:** Complex challenges route through specialized agent committees with domain expertise
@@ -116,52 +100,25 @@ This creates incentives for quality information without establishing centralized
 ## Technical Implementation
 
 ### Memory System
-ChromaDB vector database stores agent decisions and outcomes, anchored on cheap EVM for verification receipts:
-```python
-class AgentMemory:
-    def remember_outcome(self, decision, context, result):
-        self.collection.add(
-            embeddings=[self.embed(decision)],
-            metadatas=[{
-                'context': context,
-                'effectiveness': result.impact_score,
-                'timestamp': result.time
-            }]
-        )
-    
-    def query_similar_situations(self, current_context):
-        return self.collection.query(
-            query_embeddings=[self.embed(current_context)],
-            n_results=10
-        )
-```
+**ChromaDB Vector Memory System:**
+
+Agent memory operates through vector-based storage that embeds decisions with contextual metadata including effectiveness scores and timestamps. When agents encounter new situations, they query similar historical contexts using vector embeddings to inform better decisions.
+
+This creates continuous learning where decision effectiveness guides future parameter adjustments. Memory persistence ensures agents retain learning across system restarts and upgrades. Historical patterns enable sophisticated pattern matching for improved civic action verification and reward calculation.
 
 ### Workflow Orchestration
-Temporal workflows manage agent coordination:
-```python
-@temporal.workflow
-class CivicOptimization:
-    async def continuous_improvement(self):
-        while True:
-            current_performance = await self.measure_performance()
-            
-            if current_performance < target:
-                optimization = await self.coordinate_agents()
-                await self.deploy_improvements(optimization)
-            
-            await asyncio.sleep(3600)  # Hourly optimization
-```
+**Temporal Workflow Orchestration:**
+
+Continuous optimization runs through hourly cycles that measure current performance against targets. When performance falls below thresholds, the system coordinates agents to generate improvements and deploys beneficial optimizations automatically.
+
+This creates adaptive systems that evolve based on observed outcomes rather than static rules. Temporal workflows provide reliability and failure recovery for long-running agent coordination processes.
 
 ### N8N Automation
-Civic action processing pipeline:
-```yaml
-workflow:
-  - trigger: civic_action_submitted
-  - verify: multi_agent_verification
-  - calculate: dynamic_reward_optimization  
-  - execute: smart_contract_interaction
-  - learn: update_agent_memory
-```
+**N8N Automation Pipeline:**
+
+Civic actions trigger webhook endpoints that activate multi-agent verification workflows. The pipeline orchestrates verification through distributed agents, calculates dynamic reward optimization, executes smart contract interactions, and updates agent memory with learned outcomes.
+
+Automated workflows handle the complete civic action lifecycle from submission through reward distribution while maintaining agent learning and system evolution.
 
 ## Economic Model: Robust & Resilient
 
@@ -224,6 +181,4 @@ Democracy is too important to be constrained by the limitations of 2024 thinking
 Agent democracy doesn't replace human democratic participation - it optimizes the infrastructure to make that participation more effective, more accessible, and more impactful, while ensuring the system's long-term stability and trustworthiness.
 
 The future of civic technology is agentic and robust: systems that learn, adapt, and serve rather than constrain human democratic potential, and are built to withstand the complexities of the real world.
-
-*Built with intelligence, optimized by experience, serving human agency, and designed for resilience.*
 

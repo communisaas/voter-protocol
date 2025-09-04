@@ -10,13 +10,13 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 How value flows (reality):
 - Issuance: VOTER per verified action—parameters enforced on‑chain. Verification receipts are anchored on Monad.
 - Verification: MultiSig or agent gateway marks verified based on adapter receipts (CWC/mail routing)—CIDs are pinned and attested on Monad.
-- Demand/utility: Governance + platform utility. Core revenue is USD‑denominated institutional credits for verified outreach/analytics.
+- Demand/utility: Governance + platform utility. Maybe institutional credits for verified outreach/analytics someday.
 - Policy: Agents (or admins) tune rewards elastically; clamps and caps prevent runaway issuance.
 
 What this means economically:
 - Broad distribution to active participants rather than scarcity premium for early holders.
 - Inflation scales with engagement but is bounded by on‑chain caps/clamps; agents reduce rewards during surges.
-- Sustainability comes from USD credits; token issuance is an incentive layer, not the revenue source. Optional sinks (staking, buybacks) can be added later if needed.
+- Sustainability comes from token value belief initially; institutional credits might provide revenue later. Token issuance bootstraps the network. Optional sinks (staking, buybacks) can be added if needed.
 
 Operate in two modes:
 - Classic mode: MultiSig verification + fixed rewards.
@@ -24,18 +24,29 @@ Operate in two modes:
 
 ### Current Implementation Status
 
-**Operational Systems:**
-- **Smart Contract Infrastructure:** `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` deployed with agent integration points
-- **Agent Coordination:** `AgentConsensusGateway` operational, `ActionVerifierMultiSig` backup system integrated
-- **Dynamic Parameters:** Agent-optimized rewards and intervals via `AgentParameters` with safety rails
-- **Security Model:** Removed `OPERATOR_ROLE`, admin-only pause and action controls, comprehensive safety clamps
-- **Action Types:** `CWC_MESSAGE` and `DIRECT_ACTION` verification paths active
-- **Quality Assurance:** Forge build/test suite green for core flows, parameter invariants tested
-- **Robustness Framework:** Min/max clamps and quotas for per-user/day and protocol/day mints enforced in `CommuniqueCore`
-- **Carroll Mechanisms Infrastructure:**
-  - `VOTERRegistry` credibility scoring operational for `VOTERRecord` and `CitizenProfile`
-  - `CommuniqueCore` quality discourse bonus calculation active
-  - `AgentParameters` challenge market and reputation parameters live
+**Smart Contracts (Complete, Not Deployed):**
+- ✅ `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` - Core system with agent hooks
+- ✅ `AgentConsensusGateway` - Multi-agent consensus interface
+- ✅ `AgentParameters` - Dynamic parameters with safety rails
+- ✅ `ChallengeMarket` - Full challenge market implementation
+- ✅ `StakedVOTER` - Staking mechanism with rewards
+- ✅ Security improvements: No `OPERATOR_ROLE`, admin controls, safety clamps
+- ✅ Tests: Forge suite passing for core flows
+
+**Agent Infrastructure (Code Complete, Not Running):**
+- ✅ Five specialized agents with full business logic
+- ✅ LangGraph coordinator with state management
+- ✅ Complete workflows for certification and challenges
+- ✅ ChromaDB integration for vector memory
+- ✅ FastAPI server and N8N webhook endpoints
+- ❌ Not deployed or running anywhere
+
+**Integration Layer (Built, Not Connected):**
+- ✅ Communiqué API endpoints created (`/voter-proxy/`)
+- ✅ Database schema and migrations prepared
+- ❌ CWC API not connected
+- ❌ Self Protocol not integrated
+- ❌ Monad not configured
 
 **Critical Implementation Tasks:**
 - CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Monad
@@ -59,7 +70,7 @@ Operate in two modes:
 
 ---
 
-## Implementation Priorities
+## What We Build Next
 
 ### A. Verification that actually verifies
 - n8n workflow calling CWC APIs, persisting receipts, marking verified in `AgentConsensusGateway`
@@ -80,62 +91,62 @@ Operate in two modes:
 
 ---
 
-## Production Readiness Checklist
+## Launch Requirements
 - [ ] CWC pipeline live—verified marks flow to chain
 - [x] Reward/interval clamps and daily caps enforced on-chain
 - [ ] Timelock + guardian pause wired and tested
 - [ ] E2E tests for consensus gateway and param behaviors
 - [ ] Metrics/alerts runbooks—synthetic attack tightens parameters automatically
 - [ ] Documentation updated—sources preserved
-- [ ] Carroll Mechanisms (off-chain agents) implemented and tested
+- [ ] Carroll Mechanisms agents built and tested
 
 ---
 
-## Risk Assessment & Mitigation
+## What Could Go Wrong
 
-### Technical Risks
-- **Smart Contract Vulnerabilities**: Comprehensive security audits and formal verification
-- **Anchoring/Indexing Availability**: Multi‑provider RPC/indexer redundancy—retries via orchestrator
-- **Bridge Risk**: Avoid routine bridging—batch when required via trusted routes
+### Technical Threats
+- **Smart Contract Attacks**: Security audits and formal verification protect core infrastructure
+- **Infrastructure Failure**: Multi-provider redundancy keeps the system running when providers fail
+- **Bridge Exploits**: We avoid routine bridging—batch only when required via battle-tested routes
 
-### Economic Risks
-- **Token Value Volatility**: Managed through treasury operations and liquidity provision
-- **Governance Attacks**: Prevented via time-locked proposals and stake requirements
-- **Economic Exploitation**: Countered through rate limiting and algorithmic monitoring
+### Economic Attacks
+- **Token Manipulation**: Treasury operations and liquidity provision counter volatility attacks
+- **Governance Takeovers**: Time-locked proposals and stake requirements prevent hostile capture
+- **Economic Gaming**: Rate limiting and algorithmic monitoring catch exploitation attempts
 
-### Regulatory Risks
-- **Securities Classification**: Addressed through utility token design and legal review
-- **Privacy Regulations**: Handled via zero-knowledge proofs and minimal data collection
-- **International Expansion**: Managed through modular compliance framework
+### Regulatory Pressure
+- **Securities Enforcement**: Utility token design and legal review provide regulatory defense
+- **Privacy Crackdowns**: Zero-knowledge proofs and minimal data collection maintain user protection
+- **International Restrictions**: Modular compliance framework adapts to different jurisdictions
 
-### Operational Risks
-- **Team Scaling**: Mitigated through clear documentation and knowledge transfer
-- **Technical Debt**: Prevented through code reviews and architectural planning
-- **Community Adoption**: Addressed through user experience optimization and education
+### Execution Risks
+- **Team Growth**: Clear documentation and knowledge transfer prevent single points of failure
+- **Technical Debt**: Code reviews and architectural planning keep the codebase healthy
+- **User Adoption**: Experience optimization and education drive authentic community growth
 
 ---
 
-## Success Metrics & KPIs
+## How We Win
 
-### User Engagement
-- **Target**: 10,000+ verified users within initial deployment
-- **Measurement**: Monthly active users and retention rates
-- **Success Criteria**: 75% monthly retention rate
+### User Growth
+- **Target**: 10,000+ verified citizens within initial deployment
+- **Victory**: 75% monthly retention rate proves engaging civic infrastructure
+- **Reality Check**: Monthly active users and retention rates
 
 ### Civic Impact
 - **Target**: 50,000+ verified civic actions
-- **Measurement**: Congressional messages sent and community actions taken
-- **Success Criteria**: Measurable policy engagement increase—representatives responding to verified constituents
+- **Victory**: Representatives responding to verified constituents more than random emails
+- **Reality Check**: Congressional messages sent and community actions taken
 
-### Economic Health
+### Economic Performance
 - **Target**: Sustainable token economics with <5% monthly inflation
-- **Measurement**: Token distribution, trading volume, and holder metrics
-- **Success Criteria**: Healthy price appreciation aligned with platform growth and genuine civic utility
+- **Victory**: Price appreciation aligned with platform growth, not speculation
+- **Reality Check**: Token distribution, trading volume, and holder patterns
 
-### Technical Performance
+### Technical Excellence
 - **Target**: 99.9% uptime with sub-3 second response times
-- **Measurement**: System monitoring and user experience metrics
-- **Success Criteria**: Zero critical security incidents
+- **Victory**: Zero critical security incidents
+- **Reality Check**: System monitoring and user experience metrics
 
 ---
 

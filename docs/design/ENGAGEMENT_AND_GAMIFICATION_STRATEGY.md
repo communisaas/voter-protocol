@@ -237,8 +237,8 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 
 ## Conclusion
 
-The $140B memecoin market proves that attention and economic incentives can create massive adoption. By applying principled engagement mechanics to civic participation—while creating measurable democratic impact via portable ERC-8004 reputation—VOTER can capture attention, drive authentic democratic participation, and build sustainable civic infrastructure.
+The $140B memecoin market proves that attention and economic incentives drive massive adoption. We apply these same mechanics to civic participation—while creating measurable democratic impact via portable ERC-8004 reputation—VOTER captures attention, drives authentic democratic participation, and builds sustainable civic infrastructure.
 
-The key is making civic engagement feel meaningful and impactful, not just another social media experience. We're building infrastructure both humans and AI can use: ERC-8004 registries serve agent coordination and human civic reputation.
+Civic engagement must feel meaningful and impactful, not like another social media distraction. We're building infrastructure both humans and AI can use: ERC-8004 registries serve agent coordination and human civic reputation.
 
-Making democracy engaging is essential for the evolution of civic participation in the attention economy.
+Democracy needs engaging mechanics to compete in the attention economy. We're building them.

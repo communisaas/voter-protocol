@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Communiqué is an adaptive civic engagement platform that integrates the VOTER Protocol for verifiable democratic participation. The platform uses multi‑agent systems to optimize civic engagement through the VOTER token economy and VOTER Records system. User interaction is invariant (we always open the mail client); backend adapters handle certified legislative interfaces. Verification receipts are hashed, pinned to IPFS, and attested on Monad (no PII on‑chain). Optional L2 mirrors use ERC‑8004 registries for ETH‑native consumption.
+The VOTER Protocol is democracy infrastructure that competes in the attention economy. While memecoins hit $72B market caps overnight, civic engagement reads like homework. We fix this with verifiable political participation that pays.
 
-**Core Philosophy**: ERC-8004 was built for AI agents. We extend it to human civic participants through the VOTER Protocol, creating infrastructure that serves both AI coordination and portable democratic reputation.
+Communiqué integrates VOTER Protocol for adaptive civic engagement through multi-agent systems that optimize democratic participation. User experience stays simple: we always open the mail client. Backend adapters handle certified legislative interfaces. Verification receipts get hashed, pinned to IPFS, and attested on Monad with zero PII on-chain. Optional L2 mirrors use ERC-8004 registries for ETH-native consumption.
+
+**Core Philosophy**: ERC-8004 was built for AI agents. We extend it to human civic participants, creating infrastructure both humans and AI can use for authentic democratic coordination.
 
 ### Core Innovation: VOTER Protocol within Communiqué
 The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
@@ -21,7 +23,7 @@ The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
 - **Workflows**: Temporal for agent workflow management
 - **Memory**: ChromaDB for vector-based agent learning
 - **Automation**: N8N for civic action processing pipelines
-- **AI Models**: Claude 3.5 Sonnet for agent intelligence
+- **AI Models**: LLMs for agent intelligence
 
 ### Blockchain Infrastructure
 - **Anchoring (EVM)**: Monad as primary on‑chain anchor (registries/attestations)
@@ -36,24 +38,35 @@ The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
 
 ## Key Development Concepts
 
-### Compliance posture
-- Utility‑first design; VOTER is used for governance/utility, not vote buying
-- No PII on‑chain; off‑chain KYC/attestations only where legally required
-- Clear separation between verified participation records and incentives
+### Compliance Posture
+- **Bright-line rules**: We never reward voting, registering to vote, or choosing candidates. We reward the verifiable work of contacting representatives.
+- **Utility-first design**: VOTER tokens serve governance and platform utility, not vote buying
+- **Privacy-preserving**: Zero PII on-chain; off-chain KYC/attestations only where legally required
+- **Democratic authenticity**: Clear separation between verified participation records and economic incentives
 
-### Adaptive Development Approach
-The platform uses intelligent automation throughout:
-- Dynamically calibrated reward calculations based on real civic impact
-- Dynamic verification thresholds that adapt to user behavior
-- Emergent economic parameters that optimize for engagement
-- Self-modifying governance that evolves with community needs
+In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while cautious competitors wait for permission that already arrived.
+
+### Agentic Development Approach
+**Agent-optimized parameters replace hardcoded tyranny.**
+
+The platform deploys intelligent agents that learn, adapt, and optimize within auditable safety rails:
+- **Dynamic reward calculations** based on real civic impact measurement, not fixed "10 VOTER per message" rules  
+- **Adaptive verification thresholds** that respond to spam patterns and network conditions
+- **Emergent economic parameters** that optimize for authentic democratic participation vs speculative gaming
+- **Self-modifying governance** that evolves with community needs while maintaining democratic authenticity
+
+**Quality discourse pays. Bad faith costs.**
 
 ### Carroll Mechanisms: Information Quality Markets
+
+Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth:
+
+- **Challenge markets**: Put money where your mouth is. Stake VOTER tokens to dispute questionable claims
+- **Information rewards**: Higher payouts for surprising, verifiable insights that change minds or reveal new data
+- **Accountability stakes**: Spread misinformation, pay the price when markets prove you wrong
+- **Portable reputation**: ERC-8004 credibility follows you across platforms
+
 **Quality discourse pays. Bad faith costs.**
-- Challenge markets for disputing claims with VOTER token stakes
-- Information rewards for surprising, verifiable insights
-- Reputation aggregation in ERC-8004 registries
-- Portable democratic credibility across platforms
 
 ## Smart Contract Architecture
 
@@ -116,18 +129,22 @@ The platform uses intelligent automation throughout:
 - Content creator partnerships focused on civic education
 - Real-time coverage of democratic processes and outcomes
 
-## Market Context (August 2025)
+## Market Context (2025)
+
+### The Attention War Reality
+**Democracy has a distribution problem.**
+
+While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers overnight. When TikTok optimizes for engagement and Robinhood gamifies markets, civic work reads like homework.
 
 ### Competitive Landscape
-- Memecoin market: $140B+ with 500% growth in 2024
-- Trump coin reached $72B market cap overnight
-- Regulatory clarity through GENIUS Act
-- Pro-crypto administration policies
+- **Memecoin market**: $140B+ proves attention + economic incentives = massive adoption  
+- **Regulatory clarity**: Post-GENIUS Act enables compliant civic tokenomics
+- **Infrastructure ready**: Monad (cheap EVM anchoring), Self Protocol (zk identity), ERC-8004 (AI-human coordination)
 
-### Opportunity
-- First-mover advantage in tokenized civic engagement
-- Intersection of engaging mechanics + authentic democratic participation
-- Post-GENIUS Act regulatory clarity enables compliant tokenomics
+### VOTER's Opportunity
+- **First democracy protocol** that competes for attention in the memecoin economy
+- **Authentic civic impact** distinguishes from pure speculation
+- **Infrastructure advantage**: We build rails everyone else needs
 
 ## Documentation Structure
 
@@ -148,7 +165,7 @@ Comprehensive documentation is organized in the `docs/` folder:
 ## Current Development Status
 
 ### Recently Completed
-- **Token Migration**: Renamed from CIVIC to VOTER to avoid trademark conflict
+- **VOTER Protocol Integration**: Complete token system with Records (non-transferable civic proof) and Tokens (tradeable governance)
 - **Rate Limiting Fix**: First-time users can now perform actions (fixed minActionInterval check)
 - **OPERATOR_ROLE Removal**: Eliminated centralized minting vulnerability
 - **Parameter Safety**: Implemented min/max bounds and daily caps in AgentParameters
@@ -169,4 +186,8 @@ Comprehensive documentation is organized in the `docs/` folder:
 - Identity verification balances privacy with authenticity
 - Emergency controls for crisis situations
 
-Communiqué, powered by the VOTER Protocol, represents the convergence of engaging digital mechanics with authentic civic participation—positioning democracy to thrive in the digital economy while creating measurable political impact.
+The VOTER Protocol positions democracy to compete for attention while creating authentic political impact. We're building infrastructure both humans and AI can use.
+
+**Making democracy engaging is essential for its evolution in the attention economy.**
+
+*Quality discourse pays. Bad faith costs.*

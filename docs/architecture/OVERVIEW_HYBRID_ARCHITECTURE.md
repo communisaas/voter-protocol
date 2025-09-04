@@ -13,39 +13,62 @@ The VOTER token platform is designed for a hybrid architecture combining Monad's
 ## Architectural Overview
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  UI["User Interfaces (Web/Mobile)"] --> Self["Self.xyz Identity"]
-  Self --> App["Application Logic (CWC + District Mapping + Self Integration)"]
-  App --> Monad["Monad (Execution)"]
-  App --> Eigen["EigenCloud (Verification)"]
+  UI["User Interfaces<br/>(Web/Mobile)"] --> Self["Self.xyz<br/>Identity"]
+  Self --> App["Application Logic<br/>(CWC + District + Self)"]
+  App --> Monad["Monad<br/>(Execution)"]
+  App --> Eigen["EigenCloud<br/>(Verification)"]
   Eigen --> Bridge["Bridge Layer"]
   Bridge --> Monad
+  
+  style UI fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
+  style Self fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style App fill:#1e293b,stroke:#94a3b8,stroke-width:3px,color:#f1f5f9
+  style Monad fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Eigen fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+  style Bridge fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f1f5f9
 ```
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  subgraph Monad [Monad Layer (Execution)]
+  subgraph Monad ["Monad Layer"]
     Core["CommuniqueCore"]
-    Token["VOTERToken (ERC20Votes)"]
+    Token["VOTERToken<br/>(ERC20Votes)"]
     Registry["VOTERRegistry"]
     Params["AgentParameters"]
   end
   Core --> Token
   Core --> Registry
-  Core -->|read bounds/knobs| Params
+  Core -->|read bounds| Params
+  
+  style Monad fill:#1e293b,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Core fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Token fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Registry fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Params fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
 ```
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  subgraph EigenCloud [EigenCloud Layer (Verification)]
-    AVS["Civic Action Verifier AVS"]
+  subgraph EigenCloud ["EigenCloud Layer"]
+    AVS["Civic Action<br/>Verifier AVS"]
     CWC["CWC Prover"]
-    ID["Identity Attestation"]
-    Dispute["Dispute Resolution"]
+    ID["Identity<br/>Attestation"]
+    Dispute["Dispute<br/>Resolution"]
   end
+  
+  style EigenCloud fill:#1e293b,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+  style AVS fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+  style CWC fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+  style ID fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
+  style Dispute fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
 ```
 
 ```mermaid
+%%{init: {'theme':'dark'}}%%
 sequenceDiagram
   participant App as App Logic
   participant Eigen as EigenCloud AVS
@@ -266,6 +289,7 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 
 ### Multi-Agent Coordination
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
   Supply["SupplyAgent"] --> Consensus["Agent Consensus"]
   Verify["VerificationAgent"] --> Consensus
@@ -274,6 +298,15 @@ flowchart TB
   Reputation["ReputationAgent"] --> Consensus
   Consensus --> ERC8004["ERC-8004 Registry"]
   Consensus --> Monad["Monad Execution"]
+  
+  style Supply fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Verify fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Market fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Impact fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Reputation fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Consensus fill:#78350f,stroke:#fbbf24,stroke-width:3px,color:#f1f5f9
+  style ERC8004 fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Monad fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
 ```
 
 **Quality discourse pays. Bad faith costs.**
@@ -298,4 +331,4 @@ The hybrid Monad + EigenCloud architecture provides optimal foundation for agent
 
 This architecture positions the VOTER Protocol uniquely at the intersection of human-AI infrastructure, agent optimization, and democratic technology—infrastructure that serves both humans and AI agents in building better governance.
 
-**Quality discourse pays. Bad faith costs. Democracy scales.**
+**Quality discourse pays. Bad faith costs.**
