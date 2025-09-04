@@ -363,6 +363,144 @@ async def send_congressional_message(
         "reward": result["reward"]
     }
 
+# ============= Certification Endpoints =============
+
+class CertificationRequest(BaseModel):
+    """Request to certify a civic action"""
+    action_type: str
+    delivery_receipt: str
+    message_hash: str
+    timestamp: str
+    metadata: Optional[Dict[str, Any]] = {}
+
+class ReceiptSubmission(BaseModel):
+    """Delivery receipt submission"""
+    receipt: str
+    action_type: str
+    metadata: Optional[Dict[str, Any]] = {}
+
+@app.post("/api/v1/certification/action")
+async def certify_civic_action(
+    request: CertificationRequest,
+    user_address: str = Header(None, alias="X-User-Address"),
+    api_key: str = Header(None, alias="X-API-Key")
+):
+    """
+    Certify a civic action from Communiqué
+    Called after successful delivery to issue rewards
+    """
+    # Verify API key
+    if api_key != os.getenv("COMMUNIQUE_API_KEY"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    if not user_address:
+        raise HTTPException(status_code=400, detail="User address required")
+    
+    try:
+        # Process through coordinator
+        result = await coordinator.process_civic_action(
+            user_address=user_address,
+            action_type=request.action_type,
+            action_data={
+                "delivery_receipt": request.delivery_receipt,
+                "message_hash": request.message_hash,
+                "timestamp": request.timestamp,
+                **request.metadata
+            }
+        )
+        
+        # Generate certification hash
+        import hashlib
+        cert_data = f"{user_address}:{request.message_hash}:{request.timestamp}"
+        certification_hash = hashlib.sha256(cert_data.encode()).hexdigest()
+        
+        # Store certification (TODO: Add database storage)
+        
+        return {
+            "certification_hash": certification_hash,
+            "reward_amount": result.get("reward", 0),
+            "reputation_change": result.get("reputation", {}).get("total_score", 0),
+            "verified": result["success"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/certification/receipt")
+async def submit_receipt(
+    submission: ReceiptSubmission,
+    api_key: str = Header(None, alias="X-API-Key")
+):
+    """
+    Submit a delivery receipt for verification
+    """
+    if api_key != os.getenv("COMMUNIQUE_API_KEY"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    try:
+        # TODO: Implement receipt verification logic
+        # For now, basic validation
+        verified = len(submission.receipt) > 0
+        
+        if verified:
+            import hashlib
+            receipt_hash = hashlib.sha256(submission.receipt.encode()).hexdigest()[:16]
+        else:
+            receipt_hash = None
+        
+        return {
+            "verified": verified,
+            "receipt_hash": receipt_hash
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/certification/status/{certification_hash}")
+async def get_certification_status(
+    certification_hash: str,
+    api_key: str = Header(None, alias="X-API-Key")
+):
+    """
+    Get status of a certification
+    """
+    if api_key != os.getenv("COMMUNIQUE_API_KEY"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    # TODO: Implement database lookup
+    # For now, return mock data
+    return {
+        "certification_hash": certification_hash,
+        "status": "verified",
+        "timestamp": datetime.now().isoformat(),
+        "reward_issued": True,
+        "reward_amount": 10 * 10**18
+    }
+
+# ============= Webhook Endpoints =============
+
+@app.post("/webhook/communique")
+async def communique_webhook(
+    event_type: str,
+    payload: Dict[str, Any],
+    signature: str = Header(None, alias="X-Webhook-Signature")
+):
+    """
+    Receive webhooks from Communiqué
+    """
+    # TODO: Verify webhook signature
+    
+    if event_type == "delivery_confirmed":
+        # Process delivery confirmation
+        user_address = payload.get("user_address")
+        action_type = payload.get("action_type")
+        receipt = payload.get("receipt")
+        
+        # Trigger certification
+        # ...
+        
+    return {"received": True}
+
 # ============= WebSocket for Real-time Updates =============
 
 from fastapi import WebSocket, WebSocketDisconnect
