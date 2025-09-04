@@ -19,7 +19,7 @@ CHAIN_ID = 1337  # Monad testnet
 # Agent configuration
 AGENT_CONFIG = {
     "supply_agent": {
-        "model": "claude-3-sonnet-20240229",
+        "model": os.getenv("SUPPLY_AGENT_MODEL", ""),  # Model specified at runtime
         "temperature": 0.3,
         "max_tokens": 1000,
         "capabilities": ["supply_calculation", "mint_optimization", "economic_modeling"],
@@ -27,7 +27,7 @@ AGENT_CONFIG = {
         "max_supply": 1_000_000_000 * 10**18,  # 1B tokens max
     },
     "verification_agent": {
-        "model": "claude-3-sonnet-20240229",
+        "model": os.getenv("VERIFICATION_AGENT_MODEL", ""),  # Model specified at runtime
         "temperature": 0.1,  # Low temperature for accuracy
         "max_tokens": 500,
         "capabilities": ["identity_verification", "action_validation", "fraud_detection"],
@@ -35,7 +35,7 @@ AGENT_CONFIG = {
         "verification_sources": ["self_protocol", "cwc_api", "email_verification"],
     },
     "market_agent": {
-        "model": "claude-3-sonnet-20240229",
+        "model": os.getenv("MARKET_AGENT_MODEL", ""),  # Model specified at runtime
         "temperature": 0.5,
         "max_tokens": 800,
         "capabilities": ["reward_optimization", "incentive_design", "market_dynamics"],
@@ -43,7 +43,7 @@ AGENT_CONFIG = {
         "max_reward": 100 * 10**18,  # 100 VOTER maximum
     },
     "impact_agent": {
-        "model": "claude-3-sonnet-20240229", 
+        "model": os.getenv("IMPACT_AGENT_MODEL", ""),  # Model specified at runtime
         "temperature": 0.4,
         "max_tokens": 1200,
         "capabilities": ["impact_measurement", "outcome_tracking", "effectiveness_analysis"],
@@ -51,7 +51,7 @@ AGENT_CONFIG = {
         "impact_threshold": 0.6,
     },
     "reputation_agent": {
-        "model": "claude-3-sonnet-20240229",
+        "model": os.getenv("REPUTATION_AGENT_MODEL", ""),  # Model specified at runtime
         "temperature": 0.2,
         "max_tokens": 600,
         "capabilities": ["credibility_scoring", "discourse_evaluation", "reputation_tracking"],

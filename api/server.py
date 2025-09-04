@@ -17,6 +17,9 @@ from agents.coordinator import DemocracyCoordinator
 from agents.blockchain_connector import BlockchainConnector
 from agents.config import DOMAIN, get_domain_url
 
+# Import N8N webhook routes
+from api.n8n_webhooks import router as n8n_router
+
 load_dotenv()
 
 # Initialize FastAPI app
@@ -525,6 +528,9 @@ class ConnectionManager:
                 pass
 
 manager = ConnectionManager()
+
+# Include N8N webhook router
+app.include_router(n8n_router, prefix="/api/v1")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

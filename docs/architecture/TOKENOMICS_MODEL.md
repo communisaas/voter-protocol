@@ -23,9 +23,19 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 ## Token Economics
 
 ### VOTER Record Creation
+
+```mermaid
+flowchart LR
+    A[Verified Civic Action] --> B[Non-transferable VOTER Record]
+    A --> C[Agent-optimized VOTER Tokens] 
+    A --> D[ERC-8004 Reputation Update]
+    
+    B --> E[Permanent Civic History]
+    C --> F[Governance Participation]
+    D --> G[Portable Credibility]
 ```
-Verified Action → VOTER Record (Non-transferable) + VOTER Tokens (Agent-optimized amount) + Reputation Update (ERC-8004)
-```
+
+Every verified civic action creates three outcomes: a permanent, non-transferable record of participation; dynamically calculated VOTER tokens based on impact and market conditions; and portable reputation scores written to ERC-8004 registries that follow users across platforms.
 
 **Eligible Actions (examples):**
 - Certified legislative submissions (via adapters)
@@ -37,27 +47,50 @@ Verified Action → VOTER Record (Non-transferable) + VOTER Tokens (Agent-optimi
 - Action authenticity (submission receipts, mail routing receipts)
 - Anti‑spam measures (rate limits, quality scoring)
 
+### Template Economics: Smart Contract Implementation
+
+**On-Chain Template Registry Architecture:**
+
+The TemplateRegistry tracks message templates through their entire lifecycle. Each template stores its IPFS hash for decentralized content, creator address for attribution, creation block for timestamping, usage metrics for performance analysis, revenue totals for creator compensation, credibility scores from challenge market outcomes, and deprecation status for lifecycle management.
+
+Template challengers get tracked separately, enabling dispute resolution workflows. Creator revenue accumulation ensures transparent compensation distribution. The registry serves as the authoritative source for template economics and reputation.
+
+**Revenue Distribution Architecture:**
+
+```mermaid
+pie title Template Revenue Distribution
+    "Creator Share" : 30
+    "Protocol Treasury" : 40
+    "Challenge Market Pool" : 20
+    "Infrastructure" : 10
+```
+
+**Revenue Flow Mechanics:**
+Institutional customers pay USD for verified civic engagement analytics and bulk outreach services. Revenue gets distributed across four pools: template creators receive 30% for contribution incentives, protocol treasury gets 40% for development and operations, challenge market pools receive 20% for dispute resolution rewards, and infrastructure maintenance takes 10% for system operations.
+
+Performance multipliers adjust creator shares based on template effectiveness, challenge market outcomes, and usage patterns. High-performing templates with strong credibility scores earn enhanced revenue shares.
+
+**Challenge Market State Machine:**
+- Template challenges trigger state transitions in TemplateRegistry
+- Successful challenges redistribute accumulated revenue share
+- Challenge resolution updates credibility scores automatically
+- Failed challenge attempts slash challenger stakes
+
 ### Carroll Mechanisms Economics
 
-**Challenge Markets:**
-- Any claim in civic actions can be disputed by staking VOTER tokens
-- Challengers and defenders stake tokens based on conviction level
-- Community consensus determines market resolution, not truth arbitration
-- Winners receive losing stakes; system takes small fee for treasury
+**Challenge Market Types:**
+- Template-level disputes affect template credibility and revenue sharing
+- Usage-level disputes affect individual reputation and stake redistribution
+- Community consensus determines resolution, not centralized truth arbitration
+- Winners receive losing stakes; protocol takes small fee for treasury operations
 
 **Quality discourse pays. Bad faith costs.**
 
-**Quality Discourse Rewards:**
-- Base rewards for verified civic actions (CWC delivery, direct action verification)
-- Quality bonuses for information sourcing standards and constructive engagement
-- Reputation multipliers based on historical participation patterns
-- Surprising insights that change minds earn elevated payouts
-
 **Reputation Integration:**
 - ERC-8004 Reputation Registry tracks credibility scores across platforms
-- High-reputation participants get priority congressional routing
-- Low-reputation claims require higher stakes to challenge
-- Reputation becomes portable political capital across democratic platforms
+- High-reputation participants get priority congressional routing and template creation privileges
+- Low-reputation claims require higher stakes to challenge template usage
+- Template creators build reputation through successful template performance metrics
 
 ### VOTER Token Utility
 
@@ -93,40 +126,15 @@ Verified Action → VOTER Record (Non-transferable) + VOTER Tokens (Agent-optimi
 ## Technical Implementation
 
 ### Smart Contract Architecture
-```solidity
-contract VOTERRegistry {
-    // Non-transferable civic action records
-    mapping(address => VOTERRecord[]) public civicHistory;
-    
-    struct VOTERRecord {
-        uint256 timestamp;
-        ActionType actionType;
-        bytes32 actionHash;
-        bool verified;
-        uint256 credibilityScore;  // ERC-8004 reputation integration
-    }
-}
 
-contract VOTERToken is ERC20, ERC20Votes {
-    // Tradeable governance token with challenge market functionality
-    mapping(bytes32 => ChallengeMarket) public challenges;
-    
-    struct ChallengeMarket {
-        address challenger;
-        address defender;
-        uint256 challengeStake;
-        uint256 defenseStake;
-        bool resolved;
-        address winner;
-    }
-}
+**VOTERRegistry - Civic History Management:**
+The registry maintains non-transferable civic action records for each participant. Records include timestamps for chronological ordering, action types for categorization, content hashes for verification, verified status from multi-agent consensus, and credibility scores from ERC-8004 reputation integration. Civic history becomes permanent and portable across platforms.
 
-contract AgentParameters {
-    // Dynamic parameters controlled by multi-agent consensus
-    mapping(bytes32 => uint256) public parameters;
-    mapping(address => bool) public authorizedAgents;
-}
-```
+**VOTERToken - Governance and Challenge Markets:**
+The token contract extends ERC-20 with voting capabilities and challenge market functionality. Challenge markets track disputed claims through challenger/defender pairings, staked amounts for economic incentives, resolution status for transparency, and winner determination for stake redistribution. Quality discourse pays through market-based consensus.
+
+**AgentParameters - Dynamic System Configuration:**
+The parameters contract stores agent-calculated values within auditable bounds. Authorized agents can update specific parameters based on multi-agent consensus, but all changes respect minimum and maximum limits enforced by the contract. Human-governed circuit breakers provide ultimate safety controls.
 
 ### Integration Points
 - **CWC API** for congressional message verification

@@ -18,21 +18,8 @@ Also, the volume is real: congressional offices received **81 million** messages
 
 VOTER leverages this convergence to create the first protocol for verifiable political participation. Civic engagement transforms from unpaid labor into stakeholder ownership of democratic infrastructure itself. Information overload and eroding trust plague democracy. VOTER builds verifiable political participation at scale by ensuring information quality and truthfulness in democratic discourse. Civic action becomes verifiable, privacy-preserving, and credible.
 
-## What Success Looks Like
 
-Democracy that actually competes for attention. Representatives get signal instead of spam. Citizens build reputation that follows them across every political platform.
-
-**The feed changes.** Verified civic actions trend alongside memecoins. Congressional messages with high credibility scores go viral. Challenge markets surface truth faster than Twitter can spread lies—truth emerges from community consensus, not central arbitration. Challenge markets reward accuracy over ideology.
-
-**The incentives flip.** Contacting representatives becomes profitable. Information quality determines earnings. Reputation becomes portable political capital. Democracy pays better than speculation because truth compounds while lies decay.
-
-**The system adapts.** AI agents optimize for authentic engagement instead of gaming metrics. Carroll Mechanisms reward surprising insights that change minds. Cross-platform reputation creates democratic influencers whose credibility spans Reddit, Discord, and new platforms not yet invented.
-
-**Scale hits different.** Congressional offices get higher quality input from verified constituents. Researchers access reputation-weighted datasets. Media sources information from credible civic participants. AI policy analysis weighs your input by verified civic track record. Democracy works with AI instead of getting replaced by it. International democracies adopt the same infrastructure.
-
-This isn't incremental reform—it's democracy infrastructure that makes participation worth someone's time.
-
-## Architecture as Political Philosophy: Evolving Governance for the Digital Age
+## Verification Infrastructure
 
 VOTER starts where legitimacy starts: verification. Each action produces a mathematical claim about authenticity. That claim scales from a single message to district‑level sentiment without revealing who you are.
 
@@ -44,9 +31,9 @@ Our architecture builds for trustless agents and verifiable interactions. ERC-80
 
 3.  **Execution — treasury and records.** Monad anchors registries/attestations; treasuries remain on ETH/L2 (Safe). No routine bridging.
 
-The outcome is simple: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
+The outcome: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
 
-This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself. Network effects strengthen with adoption. Technical integration creates sustainable competitive advantages. This hints at a new paradigm for collective decision-making.
+This architecture transforms civic participation from charity work into stakeholder ownership of democratic infrastructure itself. Network effects strengthen with adoption. Technical integration creates sustainable competitive advantages.
 
 ## Adaptive Infrastructure: Information Quality Markets
 
@@ -83,45 +70,60 @@ Agents evolve with political dynamics and user behavior. Democratic authenticity
 
 **Quality discourse pays. Bad faith costs.**
 
-## Where this becomes a market
+## Viral Democracy Strategy
 
-We do not sell votes or outcomes. We sell verified civic action infrastructure.
+Democracy infrastructure must compete for attention in the memecoin economy. VOTER combines authentic civic impact with engaging mechanics: real-time civic health dashboards, achievement systems for verified participation, social proof for democratic influencers, and cross-platform reputation building. 
 
-* **CWC Message Verification**: Authenticated congressional outreach through official Communicating with Congress API, with delivery confirmations and structured data that congressional offices actually process. **Both the House and the Senate route through Communicating with Congress (CWC)**—we conform to the secure XML schema and rate limits; we log confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
-* **Direct Action Verification**: Proof of participation in verified political events, campaigns, and advocacy activities with cryptographic attestation.
-* **Researchers and media** license privacy‑preserving panels and district time series.
+The $140B memecoin market proves attention and economic incentives create massive adoption. We apply those mechanics to civic participation while maintaining democratic authenticity. Comprehensive viral strategy documented in **[Engagement & Gamification Strategy](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)**.
 
-The budgets are not imaginary. The 2024 federal election cycle cleared ~$15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [10]); federal lobbying is a steady multibillion annual line ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [11]); public‑affairs SaaS has nine‑figure revenue signals (e.g., FiscalNote's 4k+ customers and ~$100M revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [12]).
+## Economic Tiers
 
-### Revenue Model and Sustainable Economics
+**Tier 1: Free Civic Participation**
+Users send emails through Communiqué and earn VOTER tokens immediately. No wallet required initially. Virtual rewards accumulate until ready to claim. We pay users to participate in democracy.
 
-The platform generates revenue through multiple streams while maintaining public good characteristics:
+**Tier 2: Challenge Markets**
+Dispute template claims or message quality using earned VOTER tokens. Winners take stakes. Information rewards pay higher for surprising insights that change minds or reveal new data. Reputation multipliers based on historical participation patterns determine routing priority and future rewards. High-reputation participants get priority congressional routing. Low-reputation claims require additional verification stakes. Quality bonuses for sourcing standards and constructive engagement. Bad faith costs, quality discourse pays.
 
-* **Transaction fees** of 0.1% on credit operations scale with adoption while remaining negligible for individual users
-* **Premium subscriptions** ranging from $15/month for advanced analytics to $500/month for enterprise API access serve political organizations and researchers  
-* **Data licensing** agreements with academic institutions and media organizations provide additional revenue while maintaining strict privacy protections
+**Tier 3: Template Infrastructure**
+Templates stored as IPFS CIDs on-chain. Template creators earn revenue share from successful usage metrics. Carroll Mechanisms solve democracy's information problem—political discourse drowns in noise because bad information travels as fast as good. Challenge markets determine template credibility through community consensus, not truth arbitration. Template challenges affect all users of that template. Usage challenges are one-on-one disputes. Good templates generate ongoing creator income through institutional revenue sharing.
 
-Platform economics create network effects that strengthen with adoption: Citizens join because their civic actions generate verifiable value. Representatives benefit from higher-quality constituent communication through cryptographic filtering. Political organizations gain access to authentic grassroots mobilization tools. Researchers access verified civic engagement datasets. Each participant's value increases with network size.
+**Tier 4: Institutional Revenue**
+Organizations buy USDC-backed credits for API access and data licensing. **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad. Revenue flows to template creators and protocol treasury through CreditVault.sol accounting system.
 
-## Economics Deep Dive: How Truth Makes Money
+**Tier 5: Platform Services**
+Analytics dashboards, bulk messaging, congressional response tracking. Premium features unlocked with VOTER token holdings. Cross-platform reputation via ERC-8004 registry.
 
-**Base Rewards:** Every verified civic action mints VOTER tokens. Congressional messages through CWC get baseline rewards. Direct action verification gets higher multipliers. Agents calculate rewards based on impact measurement—no hardcoded "10 tokens per message" nonsense.
+The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [10]). Federal lobbying: multibillion annual ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [11]). Public-affairs SaaS: nine-figure revenue (FiscalNote: $100M+ revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [12]).
 
-**Challenge Markets:** Any claim in templates or personalized messages can be disputed. Challengers stake VOTER tokens. Markets resolve through consensus mechanisms and community verification. Winners take the pot. Losers pay for low-quality information.
+**Economic Flow:** Users participate for free and earn tokens. Those tokens fuel quality markets that determine template credibility. Successful templates generate institutional revenue from organizations who pay for verified civic data. Revenue flows back to template creators and funds premium platform services. Each tier supports the next. Users never pay. Organizations pay for democracy infrastructure.
 
-**Information Rewards:** Surprising insights that change minds earn multiplied payouts. Challenge market resolution reveals engagement quality over time. Constructive participants get reputation boosts = higher future rewards. Quality compounds.
+## How We Get There: Adoption Strategy
 
-**Reputation Multipliers:** ERC-8004 Reputation Registry tracks engagement quality and sourcing standards. High-reputation messages get priority congressional routing. Low-reputation claims require additional stakes to challenge. Reputation becomes tradeable political capital across platforms.
+**Congressional Pilot Program:** Start with select congressional offices that already handle high message volumes effectively. Integrate VOTER verification with their existing CWC workflows. Demonstrate delivery confirmation, message quality filtering, constituent verification. Prove the system works before scaling.
+
+**Early User Onboarding:** Access through Communiqué with deterministic addresses. Users participate immediately without wallets. Virtual rewards accumulate as proof of concept. No friction, no learning curve. Just better civic engagement that pays.
+
+**Proof Points We'll Track:** Delivery confirmation rates via CWC integration. Template usage and creator revenue generation. Challenge market resolution accuracy and participation rates. User engagement with verified vs. unverified messaging tools.
+
+**Network Effects Path:** Quality templates attract more users. More users generate better data for institutional customers. Institutional revenue funds better templates and infrastructure. Congressional offices prefer verified channels. Reputation portability attracts users from other platforms.
+
+**Scaling Strategy:** Proven model in pilot districts expands to all 435 House districts and 100 Senate offices. Template marketplace grows through creator incentives. API revenue supports infrastructure scaling. International expansion follows US proof of concept.
+
+
+## Challenge Market Mechanics
+
+**Template Challenges:** Dispute template factual claims or sourcing standards. Affects all users of that template. Successful challenges earn revenue share from template usage.
+
+**Usage Challenges:** Challenge how someone used a template or their personal additions. One-on-one dispute resolution. Winners take stakes.
 
 **Flow Example:**
-1. User submits congressional message with claim: "Policy X will increase GDP by 5%"
+1. User sends message using template: "Policy X will increase GDP by 5%"
 2. Base reward: 50 VOTER tokens for verified CWC delivery
-3. Challenger stakes 100 VOTER questioning the claim's sourcing or reasoning
-4. Community evaluates the quality of evidence and discourse over time
-5. If original claim demonstrates good sourcing/reasoning: User gets challenger's stake + reputation boost + multiplied future rewards
-6. If claim shows poor quality/bad faith: Challenger wins stake, user's reputation drops, future rewards diminish
+3. Challenger stakes 100 VOTER questioning claim sourcing
+4. Community consensus resolves dispute
+5. Quality wins: User gets stake + reputation boost. Bad faith loses: Challenger wins stake, user reputation drops.
 
-**Result:** Quality discourse pays. Bad faith costs. Reputation follows you everywhere. Democracy gets better signal.
+Agents calculate rewards based on impact measurement—no hardcoded constants. Quality compounds through reputation multipliers. High-reputation participants get priority congressional routing.
 
 ## Incentive Design for Democratic Participation
 
@@ -162,7 +164,7 @@ VOTER creates the first **portable reputation system for democratic participatio
 
 ### The Credibility Flywheel
 
-**Better Predictions → Higher Reputation → More Influence → Better Outcomes**
+**The Credibility Cycle**
 
 - High-reputation templates get priority congressional routing
 - Quality discourse earns multiplied VOTER rewards  
@@ -205,15 +207,21 @@ We're not naive about these risks. Each one gets addressed through technical des
 
 ## Competitive Landscape and Positioning
 
+**Current Platforms vs. VOTER:**
+
+*Existing civic platforms:* You send a message that might get delivered. Three weeks later you get a form letter that doesn't address what you wrote. No verification. No rewards. No reputation building. Your voice disappears into the void.
+
+*VOTER:* You send a message with verified CWC delivery confirmation. You get immediate VOTER token rewards. Quality content boosts your reputation. Future messages get priority routing. Your credibility becomes portable across platforms.
+
 Single‑purpose tools fragment the space. Petition sites move signatures that never turn into meetings. Form‑email vendors flood inboxes without cryptographic signal; staff triage suffers ([CMF blog on form emails](https://www.congressfoundation.org/news/blog/1486) [18]).
 
 **VOTER's moat is credibility infrastructure.** Beyond zk identity and delivery confirmations, we build **portable democratic reputation** through ERC-8004 reputation systems. Others build for humans OR AI. We build infrastructure both can use. Other civic platforms verify *actions*—we verify *information quality*. Congressional offices get better signal. Citizens carry reputation across platforms. AI systems read your democratic credibility. Democratic tools built on VOTER inherit trust from day one.
 
 ### Strategic Advantages
 
-The civic technology market suffers from fragmentation across dozens of single-purpose tools with limited integration and no sustainable business models. VOTER provides comprehensive infrastructure for verified civic engagement. Technical integration and network effects create defensible competitive advantages. Self Protocol identity plus Monad anchoring provides verifiable receipts on‑chain while retaining access to ETH/L2 liquidity.
+Civic tech today is broken into dozens of single-purpose tools that don't talk to each other. No sustainable business models. VOTER builds the infrastructure everyone else needs. Technical integration and network effects create competitive advantages. Self Protocol identity plus Monad anchoring gives you verifiable receipts on-chain with access to ETH/L2 liquidity.
 
-Market timing favors platforms that capture political attention while maintaining democratic legitimacy. Regulatory clarity enables compliant incentivization of civic activities. Advanced blockchain infrastructure provides consumer-friendly experience without technical complexity. Political polarization creates demand for verified information sources and authentic engagement tools.
+Now is the right time. Political attention economy exists. Regulatory clarity allows civic incentives. Blockchain infrastructure works without complexity. Political polarization creates demand for verified information sources.
 
 ### International Expansion Opportunities
 
@@ -264,13 +272,13 @@ Run a pilot across all Congressional districts. Let users create and send templa
 
 Publish the methods. Publish the results.
 
-## Shipping Status: Building Momentum
+## Development Status: Core Systems Operational
 
-**Core infrastructure is live.** On-chain enforcement for verified actions. ZK registration path working. Governance scaffold deployed. Reward accounting operational. Indexing infrastructure running.
+**Core infrastructure deployed.** Smart contracts live: `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` with agent integration points. ZK registration path implemented. Governance scaffold operational. Reward accounting system with dynamic parameters. Tests green for core flows.
 
-**Agent infrastructure deployed.** Multi-agent consensus framework operational. Dynamic reward calculations live. Model-agnostic architecture supports any AI provider.
+**Agent infrastructure operational.** Multi-agent consensus framework running. LangGraph workflows processing civic actions. Dynamic reward calculations active. ChromaDB vector memory for agent learning. Model-agnostic architecture supports any AI provider.
 
-**Communiqué Integration Live.** Users participate immediately—no wallet required initially. Virtual rewards accumulate. Connect anytime to claim on-chain.
+**Communiqué Integration active.** Early access enables immediate participation—no wallet required initially. Virtual rewards accumulate. Agent-verified civic actions. Connect anytime to claim rewards.
 
 **Next major milestones:** 
 - Complete Carroll Mechanisms for information quality markets

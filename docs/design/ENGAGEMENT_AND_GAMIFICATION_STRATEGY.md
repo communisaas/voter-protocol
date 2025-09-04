@@ -2,7 +2,9 @@
 
 ## Executive Summary
 
-In a world where memecoins hit $72B market caps overnight, civic engagement needs engaging mechanics to compete for attention. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This plan outlines gamification strategies to make democratic participation as compelling as social media while creating real civic impact through portable reputation.
+In a world where memecoins hit $72B market caps overnight, civic engagement needs engaging mechanics to compete for attention. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This document details comprehensive gamification strategies to make democratic participation as compelling as social media while creating real civic impact through portable reputation.
+
+VOTER Protocol builds democracy infrastructure that competes in the attention economy. The viral mechanics outlined here serve authentic democratic participation, not engagement for its own sake. Every gamified element reinforces real civic impact: verified actions, quality discourse, portable reputation, and authentic political outcomes.
 
 ## Core Viral Mechanics
 

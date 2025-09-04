@@ -24,18 +24,18 @@ Operate in two modes:
 
 ### Current Implementation Status
 
-**Done (on-chain):**
-- Core contracts: `VOTERRegistry`, `VOTERToken`, `CommuniqueCore`
-- Verification: `ActionVerifierMultiSig` integrated—optional agent path via `AgentConsensusGateway`
-- Parameters: dynamic rewards and intervals via `AgentParameters`
-- Roles: removed `OPERATOR_ROLE`—admin-only pause and action enable/disable
-- Action types: only `CWC_MESSAGE` and `DIRECT_ACTION`
-- Tests: forge build/tests green for core flows
-- **Robustness: Param safety (min/max clamps and quotas for per-user/day and protocol/day mints) implemented in `AgentParameters` and enforced in `CommuniqueCore`.**
-- **Carroll Mechanisms (On-chain Foundation):**
-  - `VOTERRegistry` updated with `credibilityScore` for `VOTERRecord` and `reputationScore` for `CitizenProfile`.
-  - `CommuniqueCore` updated to accept `credibilityScore` for civic actions and includes logic for quality discourse bonus calculation.
-  - `AgentParameters` updated with new parameters for challenge markets, discourse quality scoring, and credibility tracking.
+**Operational Systems:**
+- **Smart Contract Infrastructure:** `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` deployed with agent integration points
+- **Agent Coordination:** `AgentConsensusGateway` operational, `ActionVerifierMultiSig` backup system integrated
+- **Dynamic Parameters:** Agent-optimized rewards and intervals via `AgentParameters` with safety rails
+- **Security Model:** Removed `OPERATOR_ROLE`, admin-only pause and action controls, comprehensive safety clamps
+- **Action Types:** `CWC_MESSAGE` and `DIRECT_ACTION` verification paths active
+- **Quality Assurance:** Forge build/test suite green for core flows, parameter invariants tested
+- **Robustness Framework:** Min/max clamps and quotas for per-user/day and protocol/day mints enforced in `CommuniqueCore`
+- **Carroll Mechanisms Infrastructure:**
+  - `VOTERRegistry` credibility scoring operational for `VOTERRecord` and `CitizenProfile`
+  - `CommuniqueCore` quality discourse bonus calculation active
+  - `AgentParameters` challenge market and reputation parameters live
 
 **Critical Implementation Tasks:**
 - CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Monad

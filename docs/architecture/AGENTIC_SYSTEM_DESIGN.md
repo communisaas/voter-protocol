@@ -11,16 +11,8 @@ Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https:
 ## Core Principles: Resilient Adaptive Systems
 
 ### 1. Resilient Abundance (Beyond Artificial Scarcity)
-```solidity
-// OLD: Tyrannical hardcoding
-// Removed: hardcoded MAX_SUPPLY (dynamic, bounded by params in current design)
 
-// NEW: Agent-determined abundance within robust, auditable bounds
-mapping(bytes32 => uint256) public agentParameters;
-function getOptimalSupply() external view returns (uint256) {
-    return ISupplyAgent(supplyAgent).calculateOptimal();
-}
-```
+Agents calculate optimal supply based on real demand and participation patterns. No hardcoded maximums. No artificial scarcity. The SupplyAgent monitors network health and adjusts token issuance within auditable bounds set by on-chain parameters. Economic abundance serves democratic participation rather than early-adopter speculation.
 
 **Why artificial scarcity fails:**
 - Creates exclusion by design
@@ -53,167 +45,54 @@ Instead of `OPERATOR_ROLE`, we implement multi-agent consensus, complemented by 
 ### Agent Types
 
 **1. Supply Optimization Agent**
-```python
-class SupplyAgent:
-    def calculate_optimal_supply(self, context):
-        # Considers:
-        # - Current participation rate
-        # - Economic conditions  
-        # - Political calendar
-        # - Network growth
-        return optimal_supply
-```
+
+The SupplyAgent continuously monitors current participation rates, economic conditions, political calendar events, and network growth patterns. It calculates optimal token supply to maximize civic engagement while maintaining economic stability. High participation periods trigger lower per-action rewards. Low engagement periods increase incentives. Natural market equilibrium through intelligent observation.
 
 **2. Verification Agent Network (anchored on Monad)**
-```python
-class VerificationAgent:
-    def verify_civic_action(self, action):
-        # Multi-agent consensus (off-chain or TEE)
-        # Anchor hash receipt on Monad (attest contract)
-        # No PII on-chain
-        return verification_score
-```
+
+The VerificationAgent coordinates multi-agent consensus for civic action validation. Agents operate off-chain or in trusted execution environments, then anchor hash receipts on Monad through the attest contract. Zero personal information touches the blockchain. Verification scores emerge from distributed agent consensus rather than centralized gatekeeping.
 
 **3. Market Making Agent**
-```python
-class MarketAgent:
-    def adjust_incentives(self, market_conditions):
-        # Dynamic pricing
-        # Liquidity provision
-        # Economic optimization
-        return new_parameters
-```
+
+The MarketAgent manages economic incentives by adjusting reward structures based on market conditions. It provides liquidity optimization and dynamic pricing for challenge markets. Economic parameters evolve based on observed outcomes rather than hardcoded rules. The agent ensures sustainable token economics while maximizing civic participation incentives.
 
 **4. Impact Measurement Agent**
-```python
-class ImpactAgent:
-    def measure_civic_outcomes(self, actions):
-        # Track CWC message delivery confirmations
-        # Measure direct action participation verification
-        # Calculate engagement effectiveness
-        return impact_metrics
-```
+
+The ImpactAgent tracks real-world civic outcomes by monitoring CWC message delivery confirmations, measuring direct action participation verification, and calculating engagement effectiveness. It provides feedback loops that connect digital civic actions to authentic political impact. Representative response rates and policy outcomes inform future reward calculations.
 
 **5. Reputation Agent**
-```python
-class ReputationAgent:
-    def build_credibility_scores(self, participants):
-        # Track challenge market participation quality
-        # Evaluate information sourcing standards
-        # Assess constructive discourse contribution
-        # Write to ERC-8004 Reputation Registry (built for AI agents, used by humans)
-        return credibility_scores
-```
+
+The ReputationAgent builds credibility scores by tracking challenge market participation quality, evaluating information sourcing standards, and assessing constructive discourse contributions. It writes portable reputation to ERC-8004 registries, creating democratic credibility that follows participants across platforms. High-reputation users get priority congressional routing and template creation privileges.
 
 ### Agent Coordination Framework
 
-**LangGraph Implementation - Live and Operational:**
+**LangGraph Coordination Framework - Live and Operational:**
 
-```python
-# agents/workflows.py - Actual implementation
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint import MemorySaver
-from typing import Dict, Any, TypedDict, Literal
-
-class CertificationState(TypedDict):
-    """State for civic action certification workflow"""
-    user_address: str
-    action_type: str
-    action_data: Dict[str, Any]
-    template_id: str
-    recipients: List[str]
+```mermaid
+flowchart TD
+    A[Civic Action Submitted] --> B[Verification Agent]
+    B --> C[Supply Agent]
+    B --> D[Market Agent] 
+    B --> E[Reputation Agent]
+    B --> F[Impact Agent]
     
-    # Agent outputs
-    verification_result: Optional[Dict[str, Any]]
-    supply_calculation: Optional[Dict[str, Any]]
-    market_analysis: Optional[Dict[str, Any]]
-    reputation_update: Optional[Dict[str, Any]]
-    impact_assessment: Optional[Dict[str, Any]]
+    C --> G[Consensus Calculator]
+    D --> G
+    E --> G
+    F --> G
     
-    # Final result
-    consensus_score: float
-    reward_amount: int
-    certification_hash: str
-    status: Literal["pending", "verified", "rejected", "failed"]
-
-class VOTERWorkflows:
-    def __init__(self):
-        # Initialize actual agents
-        self.coordinator = AgentCoordinator()
-        self.supply_agent = SupplyAgent("supply_agent")
-        self.verification_agent = VerificationAgent("verification_agent")
-        self.market_agent = MarketAgent("market_agent")
-        self.impact_agent = ImpactAgent("impact_agent")
-        self.reputation_agent = ReputationAgent("reputation_agent")
-        
-        # Build certification workflow
-        self.certification_workflow = self._build_certification_workflow()
-        self.checkpointer = MemorySaver()
+    G --> H{Consensus Score > 0.8?}
+    H -->|Yes| I[Finalize Certification]
+    H -->|No| J[Reject Action]
     
-    def _build_certification_workflow(self) -> StateGraph:
-        workflow = StateGraph(CertificationState)
-        
-        # Define nodes (actual agent implementations)
-        workflow.add_node("verify", self._verify_action)
-        workflow.add_node("calculate_supply", self._calculate_supply_impact)
-        workflow.add_node("analyze_market", self._analyze_market_conditions)
-        workflow.add_node("update_reputation", self._update_reputation)
-        workflow.add_node("assess_impact", self._assess_civic_impact)
-        workflow.add_node("consensus", self._reach_consensus)
-        workflow.add_node("finalize", self._finalize_certification)
-        
-        # Parallel execution of analysis agents
-        workflow.set_entry_point("verify")
-        workflow.add_edge("verify", "calculate_supply")
-        workflow.add_edge("verify", "analyze_market")
-        workflow.add_edge("verify", "update_reputation")
-        workflow.add_edge("verify", "assess_impact")
-        
-        # Converge to consensus
-        workflow.add_edge("calculate_supply", "consensus")
-        workflow.add_edge("analyze_market", "consensus")
-        workflow.add_edge("update_reputation", "consensus")
-        workflow.add_edge("assess_impact", "consensus")
-        
-        # Conditional certification
-        workflow.add_conditional_edges(
-            "consensus",
-            self._should_certify,
-            {"certify": "finalize", "reject": END}
-        )
-        workflow.add_edge("finalize", END)
-        
-        return workflow.compile(checkpointer=self.checkpointer)
-
-# Live function that Communiqué actually calls
-async def certify_civic_action(
-    user_address: str,
-    action_type: str,
-    action_data: Dict[str, Any],
-    template_id: str,
-    recipients: List[str]
-) -> Dict[str, Any]:
-    workflows = VOTERWorkflows()
-    
-    initial_state: CertificationState = {
-        "user_address": user_address,
-        "action_type": action_type,
-        "action_data": action_data,
-        "template_id": template_id,
-        "recipients": recipients,
-        # ... other fields
-    }
-    
-    # Execute the actual workflow
-    final_state = await workflows.certification_workflow.ainvoke(
-        initial_state,
-        config={"configurable": {"thread_id": f"cert_{user_address}_{datetime.now().timestamp()}"}}
-    )
-    
-    return final_state
+    I --> K[Anchor Receipt on Monad]
+    I --> L[Update ERC-8004 Reputation]
+    I --> M[Mint VOTER Tokens]
 ```
 
-**This isn't theoretical. This code is running.**
+The certification workflow orchestrates five specialized agents through LangGraph state management. Each civic action triggers parallel agent analysis covering verification, supply impact, market conditions, reputation updates, and civic impact assessment. Agents reach consensus through distributed decision-making rather than centralized gatekeeping. High-confidence consensus triggers certification with Monad anchoring, reputation updates, and token rewards.
+
+**This isn't theoretical. This system is operational.**
 
 ### Robust Information Elicitation (Carroll Mechanisms)
 
@@ -237,95 +116,30 @@ These mechanisms enhance agent coordination for information quality assessment w
 
 ### Smart Contract Architecture
 
-```solidity
-contract AgenticCivic {
-    // Parameters are agent-determined but enforced within robust bounds
-    // via AgentParameters contract.
-    mapping(bytes32 => uint256) public parameters;
-    mapping(address => bool) public authorizedAgents;
-    
-    // On-chain governance enforces allowlisted agent accounts / DAO
-    
-    function updateParameter(
-        bytes32 key, 
-        uint256 value
-    ) external /* onlyDAO */ {
-        // This function would interact with AgentParameters to set values,
-        // which enforces min/max bounds.
-        parameters[key] = value; // Simplified for illustration
-        emit ParameterEvolved(key, value, block.timestamp);
-    }
-    
-    function mintDynamic(
-        address to,
-        uint256 baseAmount,
-        uint256 multiplier
-    ) external onlyAgentConsensus {
-        // Supply is dynamically determined by agents, but subject to
-        // protocol-wide and per-user daily mint caps enforced by CommuniqueCore,
-        // which reads bounds from AgentParameters.
-        uint256 amount = baseAmount * multiplier;
-        _mint(to, amount);
-        
-        emit DynamicMint(to, amount, multiplier);
-    }
-}
-```
+**Agent Parameter Management:**
+The AgentParameters contract stores dynamic values calculated by agents but enforces auditable minimum and maximum bounds. No hardcoded constants. Parameters evolve based on agent consensus within safety rails. The DAO controls which agent addresses can update parameters, preventing unauthorized manipulation.
+
+**Dynamic Token Minting:**
+CommuniqueCore handles dynamic token minting based on agent-calculated rewards. Each mint operation respects protocol-wide daily caps and per-user limits. Base amounts get multiplied by agent-determined impact scores, then clamped by on-chain bounds. Economic abundance serves civic participation while preventing runaway issuance.
+
+**Consensus Verification:**
+The AgentConsensusGateway validates multi-agent agreement before executing parameter changes or token mints. No single agent controls the system. Distributed decision-making eliminates central points of failure while maintaining human-governed circuit breakers for emergency situations.
 
 ### Agent Integration Stack
 
-**Workflow Engine (off-chain):**
-```yaml
-# Civic Action Processing Workflow
-nodes:
-  - name: "Civic Action Trigger"
-    type: "webhook"
-    
-  - name: "Multi-Agent Verification"
-    type: "parallel"
-    agents:
-      - verification_agent
-      - identity_agent
-      - impact_agent
-      
-  - name: "Consensus Calculator"
-    type: "langchain"
-    model: "claude-3.5-sonnet"
-    prompt: "Calculate consensus from agent outputs"
-    
-  - name: "Attest Receipt"
-    type: "anchor"
-    contract: "Attest (Monad)"
-```
+**N8N Workflow Engine (off-chain):**
 
-**Vector Memory System:**
-```python
-import chromadb
+Civic actions trigger webhook endpoints that activate parallel agent verification. The VerificationAgent, IdentityAgent, and ImpactAgent analyze submissions simultaneously rather than sequentially. Claude 3.5 Sonnet calculates consensus scores from agent outputs using sophisticated prompt engineering. High-confidence decisions automatically anchor hash receipts to Monad through the attest contract. 
 
-class AgentMemory:
-    def __init__(self):
-        self.client = chromadb.Client()
-        self.decisions = self.client.create_collection("agent_decisions")
-        self.outcomes = self.client.create_collection("civic_outcomes")
-    
-    def remember_decision(self, decision, context, outcome):
-        # Agents learn from every decision
-        self.decisions.add(
-            embeddings=[self.embed(decision)],
-            metadatas=[{
-                'context': context,
-                'outcome_score': outcome.effectiveness,
-                'timestamp': outcome.timestamp
-            }]
-        )
-    
-    def query_similar_contexts(self, current_context):
-        # Historical learning for better decisions
-        return self.decisions.query(
-            query_embeddings=[self.embed(current_context)],
-            n_results=10
-        )
-```
+The workflow orchestrator manages agent coordination, failure recovery, and result persistence. No single point of failure disrupts the civic action pipeline.
+
+**ChromaDB Vector Memory System:**
+
+Agents learn from every decision through vector-based memory storage. The system maintains separate collections for agent decisions and civic outcomes, enabling sophisticated pattern matching across historical contexts. 
+
+When agents encounter new situations, they query similar historical contexts using vector embeddings. Decision effectiveness scores inform future parameter adjustments. Agent memory enables continuous improvement rather than static rule enforcement.
+
+Memory persistence ensures agents retain learning across system restarts and upgrades. Historical patterns guide better civic action verification and reward calculation.
 
 ## Economic Model: Resilient Civic Engagement
 
@@ -333,24 +147,10 @@ class AgentMemory:
 
 Instead of artificial limits, we create **natural equilibrium** through agent optimization, always constrained by auditable, on-chain bounds:
 
-```python
-class EquilibriumEngine:
-    def calculate_mint_amount(self, action):
-        demand = self.measure_demand()
-        impact = self.assess_impact(action)
-        network_health = self.check_health()
-        
-        # Agents determine optimal distribution, but final mint amount
-        # is clamped by on-chain min/max reward and daily caps.
-        optimal_amount = self.ml_model.predict({
-            'demand': demand,
-            'impact': impact,
-            'health': network_health,
-            'historical_outcomes': self.memory.query_similar()
-        })
-        
-        return optimal_amount # This amount is then clamped by smart contract
-```
+**Equilibrium Through Intelligence:**
+Agents measure current demand patterns, assess civic action impact, and monitor overall network health. Machine learning models predict optimal token amounts using historical outcome data from vector memory. The system learns what reward levels maximize authentic civic participation.
+
+Optimal amounts get clamped by smart contract minimums and maximums, ensuring economic stability. Agents optimize within safety rails rather than operating with unlimited authority. Natural market dynamics emerge through intelligent observation rather than hardcoded scarcity.
 
 ### Self-Regulating Supply within Safety Rails
 
@@ -366,28 +166,12 @@ The system maintains health through feedback loops, with protocol-enforced safet
 Traditional governance: Token holders vote on proposals  
 **Agentic governance:** Specialized agents optimize different aspects continuously
 
-```python
-class GovernanceEvolution:
-    async def continuous_optimization(self):
-        while True:
-            # Each agent optimizes its domain
-            supply_optimization = await self.supply_agent.optimize()
-            security_updates = await self.security_agent.analyze()
-            user_experience = await self.ux_agent.improve()
-            
-            # Coordinate optimizations
-            integrated_update = await self.coordinator.integrate([
-                supply_optimization,
-                security_updates,
-                user_experience
-            ])
-            
-            # Deploy if beneficial
-            if integrated_update.improvement_score > threshold:
-                await self.deploy_update(integrated_update)
-            
-            await asyncio.sleep(3600)  # Hourly optimization
-```
+**Continuous Protocol Evolution:**
+The SupplyAgent optimizes token economics. The SecurityAgent analyzes threat patterns. The UXAgent improves user experience flows. Each agent operates within its specialized domain while coordinating through the central orchestrator.
+
+Integrated updates deploy automatically when improvement scores exceed safety thresholds. Hourly optimization cycles enable rapid adaptation to changing civic engagement patterns. The system evolves based on observed outcomes rather than static governance proposals.
+
+Distributed agent optimization replaces centralized voting while maintaining human oversight through circuit breakers and parameter bounds.
 
 ### Emergent Protocol Evolution
 
@@ -408,28 +192,20 @@ The protocol evolves based on usage patterns: Agents identify inefficiencies, pr
 ## Anti-Patterns to Avoid
 
 ### Traditional Web3 Mistakes
-```solidity
-// DON'T: Hardcoded limits
-uint256 constant MAX_WHATEVER = 1000000;
 
-// DON'T: Central operators
-modifier onlyOwner() { ... }
-
-// DON'T: Fixed economics  
-uint256 constant REWARD_AMOUNT = 100;
-```
+**Authoritarian Patterns to Avoid:**
+- Hardcoded limits that never adapt to changing conditions
+- Central operators with god-mode powers over user funds
+- Fixed economic parameters that ignore market dynamics
+- Artificial scarcity enforced through mathematics rather than value
 
 ### Agentic Alternatives (with Robustness)
-```solidity
-// DO: Agent-determined parameters within auditable min/max bounds
-function getOptimalLimit() external view returns (uint256);
 
-// DO: Distributed consensus with human-governed circuit breakers
-modifier onlyAgentConsensus() { ... }
-
-// DO: Dynamic economics clamped by on-chain safety rails
-function calculateReward(Action memory action) external view returns (uint256);
-```
+**Adaptive Patterns We Implement:**
+- Agent-determined parameters within auditable minimum and maximum bounds
+- Distributed consensus mechanisms with human-governed circuit breakers for emergencies
+- Dynamic economics that respond to real civic engagement patterns while maintaining stability
+- Natural abundance through intelligent observation rather than artificial constraint
 
 ## Conclusion
 

@@ -87,11 +87,11 @@ Agents remember what works and what doesn't, and the system gets smarter over ti
 
 Carroll Mechanisms solve democracy's information quality problem through market-based consensus rather than centralized fact-checking. The system builds portable credibility that follows participants across platforms:
 
-### Challenge Market Framework
-* **Disputable Claims:** Any claim in civic actions can be challenged through staked disputes
-* **Community Consensus:** Markets resolve through participant evaluation, not truth determination  
-* **Quality Discourse:** Rewards focus on sourcing standards and constructive engagement
-* **Reputation Building:** Track record of good faith participation builds credibility over time
+### Advanced Challenge Market Governance
+* **Dispute Escalation Pathways:** Complex challenges route through specialized agent committees with domain expertise
+* **Meta-Market Resolution:** Challenges to challenge market outcomes create recursive quality assurance
+* **Governance Evolution Triggers:** Challenge market patterns inform automatic governance parameter adjustments
+* **Cross-Platform Reputation Impact:** Challenge outcomes affect credibility scores across all ERC-8004 integrated platforms
 
 ### ERC-8004 Reputation Registry Integration
 The ReputationAgent coordinates with other agents to build credibility scores based on:

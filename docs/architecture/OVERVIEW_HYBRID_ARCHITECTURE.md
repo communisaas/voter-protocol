@@ -165,26 +165,18 @@ Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror mini
 
 ### Verification Proof Structure
 
-```typescript
-interface VerificationProof {
-  actionHash: bytes32;
-  citizen: address;
-  actionType: ActionType;
-  timestamp: uint256;
-  cwcDeliveryProof: {
-    messageId: string;
-    deliveryConfirmation: bytes;
-    representativeOffice: string;
-  };
-  identityProof: {
-    citizenId: bytes32;
-    districtHash: bytes32;
-    verificationTimestamp: uint256;
-  };
-  eigenSignature: bytes;
-  blockProof: bytes;
-}
-```
+**Cryptographic Proof Components:**
+
+Verification proofs contain six essential elements for tamper-proof civic action validation. The action hash uniquely identifies each civic engagement. Citizen address links actions to specific participants. Action type categorizes the civic engagement (CWC message, direct action, etc.). Timestamp provides chronological ordering.
+
+**CWC Delivery Verification:**
+Congressional message proofs include unique message identifiers from the CWC system, cryptographic delivery confirmations showing successful transmission, and representative office routing information for transparency.
+
+**Identity Attestation:**
+Zero-knowledge identity proofs contain hashed citizen identifiers for sybil resistance, district hash for congressional routing verification, and verification timestamps for chronological tracking. Personal information never appears in proofs.
+
+**Cryptographic Integrity:**
+EigenCloud signatures provide tamper-proof validation from restaked validators. Block proofs anchor verification to specific blockchain states for cross-chain composability and dispute resolution.
 
 ## Performance Characteristics
 
