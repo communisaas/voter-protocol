@@ -1,44 +1,43 @@
 # Core dependencies
-python-dotenv==1.0.0
-web3==6.11.3
-eth-account==0.10.0
+python-dotenv
+web3
+eth-account
 
 # LangGraph and AI agents
-langchain==0.1.0
-langchain-anthropic==0.1.1
-langgraph==0.0.26
-langchain-community==0.0.10
-openai==1.6.1
+langchain
+langchain-anthropic
+langgraph
+langchain-community
+openai
 
 # Vector database for agent memory
-chromadb==0.4.22
-sentence-transformers==2.2.2
+chromadb
+sentence-transformers
 
 # Async and workflow management
-asyncio==3.4.3
-temporal-python-sdk==1.4.0
-httpx==0.25.2
+temporal-python-sdk
+httpx
 
 # Data processing
-pandas==2.1.4
-numpy==1.26.2
-pydantic==2.5.3
+pandas
+numpy
+pydantic
 
 # API and web
-fastapi==0.108.0
-uvicorn==0.25.0
-requests==2.31.0
+fastapi
+uvicorn
+requests
 
 # Blockchain tools
-eth-abi==4.2.1
-eth-typing==3.5.2
-hexbytes==0.3.1
+eth-abi
+eth-typing
+hexbytes
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-mock==3.12.0
+pytest
+pytest-asyncio
+pytest-mock
 
 # Monitoring and logging
-structlog==23.2.0
-prometheus-client==0.19.0
+structlog
+prometheus-client

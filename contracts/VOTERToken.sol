@@ -20,26 +20,9 @@ contract VOTERToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     
     uint256 public constant INITIAL_MINT_CAP = 100_000_000 * 10**18; // 100M for initial distribution
     
-    struct StakeInfo {
-        uint256 amount;
-        uint256 timestamp;
-        uint256 lockDuration;
-        bool withdrawn;
-    }
-    
-    mapping(address => StakeInfo[]) public userStakes;
-    mapping(address => uint256) public stakingRewards;
     mapping(address => uint256) public civicActions; // Track actions for reward calculation
     
-    uint256 public totalStaked;
-    uint256 public rewardPool;
-    uint256 public constant MIN_STAKE_DURATION = 30 days;
-    uint256 public constant MAX_STAKE_DURATION = 365 days;
-    uint256 public constant BASE_APR = 500; // 5% base APR
-    
     event TokensEarned(address indexed citizen, uint256 amount, string actionType);
-    event TokensStaked(address indexed user, uint256 amount, uint256 duration);
-    event TokensUnstaked(address indexed user, uint256 amount, uint256 rewards);
     
     
     modifier onlyMinter() {
@@ -77,107 +60,11 @@ contract VOTERToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
         emit TokensEarned(to, amount, actionType);
     }
     
-    /**
-     * @dev Stake VOTER tokens for governance voting power and rewards
-     * @param amount Amount of tokens to stake
-     * @param duration Duration to lock tokens (in seconds)
-     */
-     function stake(uint256 amount, uint256 duration) external nonReentrant whenNotPaused {
-        require(amount > 0, "Invalid stake amount");
-        require(duration >= MIN_STAKE_DURATION && duration <= MAX_STAKE_DURATION, "Invalid duration");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        
-        _transfer(msg.sender, address(this), amount);
-        
-        userStakes[msg.sender].push(StakeInfo({
-            amount: amount,
-            timestamp: block.timestamp,
-            lockDuration: duration,
-            withdrawn: false
-        }));
-        
-        totalStaked += amount;
-        
-         // Note: staking currently reduces voting power since tokens leave user's balance.
-         // Future version will introduce a staking wrapper to preserve votes.
-        
-        emit TokensStaked(msg.sender, amount, duration);
-    }
-    
-    /**
-     * @dev Unstake tokens and claim rewards
-     * @param stakeIndex Index of the stake to withdraw
-     */
-    function unstake(uint256 stakeIndex) external nonReentrant {
-        require(stakeIndex < userStakes[msg.sender].length, "Invalid stake index");
-        
-        StakeInfo storage stakeInfo = userStakes[msg.sender][stakeIndex];
-        require(!stakeInfo.withdrawn, "Already withdrawn");
-        require(block.timestamp >= stakeInfo.timestamp + stakeInfo.lockDuration, "Still locked");
-        
-        uint256 rewards = _calculateRewards(msg.sender, stakeIndex);
-        
-        stakeInfo.withdrawn = true;
-        totalStaked -= stakeInfo.amount;
-        
-        if (rewards > 0 && rewardPool >= rewards) {
-            rewardPool -= rewards;
-            _transfer(address(this), msg.sender, rewards);
-        }
-        
-        _transfer(address(this), msg.sender, stakeInfo.amount);
-        
-        emit TokensUnstaked(msg.sender, stakeInfo.amount, rewards);
-    }
     
     
-    /**
-     * @dev Calculate staking rewards for a user
-     * @param user Address of the user
-     * @param stakeIndex Index of the stake
-     * @return Calculated rewards
-     */
-    function _calculateRewards(address user, uint256 stakeIndex) internal view returns (uint256) {
-        StakeInfo memory stakeInfo = userStakes[user][stakeIndex];
-        
-        uint256 timeStaked = block.timestamp - stakeInfo.timestamp;
-        if (timeStaked > stakeInfo.lockDuration) {
-            timeStaked = stakeInfo.lockDuration;
-        }
-        
-        // Calculate APR based on lock duration (longer = higher rewards)
-        uint256 aprMultiplier = 100 + (stakeInfo.lockDuration * 100 / MAX_STAKE_DURATION);
-        uint256 effectiveApr = BASE_APR * aprMultiplier / 100;
-        
-        return (stakeInfo.amount * effectiveApr * timeStaked) / (10000 * 365 days);
-    }
     
-    // Fee discount logic removed: no fee-bearing flows implemented
     
-    /**
-     * @dev Add to reward pool (admin function)
-     * @param amount Amount to add to reward pool
-     */
-    function addToRewardPool(uint256 amount) external onlyRole(ADMIN_ROLE) {
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance");
-        _transfer(msg.sender, address(this), amount);
-        rewardPool += amount;
-    }
     
-    /**
-     * @dev Get user's total staked amount
-     * @param user Address of the user
-     * @return Total staked amount
-     */
-    function getTotalStaked(address user) external view returns (uint256) {
-        uint256 total = 0;
-        for (uint256 i = 0; i < userStakes[user].length; i++) {
-            if (!userStakes[user][i].withdrawn) {
-                total += userStakes[user][i].amount;
-            }
-        }
-        return total;
-    }
     
     /**
      * @dev Burn tokens (for deflationary mechanism)
