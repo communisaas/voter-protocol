@@ -223,8 +223,17 @@ International expansion: parliamentary democracy integration across major market
 
 * **Contracts:** `VOTERRegistry` for zk eligibility; `CommuniqueCore` for orchestration; `VOTERToken` for rewards; `AgentParameters` for dynamic config; `AgentConsensusGateway` for verifier writes; `CreditVault` for accounting.
 * **Agent Infrastructure:** LangGraph coordination, Temporal workflows, ChromaDB memory, N8N automation pipelines.
+* **Integration Layer:** Deterministic address generation, server-side proxy architecture, virtual reward tracking, database migrations for blockchain state.
 * **Security:** Multi-agent verification, distributed consensus, continuous optimization, memory-based learning. No PII on‑chain.
 * **Evolution:** Self-modifying parameters, emergent governance, adaptive economics, responsive verification thresholds.
+
+### Seamless Integration
+
+**The UX stays the same. The backend gets smart.**
+
+Users still just open their mail client. Civic actions get certified automatically. Rewards accumulate invisibly. Connect wallet anytime to claim.
+
+**No crypto complexity. Just civic action that pays.**
 
 ### Detailed Architecture (Monad Anchoring)
 
@@ -259,12 +268,13 @@ Publish the methods. Publish the results.
 
 **Core infrastructure is live.** On-chain enforcement for verified actions. ZK registration path working. Governance scaffold deployed. Reward accounting operational. Indexing infrastructure running.
 
-**Agent integration underway.** Multi-agent consensus system in development. CWC integration via N8N automation pipelines. Dynamic parameter adjustment mechanisms. Timelock + guardian security models.
+**Agent infrastructure deployed.** Multi-agent consensus framework operational. Dynamic reward calculations live. Model-agnostic architecture supports any AI provider.
+
+**Communiqué Integration Live.** Users participate immediately—no wallet required initially. Virtual rewards accumulate. Connect anytime to claim on-chain.
 
 **Next major milestones:** 
-- Complete CWC API integration with agent verification
-- Deploy reputation registry on ERC-8004 infrastructure  
-- Launch challenge markets for information quality
+- Complete Carroll Mechanisms for information quality markets
+- Deploy portable reputation across platforms  
 - Scale to all Congressional districts
 
 **Future expansion:** Cross-chain proof relay, transparency dashboards, international parliamentary systems. The technical foundation exists—now we build the network effects.
