@@ -1,4 +1,4 @@
-# Verified Outreach to Elected Representatives: The VOTER Protocol
+# Verified Outreach to Elected Representatives: VOTER Protocol
 
 *Building verifiable political participation at scale*
 
@@ -6,13 +6,13 @@
 
 ## The Attention War
 
-Democracy has a distribution problem. While [TRUMP‑linked memecoins touched ~$40B in 24 hours on Inauguration Day](https://www.aljazeera.com/economy/2025/1/20/trump-linked-meme-coins-see-trading-volumes-near-40bn-on-inauguration) [1], a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers and slippage overnight. **Both chambers route constituent messages through Communicating with Congress (CWC)** on the backend. But the public experience is still a patchwork of webforms with shifting fields and limits. Auto‑replies go unopened ([CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CMF summary](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
+Democracy has a distribution problem. While [TRUMP‑linked memecoins touched ~$40B in 24 hours on Inauguration Day](https://www.aljazeera.com/economy/2025/1/20/trump-linked-meme-coins-see-trading-volumes-near-40bn-on-inauguration) [1], a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers and slippage overnight. **Both chambers route constituent messages through Communicating with Congress (CWC) on the backend** ([CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]). But the public experience is still a patchwork of webforms with shifting fields and limits. Auto‑replies go unopened ([CMF summary](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
 The problem isn't technology. It's incentive design. Speculation rewards attention with immediate, personal feedback. Democratic participation offers delayed, uncertain outcomes with no personal value accrual. When TikTok optimizes for engagement over truth and Robinhood gamifies markets, civic work reads like homework in a world built for dopamine.
 
 Civic participation continues declining among younger demographics. Voter turnout in off-year elections remains low among 18-29 year olds. Congressional approval ratings remain historically low. The attention economy increasingly rewards financial speculation over democratic citizenship.
 
-Under the noise is new capacity for coordination. Monad provides cheap EVM anchoring for receipts and registries; we optionally mirror to an ETH L2 (ERC‑8004 registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Self Protocol proves human eligibility without exposing identity ([Self docs](https://docs.self.xyz/) [7]; [Businesswire](https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users) [8]). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
+Under the noise is new capacity for coordination. Monad provides cheap EVM anchoring for receipts and registries ([Monad docs](https://docs.monad.xyz) [5]); we optionally mirror to an ETH L2 ([ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) [4] registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Self Protocol proves human eligibility without exposing identity ([Self docs](https://docs.self.xyz/) [7]; [Businesswire](https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users) [8]). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical "we got it" form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
@@ -25,7 +25,7 @@ VOTER starts where legitimacy starts: verification. Each action produces a mathe
 
 Our architecture builds for trustless agents and verifiable interactions. ERC-8004 was built for AI agents. We extend it to human civic participants. Same infrastructure that makes AI agents credible makes your civic participation credible. Three layers mirror constitutional systems:
 
-1.  **Identity — eligibility without surveillance (ERC-8004 Identity Registry).** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [6]; [zk‑passport repo](https://github.com/zk-passport/proof-of-passport) [7]). This forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving agent interactions.
+1.  **Identity — eligibility without surveillance (ERC-8004 Identity Registry).** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [7]). This forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving agent interactions.
 
 2.  **Verification — administration without guesswork (ERC-8004 Validation & Reputation Registries).** A verifier gateway checks adapter receipts (e.g., CWC delivery or mail routing) and tracks information quality outcomes in the ERC-8004 Reputation Registry. Challenge market results, discourse quality metrics, and claim verification build portable credibility scores. Hash receipts are pinned to IPFS and attested on Monad (no PII on‑chain). Distributed agents coordinate verification and reputation scoring; outcomes anchor to Monad for auditability.
 
@@ -88,12 +88,12 @@ Dispute template claims or message quality using earned VOTER tokens. Winners ta
 Templates stored as IPFS CIDs on-chain. Template creators build reputation and influence through successful usage. Carroll Mechanisms ([NGI](https://paragraph.com/@ngi/carroll-mechanisms) [21]) solve democracy's information problem—political discourse drowns in noise because bad information travels as fast as good. Challenge markets determine template credibility through community consensus, not truth arbitration. Template challenges affect all users of that template. Usage challenges are one-on-one disputes. Good templates earn creators credibility and priority routing, not revenue shares.
 
 **Tier 4: Institutional Revenue**
-Organizations buy USDC-backed credits for API access and data licensing (when we have something worth buying). **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad.
+Organizations buy USDC-backed credits for API access and data licensing (when we have something worth buying). **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [10]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad.
 
 **Tier 5: Platform Services**
 Analytics dashboards, bulk messaging, congressional response tracking. Premium features unlocked with VOTER token holdings. Cross-platform reputation via ERC-8004 registry.
 
-The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [10]). Federal lobbying: multibillion annual ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [11]). Public-affairs SaaS: nine-figure revenue (FiscalNote: $100M+ revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [12]).
+The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https://www.opensecrets.org/news/2024/10/opensecrets-projects-2024-election-spending-to-exceed-previous-record/) [11]). Federal lobbying: multibillion annual ([Bloomberg Government](https://about.bgov.com/insights/company-news/federal-lobbying-spending-reached-new-high-in-2024-bloomberg-governments-10th-annual-top-performing-lobbying-firms-report-finds/) [12]). Public-affairs SaaS: nine-figure revenue (FiscalNote: $100M+ revenue) ([Investor release](https://investors.fiscalnote.com/news/news-details/2025/FiscalNote-Reports-Fourth-Quarter-and-Full-Year-2024-Financial-Results/) [13]).
 
 **Economic Flow:** Users participate for free and earn tokens. Those tokens fuel challenge markets where quality wins and bad faith loses. Token value comes from belief in democratic infrastructure, not immediate revenue. Maybe institutions pay for verified civic data someday. Maybe not. We build the infrastructure first, monetization comes when it comes. Users never pay. Quality discourse pays. **[The actual tokenomics →](docs/architecture/TOKENOMICS_MODEL.md)**
 
@@ -127,6 +127,25 @@ The budgets are real. 2024 federal election cycle: $15.9B ([OpenSecrets](https:/
 
 Agents calculate rewards based on impact measurement—no hardcoded constants. Quality compounds through reputation multipliers. High-reputation participants get priority congressional routing.
 
+## Templates That Change Reality
+
+**Your templates don't just send messages. They change minds.**
+
+VOTER tracks which information actually shifts votes. Templates make verifiable claims about reality—economic impacts, constituent effects, hidden costs. When legislators cite template data in speeches, change votes after campaigns, or evolve positions based on citizen expertise, the protocol proves it.
+
+**Impact-Based Rewards:**
+- Template introduces new data → legislator cites that data → creator earns credibility
+- Mass campaign surfaces hidden costs → vote changes → participants get bonus VOTER
+- Citizen expertise shapes amendment → template creator builds reputation
+- Local impact proven → national position shifts → treasury funds what worked
+
+**Funding What Moves Mountains:**
+The protocol treasury accumulates value through token economics. Through transparent governance, funds flow to support legislators who demonstrably learned from constituent information—not those who already agreed, but those whose positions evolved based on quality citizen input.
+
+**We don't count responses. We count minds changed.**
+
+Templates that shift reality get paid. Information quality drives rewards. Legislators who learn from constituents earn support. Democracy rewards truth over noise.
+
 ## Paying People to Participate
 
 The protocol separates **proof of participation** from **who pays for the pipes**.
@@ -135,7 +154,7 @@ The protocol separates **proof of participation** from **who pays for the pipes*
 * **VOTER Tokens** are tradeable ERC-20 governance tokens minted upon verified civic actions—reward amounts determined dynamically by agent optimization rather than fixed constants.
 * **Institutional Credits** are USD‑priced balances that fund verified outreach, analytics, and receipts.
 
-**Bright‑line rules.** We do not reward registering to vote, voting, or choosing a candidate ([52 U.S.C. §10307(c)](https://www.law.cornell.edu/uscode/text/52/10307) [13]; [18 U.S.C. §597](https://www.law.cornell.edu/uscode/text/18/597) [14]). We block foreign funds for U.S. election activity ([52 U.S.C. §30121](https://www.law.cornell.edu/uscode/text/52/30121) [15]; [FEC guidance](https://www.fec.gov/help-candidates-and-committees/foreign-nationals/) [16]). Several states restrict per‑signature compensation for petitions, so we do not enable per‑signature bounties ([Ballotpedia overview](https://ballotpedia.org/Pay-per-signature_for_ballot_initiative_signature_gatherers) [17]).
+**Bright‑line rules.** We do not reward registering to vote, voting, or choosing a candidate ([52 U.S.C. §10307(c)](https://www.law.cornell.edu/uscode/text/52/10307) [14]; [18 U.S.C. §597](https://www.law.cornell.edu/uscode/text/18/597) [15]). We block foreign funds for U.S. election activity ([52 U.S.C. §30121](https://www.law.cornell.edu/uscode/text/52/30121) [16]; [FEC guidance](https://www.fec.gov/help-candidates-and-committees/foreign-nationals/) [17]). Several states restrict per‑signature compensation for petitions, so we do not enable per‑signature bounties ([Ballotpedia overview](https://ballotpedia.org/Pay-per-signature_for_ballot_initiative_signature_gatherers) [18]).
 
 This keeps the energy of stakeholder ownership without blurring into inducement.
 
@@ -151,8 +170,8 @@ In a world where the President's memecoin cleared $40B in volume on inauguration
 
 Trust assumptions fail at scale. Email can be automated. Phone numbers can be bought. Accounts can be generated. VOTER tightens the loop:
 
-* **Identity:** zk proofs of age, citizenship, and uniqueness via passport NFC ([Self docs](https://docs.self.xyz/) [6]).
-* **Delivery:** **House and Senate messages flow through CWC's secure XML**; deliveries get confirmations that anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
+* **Identity:** zk proofs of age, citizenship, and uniqueness via passport NFC ([Self docs](https://docs.self.xyz/) [7]).
+* **Delivery:** **House and Senate messages flow through CWC's secure XML**; deliveries get confirmations that anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [10]).
 * **Authenticity:** rate limits, duplicate‑content checks, anomaly detection, and appealable challenges, guided by staff‑workflow evidence ([Congressional Management Foundation](https://www.congressfoundation.org/news/110-mail-operations) [2]).
 * **Information Quality:** Messages from high-reputation participants (tracked in ERC-8004 Reputation Registry) get priority congressional routing. Low-reputation claims trigger additional verification through challenge markets. Historical accuracy determines message weighting and reward multipliers.
 
@@ -215,7 +234,7 @@ We're not naive about these risks. Each one gets addressed through technical des
 
 *VOTER:* You send a message with verified CWC delivery confirmation. You get immediate VOTER token rewards. Quality content boosts your reputation. Future messages get priority routing. Your credibility becomes portable across platforms.
 
-Single‑purpose tools fragment the space. Petition sites move signatures that never turn into meetings. Form‑email vendors flood inboxes without cryptographic signal; staff triage suffers ([CMF blog on form emails](https://www.congressfoundation.org/news/blog/1486) [18]).
+Single‑purpose tools fragment the space. Petition sites move signatures that never turn into meetings. Form‑email vendors flood inboxes without cryptographic signal; staff triage suffers ([CMF blog on form emails](https://www.congressfoundation.org/news/blog/1486) [19]).
 
 **VOTER's moat is credibility infrastructure.** Beyond zk identity and delivery confirmations, we build **portable democratic reputation** through ERC-8004 reputation systems. Others build for humans OR AI. We build infrastructure both can use. Other civic platforms verify *actions*—we verify *information quality*. Congressional offices get better signal. Citizens carry reputation across platforms. AI systems read your democratic credibility. Democratic tools built on VOTER inherit trust from day one.
 
@@ -253,7 +272,7 @@ Security measures: comprehensive smart contract auditing, multi-sig governance, 
 
 ## House and Senate, plainly
 
-**House & Senate.** **Communicating with Congress (CWC) is our path on both ends.** We conform to the secure XML schema, apply rate‑limits by design, and log confirmations to anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [8]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [9]).
+**House & Senate.** **Communicating with Congress (CWC) is our path on both ends.** We conform to the secure XML schema, apply rate‑limits by design, and log confirmations to anchor receipts ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]; [CWC level‑of‑service](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [10]).
 
 
 ## What each stakeholder gets

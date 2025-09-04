@@ -58,7 +58,17 @@ The MarketAgent manages economic incentives by adjusting reward structures based
 
 **4. Impact Measurement Agent**
 
-The ImpactAgent tracks real-world civic outcomes by monitoring CWC message delivery confirmations, measuring direct action participation verification, and calculating engagement effectiveness. It provides feedback loops that connect digital civic actions to authentic political impact. Representative response rates and policy outcomes inform future reward calculations.
+The ImpactAgent tracks which templates actually change reality. It monitors legislative floor speeches for template talking points, tracks voting pattern changes after mass campaigns, identifies when citizen expertise shapes amendments, and measures media pickup of template arguments. 
+
+The agent proves causality between civic actions and political outcomes. When a template claim appears in committee testimony, when voting patterns shift after coordinated campaigns, when amendments reflect citizen proposals - the ImpactAgent captures it. This creates verified impact scores that drive creator rewards and treasury allocation.
+
+**Electoral Consequence Tracking:**
+The ImpactAgent's verified impact scores determine how the protocol treasury deploys funds through a 501(c)(4) structure. Templates that demonstrably change legislative positions earn their creators voting weight in electoral fund allocation. Legislators who evolve based on citizen information receive campaign support. The agent closes the loop: information changes minds, changed minds get funded.
+
+**Concrete Impact Example:**
+Template claims "Policy reduces veteran wait times by 40%." Mass campaign generates 10K messages. Senator cites statistic in committee. Amendment passes reflecting template proposal. ImpactAgent verifies causality. Creator earns 10,000 VOTER bonus. Treasury allocates $100K to Senator's campaign via 501(c)(4). Democracy rewards learning.
+
+**We don't count messages sent. We count minds changed.**
 
 **5. Reputation Agent**
 
@@ -119,11 +129,19 @@ The planned certification workflow will orchestrate five specialized agents thro
 
 **This is the target architecture. Contracts exist, agents are in development.**
 
+### Templates Close the Loop Through Impact
+
+Templates create verifiable claims about reality. The ImpactAgent tracks whether those claims actually changed legislative behavior. When templates introduce information that shifts positions, the system proves it.
+
+**Impact Verification Pipeline:**
+Templates make claims about constituent impact, economic effects, or policy consequences. Mass usage creates coordinated campaigns that legislators can't ignore. The ImpactAgent monitors for template data appearing in official records, voting changes correlating with campaign timing, and amendments reflecting template proposals. Verified impact drives creator rewards and determines treasury fund allocation.
+
+**From Information to Electoral Consequences:**
+When the ImpactAgent proves a template changed legislative positions, the treasury can direct funds to support responsive legislators. Not lobbying them to change - rewarding them for learning from constituents. The loop closes: templates surface information, information changes positions, changed positions get funded, democracy rewards learning over ideology.
+
 ### Robust Information Elicitation (Carroll Mechanisms)
 
-Building on the principles of robustness in mechanism design, particularly those explored by Gabriel Carroll, the VOTER protocol ensures the integrity and relevance of information processed by its agents. Traditional systems often struggle with private information and the difficulty of incorporating nuanced, disputable claims into decision-making. Inspired by "Carroll Mechanisms" as described in recent mechanism design research, we implement systems that incentivize the revelation of critical information and handle disputes about its veracity and relevance.
-
-Our agentic system now incorporates:
+Building on principles of robust mechanism design, the VOTER protocol ensures information quality through market mechanisms. Our agentic system incorporates:
 
 ### Challenge Market Integration
 

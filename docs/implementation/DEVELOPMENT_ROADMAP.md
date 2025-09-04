@@ -53,15 +53,15 @@ Operate in two modes:
 - Observability: metrics, anomaly auto‑tightening (raise interval / lower rewards / pause)
 - Governance: timelock/DAO for role/param changes; guardian pause
 - E2E tests: agent‑consensus path; param override behavior; caps invariants
-- **Carroll Mechanisms (Off-chain Agent Implementation):**
-  - Develop `VerificationAgent` for claim extraction and quality assessment.
-  - Develop `MarketAgent` for managing challenge markets and discourse quality scoring.
-  - Develop `ImpactAgent` for tracking user credibility and civic impact.
-  - Develop `ReputationAgent` for writing portable credibility to ERC‑8004 registry.
-  - Integrate quality scoring into `SupplyAgent` for dynamic `VOTER` rewards.
-  - Implement N8N workflows for Carroll Mechanism orchestration.
+- **Impact Verification Infrastructure:**
+  - Develop `ImpactAgent` to track template influence on legislative behavior
+  - Monitor floor speeches and committee testimony for template talking points
+  - Track voting pattern changes correlating with template campaigns
+  - Prove causality between civic information and political outcomes
+  - Create verified impact scores for treasury fund allocation
+  - Build pipeline: template claims to legislative changes to electoral funding
 
-**Quality discourse pays. Bad faith costs.**
+**We don't count messages. We count minds changed.**
 
 **Future Enhancements:**
 - Treasury ops, market making (if needed)
@@ -98,7 +98,9 @@ Operate in two modes:
 - [ ] E2E tests for consensus gateway and param behaviors
 - [ ] Metrics/alerts runbooks—synthetic attack tightens parameters automatically
 - [ ] Documentation updated—sources preserved
-- [ ] Carroll Mechanisms agents built and tested
+- [ ] Impact tracking infrastructure operational
+- [ ] Template influence verification pipeline complete
+- [ ] Treasury fund allocation governance ready
 
 ---
 
@@ -138,10 +140,21 @@ Operate in two modes:
 - **Victory**: Representatives responding to verified constituents more than random emails
 - **Reality Check**: Congressional messages sent and community actions taken
 
+### Mind Change Metrics
+- **Target**: 10+ verified legislative position changes from template campaigns
+- **Victory**: Template talking points appearing in 50+ floor speeches
+- **Reality Check**: ImpactAgent tracking of information propagation
+- **Electoral Consequence**: $1M+ directed to responsive legislators
+
 ### Economic Performance
 - **Target**: Sustainable token economics with <5% monthly inflation
-- **Victory**: Price appreciation aligned with platform growth, not speculation
-- **Reality Check**: Token distribution, trading volume, and holder patterns
+- **Victory**: Treasury accumulation sufficient for electoral impact
+- **Reality Check**: Token distribution, treasury growth, fund deployment rates
+
+### Electoral Impact
+- **Target**: Support 20+ legislators based on verified learning
+- **Victory**: First template-to-funding loop completion
+- **Reality Check**: Legislators funded, position changes tracked, media coverage
 
 ### Technical Excellence
 - **Target**: 99.9% uptime with sub-3 second response times
@@ -152,9 +165,48 @@ Operate in two modes:
 
 ## Post-Launch Evolution
 
-- **Human-AI Infrastructure**: ERC‑8004 registries serve both AI agent coordination and portable human civic reputation; add cross-chain adapters
+### Phase 4: Electoral Impact (Months 7-9)
+
+**501(c)(4) Social Welfare Organization Formation:**
+- Legal entity setup for unlimited issue advocacy and lobbying
+- Treasury bridge mechanics: VOTER tokens to USDC to 501(c)(4) account
+- Governance structure: high-credibility participants vote on funding priorities
+- Compliance framework: FEC reporting, state registrations, legal counsel
+- Initial funding: $500K minimum for operational viability
+
+**Connected PAC Structure:**
+- Traditional PAC for direct candidate contributions ($5K limit per candidate)
+- Super PAC for unlimited independent expenditures
+- Coordination rules: legal separation while maintaining mission alignment
+- Transparent reporting: all political spending public on-chain and FEC
+
+**Impact Verification to Electoral Support Pipeline:**
+- ImpactAgent tracks template influence on legislative positions
+- Challenge markets verify causality claims
+- High-credibility participants vote on fund allocation
+- Treasury deploys funds to legislators based on verified learning
+- Public dashboard shows: template → mind change → funding
+
+**Success Metrics:**
+- Number of verified mind changes: target 10+ major position shifts
+- Treasury funds deployed: $1M+ in first cycle
+- Legislators supported: 20+ based on verified responsiveness
+- Template creators with electoral influence: 100+ high-credibility participants
+- Media coverage of "democracy rewards learning" model
+
+**Concrete Example Flow:**
+1. Template: "Infrastructure bill creates 50K jobs in your district"
+2. Usage: 5,000 constituents send via CWC
+3. Impact: Representative cites job numbers in floor speech
+4. Verification: Challenge market confirms causality
+5. Funding: Treasury allocates $25K to representative's campaign
+6. Result: Democracy rewards information that changes positions
+
+### Phase 5: Scale Infrastructure (Months 10-12)
+- **Human-AI Infrastructure**: ERC‑8004 registries serve both AI agent coordination and portable human civic reputation
 - **International Markets**: Global adapters (certified APIs/forms) with invariant user UX
 - **Advanced Features**: Predictive civic analytics and AI‑assisted action recommendations
+- **Cross-Platform Integration**: Export verified impact scores to other democratic platforms
 
 ### Long-Term Vision
 - **Global Civic Network**: Worldwide democratic participation platform with portable reputation

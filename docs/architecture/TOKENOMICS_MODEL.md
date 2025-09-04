@@ -56,23 +56,27 @@ Do civic action, get three things: permanent record you can't trade, VOTER token
 - Action authenticity (submission receipts, mail routing receipts)
 - Anti‑spam measures (rate limits, quality scoring)
 
-### Template Economics: Smart Contract Implementation
+### Template Economics: Impact Drives Everything
 
 **On-Chain Template Registry Architecture:**
 
-The TemplateRegistry tracks message templates through their entire lifecycle. Each template stores its IPFS hash for decentralized content, creator address for attribution, creation block for timestamping, usage metrics for performance analysis, revenue totals for creator compensation, credibility scores from challenge market outcomes, and deprecation status for lifecycle management.
+The TemplateRegistry tracks message templates through their entire lifecycle. Each template stores its IPFS hash for decentralized content, creator address for attribution, creation block for timestamping, usage metrics for performance analysis, impact scores for mind-changing potential, credibility scores from challenge market outcomes, and deprecation status for lifecycle management.
 
 Template challengers get tracked separately, enabling dispute resolution workflows. The registry serves as the authoritative source for template credibility and reputation.
 
-**How Economics Actually Work:**
+**Templates That Actually Change Things:**
 
-Forget revenue splits for money that doesn't exist. Here's reality:
+Your template makes a claim: "This policy costs families $2K/year." Ten thousand people use it. Three senators cite that exact figure in floor speeches. Two votes flip. That's verified impact.
+
+**How Impact Rewards Work:**
+
+When templates introduce information that changes legislative positions, creators earn massive credibility boosts. When mass campaigns shift votes, participants get bonus VOTER tokens. When citizen expertise shapes amendments, the system proves who moved mountains.
 
 **Bootstrap Phase (Now):**
-Citizens earn VOTER tokens for verified civic actions. Token value comes from speculation on democratic infrastructure's future. Challenge markets redistribute existing tokens - winners take losers' stakes. No institutional revenue required.
+Citizens earn VOTER tokens for verified civic actions. Templates that demonstrably change minds earn creators 10x normal rewards. Token value comes from belief that democracy needs better information flows. Challenge markets verify impact claims.
 
-**Maybe Later (If Traction):**
-Institutions might pay for verified civic data. Protocol takes operational costs if revenue exists. Template creators build reputation, not revenue streams. We'll figure out splits when there's something to split.
+**Impact-Based Treasury Allocation:**
+As treasury accumulates value, governance directs funds to legislators who learned from citizen input. Not those who already agreed, but those whose positions evolved based on template campaigns. Your information changed their mind. Your treasury funds their campaign.
 
 **Challenge Market Mechanics:**
 - Template challenges trigger state transitions in TemplateRegistry
@@ -199,10 +203,35 @@ The parameters contract stores agent-calculated values within auditable bounds. 
 - Measurable policy outcomes
 - Government offices caring
 
+## Templates Close the Loop
+
+**From Information to Impact to Funding:**
+
+Templates surface information legislators didn't have. That information changes positions. Changed positions get funded. Democracy starts rewarding learning over ideology.
+
+The ImpactAgent tracks which templates actually moved mountains:
+- Template data appears in floor speeches
+- Voting patterns shift after campaigns  
+- Amendments reflect citizen expertise
+- Media picks up template talking points
+
+When we prove a template changed reality, creators earn credibility that actually means something. When legislators learn from constituents, they earn campaign support from the citizen treasury through a 501(c)(4) social welfare organization—unlimited funds for those who actually listen.
+
+**Treasury to Electoral Pipeline:**
+- VOTER tokens accumulate value through platform growth
+- High-credibility participants vote on funding priorities
+- 501(c)(4) deploys unlimited funds for issue advocacy
+- Connected PAC provides direct candidate support
+- Public dashboard tracks: template → mind change → electoral support
+
+**We don't count messages sent. We count minds changed. Changed minds get funded.**
+
 ## The Bottom Line
 
-We separate civic participation from speculation. Citizens earn tokens for real democratic action. Agents optimize instead of hardcoded bullshit. Challenge markets make quality discourse pay. Reputation actually follows you.
+We separate civic participation from speculation. Citizens earn tokens for real democratic action. Templates that change reality get rewarded. Legislators who learn get funded.
+
+Agents optimize instead of hardcoded bullshit. Challenge markets make quality discourse pay. Impact tracking proves what actually works. Reputation actually follows you.
 
 This isn't another governance token. It's democracy infrastructure that competes for attention while creating real political impact.
 
-**Quality discourse pays. Bad faith costs.**
+**Quality discourse pays. Bad faith costs. Templates that change reality win.**

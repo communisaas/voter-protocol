@@ -33,11 +33,14 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 - Balances token distribution for maximum participation, preventing gaming through pattern recognition.
 - Creates sustainable civic economy, with economic parameters bounded for stability.
 
-**ImpactAgent**: Measures real-world outcomes with verifiable feedback loops
-- Tracks legislative responses to civic actions, providing transparent metrics.
-- Calculates effectiveness of different engagement types, feeding into robust reward systems.
-- Provides feedback loops for continuous improvement, ensuring rewards align with actual democratic influence.
-- Rewards actual democratic influence over mere activity, with mechanisms to prevent gaming.
+**ImpactAgent**: Proves which templates actually change reality
+- Tracks template talking points appearing in floor speeches and committee testimony
+- Monitors voting pattern shifts after coordinated template campaigns
+- Identifies when citizen expertise shapes legislative amendments
+- Proves causality between civic information and political outcomes
+- Creates verified impact scores that drive treasury fund allocation
+
+**We don't count messages. We count minds changed.**
 
 **ReputationAgent**: Builds credibility scores from discourse quality and challenge market participation
 - Tracks challenge market participation quality and information sourcing standards
@@ -67,6 +70,31 @@ Multi-agent consensus replaces single operators. No god modes, no central contro
 ### 4. Continuous Learning for Resilience 
 Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning enhances protocol resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Information quality markets provide consensus tools for resolving disputes and incentivizing quality discourse among participants.
 
+## Templates That Move Mountains Get Funded
+
+The credibility infrastructure closes the loop on templates. When the ImpactAgent proves a template changed legislative positions, that template creator earns massive credibility. When legislators learn from constituent information, they earn campaign support from the citizen treasury.
+
+**Impact Verification Creates Electoral Consequences:**
+- Template introduces new economic data that appears in floor speeches
+- Mass campaign surfaces constituent impacts that change committee votes
+- Citizen expertise shapes amendment language that passes
+- Legislators who evolve based on quality information get treasury support
+- Democracy starts rewarding learning over ideology
+
+**From Credibility to Electoral Power:**
+
+High-credibility participants don't just get priority routing—they shape where millions in electoral funding goes. The treasury accumulates value through token economics. Through a 501(c)(4) social welfare organization, funds flow to support legislators based on verified responsiveness.
+
+**Challenge Markets Determine Funding Priorities:**
+- Template impact claims face market verification
+- Winners of impact challenges gain electoral influence weight
+- High-credibility creators vote on treasury allocation
+- Proven mind-changers direct campaign support
+- Bad faith actors lose both stakes and electoral influence
+
+**Concrete Example:**
+Your template claims "Policy X costs rural families $3K/year." Ten thousand constituents use it. Senator cites that exact figure in committee. Vote flips. Challenge market verifies your influence claim. You win challenger stakes. Your credibility score jumps. Treasury allocates $50K to Senator's campaign through 501(c)(4). The loop closes: information changed position, changed position got funded.
+
 ## Credibility Infrastructure and Challenge Markets
 
 Information quality markets solve democracy's core problem: how do we reward good information without becoming truth police? Market-based consensus beats centralized fact-checking. The system builds portable credibility that follows participants across platforms:
@@ -93,9 +121,15 @@ Rather than determining truth, challenge markets evaluate:
 * Good faith engagement with counterarguments
 * Constructive contribution to democratic discourse
 
-This creates incentives for quality information without establishing centralized authorities to determine what's "true."
+When challenge markets verify template impact claims, creators build credibility that determines future reward multipliers. High-impact templates that demonstrably change legislative positions earn creators privileged platform access and increased treasury allocation influence.
 
-**Quality discourse pays. Bad faith costs.**
+**Electoral Influence Through Verified Impact:**
+
+Challenge market winners don't just earn tokens—they earn electoral influence. The protocol treasury directs funds through a 501(c)(4) to support responsive legislators. High-credibility participants vote on allocation priorities. Your verified impact on policy translates directly to electoral support for legislators who learn.
+
+The mechanism is simple: prove your template changed a mind, earn the right to fund that mind's campaign. Democracy stops being about shouting into the void and starts being about rewarding those who actually listen and learn.
+
+**Quality discourse pays. Bad faith costs. Templates that change reality win. Changed minds get funded.**
 
 ## Technical Implementation
 

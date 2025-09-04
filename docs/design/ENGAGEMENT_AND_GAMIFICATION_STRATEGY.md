@@ -17,10 +17,13 @@ VOTER Protocol builds democracy infrastructure that competes in the attention ec
 - Policy outcome tracking during major legislative periods
 
 **Individual Impact Recognition:**
-- "Civic Engagement Streak" - sustained democratic participation
-- Achievement badges: "First Response" (rep replied), "Bill Tracker" (followed legislation), "Community Organizer" (verified neighbors)
-- Public profiles showing verified civic influence
-- "Credibility Score" - ERC-8004 reputation measuring discourse quality, sourcing standards, and constructive engagement
+- "Mind Changer" badge - your template shifted a legislative position
+- "Impact Multiplier" - your information appeared in floor speeches
+- "Policy Architect" - your template shaped actual amendments
+- "Truth Teller" - your claims survived challenge markets and proved accurate
+- "Credibility Score" - ERC-8004 reputation measuring actual influence on policy
+
+**Your templates don't just send messages. They change reality.**
 
 **Social Features:**
 - Share civic actions on social media with verification badges
@@ -30,11 +33,14 @@ VOTER Protocol builds democracy infrastructure that competes in the attention ec
 
 ### 2. Economic Gamification: Robust & Dynamic Incentives
 
-**Dynamically Calibrated VOTER Token Rewards:**
-- **CWC Messages**: Congressional message verification + delivery confirmation  
-- **Direct Action**: Verified campaign participation and advocacy events
-- **Challenge Markets**: Quality discourse participation and consensus building
-- **Reputation Building**: Constructive engagement and source quality citations
+**Impact-Based VOTER Token Rewards:**
+- **Template Impact**: 10x rewards when your template demonstrably changes votes
+- **Mind Change Bonus**: Extra VOTER when legislators cite your information
+- **Quality Multiplier**: Rewards scale with verified influence on policy
+- **Challenge Victory**: Win stakes from bad faith actors who dispute proven impact
+- **Treasury Influence**: High-impact creators shape fund allocation decisions
+
+**We don't count messages sent. We count minds changed.**
 
 Rewards are dynamically determined by intelligent agents within auditable safety rails—no hardcoded parameters, just agent optimization bounded by on-chain clamps for economic stability.
 
@@ -88,7 +94,21 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 - Enhanced engagement tools during key voting periods
 - Early access to new civic action features for active community members
 
-### 4. Community Building & Network Effects
+### 4. Templates That Move Mountains
+
+**Template Impact Tracking:**
+- Real-time dashboard showing which templates are changing votes
+- "Mind Change Meter" tracking legislative position shifts
+- Public scoreboard of template creators who moved policy
+- Direct line from your information to electoral consequences
+
+**Electoral Impact Visibility:**
+- "Your template funded $X to responsive legislators"
+- Track which representatives learned from citizen input
+- See treasury allocation based on verified responsiveness
+- Democracy starts rewarding learning over ideology
+
+### 5. Community Building & Network Effects
 
 **Civic Guilds:**
 - User-formed groups around specific issues (climate, healthcare, etc.)
@@ -111,11 +131,15 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 ## Engagement Psychology
 
 ### Meaningful Feedback Loops
-1. **Action** → Message sent to representative via CWC integration
-2. **Verification** → Delivery confirmation + performance-adjusted VOTER token reward 
-3. **Progress** → ERC-8004 credibility metrics update + engagement streak
-4. **Recognition** → Community sees verified civic participation + challenge market wins
-5. **Impact** → Policy outcomes tracked + representative response measurement
+1. **Action** - Create template with verifiable claims about reality
+2. **Usage** - Thousands use your template for coordinated campaigns
+3. **Impact** - ImpactAgent tracks template data appearing in legislative records
+4. **Verification** - Challenge markets verify your influence claims
+5. **Reward** - Massive VOTER rewards for templates that changed minds
+6. **Funding** - Treasury supports legislators who learned from your information
+7. **Recognition** - Your credibility score reflects actual political influence
+
+**The loop closes: information changes positions, changed positions get funded.**
 
 ### Sustained Engagement
 - "Civic Engagement Streak" encourages consistent participation

@@ -159,7 +159,22 @@ sequenceDiagram
 - Agent-optimized reward calculations replace hardcoded parameters
 - Challenge markets and Carroll Mechanisms for quality discourse incentives
 
-**Quality discourse pays. Bad faith costs.**
+**Impact-Based Treasury Allocation**
+- ImpactAgent tracks which templates actually change legislative positions
+- Treasury accumulates value through token economics and potential institutional revenue
+- Governance directs funds to legislators who demonstrably learn from constituents
+- 501(c)(4) structure enables unlimited lobbying for citizen priorities
+- PAC structure supports candidates based on verified responsiveness
+
+**Real Impact Examples:**
+
+*Healthcare Template Impact:*
+Template: "Rural hospital closures affect 15M Americans." Campaign generates 25K verified messages. Three senators cite statistic in healthcare debate. Amendment to protect rural hospitals passes. ImpactAgent verifies causality. Treasury allocates $250K across supporting legislators via 501(c)(4).
+
+*Economic Policy Shift:*
+Template: "Minimum wage increase creates 50K jobs locally." Mass campaign reaches 100K participants. House members reference job creation data. Committee vote flips. Template creator earns 50K VOTER. Representatives who changed position receive campaign support.
+
+**We don't count messages. We count minds changed.**
 
 ## Technical Implementation
 
@@ -179,12 +194,19 @@ Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror mini
 3. **Agent Verification**: Multi-agent consensus evaluates action authenticity and quality
 4. **Agent Processing**: 
    - VerificationAgent confirms CWC delivery
+   - ImpactAgent tracks if template data appears in legislative records
    - ReputationAgent updates ERC-8004 credibility scores
    - SupplyAgent calculates performance-adjusted VOTER rewards
    - MarketAgent processes any challenge market outcomes
-5. **Consensus Execution**: Agent consensus triggers on-chain parameter updates
-6. **Token Minting**: VOTER tokens minted based on agent-determined amounts
-7. **User Notification**: Real-time notification with credibility and reward updates
+5. **Impact Tracking**: ImpactAgent monitors for template influence on votes and speeches
+6. **Consensus Execution**: Agent consensus triggers on-chain parameter updates
+7. **Token Minting**: VOTER tokens minted based on verified impact scores
+8. **User Notification**: Real-time notification with credibility and reward updates
+9. **Treasury Allocation**: Proven impact directs funds to responsive legislators
+
+**Complete Loop Example:**
+
+Day 1: User creates template about infrastructure costs. Day 7: 10K citizens use template via CWC. Day 14: Representative cites cost data in committee. Day 21: Committee vote changes. Day 28: ImpactAgent verifies causality. Day 30: Creator receives 25K VOTER bonus. Day 45: Treasury allocates $75K to representative's campaign. Day 60: Media covers "democracy that rewards learning." The loop closes.
 
 ### Verification Proof Structure
 
@@ -291,13 +313,14 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  Supply["SupplyAgent"] --> Consensus["Agent Consensus"]
-  Verify["VerificationAgent"] --> Consensus
-  Market["MarketAgent"] --> Consensus
-  Impact["ImpactAgent"] --> Consensus
-  Reputation["ReputationAgent"] --> Consensus
+  Supply["SupplyAgent<br/>Dynamic rewards"] --> Consensus["Agent Consensus"]
+  Verify["VerificationAgent<br/>CWC delivery"] --> Consensus
+  Market["MarketAgent<br/>Challenge markets"] --> Consensus
+  Impact["ImpactAgent<br/>Tracks mind changes"] --> Consensus
+  Reputation["ReputationAgent<br/>Credibility scores"] --> Consensus
   Consensus --> ERC8004["ERC-8004 Registry"]
   Consensus --> Monad["Monad Execution"]
+  Consensus --> Treasury["Treasury Allocation"]
   
   style Supply fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
   style Verify fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
@@ -307,9 +330,10 @@ flowchart TB
   style Consensus fill:#78350f,stroke:#fbbf24,stroke-width:3px,color:#f1f5f9
   style ERC8004 fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Monad fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Treasury fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
 ```
 
-**Quality discourse pays. Bad faith costs.**
+**Templates that change reality get funded. Legislators who learn get supported.**
 
 ## Competitive Advantages
 
