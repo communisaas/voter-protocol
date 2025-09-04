@@ -1,0 +1,31 @@
+{
+  "name": "@voter-protocol/shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for VOTER Protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "types.ts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublish": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "voter-protocol",
+    "communique",
+    "civic-engagement",
+    "blockchain"
+  ],
+  "author": "VOTER Protocol Team",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  }
+}
