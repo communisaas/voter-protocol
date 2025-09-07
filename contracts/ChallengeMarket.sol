@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IVOTERToken.sol";
 import "./interfaces/IVOTERRegistry.sol";
+import "./interfaces/IAgentParameters.sol";
 
 /**
  * @title ChallengeMarket
@@ -52,11 +53,16 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
     mapping(bytes32 => uint256) public claimToChallengeId;
     
     uint256 public nextChallengeId;
-    uint256 public constant MIN_STAKE = 10e18; // 10 VOTER minimum
-    uint256 public constant CHALLENGE_DURATION = 3 days;
-    uint256 public constant QUALITY_THRESHOLD = 60; // Min quality score for rewards
-    uint256 public marketFeeRate = 250; // 2.5% in basis points
     uint256 public feePool;
+    
+    // Agent-determined parameters interface
+    IAgentParameters public immutable agentParams;
+    
+    // Parameter keys for agent configuration
+    bytes32 public constant MIN_STAKE_KEY = keccak256("challenge:minStake");
+    bytes32 public constant DURATION_KEY = keccak256("challenge:duration");
+    bytes32 public constant QUALITY_THRESHOLD_KEY = keccak256("challenge:qualityThreshold");
+    bytes32 public constant MARKET_FEE_KEY = keccak256("challenge:marketFeeRate");
     
     event ChallengeCreated(
         uint256 indexed challengeId,
@@ -83,9 +89,10 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         uint256 totalRewards
     );
     
-    constructor(address _voterToken, address _voterRegistry) {
+    constructor(address _voterToken, address _voterRegistry, address _agentParams) {
         voterToken = IVOTERToken(_voterToken);
         voterRegistry = IVOTERRegistry(_voterRegistry);
+        agentParams = IAgentParameters(_agentParams);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(RESOLVER_ROLE, msg.sender);
     }
@@ -114,6 +121,8 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         
         uint256 challengeId = nextChallengeId++;
         
+        uint256 duration = _getChallengeDuration();
+        
         challenges[challengeId] = Challenge({
             challenger: msg.sender,
             defender: defender,
@@ -122,7 +131,7 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
             supportStake: 0,
             opposeStake: 0,
             createdAt: block.timestamp,
-            resolveBy: block.timestamp + CHALLENGE_DURATION,
+            resolveBy: block.timestamp + duration,
             status: ChallengeStatus.ACTIVE,
             evidenceIPFS: evidenceIPFS,
             qualityScore: 0
@@ -148,7 +157,8 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         Challenge storage challenge = challenges[challengeId];
         require(challenge.status == ChallengeStatus.ACTIVE, "Challenge not active");
         require(block.timestamp < challenge.resolveBy, "Challenge expired");
-        require(amount >= MIN_STAKE / 10, "Stake too small");
+        uint256 minStake = _getMinStake();
+        require(amount >= minStake / 10, "Stake too small");
         
         require(
             voterToken.transferFrom(msg.sender, address(this), amount),
@@ -183,7 +193,8 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         challenge.qualityScore = qualityScore;
         
         // Resolution based on stake weight AND quality threshold
-        bool hasQuality = qualityScore >= QUALITY_THRESHOLD;
+        uint256 qualityThreshold = _getQualityThreshold();
+        bool hasQuality = qualityScore >= qualityThreshold;
         bool supportWins = challenge.supportStake > challenge.opposeStake;
         
         if (hasQuality && supportWins) {
@@ -225,7 +236,8 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         Challenge storage challenge = challenges[challengeId];
         
         uint256 totalPool = challenge.stake + challenge.supportStake + challenge.opposeStake;
-        uint256 marketFee = (totalPool * marketFeeRate) / 10000;
+        uint256 feeRate = _getMarketFeeRate();
+        uint256 marketFee = (totalPool * feeRate) / 10000;
         uint256 rewardPool = totalPool - marketFee;
         
         feePool += marketFee;
@@ -270,7 +282,8 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         if (isWinner) {
             uint256 winningStake = supportWon ? challenge.supportStake : challenge.opposeStake;
             uint256 totalPool = challenge.stake + challenge.supportStake + challenge.opposeStake;
-            uint256 marketFee = (totalPool * marketFeeRate) / 10000;
+            uint256 feeRate = _getMarketFeeRate();
+            uint256 marketFee = (totalPool * feeRate) / 10000;
             uint256 rewardPool = totalPool - marketFee;
             
             // Calculate proportional reward
@@ -291,14 +304,16 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
      */
     function _calculateRequiredStake(address user) internal view returns (uint256) {
         uint256 reputation = reputationScores[user];
+        uint256 baseStake = _getMinStake();
         
-        // Higher reputation = lower stake requirement
+        // Agent-determined reputation multipliers could be added here
+        // For now, use simple tiers with agent-configurable base
         if (reputation >= 100) {
-            return MIN_STAKE / 2;
+            return baseStake / 2;
         } else if (reputation >= 50) {
-            return (MIN_STAKE * 75) / 100;
+            return (baseStake * 75) / 100;
         } else {
-            return MIN_STAKE;
+            return baseStake;
         }
     }
     
@@ -323,5 +338,37 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
+    }
+    
+    /**
+     * @dev Get minimum stake from agent parameters
+     */
+    function _getMinStake() internal view returns (uint256) {
+        uint256 configured = agentParams.getUint(MIN_STAKE_KEY);
+        return configured > 0 ? configured : 10e18; // Fallback to 10 VOTER if not set
+    }
+    
+    /**
+     * @dev Get challenge duration from agent parameters
+     */
+    function _getChallengeDuration() internal view returns (uint256) {
+        uint256 configured = agentParams.getUint(DURATION_KEY);
+        return configured > 0 ? configured : 3 days; // Fallback to 3 days if not set
+    }
+    
+    /**
+     * @dev Get quality threshold from agent parameters
+     */
+    function _getQualityThreshold() internal view returns (uint256) {
+        uint256 configured = agentParams.getUint(QUALITY_THRESHOLD_KEY);
+        return configured > 0 ? configured : 60; // Fallback to 60 if not set
+    }
+    
+    /**
+     * @dev Get market fee rate from agent parameters
+     */
+    function _getMarketFeeRate() internal view returns (uint256) {
+        uint256 configured = agentParams.getUint(MARKET_FEE_KEY);
+        return configured > 0 ? configured : 250; // Fallback to 2.5% if not set
     }
 }
