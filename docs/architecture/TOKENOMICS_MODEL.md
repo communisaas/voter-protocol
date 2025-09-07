@@ -70,7 +70,7 @@ Your template makes a claim: "This policy costs families $2K/year." Ten thousand
 
 **How Impact Rewards Work:**
 
-When templates introduce information that changes legislative positions, creators earn massive credibility boosts. When mass campaigns shift votes, participants get bonus VOTER tokens. When citizen expertise shapes amendments, the system proves who moved mountains.
+When templates directly cause legislative language (verbatim citations), creators earn massive credibility boosts. When mass campaigns causally influence vote changes (controlled for confounders), participants get bonus VOTER tokens. When citizen expertise shapes amendments (traceable causal chain), the system proves who moved mountains.
 
 **Bootstrap Phase (Now):**
 Citizens earn VOTER tokens for verified civic actions. Templates that demonstrably change minds earn creators 10x normal rewards. Token value comes from belief that democracy needs better information flows. Challenge markets verify impact claims.
@@ -86,13 +86,17 @@ As treasury accumulates value, governance directs funds to legislators who learn
 
 ### Carroll Mechanisms Economics
 
-**Challenge Market Types:**
-- Template-level disputes affect template credibility and revenue sharing
-- Usage-level disputes affect individual reputation and stake redistribution
-- Community consensus determines resolution, not centralized truth arbitration
-- Winners receive losing stakes; protocol takes small fee for treasury operations
+Challenge markets face the same problem democracy does: wealthy actors can buy more influence than everyone else. We don't solve this perfectly, but agents make it better than fixed stakes ever could.
 
-**Quality discourse pays. Bad faith costs.**
+**Agents Calculate Stakes Based on Context:**
+
+When you challenge a template, the MarketAgent looks at what you've earned through civic participation, not what you bought on an exchange. If you're challenging a proven creator who's changed legislation before, you'll stake more than if you're questioning someone's first template. National healthcare policy requires bigger commitment than local parking disputes—agents price accordingly.
+
+Your reputation becomes currency here. Built credibility through accurate challenges? You can stake reputation instead of tokens. But if you're wrong, your reputation tanks harder than your wallet would. This creates paths for expertise without wealth, though money still talks louder than we'd like.
+
+The stakes change hourly based on network conditions, participation levels, and impact assessments. You can't game a system that never sits still, and agents adjust faster than humans can exploit.
+
+**Quality discourse pays. Bad faith costs. Perfect equality is a myth, but dynamic beats static.**
 
 **Reputation Integration:**
 - ERC-8004 Reputation Registry tracks credibility scores across platforms
@@ -215,7 +219,7 @@ The ImpactAgent tracks which templates actually moved mountains:
 - Amendments reflect citizen expertise
 - Media picks up template talking points
 
-When we prove a template changed reality, creators earn credibility that actually means something. When legislators learn from constituents, they earn campaign support from the citizen treasury through a 501(c)(4) social welfare organization—unlimited funds for those who actually listen.
+When templates demonstrably influence reality—through direct citations or strong correlations—creators earn credibility that actually means something. Direct citations prove causation. Position shifts after campaigns show influence we can measure. When legislators demonstrably learn from constituents, they earn campaign support from the citizen treasury through a 501(c)(4) social welfare organization—unlimited funds for those who actually listen.
 
 **Treasury to Electoral Pipeline:**
 - VOTER tokens accumulate value through platform growth
@@ -225,6 +229,67 @@ When we prove a template changed reality, creators earn credibility that actuall
 - Public dashboard tracks: template → mind change → electoral support
 
 **We don't count messages sent. We count minds changed. Changed minds get funded.**
+
+## Legal Reality: How Electoral Funding Actually Works
+
+### What We Do vs What We Don't
+
+**What We Actually Do:**
+- Track observable correlations between citizen information and legislative behavior
+- Identify legislators who demonstrably respond to constituent input
+- Fund issue advocacy through 501(c)(4) social welfare organization
+- Support responsive legislators regardless of party or initial position
+- Publish all funding decisions transparently on public dashboard
+
+**What We Don't Do:**
+- No quid pro quo: We identify responsiveness after the fact, not before
+- No vote buying: We never reward voting, registering, or choosing candidates
+- No coordination: 501(c)(4) operates independently from campaigns
+- No dark money: Every funding decision traces back to observable correlations
+
+### The 501(c)(4) Structure
+
+Social welfare organizations can legally engage in unlimited issue advocacy and lobbying. They can support candidates as long as it's not their primary purpose. Citizens United established that corporations (including nonprofits) can make unlimited independent expenditures.
+
+**Our Approach:**
+1. Protocol treasury accumulates value through token economics
+2. High-credibility participants vote on funding priorities based on observable impact
+3. 501(c)(4) deploys funds for issue advocacy aligned with demonstrated responsiveness
+4. Connected PAC handles direct candidate support within FEC limits
+5. Complete transparency: blockchain records + FEC filings + public dashboard
+
+### Observable Responsiveness, Not Transactional Exchange
+
+We don't tell legislators "change your position and we'll fund you." We observe which legislators respond to constituent information and support those who demonstrate responsiveness. The difference matters legally and ethically.
+
+**Timeline Separation:**
+- Citizens send information through templates
+- Legislators take positions publicly
+- We observe correlations between information and positions
+- Treasury funds flow to demonstrably responsive legislators
+- No pre-arranged agreements, just post-hoc observable patterns
+
+### Compliance Framework
+
+**Bright Line Rules:**
+- Never reward voting or voter registration
+- Never coordinate with candidate campaigns
+- Never promise funding for specific votes
+- Always maintain temporal separation
+- Always publish funding rationale publicly
+
+**Legal Safeguards:**
+- Professional legal counsel reviews all processes
+- FEC compliance for all political spending
+- State registration where required
+- Regular audits of funding decisions
+- Human review of high-value allocations
+
+### Why This Matters
+
+Democracy fails when information doesn't flow from citizens to legislators. Current systems reward ideology over learning. We create feedback loops that reward legislators who actually respond to constituent information, regardless of party or position.
+
+This isn't about buying votes. It's about funding representatives who demonstrably listen to the people they represent. Observable. Transparent. Legal.
 
 ## The Bottom Line
 

@@ -33,11 +33,11 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 - Balances token distribution for maximum participation, preventing gaming through pattern recognition.
 - Creates sustainable civic economy, with economic parameters bounded for stability.
 
-**ImpactAgent**: Proves which templates actually change reality
+**ImpactAgent**: Tracks observable influence patterns
 - Tracks template talking points appearing in floor speeches and committee testimony
 - Monitors voting pattern shifts after coordinated template campaigns
 - Identifies when citizen expertise shapes legislative amendments
-- Proves causality between civic information and political outcomes
+- Tracks correlations between civic information and political outcomes
 - Creates verified impact scores that drive treasury fund allocation
 
 **We don't count messages. We count minds changed.**
@@ -54,7 +54,7 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 
 The DemocracyCoordinator manages parallel agent optimization within defined robust bounds. Each specialized agent operates in its domain: SupplyAgent calculates optimal parameters, VerificationAgent updates thresholds, MarketAgent optimizes incentives, ImpactAgent measures outcomes, and ReputationAgent updates credibility scores.
 
-Consensus mechanisms handle incomplete information robustly. When agents achieve high confidence agreement (above 80%), optimizations deploy automatically with on-chain safety rail enforcement. Distributed decision-making eliminates single points of failure while maintaining auditable bounds.
+Consensus mechanisms handle incomplete information robustly. When agents achieve high confidence agreement (above agent-determined confidence threshold), optimizations deploy automatically with on-chain safety rail enforcement. Distributed decision-making eliminates single points of failure while maintaining auditable bounds.
 
 ## Core Principles: Intelligent Governance Frameworks
 
@@ -72,7 +72,7 @@ Agents remember what works and what doesn't, and the system gets smarter over ti
 
 ## Templates That Move Mountains Get Funded
 
-The credibility infrastructure closes the loop on templates. When the ImpactAgent proves a template changed legislative positions, that template creator earns massive credibility. When legislators learn from constituent information, they earn campaign support from the citizen treasury.
+The credibility infrastructure closes the loop on templates. When the ImpactAgent identifies template influence on legislative positions, that template creator earns massive credibility. When legislators learn from constituent information, they earn campaign support from the citizen treasury.
 
 **Impact Verification Creates Electoral Consequences:**
 - Template introduces new economic data that appears in floor speeches
@@ -122,6 +122,14 @@ Rather than determining truth, challenge markets evaluate:
 * Constructive contribution to democratic discourse
 
 When challenge markets verify template impact claims, creators build credibility that determines future reward multipliers. High-impact templates that demonstrably change legislative positions earn creators privileged platform access and increased treasury allocation influence.
+
+**Challenge Stakes Reflect Reality, Not Ideology**
+
+The idea that everyone should stake the same amount sounds democratic but ignores how expertise and context actually work. A doctor challenging medical misinformation brings different value than someone questioning zoning laws, and our agents price that difference.
+
+Your earned VOTER tokens determine how much you can challenge, creating a natural link between civic participation and challenge capacity. The more you contribute to democracy, the more you can challenge questionable claims. Reputation substitutes for tokens when you've proven yourself right consistently, though this takes time to build and seconds to destroy.
+
+Big claims about national policy require bigger stakes than local issues because the consequences matter more. Challenging established creators costs more than questioning newcomers because track records mean something. These aren't arbitrary rules—they're agents responding to patterns in real time.
 
 **Electoral Influence Through Verified Impact:**
 
@@ -173,8 +181,8 @@ Instead of fixed voting rules, governance evolves, but with built-in safeguards:
 ## Examples in Action
 
 ### Scenario: Major Legislative Vote
-Traditional system: Fixed 10 VOTER per message, regardless of importance
-Agent system: ImpactAgent recognizes critical vote, MarketAgent increases rewards to 50 VOTER, SupplyAgent adjusts total allocation, VerificationAgent tightens validation
+Traditional system: Fixed rewards per message, regardless of importance
+Agent system: ImpactAgent recognizes critical vote, MarketAgent significantly increases rewards, SupplyAgent adjusts total allocation, VerificationAgent tightens validation
 
 ### Scenario: Low Civic Engagement Period  
 Traditional system: Same rewards, participation drops
@@ -207,6 +215,20 @@ Agents manage aspects of the protocol within robust safety rails. Humans provide
 
 ### Phase 4: Resilient Emergence
 The system develops capabilities we didn't explicitly program, but always within a framework designed for safety and stability. Democratic participation becomes more effective and engaging, and the system is robust enough to handle unexpected outcomes.
+
+## Honest Complexity
+
+**What's Actually Hard:**
+
+1. **Proving Influence**: We can track citations and correlations, not thoughts. A legislator using our language doesn't prove we changed their mind. We might have just provided convenient phrasing for existing positions.
+
+2. **Agent Interpretability**: When five agents agree on something wrong, debugging why is exponentially harder than fixing traditional code. We need sophisticated monitoring and humans who understand agent reasoning.
+
+3. **Wealth Advantages**: Challenge markets can't fully eliminate capital advantages. We can diminish them through quadratic mechanisms and reputation systems, but money still talks.
+
+4. **Team Scaling**: Agents create different work, not less work. Instead of writing code, teams debug agent decisions and handle edge cases. The bottleneck shifts from development to oversight.
+
+**We build anyway. Perfect is the enemy of shipped.**
 
 ## Conclusion
 

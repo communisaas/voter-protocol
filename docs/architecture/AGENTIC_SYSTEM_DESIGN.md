@@ -48,31 +48,65 @@ Instead of `OPERATOR_ROLE`, we implement multi-agent consensus, complemented by 
 
 The SupplyAgent continuously monitors current participation rates, economic conditions, political calendar events, and network growth patterns. It calculates optimal token supply to maximize civic engagement while maintaining economic stability. High participation periods trigger lower per-action rewards. Low engagement periods increase incentives. Natural market equilibrium through intelligent observation.
 
+**Concrete Example:**
+Normal day: 100 messages sent, agent sets reward at baseline. Major healthcare vote coming: 10,000 messages surge, agent reduces rewards to prevent inflation. Post-election lull: 20 messages daily, agent increases incentives to maintain engagement. All adjustments respect agent-determined bounds within safety rails.
+
 **2. Verification Agent Network (anchored on Monad)**
 
 The VerificationAgent coordinates multi-agent consensus for civic action validation. Agents operate off-chain or in trusted execution environments, then anchor hash receipts on Monad through the attest contract. Zero personal information touches the blockchain. Verification scores emerge from distributed agent consensus rather than centralized gatekeeping.
 
+**Concrete Example:**
+User submits CWC message receipt. VerificationAgent checks: valid CWC confirmation number, matching constituent address, authentic timestamp. Parallel agents verify independently. Agent-determined consensus threshold reached = verified. Hash of verification written to Monad. User receives VOTER tokens. Suspicious pattern detected? Human circuit breaker triggered for manual review.
+
 **3. Market Making Agent**
 
-The MarketAgent manages economic incentives by adjusting reward structures based on market conditions. It provides liquidity optimization and dynamic pricing for challenge markets. Economic parameters evolve based on observed outcomes rather than hardcoded rules. The agent ensures sustainable token economics while maximizing civic participation incentives.
+The MarketAgent manages economic incentives by actually understanding context instead of applying rigid formulas. When someone wants to challenge a template, the agent calculates stakes based on multiple factors: how many tokens they earned through civic action (not market purchases), the challenger's reputation score, the template creator's track record, and the potential impact of the claim being disputed.
+
+High-impact templates by proven creators require serious commitment to challenge, while local issues from new creators need less. Built significant reputation? You can stake that instead of tokens, though failing hurts your credibility more than losing money would. The agent adjusts these calculations hourly based on network participation and observed outcomes, making the system impossible to game through repetitive strategies.
+
+**Concrete Stake Calculations:**
+Agent calculates based on:
+- Earned vs purchased tokens: Higher stakes for market-bought tokens
+- Reputation score: Built credibility can substitute for token stakes
+- Creator track record: Proven creators require higher challenge commitment
+- Claim impact: National policy stakes exceed local issue stakes
+- All adjusted hourly based on network patterns and participation levels
+
+Economic parameters evolve through observation rather than arbitrary constants. The market finds equilibrium through intelligence, not hardcoded scarcity.
 
 **4. Impact Measurement Agent**
 
 The ImpactAgent tracks which templates actually change reality. It monitors legislative floor speeches for template talking points, tracks voting pattern changes after mass campaigns, identifies when citizen expertise shapes amendments, and measures media pickup of template arguments. 
 
-The agent proves causality between civic actions and political outcomes. When a template claim appears in committee testimony, when voting patterns shift after coordinated campaigns, when amendments reflect citizen proposals - the ImpactAgent captures it. This creates verified impact scores that drive creator rewards and treasury allocation.
+The agent builds causal models of civic influence on political outcomes. When template language appears verbatim in testimony—that's proven causation. When voting patterns shift after coordinated campaigns—that's measurable causal influence. When amendments adopt citizen proposals—that's direct causal impact. The ImpactAgent captures these causal chains to drive creator rewards and treasury allocation.
 
 **Electoral Consequence Tracking:**
-The ImpactAgent's verified impact scores determine how the protocol treasury deploys funds through a 501(c)(4) structure. Templates that demonstrably change legislative positions earn their creators voting weight in electoral fund allocation. Legislators who evolve based on citizen information receive campaign support. The agent closes the loop: information changes minds, changed minds get funded.
+The ImpactAgent's impact scores—from proven causation to strong correlations—guide how the protocol treasury deploys funds through a 501(c)(4) structure. Templates that influence legislative positions earn their creators voting weight in electoral fund allocation. Legislators who demonstrably respond to citizen information receive campaign support. The agent tracks the full spectrum: information flows, positions evolve, responsive legislators get funded.
 
-**Concrete Impact Example:**
-Template claims "Policy reduces veteran wait times by 40%." Mass campaign generates 10K messages. Senator cites statistic in committee. Amendment passes reflecting template proposal. ImpactAgent verifies causality. Creator earns 10,000 VOTER bonus. Treasury allocates $100K to Senator's campaign via 501(c)(4). Democracy rewards learning.
+**Concrete Correlation Tracking:**
+- Template: "Policy reduces veteran wait times by 40%"
+- Observable: 10K constituents send this message via CWC
+- Observable: Senator cites "40% reduction" in committee hearing
+- Observable: Amendment passes with template's proposed language
+- Correlation Score: 85% (high confidence, not certainty)
+- Result: Creator earns 10,000 VOTER bonus based on correlation strength
+- Treasury Action: Allocates funds to responsive legislator via 501(c)(4)
 
 **We don't count messages sent. We count minds changed.**
 
 **5. Reputation Agent**
 
 The ReputationAgent builds credibility scores by tracking challenge market participation quality, evaluating information sourcing standards, and assessing constructive discourse contributions. It writes portable reputation to ERC-8004 registries, creating democratic credibility that follows participants across platforms. High-reputation users get priority congressional routing and template creation privileges.
+
+**Concrete Reputation Scoring:**
+Agent-calculated based on context:
+- Challenge market victories build credibility
+- Failed challenges reduce reputation proportionally
+- Template influence scores multiply reputation gains
+- Quality sourcing compounds over time
+- Bad faith triggers exponential reputation loss
+- High reputation unlocks priority routing and reduced stakes
+- Low reputation requires additional verification
 
 ### Agent Coordination Framework
 
@@ -131,13 +165,13 @@ The planned certification workflow will orchestrate five specialized agents thro
 
 ### Templates Close the Loop Through Impact
 
-Templates create verifiable claims about reality. The ImpactAgent tracks whether those claims actually changed legislative behavior. When templates introduce information that shifts positions, the system proves it.
+Templates create verifiable claims about reality. The ImpactAgent builds causal models showing how those claims change legislative behavior. When templates introduce information that shifts positions, the system traces the causal chain from information to outcome.
 
 **Impact Verification Pipeline:**
 Templates make claims about constituent impact, economic effects, or policy consequences. Mass usage creates coordinated campaigns that legislators can't ignore. The ImpactAgent monitors for template data appearing in official records, voting changes correlating with campaign timing, and amendments reflecting template proposals. Verified impact drives creator rewards and determines treasury fund allocation.
 
 **From Information to Electoral Consequences:**
-When the ImpactAgent proves a template changed legislative positions, the treasury can direct funds to support responsive legislators. Not lobbying them to change - rewarding them for learning from constituents. The loop closes: templates surface information, information changes positions, changed positions get funded, democracy rewards learning over ideology.
+When the ImpactAgent proves causal links between templates and legislative positions, the treasury directs funds to support responsive legislators. Direct citations are causal proof. Position changes after campaigns show causal influence. Not lobbying them to change—rewarding proven responsiveness. The loop closes: templates cause information flow, information causes position changes, changed positions get funded, democracy rewards learning over ideology.
 
 ### Robust Information Elicitation (Carroll Mechanisms)
 
@@ -154,6 +188,27 @@ Building on principles of robust mechanism design, the VOTER protocol ensures in
 These mechanisms enhance agent coordination for information quality assessment while avoiding centralized truth determination. The goal is robust credibility infrastructure that incentivizes constructive democratic discourse.
 
 **Quality discourse pays. Bad faith costs.**
+
+## Preventing Agent Convergence
+
+**The Echo Chamber Problem:**
+Similar models produce similar biases. We address this through:
+
+1. **Model Diversity**: 
+   - VerificationAgent: Claude-based
+   - SupplyAgent: GPT-based
+   - MarketAgent: Open source model
+   - Different architectures = different failure modes
+
+2. **Adversarial Consensus**:
+   - Agents score higher for justified dissent
+   - Unanimous agreement triggers additional scrutiny
+   - Red team agent specifically looks for flaws
+
+3. **Human Circuit Breakers**:
+   - Unusual consensus patterns escalate to humans
+   - Novel situations require human approval
+   - Community can challenge agent decisions
 
 ## Technical Implementation
 

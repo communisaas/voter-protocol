@@ -57,7 +57,7 @@ Operate in two modes:
   - Develop `ImpactAgent` to track template influence on legislative behavior
   - Monitor floor speeches and committee testimony for template talking points
   - Track voting pattern changes correlating with template campaigns
-  - Prove causality between civic information and political outcomes
+  - Track observable influence patterns between civic information and political outcomes
   - Create verified impact scores for treasury fund allocation
   - Build pipeline: template claims to legislative changes to electoral funding
 
@@ -70,24 +70,108 @@ Operate in two modes:
 
 ---
 
+## Phased Implementation: Start Simple, Prove Each Step
+
+### Phase 1: Core Infrastructure (Months 1-2)
+**Build the Foundation Without Controversy**
+
+Launch basic civic engagement tracking without electoral components:
+- Deploy core smart contracts (VOTERRegistry, VOTERToken, CommuniqueCore)
+- Implement CWC integration for message verification
+- Basic challenge markets for template quality
+- Simple reputation system based on participation
+- No treasury allocation, no electoral funding
+
+**Success Metrics:**
+- Agent-optimized participant target for verified civic actions
+- Active user threshold determined by network health agents
+- Challenge markets functioning smoothly
+- Zero critical security incidents
+
+### Phase 2: Impact Correlation (Months 3-4)
+**Prove We Can Track Observable Patterns**
+
+Add impact tracking without making causal claims:
+- Deploy ImpactAgent to monitor legislative speeches
+- Track template appearance correlations
+- Build confidence scoring methodology
+- Create public impact dashboard
+- Still no electoral funding
+
+**Success Metrics:**
+- Agent-determined threshold for documented template correlations
+- High-confidence correlations above agent-calculated confidence level
+- Public dashboard with transparent methodology
+- Community consensus on correlation validity
+
+### Phase 3: Agent Optimization (Months 5-6)
+**Introduce Dynamic Parameters Carefully**
+
+Enable agent-driven optimization within strict bounds:
+- Deploy multi-agent consensus system
+- Implement dynamic reward calculations
+- Add context-aware challenge stakes
+- Maintain human circuit breakers
+- Begin accumulating treasury value
+
+**Success Metrics:**
+- Agents outperform fixed parameters by measurable margin
+- No runaway parameter scenarios
+- Successful human interventions when needed
+- Treasury accumulates value per agent-optimized targets
+
+### Phase 4: Electoral Impact (Months 7-9)
+**Close the Loop with Legal Compliance**
+
+Only after proving previous phases, introduce electoral components:
+- Form 501(c)(4) with legal counsel
+- Establish connected PAC structure
+- Implement governance for fund allocation
+- Deploy funds based on proven correlations
+- Full transparency dashboard
+
+**Success Metrics:**
+- Legal entity properly established
+- First funds deployed for issue advocacy
+- 10+ legislators identified as responsive
+- No regulatory violations
+
+---
+
 ## What We Build Next
 
-### A. Verification that actually verifies
-- n8n workflow calling CWC APIs, persisting receipts, marking verified in `AgentConsensusGateway`
-- Self Protocol proof acquisition in client; registry path already enforced on-chain
+### A. Diverse Agent Architecture
+- Deploy agents with different base models (not all GPT variants)
+- Implement adversarial testing between agents
+- Create dissent mechanisms - agents must justify disagreement
+- Build interpretability dashboards for agent decisions
 
-### B. Parameter safety rails
-- Keys: `maxDailyMintPerUser`, `maxDailyMintProtocol`, optional `maxRewardPerAction`, `pause:Global`
-- Enforce in `CommuniqueCore`: clamp reward, enforce caps, respect pause
+**Different models, different biases, better decisions.**
 
-### C. Observability and auto-defense
-- Metrics for actions/verification/mint; anomaly rules to update params automatically
+### B. Observable Impact Metrics
+We track what legislators do, not what they think:
+- **Direct Citations**: Text appears verbatim in Congressional Record
+- **Argument Adoption**: Template reasoning shapes amendments
+- **Temporal Patterns**: Position shifts follow coordinated campaigns
+- **Confidence Scoring**: Every claim gets a percentage, not certainty
 
-### D. Governance safety
-- Timelock for `PARAM_SETTER_ROLE` and admin changes; guardian pause
+**We measure observable behavior changes with transparent methodology.**
 
-### E. Interfaces and ops
-- Minimal admin UI for params/diffs/audit; public endpoints for action status/receipts
+### C. Challenge Market Balance
+- Quadratic staking: Diminishing returns on large stakes
+- Reputation multipliers outweigh pure capital over time
+- Time-locked rewards prevent instant capital dominance
+- Community validation periods before resolution
+
+**Merit accumulates. Money has limits.**
+
+### D. Team Infrastructure
+- Agent debugging tools and interpretability frameworks
+- Human oversight dashboards with anomaly detection
+- Edge case collection and retraining pipelines
+- Clear escalation paths for agent failures
+
+**Agents amplify humans. Humans guide agents.**
 
 ---
 
@@ -120,6 +204,19 @@ Operate in two modes:
 - **Securities Enforcement**: Utility token design and legal review provide regulatory defense
 - **Privacy Crackdowns**: Zero-knowledge proofs and minimal data collection maintain user protection
 - **International Restrictions**: Modular compliance framework adapts to different jurisdictions
+
+### Agent System Risks
+**Shared Model Biases**: 
+- Different agents might converge on similar errors
+- Mitigation: Diverse base models, adversarial testing
+
+**Debugging Complexity**:
+- Black box decisions hard to diagnose
+- Mitigation: Comprehensive logging, interpretability tools
+
+**Novel Situation Handling**:
+- Agents struggle with unprecedented scenarios
+- Mitigation: Human escalation paths, continuous learning
 
 ### Execution Risks
 - **Team Growth**: Clear documentation and knowledge transfer prevent single points of failure

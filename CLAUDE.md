@@ -31,10 +31,11 @@ The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
 - **Contracts**: `VOTERRegistry.sol`, `VOTERToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
 
 ### Agent-Driven Services
-- **Agent Swarm**: SupplyAgent, VerificationAgent, MarketAgent, ImpactAgent, ReputationAgent
-- **Dynamic Parameters**: No hardcoded constants, all dynamically calibrated
-- **Emergent Governance**: Agent-coordinated proposal and voting systems
-- **Continuous Learning**: Vector memory for pattern recognition and optimization
+- **Diverse Agent Swarm**: Different models prevent groupthink
+- **Consensus with Dissent**: Agents must justify disagreement
+- **Observable Metrics**: Track actions, not intentions
+- **Continuous Learning**: Every decision improves the system
+- **Human Oversight**: Critical decisions escalate to humans
 
 ## Key Development Concepts
 
@@ -67,6 +68,16 @@ Political discourse drowns in noise because bad information travels as fast as g
 - **Portable reputation**: ERC-8004 credibility follows you across platforms
 
 **Quality discourse pays. Bad faith costs.**
+
+### Addressing Real Challenges
+
+**Agent Convergence**: We deploy different base models with varied training to prevent echo chambers. Dissent is rewarded in consensus mechanisms.
+
+**Causation vs Correlation**: We don't claim to read minds. We track observable actions with confidence scores. Direct citations get high confidence. Temporal correlations get lower confidence. Transparency is the innovation.
+
+**Capital vs Merit**: Challenge markets use quadratic staking and time-locked rewards. Reputation compounds over time while capital has diminishing returns. Not perfect, but better than pure plutocracy.
+
+**Debugging Complexity**: We build interpretability from day one. Every agent decision logged. Every parameter change traceable. When agents fail, humans intervene.
 
 ## Smart Contract Architecture
 

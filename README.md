@@ -21,15 +21,15 @@ VOTER leverages this convergence to create the first protocol for verifiable pol
 
 ## Verification Infrastructure
 
-VOTER starts where legitimacy starts: verification. Each action produces a mathematical claim about authenticity. That claim scales from a single message to district‑level sentiment without revealing who you are.
+Each action produces a mathematical claim about authenticity. That claim scales from a single message to district-level sentiment without revealing identity.
 
-Our architecture builds for trustless agents and verifiable interactions. ERC-8004 was built for AI agents. We extend it to human civic participants. Same infrastructure that makes AI agents credible makes your civic participation credible. Three layers mirror constitutional systems:
+Three layers of verification:
 
-1.  **Identity — eligibility without surveillance (ERC-8004 Identity Registry).** Zero‑knowledge (zk) passport proofs via Self Protocol attest age and citizenship and bind one passport to one participant. No raw PII leaves the device. One human, one seat at the table ([Self docs](https://docs.self.xyz/) [7]). This forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving agent interactions.
+1.  **Identity**: Zero-knowledge proofs via Self Protocol - one human, one voice. No raw PII leaves the device. Forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving interactions.
 
-2.  **Verification — administration without guesswork (ERC-8004 Validation & Reputation Registries).** A verifier gateway checks adapter receipts (e.g., CWC delivery or mail routing) and tracks information quality outcomes in the ERC-8004 Reputation Registry. Challenge market results, discourse quality metrics, and claim verification build portable credibility scores. Hash receipts are pinned to IPFS and attested on Monad (no PII on‑chain). Distributed agents coordinate verification and reputation scoring; outcomes anchor to Monad for auditability.
+2.  **Action Validation**: Multi-agent consensus evaluates every civic action. Five specialized agents vote independently on-chain. No single entity controls verification decisions. Challenge market results and discourse quality metrics build portable credibility scores.
 
-3.  **Execution — treasury and records.** Monad anchors registries/attestations; treasuries remain on ETH/L2 (Safe). No routine bridging.
+3.  **Impact Measurement**: We build causal models where provable, track correlations where observable. Direct citations prove causation—templates literally cause those words. Position changes after mass campaigns suggest influence we can measure. Funding creates additional causal pressure. Together, these form traceable influence chains from strong causation to meaningful correlation.
 
 The outcome: a public record of participation that offices can trust and citizens can carry, built on a foundation of verifiable agent interactions.
 
@@ -72,9 +72,11 @@ Agents evolve with political dynamics and user behavior. Democratic authenticity
 
 ## Making Democracy Compete
 
-Democracy infrastructure must compete for attention in the memecoin economy. VOTER combines authentic civic impact with engaging mechanics: real-time civic health dashboards, achievement systems for verified participation, social proof for democratic influencers, and cross-platform reputation building. 
+Democracy infrastructure must compete for attention in the memecoin economy. We combine authentic civic impact with engaging mechanics.
 
-The $140B memecoin market proves attention and economic incentives create massive adoption. We apply those mechanics to civic participation while maintaining democratic authenticity. **[Making democracy viral →](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)**
+The $140B memecoin market proves attention and economic incentives create massive adoption. We apply those mechanics to civic participation while maintaining democratic authenticity through multi-agent validation and transparent impact metrics.
+
+**Making democracy viral while keeping it real.** **[Full engagement strategy →](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)**
 
 ## Economic Tiers
 
@@ -144,7 +146,7 @@ The protocol treasury accumulates value through token economics. Through transpa
 
 **We don't count responses. We count minds changed.**
 
-Templates that shift reality get paid. Information quality drives rewards. Legislators who learn from constituents earn support. Democracy rewards truth over noise.
+Templates cause information flow. Information causes position changes. Changed positions get funded. That's not correlation—it's a causal chain we built. Democracy starts rewarding learning over ideology.
 
 ## Paying People to Participate
 
