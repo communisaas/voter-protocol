@@ -3,24 +3,14 @@ python-dotenv
 web3
 eth-account
 
-# LangGraph and AI agents
-langchain
-langchain-anthropic
-langgraph
-langchain-community
+# AI for verification agent only
 openai
 
-# Vector database for agent memory
-chromadb
-sentence-transformers
-
-# Async and workflow management
-temporal-python-sdk
+# Async and HTTP
 httpx
+aiohttp
 
 # Data processing
-pandas
-numpy
 pydantic
 
 # API and web
@@ -40,4 +30,3 @@ pytest-mock
 
 # Monitoring and logging
 structlog
-prometheus-client

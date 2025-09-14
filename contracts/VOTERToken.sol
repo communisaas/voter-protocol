@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * @dev Governance token for Communiqué platform
  * @notice Earned through verified civic engagement, used for platform governance
  */
-contract VOTERToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, ReentrancyGuard, Pausable {
+contract VOTERToken is AccessControl, ReentrancyGuard, Pausable, ERC20, ERC20Permit, ERC20Votes {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
@@ -24,6 +24,16 @@ contract VOTERToken is ERC20, ERC20Permit, ERC20Votes, AccessControl, Reentrancy
     
     event TokensEarned(address indexed citizen, uint256 amount, string actionType);
     
+    // Override AccessControl functions to fix inheritance issue - explicit admin checks
+    function grantRole(bytes32 role, address account) public override {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "AccessControl: account missing admin role");
+        _grantRole(role, account);
+    }
+    
+    function revokeRole(bytes32 role, address account) public override {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "AccessControl: account missing admin role");
+        _revokeRole(role, account);
+    }
     
     modifier onlyMinter() {
         require(hasRole(MINTER_ROLE, msg.sender), "Not authorized minter");

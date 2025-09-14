@@ -238,4 +238,28 @@ contract StakedVOTER is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
         super._burn(account, amount);
     }
+    
+    /**
+     * @dev Fund the contract with VOTER tokens for rewards
+     * @param amount Amount of VOTER tokens to add for rewards
+     */
+    function fundRewards(uint256 amount) external {
+        require(amount > 0, "Amount must be positive");
+        require(
+            voterToken.transferFrom(msg.sender, address(this), amount),
+            "Transfer failed"
+        );
+        
+        emit RewardsFunded(msg.sender, amount);
+    }
+    
+    /**
+     * @dev Get available reward balance (total balance minus staked tokens)
+     */
+    function getAvailableRewardBalance() external view returns (uint256) {
+        uint256 totalBalance = voterToken.balanceOf(address(this));
+        return totalBalance > totalValueLocked ? totalBalance - totalValueLocked : 0;
+    }
+    
+    event RewardsFunded(address indexed funder, uint256 amount);
 }

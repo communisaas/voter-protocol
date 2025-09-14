@@ -37,6 +37,12 @@ contract Deploy is Script {
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
 
+        // Optional: deploy VOTERPoints and wire to registry
+        // Comment out if not desired in a given environment
+        // VOTERPoints points = new VOTERPoints(msg.sender);
+        // registry.setVOTERPoints(address(points));
+        // points.grantRole(points.MINTER_ROLE(), address(registry));
+
         // Wire roles
         voter.grantRole(voter.MINTER_ROLE(), address(core));
         registry.grantRole(registry.VERIFIER_ROLE(), address(core));

@@ -133,12 +133,12 @@ contract AgentConsensusGateway is AccessControl, IAgentConsensus {
         uint256 voteCount,
         uint256 weightedVoteTotal,
         uint256 requiredThreshold,
-        bool isVerified
+        bool verified
     ) {
         voteCount = votes[actionHash];
         weightedVoteTotal = weightedVotes[actionHash];
         requiredThreshold = _getThreshold(actionHash);
-        isVerified = weightedVoteTotal >= requiredThreshold;
+        verified = weightedVoteTotal >= requiredThreshold;
     }
 }
 

@@ -35,6 +35,8 @@ contract DeployGovernance is Script {
 
         // If using multisig verifier, timelock should admin it as well (set externally via proposal)
 
+        // If using multisig verifier, timelock should admin it as well (set externally via proposal)
+
         vm.stopBroadcast();
 
         console2.log("Timelock:", address(timelock));

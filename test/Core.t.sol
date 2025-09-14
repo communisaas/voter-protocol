@@ -64,8 +64,8 @@ contract CoreTest is Test {
         // Grant AGENT_ROLE to the test contract for AgentConsensusGateway interactions
         gateway = new AgentConsensusGateway(admin); // Initialize gateway here for setUp
         gateway.grantRole(gateway.AGENT_ROLE(), address(this));
-        vm.prank(admin); // Ensure admin is msg.sender for setThreshold
-        gateway.setThreshold(1); // Set threshold to 1 for testing
+        vm.prank(admin); // Ensure admin is msg.sender for setDefaultThreshold
+        gateway.setDefaultThreshold(1); // Set threshold to 1 for testing
 
         // Configure dynamic rewards via AgentParameters
         params.setUint(keccak256("reward:CWC_MESSAGE"), 10e18);
