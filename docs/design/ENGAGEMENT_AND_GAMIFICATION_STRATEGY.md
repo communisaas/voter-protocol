@@ -61,10 +61,11 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 ### 3. Carroll Mechanisms: Quality Discourse Rewards
 
 **Challenge Market Integration:**
-- Stake VOTER tokens to challenge questionable claims in civic discussions
-- Community consensus determines resolution through agent-coordinated markets
+- **Community consensus, not truth determination**: Markets evaluate sourcing standards and engagement quality, not factual accuracy
+- **Reputation-weighted resolution**: High-credibility participants have more influence than pure token holdings
+- **Quadratic staking**: Diminishing returns prevent plutocracy, reputation multipliers reward merit over time
 - Winners receive losing stakes—quality discourse pays, bad faith costs
-- Gamified reputation building through constructive challenge participation
+- **Transparent methodology**: All challenge resolution criteria published and auditable
 
 **Credibility Building Gamification:**  
 - Achievement badges for quality source citations in civic arguments
@@ -188,10 +189,10 @@ Rewards are dynamically determined by intelligent agents within auditable safety
 - **Social Status**: Portable democratic credibility > follower counts through challenge market participation
 
 ### Against Traditional Civic Platforms
-- **Immediate Gratification**: Instant VOTER rewards vs. delayed impact through cheap EVM anchoring verification
-- **Game Mechanics**: Carroll Mechanisms turn discourse quality into engaging challenge markets and reputation building
+- **Immediate Gratification**: Instant VOTER rewards vs. delayed impact through testnet validation and cheap verification
+- **Game Mechanics**: Challenge markets turn discourse quality evaluation into engaging community consensus building
 - **Social Proof**: Public leaderboards and achievements built on tamper-proof ERC-8004 reputation infrastructure
-- **Economic Incentives**: Get paid to participate in democracy through performance-based rewards within auditable bounds
+- **Economic Incentives**: Earn tokens for verified civic participation through transparent, merit-based rewards
 
 ## Success Metrics
 

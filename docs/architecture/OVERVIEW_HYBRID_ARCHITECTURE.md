@@ -82,38 +82,38 @@ sequenceDiagram
 
 ## Layer Responsibilities
 
-### Self.xyz Identity Layer: Zero-Knowledge Verification
+### Didit.me Identity Layer: Cost-Efficient Verification
 
-**Purpose**: Provide cryptographic proof of citizen identity without exposing personal data
-
-**Components:**
-- **Passport Verification**: ZK proofs of government-issued passports
-- **Age Verification**: Prove 18+ eligibility without revealing exact age
-- **Citizenship Proof**: Verify US citizenship without exposing passport details
-- **Sybil Resistance**: Each passport can only be used once across the platform
-- **Keyless Wallets**: Phone number serves as wallet address for seamless UX
-
-**Privacy Benefits:**
-- Zero personal data stored on-chain or in centralized databases
-- Cryptographic proofs replace traditional KYC documentation
-- Government-grade document verification without document exposure
-- Selective disclosure of only necessary attributes
-
-### Monad Layer: Cheap EVM Anchoring + Agent Optimization
-
-**Purpose**: Handle high-frequency operations with dynamically calibrated parameters and cheap EVM anchoring
+**Purpose**: Provide zero-cost identity verification with institutional-grade compliance options
 
 **Components:**
-- **VOTER Token Contract**: ERC-20 governance token with dynamically calibrated rewards
-- **Agent Governance**: Multi-agent consensus for dynamic parameter optimization
-- **Carroll Mechanisms**: Challenge markets and credibility infrastructure  
-- **ERC-8004 Integration**: Human-AI reputation registry mirroring
+- **Core KYC Free Forever**: ID verification, face match, passive liveness at zero cost
+- **Premium Compliance**: $0.35 AML screening, $0.50 proof of address for high-value participants  
+- **Global Coverage**: ISO 27001 certified, GDPR compliant, supports 190+ countries
+- **Developer Sandbox**: Unlimited testnet verification without burning treasury
+- **Privacy-First**: Zero PII on-chain, verifiable credentials with selective disclosure
 
-**Performance Benefits:**
-- High throughput for mass civic engagement
-- 1-second finality for immediate feedback
-- Sub-cent fees enable micro-civic-actions
-- Cheap EVM anchoring for verification receipts
+**Strategic Benefits:**
+- **Cost Revolution**: Free identity verification enables rapid user growth
+- **Scalable Compliance**: From free core verification to institutional requirements
+- **Production Ready**: Battle-tested infrastructure vs experimental alternatives
+- **Privacy Preserved**: Cryptographic attestations without exposing personal data
+
+### Ronin Layer: High-Performance Civic Infrastructure
+
+**Purpose**: Handle mass civic engagement with proven high-throughput infrastructure
+
+**Components:**
+- **VOTER Token Contract**: ERC-20 governance token with agent-optimized rewards
+- **Multi-Agent Coordination**: TypeScript agent system for dynamic parameter optimization
+- **Challenge Markets**: Sophisticated Carroll Mechanisms with contextual intelligence
+- **ERC-8004 Strategic Implementation**: Human-AI reputation infrastructure
+
+**Proven Performance Benefits:**
+- **100K TPS Capacity**: Handles millions of daily civic actions without congestion
+- **Battle-Tested Infrastructure**: 2.27M daily active users prove production readiness
+- **Sub-Cent Transactions**: Enable micro-civic-actions at scale  
+- **Immediate Deployment**: Production-ready vs late 2025 alternatives
 
 ### EigenCloud Layer: Cryptographic Verification
 
@@ -143,11 +143,11 @@ sequenceDiagram
 
 ### Agent-Optimized Control Plane
 
-**Monad Foundation (Cheap EVM Anchoring)**
-- Integrity rails: anchor registries/attestations as IPFS CIDs on Monad with minimal on‑chain readable fields
-- Agent parameters: dynamic optimization within auditable bounds stored on-chain
-- Heavy payloads remain off‑chain; batches commit with Merkle roots for amortized gas
-- Agents remain off‑chain/TEE; on‑chain stores only facts required for trust and composability
+**Ronin Foundation (Proven High-Performance Infrastructure)**
+- **Integrity rails**: Anchor registries/attestations as IPFS CIDs with minimal on-chain storage
+- **Agent parameters**: Dynamic optimization within auditable bounds via intelligent agent coordination
+- **Scalable architecture**: Heavy payloads off-chain, batched commits with Merkle roots
+- **Multi-agent coordination**: Production-ready intelligent agents for parameter optimization and verification
 
 **ERC‑8004 Human-AI Infrastructure**  
 - Mirror Identity/Validation/Reputation registries to ETH L2 for cross-platform composability
@@ -310,17 +310,18 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 - **Portable Reputation**: ERC-8004 credibility scores follow participants across platforms
 
 ### Multi-Agent Coordination
+
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  Supply["SupplyAgent<br/>Dynamic rewards"] --> Consensus["Agent Consensus"]
-  Verify["VerificationAgent<br/>CWC delivery"] --> Consensus
-  Market["MarketAgent<br/>Challenge markets"] --> Consensus
-  Impact["ImpactAgent<br/>Tracks mind changes"] --> Consensus
-  Reputation["ReputationAgent<br/>Credibility scores"] --> Consensus
-  Consensus --> ERC8004["ERC-8004 Registry"]
-  Consensus --> Monad["Monad Execution"]
-  Consensus --> Treasury["Treasury Allocation"]
+  Supply["SupplyAgent<br/>Dynamic reward optimization"] --> Consensus["Agent Consensus"]
+  Verify["VerificationAgent<br/>Template & action validation"] --> Consensus
+  Market["MarketAgent<br/>Contextual challenge staking"] --> Consensus
+  Impact["ImpactAgent<br/>Legislative outcome tracking"] --> Consensus
+  Reputation["ReputationAgent<br/>Cross-platform credibility"] --> Consensus
+  Consensus --> ERC8004["ERC-8004 Strategic Implementation"]
+  Consensus --> Ronin["Ronin High-Performance Execution"]
+  Consensus --> Treasury["Impact-Based Treasury Allocation"]
   
   style Supply fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
   style Verify fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
@@ -329,11 +330,17 @@ flowchart TB
   style Reputation fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
   style Consensus fill:#78350f,stroke:#fbbf24,stroke-width:3px,color:#f1f5f9
   style ERC8004 fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
-  style Monad fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Ronin fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Treasury fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
 ```
 
-**Templates that change reality get funded. Legislators who learn get supported.**
+**Agent System Architecture:**
+- **Multi-agent coordination**: Production-ready intelligent agents with specialized roles
+- **Dynamic parameter optimization**: Agents adjust system parameters within smart contract bounds
+- **Contextual intelligence**: Sophisticated decision-making based on historical data and district metrics
+- **Smart contract integration**: Seamless communication between agent decisions and on-chain execution
+
+**Templates that change minds get funded. Legislators who learn get supported.**
 
 ## Competitive Advantages
 

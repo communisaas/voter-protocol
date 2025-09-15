@@ -12,7 +12,7 @@ The problem isn’t technology. It’s incentive design. Speculation rewards att
 
 Civic participation continues declining among younger demographics. Voter turnout in off-year elections remains low among 18-29 year olds. Congressional approval ratings remain historically low. The attention economy increasingly rewards financial speculation over democratic citizenship.
 
-Under the noise is new capacity for coordination. Monad provides cheap EVM anchoring for receipts and registries ([Monad docs](https://docs.monad.xyz) [5]); we optionally mirror to an ETH L2 ([ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) [4] registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Self Protocol proves human eligibility without exposing identity ([Self docs](https://docs.self.xyz/) [7]; [Businesswire](https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users) [8]). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone’s time.
+Under the noise is new capacity for coordination. Ronin provides proven high-throughput infrastructure (100K TPS, 2.27M daily active users); we anchor receipts and registries there while optionally mirroring to an ETH L2 ([ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) [4] registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Didit.me provides free forever identity verification without exposing personal data—ID verification, face match, and passive liveness at zero cost, with optional premium compliance ($0.35 AML, $0.50 proof of address). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical “we got it” form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
@@ -24,7 +24,7 @@ Each action produces a mathematical claim about authenticity. That claim scales 
 
 Three layers of verification:
 
-1. **Identity**: Zero-knowledge proofs via Self Protocol - one human, one voice. No raw PII leaves the device. Forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving interactions.
+1. **Identity**: Zero-cost verification via Didit.me - one human, one voice. No raw PII stored on-chain. Forms the basis of an ERC-8004 compliant identity registry, enabling verifiable and privacy-preserving interactions with free forever core KYC.
 1. **Action Validation**: Multi-agent consensus evaluates every civic action. Five specialized agents vote independently on-chain. No single entity controls verification decisions. Challenge market results and discourse quality metrics build portable credibility scores.
 1. **Impact Measurement**: We build causal models where provable, track correlations where observable. Direct citations prove causation—templates literally cause those words. Position changes after mass campaigns suggest influence we can measure. Funding creates additional causal pressure. Together, these form traceable influence chains from strong causation to meaningful correlation.
 
@@ -87,7 +87,7 @@ Dispute template claims or message quality using earned VOTER tokens. Winners ta
 Templates stored as IPFS CIDs on-chain. Template creators build reputation and influence through successful usage. Carroll Mechanisms ([NGI](https://paragraph.com/@ngi/carroll-mechanisms) [21]) solve democracy’s information problem—political discourse drowns in noise because bad information travels as fast as good. Challenge markets determine template credibility through community consensus, not truth arbitration. Template challenges affect all users of that template. Usage challenges are one-on-one disputes. Good templates earn creators credibility and priority routing, not revenue shares.
 
 **Tier 4: Institutional Revenue**
-Organizations buy USDC-backed credits for API access and data licensing (when we have something worth buying). **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [10]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Monad.
+Organizations buy USDC-backed credits for API access and data licensing (when we have something worth buying). **Congressional Message Verification** through official Communicating with Congress API—both House and Senate route through CWC with secure XML schema, rate limits, and delivery confirmations ([House CWC overview](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) [9]; [CWC level-of-service standards](https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf) [10]). Multi-agent consensus validates civic actions across all channels with cryptographic attestation. Hash receipts pinned to IPFS and attested on Ronin.
 
 **Tier 5: Platform Services**
 Analytics dashboards, bulk messaging, congressional response tracking. Premium features unlocked with VOTER token holdings. Cross-platform reputation via ERC-8004 registry.
@@ -229,7 +229,7 @@ Single‑purpose tools fragment the space. Petition sites move signatures that n
 
 ### Strategic Advantages
 
-Civic tech today is broken into dozens of single-purpose tools that don’t talk to each other. No sustainable business models. VOTER builds the infrastructure everyone else needs. Technical integration and network effects create competitive advantages. Self Protocol identity plus Monad anchoring gives you verifiable receipts on-chain with access to ETH/L2 liquidity.
+Civic tech today is broken into dozens of single-purpose tools that don't talk to each other. No sustainable business models. VOTER builds the infrastructure everyone else needs. Technical integration and network effects create competitive advantages. Didit.me's free identity verification plus Ronin's proven infrastructure gives you verifiable receipts on-chain with access to ETH/L2 liquidity.
 
 Now is the right time. Political attention economy exists. Regulatory clarity allows civic incentives. Blockchain infrastructure works without complexity. Political polarization creates demand for verified information sources.
 
@@ -253,9 +253,9 @@ Users still just open their mail client. Civic actions get certified automatical
 
 **No crypto complexity. Just civic action that pays.**
 
-### Detailed Architecture (Monad Anchoring)
+### Detailed Architecture (Ronin Anchoring)
 
-VOTER’s technical architecture prioritizes security, simplicity, and UX. Monad serves as the anchoring layer for registry/attest receipts. Certified legislative adapters (e.g., CWC) generate receipts that are pinned to IPFS and attested on Monad. Treasuries remain on ETH/L2 (Safe). Self Protocol provides zk eligibility proofs; no PII is stored on‑chain.
+VOTER's technical architecture prioritizes security, simplicity, and UX. Ronin serves as the proven high-performance layer for registry/attest receipts with 100K TPS capacity and 2.27M daily active users. Certified legislative adapters (e.g., CWC) generate receipts that are pinned to IPFS and attested on Ronin. Treasuries remain on ETH/L2 (Safe). Didit.me provides free identity verification; no PII is stored on‑chain.
 
 Security measures: comprehensive smart contract auditing, multi-sig governance, emergency pause functionality, redundant infrastructure. Privacy protections ensure no PII stored on-chain while maintaining verification capabilities. Platform monitoring: real-time verification of civic action authenticity, automated detection of coordination and manipulation attempts, comprehensive logging for audit and compliance.
 
@@ -303,7 +303,7 @@ Publish the methods. Publish the results.
 
 - **[How agents replace hardcoded tyranny](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - No more fixed parameters. Agents optimize for human flourishing.
 - **[The actual tokenomics](docs/architecture/TOKENOMICS_MODEL.md)** - Bootstrap economics without fantasy revenue splits
-- **[Monad + EigenCloud architecture](docs/architecture/OVERVIEW_HYBRID_ARCHITECTURE.md)** - Cheap anchoring meets cryptographic verification
+- **[Hybrid architecture](docs/architecture/OVERVIEW_HYBRID_ARCHITECTURE.md)** - High-performance execution meets cryptographic verification
 - **[Information quality markets](docs/design/CREDIBILITY_GOVERNANCE_DESIGN.md)** - How Carroll Mechanisms make quality discourse pay
 - **[Making democracy compete](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Viral mechanics for the attention economy
 - **[What we build next](docs/implementation/DEVELOPMENT_ROADMAP.md)** - From bootstrap to scale
@@ -336,8 +336,8 @@ Publish the methods. Publish the results.
 1. ERC‑8004: Trustless Agents, https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md
 1. Monad Docs, https://docs.monad.xyz
 1. EAS: Ethereum Attestation Service, https://docs.attest.sh
-1. Self Protocol Documentation, https://docs.self.xyz
-1. BusinessWire, “Google Cloud Integrates with Self, a ZK-Powered Identity Protocol, to Power AI Adoption and Web3 Innovation by Human Users,” July 23, 2025, https://www.businesswire.com/news/home/20250723204002/en/Google-Cloud-Integrates-with-Self-a-ZK-Powered-Identity-Protocol-to-Power-AI-Adoption-and-Web3-Innovation-by-Human-Users
+1. Didit.me Documentation, https://docs.didit.me
+1. Didit.me Features, "Free Forever Core KYC with Premium Compliance Options," https://didit.me/features
 1. House.gov, “Communicating with Congress (CWC) Overview,” https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc
 1. House.gov, “CWC Advocacy Vendor Level of Service Standards,” https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf
 1. OpenSecrets, “2024 election projected to be most expensive ever, $15.9 billion in spending,” October 2024, https://indepthnh.org/2024/10/08/opensecrets-projects-2024-election-spending-to-exceed-previous-record/

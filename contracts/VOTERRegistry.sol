@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "./interfaces/ISelfProtocol.sol";
+import "./interfaces/IDiditVerifier.sol";
 
 /**
  * @title VOTERRegistry
@@ -16,7 +16,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant EPISTEMIC_AGENT_ROLE = keccak256("EPISTEMIC_AGENT_ROLE");
     
-    ISelfProtocol public immutable selfProtocol;
+    IDiditVerifier public immutable diditVerifier;
     
     enum ActionType {
         CWC_MESSAGE,
@@ -41,9 +41,9 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         uint256 totalActions;
         uint256 joinedTimestamp;
         bool isActive;
-        bytes32 selfPassportHash;  // Self Protocol passport verification
-        uint256 selfVerificationTime;
-        uint256 epistemicReputationScore; // New: Overall trustworthiness score
+        bytes32 diditCredentialId;  // Didit.me credential identifier
+        uint256 diditVerificationTime;
+        // epistemicReputationScore removed - use ReputationRegistry instead
     }
     
     mapping(address => CitizenProfile) public citizenProfiles;
@@ -85,8 +85,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         _;
     }
     
-    constructor(address _selfProtocol) {
-        selfProtocol = ISelfProtocol(_selfProtocol);
+    constructor(address _diditVerifier) {
+        diditVerifier = IDiditVerifier(_diditVerifier);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(EPISTEMIC_AGENT_ROLE, msg.sender); // Grant to deployer
@@ -95,29 +95,25 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     // VOTERPoints concept removed
     
     /**
-     * @dev Verify a citizen's identity through Self Protocol
+     * @dev Verify citizen using Didit.me verifiable credentials
+     * @notice Free forever core KYC with optional premium compliance
      * @param citizen Address of the citizen
-     * @param districtHash Hash of the congressional district
-     * @param selfProof Self Protocol zero-knowledge proof
+     * @param districtHash Hash of the electoral district  
+     * @param credentialHash Hash of the Didit.me credential
+     * @param signature Cryptographic signature from Didit.me
      */
-    function verifyCitizenWithSelf(
+    function verifyCitizenWithDidit(
         address citizen, 
         bytes32 districtHash, 
-        bytes calldata selfProof
+        bytes32 credentialHash,
+        bytes calldata signature
     ) external onlyVerifier {
         require(!citizenProfiles[citizen].verified, "Already verified");
+        require(diditVerifier.verifyCredential(credentialHash, signature), "Invalid credential");
         
-        // Verify through Self Protocol
-        (
-            bytes32 passportHash,
-            uint256 ageThreshold, 
-            bytes2 countryCode
-        ) = selfProtocol.verifyIdentity(citizen, selfProof);
-        
-        // Check eligibility requirements
-        require(ageThreshold >= 18, "Must be 18+ to participate");
-        require(countryCode == "US", "Must be US citizen");
-        require(!selfProtocol.isPassportUsed(passportHash), "Passport already used");
+        IDiditVerifier.Attestation memory attestation = diditVerifier.getAttestation(citizen);
+        require(attestation.isVerified, "Identity not verified");
+        require(attestation.districtHash == districtHash, "District mismatch");
         
         citizenProfiles[citizen] = CitizenProfile({
             verified: true,
@@ -125,9 +121,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             totalActions: 0,
             joinedTimestamp: block.timestamp,
             isActive: true,
-            selfPassportHash: passportHash,
-            selfVerificationTime: block.timestamp,
-            epistemicReputationScore: 0 // Initialize new field
+            diditCredentialId: attestation.credentialId,
+            diditVerificationTime: block.timestamp
         });
         
         totalVerifiedCitizens++;
@@ -258,9 +253,11 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    function updateEpistemicReputation(address citizen, uint256 newScore) external onlyRole(EPISTEMIC_AGENT_ROLE) {
-        require(citizenProfiles[citizen].verified, "Citizen not verified");
-        citizenProfiles[citizen].epistemicReputationScore = newScore;
-        emit EpistemicReputationUpdated(citizen, newScore);
+    /**
+     * @dev DEPRECATED: Use ReputationRegistry instead
+     * @notice Epistemic reputation is now handled by ReputationRegistry contract
+     */
+    function updateEpistemicReputation(address citizen, uint256 newScore) external view onlyRole(EPISTEMIC_AGENT_ROLE) {
+        revert("DEPRECATED: Use ReputationRegistry for reputation management");
     }
 }

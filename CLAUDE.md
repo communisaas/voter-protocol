@@ -6,78 +6,151 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The VOTER Protocol is democracy infrastructure that competes in the attention economy. While memecoins hit $72B market caps overnight, civic engagement reads like homework. We fix this with verifiable political participation that pays.
 
-Communiqué integrates VOTER Protocol for adaptive civic engagement through multi-agent systems that optimize democratic participation. User experience stays simple: we always open the mail client. Backend adapters handle certified legislative interfaces. Verification receipts get hashed, pinned to IPFS, and attested on Monad with zero PII on-chain. Optional L2 mirrors use ERC-8004 registries for ETH-native consumption.
-
 **Core Philosophy**: ERC-8004 was built for AI agents. We extend it to human civic participants, creating infrastructure both humans and AI can use for authentic democratic coordination.
 
-### Core Innovation: VOTER Protocol within Communiqué
-The VOTER Protocol powers Communiqué's adaptive governance infrastructure:
-- **VOTER Records**: Non-transferable proof of civic actions, verified by agent consensus
-- **VOTER Tokens**: Dynamically minted governance tokens with performance-calibrated reward calculations
-- **Agent Network**: Specialized AI agents handle verification, economics, governance, and optimization
+**The Strategic Bet**: We're not building for AI agents to coordinate with each other. We're building AI-verified infrastructure for human civic participation. The AI is the verification layer, the human is the participant. This positions VOTER as the foundational civic protocol where on-chain agency meets democratic authenticity.
+
+### Core Innovation: VOTER Protocol Smart Contracts
+The VOTER Protocol provides blockchain infrastructure for democratic participation:
+- **VOTER Records**: Non-transferable proof of civic actions (ERC-721)
+- **VOTER Tokens**: Governance and utility tokens with staking (ERC-20)
+- **Smart Contracts**: On-chain registries, reputation systems, and challenge markets
+- **Multi-sig Security**: Protected governance and treasury management
 
 ## Technology Stack
 
-### Agent Infrastructure
-- **Coordination**: LangGraph for multi-agent orchestration
-- **Workflows**: Temporal for agent workflow management
-- **Memory**: ChromaDB for vector-based agent learning
-- **Automation**: N8N for civic action processing pipelines
-- **AI Models**: LLMs for agent intelligence
-
 ### Blockchain Infrastructure
-- **Anchoring (EVM)**: Monad as primary on‑chain anchor (registries/attestations)
-- **Optional L2 Mirror**: ERC‑8004 Identity/Validation/Reputation registries on a major L2 when partners require on‑chain reads
-- **Contracts**: `VOTERRegistry.sol`, `VOTERToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
+- **Primary Network**: Ronin for proven high-performance civic engagement (100K TPS, 2.27M daily users)
+- **Alternative Consideration**: Monad testnet for early deployment, pending mainnet (late 2025)
+- **Optional L2 Mirror**: ERC‑8004 registries on major Ethereum L2 for ETH-native consumption
+- **Development**: Foundry for smart contract development and testing
+- **Deployment**: Multi-sig governance for production deployments
 
-### Agent-Driven Services
-- **Diverse Agent Swarm**: Different models prevent groupthink
-- **Consensus with Dissent**: Agents must justify disagreement
-- **Observable Metrics**: Track actions, not intentions
-- **Continuous Learning**: Every decision improves the system
-- **Human Oversight**: Critical decisions escalate to humans
+**Performance Reality**: Ronin delivers 100K TPS vs Monad's 10K TPS, with battle-tested infrastructure supporting millions of daily users. When civic participation needs to compete with social media engagement rates, performance isn't theoretical—it's existential.
+
+### Core Smart Contracts
+- **VOTERRegistry.sol** - Identity and action verification registry
+- **VOTERToken.sol** - ERC-20 governance token with staking
+- **CommuniqueCore.sol** - Central coordination contract
+- **ValidationRegistry.sol** - Action validation and attestation
+- **CivicActionRegistry.sol** - Non-transferable proof of participation
+- **ActionVerifierMultiSig.sol** - Multi-signature verification
+- **TreasuryManager.sol** - Protocol treasury management
+- **ChallengeMarket.sol** - Challenge and dispute resolution
+- **ReputationRegistry.sol** - ERC-8004 compliant reputation system
+- **TemplateRegistry.sol** - Template storage and verification
+- **IdentityRegistry.sol** - Zero-knowledge identity verification
 
 ## Key Development Concepts
 
 ### Compliance Posture
+- **CLARITY Act Digital Commodity**: VOTER tokens qualify as digital commodities under federal framework - value derives from network utility, not expectation of profit from management efforts
 - **Bright-line rules**: We never reward voting, registering to vote, or choosing candidates. We reward the verifiable work of contacting representatives.
 - **Utility-first design**: VOTER tokens serve governance and platform utility, not vote buying
 - **Privacy-preserving**: Zero PII on-chain; off-chain KYC/attestations only where legally required
 - **Democratic authenticity**: Clear separation between verified participation records and economic incentives
 
-In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while cautious competitors wait for permission that already arrived.
+In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while cautious competitors wait for permission that already arrived. The CLARITY Act provides the regulatory framework we need.
 
-### Agentic Development Approach
-**Agent-optimized parameters replace hardcoded tyranny.**
+### Dynamic Parameter System
+**Smart contract safety rails with adaptive governance.**
 
-The platform deploys intelligent agents that learn, adapt, and optimize within auditable safety rails:
-- **Dynamic reward calculations** based on real civic impact measurement, not fixed "10 VOTER per message" rules  
-- **Adaptive verification thresholds** that respond to spam patterns and network conditions
-- **Emergent economic parameters** that optimize for authentic democratic participation vs speculative gaming
-- **Self-modifying governance** that evolves with community needs while maintaining democratic authenticity
+VOTER Protocol implements dynamic parameter management through smart contracts:
+- **Bounded Parameter Updates**: Min/max bounds prevent manipulation
+- **Daily Adjustment Caps**: Limit rapid parameter changes  
+- **Multi-sig Approval**: Critical changes require multi-signature approval
+- **Transparent Governance**: All parameter changes are auditable on-chain
 
 **Quality discourse pays. Bad faith costs.**
 
-### Carroll Mechanisms: Information Quality Markets
+### Challenge Markets: Information Quality Infrastructure
 
-Political discourse drowns in noise because bad information travels as fast as good. We fix this with markets for truth:
+Challenge markets create economic incentives for information accuracy:
 
-- **Challenge markets**: Put money where your mouth is. Stake VOTER tokens to dispute questionable claims
-- **Information rewards**: Higher payouts for surprising, verifiable insights that change minds or reveal new data
-- **Accountability stakes**: Spread misinformation, pay the price when markets prove you wrong
+- **Challenge markets**: Stake VOTER tokens to dispute questionable claims
+- **Reputation staking**: Build skin in the game for information quality
+- **Quadratic scaling**: Prevent plutocracy through diminishing returns
 - **Portable reputation**: ERC-8004 credibility follows you across platforms
 
 **Quality discourse pays. Bad faith costs.**
 
-### Addressing Real Challenges
+### Multi-Agent Architecture: Competitive Advantage Through Appropriate Complexity
 
-**Agent Convergence**: We deploy different base models with varied training to prevent echo chambers. Dissent is rewarded in consensus mechanisms.
+**Why Sophisticated Agents Are Necessary (Not Overengineering):**
+- **Market Volatility Defense**: Multi-oracle consensus prevents single point of failure during 100x price movements
+- **Sybil Attack Resistance**: Differentiation between earned vs purchased tokens defeats economic attacks
+- **Quality Over Volume**: ImpactAgent rewards legislative outcomes, not spam actions
+- **4-Year Treasury Survival**: SupplyAgent manages emission curves through full market cycles
+- **Regulatory Compliance**: Bounded parameters with agent consensus satisfy CLARITY Act requirements
 
-**Causation vs Correlation**: We don't claim to read minds. We track observable actions with confidence scores. Direct citations get high confidence. Temporal correlations get lower confidence. Transparency is the innovation.
+**Production-Ready Agent System:**
+- **SupplyAgent**: Manages token emissions with supply curves, participation metrics, daily caps, preventing death spirals
+- **MarketAgent**: Analyzes crypto market conditions, implements circuit breakers during extreme volatility
+- **ImpactAgent**: Tracks legislative outcomes, district-specific metrics, response prediction algorithms
+- **ReputationAgent**: Multi-dimensional scoring (challenge/civic/discourse), badge system, ERC-8004 attestations
+- **VerificationAgent**: Policy violation detection, severity scoring, consensus review thresholds
 
-**Capital vs Merit**: Challenge markets use quadratic staking and time-locked rewards. Reputation compounds over time while capital has diminishing returns. Not perfect, but better than pure plutocracy.
+**Agent Consensus Mechanisms:**
+- **Weighted Decision Making**: SupplyAgent (30%), MarketAgent (30%), ImpactAgent (20%), ReputationAgent (20%)
+- **Circuit Breakers**: MarketAgent can halt operations during extreme events (>50% price movement/hour)
+- **Multi-Oracle Aggregation**: Chainlink + RedStone + backup feeds prevent oracle manipulation
+- **Bounded Authority**: No single agent can exceed AgentParameters min/max constraints
 
-**Debugging Complexity**: We build interpretability from day one. Every agent decision logged. Every parameter change traceable. When agents fail, humans intervene.
+**Smart Contract Integration:**
+- **AgentParameters.sol**: Secure control panel with enforced bounds for all agent decisions
+- **CommuniqueCore.sol**: Orchestrates agent consensus for reward calculations
+- **ChallengeMarket.sol**: Contextual stake calculations using expertise scores and track records
+- **ReputationRegistry.sol**: Multi-dimensional identity with time decay and portable credibility
+
+**Competitive Moat Through Complexity:**
+- **Economic Moat**: Demonstrably harder to exploit than simple "10 points per action" systems
+- **Narrative Moat**: "Multi-agent consensus" attracts serious participants vs airdrop farmers
+- **Engagement Moat**: Sophisticated reputation creates compelling long-term participation game
+- **Resilience Moat**: Survives market conditions that kill simpler protocols
+
+**Implementation Philosophy**: Modular agents with bounded authority create emergent resilience. Each agent is auditable individually but powerful in consensus—appropriate complexity for production deployment in hostile crypto environment.
+
+### Dynamic Parameter System
+**Smart contract safety rails with adaptive governance.**
+
+VOTER Protocol implements dynamic parameter management through smart contracts and intelligent agents:
+- **Bounded Parameter Updates**: Min/max bounds prevent manipulation
+- **Daily Adjustment Caps**: Limit rapid parameter changes  
+- **Multi-sig Approval**: Critical changes require multi-signature approval
+- **Transparent Governance**: All parameter changes are auditable on-chain
+
+**Quality discourse pays. Bad faith costs.**
+
+### Challenge Markets: Information Quality Infrastructure
+
+Challenge markets create economic incentives for information accuracy through quadratic mechanisms that go far beyond preventing plutocracy:
+
+**Democratic Legitimacy**:
+- **Preference revelation**: Quadratic voting reveals true intensity of preferences, not just binary positions
+- **Community consensus**: Aggregate genuine sentiment rather than gaming by concentrated wealth
+- **Proportional influence**: Your stake reflects your conviction, but with diminishing returns preventing domination
+
+**Network Effects**:
+- **Quality convergence**: Participants with strongest convictions on accuracy get proportionally higher influence
+- **Information aggregation**: Market mechanism surfacing collective intelligence about claim validity
+- **Reputation compounding**: Accurate challengers build credibility that enhances future challenge power
+
+**Economic Security**:
+- **Skin in the game**: Reputation staking creates personal cost for bad faith participation
+- **Challenge markets**: Stake VOTER tokens to dispute questionable claims with quadratic cost scaling
+- **Portable reputation**: ERC-8004 credibility follows you across platforms
+
+**Quality discourse pays. Bad faith costs.**
+
+### Security and Safety
+
+**Parameter Safety**: All dynamic parameters have min/max bounds and daily adjustment caps to prevent manipulation.
+
+**Multi-signature Security**: Critical functions protected by multi-sig governance with emergency pause mechanisms.
+
+**Economic Security**: Challenge markets prevent spam and gaming through reputation staking and quadratic scaling.
+
+**Audit Requirements**: All contracts undergo professional security audits before deployment.
 
 ## Smart Contract Architecture
 
@@ -100,8 +173,10 @@ Political discourse drowns in noise because bad information travels as fast as g
 
 ## Development Notes
 
-- EVM contracts: build/test with Foundry/Hardhat for token/treasury/components
-- Agent stack: LangGraph/Temporal/N8N off‑chain; anchor outcomes to Monad; schedule maintenance via workflow orchestrator
+- **Smart Contracts**: Build and test with Foundry for all EVM contracts
+- **Deployment**: Multi-sig governance for production deployments on Monad
+- **Testing**: Comprehensive test suite covering security, economics, and governance
+- **Integration**: External systems interface with VOTER Protocol smart contracts
 
 ## Critical Design Principles
 
@@ -123,22 +198,32 @@ Political discourse drowns in noise because bad information travels as fast as g
 
 ## Integration Points
 
-### Legislative Adapters (e.g., CWC)
-- Invariant UX: we open the user’s mail client with prepared content
-- Backend adapters translate/submit to certified APIs/forms where required (e.g., CWC)
-- Receipts (delivery confirmations/mail routing) are hashed, pinned to IPFS, and attested on Monad
+### External System Integration
+- **Smart Contract APIs**: Standard interfaces for external systems
+- **ERC-8004 Compliance**: Portable reputation across platforms
+- **Multi-sig Governance**: External integrations require governance approval
+- **Event Emission**: Smart contracts emit events for external consumption
 
-### Identity Verification
-- Government ID verification for VOTER record eligibility
-- Address verification for congressional district mapping
-- Anti-sybil measures to prevent manipulation
-- Privacy-preserving verification where possible
+### Identity Verification: Didit.me On-Chain Integration
 
-### Social Media Integration
-- Authentic sharing of civic achievements and policy impact
-- Cross-platform feeds showcasing verified democratic participation
-- Content creator partnerships focused on civic education
-- Real-time coverage of democratic processes and outcomes
+**Free Forever Core KYC**: ID verification, face match, passive liveness at zero cost
+- **Premium scaling**: $0.35 AML screening, $0.50 proof of address for institutional compliance  
+- **Developer sandbox**: Unlimited testnet verification without burning treasury
+- **Global coverage**: ISO 27001 certified, GDPR compliant, 190+ countries supported
+
+**On-Chain Architecture**:
+- **Verifiable Credentials (VCs)**: Didit.me issues cryptographically signed attestations off-chain
+- **Smart Contract Verification**: VOTER contracts verify VC signatures and extract claims on-chain
+- **Zero-Knowledge Proofs**: Prove identity attributes (age thresholds, citizenship/residency) without revealing PII
+- **Revocation Registry**: On-chain tracking of credential validity and revocation status
+
+**Global Representation Mapping**: Address verification enables precise targeting by electoral district, constituency, or administrative region across 190+ countries while maintaining privacy through selective disclosure.
+
+### Cross-Platform Compatibility
+- ERC-8004 reputation registries for portable credibility
+- Standardized action verification for external platforms
+- Challenge market integration for information quality
+- Treasury integration for institutional partnerships
 
 ## Market Context (2025)
 
@@ -149,13 +234,16 @@ While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, a flo
 
 ### Competitive Landscape
 - **Memecoin market**: $140B+ proves attention + economic incentives = massive adoption  
-- **Regulatory clarity**: Post-GENIUS Act enables compliant civic tokenomics
-- **Infrastructure ready**: Monad (cheap EVM anchoring), Self Protocol (zk identity), ERC-8004 (AI-human coordination)
+- **Regulatory clarity**: CLARITY Act enables compliant civic tokenomics via digital commodity classification
+- **Infrastructure ready**: Ronin (100K TPS, 2.27M daily users), Didit.me (free identity verification), ERC-8004 (AI-human coordination)
 
-### VOTER's Opportunity
-- **First democracy protocol** that competes for attention in the memecoin economy
-- **Authentic civic impact** distinguishes from pure speculation
-- **Infrastructure advantage**: We build rails everyone else needs
+### VOTER's 2025 Advantages
+- **Performance at scale**: Ronin's proven infrastructure handles millions of daily civic actions without gas wars
+- **Zero-cost identity**: Free forever verification removes the largest barrier to authentic participation
+- **First democracy protocol** that competes for attention in the memecoin economy while delivering authentic civic impact
+- **AI-verified authenticity**: Trustless verification of human civic participation at social media speeds
+
+**Infrastructure advantage**: We're building the rails everyone else needs, with the performance to deliver them.
 
 ## Documentation Structure
 

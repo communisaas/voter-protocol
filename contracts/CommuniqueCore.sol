@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 
 import "./VOTERRegistry.sol";
 import "./VOTERToken.sol";
+import "./IdentityRegistry.sol";
+import "./CivicActionRegistry.sol";
 import "./interfaces/IActionVerifier.sol";
 import "./interfaces/IAgentConsensus.sol";
 import "./AgentParameters.sol";
@@ -22,6 +24,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     
     VOTERRegistry public immutable voterRegistry;
     VOTERToken public immutable voterToken;
+    IdentityRegistry public immutable identityRegistry;
+    CivicActionRegistry public immutable civicActionRegistry;
     IActionVerifier public immutable verifier; // threshold EIP-712
     IAgentConsensus public consensus; // optional agent consensus override
     AgentParameters public immutable params;
@@ -40,18 +44,18 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
     
     struct LeaderboardEntry {
-        address citizen;
+        address participant;
         uint256 actionCount;
         uint256 civicEarned;
         bytes32 districtHash;
     }
     
     mapping(VOTERRegistry.ActionType => bool) public actionActive;
-    mapping(address => uint256) public userLastActionTime;
+    mapping(address => uint256) public participantLastActionTime;
     mapping(uint256 => uint256) public protocolDailyMinted;
-    mapping(address => mapping(uint256 => uint256)) public userDailyMinted;
-    mapping(bytes32 => address[]) public districtUsers;
-    mapping(address => bool) public registeredUsers;
+    mapping(address => mapping(uint256 => uint256)) public participantDailyMinted;
+    mapping(bytes32 => address[]) public districtParticipants;
+    mapping(address => bool) public registeredParticipants;
     
     // Dynamic rewards: configured by admin or external agent processes (no hardcoded constants)
     uint256 public minActionInterval = 1 hours; // default; can be overridden via params
@@ -60,7 +64,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     
     // Impact tracking for dynamic rewards
     mapping(bytes32 => uint256) public templateImpactScores; // templateId => impact score (0-100)
-    mapping(address => uint256) public userReputationMultipliers; // user => reputation bonus (100 = 1x)
+    mapping(address => uint256) public participantReputationMultipliers; // participant => reputation bonus (100 = 1x)
     mapping(bytes32 => uint256) public templateUsageCounts; // templateId => usage count
     
     event UserRegistered(address indexed user, bytes32 districtHash);
@@ -72,9 +76,18 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     );
     event RewardFlagUpdated(VOTERRegistry.ActionType actionType, bool active);
     
-    constructor(address _voterRegistry, address _voterToken, address _verifier, address _params) {
+    constructor(
+        address _voterRegistry, 
+        address _voterToken, 
+        address _identityRegistry,
+        address _civicActionRegistry,
+        address _verifier, 
+        address _params
+    ) {
         voterRegistry = VOTERRegistry(_voterRegistry);
         voterToken = VOTERToken(_voterToken);
+        identityRegistry = IdentityRegistry(_identityRegistry);
+        civicActionRegistry = CivicActionRegistry(_civicActionRegistry);
         verifier = IActionVerifier(_verifier);
         params = AgentParameters(_params);
         
@@ -88,21 +101,24 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Register a new user in the system
-     * @param user Address of the user
-     * @param districtHash Hash of the user's congressional district
+     * @dev Register a new participant in the system
+     * @param participantAddress Address of the participant
+     * @param districtHash Hash of the participant's congressional district
+     * @notice Now delegates to IdentityRegistry as single source of truth
      */
-    function registerUser(address user, bytes32 districtHash, bytes calldata selfProof) external {
-        require(!registeredUsers[user], "User already registered");
+    function registerParticipant(address participantAddress, bytes32 districtHash) external onlyRole(ADMIN_ROLE) {
+        // Check if already registered in IdentityRegistry
+        require(!identityRegistry.isRegistered(participantAddress), "Already registered");
         
-        // Verify user in VOTER registry via Self Protocol proof
-        voterRegistry.verifyCitizenWithSelf(user, districtHash, selfProof);
+        // Register in IdentityRegistry (single source of truth)
+        uint256 participantId = identityRegistry.register(participantAddress, districtHash);
         
-        registeredUsers[user] = true;
-        districtUsers[districtHash].push(user);
+        // Track locally for backwards compatibility (will be removed in v2)
+        registeredParticipants[participantAddress] = true;
+        districtParticipants[districtHash].push(participantAddress);
         totalRegisteredUsers++;
         
-        emit UserRegistered(user, districtHash);
+        emit UserRegistered(participantAddress, districtHash);
     }
     
     /**
@@ -120,13 +136,23 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 _credibilityScore // New parameter
     ) external nonReentrant whenNotPaused {
         require(!_isGlobalPaused(), "Global pause");
-        require(registeredUsers[user], "User not registered");
+        // Check registration in IdentityRegistry (single source of truth)
+        require(identityRegistry.isRegistered(user), "Participant not registered");
         require(actionActive[actionType], "Action type not supported");
         uint256 interval = _getMinActionInterval();
-        require(userLastActionTime[user] == 0 || block.timestamp >= userLastActionTime[user] + interval, "Action too frequent");
+        require(participantLastActionTime[user] == 0 || block.timestamp >= participantLastActionTime[user] + interval, "Action too frequent");
         
         // Ensure off-chain/oracle verification exists
         require(_isVerified(actionHash), "Action not verified");
+        
+        // Record action in CivicActionRegistry (following ERC-8004 pattern)
+        (uint256 participantId,,,) = identityRegistry.resolveByAddress(user);
+        civicActionRegistry.recordCivicAction(
+            participantId,
+            CivicActionRegistry.ActionType(uint8(actionType)), // Map action types
+            keccak256(abi.encodePacked(metadata))
+        );
+        
         // Create VOTER record (non-transferable proof) with credibility score
         voterRegistry.createVOTERRecord(user, actionType, actionHash, metadata, _credibilityScore); // Pass new score
 
@@ -143,11 +169,11 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
             );
             totalCivicMinted += civicReward;
             uint256 day = _currentDay();
-            userDailyMinted[user][day] += civicReward;
+            participantDailyMinted[user][day] += civicReward;
             protocolDailyMinted[day] += civicReward;
         }
         
-        userLastActionTime[user] = block.timestamp;
+        participantLastActionTime[user] = block.timestamp;
         
         emit ActionProcessed(user, actionType, civicReward, actionHash);
     }
@@ -177,8 +203,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         
         for (uint256 i = 0; i < users.length; i++) {
             // Skip if user not registered or action too frequent
-            if (!registeredUsers[users[i]] ||
-                (userLastActionTime[users[i]] != 0 && block.timestamp < userLastActionTime[users[i]] + _getMinActionInterval())) {
+            if (!registeredParticipants[users[i]] ||
+                (participantLastActionTime[users[i]] != 0 && block.timestamp < participantLastActionTime[users[i]] + _getMinActionInterval())) {
                 continue;
             }
             
@@ -203,11 +229,11 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                     );
                     totalCivicMinted += civicReward;
                     uint256 day = _currentDay();
-                    userDailyMinted[users[i]][day] += civicReward;
+                    participantDailyMinted[users[i]][day] += civicReward;
                     protocolDailyMinted[day] += civicReward;
                 }
                 
-                userLastActionTime[users[i]] = block.timestamp;
+                participantLastActionTime[users[i]] = block.timestamp;
                 
                 emit ActionProcessed(users[i], actionTypes[i], civicReward, actionHashes[i]);
             }
@@ -228,7 +254,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
             totalActions: totalRecords,
             totalCivicMinted: totalCivicMinted,
             avgActionsPerUser: avgActions,
-            activeUsersLast30Days: _getActiveUsers30Days()
+            activeUsersLast30Days: _getActiveParticipants30Days()
         });
     }
     
@@ -242,7 +268,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         bytes32 districtHash,
         uint256 limit
     ) external view returns (LeaderboardEntry[] memory) {
-        address[] memory users = districtUsers[districtHash];
+        address[] memory users = districtParticipants[districtHash];
         uint256 actualLimit = limit > users.length ? users.length : limit;
         
         LeaderboardEntry[] memory leaderboard = new LeaderboardEntry[](actualLimit);
@@ -250,12 +276,12 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         // Simple sampling - use only required fields to avoid stack depth
         for (uint256 i = 0; i < actualLimit && i < users.length; i++) {
             address user = users[i];
-            (, , uint256 totalActions, , , , , ) = voterRegistry.citizenProfiles(user);
+            (, , uint256 totalActions, , , , ) = voterRegistry.citizenProfiles(user);
             leaderboard[i] = LeaderboardEntry({
-                citizen: user,
+                participant: user,
                 actionCount: totalActions,
                 civicEarned: 0,
-                districtHash: districtHash
+                districtHash: bytes32(0)
             });
         }
         
@@ -294,8 +320,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 maxProtocol = params.getUint(keccak256("maxDailyMintProtocol"));
         
         if (maxUser > 0) {
-            uint256 nextUserTotal = userDailyMinted[user][day] + amount;
-            require(nextUserTotal <= maxUser, "User daily cap exceeded");
+            uint256 nextParticipantTotal = participantDailyMinted[user][day] + amount;
+            require(nextParticipantTotal <= maxUser, "Participant daily cap exceeded");
         }
         if (maxProtocol > 0) {
             uint256 nextProtocolTotal = protocolDailyMinted[day] + amount;
@@ -310,10 +336,30 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function _getRewardFor(VOTERRegistry.ActionType actionType) internal view returns (uint256) {
-        bytes32 key = actionType == VOTERRegistry.ActionType.CWC_MESSAGE
-            ? keccak256("reward:CWC_MESSAGE")
-            : keccak256("reward:DIRECT_ACTION");
-        return params.getUint(key);
+        // Get USD target value for this action type
+        bytes32 usdKey = actionType == VOTERRegistry.ActionType.CWC_MESSAGE
+            ? keccak256("rewardUSD:CWC_MESSAGE")
+            : keccak256("rewardUSD:DIRECT_ACTION");
+        uint256 targetUSD = params.getUint(usdKey);
+        
+        // Get current token price from oracle consensus
+        (uint256 tokenPriceUSD, bool isValid) = params.getOracleConsensusPrice();
+        
+        // If oracle price invalid or zero, fall back to fixed rewards
+        if (!isValid || tokenPriceUSD == 0) {
+            bytes32 fallbackKey = actionType == VOTERRegistry.ActionType.CWC_MESSAGE
+                ? keccak256("reward:CWC_MESSAGE")
+                : keccak256("reward:DIRECT_ACTION");
+            uint256 fallbackReward = params.getUint(fallbackKey);
+            return fallbackReward > 0 ? fallbackReward : 1e18; // Default 1 token if not set
+        }
+        
+        // Calculate token amount: targetUSD / tokenPriceUSD
+        // Both values have 8 decimals, result needs 18 decimals for token amount
+        // Formula: (targetUSD * 10^18) / tokenPriceUSD
+        uint256 tokenAmount = (targetUSD * 1e18) / tokenPriceUSD;
+        
+        return tokenAmount;
     }
 
     function _clampedReward(uint256 base) internal view returns (uint256) {
@@ -335,7 +381,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
      * @dev Calculate active users in last 30 days
      * @return Number of active users
      */
-    function _getActiveUsers30Days() internal view returns (uint256) {
+    function _getActiveParticipants30Days() internal view returns (uint256) {
         // This would need to be implemented with proper indexing
         // For now, return estimated value based on total users
         return totalRegisteredUsers / 10; // Rough estimate
@@ -405,7 +451,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         }
         
         // 2. Apply user reputation multiplier
-        uint256 reputationMultiplier = userReputationMultipliers[user];
+        uint256 reputationMultiplier = participantReputationMultipliers[user];
         if (reputationMultiplier == 0) reputationMultiplier = 100; // Default 1x
         reward = (reward * reputationMultiplier) / 100;
         
@@ -444,12 +490,12 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
      * @param user Address of the user
      * @param multiplier Reputation multiplier (100 = 1x, 200 = 2x)
      */
-    function updateUserReputation(
+    function updateParticipantReputation(
         address user,
         uint256 multiplier
     ) external onlyRole(ADMIN_ROLE) {
         require(multiplier <= 1000, "Multiplier too high"); // Max 10x
-        userReputationMultipliers[user] = multiplier;
+        participantReputationMultipliers[user] = multiplier;
     }
     
     // Keep legacy function for backward compatibility

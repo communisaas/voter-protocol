@@ -2,9 +2,11 @@
 
 ## The Deal
 
-Citizens do civic shit, get tokens. No PII on-chain, just hashes on Monad because it's cheap. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Mirror to ETH L2 when someone actually needs to read it.
+Citizens do civic actions, get tokens. **Zero-cost identity verification via Didit.me** enables rapid user growth. No PII on-chain, just hashes on Monad testnet for high-throughput validation. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Mirror to ETH L2 when someone actually needs to read it.
 
-Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad docs](https://docs.monad.xyz)
+**Cost Revolution**: Core KYC free forever (ID verification, face match, passive liveness). Premium compliance only $0.35-0.50 per user for advanced features. Testnet deployment eliminates gas costs during growth phase.
+
+Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad docs](https://docs.monad.xyz), [Didit.me](https://didit.me)
 
 ## The Two-Token System
 
@@ -51,10 +53,40 @@ Do civic action, get three things: permanent record you can't trade, VOTER token
 - Direct outreach (mailto‑based)
 - Community organizing/advocacy with verifiable receipts
 
-**Verification Requirements (policy‑driven):**
-- Identity/address attestation (when required by adapter)
-- Action authenticity (submission receipts, mail routing receipts)
-- Anti‑spam measures (rate limits, quality scoring)
+**Identity Verification That Actually Ships (While Others Wait for "Perfect"):**
+
+Didit.me gives us free KYC forever. Not a trial. Not a promo. Forever. While competitors burn $2 per user on identity verification, we onboard thousands at zero cost.
+
+**The Stack That Works Today:**
+- **Free Core KYC**: ID verification, face match, passive liveness. Zero dollars. Unlimited users.
+- **Optional Premium**: Need AML screening? $0.35. Proof of address? $0.50. Only for high-value recipients.
+- **On-Chain Integration**: `IDiditVerifier` interface deployed. `verifyCitizenWithDidit()` ready. No waiting for "partnerships."
+- **Global Coverage**: 190+ countries, ISO 27001 certified, GDPR compliant. Not US-only like competitors.
+
+### Dynamic Reward Economics: Surviving Market Volatility
+
+**Production-Ready Oracle Infrastructure (Not Theory, Actual Code):**
+
+Your civic action earns $0.10 USD worth of tokens. Not 0.1 tokens. Not 100 tokens. Ten cents of value, regardless of whether VOTER trades at $0.001 or $100.
+
+**How It Actually Works:**
+- **Multi-Oracle Consensus**: Chainlink and RedStone feeds vote on price. Both fail? Fallback kicks in. No single point of failure.
+- **Real-Time USD Calculation**: Every action triggers `(targetUSD * 10^18) / consensusPrice`. Math happens on-chain, not in some API.
+- **Smart Circuit Breakers**: Price swings >50% per hour? System pauses. No flash loan exploits. No oracle manipulation. No treasury drain.
+- **Governance Adjustable**: Start at $0.10, scale with adoption. Parameters live on-chain with min/max bounds enforced in Solidity.
+
+**Why Everyone Else Dies in Bear Markets (And We Don't):**
+
+Fixed reward protocols hemorrhage value. When your token crashes 99%, giving out "10 tokens per action" means nothing. When it moons 100x, you're bankrupt in hours.
+
+We peg to USD value. Token at $0.001? Users get 100 tokens (worth $0.10). Token at $100? Users get 0.001 tokens (still worth $0.10). Treasury survives both scenarios. Users always earn meaningful rewards.
+
+**The Implementation Sophistication Nobody Talks About:**
+- Timestamp underflow protection (block.timestamp < 3600 doesn't break)
+- Safe arithmetic throughout (no unchecked operations)
+- Dual oracle failure handling (returns invalid flag, triggers fallback)
+- Gas-optimized array operations (validPrices++ inline)
+- Role-based parameter updates (PARAM_SETTER_ROLE required)
 
 ### Template Economics: Impact Drives Everything
 
@@ -125,14 +157,16 @@ The stakes change hourly based on network conditions, participation levels, and 
 ## Why This Works
 
 ### Regulatory
-- It's utility, not securities
-- No PII on-chain
-- KYC only when legally required
+- **CLARITY Act Compliant**: Digital commodity classification - value derives from network utility
+- **Utility-first design**: Governance and civic participation, not speculation
+- **Zero PII on-chain**: Privacy-preserving with off-chain verification
+- **Tiered KYC**: Free core verification, premium compliance only when required
 
 ### Competitive Edge  
-- Verified receipts on cheap Monad
-- Email UX - normies can use it
-- ERC‑8004 serves both AI agents and humans
+- **Zero-cost identity verification**: Free core KYC vs $1-2/user competitors
+- **Testnet leadership**: Monad testnet deployment while competitors wait for mainnet
+- **Email UX**: Normies can use it without crypto complexity
+- **ERC‑8004 early adoption**: Serves both AI agents and humans
 
 ## Technical Implementation
 
