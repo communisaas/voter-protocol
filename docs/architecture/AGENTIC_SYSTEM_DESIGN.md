@@ -4,9 +4,9 @@
 
 Traditional smart contracts are authoritarian code: hardcoded constants, centralized operators, artificial scarcity enforced through mathematics. We reject this model entirely.
 
-The VOTER protocol implements **agentic governance** with agents off‑chain/TEE, on‑chain anchoring on a cheap EVM (Monad), and ERC‑8004 registries on L2. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Cheap EVM anchoring enables massive scale while maintaining cryptographic integrity.
+The VOTER protocol implements **agentic governance** with agents off‑chain/TEE, on‑chain anchoring on proven high-performance infrastructure (Ronin), and ERC‑8004 registries on L2. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** High-performance execution enables massive scale while maintaining cryptographic integrity.
 
-Sources: docs.monad.xyz (throughput/cost), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
+Sources: roninchain.com (proven performance), [ERC‑8004: Trustless Agents](https://ethereum-magicians.org/t/erc-8004-trustless-agents/25098)
 
 ## Core Principles: Resilient Adaptive Systems
 

@@ -1,15 +1,15 @@
 # VOTER Protocol Implementation Roadmap
 
 ## Executive Summary
-This roadmap outlines an agent‑based implementation anchored on Monad for cheap EVM anchoring. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Agents operate off‑chain/TEE, anchor receipts to Monad, and mirror reputation to an ETH L2 (ERC‑8004) creating infrastructure both humans and AI can use.
+This roadmap outlines an agent‑based implementation anchored on Ronin for proven high-performance execution. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Agents operate off‑chain/TEE, anchor receipts to Ronin, and mirror reputation to an ETH L2 (ERC‑8004) creating infrastructure both humans and AI can use.
 
-Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad](https://docs.monad.xyz)
+Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Ronin](https://roninchain.com)
 
 ### Economic Context
 
 How value flows (reality):
-- Issuance: VOTER per verified action—parameters enforced on‑chain. Verification receipts are anchored on Monad.
-- Verification: MultiSig or agent gateway marks verified based on adapter receipts (CWC/mail routing)—CIDs are pinned and attested on Monad.
+- Issuance: VOTER per verified action—parameters enforced on‑chain. Verification receipts are anchored on Ronin.
+- Verification: MultiSig or agent gateway marks verified based on adapter receipts (CWC/mail routing)—CIDs are pinned and attested on Ronin.
 - Demand/utility: Governance + platform utility. Maybe institutional credits for verified outreach/analytics someday.
 - Policy: Agents (or admins) tune rewards elastically; clamps and caps prevent runaway issuance.
 
@@ -30,7 +30,7 @@ Operate in two modes:
 - ✅ `StakedVOTER` - Staking mechanism with rewards
 - ✅ Security improvements: No `OPERATOR_ROLE`, admin controls, safety clamps
 - ✅ Tests: Forge suite passing for core flows
-- 🔄 **Testnet deployment ready**: Monad testnet configuration complete
+- 🔄 **Production deployment ready**: Ronin mainnet configuration complete
 
 **Identity Infrastructure (Cost-Optimized):**
 - ✅ **Didit.me Integration**: Free forever core KYC (ID verification, face match, passive liveness)
@@ -42,11 +42,11 @@ Operate in two modes:
 - ✅ Communiqué API endpoints created (`/voter-proxy/`)
 - ✅ Database schema and migrations prepared
 - ✅ **Didit.me integration**: Production-ready identity verification
-- 🔄 **Monad testnet configured**: High-throughput civic engagement testing
+- 🔄 **Ronin mainnet configured**: High-throughput civic engagement production
 - ❌ CWC API integration (Phase 2 priority)
 
 **Critical Implementation Tasks:**
-- CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Monad
+- CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Ronin
 - Observability: metrics, anomaly auto‑tightening (raise interval / lower rewards / pause)
 - Governance: timelock/DAO for role/param changes; guardian pause
 - E2E tests: agent‑consensus path; param override behavior; caps invariants

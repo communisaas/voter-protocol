@@ -23,7 +23,7 @@ Instead of rigid, hardcoded rules, we deploy **intelligent agents** that learn, 
 - No arbitrary caps, but intelligent equilibrium enforced by auditable safety rails.
 
 **VerificationAgent**: Coordinates action validation with resilient mechanisms
-- Orchestrates Self Protocol + CWC API integration, with fallback options.
+- Orchestrates Didit.me + CWC API integration, with fallback options.
 - Learns from verification patterns to improve accuracy, adapting to new attack vectors.
 - Distributes trust across multiple verification sources, enhancing resilience against single points of failure.
 - Adapts to new attack vectors automatically, while adhering to predefined thresholds and circuit breakers.

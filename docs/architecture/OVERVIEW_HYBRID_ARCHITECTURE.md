@@ -1,11 +1,11 @@
-# Hybrid Monad + EigenCloud Architecture
+# Hybrid Ronin + EigenCloud Architecture
 
 ## Executive Summary
 
-The VOTER token platform is designed for a hybrid architecture combining Monad's high-performance execution with EigenCloud's verifiability infrastructure. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
+The VOTER token platform is designed for a hybrid architecture combining Ronin's proven high-performance execution with EigenCloud's verifiability infrastructure. **ERC-8004 was built for AI agents. We extend it to human civic participants.** This approach delivers both the speed needed for viral civic engagement and the cryptographic guarantees required for authentic democratic participation.
 
 **Current Implementation Status:**
-- 🔧 **Monad execution layer**: Core contracts built with VOTER token, adaptive governance
+- 🔧 **Ronin execution layer**: Core contracts built with VOTER token, adaptive governance
 - 🔧 **Multi-agent verification**: AgentConsensusGateway architecture designed for civic actions
 - 🔧 **Cheap EVM anchoring**: Verification receipt and registry contracts ready for deployment
 - 🔄 **EigenCloud AVS integration**: Planned for enhanced decentralized verification
@@ -15,17 +15,17 @@ The VOTER token platform is designed for a hybrid architecture combining Monad's
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  UI["User Interfaces<br/>(Web/Mobile)"] --> Self["Self.xyz<br/>Identity"]
-  Self --> App["Application Logic<br/>(CWC + District + Self)"]
-  App --> Monad["Monad<br/>(Execution)"]
+  UI["User Interfaces<br/>(Web/Mobile)"] --> Didit["Didit.me<br/>Identity"]
+  Didit --> App["Application Logic<br/>(CWC + District + Didit)"]
+  App --> Ronin["Ronin<br/>(Execution)"]
   App --> Eigen["EigenCloud<br/>(Verification)"]
   Eigen --> Bridge["Bridge Layer"]
-  Bridge --> Monad
+  Bridge --> Ronin
   
   style UI fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#f1f5f9
-  style Self fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
+  style Didit fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#f1f5f9
   style App fill:#1e293b,stroke:#94a3b8,stroke-width:3px,color:#f1f5f9
-  style Monad fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Ronin fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Eigen fill:#78350f,stroke:#fbbf24,stroke-width:2px,color:#f1f5f9
   style Bridge fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f1f5f9
 ```
@@ -33,7 +33,7 @@ flowchart TB
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryColor':'#1e293b', 'primaryBorderColor':'#64748b', 'primaryTextColor':'#f1f5f9', 'background':'#0f172a', 'mainBkg':'#1e293b', 'secondaryBkg':'#334155'}}}%%
 flowchart TB
-  subgraph Monad ["Monad Layer"]
+  subgraph Ronin ["Ronin Layer"]
     Core["CommuniqueCore"]
     Token["VOTERToken<br/>(ERC20Votes)"]
     Registry["VOTERRegistry"]
@@ -43,7 +43,7 @@ flowchart TB
   Core --> Registry
   Core -->|read bounds| Params
   
-  style Monad fill:#1e293b,stroke:#34d399,stroke-width:2px,color:#f1f5f9
+  style Ronin fill:#1e293b,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Core fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Token fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
   style Registry fill:#14532d,stroke:#34d399,stroke-width:2px,color:#f1f5f9
@@ -73,11 +73,11 @@ sequenceDiagram
   participant App as App Logic
   participant Eigen as EigenCloud AVS
   participant Bridge as Bridge
-  participant Monad as Monad Core
+  participant Ronin as Ronin Core
   App->>Eigen: Submit verification request
   Eigen-->>Bridge: ActionVerified(proof)
-  Bridge->>Monad: relayVerification(actionHash, proof)
-  Monad-->>Monad: mintForCivicAction
+  Bridge->>Ronin: relayVerification(actionHash, proof)
+  Ronin-->>Ronin: mintForCivicAction
 ```
 
 ## Layer Responsibilities
@@ -133,10 +133,10 @@ sequenceDiagram
 
 ### Bridge Layer: Cross-Chain Coordination
 
-**Purpose**: Synchronize state between Monad execution and EigenCloud verification
+**Purpose**: Synchronize state between Ronin execution and EigenCloud verification
 
 **Components:**
-- **Verification Oracle**: Relay EigenCloud proofs to Monad contracts
+- **Verification Oracle**: Relay EigenCloud proofs to Ronin contracts
 - **State Synchronizer**: Maintain consistency across chains
 - **Proof Aggregator**: Bundle multiple verifications for efficiency
 - **Emergency Circuit Breaker**: Halt operations if verification fails
@@ -178,10 +178,10 @@ Template: "Minimum wage increase creates 50K jobs locally." Mass campaign reache
 
 ## Technical Implementation
 
-### On‑chain Anchoring (Monad)
+### On‑chain Anchoring (Ronin)
 
-- Registry (Monad): Stores template/channel CIDs and simple version graph; emits events for indexers; no PII
-- Attest (Monad): Writes hash attestations for verification receipts (CWC/mail routing); supports revocations
+- Registry (Ronin): Stores template/channel CIDs and simple version graph; emits events for indexers; no PII
+- Attest (Ronin): Writes hash attestations for verification receipts (CWC/mail routing); supports revocations
 
 Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror minimal trust signals to L2 ERC‑8004 registries only when partners require on‑chain reads.
 
@@ -190,7 +190,7 @@ Bridging is not routine. Treasury/liquidity remain on ETH/L2 (Safe). Mirror mini
 ### Civic Action Processing
 
 1. **User Action**: Citizen sends message through CWC integration via mail client
-2. **Initial Recording**: Action recorded on Monad with "pending verification" status
+2. **Initial Recording**: Action recorded on Ronin with "pending verification" status
 3. **Agent Verification**: Multi-agent consensus evaluates action authenticity and quality
 4. **Agent Processing**: 
    - VerificationAgent confirms CWC delivery
@@ -227,11 +227,11 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 
 ### Throughput Analysis
 
-**Monad Operations (High Frequency):**
-- Token transfers: 10,000+ TPS
-- Governance voting: 5,000+ TPS  
-- Leaderboard updates: 8,000+ TPS
-- Social interactions: 10,000+ TPS
+**Ronin Operations (High Frequency):**
+- Token transfers: 100,000+ TPS
+- Governance voting: 50,000+ TPS  
+- Leaderboard updates: 80,000+ TPS
+- Social interactions: 100,000+ TPS
 
 **EigenCloud Verification (High Security):**
 - Civic action verification: 100-500 TPS (sufficient for national scale)
@@ -244,7 +244,7 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 
 ### Latency Profile
 
-- **Immediate Feedback**: User sees action recorded instantly on Monad (1 second)
+- **Immediate Feedback**: User sees action recorded instantly on Ronin (1 second)
 - **Verification Complete**: EigenCloud proof generated (30-60 seconds)
 - **Token Reward**: VOTER tokens minted after verification (2-3 minutes total)
 
@@ -252,7 +252,7 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 
 ### Trust Assumptions
 
-**Monad Layer:**
+**Ronin Layer:**
 - Validators secure token economic operations
 - Multi-sig governance for critical parameters
 - Standard smart contract security practices
@@ -286,7 +286,7 @@ EigenCloud signatures provide tamper-proof validation from restaked validators. 
 
 ## Deployment Strategy
 
-### Phase 1: Monad Foundation (Months 1-2)
+### Phase 1: Ronin Foundation (Months 1-2)
 - Deploy enhanced VOTER token with verification hooks
 - Launch gamification and governance features
 - Build user base with basic civic engagement
@@ -353,12 +353,12 @@ flowchart TB
 ### Market Positioning
 - **First Human-AI Democracy**: Infrastructure that serves both humans and AI agents
 - **Institutional Grade**: Validated anchoring and ERC‑8004 mirrors provide composability and credibility
-- **Viral Potential**: Monad's performance enables memecoin-level adoption
+- **Viral Potential**: Ronin's proven 100K TPS enables memecoin-level adoption
 - **Democratic Impact**: Verifiable civic engagement creates real political change
 
 ## Conclusion
 
-The hybrid Monad + EigenCloud architecture provides optimal foundation for agent-optimized democratic participation at scale. By combining cheap EVM anchoring with multi-agent consensus, the platform delivers both viral growth mechanics and authentic civic impact through portable ERC-8004 reputation.
+The hybrid Ronin + EigenCloud architecture provides optimal foundation for agent-optimized democratic participation at scale. By combining high-performance execution with multi-agent consensus, the platform delivers both viral growth mechanics and authentic civic impact through portable ERC-8004 reputation.
 
 This architecture positions the VOTER Protocol uniquely at the intersection of human-AI infrastructure, agent optimization, and democratic technology—infrastructure that serves both humans and AI agents in building better governance.
 
