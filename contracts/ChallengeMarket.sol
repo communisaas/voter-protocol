@@ -64,6 +64,20 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant QUALITY_THRESHOLD_KEY = keccak256("challenge:qualityThreshold");
     bytes32 public constant MARKET_FEE_KEY = keccak256("challenge:marketFeeRate");
     
+    // Contextual intelligence parameters
+    bytes32 public constant EXPERTISE_MULTIPLIER_KEY = keccak256("challenge:expertiseMultiplier");
+    bytes32 public constant TRACK_RECORD_MULTIPLIER_KEY = keccak256("challenge:trackRecordMultiplier");
+    bytes32 public constant NATIONAL_ISSUE_MULTIPLIER_KEY = keccak256("challenge:nationalIssueMultiplier");
+    bytes32 public constant EARNED_TOKEN_WEIGHT_KEY = keccak256("challenge:earnedTokenWeight");
+    
+    // Track earned vs purchased tokens for contextual pricing
+    mapping(address => uint256) public earnedTokens;
+    mapping(address => uint256) public purchasedTokens;
+    
+    // Track expertise domains for domain-specific stake calculation
+    mapping(address => mapping(bytes32 => uint256)) public expertiseScores; // user => domain => score
+    mapping(address => uint256) public creatorTrackRecords; // successful challenges/templates
+    
     event ChallengeCreated(
         uint256 indexed challengeId,
         address indexed challenger,
@@ -98,22 +112,32 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Create a challenge against a claim
+     * @dev Create a challenge against a claim with contextual intelligence
      * @param claimHash Hash of the claim being challenged
      * @param defender Address that made the original claim
      * @param evidenceIPFS IPFS hash containing challenge evidence
+     * @param claimDomain Domain of the claim (e.g., healthcare, environment, economy)
+     * @param impactScope Scope of impact (local=0, state=1, national=2)
      */
     function createChallenge(
         bytes32 claimHash,
         address defender,
-        string memory evidenceIPFS
+        string memory evidenceIPFS,
+        bytes32 claimDomain,
+        uint8 impactScope
     ) external nonReentrant whenNotPaused returns (uint256) {
         require(claimHash != bytes32(0), "Invalid claim hash");
         require(defender != address(0), "Invalid defender");
         require(claimToChallengeId[claimHash] == 0, "Claim already challenged");
+        require(impactScope <= 2, "Invalid impact scope");
         
-        // Higher reputation users need less stake
-        uint256 requiredStake = _calculateRequiredStake(msg.sender);
+        // Calculate contextual stake based on multiple factors
+        uint256 requiredStake = _calculateContextualStake(
+            msg.sender,
+            defender,
+            claimDomain,
+            impactScope
+        );
         require(
             voterToken.transferFrom(msg.sender, address(this), requiredStake),
             "Stake transfer failed"
@@ -141,6 +165,27 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
         
         emit ChallengeCreated(challengeId, msg.sender, claimHash, requiredStake);
         return challengeId;
+    }
+    
+    /**
+     * @dev Create challenge with default parameters (backward compatibility)
+     * @param claimHash Hash of the claim being challenged
+     * @param defender Address that made the original claim
+     * @param evidenceIPFS IPFS hash containing challenge evidence
+     */
+    function createChallenge(
+        bytes32 claimHash,
+        address defender,
+        string memory evidenceIPFS
+    ) external nonReentrant whenNotPaused returns (uint256) {
+        // Default to general domain and local scope for backward compatibility
+        return this.createChallenge(
+            claimHash,
+            defender,
+            evidenceIPFS,
+            keccak256("general"),
+            0 // local scope
+        );
     }
     
     /**
@@ -302,19 +347,123 @@ contract ChallengeMarket is AccessControl, ReentrancyGuard, Pausable {
      * @param user Address of the user
      * @return Required stake amount
      */
-    function _calculateRequiredStake(address user) internal view returns (uint256) {
-        uint256 reputation = reputationScores[user];
+    /**
+     * @dev Calculate contextual stake based on expertise, track record, and scope
+     * @param challenger Address creating the challenge
+     * @param defender Address being challenged
+     * @param claimDomain Domain of expertise for the claim
+     * @param impactScope Local(0), State(1), or National(2)
+     */
+    function _calculateContextualStake(
+        address challenger,
+        address defender,
+        bytes32 claimDomain,
+        uint8 impactScope
+    ) internal view returns (uint256) {
         uint256 baseStake = _getMinStake();
         
-        // Agent-determined reputation multipliers could be added here
-        // For now, use simple tiers with agent-configurable base
-        if (reputation >= 100) {
-            return baseStake / 2;
-        } else if (reputation >= 50) {
-            return (baseStake * 75) / 100;
-        } else {
-            return baseStake;
+        // 1. Apply expertise multiplier (medical experts stake less for health claims)
+        uint256 expertiseScore = expertiseScores[challenger][claimDomain];
+        uint256 expertiseMultiplier = 100;
+        if (expertiseScore > 80) {
+            expertiseMultiplier = 50; // 50% stake for domain experts
+        } else if (expertiseScore > 40) {
+            expertiseMultiplier = 75; // 75% stake for knowledgeable users
         }
+        
+        // 2. Apply defender track record (proven creators require higher stakes to challenge)
+        uint256 defenderRecord = creatorTrackRecords[defender];
+        uint256 trackRecordMultiplier = 100;
+        if (defenderRecord > 10) {
+            trackRecordMultiplier = 200; // 2x stake to challenge proven creators
+        } else if (defenderRecord > 5) {
+            trackRecordMultiplier = 150; // 1.5x stake for established creators
+        }
+        
+        // 3. Apply impact scope multiplier (national issues require more commitment)
+        uint256 scopeMultiplier = 100;
+        if (impactScope == 2) { // National
+            scopeMultiplier = agentParams.getUint(NATIONAL_ISSUE_MULTIPLIER_KEY);
+            if (scopeMultiplier == 0) scopeMultiplier = 300; // 3x default
+        } else if (impactScope == 1) { // State
+            scopeMultiplier = 150; // 1.5x for state-level issues
+        }
+        
+        // 4. Apply earned vs purchased token ratio
+        uint256 earnedRatio = _getEarnedTokenRatio(challenger);
+        uint256 tokenSourceMultiplier = 100;
+        if (earnedRatio < 30) { // Less than 30% earned
+            tokenSourceMultiplier = 200; // Double stake for market buyers
+        } else if (earnedRatio > 70) { // More than 70% earned
+            tokenSourceMultiplier = 75; // Discount for civic participants
+        }
+        
+        // 5. Apply reputation substitution (can stake reputation instead of tokens)
+        uint256 reputation = reputationScores[challenger];
+        uint256 reputationDiscount = 100;
+        if (reputation > 80) {
+            reputationDiscount = 30; // 70% discount for high reputation
+        } else if (reputation > 50) {
+            reputationDiscount = 60; // 40% discount for good reputation
+        }
+        
+        // Calculate final stake with all multipliers
+        uint256 finalStake = baseStake
+            * expertiseMultiplier
+            * trackRecordMultiplier
+            * scopeMultiplier
+            * tokenSourceMultiplier
+            * reputationDiscount
+            / (100 ** 5); // Normalize for all percentage multipliers
+        
+        // Ensure minimum viable stake
+        uint256 absoluteMin = agentParams.getUint(MIN_STAKE_KEY) / 10;
+        return finalStake > absoluteMin ? finalStake : absoluteMin;
+    }
+    
+    /**
+     * @dev Calculate ratio of earned vs purchased tokens
+     */
+    function _getEarnedTokenRatio(address user) internal view returns (uint256) {
+        uint256 earned = earnedTokens[user];
+        uint256 purchased = purchasedTokens[user];
+        uint256 total = earned + purchased;
+        
+        if (total == 0) return 0;
+        return (earned * 100) / total;
+    }
+    
+    /**
+     * @dev Update expertise score for a user in a specific domain
+     * @param user Address of the user
+     * @param domain Domain of expertise
+     * @param score New expertise score (0-100)
+     */
+    function updateExpertiseScore(
+        address user,
+        bytes32 domain,
+        uint256 score
+    ) external onlyRole(AGENT_ROLE) {
+        require(score <= 100, "Invalid expertise score");
+        expertiseScores[user][domain] = score;
+    }
+    
+    /**
+     * @dev Track earned tokens from civic participation
+     * @param user Address of the user
+     * @param amount Amount of tokens earned
+     */
+    function trackEarnedTokens(address user, uint256 amount) external onlyRole(AGENT_ROLE) {
+        earnedTokens[user] += amount;
+    }
+    
+    /**
+     * @dev Track purchased tokens from market
+     * @param user Address of the user  
+     * @param amount Amount of tokens purchased
+     */
+    function trackPurchasedTokens(address user, uint256 amount) external onlyRole(AGENT_ROLE) {
+        purchasedTokens[user] += amount;
     }
     
     /**

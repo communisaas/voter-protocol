@@ -58,6 +58,11 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     uint256 public totalCivicMinted;
     uint256 public totalRegisteredUsers;
     
+    // Impact tracking for dynamic rewards
+    mapping(bytes32 => uint256) public templateImpactScores; // templateId => impact score (0-100)
+    mapping(address => uint256) public userReputationMultipliers; // user => reputation bonus (100 = 1x)
+    mapping(bytes32 => uint256) public templateUsageCounts; // templateId => usage count
+    
     event UserRegistered(address indexed user, bytes32 districtHash);
     event ActionProcessed(
         address indexed user,
@@ -374,25 +379,87 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         return params.getUint(keccak256("pause:Global")) != 0;
     }
 
-    function _applyEpistemicLeverageBonus(
-        address user, // User who performed the action
+    /**
+     * @dev Calculate dynamic reward based on multiple factors
+     * @param user Address of the user
+     * @param baseReward Base reward amount
+     * @param credibilityScore Credibility score of the action
+     * @param templateId Template used (if any)
+     */
+    function _calculateDynamicReward(
+        address user,
         uint256 baseReward,
-        uint256 credibilityScore // Credibility of the action's content
+        uint256 credibilityScore,
+        bytes32 templateId
     ) internal view returns (uint256) {
-        // Get epistemic leverage multiplier from AgentParameters
-        uint256 epistemicLeverageMultiplier = params.getUint(keccak256("epistemicLeverageMultiplier"));
-        // Get minimum credibility score for bonus eligibility
-        uint256 minCredibilityForBonus = params.getUint(keccak256("minCredibilityForBonus"));
-
-        if (epistemicLeverageMultiplier == 0 || credibilityScore < minCredibilityForBonus) {
-            return baseReward; // No bonus if multiplier is zero or score is too low
+        uint256 reward = baseReward;
+        
+        // 1. Apply template impact multiplier if template was used
+        if (templateId != bytes32(0)) {
+            uint256 impactScore = templateImpactScores[templateId];
+            if (impactScore > 0) {
+                // Templates with proven impact get up to 10x rewards
+                uint256 impactMultiplier = 100 + (impactScore * 9); // 100-1000 (1x-10x)
+                reward = (reward * impactMultiplier) / 100;
+            }
         }
-
-        // Example calculation: bonus scales with credibility score
-        // This logic can be refined by the MarketAgent off-chain and configured via params
-        uint256 bonusAmount = (baseReward * credibilityScore * epistemicLeverageMultiplier) / 10000; // Scale by 10000 for percentage
-
-        return baseReward + bonusAmount;
+        
+        // 2. Apply user reputation multiplier
+        uint256 reputationMultiplier = userReputationMultipliers[user];
+        if (reputationMultiplier == 0) reputationMultiplier = 100; // Default 1x
+        reward = (reward * reputationMultiplier) / 100;
+        
+        // 3. Apply credibility score bonus (epistemic leverage)
+        uint256 minCredibility = params.getUint(keccak256("minCredibilityForBonus"));
+        if (credibilityScore >= minCredibility) {
+            uint256 credibilityBonus = params.getUint(keccak256("epistemicLeverageMultiplier"));
+            if (credibilityBonus == 0) credibilityBonus = 100;
+            reward = (reward * credibilityBonus) / 100;
+        }
+        
+        // 4. Apply agent-determined adjustments
+        uint256 agentMultiplier = params.getUint(keccak256("reward:agentMultiplier"));
+        if (agentMultiplier > 0) {
+            reward = (reward * agentMultiplier) / 100;
+        }
+        
+        return reward;
+    }
+    
+    /**
+     * @dev Update template impact score (called by ImpactAgent)
+     * @param templateId ID of the template
+     * @param impactScore New impact score (0-100)
+     */
+    function updateTemplateImpact(
+        bytes32 templateId,
+        uint256 impactScore
+    ) external onlyRole(ADMIN_ROLE) {
+        require(impactScore <= 100, "Invalid impact score");
+        templateImpactScores[templateId] = impactScore;
+    }
+    
+    /**
+     * @dev Update user reputation multiplier (called by ReputationAgent)
+     * @param user Address of the user
+     * @param multiplier Reputation multiplier (100 = 1x, 200 = 2x)
+     */
+    function updateUserReputation(
+        address user,
+        uint256 multiplier
+    ) external onlyRole(ADMIN_ROLE) {
+        require(multiplier <= 1000, "Multiplier too high"); // Max 10x
+        userReputationMultipliers[user] = multiplier;
+    }
+    
+    // Keep legacy function for backward compatibility
+    function _applyEpistemicLeverageBonus(
+        address user,
+        uint256 baseReward,
+        uint256 credibilityScore
+    ) internal view returns (uint256) {
+        // Delegate to new dynamic reward calculation with no template
+        return _calculateDynamicReward(user, baseReward, credibilityScore, bytes32(0));
     }
 
     function _currentDay() internal view returns (uint256) {

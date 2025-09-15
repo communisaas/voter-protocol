@@ -54,6 +54,18 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
         uint256 timestamp;
     }
     
+    struct CausalChain {
+        bytes32 templateId;
+        string legislatorId;
+        uint256 citationTimestamp;    // When template language was cited
+        string evidenceIPFS;           // IPFS hash of citation evidence
+        uint256 confidenceScore;      // Causation confidence (0-100)
+        bool voteChanged;              // Legislator changed vote after campaign
+        uint256 treasuryAllocation;   // Funds allocated based on impact
+        uint256 participantCount;     // Number of constituents who used template
+        bool verified;                 // Verified by ImpactAgent
+    }
+    
     // State variables
     mapping(bytes32 => Template) public templates;
     mapping(bytes32 => TemplateChallenge) public challenges;
@@ -61,6 +73,11 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
     mapping(bytes32 => LegislativeImpact[]) public impactHistory;
     mapping(address => bytes32[]) public creatorTemplates;
     mapping(bytes32 => mapping(address => uint256)) public userStakes;
+    
+    // Causal chain tracking
+    mapping(bytes32 => CausalChain[]) public causalChains;
+    mapping(bytes32 => uint256) public totalTreasuryAllocated; // templateId => total funds
+    mapping(string => uint256) public legislatorResponsiveness; // legislatorId => responsiveness score
     
     bytes32[] public allTemplateIds;
     uint256 public templateCount;
@@ -103,6 +120,21 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
         bytes32 indexed templateId,
         uint256 oldScore,
         uint256 newScore
+    );
+    
+    event CausalChainRecorded(
+        bytes32 indexed templateId,
+        string legislatorId,
+        bool directCitation,
+        bool voteChanged,
+        uint256 confidenceScore
+    );
+    
+    event TreasuryAllocated(
+        bytes32 indexed templateId,
+        string legislatorId,
+        uint256 amount,
+        string reason
     );
     
     constructor(address admin) {
@@ -408,5 +440,114 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
+    }
+    
+    /**
+     * @dev Enhanced recordImpact with causal chain tracking
+     * @param templateId Template that had impact
+     * @param representative Representative influenced
+     * @param directCitation Template language appeared verbatim
+     * @param positionChanged Representative changed position
+     * @param confidenceScore Confidence in causation (0-100)
+     * @param evidenceIPFS IPFS hash of evidence
+     */
+    function recordImpactWithEvidence(
+        bytes32 templateId,
+        string memory representative,
+        bool directCitation,
+        bool positionChanged,
+        uint256 confidenceScore,
+        string memory evidenceIPFS
+    ) external onlyRole(IMPACT_ORACLE_ROLE) {
+        // Call original recordImpact
+        this.recordImpact(templateId, representative, directCitation, positionChanged, confidenceScore);
+        
+        // Add causal chain tracking
+        uint256 participantCount = _getTotalParticipants(templateId);
+        
+        causalChains[templateId].push(CausalChain({
+            templateId: templateId,
+            legislatorId: representative,
+            citationTimestamp: block.timestamp,
+            evidenceIPFS: evidenceIPFS,
+            confidenceScore: confidenceScore,
+            voteChanged: positionChanged,
+            treasuryAllocation: 0,
+            participantCount: participantCount,
+            verified: true
+        }));
+        
+        // Update legislator responsiveness
+        if (positionChanged) {
+            legislatorResponsiveness[representative] += confidenceScore;
+        }
+        
+        emit CausalChainRecorded(templateId, representative, directCitation, positionChanged, confidenceScore);
+    }
+    
+    /**
+     * @dev Allocate treasury funds based on verified impact
+     * @param templateId Template that changed minds
+     * @param legislatorId Legislator who learned
+     * @param amount Amount to allocate
+     * @param reason Reason for allocation
+     */
+    function allocateTreasuryFunds(
+        bytes32 templateId,
+        string memory legislatorId,
+        uint256 amount,
+        string memory reason
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(causalChains[templateId].length > 0, "No causal chain recorded");
+        
+        // Find the relevant causal chain
+        bool found = false;
+        for (uint256 i = 0; i < causalChains[templateId].length; i++) {
+            if (keccak256(bytes(causalChains[templateId][i].legislatorId)) == 
+                keccak256(bytes(legislatorId))) {
+                causalChains[templateId][i].treasuryAllocation += amount;
+                found = true;
+                break;
+            }
+        }
+        
+        require(found, "Legislator not in causal chain");
+        
+        totalTreasuryAllocated[templateId] += amount;
+        
+        emit TreasuryAllocated(templateId, legislatorId, amount, reason);
+    }
+    
+    /**
+     * @dev Get total participants across all campaigns for a template
+     */
+    function _getTotalParticipants(bytes32 templateId) internal view returns (uint256) {
+        uint256 total = 0;
+        CampaignUsage[] memory campaigns = campaignHistory[templateId];
+        for (uint256 i = 0; i < campaigns.length; i++) {
+            total += campaigns[i].participantCount;
+        }
+        return total;
+    }
+    
+    /**
+     * @dev Get causal chains for a template
+     */
+    function getCausalChains(bytes32 templateId) external view returns (CausalChain[] memory) {
+        return causalChains[templateId];
+    }
+    
+    /**
+     * @dev Get legislator responsiveness score
+     */
+    function getLegislatorResponsiveness(string memory legislatorId) external view returns (uint256) {
+        return legislatorResponsiveness[legislatorId];
+    }
+    
+    /**
+     * @dev Get total treasury allocated for a template
+     */
+    function getTotalTreasuryAllocated(bytes32 templateId) external view returns (uint256) {
+        return totalTreasuryAllocated[templateId];
     }
 }
