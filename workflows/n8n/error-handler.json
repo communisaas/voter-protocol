@@ -1,0 +1,438 @@
+{
+  "name": "Global Error Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "error-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "error-handler-trigger"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and categorize error information\nconst error = $json;\n\n// Determine error severity\nlet severity = 'low';\nlet category = 'general';\nlet isRetryable = false;\nlet alertRequired = false;\n\nconst errorPatterns = {\n  // Critical errors - require immediate attention\n  critical: [\n    /database.*connection.*lost/i,\n    /authentication.*failed/i,\n    /rate.*limit.*exceeded/i,\n    /out.*of.*memory/i,\n    /smart.*contract.*reverted/i\n  ],\n  // High severity - may affect users\n  high: [\n    /timeout/i,\n    /verification.*failed/i,\n    /insufficient.*funds/i,\n    /invalid.*signature/i\n  ],\n  // Medium severity - degraded performance\n  medium: [\n    /retry.*limit.*reached/i,\n    /partial.*failure/i,\n    /queue.*full/i\n  ]\n};\n\n// Check error message against patterns\nconst errorMessage = error.message || error.error || JSON.stringify(error);\n\nfor (const [level, patterns] of Object.entries(errorPatterns)) {\n  if (patterns.some(pattern => pattern.test(errorMessage))) {\n    severity = level;\n    alertRequired = level === 'critical';\n    break;\n  }\n}\n\n// Categorize error type\nif (errorMessage.includes('database') || errorMessage.includes('postgres')) {\n  category = 'database';\n  isRetryable = true;\n} else if (errorMessage.includes('agent') || errorMessage.includes('API')) {\n  category = 'agent_communication';\n  isRetryable = true;\n} else if (errorMessage.includes('smart contract') || errorMessage.includes('blockchain')) {\n  category = 'blockchain';\n  isRetryable = false;\n} else if (errorMessage.includes('verification') || errorMessage.includes('validation')) {\n  category = 'validation';\n  isRetryable = false;\n} else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {\n  category = 'network';\n  isRetryable = true;\n}\n\n// Build error context\nconst errorContext = {\n  id: `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  timestamp: new Date().toISOString(),\n  severity,\n  category,\n  isRetryable,\n  alertRequired,\n  workflow: {\n    id: error.workflowId || 'unknown',\n    name: error.workflowName || 'unknown',\n    executionId: error.executionId || 'unknown'\n  },\n  error: {\n    message: errorMessage,\n    code: error.code || 'UNKNOWN',\n    stack: error.stack || null,\n    details: error\n  },\n  metadata: {\n    nodeId: error.nodeId || null,\n    nodeName: error.nodeName || null,\n    attemptNumber: error.attemptNumber || 1,\n    maxAttempts: error.maxAttempts || 3\n  }\n};\n\nreturn { json: errorContext };"
+      },
+      "id": "categorize-error",
+      "name": "Categorize Error",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.alertRequired}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-alert",
+      "name": "Alert Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "channel": "critical-alerts",
+        "message": "=🚨 **CRITICAL ERROR DETECTED**\\n\\n**Severity:** {{$json.severity}}\\n**Category:** {{$json.category}}\\n**Workflow:** {{$json.workflow.name}}\\n\\n**Error:** `{{$json.error.message}}`\\n\\n**Action Required:** Immediate investigation needed!",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "#ff0000",
+              "title": "Error Details",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "Error ID",
+                    "value": "={{$json.id}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Timestamp",
+                    "value": "={{$json.timestamp}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Workflow ID",
+                    "value": "={{$json.workflow.id}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Node",
+                    "value": "={{$json.metadata.nodeName || 'Unknown'}}"
+                  }
+                ]
+              }
+            }
+          ],
+          "thread_ts": "={{$json.workflow.executionId}}"
+        }
+      },
+      "id": "send-critical-alert",
+      "name": "Send Critical Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-alerts",
+          "name": "Slack Alerts"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isRetryable}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-retryable",
+      "name": "Is Retryable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare retry configuration based on error type\nconst error = $json;\n\n// Calculate exponential backoff\nconst attemptNumber = error.metadata.attemptNumber || 1;\nconst baseDelay = 1000; // 1 second\nconst maxDelay = 60000; // 1 minute\nconst delay = Math.min(baseDelay * Math.pow(2, attemptNumber - 1), maxDelay);\n\n// Add jitter to prevent thundering herd\nconst jitter = Math.random() * 0.3 * delay;\nconst finalDelay = Math.floor(delay + jitter);\n\n// Determine retry strategy based on category\nlet retryStrategy = 'exponential_backoff';\nlet maxRetries = 3;\n\nswitch (error.category) {\n  case 'database':\n    maxRetries = 5;\n    retryStrategy = 'exponential_backoff';\n    break;\n  case 'network':\n    maxRetries = 10;\n    retryStrategy = 'exponential_backoff_with_jitter';\n    break;\n  case 'agent_communication':\n    maxRetries = 3;\n    retryStrategy = 'linear_backoff';\n    break;\n  default:\n    maxRetries = 3;\n}\n\nconst shouldRetry = attemptNumber < maxRetries;\n\nreturn {\n  json: {\n    ...error,\n    retry: {\n      shouldRetry,\n      attemptNumber,\n      maxRetries,\n      delay: finalDelay,\n      strategy: retryStrategy,\n      nextAttempt: shouldRetry ? attemptNumber + 1 : null,\n      scheduledFor: shouldRetry \n        ? new Date(Date.now() + finalDelay).toISOString()\n        : null\n    }\n  }\n};"
+      },
+      "id": "prepare-retry",
+      "name": "Prepare Retry",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1050, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.retry.shouldRetry}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-should-retry",
+      "name": "Should Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 450]
+    },
+    {
+      "parameters": {
+        "amount": "={{$json.retry.delay}}",
+        "unit": "milliseconds"
+      },
+      "id": "wait-before-retry",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{$json.workflow.id}}",
+        "executionData": "={{JSON.stringify({...($json.error.details.originalData || {}), attemptNumber: $json.retry.nextAttempt, previousError: $json.error})}}"
+      },
+      "id": "execute-retry",
+      "name": "Execute Retry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO error_log (error_id, severity, category, workflow_id, workflow_name, execution_id, error_message, error_code, error_details, is_retryable, retry_count, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);",
+        "additionalFields": {
+          "queryParams": "={{[$json.id, $json.severity, $json.category, $json.workflow.id, $json.workflow.name, $json.workflow.executionId, $json.error.message, $json.error.code, JSON.stringify($json.error.details), $json.isRetryable, $json.metadata.attemptNumber, $json.timestamp]}}"
+        }
+      },
+      "id": "log-to-database",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 600],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "lpush",
+        "key": "dead_letter_queue",
+        "value": "={{JSON.stringify($json)}}",
+        "options": {}
+      },
+      "id": "add-to-dlq",
+      "name": "Add to Dead Letter Queue",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1450, 550],
+      "credentials": {
+        "redis": {
+          "id": "redis-cache",
+          "name": "Redis Cache"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Send metrics to monitoring service\nconst error = $json;\n\n// Prepare metrics\nconst metrics = {\n  metric: 'workflow_error',\n  value: 1,\n  tags: [\n    `severity:${error.severity}`,\n    `category:${error.category}`,\n    `workflow:${error.workflow.name}`,\n    `retryable:${error.isRetryable}`\n  ],\n  timestamp: Math.floor(Date.now() / 1000)\n};\n\n// In production, this would send to DataDog/Prometheus\nconsole.log('Metrics:', metrics);\n\n// Track error patterns\nconst errorPattern = {\n  hour: new Date().getHours(),\n  category: error.category,\n  count: 1\n};\n\nreturn {\n  json: {\n    metricsLogged: true,\n    metrics,\n    errorPattern\n  }\n};"
+      },
+      "id": "send-metrics",
+      "name": "Send Metrics",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1250, 700]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate error information for response\nconst error = $node['categorize-error'].json;\nconst retryInfo = $node['prepare-retry']?.json?.retry || null;\nconst alertSent = $node['send-critical-alert']?.json?.success || false;\nconst loggedToDb = $node['log-to-database']?.json?.[0]?.success !== false;\nconst addedToDlq = $node['add-to-dlq']?.json?.success !== false;\n\nreturn {\n  json: {\n    success: true,\n    errorId: error.id,\n    message: 'Error handled successfully',\n    actions: {\n      alertSent,\n      loggedToDatabase: loggedToDb,\n      addedToDeadLetterQueue: addedToDlq && !retryInfo?.shouldRetry,\n      retryScheduled: retryInfo?.shouldRetry || false\n    },\n    error: {\n      severity: error.severity,\n      category: error.category,\n      message: error.error.message\n    },\n    retry: retryInfo,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "prepare-response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1650, 700]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1850, 700]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Global Error Handler Workflow\n\n### Purpose\nCentralized error handling for all workflows with automatic categorization, alerting, retry logic, and monitoring.\n\n### Features\n- 🚨 **Critical Alerting**: Immediate Slack/Discord notifications for critical errors\n- 🔄 **Smart Retry Logic**: Exponential backoff with jitter for retryable errors\n- 📊 **Error Categorization**: Automatic classification by severity and type\n- 💾 **Persistent Logging**: Database storage for error analytics\n- 📈 **Metrics Collection**: Integration with monitoring services\n- 🗄️ **Dead Letter Queue**: Failed items stored for manual investigation\n\n### Error Categories\n- **Critical**: Database connection lost, auth failures\n- **High**: Timeouts, verification failures\n- **Medium**: Retry limits, partial failures\n- **Low**: General errors, validation issues\n\n### Retry Strategies\n- **Database Errors**: 5 retries with exponential backoff\n- **Network Errors**: 10 retries with jitter\n- **Agent Errors**: 3 retries with linear backoff\n- **Validation Errors**: No retry (not retryable)\n\n### Integration\nSet this as the error workflow in all other workflows:\n`Settings > Error Workflow > Global Error Handler`",
+        "height": 500,
+        "width": 450
+      },
+      "id": "documentation",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [150, 50]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Categorize Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize Error": {
+      "main": [
+        [
+          {
+            "node": "Alert Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Required?": {
+      "main": [
+        [
+          {
+            "node": "Send Critical Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Retryable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Critical Alert": {
+      "main": [
+        [
+          {
+            "node": "Is Retryable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Retryable?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry": {
+      "main": [
+        [
+          {
+            "node": "Should Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add to Dead Letter Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Execute Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Retry": {
+      "main": [
+        [
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Dead Letter Queue": {
+      "main": [
+        [
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Database": {
+      "main": [
+        [
+          {
+            "node": "Send Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Metrics": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "any",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "error-handling",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "monitoring",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "infrastructure",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "global-error-handler",
+  "meta": {
+    "templateId": "error-handler",
+    "description": "Global error handler with categorization, alerting, retry logic, and monitoring"
+  }
+}

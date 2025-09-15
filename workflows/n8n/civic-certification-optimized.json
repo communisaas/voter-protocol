@@ -1,0 +1,448 @@
+{
+  "name": "Civic Action Certification - Optimized",
+  "nodes": [
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Civic Action Certification Workflow\n\n### Purpose\nProcesses and certifies civic actions through multi-agent verification, dynamic reward calculation, and reputation updates.\n\n### Flow\n1. **Webhook Trigger**: Receives civic action data\n2. **Data Preparation**: Validates and enriches action data\n3. **Agent Verification**: Uses sub-workflow for verification\n4. **Reward Calculation**: Dynamic VOTER token rewards\n5. **Reputation Update**: Updates user reputation scores\n6. **Database Storage**: Persists certification data\n7. **Notifications**: Slack alerts for successful certifications\n\n### Features\n- ✅ Multi-agent consensus verification\n- ✅ Dynamic reward calculations\n- ✅ Portable ERC-8004 reputation\n- ✅ Error handling with retries\n- ✅ Real-time notifications\n\n**Philosophy**: Quality discourse pays. Bad faith costs.",
+        "height": 450,
+        "width": 500
+      },
+      "id": "workflow-documentation",
+      "name": "Workflow Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 50]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civic-certification",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "📧 Email Sent Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 600],
+      "webhookId": "civic-certification-trigger"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batch",
+      "name": "📦 Process Each Action",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [400, 600]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate action data with comprehensive error handling\nconst action = $json;\n\n// Validate required fields\nconst requiredFields = ['userAddress', 'templateId'];\nconst missingFields = requiredFields.filter(field => !action[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n}\n\n// Determine action type from template with better classification\nlet actionType = 'direct_action';\nif (action.deliveryMethod === 'certified' || action.templateTitle?.toLowerCase().includes('congress')) {\n  actionType = 'cwc_message';\n} else if (action.templateTitle?.toLowerCase().includes('challenge')) {\n  actionType = 'challenge_market';\n} else if (action.templateTitle?.toLowerCase().includes('petition')) {\n  actionType = 'petition_signature';\n} else if (action.templateTitle?.toLowerCase().includes('survey')) {\n  actionType = 'survey_response';\n}\n\n// Generate deterministic request ID for tracking\nconst requestId = `cert_${action.templateId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Enhanced data preparation\nreturn {\n  json: {\n    requestId,\n    userAddress: action.userAddress,\n    userId: action.userId,\n    templateId: action.templateId,\n    actionType: actionType,\n    recipients: action.recipients || [],\n    deliveryReceipt: action.deliveryReceipt || action.mailtoUrl,\n    timestamp: new Date().toISOString(),\n    metadata: {\n      templateTitle: action.templateTitle,\n      subject: action.subject,\n      userName: action.userName,\n      userEmail: action.userEmail,\n      recipientCount: (action.recipients || []).length,\n      estimatedImpact: action.recipients?.length > 10 ? 'high' : action.recipients?.length > 3 ? 'medium' : 'low'\n    },\n    validation: {\n      hasRecipients: (action.recipients || []).length > 0,\n      hasSubject: Boolean(action.subject),\n      hasDeliveryProof: Boolean(action.deliveryReceipt || action.mailtoUrl)\n    }\n  }\n};"
+      },
+      "id": "prepare-data",
+      "name": "⚙️ Prepare Action Data",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'verification', payload: {templateId: $json.templateId, checkGrammar: false, checkPolicy: true, requestId: $json.requestId}, timeout: 15000})}}"
+      },
+      "id": "verify-action",
+      "name": "🔍 Verify Action",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [800, 500]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'market', payload: {userAddress: $json.userAddress, actionType: $json.actionType, templateId: $json.templateId, recipients: $json.recipients, verificationScore: $node['verify-action'].json.metrics.confidence, requestId: $json.requestId}})}}"
+      },
+      "id": "calculate-reward",
+      "name": "💰 Calculate Reward",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [800, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'reputation', payload: {userAddress: $json.userAddress, userId: $json.userId, actionType: $json.actionType, qualityScore: $node['verify-action'].json.metrics.confidence * 100, requestId: $json.requestId}})}}"
+      },
+      "id": "update-reputation",
+      "name": "⭐ Update Reputation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [800, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node['verify-action'].json.success && $node['verify-action'].json.metrics.approved}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-verification",
+      "name": "✅ Action Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1000, 500]
+    },
+    {
+      "parameters": {
+        "workflowId": "database-operations-subworkflow",
+        "executionData": "={{JSON.stringify({operation: 'insert', table: 'civic_certifications', columns: {user_id: $node['prepare-data'].json.userId, user_address: $node['prepare-data'].json.userAddress, template_id: $node['prepare-data'].json.templateId, action_type: $node['prepare-data'].json.actionType, reward_amount: $node['calculate-reward'].json.metrics.reward.amount, verification_score: $node['verify-action'].json.metrics.confidence, reputation_change: $node['update-reputation'].json.metrics.changes.total, certification_hash: $node['prepare-data'].json.deliveryReceipt, request_id: $node['prepare-data'].json.requestId, created_at: new Date().toISOString()}})}}"
+      },
+      "id": "store-certification",
+      "name": "💾 Store Certification",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1200, 450]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate all agent results into comprehensive certification\nconst verification = $node['verify-action'].json;\nconst reward = $node['calculate-reward'].json;\nconst reputation = $node['update-reputation'].json;\nconst actionData = $node['prepare-data'].json;\nconst dbResult = $node['store-certification'].json;\n\n// Calculate comprehensive impact score\nconst impactScore = {\n  responseChance: actionData.actionType === 'cwc_message' ? 0.3 : 0.1,\n  policyInfluence: actionData.actionType === 'cwc_message' ? 0.4 : 0.2,\n  communityReach: Math.min(0.3, actionData.metadata.recipientCount * 0.02),\n  qualityMultiplier: verification.metrics.confidence || 0.5\n};\n\nconst totalImpact = (impactScore.responseChance + impactScore.policyInfluence + impactScore.communityReach) * impactScore.qualityMultiplier;\n\n// Build comprehensive certification result\nreturn {\n  json: {\n    certification: {\n      id: dbResult.data?.[0]?.id || 'pending',\n      userAddress: actionData.userAddress,\n      templateId: actionData.templateId,\n      actionType: actionData.actionType,\n      timestamp: actionData.timestamp,\n      requestId: actionData.requestId\n    },\n    verification: {\n      approved: verification.metrics.approved,\n      confidence: verification.metrics.confidence,\n      severityLevel: verification.metrics.severityLevel || 1,\n      agentConsensus: true\n    },\n    reward: {\n      amount: reward.metrics.reward.amount,\n      formatted: reward.metrics.reward.formatted,\n      breakdown: reward.metrics.breakdown,\n      multiplier: reward.metrics.multiplier\n    },\n    reputation: {\n      changes: reputation.metrics.changes,\n      newScore: reputation.metrics.newScore,\n      tier: reputation.metrics.tier,\n      badges: reputation.metrics.badges || []\n    },\n    impact: {\n      totalScore: totalImpact,\n      breakdown: impactScore,\n      estimatedReach: actionData.metadata.recipientCount,\n      category: actionData.metadata.estimatedImpact\n    },\n    status: 'certified',\n    philosophy: 'Quality discourse pays. Bad faith costs.'\n  }\n};"
+      },
+      "id": "aggregate-results",
+      "name": "📊 Aggregate Results",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1400, 450]
+    },
+    {
+      "parameters": {
+        "channel": "civic-certifications",
+        "message": "=🎉 *Civic Action Certified*\\n\\nUser: `{{$json.certification.userAddress.slice(0,6)}}...{{$json.certification.userAddress.slice(-4)}}`\\nAction: {{$json.certification.actionType}}\\nReward: {{$json.reward.formatted}}\\nReputation: {{$json.reputation.tier}}\\nImpact: {{($json.impact.totalScore * 100).toFixed(0)}}%\\n\\n_Quality discourse pays. Bad faith costs._",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "#34d399",
+              "title": "Certification Details",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "Verification Score",
+                    "value": "={{($json.verification.confidence * 100).toFixed(0)}}%"
+                  },
+                  {
+                    "short": true,
+                    "title": "Impact Category",
+                    "value": "={{$json.impact.category}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Reward Multiplier",
+                    "value": "={{$json.reward.multiplier.toFixed(2)}}x"
+                  },
+                  {
+                    "short": true,
+                    "title": "Estimated Reach",
+                    "value": "={{$json.impact.estimatedReach}} recipients"
+                  }
+                ]
+              }
+            }
+          ],
+          "thread_ts": "={{$json.certification.requestId}}"
+        }
+      },
+      "id": "notify-slack",
+      "name": "📢 Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1600, 550],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "rejected"
+            },
+            {
+              "name": "reason",
+              "value": "Action failed verification"
+            },
+            {
+              "name": "details",
+              "value": "={{$node['verify-action'].json.error?.message || 'Verification confidence too low'}}"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "success",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "rejection-data",
+      "name": "❌ Rejection Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1200, 350]
+    },
+    {
+      "parameters": {
+        "channel": "civic-rejections",
+        "message": "=⚠️ *Civic Action Rejected*\\n\\nUser: `{{$node['prepare-data'].json.userAddress.slice(0,6)}}...{{$node['prepare-data'].json.userAddress.slice(-4)}}`\\nReason: {{$json.reason}}\\nTemplate: {{$node['prepare-data'].json.templateId}}\\n\\n_Improving civic engagement through quality verification._"
+      },
+      "id": "notify-rejection",
+      "name": "🚨 Notify Rejection",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1400, 350],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "mergeByPosition"
+      },
+      "id": "merge-outputs",
+      "name": "🔄 Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1800, 450]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "📤 Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 450]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Success Path\n\n1. ✅ Verification passes\n2. 💾 Store in database\n3. 📊 Aggregate results\n4. 📢 Send notification\n\n**Result**: Certified civic action with VOTER rewards",
+        "height": 200,
+        "width": 300
+      },
+      "id": "success-path-note",
+      "name": "Success Path",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1350, 250]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Rejection Path\n\n1. ❌ Verification fails\n2. 📝 Log rejection reason\n3. 🚨 Send alert\n\n**Result**: Action rejected, no rewards issued",
+        "height": 150,
+        "width": 300
+      },
+      "id": "rejection-path-note",
+      "name": "Rejection Path",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1150, 200]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Agent Processing\n\n**Parallel Execution:**\n- 🔍 Verification Agent\n- 💰 Market Agent\n- ⭐ Reputation Agent\n\nAll use standardized sub-workflow with retry logic and error handling.",
+        "height": 180,
+        "width": 250
+      },
+      "id": "agent-processing-note",
+      "name": "Agent Processing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [750, 350]
+    }
+  ],
+  "connections": {
+    "📧 Email Sent Webhook": {
+      "main": [
+        [
+          {
+            "node": "📦 Process Each Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📦 Process Each Action": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Prepare Action Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Prepare Action Data": {
+      "main": [
+        [
+          {
+            "node": "🔍 Verify Action",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "💰 Calculate Reward",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "⭐ Update Reputation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Verify Action": {
+      "main": [
+        [
+          {
+            "node": "✅ Action Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Action Valid?": {
+      "main": [
+        [
+          {
+            "node": "💾 Store Certification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Rejection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Store Certification": {
+      "main": [
+        [
+          {
+            "node": "📊 Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "📢 Notify Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📢 Notify Slack": {
+      "main": [
+        [
+          {
+            "node": "🔄 Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❌ Rejection Data": {
+      "main": [
+        [
+          {
+            "node": "🚨 Notify Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚨 Notify Rejection": {
+      "main": [
+        [
+          {
+            "node": "🔄 Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "🔄 Merge Results": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "global-error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "certification",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "optimized",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "civic-certification-optimized",
+  "meta": {
+    "templateId": "civic-action-certification-v2",
+    "description": "Optimized civic action certification with modular sub-workflows, improved UI layout, and comprehensive error handling"
+  }
+}

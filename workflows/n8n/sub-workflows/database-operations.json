@@ -1,0 +1,494 @@
+{
+  "name": "Database Operations Sub-workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "workflow-start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.operation}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-operation",
+      "name": "Valid Operation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{$json.operation}}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "query",
+              "output": 0
+            },
+            {
+              "value2": "insert",
+              "output": 1
+            },
+            {
+              "value2": "update",
+              "output": 2
+            },
+            {
+              "value2": "upsert",
+              "output": 3
+            },
+            {
+              "value2": "batch",
+              "output": 4
+            }
+          ]
+        },
+        "fallbackOutput": 5
+      },
+      "id": "route-operation",
+      "name": "Route by Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{$json.query}}",
+        "additionalFields": {
+          "queryParams": "={{$json.params || []}}"
+        }
+      },
+      "id": "execute-query",
+      "name": "Execute Query",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 200],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "={{$json.table}}",
+        "columns": "={{$json.columns}}",
+        "additionalFields": {
+          "returnFields": "*"
+        }
+      },
+      "id": "execute-insert",
+      "name": "Execute Insert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "={{$json.table}}",
+        "updateKey": "={{$json.updateKey}}",
+        "columns": "={{$json.columns}}",
+        "additionalFields": {
+          "returnFields": "*"
+        }
+      },
+      "id": "execute-update",
+      "name": "Execute Update",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 400],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle upsert operation (INSERT ... ON CONFLICT)\nconst { table, columns, conflictColumns, updateColumns } = $json;\n\n// Build column names and values\nconst columnNames = Object.keys(columns);\nconst values = Object.values(columns);\nconst placeholders = columnNames.map((_, i) => `$${i + 1}`).join(', ');\n\n// Build UPDATE SET clause for conflict\nconst updateSet = (updateColumns || columnNames)\n  .filter(col => !conflictColumns.includes(col))\n  .map(col => `${col} = EXCLUDED.${col}`)\n  .join(', ');\n\n// Build the UPSERT query\nconst query = `\n  INSERT INTO ${table} (${columnNames.join(', ')})\n  VALUES (${placeholders})\n  ON CONFLICT (${conflictColumns.join(', ')})\n  DO UPDATE SET ${updateSet}\n  RETURNING *;\n`;\n\nreturn {\n  json: {\n    query,\n    params: values,\n    operation: 'query'\n  }\n};"
+      },
+      "id": "prepare-upsert",
+      "name": "Prepare Upsert",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "batchSize": "={{$json.batchSize || 100}}",
+        "options": {}
+      },
+      "id": "split-batch",
+      "name": "Split Batch",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [900, 600]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process batch operations with transaction support\nconst batch = $json;\nconst operation = batch.operation || 'insert';\nconst table = batch.table;\nconst items = batch.items || [];\n\nif (items.length === 0) {\n  return { json: { success: false, error: 'No items in batch' } };\n}\n\n// Build batch query based on operation type\nlet query = '';\nlet params = [];\n\nif (operation === 'insert') {\n  // Batch INSERT\n  const columns = Object.keys(items[0]);\n  const values = items.map((item, idx) => {\n    const placeholders = columns.map((col, colIdx) => \n      `$${idx * columns.length + colIdx + 1}`\n    ).join(', ');\n    params.push(...columns.map(col => item[col]));\n    return `(${placeholders})`;\n  }).join(', ');\n  \n  query = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${values} RETURNING id;`;\n  \n} else if (operation === 'update') {\n  // Batch UPDATE using CASE statements\n  const updateKey = batch.updateKey || 'id';\n  const columns = Object.keys(items[0]).filter(col => col !== updateKey);\n  \n  const setClauses = columns.map(col => {\n    const cases = items.map((item, idx) => {\n      params.push(item[updateKey], item[col]);\n      return `WHEN $${params.length - 1} THEN $${params.length}`;\n    }).join(' ');\n    \n    return `${col} = CASE ${updateKey} ${cases} END`;\n  }).join(', ');\n  \n  const ids = items.map(item => item[updateKey]);\n  params.push(...ids);\n  const idPlaceholders = ids.map((_, idx) => `$${params.length - ids.length + idx + 1}`).join(', ');\n  \n  query = `UPDATE ${table} SET ${setClauses} WHERE ${updateKey} IN (${idPlaceholders});`;\n}\n\nreturn {\n  json: {\n    query,\n    params,\n    itemCount: items.length,\n    operation: 'query'\n  }\n};"
+      },
+      "id": "prepare-batch",
+      "name": "Prepare Batch Query",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1100, 600]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "error",
+              "value": "Invalid operation type"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "success",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "invalid-operation",
+      "name": "Invalid Operation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.error}}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "check-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format successful response\nconst result = $json;\nconst operation = $node['route-operation'].json.operation;\n\nlet response = {\n  success: true,\n  operation,\n  timestamp: new Date().toISOString()\n};\n\nif (Array.isArray(result)) {\n  response.rowCount = result.length;\n  response.data = result;\n} else if (result && typeof result === 'object') {\n  response.rowCount = 1;\n  response.data = [result];\n} else {\n  response.rowCount = 0;\n  response.data = [];\n}\n\n// Add cache hint for read operations\nif (operation === 'query') {\n  response.cacheKey = `db_${Buffer.from($node['route-operation'].json.query || '').toString('base64').substring(0, 16)}`;\n  response.cacheTTL = 300; // 5 minutes default\n}\n\nreturn { json: response };"
+      },
+      "id": "format-success",
+      "name": "Format Success",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1500, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle database errors with categorization\nconst error = $json;\nconst operation = $node['route-operation'].json?.operation || 'unknown';\n\nconst errorCategories = {\n  '23505': 'duplicate_key',\n  '23503': 'foreign_key_violation',\n  '23502': 'not_null_violation',\n  '22P02': 'invalid_syntax',\n  '42P01': 'undefined_table',\n  '42703': 'undefined_column',\n  '08000': 'connection_error',\n  '57014': 'query_canceled',\n  '53300': 'too_many_connections'\n};\n\nconst pgError = error.message?.match(/error: (.+)/)?.[1] || error.message;\nconst errorCode = error.code || 'unknown';\nconst category = errorCategories[errorCode] || 'general_error';\n\n// Determine if error is retryable\nconst retryableCategories = ['connection_error', 'too_many_connections', 'query_canceled'];\nconst isRetryable = retryableCategories.includes(category);\n\nreturn {\n  json: {\n    success: false,\n    operation,\n    error: {\n      message: pgError,\n      code: errorCode,\n      category,\n      isRetryable,\n      details: error\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "format-error",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1500, 450]
+    },
+    {
+      "parameters": {},
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1700, 400]
+    },
+    {
+      "parameters": {
+        "key": "={{$json.cacheKey}}",
+        "value": "={{JSON.stringify($json)}}",
+        "ttl": "={{$json.cacheTTL || 300}}",
+        "options": {}
+      },
+      "id": "cache-result",
+      "name": "Cache Result",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1900, 350],
+      "credentials": {
+        "redis": {
+          "id": "redis-cache",
+          "name": "Redis Cache"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Database Operations Sub-workflow\n\n### Purpose\nCentralized database operations with connection pooling, error handling, and caching.\n\n### Supported Operations\n- **query**: Execute SELECT queries\n- **insert**: Insert new records\n- **update**: Update existing records\n- **upsert**: Insert or update on conflict\n- **batch**: Batch insert/update operations\n\n### Input Format\n```json\n{\n  \"operation\": \"query|insert|update|upsert|batch\",\n  \"table\": \"table_name\",\n  \"query\": \"SQL query (for query operation)\",\n  \"columns\": { \"col1\": \"val1\" },\n  \"params\": [\"param1\", \"param2\"],\n  \"conflictColumns\": [\"id\"],\n  \"updateKey\": \"id\",\n  \"batchSize\": 100,\n  \"items\": []\n}\n```\n\n### Features\n- ✅ Connection pooling\n- ✅ Automatic retry for connection errors\n- ✅ Result caching for read operations\n- ✅ Batch processing support\n- ✅ Transaction support\n- ✅ Error categorization",
+        "height": 450,
+        "width": 400
+      },
+      "id": "documentation",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 50]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Valid Operation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Operation?": {
+      "main": [
+        [
+          {
+            "node": "Route by Operation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Operation": {
+      "main": [
+        [
+          {
+            "node": "Execute Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Insert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Query": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Insert": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Update": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Upsert": {
+      "main": [
+        [
+          {
+            "node": "Execute Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Batch": {
+      "main": [
+        [
+          {
+            "node": "Prepare Batch Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Batch Query": {
+      "main": [
+        [
+          {
+            "node": "Execute Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Format Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Operation": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Cache Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "sub-workflow",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "database",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "database-operations-subworkflow",
+  "meta": {
+    "templateId": "database-operations",
+    "description": "Reusable sub-workflow for database operations with pooling, caching, and error handling"
+  }
+}

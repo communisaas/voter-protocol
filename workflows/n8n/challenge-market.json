@@ -1,0 +1,487 @@
+{
+  "name": "Challenge Market Resolution",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "challenge-market",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Challenge Created Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "challenge-market-trigger"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract challenge data and validate\nconst challenge = $json;\n\n// Validate required fields\nif (!challenge.challengerId || !challenge.templateId || !challenge.claimId || !challenge.stakeAmount) {\n  throw new Error('Missing required challenge fields');\n}\n\n// Calculate challenge severity based on stake amount\nlet severity = 'low';\nconst stakeThreshold = parseFloat(challenge.stakeAmount);\nif (stakeThreshold > 10000) {\n  severity = 'critical';\n} else if (stakeThreshold > 1000) {\n  severity = 'high';\n} else if (stakeThreshold > 100) {\n  severity = 'medium';\n}\n\nreturn {\n  json: {\n    challengeId: challenge.challengeId || crypto.randomUUID(),\n    challengerId: challenge.challengerId,\n    challengerAddress: challenge.challengerAddress,\n    templateId: challenge.templateId,\n    claimId: challenge.claimId,\n    claimText: challenge.claimText,\n    challengeReason: challenge.challengeReason,\n    stakeAmount: challenge.stakeAmount,\n    severity: severity,\n    createdAt: new Date().toISOString(),\n    metadata: {\n      challengerReputation: challenge.challengerReputation || 0,\n      creatorReputation: challenge.creatorReputation || 0,\n      templateUsageCount: challenge.templateUsageCount || 0\n    }\n  }\n};"
+      },
+      "id": "prepare-challenge",
+      "name": "Prepare Challenge Data",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({claimId: $json.claimId, claimText: $json.claimText, checkFactuality: true, checkSources: true})}}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "verify-claim",
+      "name": "Verify Original Claim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({claimId: $json.challengeId, claimText: $json.challengeReason, checkFactuality: true, checkSources: true})}}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "verify-challenge",
+      "name": "Verify Challenge Claim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$node['prepare-challenge'].json.severity}}",
+              "operation": "equals",
+              "value2": "critical"
+            }
+          ]
+        }
+      },
+      "id": "check-severity",
+      "name": "Critical Challenge?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/consensus",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({challengeId: $node['prepare-challenge'].json.challengeId, originalVerification: $node['verify-claim'].json, challengeVerification: $node['verify-challenge'].json, stakeAmount: $node['prepare-challenge'].json.stakeAmount})}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "multi-agent-consensus",
+      "name": "Multi-Agent Consensus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Determine challenge outcome based on verification scores\nconst originalClaim = $node['verify-claim'].json;\nconst challengeClaim = $node['verify-challenge'].json;\nconst challengeData = $node['prepare-challenge'].json;\n\n// Calculate confidence differential\nconst originalConfidence = originalClaim.confidence || 0;\nconst challengeConfidence = challengeClaim.confidence || 0;\nconst confidenceDiff = challengeConfidence - originalConfidence;\n\n// Determine winner based on confidence scores and source quality\nlet winner = 'original';\nlet confidence = originalConfidence;\nlet reasoning = 'Original claim has stronger evidence';\n\nif (confidenceDiff > 0.2) {\n  winner = 'challenger';\n  confidence = challengeConfidence;\n  reasoning = 'Challenge provides superior evidence';\n} else if (Math.abs(confidenceDiff) <= 0.2) {\n  // Too close to call - check source quality\n  const originalSources = originalClaim.sourceQuality || 0;\n  const challengeSources = challengeClaim.sourceQuality || 0;\n  \n  if (challengeSources > originalSources) {\n    winner = 'challenger';\n    confidence = challengeConfidence;\n    reasoning = 'Challenge has better source quality';\n  }\n}\n\nreturn {\n  json: {\n    challengeId: challengeData.challengeId,\n    winner: winner,\n    confidence: confidence,\n    reasoning: reasoning,\n    originalScore: originalConfidence,\n    challengeScore: challengeConfidence,\n    consensusRequired: challengeData.severity === 'critical'\n  }\n};"
+      },
+      "id": "determine-outcome",
+      "name": "Determine Outcome",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1050, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate stake redistribution and reputation impacts\nconst outcome = $json;\nconst challengeData = $node['prepare-challenge'].json;\nconst stakeAmount = parseFloat(challengeData.stakeAmount);\n\n// Base reputation changes\nlet challengerRepChange = 0;\nlet creatorRepChange = 0;\n\n// Stake redistribution\nlet challengerPayout = 0;\nlet creatorPayout = 0;\nlet treasuryPayout = 0;\n\nif (outcome.winner === 'challenger') {\n  // Challenger wins\n  challengerRepChange = Math.min(100, stakeAmount * 0.01);\n  creatorRepChange = -Math.min(50, stakeAmount * 0.005);\n  \n  // Quadratic reward scaling to prevent plutocracy\n  const reward = Math.sqrt(stakeAmount) * 10;\n  challengerPayout = stakeAmount + reward;\n  treasuryPayout = reward * 0.1; // 10% to treasury\n  \n} else {\n  // Original creator wins\n  challengerRepChange = -Math.min(50, stakeAmount * 0.005);\n  creatorRepChange = Math.min(50, stakeAmount * 0.005);\n  \n  // Creator gets stake plus bonus\n  creatorPayout = stakeAmount * 1.5;\n  treasuryPayout = stakeAmount * 0.5;\n}\n\n// Apply confidence multiplier\nchallegerRepChange *= outcome.confidence;\ncreatorRepChange *= outcome.confidence;\n\nreturn {\n  json: {\n    challengeId: challengeData.challengeId,\n    winner: outcome.winner,\n    payouts: {\n      challenger: challengerPayout,\n      creator: creatorPayout,\n      treasury: treasuryPayout\n    },\n    reputationChanges: {\n      challenger: challengerRepChange,\n      creator: creatorRepChange\n    },\n    confidence: outcome.confidence,\n    reasoning: outcome.reasoning\n  }\n};"
+      },
+      "id": "calculate-payouts",
+      "name": "Calculate Payouts",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/execute-payouts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "execute-payouts",
+      "name": "Execute Payouts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/update-reputation",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({challengerId: $node['prepare-challenge'].json.challengerId, creatorId: $node['prepare-challenge'].json.creatorId, reputationChanges: $node['calculate-payouts'].json.reputationChanges})}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "update-reputation",
+      "name": "Update Reputation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO challenge_resolutions (challenge_id, template_id, claim_id, challenger_address, winner, confidence_score, challenger_payout, creator_payout, treasury_payout, reasoning, resolved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id;",
+        "additionalFields": {
+          "queryParams": "={{[$json.challengeId, $node['prepare-challenge'].json.templateId, $node['prepare-challenge'].json.claimId, $node['prepare-challenge'].json.challengerAddress, $json.winner, $json.confidence, $json.payouts.challenger, $json.payouts.creator, $json.payouts.treasury, $json.reasoning, new Date().toISOString()]}}"
+        }
+      },
+      "id": "store-resolution",
+      "name": "Store Resolution",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1650, 300],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "challenge-resolutions",
+        "message": "=⚖️ *Challenge Resolved*\\n\\nChallenge ID: `{{$json.challengeId}}`\\nWinner: **{{$json.winner === 'challenger' ? 'Challenger' : 'Original Creator'}}**\\nConfidence: {{($json.confidence * 100).toFixed(0)}}%\\n\\n{{$json.reasoning}}\\n\\n_Quality discourse pays. Bad faith costs._",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "={{$json.winner === 'challenger' ? '#fbbf24' : '#34d399'}}",
+              "title": "Resolution Details",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "Challenger Payout",
+                    "value": "{{$json.payouts.challenger}} VOTER"
+                  },
+                  {
+                    "short": true,
+                    "title": "Creator Payout",
+                    "value": "{{$json.payouts.creator}} VOTER"
+                  },
+                  {
+                    "short": true,
+                    "title": "Challenger Rep",
+                    "value": "={{$json.reputationChanges.challenger > 0 ? '+' : ''}}{{$json.reputationChanges.challenger.toFixed(0)}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Creator Rep",
+                    "value": "={{$json.reputationChanges.creator > 0 ? '+' : ''}}{{$json.reputationChanges.creator.toFixed(0)}}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "notify-slack",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1850, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "success"
+            },
+            {
+              "name": "message",
+              "value": "Challenge resolved successfully"
+            }
+          ],
+          "number": [
+            {
+              "name": "confidence",
+              "value": "={{$node['calculate-payouts'].json.confidence}}"
+            }
+          ]
+        }
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Challenge Created Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Challenge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Challenge Data": {
+      "main": [
+        [
+          {
+            "node": "Verify Original Claim",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verify Challenge Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Original Claim": {
+      "main": [
+        [
+          {
+            "node": "Critical Challenge?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Challenge Claim": {
+      "main": [
+        [
+          {
+            "node": "Critical Challenge?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critical Challenge?": {
+      "main": [
+        [
+          {
+            "node": "Multi-Agent Consensus",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Determine Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Multi-Agent Consensus": {
+      "main": [
+        [
+          {
+            "node": "Calculate Payouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Outcome": {
+      "main": [
+        [
+          {
+            "node": "Calculate Payouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Payouts": {
+      "main": [
+        [
+          {
+            "node": "Execute Payouts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Reputation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Payouts": {
+      "main": [
+        [
+          {
+            "node": "Store Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Reputation": {
+      "main": [
+        [
+          {
+            "node": "Store Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Resolution": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "carroll-mechanisms",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "challenge-market-workflow",
+  "meta": {
+    "templateId": "challenge-market-resolution",
+    "description": "Implements Carroll Mechanisms for information quality markets through staked challenges"
+  }
+}

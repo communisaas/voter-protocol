@@ -32,10 +32,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         bool verified;
         string metadata; // IPFS hash for additional data (legacy)
         bytes32 metadataHash; // canonical bytes32 metadata hash (planned default)
-<<<<<<< Updated upstream
         uint256 credibilityScore; // New: Score reflecting content veracity
-=======
->>>>>>> Stashed changes
     }
     
     struct CitizenProfile {
@@ -53,12 +50,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     mapping(address => VOTERRecord[]) public citizenRecords;
     mapping(bytes32 => bool) public actionHashUsed;
     
-<<<<<<< Updated upstream
     // External SBT/points removed
-=======
-    // Optional: external SBT/points contract for ERC-5192 semantics
-    address public voterPoints;
->>>>>>> Stashed changes
     mapping(bytes32 => uint256) public districtActionCounts;
     
     uint256 public totalRecords;
@@ -100,16 +92,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         _grantRole(EPISTEMIC_AGENT_ROLE, msg.sender); // Grant to deployer
     }
 
-<<<<<<< Updated upstream
     // VOTERPoints concept removed
-=======
-    /**
-     * @dev Set external VOTERPoints contract (ERC-5192-like SBT). Admin-only.
-     */
-    function setVOTERPoints(address points) external onlyRole(ADMIN_ROLE) {
-        voterPoints = points;
-    }
->>>>>>> Stashed changes
     
     /**
      * @dev Verify a citizen's identity through Self Protocol
@@ -182,12 +165,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             citizen: citizen,
             verified: true,
             metadata: metadata,
-<<<<<<< Updated upstream
             metadataHash: keccak256(bytes(metadata)),
             credibilityScore: _credibilityScore // Assign the new score
-=======
-            metadataHash: keccak256(bytes(metadata))
->>>>>>> Stashed changes
         });
         
         citizenRecords[citizen].push(newRecord);
@@ -204,27 +183,7 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
             districtHash
         );
 
-<<<<<<< Updated upstream
         // SBT mint removed
-=======
-        // Optional SBT mint
-        if (voterPoints != address(0)) {
-            // tokenId = totalRecords (1-based) for simplicity
-            (bool ok, ) = voterPoints.call(
-                abi.encodeWithSignature(
-                    "mintRecordSBT(address,uint256,uint8,bytes32,bytes32,bytes32)",
-                    citizen,
-                    totalRecords,
-                    uint8(actionType),
-                    actionHash,
-                    districtHash,
-                    newRecord.metadataHash
-                )
-            );
-            require(ok, "VOTERPoints mint failed");
-            emit VOTERPointsMinted(citizen, totalRecords, actionHash);
-        }
->>>>>>> Stashed changes
     }
     
     /**

@@ -1,0 +1,381 @@
+{
+  "name": "Template: Scheduled Optimization",
+  "nodes": [
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Scheduled Optimization Template\n\n### Purpose\nTemplate for scheduled workflows that monitor metrics, analyze thresholds, and trigger optimization actions.\n\n### Pattern\n1. **Schedule Trigger**: Cron-based execution (hourly, daily, etc.)\n2. **Metrics Collection**: Gather current system metrics\n3. **Threshold Analysis**: Check against predefined limits\n4. **Agent Processing**: Calculate optimizations\n5. **Parameter Updates**: Apply changes within safety bounds\n6. **Monitoring**: Log changes and send alerts\n\n### Common Use Cases\n- Token supply optimization\n- Reward parameter tuning\n- Network health monitoring\n- Performance optimization\n- Capacity planning\n\n### Features\n- ✅ Configurable schedules\n- ✅ Multi-metric monitoring\n- ✅ Threshold-based triggers\n- ✅ Agent-driven optimization\n- ✅ Safety bounds enforcement\n- ✅ Comprehensive logging\n\n**Note**: Replace placeholder values with your specific optimization logic",
+        "height": 500,
+        "width": 500
+      },
+      "id": "template-documentation",
+      "name": "Template Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 50]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "⏰ Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "database-operations-subworkflow",
+        "executionData": "={{JSON.stringify({operation: 'query', query: 'REPLACE_WITH_YOUR_METRICS_QUERY', params: []})}}"
+      },
+      "id": "collect-metrics",
+      "name": "📊 Collect Metrics",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [400, 600]
+    },
+    {
+      "parameters": {
+        "functionCode": "// TEMPLATE: Analyze metrics and check thresholds\nconst metrics = $json.data || [];\n\n// TODO: Replace with your specific metrics extraction\nconst currentMetrics = {\n  // Example metrics - replace with your own\n  dailyActiveUsers: metrics[0]?.daily_active_users || 0,\n  totalActions: metrics[0]?.total_actions || 0,\n  avgReward: metrics[0]?.avg_reward || 0,\n  errorRate: metrics[0]?.error_rate || 0\n};\n\n// TODO: Define your threshold configuration\nconst thresholds = {\n  dailyActiveUsers: { min: 10, max: 10000 },\n  totalActions: { min: 50, max: 100000 },\n  avgReward: { min: 100, max: 10000 },\n  errorRate: { min: 0, max: 0.05 }\n};\n\n// Check which thresholds are exceeded\nconst exceededThresholds = [];\nconst recommendedActions = [];\n\nfor (const [metric, value] of Object.entries(currentMetrics)) {\n  const threshold = thresholds[metric];\n  if (!threshold) continue;\n  \n  if (value < threshold.min) {\n    exceededThresholds.push(`${metric}_too_low`);\n    // TODO: Add your specific action recommendations\n    recommendedActions.push({\n      type: 'increase',\n      metric,\n      current: value,\n      target: threshold.min,\n      action: 'REPLACE_WITH_SPECIFIC_ACTION'\n    });\n  } else if (value > threshold.max) {\n    exceededThresholds.push(`${metric}_too_high`);\n    recommendedActions.push({\n      type: 'decrease',\n      metric,\n      current: value,\n      target: threshold.max,\n      action: 'REPLACE_WITH_SPECIFIC_ACTION'\n    });\n  }\n}\n\nconst needsOptimization = exceededThresholds.length > 0;\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    metrics: currentMetrics,\n    thresholds,\n    exceededThresholds,\n    recommendedActions,\n    needsOptimization,\n    urgency: exceededThresholds.length > 2 ? 'high' : exceededThresholds.length > 0 ? 'medium' : 'low'\n  }\n};"
+      },
+      "id": "analyze-thresholds",
+      "name": "🎯 Analyze Thresholds",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.needsOptimization}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-optimization-needed",
+      "name": "🔄 Optimization Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'REPLACE_WITH_OPTIMIZATION_AGENT', payload: {currentMetrics: $json.metrics, exceededThresholds: $json.exceededThresholds, recommendedActions: $json.recommendedActions}, timeout: 30000})}}"
+      },
+      "id": "calculate-optimizations",
+      "name": "🧠 Calculate Optimizations",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1000, 550]
+    },
+    {
+      "parameters": {
+        "functionCode": "// TEMPLATE: Validate and apply optimizations within safety bounds\nconst optimizations = $json.metrics || {};\nconst originalMetrics = $node['analyze-thresholds'].json.metrics;\n\n// TODO: Define your safety bounds\nconst safetyBounds = {\n  maxChangePercent: 0.2, // Max 20% change at once\n  minUpdateInterval: 3600000, // Min 1 hour between updates\n  parameterLimits: {\n    // TODO: Add your specific parameter limits\n    rewardMultiplier: { min: 0.5, max: 2.0 },\n    stakeRequirement: { min: 100, max: 100000 }\n  }\n};\n\n// Validate proposed changes\nconst validatedChanges = [];\nconst rejectedChanges = [];\n\n// TODO: Replace with your specific parameter validation logic\nif (optimizations.proposedChanges) {\n  for (const change of optimizations.proposedChanges) {\n    const currentValue = change.currentValue;\n    const proposedValue = change.proposedValue;\n    const changePercent = Math.abs(proposedValue - currentValue) / currentValue;\n    \n    const limits = safetyBounds.parameterLimits[change.parameter];\n    const withinBounds = limits ? (proposedValue >= limits.min && proposedValue <= limits.max) : true;\n    const changeWithinLimit = changePercent <= safetyBounds.maxChangePercent;\n    \n    if (withinBounds && changeWithinLimit) {\n      validatedChanges.push({\n        ...change,\n        approved: true,\n        reason: 'Within safety bounds'\n      });\n    } else {\n      rejectedChanges.push({\n        ...change,\n        approved: false,\n        reason: !withinBounds ? 'Outside parameter limits' : 'Change too large'\n      });\n    }\n  }\n}\n\nreturn {\n  json: {\n    optimizationId: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    timestamp: new Date().toISOString(),\n    validatedChanges,\n    rejectedChanges,\n    safetyChecks: {\n      totalChanges: (optimizations.proposedChanges || []).length,\n      approvedChanges: validatedChanges.length,\n      rejectedChanges: rejectedChanges.length,\n      safetyBoundsEnforced: true\n    },\n    metadata: {\n      urgency: $node['analyze-thresholds'].json.urgency,\n      triggerMetrics: originalMetrics\n    }\n  }\n};"
+      },
+      "id": "validate-changes",
+      "name": "🛡️ Validate Changes",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1200, 550]
+    },
+    {
+      "parameters": {
+        "workflowId": "database-operations-subworkflow",
+        "executionData": "={{JSON.stringify({operation: 'insert', table: 'optimization_log', columns: {optimization_id: $json.optimizationId, timestamp: $json.timestamp, urgency: $json.metadata.urgency, approved_changes: JSON.stringify($json.validatedChanges), rejected_changes: JSON.stringify($json.rejectedChanges), trigger_metrics: JSON.stringify($json.metadata.triggerMetrics)}})}}"
+      },
+      "id": "log-optimization",
+      "name": "📝 Log Optimization",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1400, 550]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.metadata.urgency}}",
+              "operation": "equals",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "id": "check-urgency",
+      "name": "🚨 High Urgency?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1600, 550]
+    },
+    {
+      "parameters": {
+        "channel": "critical-optimizations",
+        "message": "=🚨 *Critical Optimization Required*\\n\\nUrgency: {{$json.metadata.urgency}}\\nApproved Changes: {{$json.safetyChecks.approvedChanges}}\\nRejected Changes: {{$json.safetyChecks.rejectedChanges}}\\n\\n**Immediate attention required!**",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "#ff6b6b",
+              "title": "Optimization Details",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "Optimization ID",
+                    "value": "={{$json.optimizationId}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Timestamp",
+                    "value": "={{$json.timestamp}}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "alert-critical",
+      "name": "🚨 Alert Critical",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1800, 500],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-alerts",
+          "name": "Slack Alerts"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "optimizations",
+        "message": "=⚙️ *Optimization Completed*\\n\\nUrgency: {{$json.metadata.urgency}}\\nApproved Changes: {{$json.safetyChecks.approvedChanges}}\\nRejected Changes: {{$json.safetyChecks.rejectedChanges}}\\n\\n_System optimized within safety bounds._"
+      },
+      "id": "notify-standard",
+      "name": "📢 Notify Standard",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1800, 600],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "no_optimization_needed"
+            },
+            {
+              "name": "message",
+              "value": "All metrics within acceptable thresholds"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "optimizationPerformed",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "no-optimization-needed",
+      "name": "✅ No Optimization Needed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 700]
+    },
+    {
+      "parameters": {
+        "channel": "system-health",
+        "message": "=✅ *System Health Check*\\n\\nAll metrics within acceptable thresholds.\\nNo optimization required.\\n\\n_Automated monitoring active._"
+      },
+      "id": "notify-healthy",
+      "name": "💚 Notify Healthy",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1200, 700],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## TODO: Customization Checklist\n\n### Required Changes\n- [ ] Update metrics query\n- [ ] Define threshold values\n- [ ] Configure optimization agent\n- [ ] Set safety bounds\n- [ ] Update parameter limits\n- [ ] Configure notification channels\n- [ ] Add specific optimization logic\n\n### Schedule Configuration\n- [ ] Set appropriate interval\n- [ ] Consider timezone settings\n- [ ] Plan for maintenance windows\n- [ ] Configure retry policies",
+        "height": 300,
+        "width": 350
+      },
+      "id": "customization-checklist",
+      "name": "Customization Checklist",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    }
+  ],
+  "connections": {
+    "⏰ Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "📊 Collect Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Collect Metrics": {
+      "main": [
+        [
+          {
+            "node": "🎯 Analyze Thresholds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎯 Analyze Thresholds": {
+      "main": [
+        [
+          {
+            "node": "🔄 Optimization Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Optimization Needed?": {
+      "main": [
+        [
+          {
+            "node": "🧠 Calculate Optimizations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "✅ No Optimization Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Calculate Optimizations": {
+      "main": [
+        [
+          {
+            "node": "🛡️ Validate Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🛡️ Validate Changes": {
+      "main": [
+        [
+          {
+            "node": "📝 Log Optimization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Log Optimization": {
+      "main": [
+        [
+          {
+            "node": "🚨 High Urgency?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚨 High Urgency?": {
+      "main": [
+        [
+          {
+            "node": "🚨 Alert Critical",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📢 Notify Standard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ No Optimization Needed": {
+      "main": [
+        [
+          {
+            "node": "💚 Notify Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "global-error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "template",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "optimization",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "scheduled",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "scheduled-optimization-template",
+  "meta": {
+    "templateId": "scheduled-optimization",
+    "description": "Template for scheduled optimization workflows with metrics monitoring, threshold analysis, and safety-bounded parameter updates",
+    "isTemplate": true
+  }
+}

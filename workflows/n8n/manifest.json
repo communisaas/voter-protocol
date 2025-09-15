@@ -1,0 +1,131 @@
+{
+  "version": "1.0.0",
+  "description": "VOTER Protocol N8N Workflow Definitions",
+  "environment": {
+    "production": {
+      "url": "https://communi.app.n8n.cloud",
+      "active": true
+    },
+    "staging": {
+      "url": "https://staging.communi.app.n8n.cloud",
+      "active": false
+    },
+    "development": {
+      "url": "http://localhost:5678",
+      "active": false
+    }
+  },
+  "workflows": [
+    {
+      "id": "template-moderation-workflow",
+      "name": "Congressional Template Moderation",
+      "description": "Validates and processes congressional message templates through multi-stage verification",
+      "file": "template-moderation.json",
+      "active": true,
+      "tags": ["production", "congressional"],
+      "dependencies": [
+        "VerificationAgent",
+        "ConsensusAgent",
+        "Communiqué API"
+      ],
+      "webhookPath": "/webhook/template-moderation",
+      "schedule": null,
+      "criticalityLevel": "high"
+    },
+    {
+      "id": "civic-certification-workflow",
+      "name": "Civic Action Certification",
+      "description": "Certifies civic actions and calculates dynamic rewards through parallel agent processing",
+      "file": "civic-certification.json",
+      "active": true,
+      "tags": ["production", "certification"],
+      "dependencies": [
+        "VerificationAgent",
+        "SupplyAgent",
+        "MarketAgent",
+        "ReputationAgent",
+        "ImpactAgent"
+      ],
+      "webhookPath": "/webhook/civic-certification",
+      "schedule": null,
+      "criticalityLevel": "high"
+    },
+    {
+      "id": "supply-optimization-workflow",
+      "name": "Supply Optimization",
+      "description": "Hourly optimization of protocol parameters based on network metrics",
+      "file": "supply-optimization.json",
+      "active": true,
+      "tags": ["production", "economics"],
+      "dependencies": [
+        "SupplyAgent",
+        "MarketAgent",
+        "ImpactAgent"
+      ],
+      "webhookPath": null,
+      "schedule": "0 * * * *",
+      "criticalityLevel": "medium"
+    },
+    {
+      "id": "challenge-market-workflow",
+      "name": "Challenge Market Resolution",
+      "description": "Implements Carroll Mechanisms for information quality markets through staked challenges",
+      "file": "challenge-market.json",
+      "active": true,
+      "tags": ["production", "carroll-mechanisms"],
+      "dependencies": [
+        "VerificationAgent",
+        "ConsensusAgent",
+        "MarketAgent",
+        "ReputationAgent"
+      ],
+      "webhookPath": "/webhook/challenge-market",
+      "schedule": null,
+      "criticalityLevel": "high"
+    }
+  ],
+  "globalSettings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler",
+    "timezone": "America/New_York",
+    "defaultTimeout": 30000
+  },
+  "credentials": [
+    {
+      "name": "communique-db",
+      "type": "postgres",
+      "description": "Main Communiqué database connection"
+    },
+    {
+      "name": "slack-notifications",
+      "type": "slackApi",
+      "description": "Slack API for notifications"
+    },
+    {
+      "name": "n8n-webhook-auth",
+      "type": "httpHeaderAuth",
+      "description": "Webhook authentication headers"
+    }
+  ],
+  "environmentVariables": [
+    {
+      "key": "COMMUNIQUE_API_URL",
+      "description": "Base URL for Communiqué API",
+      "required": true
+    },
+    {
+      "key": "N8N_WEBHOOK_SECRET",
+      "description": "Shared secret for webhook authentication",
+      "required": true
+    }
+  ],
+  "metadata": {
+    "author": "VOTER Protocol Team",
+    "repository": "https://github.com/your-org/communique",
+    "documentation": "workflows/n8n/README.md",
+    "lastUpdated": "2024-01-14T00:00:00.000Z",
+    "philosophy": "Quality discourse pays. Bad faith costs."
+  }
+}

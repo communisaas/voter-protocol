@@ -1,0 +1,485 @@
+{
+  "name": "Congressional Template Moderation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "template-moderation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Template Created Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "template-moderation-trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.deliveryMethod}}",
+              "operation": "equals",
+              "value2": "certified"
+            }
+          ]
+        }
+      },
+      "id": "check-delivery-method",
+      "name": "Is Congressional?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/verify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "templateId",
+              "value": "={{$json.templateId}}"
+            },
+            {
+              "name": "checkGrammar",
+              "value": "true"
+            },
+            {
+              "name": "checkPolicy",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "verify-template",
+      "name": "Stage 1: Verification Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 250]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.severityLevel}}",
+              "operation": "largerEqual",
+              "value2": 7
+            }
+          ]
+        }
+      },
+      "id": "check-severity",
+      "name": "Needs Consensus?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 250]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/agents/consensus",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "templateId",
+              "value": "={{$node['webhook-trigger'].json.templateId}}"
+            },
+            {
+              "name": "verificationId",
+              "value": "={{$json.verificationId}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "consensus-review",
+      "name": "Stage 2: Multi-Agent Consensus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.approved}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-approval",
+      "name": "Template Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 250]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/cwc/submit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({\n  templateId: $node['webhook-trigger'].json.templateId,\n  verification: $node['verify-template'].json,\n  template: {\n    subject: $node['verify-template'].json.corrections?.subject || $node['webhook-trigger'].json.subject,\n    body: $node['verify-template'].json.corrections?.body || $node['webhook-trigger'].json.message_body,\n    recipients: $node['webhook-trigger'].json.recipients\n  },\n  user: {\n    email: $node['webhook-trigger'].json.userEmail,\n    name: $node['webhook-trigger'].json.userName,\n    address: $node['webhook-trigger'].json.userAddress,\n    zip: $node['webhook-trigger'].json.userZip\n  }\n})}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "submit-via-communique",
+      "name": "Stage 3: Submit via Communiqué",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.COMMUNIQUE_API_URL}}/api/n8n/process-template",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$env.N8N_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "templateId",
+              "value": "={{$node['webhook-trigger'].json.templateId}}"
+            },
+            {
+              "name": "userId",
+              "value": "={{$node['webhook-trigger'].json.userId}}"
+            },
+            {
+              "name": "userAddress",
+              "value": "={{$node['webhook-trigger'].json.userAddress}}"
+            },
+            {
+              "name": "actionType",
+              "value": "cwc_message"
+            },
+            {
+              "name": "recipients",
+              "value": "={{$node['webhook-trigger'].json.recipients}}"
+            },
+            {
+              "name": "stage",
+              "value": "reward"
+            },
+            {
+              "name": "cwcConfirmation",
+              "value": "={{$json.confirmationNumber}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "calculate-rewards",
+      "name": "Stage 4: Calculate Rewards",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "rejected"
+            },
+            {
+              "name": "reason",
+              "value": "Template rejected by consensus review"
+            }
+          ],
+          "number": [
+            {
+              "name": "severityLevel",
+              "value": "={{$node['verify-template'].json.severityLevel}}"
+            }
+          ]
+        }
+      },
+      "id": "rejection-response",
+      "name": "Rejection Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1450, 350]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "success"
+            },
+            {
+              "name": "message",
+              "value": "Template processed and rewards calculated"
+            }
+          ],
+          "number": [
+            {
+              "name": "rewardAmount",
+              "value": "={{$json.stages.reward.amount}}"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "cwcSubmitted",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "skipped"
+            },
+            {
+              "name": "reason",
+              "value": "Not a congressional template"
+            }
+          ]
+        }
+      },
+      "id": "skip-response",
+      "name": "Skip Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Template Created Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Congressional?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Congressional?": {
+      "main": [
+        [
+          {
+            "node": "Stage 1: Verification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 1: Verification Agent": {
+      "main": [
+        [
+          {
+            "node": "Needs Consensus?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Consensus?": {
+      "main": [
+        [
+          {
+            "node": "Stage 2: Multi-Agent Consensus",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Template Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 2: Multi-Agent Consensus": {
+      "main": [
+        [
+          {
+            "node": "Template Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template Approved?": {
+      "main": [
+        [
+          {
+            "node": "Stage 3: Submit via Communiqué",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejection Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 3: Submit via Communiqué": {
+      "main": [
+        [
+          {
+            "node": "Stage 4: Calculate Rewards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 4: Calculate Rewards": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rejection Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "congressional",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "template-moderation-workflow",
+  "meta": {
+    "templateId": "congressional-template-moderation"
+  }
+}

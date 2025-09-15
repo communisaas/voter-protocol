@@ -1,0 +1,403 @@
+{
+  "name": "Agent Communication Sub-workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "workflow-start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.agentType}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-input",
+      "name": "Validate Agent Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare agent request with standard headers and error handling\nconst agentType = $json.agentType;\nconst endpoint = $json.endpoint || 'process';\nconst payload = $json.payload || {};\n\n// Get base URL based on agent type\nconst agentUrls = {\n  verification: '/api/agents/verify',\n  market: '/api/agents/calculate-reward',\n  reputation: '/api/agents/update-reputation',\n  impact: '/api/agents/track-impact',\n  supply: '/api/agents/optimize-supply',\n  consensus: '/api/agents/consensus'\n};\n\nconst url = agentUrls[agentType];\nif (!url) {\n  throw new Error(`Unknown agent type: ${agentType}`);\n}\n\n// Add standard fields\nconst enrichedPayload = {\n  ...payload,\n  timestamp: new Date().toISOString(),\n  requestId: `${agentType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  source: 'n8n_workflow'\n};\n\nreturn {\n  json: {\n    url: `${$env.COMMUNIQUE_API_URL}${url}`,\n    payload: enrichedPayload,\n    agentType,\n    requestId: enrichedPayload.requestId,\n    attempt: 1\n  }\n};"
+      },
+      "id": "prepare-request",
+      "name": "Prepare Agent Request",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [650, 250]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "={{$credentials.webhookSecret}}"
+            },
+            {
+              "name": "x-request-id",
+              "value": "={{$json.requestId}}"
+            },
+            {
+              "name": "x-agent-type",
+              "value": "={{$json.agentType}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.payload)}}",
+        "options": {
+          "timeout": "={{$json.timeout || 15000}}",
+          "retry": {
+            "maxTries": 3,
+            "waitBetweenTries": 2000,
+            "onError": "continueErrorOutput"
+          },
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "call-agent",
+      "name": "Call Agent API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 250],
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "agent-api-auth",
+          "name": "Agent API Authentication"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.statusCode}}",
+              "operation": "equal",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "id": "check-response",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse successful response\nconst response = $json;\nconst body = response.body;\n\n// Extract key metrics based on agent type\nconst agentType = $node['prepare-request'].json.agentType;\nlet metrics = {};\n\nswitch (agentType) {\n  case 'verification':\n    metrics = {\n      approved: body.approved,\n      confidence: body.confidence,\n      severityLevel: body.severityLevel || 1\n    };\n    break;\n    \n  case 'market':\n    metrics = {\n      reward: body.reward,\n      multiplier: body.rewardMultiplier,\n      breakdown: body.breakdown\n    };\n    break;\n    \n  case 'reputation':\n    metrics = {\n      changes: body.reputationChanges,\n      newScore: body.currentScore,\n      tier: body.currentTier\n    };\n    break;\n    \n  case 'impact':\n    metrics = {\n      score: body.impactScore,\n      multiplier: body.impactMultiplier,\n      causation: body.hasCausation\n    };\n    break;\n    \n  case 'supply':\n    metrics = {\n      adjustments: body.adjustments,\n      newParameters: body.parameters\n    };\n    break;\n    \n  case 'consensus':\n    metrics = {\n      consensus: body.consensus,\n      confidence: body.confidenceScore,\n      dissent: body.dissentingAgents\n    };\n    break;\n}\n\nreturn {\n  json: {\n    success: true,\n    agentType,\n    requestId: $node['prepare-request'].json.requestId,\n    response: body,\n    metrics,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "parse-success",
+      "name": "Parse Success Response",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle error response with retry logic\nconst error = $json;\nconst attempt = $node['prepare-request'].json.attempt || 1;\nconst maxAttempts = 3;\n\nconst errorDetails = {\n  statusCode: error.statusCode || 500,\n  message: error.message || 'Unknown error',\n  agentType: $node['prepare-request'].json.agentType,\n  requestId: $node['prepare-request'].json.requestId,\n  attempt,\n  maxAttempts\n};\n\n// Determine if error is retryable\nconst retryableErrors = [408, 429, 500, 502, 503, 504];\nconst isRetryable = retryableErrors.includes(errorDetails.statusCode) && attempt < maxAttempts;\n\nif (isRetryable) {\n  // Exponential backoff\n  const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000);\n  \n  return {\n    json: {\n      ...errorDetails,\n      shouldRetry: true,\n      waitTime,\n      nextAttempt: attempt + 1\n    }\n  };\n} else {\n  // Non-retryable or max attempts reached\n  return {\n    json: {\n      success: false,\n      ...errorDetails,\n      shouldRetry: false,\n      finalError: true\n    }\n  };\n}"
+      },
+      "id": "handle-error",
+      "name": "Handle Error",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1250, 350]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldRetry}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-retry",
+      "name": "Should Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 350]
+    },
+    {
+      "parameters": {
+        "amount": "={{$json.waitTime}}",
+        "unit": "milliseconds"
+      },
+      "id": "wait-backoff",
+      "name": "Wait (Backoff)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare retry request\nconst previousRequest = $node['prepare-request'].json;\nconst errorDetails = $json;\n\nreturn {\n  json: {\n    agentType: previousRequest.agentType,\n    endpoint: previousRequest.endpoint,\n    payload: previousRequest.payload,\n    attempt: errorDetails.nextAttempt,\n    previousError: {\n      statusCode: errorDetails.statusCode,\n      message: errorDetails.message\n    }\n  }\n};"
+      },
+      "id": "prepare-retry",
+      "name": "Prepare Retry",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log final error for monitoring\nconst error = $json;\n\n// In production, this would send to monitoring service\nconsole.error('Agent communication failed:', {\n  agentType: error.agentType,\n  requestId: error.requestId,\n  statusCode: error.statusCode,\n  message: error.message,\n  attempts: error.attempt\n});\n\n// Store error for dead letter queue\nreturn {\n  json: {\n    success: false,\n    error: {\n      type: 'agent_communication_failure',\n      details: error\n    },\n    timestamp: new Date().toISOString(),\n    requiresManualIntervention: true\n  }\n};"
+      },
+      "id": "log-final-error",
+      "name": "Log Final Error",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1650, 450]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "error",
+              "value": "Invalid input: agentType is required"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "success",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "invalid-input",
+      "name": "Invalid Input Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {},
+      "id": "merge-outputs",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Agent Communication Sub-workflow\n\n### Purpose\nCentralized agent API communication with built-in error handling, retry logic, and response parsing.\n\n### Inputs\n- `agentType`: Type of agent to call (verification, market, reputation, impact, supply, consensus)\n- `payload`: Data to send to the agent\n- `timeout`: Optional timeout in milliseconds (default: 15000)\n\n### Features\n- ✅ Automatic retry with exponential backoff\n- ✅ Standardized error handling\n- ✅ Response parsing based on agent type\n- ✅ Request ID tracking\n- ✅ Credential management\n\n### Outputs\n- Success: Parsed agent response with metrics\n- Error: Error details with retry information",
+        "height": 350,
+        "width": 400
+      },
+      "id": "documentation",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 50]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare Agent Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Input Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Agent Request": {
+      "main": [
+        [
+          {
+            "node": "Call Agent API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Agent API": {
+      "main": [
+        [
+          {
+            "node": "Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success?": {
+      "main": [
+        [
+          {
+            "node": "Parse Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Success Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Error": {
+      "main": [
+        [
+          {
+            "node": "Should Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait (Backoff)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Final Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Backoff)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry": {
+      "main": [
+        [
+          {
+            "node": "Prepare Agent Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Final Error": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invalid Input Error": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "sub-workflow",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "agent-communication",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "agent-communication-subworkflow",
+  "meta": {
+    "templateId": "agent-communication",
+    "description": "Reusable sub-workflow for agent API communication with retry logic and error handling"
+  }
+}

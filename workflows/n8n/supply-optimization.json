@@ -1,0 +1,478 @@
+{
+  "name": "Supply Optimization",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Hourly Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(DISTINCT user_id) as daily_active_users, COUNT(*) as total_actions, AVG(CASE WHEN action_type = 'cwc_message' THEN 1 ELSE 0 END) as congressional_ratio FROM civic_certifications WHERE created_at > NOW() - INTERVAL '24 hours';",
+        "additionalFields": {}
+      },
+      "id": "get-activity-metrics",
+      "name": "Get Activity Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 200],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT SUM(reward_amount) as daily_rewards, AVG(reward_amount) as avg_reward, MAX(reward_amount) as max_reward, MIN(reward_amount) as min_reward FROM civic_certifications WHERE created_at > NOW() - INTERVAL '24 hours';",
+        "additionalFields": {}
+      },
+      "id": "get-reward-metrics",
+      "name": "Get Reward Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT AVG(challenge_score) as avg_challenge, AVG(civic_score) as avg_civic, AVG(discourse_score) as avg_discourse, COUNT(CASE WHEN reputation_tier = 'trusted' THEN 1 END) as trusted_users FROM users WHERE last_certification > NOW() - INTERVAL '7 days';",
+        "additionalFields": {}
+      },
+      "id": "get-reputation-metrics",
+      "name": "Get Reputation Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 400],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate all metrics\nconst activity = $node['get-activity-metrics'].json[0];\nconst rewards = $node['get-reward-metrics'].json[0];\nconst reputation = $node['get-reputation-metrics'].json[0];\n\n// Calculate current supply metrics\nconst currentMetrics = {\n  dailyActiveUsers: parseInt(activity.daily_active_users) || 0,\n  totalActions: parseInt(activity.total_actions) || 0,\n  congressionalRatio: parseFloat(activity.congressional_ratio) || 0,\n  dailyRewards: parseFloat(rewards.daily_rewards) || 0,\n  avgReward: parseFloat(rewards.avg_reward) || 0,\n  maxReward: parseFloat(rewards.max_reward) || 0,\n  minReward: parseFloat(rewards.min_reward) || 0,\n  avgChallengeScore: parseFloat(reputation.avg_challenge) || 50,\n  avgCivicScore: parseFloat(reputation.avg_civic) || 50,\n  avgDiscourseScore: parseFloat(reputation.avg_discourse) || 50,\n  trustedUsers: parseInt(reputation.trusted_users) || 0\n};\n\n// Check thresholds\nconst thresholdsExceeded = [];\n\n// High activity threshold\nif (currentMetrics.dailyActiveUsers > 1000) {\n  thresholdsExceeded.push('high_activity');\n}\n\n// Low activity threshold\nif (currentMetrics.dailyActiveUsers < 10) {\n  thresholdsExceeded.push('low_activity');\n}\n\n// Reward inflation threshold\nif (currentMetrics.dailyRewards > 1000000) {\n  thresholdsExceeded.push('reward_inflation');\n}\n\n// Reputation concentration threshold\nif (currentMetrics.trustedUsers > currentMetrics.dailyActiveUsers * 0.5) {\n  thresholdsExceeded.push('reputation_concentration');\n}\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    metrics: currentMetrics,\n    thresholdsExceeded: thresholdsExceeded,\n    optimizationNeeded: thresholdsExceeded.length > 0\n  }\n};"
+      },
+      "id": "analyze-metrics",
+      "name": "Analyze Metrics",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.optimizationNeeded}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-optimization",
+      "name": "Optimization Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate optimized parameters based on metrics\nconst metrics = $json.metrics;\nconst thresholds = $json.thresholdsExceeded;\n\n// Base parameters (would come from AgentParameters contract)\nlet baseReward = 10 * Math.pow(10, 18); // 10 VOTER\nlet verificationThreshold = 0.7;\nlet stakingAPR = 10;\n\n// Supply agent logic\nlet supplyMultiplier = 1.0;\nif (thresholds.includes('high_activity')) {\n  supplyMultiplier = 0.7; // Reduce rewards during high activity\n} else if (thresholds.includes('low_activity')) {\n  supplyMultiplier = 1.5; // Increase rewards during low activity\n}\n\n// Market agent logic\nlet marketMultiplier = 1.0;\nif (metrics.congressionalRatio > 0.7) {\n  marketMultiplier = 1.2; // Bonus for congressional engagement\n}\n\n// Impact agent logic\nlet impactMultiplier = 1.0;\nif (metrics.avgCivicScore > 70) {\n  impactMultiplier = 1.1; // Bonus for high civic participation\n}\n\n// Calculate optimized parameters\nconst optimizedReward = Math.floor(baseReward * supplyMultiplier * marketMultiplier * impactMultiplier);\nconst optimizedThreshold = Math.min(0.9, Math.max(0.5, verificationThreshold + (metrics.avgDiscourseScore - 50) / 100));\nconst optimizedAPR = Math.min(20, Math.max(5, stakingAPR * (100 - metrics.dailyActiveUsers) / 100));\n\n// Safety rails (min/max bounds)\nconst MIN_REWARD = 1 * Math.pow(10, 18); // 1 VOTER\nconst MAX_REWARD = 100 * Math.pow(10, 18); // 100 VOTER\nconst MIN_THRESHOLD = 0.5;\nconst MAX_THRESHOLD = 0.9;\nconst MIN_APR = 5;\nconst MAX_APR = 20;\n\nreturn {\n  json: {\n    recommendations: {\n      baseReward: {\n        current: baseReward,\n        optimized: Math.min(MAX_REWARD, Math.max(MIN_REWARD, optimizedReward)),\n        change: ((optimizedReward - baseReward) / baseReward * 100).toFixed(2) + '%'\n      },\n      verificationThreshold: {\n        current: verificationThreshold,\n        optimized: Math.min(MAX_THRESHOLD, Math.max(MIN_THRESHOLD, optimizedThreshold)),\n        change: ((optimizedThreshold - verificationThreshold) / verificationThreshold * 100).toFixed(2) + '%'\n      },\n      stakingAPR: {\n        current: stakingAPR,\n        optimized: Math.min(MAX_APR, Math.max(MIN_APR, optimizedAPR)),\n        change: ((optimizedAPR - stakingAPR) / stakingAPR * 100).toFixed(2) + '%'\n      }\n    },\n    rationale: {\n      supply: `Supply multiplier: ${supplyMultiplier.toFixed(2)}x based on ${metrics.dailyActiveUsers} DAU`,\n      market: `Market multiplier: ${marketMultiplier.toFixed(2)}x based on ${(metrics.congressionalRatio * 100).toFixed(0)}% congressional ratio`,\n      impact: `Impact multiplier: ${impactMultiplier.toFixed(2)}x based on ${metrics.avgCivicScore.toFixed(0)} avg civic score`\n    },\n    governanceRequired: Math.abs(optimizedReward - baseReward) / baseReward > 0.2 // >20% change needs governance\n  }\n};"
+      },
+      "id": "calculate-optimizations",
+      "name": "Calculate Optimizations",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1050, 250]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.governanceRequired}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-governance",
+      "name": "Governance Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format governance proposal\nconst recommendations = $json.recommendations;\nconst rationale = $json.rationale;\nconst metrics = $node['analyze-metrics'].json.metrics;\n\nconst proposal = {\n  title: `Supply Optimization Proposal - ${new Date().toISOString().split('T')[0]}`,\n  description: `Automated supply optimization based on network metrics`,\n  changes: [\n    {\n      parameter: 'BASE_REWARD',\n      current: recommendations.baseReward.current,\n      proposed: recommendations.baseReward.optimized,\n      rationale: rationale.supply\n    },\n    {\n      parameter: 'VERIFICATION_THRESHOLD',\n      current: recommendations.verificationThreshold.current,\n      proposed: recommendations.verificationThreshold.optimized,\n      rationale: `Adjusted based on discourse quality metrics`\n    },\n    {\n      parameter: 'STAKING_APR',\n      current: recommendations.stakingAPR.current,\n      proposed: recommendations.stakingAPR.optimized,\n      rationale: `Optimized for ${metrics.dailyActiveUsers} daily active users`\n    }\n  ],\n  metrics: metrics,\n  votingPeriod: 86400, // 24 hours\n  executionDelay: 43200 // 12 hours after vote\n};\n\nreturn {\n  json: {\n    proposalId: `prop-${Date.now()}`,\n    proposal: proposal,\n    status: 'draft'\n  }\n};"
+      },
+      "id": "create-proposal",
+      "name": "Create Governance Proposal",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO governance_proposals (proposal_id, title, description, changes, metrics, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;",
+        "additionalFields": {
+          "queryParams": "={{[$json.proposalId, $json.proposal.title, $json.proposal.description, JSON.stringify($json.proposal.changes), JSON.stringify($json.proposal.metrics), $json.status, new Date().toISOString()]}}"
+        }
+      },
+      "id": "store-proposal",
+      "name": "Store Proposal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1650, 200],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_parameters SET value = $2, updated_at = $3 WHERE key = $1;",
+        "additionalFields": {
+          "queryParams": "={{['BASE_REWARD', $json.recommendations.baseReward.optimized.toString(), new Date().toISOString()]}}"
+        }
+      },
+      "id": "update-base-reward",
+      "name": "Update Base Reward",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1450, 300],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_parameters SET value = $2, updated_at = $3 WHERE key = $1;",
+        "additionalFields": {
+          "queryParams": "={{['VERIFICATION_THRESHOLD', $json.recommendations.verificationThreshold.optimized.toString(), new Date().toISOString()]}}"
+        }
+      },
+      "id": "update-threshold",
+      "name": "Update Threshold",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1450, 400],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE agent_parameters SET value = $2, updated_at = $3 WHERE key = $1;",
+        "additionalFields": {
+          "queryParams": "={{['STAKING_APR', $json.recommendations.stakingAPR.optimized.toString(), new Date().toISOString()]}}"
+        }
+      },
+      "id": "update-apr",
+      "name": "Update APR",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1450, 500],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "protocol-updates",
+        "message": "=⚙️ *Supply Parameters Optimized*\\n\\nMetrics:\\n• Daily Active Users: {{$node['analyze-metrics'].json.metrics.dailyActiveUsers}}\\n• Total Actions: {{$node['analyze-metrics'].json.metrics.totalActions}}\\n• Daily Rewards: {{$node['analyze-metrics'].json.metrics.dailyRewards.toFixed(0)}} VOTER\\n\\nOptimizations Applied:\\n• Base Reward: {{$json.recommendations.baseReward.change}}\\n• Verification Threshold: {{$json.recommendations.verificationThreshold.change}}\\n• Staking APR: {{$json.recommendations.stakingAPR.change}}\\n\\n_Agent-optimized parameters replace hardcoded tyranny._",
+        "additionalFields": {}
+      },
+      "id": "notify-optimization",
+      "name": "Notify Optimization",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1650, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "governance",
+        "message": "=📋 *Governance Proposal Created*\\n\\n{{$json.proposal.title}}\\n\\n{{$json.proposal.description}}\\n\\nProposed Changes:\\n{{$json.proposal.changes.map(c => `• ${c.parameter}: ${c.change}`).join('\\n')}}\\n\\nVoting Period: 24 hours\\nExecution Delay: 12 hours\\n\\n_Major parameter changes require community approval._",
+        "additionalFields": {}
+      },
+      "id": "notify-governance",
+      "name": "Notify Governance",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1850, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO optimization_logs (timestamp, metrics, thresholds_exceeded, optimizations_applied, governance_required) VALUES ($1, $2, $3, $4, $5);",
+        "additionalFields": {
+          "queryParams": "={{[new Date().toISOString(), JSON.stringify($node['analyze-metrics'].json.metrics), JSON.stringify($node['analyze-metrics'].json.thresholdsExceeded), JSON.stringify($node['calculate-optimizations'].json.recommendations), $node['calculate-optimizations'].json.governanceRequired]}}"
+        }
+      },
+      "id": "log-optimization",
+      "name": "Log Optimization",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1850, 400],
+      "credentials": {
+        "postgres": {
+          "id": "communique-db",
+          "name": "Communiqué Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Activity Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Reward Metrics",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Reputation Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Activity Metrics": {
+      "main": [
+        [
+          {
+            "node": "Analyze Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reward Metrics": {
+      "main": [
+        [
+          {
+            "node": "Analyze Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reputation Metrics": {
+      "main": [
+        [
+          {
+            "node": "Analyze Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Metrics": {
+      "main": [
+        [
+          {
+            "node": "Optimization Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Optimization Needed?": {
+      "main": [
+        [
+          {
+            "node": "Calculate Optimizations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Calculate Optimizations": {
+      "main": [
+        [
+          {
+            "node": "Governance Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Governance Required?": {
+      "main": [
+        [
+          {
+            "node": "Create Governance Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Base Reward",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Threshold",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update APR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Governance Proposal": {
+      "main": [
+        [
+          {
+            "node": "Store Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Proposal": {
+      "main": [
+        [
+          {
+            "node": "Notify Governance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Base Reward": {
+      "main": [
+        [
+          {
+            "node": "Notify Optimization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Threshold": {
+      "main": [
+        [
+          {
+            "node": "Log Optimization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update APR": {
+      "main": [
+        [
+          {
+            "node": "Log Optimization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "optimization",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "scheduled",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "supply-optimization-workflow",
+  "meta": {
+    "templateId": "supply-parameter-optimization",
+    "description": "Hourly optimization of token supply parameters based on network activity"
+  }
+}

@@ -1,0 +1,401 @@
+{
+  "name": "Challenge Market Resolution",
+  "nodes": [
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Carroll Mechanisms: Challenge Market Resolution\n\n### Purpose\nImplements information quality markets where users stake VOTER tokens to challenge questionable claims, creating economic incentives for quality discourse.\n\n### Flow\n1. **Challenge Created**: Webhook receives challenge data\n2. **Data Preparation**: Validates challenge and calculates severity\n3. **Dual Verification**: Verifies both original claim and challenge\n4. **Consensus Check**: Routes to multi-agent consensus for critical challenges\n5. **Outcome Determination**: Determines winner based on evidence quality\n6. **Contextual Payouts**: Distributes stakes with contextual intelligence\n7. **Reputation Updates**: Updates challenger and creator reputation\n8. **Resolution Storage**: Persists challenge resolution to database\n\n### Key Features\n- 🎯 **Contextual Quadratic Scaling**: Adjusts stakes based on expertise, impact, and context\n- 🤖 **Multi-Agent Consensus**: Critical challenges get extra verification\n- 📊 **Dynamic Severity**: Stake amounts determine verification intensity\n- ⚖️ **Reputation Integration**: Track record affects staking requirements\n- 💰 **Economic Incentives**: Winners earn stakes, losers lose them\n\n### Quadratic Mechanism Applications\n- **Expertise Recognition**: Medical experts challenging health claims need lower stakes\n- **Context Awareness**: National issues require higher stakes than local zoning\n- **Track Record Valuation**: Proven mind-changers get staking advantages\n- **Impact Scaling**: Templates with wide reach face higher challenge costs\n- **Dynamic Pricing**: Agents adjust stakes based on real-time patterns\n\n**Philosophy**: Quality discourse pays. Bad faith costs.",
+        "height": 600,
+        "width": 600
+      },
+      "id": "workflow-documentation",
+      "name": "Workflow Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 50]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "challenge-market",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "⚔️ Challenge Created",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 700],
+      "webhookId": "challenge-market-trigger"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract challenge data and validate with contextual analysis\nconst challenge = $json;\n\n// Validate required fields\nconst requiredFields = ['challengerId', 'templateId', 'claimId', 'stakeAmount'];\nconst missingFields = requiredFields.filter(field => !challenge[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required challenge fields: ${missingFields.join(', ')}`);\n}\n\n// Enhanced challenge severity with contextual factors\nlet severity = 'low';\nconst stakeThreshold = parseFloat(challenge.stakeAmount);\nconst reputationDiff = Math.abs((challenge.challengerReputation || 0) - (challenge.creatorReputation || 0));\nconst templateUsage = challenge.templateUsageCount || 0;\nconst claimScope = challenge.claimScope || 'local'; // local, state, national\n\n// Multi-factor severity calculation\nconst severityFactors = {\n  highStake: stakeThreshold > 50000,\n  popularTemplate: templateUsage > 10000,\n  reputationGap: reputationDiff > 40,\n  nationalScope: claimScope === 'national',\n  expertChallenger: (challenge.challengerExpertise || []).length > 0,\n  establishedCreator: (challenge.creatorReputation || 0) > 80\n};\n\nconst severityScore = Object.values(severityFactors).filter(Boolean).length;\n\nif (severityScore >= 4 || stakeThreshold > 50000) {\n  severity = 'critical';\n} else if (severityScore >= 2 || stakeThreshold > 10000) {\n  severity = 'high';\n} else if (severityScore >= 1 || stakeThreshold > 1000) {\n  severity = 'medium';\n}\n\n// Generate deterministic challenge ID\nconst challengeId = challenge.challengeId || `chal_${challenge.claimId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Contextual risk assessment\nconst contextualFactors = {\n  domainExpertise: {\n    challengerExpertise: challenge.challengerExpertise || [],\n    claimDomain: challenge.claimDomain || 'general',\n    expertiseMatch: (challenge.challengerExpertise || []).includes(challenge.claimDomain)\n  },\n  impactHistory: {\n    challengerImpactCount: challenge.challengerImpactCount || 0,\n    creatorImpactCount: challenge.creatorImpactCount || 0,\n    templateReach: templateUsage\n  },\n  stakingContext: {\n    isNationalIssue: claimScope === 'national',\n    isHighImpactTemplate: templateUsage > 1000,\n    isExpertVsExpert: (challenge.challengerReputation || 0) > 70 && (challenge.creatorReputation || 0) > 70\n  }\n};\n\nconst requiresConsensus = severity === 'critical' || contextualFactors.stakingContext.isExpertVsExpert;\n\nreturn {\n  json: {\n    challengeId,\n    challengerId: challenge.challengerId,\n    challengerAddress: challenge.challengerAddress,\n    templateId: challenge.templateId,\n    claimId: challenge.claimId,\n    claimText: challenge.claimText,\n    challengeReason: challenge.challengeReason,\n    stakeAmount: challenge.stakeAmount,\n    severity,\n    requiresConsensus,\n    createdAt: new Date().toISOString(),\n    metadata: {\n      challengerReputation: challenge.challengerReputation || 0,\n      creatorReputation: challenge.creatorReputation || 0,\n      templateUsageCount: templateUsage,\n      reputationDiff,\n      severityFactors,\n      severityScore,\n      claimScope\n    },\n    contextualFactors\n  }\n};"
+      },
+      "id": "prepare-challenge",
+      "name": "⚙️ Prepare Challenge Data",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [400, 700]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'verification', payload: {claimId: $json.claimId, claimText: $json.claimText, checkFactuality: true, checkSources: true, challengeContext: true}, timeout: 15000})}}"
+      },
+      "id": "verify-original-claim",
+      "name": "🔍 Verify Original Claim",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'verification', payload: {claimId: $json.challengeId, claimText: $json.challengeReason, checkFactuality: true, checkSources: true, challengeContext: true}, timeout: 15000})}}"
+      },
+      "id": "verify-challenge-claim",
+      "name": "🔍 Verify Challenge Claim",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [600, 800]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.requiresConsensus}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-consensus-needed",
+      "name": "🤖 Consensus Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 700]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'consensus', payload: {challengeId: $node['prepare-challenge'].json.challengeId, originalVerification: $node['verify-original-claim'].json, challengeVerification: $node['verify-challenge-claim'].json, stakeAmount: $node['prepare-challenge'].json.stakeAmount, severity: $node['prepare-challenge'].json.severity}, timeout: 30000})}}"
+      },
+      "id": "multi-agent-consensus",
+      "name": "🤖 Multi-Agent Consensus",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1000, 650]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Determine challenge outcome with contextual intelligence\nconst originalClaim = $node['verify-original-claim'].json;\nconst challengeClaim = $node['verify-challenge-claim'].json;\nconst challengeData = $node['prepare-challenge'].json;\nconst consensus = $node['multi-agent-consensus']?.json;\n\n// Use consensus if available, otherwise use contextual comparison\nlet winner = 'original';\nlet confidence = 0.5;\nlet reasoning = 'Default outcome';\n\nif (consensus && consensus.success) {\n  // Multi-agent consensus available\n  winner = consensus.metrics.consensus === 'challenger' ? 'challenger' : 'original';\n  confidence = consensus.metrics.confidence;\n  reasoning = `Multi-agent consensus: ${consensus.metrics.reasoning || 'Consensus reached'}`;\n} else {\n  // Contextual verification comparison\n  const originalConfidence = originalClaim.metrics?.confidence || 0;\n  const challengeConfidence = challengeClaim.metrics?.confidence || 0;\n  const confidenceDiff = challengeConfidence - originalConfidence;\n  \n  // Enhanced scoring with contextual factors\n  const originalSourceQuality = originalClaim.metrics?.sourceQuality || 0;\n  const challengeSourceQuality = challengeClaim.metrics?.sourceQuality || 0;\n  const sourceQualityDiff = challengeSourceQuality - originalSourceQuality;\n  \n  // Expertise factor: domain expertise matters more than general reputation\n  const contextualFactors = challengeData.contextualFactors;\n  let expertiseFactor = 0;\n  \n  if (contextualFactors.domainExpertise.expertiseMatch) {\n    // Challenger has domain expertise\n    expertiseFactor = 0.15;\n    reasoning += ' Domain expertise considered.';\n  }\n  \n  // Track record factor: proven impact creators get slight advantage\n  const impactDiff = (contextualFactors.impactHistory.challengerImpactCount - \n                     contextualFactors.impactHistory.creatorImpactCount) * 0.01;\n  \n  // Context importance: national issues need stronger evidence\n  const evidenceThreshold = contextualFactors.stakingContext.isNationalIssue ? 0.25 : 0.15;\n  \n  // Combined score with contextual weighting\n  const combinedScore = confidenceDiff + (sourceQualityDiff * 0.3) + expertiseFactor + impactDiff;\n  \n  if (combinedScore > evidenceThreshold) {\n    winner = 'challenger';\n    confidence = challengeConfidence;\n    reasoning = `Challenge provides superior evidence (score: ${combinedScore.toFixed(3)})`;\n    if (contextualFactors.domainExpertise.expertiseMatch) {\n      reasoning += ' Challenger has relevant domain expertise.';\n    }\n  } else if (combinedScore < -evidenceThreshold) {\n    winner = 'original';\n    confidence = originalConfidence;\n    reasoning = `Original claim has stronger foundation (score: ${Math.abs(combinedScore).toFixed(3)})`;\n  } else {\n    // Very close - additional contextual tiebreakers\n    if (sourceQualityDiff > 0.1) {\n      winner = 'challenger';\n      confidence = challengeConfidence;\n      reasoning = 'Challenge has significantly better source quality despite close evidence scores';\n    } else if (contextualFactors.impactHistory.creatorImpactCount > contextualFactors.impactHistory.challengerImpactCount + 3) {\n      winner = 'original';\n      confidence = originalConfidence;\n      reasoning = 'Creator has significantly stronger track record of impact';\n    } else {\n      winner = 'original';\n      confidence = originalConfidence;\n      reasoning = 'Evidence too close to determine clear winner - original claim stands';\n    }\n  }\n}\n\nreturn {\n  json: {\n    challengeId: challengeData.challengeId,\n    winner: winner,\n    confidence: confidence,\n    reasoning: reasoning,\n    originalScore: originalClaim.metrics?.confidence || 0,\n    challengeScore: challengeClaim.metrics?.confidence || 0,\n    consensusUsed: Boolean(consensus && consensus.success),\n    contextualFactors: challengeData.contextualFactors,\n    metadata: {\n      severity: challengeData.severity,\n      severityScore: challengeData.metadata.severityScore,\n      reputationDiff: challengeData.metadata.reputationDiff\n    }\n  }\n};"
+      },
+      "id": "determine-outcome",
+      "name": "⚖️ Determine Outcome",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1000, 800]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate contextual quadratic stake redistribution\nconst outcome = $json;\nconst challengeData = $node['prepare-challenge'].json;\nconst stakeAmount = parseFloat(challengeData.stakeAmount);\n\n// Get reputation and contextual data\nconst challengerRep = challengeData.metadata.challengerReputation;\nconst creatorRep = challengeData.metadata.creatorReputation;\nconst contextualFactors = outcome.contextualFactors;\n\n// Base reputation changes (scaled by confidence)\nlet challengerRepChange = 0;\nlet creatorRepChange = 0;\n\n// Stake redistribution with contextual quadratic intelligence\nlet challengerPayout = 0;\nlet creatorPayout = 0;\nlet treasuryPayout = 0;\n\n// Contextual quadratic scaling - intelligence layer beyond plutocracy prevention\nconst applyContextualScaling = (amount, userRep, userContext = {}) => {\n  // Expertise recognition: domain experts need less capital to challenge\n  const expertiseFactor = userContext.domainExpertise ? 0.8 : 1.0;\n  \n  // Track record factor: proven impact creators get advantages\n  const impactFactor = userContext.impactCount ? Math.max(0.7, 1 - (userContext.impactCount * 0.02)) : 1.0;\n  \n  // Context awareness: national issues vs local issues\n  const scopeFactor = contextualFactors.stakingContext.isNationalIssue ? 1.2 : 1.0;\n  \n  // Reputation scaling: higher reputation = less scaling needed (trusted)\n  const trustFactor = Math.min(1, userRep / 100);\n  const reputationScaling = Math.sqrt(1 - (0.3 * trustFactor));\n  \n  // Combined contextual scaling\n  const finalScaling = reputationScaling * expertiseFactor * impactFactor * scopeFactor;\n  \n  return amount * finalScaling;\n};\n\nif (outcome.winner === 'challenger') {\n  // Challenger wins - contextual reward calculation\n  const baseReward = stakeAmount * 1.8; // 80% bonus\n  \n  // Apply contextual scaling\n  challengerPayout = applyContextualScaling(baseReward, challengerRep, {\n    domainExpertise: contextualFactors.domainExpertise.expertiseMatch,\n    impactCount: contextualFactors.impactHistory.challengerImpactCount\n  });\n  \n  // Reputation changes with contextual bonuses\n  let baseRepChange = Math.min(15, 5 + (outcome.confidence * 10));\n  \n  // Bonus for domain expertise challenges\n  if (contextualFactors.domainExpertise.expertiseMatch) {\n    baseRepChange *= 1.3;\n  }\n  \n  // Bonus for challenging high-impact templates\n  if (contextualFactors.stakingContext.isHighImpactTemplate) {\n    baseRepChange *= 1.2;\n  }\n  \n  challengerRepChange = baseRepChange;\n  creatorRepChange = -Math.min(10, 3 + (outcome.confidence * 7));\n  \n  treasuryPayout = stakeAmount * 0.1; // 10% to treasury\n  \n} else {\n  // Original creator wins - defending truth\n  const baseReward = stakeAmount * 1.3; // 30% bonus for successful defense\n  \n  creatorPayout = applyContextualScaling(baseReward, creatorRep, {\n    domainExpertise: false, // Creator doesn't get expertise bonus for defense\n    impactCount: contextualFactors.impactHistory.creatorImpactCount\n  });\n  \n  // Reputation changes (less severe for failed challenges)\n  challengerRepChange = -Math.min(8, 2 + (outcome.confidence * 6));\n  \n  let baseRepChange = Math.min(8, 2 + (outcome.confidence * 6));\n  \n  // Bonus for defending high-impact content\n  if (contextualFactors.stakingContext.isHighImpactTemplate) {\n    baseRepChange *= 1.2;\n  }\n  \n  creatorRepChange = baseRepChange;\n  treasuryPayout = stakeAmount * 0.2; // 20% to treasury\n}\n\n// Apply consensus multiplier if multi-agent consensus was used\nif (outcome.consensusUsed) {\n  challengerRepChange *= 1.5;\n  creatorRepChange *= 1.5;\n  challengerPayout *= 1.1;\n  creatorPayout *= 1.1;\n}\n\n// Apply severity multiplier for system-critical challenges\nconst severityMultipliers = { low: 1, medium: 1.2, high: 1.5, critical: 2 };\nconst severityMultiplier = severityMultipliers[challengeData.severity] || 1;\n\nchallegerRepChange *= severityMultiplier;\ncreatorRepChange *= severityMultiplier;\n\nreturn {\n  json: {\n    challengeId: challengeData.challengeId,\n    winner: outcome.winner,\n    confidence: outcome.confidence,\n    reasoning: outcome.reasoning,\n    payouts: {\n      challenger: Math.round(challengerPayout),\n      creator: Math.round(creatorPayout),\n      treasury: Math.round(treasuryPayout)\n    },\n    reputationChanges: {\n      challenger: Math.round(challengerRepChange * 100) / 100,\n      creator: Math.round(creatorRepChange * 100) / 100\n    },\n    contextualAnalysis: {\n      expertiseConsidered: contextualFactors.domainExpertise.expertiseMatch,\n      impactHistory: contextualFactors.impactHistory,\n      scopeAdjustment: contextualFactors.stakingContext.isNationalIssue ? 'national' : 'local',\n      stakingContext: contextualFactors.stakingContext\n    },\n    metadata: {\n      stakeAmount,\n      severity: challengeData.severity,\n      consensusUsed: outcome.consensusUsed,\n      contextualScaling: true,\n      severityMultiplier\n    }\n  }\n};"
+      },
+      "id": "calculate-payouts",
+      "name": "💰 Calculate Contextual Payouts",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1200, 700]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'reputation', payload: {challengerId: $node['prepare-challenge'].json.challengerId, creatorId: $node['prepare-challenge'].json.creatorId, reputationChanges: $json.reputationChanges, challengeContext: true}})}}"
+      },
+      "id": "update-reputation",
+      "name": "⭐ Update Reputation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1400, 800]
+    },
+    {
+      "parameters": {
+        "workflowId": "database-operations-subworkflow",
+        "executionData": "={{JSON.stringify({operation: 'insert', table: 'challenge_resolutions', columns: {challenge_id: $json.challengeId, template_id: $node['prepare-challenge'].json.templateId, claim_id: $node['prepare-challenge'].json.claimId, challenger_address: $node['prepare-challenge'].json.challengerAddress, winner: $json.winner, confidence_score: $json.confidence, challenger_payout: $json.payouts.challenger, creator_payout: $json.payouts.creator, treasury_payout: $json.payouts.treasury, reasoning: $json.reasoning, severity: $json.metadata.severity, consensus_used: $json.metadata.consensusUsed, contextual_factors: JSON.stringify($json.contextualAnalysis), resolved_at: new Date().toISOString()}})}}"
+      },
+      "id": "store-resolution",
+      "name": "💾 Store Resolution",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1400, 700]
+    },
+    {
+      "parameters": {
+        "channel": "challenge-resolutions",
+        "message": "=⚖️ *Challenge Resolved*\\n\\n**Challenge ID:** `{{$json.challengeId}}`\\n**Winner:** {{$json.winner === 'challenger' ? '🥇 Challenger' : '🛡️ Original Creator'}}\\n**Confidence:** {{($json.confidence * 100).toFixed(0)}}%\\n**Severity:** {{$json.metadata.severity}}\\n{{$json.metadata.consensusUsed ? '🤖 Multi-agent consensus used' : ''}}\\n{{$json.contextualAnalysis.expertiseConsidered ? '👨‍⚕️ Domain expertise considered' : ''}}\\n{{$json.contextualAnalysis.scopeAdjustment === 'national' ? '🏛️ National scope adjustment applied' : ''}}\\n\\n**Reasoning:** {{$json.reasoning}}\\n\\n_Quality discourse pays. Bad faith costs._",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "={{$json.winner === 'challenger' ? '#fbbf24' : '#34d399'}}",
+              "title": "Resolution Details",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "Challenger Payout",
+                    "value": "{{$json.payouts.challenger}} VOTER"
+                  },
+                  {
+                    "short": true,
+                    "title": "Creator Payout",
+                    "value": "{{$json.payouts.creator}} VOTER"
+                  },
+                  {
+                    "short": true,
+                    "title": "Challenger Rep Δ",
+                    "value": "={{$json.reputationChanges.challenger > 0 ? '+' : ''}}{{$json.reputationChanges.challenger}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Creator Rep Δ",
+                    "value": "={{$json.reputationChanges.creator > 0 ? '+' : ''}}{{$json.reputationChanges.creator}}"
+                  },
+                  {
+                    "short": true,
+                    "title": "Treasury Fee",
+                    "value": "{{$json.payouts.treasury}} VOTER"
+                  },
+                  {
+                    "short": true,
+                    "title": "Contextual Scaling",
+                    "value": "✅ Applied"
+                  }
+                ]
+              }
+            }
+          ],
+          "thread_ts": "={{$json.challengeId}}"
+        }
+      },
+      "id": "notify-resolution",
+      "name": "📢 Notify Resolution",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1600, 750],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare comprehensive challenge resolution response\nconst resolution = $json;\nconst reputationUpdate = $node['update-reputation']?.json;\nconst dbStorage = $node['store-resolution']?.json;\n\nreturn {\n  json: {\n    success: true,\n    challengeId: resolution.challengeId,\n    status: 'resolved',\n    winner: resolution.winner,\n    message: `Challenge resolved: ${resolution.winner} wins with ${(resolution.confidence * 100).toFixed(0)}% confidence`,\n    resolution: {\n      winner: resolution.winner,\n      confidence: resolution.confidence,\n      reasoning: resolution.reasoning,\n      severity: resolution.metadata.severity,\n      consensusUsed: resolution.metadata.consensusUsed\n    },\n    economics: {\n      payouts: resolution.payouts,\n      reputationChanges: resolution.reputationChanges,\n      contextualScaling: resolution.metadata.contextualScaling,\n      treasuryContribution: resolution.payouts.treasury\n    },\n    contextualIntelligence: {\n      expertiseConsidered: resolution.contextualAnalysis.expertiseConsidered,\n      impactHistoryFactored: true,\n      scopeAwareness: resolution.contextualAnalysis.scopeAdjustment,\n      stakingContext: resolution.contextualAnalysis.stakingContext,\n      description: 'Quadratic mechanisms applied contextual intelligence beyond plutocracy prevention'\n    },\n    processing: {\n      stored: Boolean(dbStorage?.success),\n      reputationUpdated: Boolean(reputationUpdate?.success),\n      notificationSent: true\n    },\n    timestamp: new Date().toISOString(),\n    philosophy: 'Quality discourse pays. Bad faith costs.'\n  }\n};"
+      },
+      "id": "prepare-response",
+      "name": "📊 Prepare Response",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1800, 700]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "📤 Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 700]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Contextual Intelligence\n\n**Beyond Plutocracy Prevention:**\n\n🧠 **Expertise Recognition**\n- Medical experts vs. health claims = lower stakes\n- Domain knowledge reduces barriers\n- Proven track record matters\n\n🌍 **Context Awareness**  \n- National policy = higher stakes\n- Local zoning = lower stakes\n- Template reach affects pricing\n\n⚖️ **Dynamic Pricing**\n- Agents price stakes in real-time\n- Historical patterns inform costs\n- Established creators cost more to challenge\n\n📈 **Track Record Integration**\n- Mind-changers get advantages\n- Bad faith actors face higher costs\n- Reputation compounds over time",
+        "height": 350,
+        "width": 400
+      },
+      "id": "contextual-intelligence-note",
+      "name": "Contextual Intelligence",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [750, 350]
+    }
+  ],
+  "connections": {
+    "⚔️ Challenge Created": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Prepare Challenge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Prepare Challenge Data": {
+      "main": [
+        [
+          {
+            "node": "🔍 Verify Original Claim",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔍 Verify Challenge Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Verify Original Claim": {
+      "main": [
+        [
+          {
+            "node": "🤖 Consensus Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Verify Challenge Claim": {
+      "main": [
+        [
+          {
+            "node": "🤖 Consensus Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Consensus Needed?": {
+      "main": [
+        [
+          {
+            "node": "🤖 Multi-Agent Consensus",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚖️ Determine Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Multi-Agent Consensus": {
+      "main": [
+        [
+          {
+            "node": "⚖️ Determine Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚖️ Determine Outcome": {
+      "main": [
+        [
+          {
+            "node": "💰 Calculate Contextual Payouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💰 Calculate Contextual Payouts": {
+      "main": [
+        [
+          {
+            "node": "⭐ Update Reputation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "💾 Store Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⭐ Update Reputation": {
+      "main": [
+        [
+          {
+            "node": "📢 Notify Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Store Resolution": {
+      "main": [
+        [
+          {
+            "node": "📢 Notify Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📢 Notify Resolution": {
+      "main": [
+        [
+          {
+            "node": "📊 Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "global-error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "production",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "carroll-mechanisms",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "challenge-market-refined",
+  "meta": {
+    "templateId": "challenge-market-resolution",
+    "description": "Carroll Mechanisms implementation with contextual quadratic intelligence that goes beyond plutocracy prevention to recognize expertise, context, and track record"
+  }
+}

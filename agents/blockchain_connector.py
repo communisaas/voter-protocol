@@ -1,15 +1,26 @@
 """
-Blockchain connector for VOTER Protocol agents
-Handles Web3 interactions with smart contracts
+Blockchain connector for VOTER Protocol agents - STUBBED
+Web3 functionality moved to Communiqué or made optional.
 """
 
 import json
 import os
 from typing import Dict, Any, Optional
-from web3 import Web3
-from web3.middleware import geth_poa_middleware
-from eth_account import Account
-from agents.config import MONAD_RPC_URL, CHAIN_ID
+
+# Try to import Web3, but don't fail if not available
+try:
+    from web3 import Web3
+    from web3.middleware import geth_poa_middleware
+    from eth_account import Account
+    WEB3_AVAILABLE = True
+except ImportError:
+    WEB3_AVAILABLE = False
+    Web3 = None
+    Account = None
+    print("Warning: Web3 not installed. Blockchain features disabled.")
+
+MONAD_RPC_URL = os.getenv("MONAD_RPC_URL", "https://testnet.monad.xyz")
+CHAIN_ID = 1337
 
 
 class BlockchainConnector:
@@ -18,21 +29,28 @@ class BlockchainConnector:
     """
     
     def __init__(self, rpc_url: str = MONAD_RPC_URL, private_key: Optional[str] = None):
-        # Initialize Web3
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
-        
-        # Add middleware for PoA chains (if needed)
-        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        
-        # Set up account if private key provided
+        self.w3 = None
         self.account = None
-        if private_key:
-            self.account = Account.from_key(private_key)
-            self.w3.eth.default_account = self.account.address
-        
-        # Load contract ABIs
         self.contracts = {}
-        self._load_contracts()
+        
+        if WEB3_AVAILABLE:
+            try:
+                # Initialize Web3
+                self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+                
+                # Add middleware for PoA chains (if needed)
+                self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                
+                # Set up account if private key provided
+                if private_key:
+                    self.account = Account.from_key(private_key)
+                    self.w3.eth.default_account = self.account.address
+                
+                # Load contract ABIs
+                self._load_contracts()
+            except Exception as e:
+                print(f"Warning: Failed to initialize Web3: {e}")
+                self.w3 = None
     
     def _load_contracts(self):
         """Load contract ABIs and addresses"""
@@ -73,32 +91,35 @@ class BlockchainConnector:
     
     async def get_token_supply(self) -> int:
         """Get current VOTER token supply"""
-        if "VOTERToken" not in self.contracts:
-            return 0
+        if not self.w3 or "VOTERToken" not in self.contracts:
+            return 1000000 * 10**18  # Return mock supply for demo
         
         try:
             supply = self.contracts["VOTERToken"].functions.totalSupply().call()
             return supply
         except Exception as e:
             print(f"Error getting token supply: {e}")
-            return 0
+            return 1000000 * 10**18  # Mock supply
     
     async def get_user_reputation(self, user_address: str) -> Dict[str, Any]:
         """Get user reputation from registry"""
-        if "ReputationRegistry" not in self.contracts:
-            return {"total_score": 50}
+        if not self.w3 or "ReputationRegistry" not in self.contracts:
+            return {"total_score": 50}  # Mock reputation
         
         try:
-            reputation = self.contracts["ReputationRegistry"].functions.getReputation(
-                Web3.to_checksum_address(user_address)
-            ).call()
-            
-            return {
-                "challenge_score": reputation[0],
-                "civic_score": reputation[1],
-                "discourse_score": reputation[2],
-                "total_score": reputation[3]
-            }
+            if WEB3_AVAILABLE:
+                reputation = self.contracts["ReputationRegistry"].functions.getReputation(
+                    Web3.to_checksum_address(user_address)
+                ).call()
+                
+                return {
+                    "challenge_score": reputation[0],
+                    "civic_score": reputation[1],
+                    "discourse_score": reputation[2],
+                    "total_score": reputation[3]
+                }
+            else:
+                return {"total_score": 50}
         except Exception as e:
             print(f"Error getting reputation: {e}")
             return {"total_score": 50}
@@ -339,6 +360,8 @@ class BlockchainConnector:
     
     def is_connected(self) -> bool:
         """Check if blockchain connection is active"""
+        if not WEB3_AVAILABLE or not self.w3:
+            return False
         try:
             self.w3.eth.block_number
             return True

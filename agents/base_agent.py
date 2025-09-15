@@ -1,17 +1,17 @@
 """
-Base agent class for VOTER Protocol agents
+Base agent class for VOTER Protocol agents - STUBBED
+
+Agent functionality moved to Communiqué TypeScript implementation.
+See: communique/src/lib/agents/
 """
 
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
-import chromadb
-from chromadb.utils import embedding_functions
-from web3 import Web3
-from eth_account import Account
 import json
-import os
 from datetime import datetime
-from agents.config import CHROMADB_CONFIG, get_agent_config
+
+# Stub warning
+MOVED_MESSAGE = "Agent logic moved to Communiqué TypeScript. Use API endpoints instead."
 
 
 class BaseAgent(ABC):
@@ -21,60 +21,26 @@ class BaseAgent(ABC):
     
     def __init__(self, agent_name: str):
         self.name = agent_name
-        self.config = get_agent_config(agent_name)
+        self.config = {"name": agent_name}  # Minimal config
         
-        # Initialize memory
-        self.chroma_client = chromadb.Client()
-        self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=CHROMADB_CONFIG["embedding_model"]
-        )
+        # Stubbed - no ChromaDB or Web3
+        self.memory = None
+        self.w3 = None
+        self.account = None
         
-        # Get or create collection for this agent
-        self.memory = self.chroma_client.get_or_create_collection(
-            name=f"{agent_name}_memory",
-            embedding_function=self.embedding_fn
-        )
-        
-        # Web3 connection (to be initialized)
-        self.w3: Optional[Web3] = None
-        self.account: Optional[Account] = None
+        print(f"Warning: {MOVED_MESSAGE}")
         
     def connect_blockchain(self, rpc_url: str, private_key: Optional[str] = None):
-        """Connect to blockchain"""
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
-        if private_key:
-            self.account = Account.from_key(private_key)
+        """STUBBED - Blockchain connection handled in Communiqué"""
+        pass
     
     def remember(self, decision: str, context: Dict[str, Any], outcome: Dict[str, Any]):
-        """Store decision in memory for future learning"""
-        doc_id = f"{self.name}_{datetime.now().timestamp()}"
-        
-        self.memory.add(
-            documents=[json.dumps({
-                "decision": decision,
-                "context": context,
-                "outcome": outcome,
-                "timestamp": datetime.now().isoformat()
-            })],
-            metadatas=[{
-                "agent": self.name,
-                "effectiveness": outcome.get("effectiveness", 0.5),
-                "timestamp": datetime.now().timestamp()
-            }],
-            ids=[doc_id]
-        )
+        """STUBBED - Memory stored in Communiqué database"""
+        # Would store in Supabase in production
+        pass
     
     def recall_similar(self, context: Dict[str, Any], n_results: int = 5) -> list:
-        """Recall similar past situations"""
-        query_text = json.dumps(context)
-        
-        results = self.memory.query(
-            query_texts=[query_text],
-            n_results=n_results
-        )
-        
-        if results["documents"] and results["documents"][0]:
-            return [json.loads(doc) for doc in results["documents"][0]]
+        """STUBBED - Query Communiqué database instead"""
         return []
     
     def calculate_effectiveness(self, expected: Any, actual: Any) -> float:

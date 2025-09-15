@@ -1,0 +1,346 @@
+{
+  "name": "Template: Webhook → Verify → Process → Notify",
+  "nodes": [
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## Webhook → Verify → Process → Notify Template\n\n### Purpose\nStandard template for civic engagement workflows that follow the common pattern:\n1. Receive webhook data\n2. Verify/validate input\n3. Process through agents\n4. Store results\n5. Send notifications\n\n### Usage\n1. Copy this template\n2. Rename nodes and update parameters\n3. Configure your specific verification and processing logic\n4. Set up notifications for your use case\n\n### Common Use Cases\n- Civic action processing\n- Challenge market operations\n- Reputation updates\n- Reward calculations\n- Impact tracking\n\n### Features Included\n- ✅ Input validation\n- ✅ Error handling\n- ✅ Sub-workflow integration\n- ✅ Database operations\n- ✅ Notification system\n- ✅ Response formatting\n\n**Note**: Replace placeholder values with your specific requirements",
+        "height": 500,
+        "width": 500
+      },
+      "id": "template-documentation",
+      "name": "Template Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 50]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "template-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "🌐 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 600],
+      "webhookId": "template-webhook-trigger"
+    },
+    {
+      "parameters": {
+        "functionCode": "// TEMPLATE: Validate and prepare webhook data\nconst data = $json;\n\n// TODO: Replace with your specific validation logic\nconst requiredFields = ['REPLACE_WITH_YOUR_FIELDS']; // e.g., ['userAddress', 'templateId']\nconst missingFields = requiredFields.filter(field => !data[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n}\n\n// TODO: Add your specific data preparation logic\nreturn {\n  json: {\n    // Standard fields\n    requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    timestamp: new Date().toISOString(),\n    \n    // TODO: Add your specific fields\n    userAddress: data.userAddress || 'REPLACE_WITH_DEFAULT',\n    actionType: data.actionType || 'REPLACE_WITH_DEFAULT',\n    \n    // Metadata\n    metadata: {\n      source: 'webhook',\n      originalData: data\n    }\n  }\n};"
+      },
+      "id": "validate-input",
+      "name": "✅ Validate Input",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [400, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'REPLACE_WITH_AGENT_TYPE', payload: {REPLACE_WITH_PAYLOAD_FIELDS}, timeout: 15000})}}"
+      },
+      "id": "verify-with-agent",
+      "name": "🔍 Verify with Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [600, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.success}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-verification",
+      "name": "📊 Verification OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": "agent-communication-subworkflow",
+        "executionData": "={{JSON.stringify({agentType: 'REPLACE_WITH_PROCESSING_AGENT', payload: {REPLACE_WITH_PROCESSING_PAYLOAD}})}}"
+      },
+      "id": "process-with-agent",
+      "name": "⚙️ Process with Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1000, 550]
+    },
+    {
+      "parameters": {
+        "workflowId": "database-operations-subworkflow",
+        "executionData": "={{JSON.stringify({operation: 'insert', table: 'REPLACE_WITH_TABLE_NAME', columns: {REPLACE_WITH_COLUMN_MAPPING}})}}"
+      },
+      "id": "store-results",
+      "name": "💾 Store Results",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1200, 550]
+    },
+    {
+      "parameters": {
+        "channel": "REPLACE_WITH_CHANNEL",
+        "message": "=🎉 *REPLACE_WITH_SUCCESS_MESSAGE*\\n\\nREPLACE_WITH_MESSAGE_TEMPLATE",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "#34d399",
+              "title": "REPLACE_WITH_ATTACHMENT_TITLE",
+              "fields": {
+                "values": [
+                  {
+                    "short": true,
+                    "title": "REPLACE_WITH_FIELD_NAME",
+                    "value": "REPLACE_WITH_FIELD_VALUE"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "notify-success",
+      "name": "📢 Notify Success",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1400, 550],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "rejected"
+            },
+            {
+              "name": "reason",
+              "value": "REPLACE_WITH_REJECTION_REASON"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "success",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "rejection-data",
+      "name": "❌ Rejection Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1000, 700]
+    },
+    {
+      "parameters": {
+        "channel": "REPLACE_WITH_ERROR_CHANNEL",
+        "message": "=⚠️ *REPLACE_WITH_ERROR_MESSAGE*\\n\\nREPLACE_WITH_ERROR_TEMPLATE"
+      },
+      "id": "notify-error",
+      "name": "🚨 Notify Error",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1200, 700],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-notifications",
+          "name": "Slack Notifications"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// TEMPLATE: Prepare final response\nconst success = $node['check-verification']?.json ? true : false;\nconst verification = $node['verify-with-agent']?.json;\nconst processing = $node['process-with-agent']?.json;\nconst storage = $node['store-results']?.json;\nconst rejection = $node['rejection-data']?.json;\n\nif (success) {\n  return {\n    json: {\n      success: true,\n      requestId: $node['validate-input'].json.requestId,\n      message: 'REPLACE_WITH_SUCCESS_MESSAGE',\n      data: {\n        // TODO: Add your specific response data\n        verification: verification?.metrics,\n        processing: processing?.metrics,\n        storage: storage?.data\n      },\n      timestamp: new Date().toISOString()\n    }\n  };\n} else {\n  return {\n    json: {\n      success: false,\n      requestId: $node['validate-input'].json.requestId,\n      message: 'REPLACE_WITH_ERROR_MESSAGE',\n      error: rejection?.reason || 'Unknown error',\n      timestamp: new Date().toISOString()\n    }\n  };\n}"
+      },
+      "id": "prepare-response",
+      "name": "📋 Prepare Response",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1600, 600]
+    },
+    {
+      "parameters": {},
+      "id": "respond-to-webhook",
+      "name": "📤 Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1800, 600]
+    },
+    {
+      "parameters": {
+        "type": "n8n-nodes-base.stickyNote",
+        "info": "## TODO: Customization Checklist\n\n### Required Changes\n- [ ] Update webhook path\n- [ ] Replace validation fields\n- [ ] Configure agent types\n- [ ] Set database table/columns\n- [ ] Update Slack channels\n- [ ] Customize notification messages\n- [ ] Add specific business logic\n\n### Optional Enhancements\n- [ ] Add rate limiting\n- [ ] Implement caching\n- [ ] Add metrics collection\n- [ ] Configure monitoring\n- [ ] Set up alerting thresholds",
+        "height": 300,
+        "width": 350
+      },
+      "id": "customization-checklist",
+      "name": "Customization Checklist",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    }
+  ],
+  "connections": {
+    "🌐 Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "✅ Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Validate Input": {
+      "main": [
+        [
+          {
+            "node": "🔍 Verify with Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Verify with Agent": {
+      "main": [
+        [
+          {
+            "node": "📊 Verification OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Verification OK?": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Process with Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Rejection Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Process with Agent": {
+      "main": [
+        [
+          {
+            "node": "💾 Store Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Store Results": {
+      "main": [
+        [
+          {
+            "node": "📢 Notify Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📢 Notify Success": {
+      "main": [
+        [
+          {
+            "node": "📋 Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❌ Rejection Data": {
+      "main": [
+        [
+          {
+            "node": "🚨 Notify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚨 Notify Error": {
+      "main": [
+        [
+          {
+            "node": "📋 Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "📤 Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "global-error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "template",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    },
+    {
+      "name": "webhook-pattern",
+      "createdAt": "2024-01-14T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-14T00:00:00.000Z",
+  "createdAt": "2024-01-14T00:00:00.000Z",
+  "id": "webhook-verify-process-notify-template",
+  "meta": {
+    "templateId": "webhook-verify-process-notify",
+    "description": "Standard template for webhook-driven civic engagement workflows with verification, processing, and notification",
+    "isTemplate": true
+  }
+}
