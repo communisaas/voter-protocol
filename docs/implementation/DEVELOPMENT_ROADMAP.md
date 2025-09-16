@@ -1,53 +1,50 @@
-# VOTER Protocol Implementation Roadmap
+# Development Roadmap
 
-## Executive Summary
-This roadmap outlines an agent‑based implementation anchored on Ronin for proven high-performance execution. **ERC‑8004 was built for AI agents. We extend it to human civic participants.** Agents operate off‑chain/TEE, anchor receipts to Ronin, and mirror reputation to an ETH L2 (ERC‑8004) creating infrastructure both humans and AI can use.
+VOTER Protocol deploys transparent corporate PAC infrastructure using Monad for high-performance execution. ERC‑8004 enables portable reputation infrastructure both humans and AI can use.
 
-Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Ronin](https://roninchain.com)
+Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md), [Monad](https://docs.monad.xyz)
 
-### Economic Context
+## Economic Model
 
-How value flows (reality):
-- Issuance: VOTER per verified action—parameters enforced on‑chain. Verification receipts are anchored on Ronin.
-- Verification: MultiSig or agent gateway marks verified based on adapter receipts (CWC/mail routing)—CIDs are pinned and attested on Ronin.
-- Demand/utility: Governance + platform utility. Maybe institutional credits for verified outreach/analytics someday.
-- Policy: Agents (or admins) tune rewards elastically; clamps and caps prevent runaway issuance.
+**Value Flow:**
+- VOTER tokens minted per verified civic action
+- Dynamic USD-based rewards survive market volatility
+- PAC funding based on algorithmic impact scores
+- Quadratic funding prevents plutocracy
 
-What this means economically:
-- Broad distribution to active participants rather than scarcity premium for early holders.
-- Inflation scales with engagement but is bounded by on‑chain caps/clamps; agents reduce rewards during surges.
-- Sustainability comes from token value belief initially; institutional credits might provide revenue later. Token issuance bootstraps the network. Optional sinks (staking, buybacks) can be added if needed.
+**Two Modes:**
+- Classic: MultiSig verification, fixed rewards
+- Agentic: AgentConsensusGateway, dynamic rewards
 
-Operate in two modes:
-- Classic mode: MultiSig verification + fixed rewards.
-- Agentic mode: AgentConsensusGateway + dynamic rewards; admin via DAO.
+## Current Status
 
-### Current Implementation Status
+**Smart Contracts (Production Ready):**
+- ✅ CorporateTreasury.sol - Funds infrastructure and PAC overhead
+- ✅ PACTreasury.sol - Quadratic funding with automatic FEC enforcement
+- ✅ ImpactRegistry.sol - Algorithmic scoring with decay
+- ✅ ChallengeMarket.sol - Decentralized information quality markets
+- ✅ VOTERToken.sol - No pre-mint, fair distribution
+- ✅ Security: Multi-sig governance, parameter safety rails
+- ✅ Tests: Comprehensive Forge test suite
 
-**Smart Contracts (Complete, Testnet Ready):**
-- ✅ `VOTERRegistry`, `VOTERToken`, `CommuniqueCore` - Core system with agent hooks
-- ✅ `ChallengeMarket` - Full challenge market implementation
-- ✅ `StakedVOTER` - Staking mechanism with rewards
-- ✅ Security improvements: No `OPERATOR_ROLE`, admin controls, safety clamps
-- ✅ Tests: Forge suite passing for core flows
-- 🔄 **Production deployment ready**: Ronin mainnet configuration complete
+**Identity Infrastructure:**
+- ✅ Didit.me Integration: Free core KYC, global coverage
+- ✅ Premium compliance: AML ($0.35), proof of address ($0.50)  
+- ✅ Developer sandbox: Unlimited testnet verification
 
-**Identity Infrastructure (Cost-Optimized):**
-- ✅ **Didit.me Integration**: Free forever core KYC (ID verification, face match, passive liveness)
-- ✅ **Premium compliance options**: AML screening ($0.35), proof of address ($0.50)
-- ✅ **Developer sandbox**: Unlimited testnet user testing without verification costs
-- ✅ **Global coverage**: ISO 27001 certified, GDPR compliant, 190+ countries
+**Integration Layer:**
+- ✅ API endpoints created
+- ✅ Database schema prepared
+- 🔄 Monad deployment configured
+- ❌ CWC API integration (Phase 2)
 
-**Integration Layer (Testnet Focused):**
-- ✅ Communiqué API endpoints created (`/voter-proxy/`)
-- ✅ Database schema and migrations prepared
-- ✅ **Didit.me integration**: Production-ready identity verification
-- 🔄 **Ronin mainnet configured**: High-throughput civic engagement production
-- ❌ CWC API integration (Phase 2 priority)
+## Next Steps
 
-**Critical Implementation Tasks:**
-- CWC adapter + mail routing receipts; gateway marks verified; attest CIDs on Ronin
-- Observability: metrics, anomaly auto‑tightening (raise interval / lower rewards / pause)
+**Critical Tasks:**
+- CWC adapter for mail routing verification
+- Observability: metrics, anomaly detection
+- Agent coordination deployment
+- Challenge market launch
 - Governance: timelock/DAO for role/param changes; guardian pause
 - E2E tests: agent‑consensus path; param override behavior; caps invariants
 - **Impact Verification Infrastructure:**
@@ -68,107 +65,117 @@ Operate in two modes:
 
 ---
 
-## Phased Implementation: Start Simple, Prove Each Step
+## Building the Movement
 
-### Phase 1: Production Deployment (Months 1-2)
-**Deploy Sophisticated Infrastructure at Production Scale**
+### Phase 1: Foundation Deployment (Months 1-2)
 
-Deploy on Ronin with zero-cost identity verification for immediate production-scale civic engagement:
-- **Deploy sophisticated smart contract suite**: VOTERRegistry, VOTERToken, CommuniqueCore with multi-agent integration
-- **Didit.me integration**: Free forever core KYC enables massive user onboarding without cost barriers
-- **Challenge markets**: Production-ready Carroll Mechanisms with contextual intelligence
-- **ERC-8004 reputation system**: Portable credibility with cross-platform verification capabilities
-- **Community building**: Prove engagement patterns before mainnet economics
-- No treasury allocation, no electoral funding yet
+**The Infrastructure Revolution Begins**
 
-**Success Metrics:**
-- 1,000+ verified participants with zero identity verification cost
-- Challenge markets functioning smoothly with community consensus
-- Proven civic engagement patterns on high-throughput testnet
-- Zero critical security incidents
+What happens when we deploy sophisticated civic infrastructure at zero cost? Mass democratic participation becomes possible.
 
-### Phase 2: Impact Correlation (Months 3-4)
-**Prove We Can Track Observable Patterns**
+Deploy on Monad with zero-cost identity verification that removes all barriers to civic engagement:
+- Smart contract suite that makes traditional civic platforms look primitive: VOTERRegistry, VOTERToken, CommuniqueCore with multi-agent integration
+- Didit.me integration—free core KYC that enables mass onboarding without economic gatekeeping  
+- Challenge markets deploying production-ready Carroll Mechanisms for information quality
+- ERC-8004 reputation system creating portable credibility across all democratic platforms
+- Community building phase before full economic activation—prove engagement patterns first
 
-Add impact tracking without making causal claims:
-- Deploy ImpactAgent to monitor legislative speeches
-- Track template appearance correlations
-- Build confidence scoring methodology
-- Create public impact dashboard
-- Still no electoral funding
+**Victory Conditions:**
+- 1,000+ verified participants proving zero-cost identity verification works at scale
+- Challenge markets functioning with community consensus—not centralized control
+- Proven civic engagement patterns that demonstrate sustainable democratic participation
+- Zero critical security incidents showing infrastructure reliability
 
-**Success Metrics:**
-- Agent-determined threshold for documented template correlations
-- High-confidence correlations above agent-calculated confidence level
-- Public dashboard with transparent methodology
-- Community consensus on correlation validity
+### Phase 2: Proof of Impact (Months 3-4)
 
-### Phase 3: Agent Optimization (Months 5-6)
-**Introduce Dynamic Parameters Carefully**
+**Proving Templates Actually Change Minds**
 
-Enable agent-driven optimization within strict bounds:
-- Deploy multi-agent consensus system
-- Implement dynamic reward calculations
-- Add context-aware challenge stakes
-- Maintain human circuit breakers
-- Begin accumulating treasury value
+Can we demonstrate that citizen information actually influences legislative behavior? Yes—and here's how.
 
-**Success Metrics:**
-- Agents outperform fixed parameters by measurable margin
-- No runaway parameter scenarios
-- Successful human interventions when needed
-- Treasury accumulates value per agent-optimized targets
+Track observable patterns that prove causation, not just correlation:
+- Deploy ImpactAgent monitoring legislative speeches for template language
+- Build template appearance correlations with temporal sequencing
+- Establish confidence scoring methodology with transparent mathematics
+- Launch public impact dashboard showing real democratic influence
+- No electoral funding yet—prove impact first, monetize later
 
-### Phase 4: Electoral Impact (Months 7-9)
-**Close the Loop with Legal Compliance**
+**Victory Conditions:**
+- Agent-determined correlation thresholds that demonstrate statistical significance
+- High-confidence correlations above mathematically calculated confidence levels
+- Public dashboard with transparent methodology anyone can audit
+- Community consensus validating impact measurement approach
 
-Only after proving previous phases, introduce electoral components:
-- Form 501(c)(4) with legal counsel
-- Establish connected PAC structure
-- Implement governance for fund allocation
-- Deploy funds based on proven correlations
-- Full transparency dashboard
+### Phase 3: Living Infrastructure (Months 5-6)
 
-**Success Metrics:**
-- Legal entity properly established
-- First funds deployed for issue advocacy
-- 10+ legislators identified as responsive
-- No regulatory violations
+**Death to Hardcoded Tyranny**
+
+Why should blockchain parameters stay fixed forever when political dynamics constantly evolve? They shouldn't—and now they won't.
+
+Deploy agent-driven optimization within mathematical boundaries:
+- Multi-agent consensus system that learns from real civic engagement patterns
+- Dynamic reward calculations that adapt to what actually changes minds
+- Context-aware challenge stakes based on claim scope and participant reputation
+- Human circuit breakers ensuring agents stay within governance boundaries  
+- Treasury value accumulation through proven civic impact—not speculation
+
+**Victory Conditions:**
+- Agents demonstrably outperform fixed parameters in civic engagement outcomes
+- Zero runaway scenarios—mathematical bounds prevent chaos
+- Successful human interventions when agents approach boundaries
+- Treasury accumulates value according to agent-optimized targets based on real impact
+
+### Phase 4: Closing the Loop (Months 7-9)
+
+**From Information to Electoral Consequences**
+
+What happens when proven civic impact finally gets rewarded with electoral support? Democracy starts rewarding learning over ideology.
+
+After proving all previous phases work, introduce electoral components:
+- Establish PAC structure with legal counsel—transparent political funding infrastructure
+- Deploy algorithmic governance for fund allocation based on verified responsiveness—not party affiliation
+- Fund representatives based on proven learning from citizen input
+- Full transparency dashboard showing the complete loop: template → mind change → funding
+
+**Victory Conditions:**
+- Legal entity properly established with regulatory compliance
+- First funds deployed for issue advocacy based on verified impact
+- 10+ responsive legislators identified through algorithmic measurement
+- Zero regulatory violations—legal compliance with radical transparency
 
 ---
 
-## What We Build Next
+## Beyond Launch
 
-### A. Diverse Agent Architecture
-- Deploy agents with different base models (not all GPT variants)
-- Implement adversarial testing between agents
-- Create dissent mechanisms - agents must justify disagreement
-- Build interpretability dashboards for agent decisions
+### Diverse Agent Architecture
+- Different base models (not all GPT variants)
+- Adversarial testing between agents
+- Dissent mechanisms - agents justify disagreement
+- Interpretability dashboards
 
 **Different models, different biases, better decisions.**
 
-### B. Observable Impact Metrics
-We track what legislators do, not what they think:
-- **Direct Citations**: Text appears verbatim in Congressional Record
+### Observable Impact Metrics
+Track what legislators do, not think:
+- **Direct Citations**: Verbatim text in Congressional Record
 - **Argument Adoption**: Template reasoning shapes amendments
-- **Temporal Patterns**: Position shifts follow coordinated campaigns
-- **Confidence Scoring**: Every claim gets a percentage, not certainty
+- **Temporal Patterns**: Position shifts follow campaigns
+- **Confidence Scoring**: Percentage claims, not certainty
 
-**We measure observable behavior changes with transparent methodology.**
+**Observable behavior changes with transparent methodology.**
 
-### C. Challenge Market Balance
+### Challenge Market Balance
 - Quadratic staking: Diminishing returns on large stakes
-- Reputation multipliers outweigh pure capital over time
-- Time-locked rewards prevent instant capital dominance
-- Community validation periods before resolution
+- Reputation multipliers outweigh capital over time
+- Time-locked rewards prevent instant dominance
+- Community validation periods
 
 **Merit accumulates. Money has limits.**
 
-### D. Team Infrastructure
-- Agent debugging tools and interpretability frameworks
-- Human oversight dashboards with anomaly detection
-- Edge case collection and retraining pipelines
-- Clear escalation paths for agent failures
+### Team Infrastructure
+- Agent debugging and interpretability frameworks
+- Human oversight with anomaly detection
+- Edge case collection and retraining
+- Clear escalation paths for failures
 
 **Agents amplify humans. Humans guide agents.**
 
@@ -187,40 +194,40 @@ We track what legislators do, not what they think:
 
 ---
 
-## What Could Go Wrong
+## Risks
 
-### Technical Threats
-- **Smart Contract Attacks**: Security audits and formal verification protect core infrastructure
-- **Infrastructure Failure**: Multi-provider redundancy keeps the system running when providers fail
-- **Bridge Exploits**: We avoid routine bridging—batch only when required via battle-tested routes
+### Technical
+- **Smart Contract Attacks**: Security audits and formal verification
+- **Infrastructure Failure**: Multi-provider redundancy
+- **Bridge Exploits**: Avoid routine bridging
 
-### Economic Attacks
-- **Token Manipulation**: Treasury operations and liquidity provision counter volatility attacks
-- **Governance Takeovers**: Time-locked proposals and stake requirements prevent hostile capture
-- **Economic Gaming**: Rate limiting and algorithmic monitoring catch exploitation attempts
+### Economic
+- **Token Manipulation**: Treasury operations counter volatility
+- **Governance Takeovers**: Time-locked proposals prevent capture
+- **Economic Gaming**: Rate limiting catches exploitation
 
-### Regulatory Pressure
-- **Securities Enforcement**: Utility token design and legal review provide regulatory defense
-- **Privacy Crackdowns**: Zero-knowledge proofs and minimal data collection maintain user protection
-- **International Restrictions**: Modular compliance framework adapts to different jurisdictions
+### Regulatory
+- **Securities Enforcement**: Utility token design provides defense
+- **Privacy Crackdowns**: Zero-knowledge proofs maintain protection
+- **International Restrictions**: Modular compliance framework
 
-### Agent System Risks
+### Agent System
 **Shared Model Biases**: 
-- Different agents might converge on similar errors
-- Mitigation: Diverse base models, adversarial testing
+- Agents converge on similar errors
+- Mitigation: Diverse models, adversarial testing
 
 **Debugging Complexity**:
 - Black box decisions hard to diagnose
-- Mitigation: Comprehensive logging, interpretability tools
+- Mitigation: Logging, interpretability tools
 
-**Novel Situation Handling**:
+**Novel Situations**:
 - Agents struggle with unprecedented scenarios
-- Mitigation: Human escalation paths, continuous learning
+- Mitigation: Human escalation, continuous learning
 
-### Execution Risks
-- **Team Growth**: Clear documentation and knowledge transfer prevent single points of failure
-- **Technical Debt**: Code reviews and architectural planning keep the codebase healthy
-- **User Adoption**: Experience optimization and education drive authentic community growth
+### Execution
+- **Team Growth**: Documentation prevents single points of failure
+- **Technical Debt**: Code reviews keep codebase healthy
+- **User Adoption**: Experience optimization drives growth
 
 ---
 
@@ -259,54 +266,33 @@ We track what legislators do, not what they think:
 
 ---
 
-## Post-Launch Evolution
+## The Revolution Spreads
 
-### Phase 4: Electoral Impact (Months 7-9)
+**The Complete Flow:**
+1. **Template**: "Infrastructure bill creates 50K jobs in your district"
+2. **Usage**: 5,000 constituents send via CWC
+3. **Impact**: Representative cites job numbers in floor speech
+4. **Verification**: Challenge market confirms causality
+5. **Funding**: Treasury allocates $25K to representative's campaign
+6. **Result**: Democracy rewards information that changes positions
 
-**501(c)(4) Social Welfare Organization Formation:**
-- Legal entity setup for unlimited issue advocacy and lobbying
-- Treasury bridge mechanics: VOTER tokens to USDC to 501(c)(4) account
-- Governance structure: high-credibility participants vote on funding priorities
-- Compliance framework: FEC reporting, state registrations, legal counsel
-- Initial funding: $500K minimum for operational viability
+### Phase 5: Global Infrastructure (Months 10-12)
 
-**Connected PAC Structure:**
-- Traditional PAC for direct candidate contributions ($5K limit per candidate)
-- Super PAC for unlimited independent expenditures
-- Coordination rules: legal separation while maintaining mission alignment
-- Transparent reporting: all political spending public on-chain and FEC
+**Democracy Without Borders**
 
-**Impact Verification to Electoral Support Pipeline:**
-- ImpactAgent tracks template influence on legislative positions
-- Challenge markets verify causality claims
-- High-credibility participants vote on fund allocation
-- Treasury deploys funds to legislators based on verified learning
-- Public dashboard shows: template → mind change → funding
+Why should democratic infrastructure be limited to the United States? It shouldn't.
 
-**Success Metrics:**
-- Number of verified mind changes: target 10+ major position shifts
-- Treasury funds deployed: $1M+ in first cycle
-- Legislators supported: 20+ based on verified responsiveness
-- Template creators with electoral influence: 100+ high-credibility participants
-- Media coverage of "democracy rewards learning" model
+- **Human-AI Coordination**: ERC-8004 registries serve both AI coordination and human civic reputation globally
+- **International Expansion**: Global adapters with invariant UX across parliamentary systems
+- **Predictive Analytics**: AI-assisted civic recommendations based on proven impact patterns
+- **Cross-Platform Integration**: Export verified impact scores to every democratic platform worldwide
 
-**Concrete Example Flow:**
-1. Template: "Infrastructure bill creates 50K jobs in your district"
-2. Usage: 5,000 constituents send via CWC
-3. Impact: Representative cites job numbers in floor speech
-4. Verification: Challenge market confirms causality
-5. Funding: Treasury allocates $25K to representative's campaign
-6. Result: Democracy rewards information that changes positions
+### Global Vision
 
-### Phase 5: Scale Infrastructure (Months 10-12)
-- **Human-AI Infrastructure**: ERC‑8004 registries serve both AI agent coordination and portable human civic reputation
-- **International Markets**: Global adapters (certified APIs/forms) with invariant user UX
-- **Advanced Features**: Predictive civic analytics and AI‑assisted action recommendations
-- **Cross-Platform Integration**: Export verified impact scores to other democratic platforms
+**Building Democracy's Future**
 
-### Long-Term Vision
-- **Global Civic Network**: Worldwide democratic participation platform with portable reputation
+- **Global Civic Network**: Worldwide democratic participation with portable reputation that crosses borders
 - **Institutional Integration**: Direct partnerships with government entities via machine-readable civic credentials
-- **Human-AI Democracy**: Infrastructure that serves both human civic participation and AI agent coordination
+- **Human-AI Democracy**: Infrastructure serving both human participation and AI coordination seamlessly
 
-This implementation roadmap provides a comprehensive path from the current prototype to production-ready civic engagement infrastructure. We're building democracy that competes for attention while maintaining authentic political impact—infrastructure that serves both humans and AI agents in the pursuit of better governance.
+**The Ultimate Goal**: Infrastructure that serves both humans and AI agents in the pursuit of better governance—everywhere democracy exists.

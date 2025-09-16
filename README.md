@@ -12,7 +12,7 @@ The problem isn’t technology. It’s incentive design. Speculation rewards att
 
 Civic participation continues declining among younger demographics. Voter turnout in off-year elections remains low among 18-29 year olds. Congressional approval ratings remain historically low. The attention economy increasingly rewards financial speculation over democratic citizenship.
 
-Under the noise is new capacity for coordination. Ronin provides proven high-throughput infrastructure (100K TPS, 2.27M daily active users); we anchor receipts and registries there while optionally mirroring to an ETH L2 ([ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) [4] registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Didit.me provides free forever identity verification without exposing personal data—ID verification, face match, and passive liveness at zero cost, with optional premium compliance ($0.35 AML, $0.50 proof of address). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
+Under the noise is new capacity for coordination. Monad provides proven high-throughput infrastructure for cost-efficient EVM execution; we anchor receipts and registries there while optionally mirroring to an ETH L2 ([ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) [4] registries) when ETH‑native consumers need on‑chain reads. ERC‑8004 was built for AI agents—we extend it to human civic participants. Didit.me provides free forever identity verification without exposing personal data—ID verification, face match, and passive liveness at zero cost, with optional premium compliance ($0.35 AML, $0.50 proof of address). The rails exist. VOTER uses them to make participation verifiable, privacy‑preserving, and worth someone's time.
 
 Also, the volume is real: congressional offices received **81 million** messages in 2022 and still miss or under‑track major channels ([Fireside 2024 Staffer Survey](https://www.fireside21.com/resources/congressional-staffer-communication/) [3]); typical “we got it” form replies see only about half of recipients open them ([Congressional Management Foundation](https://www.congressfoundation.org/resources-for-congress/office-toolkit/improve-casework-menu-item/1617-summary-of-constituent-correspondence-tactics) [2]).
 
@@ -229,7 +229,7 @@ Single‑purpose tools fragment the space. Petition sites move signatures that n
 
 ### Strategic Advantages
 
-Civic tech today is broken into dozens of single-purpose tools that don't talk to each other. No sustainable business models. VOTER builds the infrastructure everyone else needs. Technical integration and network effects create competitive advantages. Didit.me's free identity verification plus Ronin's proven infrastructure gives you verifiable receipts on-chain with access to ETH/L2 liquidity.
+Civic tech today is broken into dozens of single-purpose tools that don't talk to each other. No sustainable business models. VOTER builds the infrastructure everyone else needs. Technical integration and network effects create competitive advantages. Didit.me's free identity verification plus Monad's high-throughput infrastructure gives you verifiable receipts on-chain with access to ETH/L2 liquidity.
 
 Now is the right time. Political attention economy exists. Regulatory clarity allows civic incentives. Blockchain infrastructure works without complexity. Political polarization creates demand for verified information sources.
 
@@ -253,9 +253,9 @@ Users still just open their mail client. Civic actions get certified automatical
 
 **No crypto complexity. Just civic action that pays.**
 
-### Detailed Architecture (Ronin Anchoring)
+### Detailed Architecture (Monad Anchoring)
 
-VOTER's technical architecture prioritizes security, simplicity, and UX. Ronin serves as the proven high-performance layer for registry/attest receipts with 100K TPS capacity and 2.27M daily active users. Certified legislative adapters (e.g., CWC) generate receipts that are pinned to IPFS and attested on Ronin. Treasuries remain on ETH/L2 (Safe). Didit.me provides free identity verification; no PII is stored on‑chain.
+VOTER's technical architecture prioritizes security, simplicity, and UX. Monad serves as the high-performance EVM layer for registry/attest receipts with cost-efficient execution. Certified legislative adapters (e.g., CWC) generate receipts that are pinned to IPFS and attested on Monad. Treasuries remain on ETH/L2 (Safe). Didit.me provides free identity verification; no PII is stored on‑chain.
 
 Security measures: comprehensive smart contract auditing, multi-sig governance, emergency pause functionality, redundant infrastructure. Privacy protections ensure no PII stored on-chain while maintaining verification capabilities. Platform monitoring: real-time verification of civic action authenticity, automated detection of coordination and manipulation attempts, comprehensive logging for audit and compliance.
 
