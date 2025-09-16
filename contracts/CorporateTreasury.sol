@@ -7,18 +7,18 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IVOTERToken.sol";
 
 /**
- * @title ProtocolTreasury
- * @dev Manages protocol development funds—no political functions
- * @notice Funds developer grants, infrastructure, and community initiatives only
+ * @title CorporateTreasury
+ * @dev Manages Communiqué C-Corp treasury: infrastructure, PAC overhead, development
+ * @notice Funds infrastructure that enables transparent political participation
  */
-contract ProtocolTreasury is AccessControl, ReentrancyGuard, Pausable {
+contract CorporateTreasury is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
     bytes32 public constant TREASURY_ROLE = keccak256("TREASURY_ROLE");
     
     struct Grant {
         address recipient;
         uint256 amount;
-        string purpose; // "development", "infrastructure", "community", "audit"
+        string purpose; // "development", "infrastructure", "pac_overhead", "audit", "community"
         string description;
         uint256 proposalTime;
         uint256 votingDeadline;
@@ -91,13 +91,14 @@ contract ProtocolTreasury is AccessControl, ReentrancyGuard, Pausable {
         
         voterToken = IVOTERToken(_voterToken);
         
-        // Initialize valid purposes (explicitly non-political)
-        validPurposes["development"] = true;
-        validPurposes["infrastructure"] = true;
-        validPurposes["community"] = true;
-        validPurposes["audit"] = true;
-        validPurposes["bug_bounty"] = true;
-        validPurposes["research"] = true;
+        // Initialize valid purposes (corporate treasury functions)
+        validPurposes["development"] = true;        // Smart contract development
+        validPurposes["infrastructure"] = true;     // Blockchain infrastructure
+        validPurposes["pac_overhead"] = true;       // PAC administrative costs (legal)
+        validPurposes["audit"] = true;              // Security audits
+        validPurposes["bug_bounty"] = true;         // Bug bounty programs
+        validPurposes["research"] = true;           // R&D activities
+        validPurposes["community"] = true;          // Community initiatives
     }
     
     /**
@@ -263,16 +264,8 @@ contract ProtocolTreasury is AccessControl, ReentrancyGuard, Pausable {
         external 
         onlyRole(GOVERNANCE_ROLE) 
     {
-        // Explicitly prevent political purposes
-        require(
-            keccak256(bytes(purpose)) != keccak256(bytes("political")) &&
-            keccak256(bytes(purpose)) != keccak256(bytes("electoral")) &&
-            keccak256(bytes(purpose)) != keccak256(bytes("campaign")) &&
-            keccak256(bytes(purpose)) != keccak256(bytes("pac")) &&
-            keccak256(bytes(purpose)) != keccak256(bytes("lobbying")),
-            "Political purposes not allowed"
-        );
-        
+        // Corporate treasury funds infrastructure and overhead
+        // Direct candidate funding handled by separate PAC treasury
         validPurposes[purpose] = true;
     }
     

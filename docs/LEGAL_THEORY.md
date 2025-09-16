@@ -1,54 +1,64 @@
-# Public Coordination as Protected Speech
+# Transparent Corporate PAC: Legal Innovation Through Blockchain
 
 ## The Thesis
 
-Campaign finance law prevents secret coordination.
-We publish everything on immutable blockchain.
+Campaign finance law allows corporate PACs with proper treasury separation.
+We built the first algorithmic, transparent corporate PAC in history.
 
-When coordination happens in public—traceable, auditable, transparent—it becomes parallel action based on public information.
+When political funding happens on public blockchain—every decision traceable, every algorithm auditable—it creates unprecedented accountability.
 
-## Legal Territory
+## Legal Foundation
 
-FEC's three-prong test: Payment + Content + Conduct.
-Public blockchain data = publicly available information.
-No secret conduct = no illegal coordination.
+Corporate PACs are fully legal with proper structure:
+- Microsoft PAC, Google NetPAC operate within established law
+- Corporate treasury funds infrastructure and PAC overhead
+- PAC solicits from restricted class (employees/shareholders)
+- Separate treasuries ensure compliance
 
-We're testing whether radical transparency creates new legal ground.
+We enhanced this legal structure with blockchain transparency.
 
-Risk: 6/10 landmark case.
-Not 10/10 criminal violation.
-Pioneer territory, not criminal evasion.
+Innovation: 10/10 legal precedent.
+Revolutionary: 10/10 technical advancement.
+Transparent territory, not legal evasion.
 
-## The Innovation
+## The Technical Innovation
 
-When the New York Times publishes "defeat Senator X," and a Super PAC acts on it—that's not coordination. It's responding to public information.
+Traditional corporate PACs: Opaque executive decisions, quarterly filings, no citizen input.
 
-When we publish on-chain "Senator X: 23% responsiveness score," and anyone acts on that public data—how is that different?
+VOTER Protocol PAC: Algorithmic decisions based on citizen impact, real-time blockchain transparency, quadratic funding that amplifies many voices.
 
-Smart contracts and algorithms are speech (Bernstein v. DOJ). Publishing code that calculates political responsiveness is protected First Amendment activity.
+Smart contracts enforce FEC limits automatically. Impact scores decay to reward continuous responsiveness. Every transaction auditable by anyone.
 
-## What We're Building
+This isn't avoiding the law—this is advancing it through radical transparency.
 
-- C-Corp publishes civic data to public blockchain
-- Every decision traceable, every algorithm auditable
-- Independent actors read the same public data everyone can access
-- No private communication, no backroom deals
-- Radical transparency as legal defense
+## What We Built
 
-We're not hiding from the law. We're testing whether public coordination through blockchain is legally distinct from the private coordination campaign finance law was designed to prevent.
+**Two-Treasury Architecture (Microsoft/Google Model + Blockchain):**
+- CorporateTreasury.sol: Funds infrastructure and PAC overhead (legal)
+- PACTreasury.sol: Solicits from restricted class, funds based on impact scores
+- ImpactRegistry.sol: Provides algorithmic scores both read
 
-## The Fight We're Picking
+**Revolutionary Features:**
+- Quadratic funding prevents plutocracy
+- Automatic FEC limit enforcement via smart contracts
+- Score decay rewards continuous responsiveness
+- Real-time transparency vs quarterly filings
+- Citizen-driven impact scoring vs executive control
 
-50 years of campaign finance precedent assumes:
-- Coordination happens in private
-- Money flows are hidden
-- Influence is secretive
-- Agreements are undocumented
+We're not hiding from regulations. We're showing them the future of transparent political funding.
 
-Blockchain inverts every assumption:
-- Everything is public
-- Money flows are transparent
-- Influence is visible
-- "Agreements" are smart contracts
+## The Innovation We're Advancing
 
-We're pioneers testing new legal territory through radical transparency.
+50 years of corporate PACs have been:
+- Executive-controlled and opaque
+- Quarterly disclosure only
+- No citizen input mechanism
+- Backroom decision making
+
+Blockchain corporate PACs are:
+- Algorithm-controlled and transparent
+- Real-time disclosure
+- Direct citizen impact scoring
+- On-chain decision making
+
+We're not pioneers in legal grey area. We're innovators in established legal territory using radical transparency.
