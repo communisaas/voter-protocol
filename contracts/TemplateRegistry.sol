@@ -343,11 +343,11 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Calculate total impact score for funding allocation
+     * @dev Calculate total impact score for reputation tracking
      * @param templateId Template to evaluate
-     * @return totalImpact Weighted impact score for funding decisions
+     * @return totalImpact Weighted impact score for reputation only
      */
-    function calculateFundingImpact(bytes32 templateId) 
+    function calculateReputationImpact(bytes32 templateId) 
         external 
         view 
         returns (uint256 totalImpact) 
@@ -355,6 +355,7 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
         Template memory template = templates[templateId];
         
         // Weight factors: usage (20%), impact (40%), credibility (40%)
+        // This score affects reputation, not financial rewards
         uint256 usageScore = template.usageCount > 10000 ? 100 : template.usageCount / 100;
         
         totalImpact = (usageScore * 20 + 

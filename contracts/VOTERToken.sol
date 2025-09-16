@@ -18,7 +18,7 @@ contract VOTERToken is AccessControl, ReentrancyGuard, Pausable, ERC20, ERC20Per
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     
-    uint256 public constant INITIAL_MINT_CAP = 100_000_000 * 10**18; // 100M for initial distribution
+    // No pre-mint: all tokens earned through civic participation
     
     mapping(address => uint256) public civicActions; // Track actions for reward calculation
     
@@ -47,8 +47,8 @@ contract VOTERToken is AccessControl, ReentrancyGuard, Pausable, ERC20, ERC20Per
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         
-        // Initial mint for platform development and community rewards
-        _mint(msg.sender, INITIAL_MINT_CAP);
+        // No pre-mint: tokens only created through verified civic actions
+        // This ensures fair distribution based on participation, not capital
     }
     
     /**

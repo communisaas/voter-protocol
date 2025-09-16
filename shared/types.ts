@@ -120,7 +120,7 @@ export interface CongressionalReceipt {
 export interface Identity {
   address: string;
   verified: boolean;
-  verificationMethod: "self_protocol" | "government_id" | "email";
+  verificationMethod: "didit" | "government_id" | "email";
   districtHash: string;
   registeredAt: number;
   isActive: boolean;

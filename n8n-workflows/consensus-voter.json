@@ -1,0 +1,280 @@
+{
+  "name": "Consensus Voter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consensus",
+        "options": {}
+      },
+      "id": "webhook_trigger",
+      "name": "Consensus Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4-turbo-preview"
+            },
+            {
+              "name": "temperature",
+              "value": 0.1
+            },
+            {
+              "name": "max_tokens",
+              "value": 200
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"system\", \"content\": \"You are a nonpartisan civic content evaluator. Focus on democratic values and constructive discourse. Respond ONLY with valid JSON.\"}, {\"role\": \"user\", \"content\": \"Evaluate this template:\\n{{ JSON.stringify($json.template) }}\\n\\nVote: APPROVE, REJECT, or NEEDS_REVIEW\\nConfidence: 0.0-1.0\\nReason: Brief explanation\\n\\nResponse format:\\n{\\\"vote\\\": \\\"APPROVE\\\", \\\"confidence\\\": 0.85, \\\"reason\\\": \\\"Clear civic message\\\"}\"}]"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "openai_voter",
+      "name": "OpenAI Vote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "openai_api",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "=[{\"parts\": [{\"text\": \"You are a nonpartisan civic content evaluator. Evaluate this template for civic appropriateness:\\n\\n{{ JSON.stringify($json.template) }}\\n\\nVote: APPROVE, REJECT, or NEEDS_REVIEW\\nConfidence: 0.0-1.0\\nReason: Brief explanation\\n\\nRespond ONLY with valid JSON:\\n{\\\"vote\\\": \\\"APPROVE\\\", \\\"confidence\\\": 0.85, \\\"reason\\\": \\\"Clear civic message\\\"}\"}]}]"
+            },
+            {
+              "name": "generationConfig",
+              "value": "={\"temperature\": 0.1, \"maxOutputTokens\": 200}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "gemini_voter",
+      "name": "Gemini Vote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 400],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "gemini_api",
+          "name": "Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.apiKey }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-sonnet-20240229"
+            },
+            {
+              "name": "max_tokens",
+              "value": 200
+            },
+            {
+              "name": "temperature",
+              "value": 0.1
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a nonpartisan civic content evaluator. Evaluate this template for civic appropriateness:\\n\\n{{ JSON.stringify($json.template) }}\\n\\nVote: APPROVE, REJECT, or NEEDS_REVIEW\\nConfidence: 0.0-1.0\\nReason: Brief explanation\\n\\nRespond ONLY with valid JSON:\\n{\\\"vote\\\": \\\"APPROVE\\\", \\\"confidence\\\": 0.85, \\\"reason\\\": \\\"Clear civic message\\\"}\"}]"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "claude_voter",
+      "name": "Claude Vote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "claude_api",
+          "name": "Claude API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "collect_votes",
+      "name": "Collect Votes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and calculate consensus from all votes\nconst votes = $input.all();\nconst parsed = [];\n\n// Parse OpenAI vote\ntry {\n  const openai = votes[0].json;\n  const content = openai.choices[0].message.content;\n  parsed.push(JSON.parse(content));\n} catch (e) {\n  console.error('Failed to parse OpenAI vote');\n}\n\n// Parse Gemini vote\ntry {\n  const gemini = votes[1].json;\n  const content = gemini.candidates[0].content.parts[0].text;\n  parsed.push(JSON.parse(content));\n} catch (e) {\n  console.error('Failed to parse Gemini vote');\n}\n\n// Parse Claude vote\ntry {\n  const claude = votes[2].json;\n  const content = claude.content[0].text;\n  parsed.push(JSON.parse(content));\n} catch (e) {\n  console.error('Failed to parse Claude vote');\n}\n\n// Count votes\nconst voteCounts = {\n  APPROVE: 0,\n  REJECT: 0,\n  NEEDS_REVIEW: 0\n};\n\nlet totalConfidence = 0;\nconst reasons = [];\n\nfor (const vote of parsed) {\n  if (vote.vote in voteCounts) {\n    voteCounts[vote.vote]++;\n    totalConfidence += vote.confidence || 0.5;\n    if (vote.reason) reasons.push(vote.reason);\n  }\n}\n\n// Determine consensus\nlet consensus;\nif (voteCounts.REJECT > 0) {\n  consensus = 'REJECT'; // Any rejection = reject\n} else if (voteCounts.APPROVE === parsed.length) {\n  consensus = 'APPROVE'; // Unanimous approval\n} else {\n  consensus = 'NEEDS_REVIEW'; // Mixed votes\n}\n\nconst avgConfidence = totalConfidence / parsed.length;\n\nreturn {\n  consensus,\n  votes: voteCounts,\n  agents: parsed.length,\n  confidence: avgConfidence,\n  unanimous: voteCounts[consensus] === parsed.length,\n  reasons,\n  individual_votes: parsed,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "calculate_consensus",
+      "name": "Calculate Consensus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Return Consensus",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "webhook_trigger": {
+      "main": [
+        [
+          {
+            "node": "openai_voter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "gemini_voter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "claude_voter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "openai_voter": {
+      "main": [
+        [
+          {
+            "node": "collect_votes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemini_voter": {
+      "main": [
+        [
+          {
+            "node": "collect_votes",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "claude_voter": {
+      "main": [
+        [
+          {
+            "node": "collect_votes",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "collect_votes": {
+      "main": [
+        [
+          {
+            "node": "calculate_consensus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calculate_consensus": {
+      "main": [
+        [
+          {
+            "node": "respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

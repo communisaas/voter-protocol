@@ -1,0 +1,209 @@
+{
+  "name": "Reward Calculator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calculate-reward",
+        "options": {}
+      },
+      "id": "webhook_trigger",
+      "name": "Reward Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.COMMUNIQUE_API_URL }}/api/voter",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "calculate_reward"
+            },
+            {
+              "name": "userAddress",
+              "value": "={{ $json.userAddress }}"
+            },
+            {
+              "name": "actionType",
+              "value": "={{ $json.actionType }}"
+            },
+            {
+              "name": "templateId",
+              "value": "={{ $json.templateId }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "calculate_reward_communique",
+      "name": "Calculate Reward via Communique",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Communique reward calculation response\nconst response = $json;\n\nif (!response.success) {\n  return {\n    success: false,\n    error: response.error || 'Reward calculation failed via Communique',\n    timestamp: new Date().toISOString()\n  };\n}\n\n// Extract and validate reward calculation results\nconst result = {\n  success: true,\n  calculation: {\n    action: response.action,\n    user: response.user,\n    base_reward_usd: response.base_reward_usd,\n    multipliers: response.multipliers,\n    total_multiplier: response.total_multiplier,\n    reward_usd: response.reward_usd,\n    reward_eth: response.reward_eth,\n    reward_wei: response.reward_wei,\n    eth_price: response.eth_price,\n    network_activity: response.network_activity,\n    user_reputation: response.user_reputation,\n    calculation_timestamp: response.calculation_timestamp\n  },\n  next_steps: [\n    'blockchain_mint_tokens',\n    'update_user_balance',\n    'notify_user'\n  ],\n  message: `Reward calculated: ${response.reward_usd} USD (${response.reward_wei} wei)`\n};\n\nreturn result;"
+      },
+      "id": "process_response",
+      "name": "Process Reward Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "check_success",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_INSTANCE_URL }}/webhook/blockchain/mint_tokens",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "operation",
+              "value": "mint_tokens"
+            },
+            {
+              "name": "recipient",
+              "value": "={{ $json.calculation.user }}"
+            },
+            {
+              "name": "amount",
+              "value": "={{ $json.calculation.reward_wei }}"
+            },
+            {
+              "name": "actionType",
+              "value": "={{ $json.calculation.action }}"
+            },
+            {
+              "name": "calculationId",
+              "value": "={{ $json.calculation.calculation_timestamp }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "trigger_blockchain_mint",
+      "name": "Trigger Blockchain Mint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    }
+  ],
+  "connections": {
+    "webhook_trigger": {
+      "main": [
+        [
+          {
+            "node": "calculate_reward_communique",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "calculate_reward_communique": {
+      "main": [
+        [
+          {
+            "node": "process_response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process_response": {
+      "main": [
+        [
+          {
+            "node": "check_success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_success": {
+      "main": [
+        [
+          {
+            "node": "trigger_blockchain_mint",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trigger_blockchain_mint": {
+      "main": [
+        [
+          {
+            "node": "respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
