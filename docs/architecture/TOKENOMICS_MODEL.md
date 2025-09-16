@@ -243,9 +243,9 @@ The parameters contract stores agent-calculated values within auditable bounds. 
 
 ## Templates Close the Loop
 
-**From Information to Impact to Funding:**
+**From Information to Impact:**
 
-Templates surface information legislators didn't have. That information changes positions. Changed positions get funded. Democracy starts rewarding learning over ideology.
+Templates surface information legislators didn't have. That information changes positions. Changed positions earn credibility. Democracy starts rewarding learning over ideology.
 
 The ImpactAgent tracks which templates actually moved mountains:
 - Template data appears in floor speeches
@@ -253,77 +253,36 @@ The ImpactAgent tracks which templates actually moved mountains:
 - Amendments reflect citizen expertise
 - Media picks up template talking points
 
-When templates demonstrably influence reality—through direct citations or strong correlations—creators earn credibility that actually means something. Direct citations prove causation. Position shifts after campaigns show influence we can measure. When legislators demonstrably learn from constituents, they earn campaign support from the citizen treasury through a 501(c)(4) social welfare organization—unlimited funds for those who actually listen.
+When templates demonstrably influence reality—through direct citations or strong correlations—creators earn credibility that actually means something. Direct citations prove causation. Position shifts after campaigns show influence we can measure. When legislators demonstrably learn from constituents, their responsiveness scores increase dramatically—creating public, verifiable records of who actually listens.
 
-**Treasury to Electoral Pipeline:**
+**Public Impact Tracking:**
 - VOTER tokens accumulate value through platform growth
-- High-credibility participants vote on funding priorities
-- 501(c)(4) deploys unlimited funds for issue advocacy
-- Connected PAC provides direct candidate support
-- Public dashboard tracks: template → mind change → electoral support
+- High-credibility participants shape platform priorities
+- Public blockchain records all responsiveness scores
+- Independent actors can read and act on public data
+- Dashboard tracks: template → mind change → public record
 
-**We don't count messages sent. We count minds changed. Changed minds get funded.**
+**We don't count messages sent. We count minds changed.**
 
-## Legal Reality: How Electoral Funding Actually Works
+## Public Coordination Through Transparency
 
-### What We Do vs What We Don't
+### What We Actually Do
 
-**What We Actually Do:**
+**We Publish Everything:**
 - Track observable correlations between citizen information and legislative behavior
 - Identify legislators who demonstrably respond to constituent input
-- Fund issue advocacy through 501(c)(4) social welfare organization
-- Support responsive legislators regardless of party or initial position
-- Publish all funding decisions transparently on public dashboard
+- Publish all responsiveness scores on public blockchain
+- Create transparent records anyone can read and verify
+- Build reputation systems that actually mean something
 
-**What We Don't Do:**
-- No quid pro quo: We identify responsiveness after the fact, not before
-- No vote buying: We never reward voting, registering, or choosing candidates
-- No coordination: 501(c)(4) operates independently from campaigns
-- No dark money: Every funding decision traces back to observable correlations
-
-### The 501(c)(4) Structure
-
-Social welfare organizations can legally engage in unlimited issue advocacy and lobbying. They can support candidates as long as it's not their primary purpose. Citizens United established that corporations (including nonprofits) can make unlimited independent expenditures.
-
-**Our Approach:**
-1. Protocol treasury accumulates value through token economics
-2. High-credibility participants vote on funding priorities based on observable impact
-3. 501(c)(4) deploys funds for issue advocacy aligned with demonstrated responsiveness
-4. Connected PAC handles direct candidate support within FEC limits
-5. Complete transparency: blockchain records + FEC filings + public dashboard
-
-### Observable Responsiveness, Not Transactional Exchange
-
-We don't tell legislators "change your position and we'll fund you." We observe which legislators respond to constituent information and support those who demonstrate responsiveness. The difference matters legally and ethically.
-
-**Timeline Separation:**
-- Citizens send information through templates
-- Legislators take positions publicly
-- We observe correlations between information and positions
-- Treasury funds flow to demonstrably responsive legislators
-- No pre-arranged agreements, just post-hoc observable patterns
-
-### Compliance Framework
-
-**Bright Line Rules:**
-- Never reward voting or voter registration
-- Never coordinate with candidate campaigns
-- Never promise funding for specific votes
-- Always maintain temporal separation
-- Always publish funding rationale publicly
-
-**Legal Safeguards:**
-- Professional legal counsel reviews all processes
-- FEC compliance for all political spending
-- State registration where required
-- Regular audits of funding decisions
-- Human review of high-value allocations
+**The Innovation:**
+We don't hide coordination—we publish it. Every score, every correlation, every impact metric lives on immutable blockchain. When everything happens in public, "coordination" becomes parallel action based on public information.
 
 ### Why This Matters
 
-Democracy fails when information doesn't flow from citizens to legislators. Current systems reward ideology over learning. We create feedback loops that reward legislators who actually respond to constituent information, regardless of party or position.
+Democracy fails when information doesn't flow from citizens to legislators. Current systems reward ideology over learning. We create transparent feedback loops that identify legislators who actually respond to constituent information, regardless of party or position.
 
-This isn't about buying votes. It's about funding representatives who demonstrably listen to the people they represent. Observable. Transparent. Legal.
+This isn't about funding. It's about creating verifiable records of who listens to constituents. Observable. Transparent. Revolutionary.
 
 ## The Bottom Line
 

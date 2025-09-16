@@ -50,7 +50,7 @@ The VOTER Protocol provides blockchain infrastructure for democratic participati
 - **Privacy-preserving**: Zero PII on-chain; off-chain KYC/attestations only where legally required
 - **Democratic authenticity**: Clear separation between verified participation records and economic incentives
 
-In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while cautious competitors wait for permission that already arrived. The CLARITY Act provides the regulatory framework we need.
+In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while we build on emerging regulatory clarity. The CLARITY Act provides the regulatory framework we need.
 
 ### Dynamic Parameter System
 **Smart contract safety rails with adaptive governance.**
@@ -272,7 +272,7 @@ Comprehensive documentation is organized in the `docs/` folder:
 
 ### Immediate Priorities
 1. **CWC Integration**: Complete congressional message verification system with actual API calls
-2. **Identity Verification**: Implement Self Protocol ZK proof verification
+2. **Identity Verification**: Implement Didit KYC with congressional district verification
 3. **Carroll Mechanisms**: Deploy challenge markets and reputation aggregation
 4. **Frontend Development**: Production-ready web and mobile applications
 5. **Agent Infrastructure**: Deploy LangGraph agents for parameter optimization

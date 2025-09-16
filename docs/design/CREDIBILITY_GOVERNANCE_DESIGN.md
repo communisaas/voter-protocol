@@ -70,30 +70,30 @@ Multi-agent consensus replaces single operators. No god modes, no central contro
 ### 4. Continuous Learning for Resilience 
 Agents remember what works and what doesn't, and the system gets smarter over time. This continuous learning enhances protocol resilience and adaptability to changing political and social conditions, including unforeseen attack vectors. Information quality markets provide consensus tools for resolving disputes and incentivizing quality discourse among participants.
 
-## Templates That Move Mountains Get Funded
+## Templates That Move Mountains
 
-The credibility infrastructure closes the loop on templates. When the ImpactAgent identifies template influence on legislative positions, that template creator earns massive credibility. When legislators learn from constituent information, they earn campaign support from the citizen treasury.
+The credibility infrastructure closes the loop on templates. When the ImpactAgent identifies template influence on legislative positions, that template creator earns massive credibility. When legislators learn from constituent information, their responsiveness scores become public record.
 
-**Impact Verification Creates Electoral Consequences:**
+**Impact Verification Creates Public Records:**
 - Template introduces new economic data that appears in floor speeches
 - Mass campaign surfaces constituent impacts that change committee votes
 - Citizen expertise shapes amendment language that passes
-- Legislators who evolve based on quality information get treasury support
+- Legislators who evolve based on quality information get documented
 - Democracy starts rewarding learning over ideology
 
-**From Credibility to Electoral Power:**
+**From Credibility to Democratic Influence:**
 
-High-credibility participants don't just get priority routing—they shape where millions in electoral funding goes. The treasury accumulates value through token economics. Through a 501(c)(4) social welfare organization, funds flow to support legislators based on verified responsiveness.
+High-credibility participants don't just get priority routing—they shape platform priorities and governance. The treasury accumulates value through token economics. High-reputation voices carry more weight in protocol decisions.
 
-**Challenge Markets Determine Funding Priorities:**
+**Challenge Markets Determine Credibility:**
 - Template impact claims face market verification
-- Winners of impact challenges gain electoral influence weight
-- High-credibility creators vote on treasury allocation
-- Proven mind-changers direct campaign support
-- Bad faith actors lose both stakes and electoral influence
+- Winners of impact challenges gain platform influence weight
+- High-credibility creators shape protocol governance
+- Proven mind-changers earn permanent reputation
+- Bad faith actors lose both stakes and platform influence
 
 **Concrete Example:**
-Your template claims "Policy X costs rural families $3K/year." Ten thousand constituents use it. Senator cites that exact figure in committee. Vote flips. Challenge market verifies your influence claim. You win challenger stakes. Your credibility score jumps. Treasury allocates $50K to Senator's campaign through 501(c)(4). The loop closes: information changed position, changed position got funded.
+Your template claims "Policy X costs rural families $3K/year." Ten thousand constituents use it. Senator cites that exact figure in committee. Vote flips. Challenge market verifies your influence claim. You win challenger stakes. Your credibility score jumps. Senator's responsiveness score increases on public blockchain. The loop closes: information changed position, position change documented forever.
 
 ## Credibility Infrastructure and Challenge Markets
 
@@ -121,7 +121,7 @@ Rather than determining truth, challenge markets evaluate:
 * Good faith engagement with counterarguments
 * Constructive contribution to democratic discourse
 
-When challenge markets verify template impact claims, creators build credibility that determines future reward multipliers. High-impact templates that demonstrably change legislative positions earn creators privileged platform access and increased treasury allocation influence.
+When challenge markets verify template impact claims, creators build credibility that determines future reward multipliers. High-impact templates that demonstrably change legislative positions earn creators privileged platform access and increased platform governance influence.
 
 **Challenge Stakes Reflect Reality, Not Ideology**
 
@@ -131,13 +131,13 @@ Your earned VOTER tokens determine how much you can challenge, creating a natura
 
 Big claims about national policy require bigger stakes than local issues because the consequences matter more. Challenging established creators costs more than questioning newcomers because track records mean something. These aren't arbitrary rules—they're agents responding to patterns in real time.
 
-**Electoral Influence Through Verified Impact:**
+**Democratic Influence Through Verified Impact:**
 
-Challenge market winners don't just earn tokens—they earn electoral influence. The protocol treasury directs funds through a 501(c)(4) to support responsive legislators. High-credibility participants vote on allocation priorities. Your verified impact on policy translates directly to electoral support for legislators who learn.
+Challenge market winners don't just earn tokens—they earn lasting influence. The protocol creates permanent, public records of who responds to citizen information. High-credibility participants shape platform evolution. Your verified impact on policy becomes part of the immutable record.
 
-The mechanism is simple: prove your template changed a mind, earn the right to fund that mind's campaign. Democracy stops being about shouting into the void and starts being about rewarding those who actually listen and learn.
+The mechanism is simple: prove your template changed a mind, earn permanent credibility. Democracy stops being about shouting into the void and starts being about creating verifiable records of who actually listens.
 
-**Quality discourse pays. Bad faith costs. Templates that change reality win. Changed minds get funded.**
+**Quality discourse pays. Bad faith costs. Templates that change reality win.**
 
 ## Technical Implementation
 

@@ -164,7 +164,7 @@ In a world where the President’s memecoin cleared $40B in volume on inaugurati
 
 **Per-action minting creates authentic signal.** Each congressional message, each direct action, each organizing effort generates immediate VOTER rewards. This isn’t vote buying—it’s recognizing that contacting representatives is labor that deserves compensation. The market now understands this distinction.
 
-**Bright-line rules remain.** We never reward voting, registering to vote, or choosing candidates. We block foreign funds. But contacting your representative? That’s civic work, and in 2025’s regulatory environment, compensating that work makes us competitive while cautious competitors wait for permission that already arrived.
+**Bright-line rules remain.** We never reward voting, registering to vote, or choosing candidates. We block foreign funds. But contacting your representative? That's civic work, and in 2025's regulatory environment, compensating that work makes us competitive while we build on emerging regulatory clarity.
 
 ## Reputation That Follows You
 
@@ -323,6 +323,14 @@ Publish the methods. Publish the results.
 - Complete CWC API integration with agent verification
 - Establish Temporal workflow orchestration
 - Launch N8N automation pipelines for civic actions
+
+## Legal Innovation Through Transparency
+
+We publish all coordination on public blockchain. Every decision traceable, every algorithm auditable.
+
+This tests whether public coordination—where competitors, journalists, and regulators see everything—is legally distinct from the secret coordination campaign finance law was designed to prevent.
+
+We're not hiding. We're pioneering.
 
 -----
 
