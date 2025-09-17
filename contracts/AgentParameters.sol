@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-
 // Chainlink Price Feed Interface
 interface IAggregatorV3 {
     function decimals() external view returns (uint8);
@@ -18,11 +16,13 @@ interface IAggregatorV3 {
 /**
  * @title AgentParameters
  * @dev Parameter store with oracle integration and bounds checking
- * @notice Manages dynamic USD-pegged rewards through multi-oracle consensus
+ * @notice Controlled by agent consensus after genesis initialization
  */
-contract AgentParameters is AccessControl {
-    bytes32 public constant PARAM_SETTER_ROLE = keccak256("PARAM_SETTER_ROLE");
-
+contract AgentParameters {
+    address public agentConsensus;
+    address public immutable genesis; // Only genesis can set initial parameters
+    bool public initialized = false;
+    
     mapping(bytes32 => uint256) private uintParams;
     mapping(bytes32 => address) private addressParams;
     mapping(bytes32 => uint256) public maxValues;
@@ -30,62 +30,95 @@ contract AgentParameters is AccessControl {
     
     event UintParamSet(bytes32 indexed key, uint256 value);
     event AddressParamSet(bytes32 indexed key, address value);
+    event ControlTransferred(address indexed newConsensus);
 
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(PARAM_SETTER_ROLE, admin);
+    modifier onlyConsensus() {
+        require(msg.sender == agentConsensus, "Only consensus");
+        _;
+    }
+    
+    modifier onlyGenesis() {
+        require(msg.sender == genesis, "Only genesis");
+        require(!initialized, "Already initialized");
+        _;
+    }
+
+    constructor() {
+        genesis = msg.sender; // Genesis contract deploys this
         
         // Set max bounds for USD-based rewards (8 decimals for USD price feeds)
         maxValues[keccak256("rewardUSD:CWC_MESSAGE")] = 10 * 1e8; // Max $10 per action
         maxValues[keccak256("rewardUSD:DIRECT_ACTION")] = 10 * 1e8; // Max $10 per action
         maxValues[keccak256("maxDailyMintPerUser")] = 10000e18;
         maxValues[keccak256("maxDailyMintProtocol")] = 1000000e18;
-        maxValues[keccak256("maxRewardPerAction")] = 100e18; // New: max for individual action reward
+        maxValues[keccak256("maxRewardPerAction")] = 100e18;
 
         // Set min bounds for USD-based rewards
         minValues[keccak256("rewardUSD:CWC_MESSAGE")] = 1e7; // Min $0.10 per action
         minValues[keccak256("rewardUSD:DIRECT_ACTION")] = 1e7; // Min $0.10 per action
-        minValues[keccak256("maxDailyMintPerUser")] = 0; // Can be 0
-        minValues[keccak256("maxDailyMintProtocol")] = 0; // Can be 0
-        minValues[keccak256("minActionInterval")] = 1 minutes; // Example: min 1 minute interval
-        minValues[keccak256("minRewardPerAction")] = 0; // New: min for individual action reward (0 means no global min clamp by default)
+        minValues[keccak256("maxDailyMintPerUser")] = 0;
+        minValues[keccak256("maxDailyMintProtocol")] = 0;
+        minValues[keccak256("minActionInterval")] = 1 minutes;
+        minValues[keccak256("minRewardPerAction")] = 0;
 
-        // New: Epistemic Leverage Parameters
+        // Epistemic Leverage Parameters
         maxValues[keccak256("epistemicLeverageMultiplier")] = 200; // Max 2x bonus
         minValues[keccak256("epistemicLeverageMultiplier")] = 0;
-        maxValues[keccak256("minCredibilityForBonus")] = 100; // Max credibility score is 100
+        maxValues[keccak256("minCredibilityForBonus")] = 100;
         minValues[keccak256("minCredibilityForBonus")] = 0;
 
-        // New: Doubting Parameters
+        // Doubting Parameters
         maxValues[keccak256("doubtingPenaltyRate")] = 100; // Max 100% penalty
         minValues[keccak256("doubtingPenaltyRate")] = 0;
-        maxValues[keccak256("minEpistemicReputationForAction")] = 100; // Max reputation score is 100
+        maxValues[keccak256("minEpistemicReputationForAction")] = 100;
         minValues[keccak256("minEpistemicReputationForAction")] = 0;
 
-        // New: Counterposition Market Parameters
-        maxValues[keccak256("counterpositionMarketFee")] = 1000; // Max 10% fee (1000 basis points)
+        // Counterposition Market Parameters
+        maxValues[keccak256("counterpositionMarketFee")] = 1000; // Max 10% fee
         minValues[keccak256("counterpositionMarketFee")] = 0;
-        maxValues[keccak256("qParameterInitialValue")] = 100; // Initial q value (e.g., 1.0)
+        maxValues[keccak256("qParameterInitialValue")] = 100;
         minValues[keccak256("qParameterInitialValue")] = 0;
-        maxValues[keccak256("qParameterMinBound")] = 100; // Min q value (e.g., 1.0)
+        maxValues[keccak256("qParameterMinBound")] = 100;
         minValues[keccak256("qParameterMinBound")] = 0;
-        maxValues[keccak256("qParameterMaxBound")] = 200; // Max q value (e.g., 2.0)
+        maxValues[keccak256("qParameterMaxBound")] = 200;
         minValues[keccak256("qParameterMaxBound")] = 100;
         
-        // Set initial USD reward values (can be updated by governance)
-        uintParams[keccak256("rewardUSD:CWC_MESSAGE")] = 1e7; // $0.10 default
-        uintParams[keccak256("rewardUSD:DIRECT_ACTION")] = 1e7; // $0.10 default
-        
         // Oracle circuit breaker parameters
-        maxValues[keccak256("oracle:maxPriceChangePerHour")] = 50; // Max 50% price change per hour
+        maxValues[keccak256("oracle:maxPriceChangePerHour")] = 50; // Max 50% price change
         uintParams[keccak256("oracle:maxPriceChangePerHour")] = 50; // Default 50%
     }
 
-    function setUint(bytes32 key, uint256 value) external onlyRole(PARAM_SETTER_ROLE) {
+    /**
+     * @dev Set genesis parameters (one-time, called by Genesis contract)
+     */
+    function setGenesisParameters(
+        uint256 _cwcReward,
+        uint256 _directActionReward,
+        uint256 _maxDailyMintUser,
+        uint256 _maxDailyMintProtocol
+    ) external onlyGenesis {
+        uintParams[keccak256("rewardUSD:CWC_MESSAGE")] = _cwcReward;
+        uintParams[keccak256("rewardUSD:DIRECT_ACTION")] = _directActionReward;
+        uintParams[keccak256("maxDailyMintPerUser")] = _maxDailyMintUser;
+        uintParams[keccak256("maxDailyMintProtocol")] = _maxDailyMintProtocol;
+        
+        initialized = true;
+    }
+    
+    /**
+     * @dev Transfer control to agent consensus (called by Genesis)
+     */
+    function transferControlToConsensus(address _consensus) external onlyGenesis {
+        require(_consensus != address(0), "Invalid consensus");
+        agentConsensus = _consensus;
+        initialized = true;
+        emit ControlTransferred(_consensus);
+    }
+
+    function setUint(bytes32 key, uint256 value) external onlyConsensus {
         if (maxValues[key] > 0) {
             require(value <= maxValues[key], "Exceeds maximum");
         }
-        // New: check against minValues
         if (minValues[key] > 0) {
             require(value >= minValues[key], "Below minimum");
         }
@@ -97,7 +130,7 @@ contract AgentParameters is AccessControl {
         return uintParams[key];
     }
     
-    function setAddress(bytes32 key, address value) external onlyRole(PARAM_SETTER_ROLE) {
+    function setAddress(bytes32 key, address value) external onlyConsensus {
         require(value != address(0), "Zero address");
         addressParams[key] = value;
         emit AddressParamSet(key, value);
@@ -163,5 +196,3 @@ contract AgentParameters is AccessControl {
         return (price, isValid);
     }
 }
-
-

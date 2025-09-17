@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IVOTERRegistry.sol";
 
@@ -10,8 +9,10 @@ import "./interfaces/IVOTERRegistry.sol";
  * @dev Tracks civic impact without financial implications—pure information
  * @notice All data public for any observer to read and interpret independently
  */
-contract ImpactRegistry is AccessControl, Pausable {
-    bytes32 public constant RECORDER_ROLE = keccak256("RECORDER_ROLE");
+contract ImpactRegistry is Pausable {
+    address public agentConsensus;
+    address public immutable genesis;
+    bool public initialized = false;
     
     struct TemplateImpact {
         uint256 usageCount;
@@ -99,9 +100,28 @@ contract ImpactRegistry is AccessControl, Pausable {
         uint256 daysSinceUpdate
     );
     
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(RECORDER_ROLE, admin);
+    modifier onlyConsensus() {
+        require(msg.sender == agentConsensus, "Only consensus");
+        _;
+    }
+    
+    modifier onlyGenesis() {
+        require(msg.sender == genesis, "Only genesis");
+        require(!initialized, "Already initialized");
+        _;
+    }
+    
+    constructor() {
+        genesis = msg.sender; // Genesis contract deploys this
+    }
+    
+    /**
+     * @dev Transfer control to agent consensus (called by Genesis)
+     */
+    function transferControlToConsensus(address _consensus) external onlyGenesis {
+        require(_consensus != address(0), "Invalid consensus");
+        agentConsensus = _consensus;
+        initialized = true;
     }
     
     /**
@@ -114,7 +134,7 @@ contract ImpactRegistry is AccessControl, Pausable {
         bytes32 templateId,
         address user,
         string memory representative
-    ) external onlyRole(RECORDER_ROLE) {
+    ) external onlyConsensus {
         TemplateImpact storage impact = templateImpacts[templateId];
         impact.usageCount++;
         impact.lastUpdated = block.timestamp;
@@ -152,7 +172,7 @@ contract ImpactRegistry is AccessControl, Pausable {
         string memory source,
         string memory context,
         string memory citationId
-    ) external onlyRole(RECORDER_ROLE) {
+    ) external onlyConsensus {
         TemplateImpact storage impact = templateImpacts[templateId];
         
         // Prevent duplicate citations
@@ -180,7 +200,7 @@ contract ImpactRegistry is AccessControl, Pausable {
         bytes32 templateId,
         string memory previousPosition,
         string memory newPosition
-    ) external onlyRole(RECORDER_ROLE) {
+    ) external onlyConsensus {
         RepresentativeResponse storage rep = representativeResponses[representative];
         
         // Apply decay before updating
@@ -222,7 +242,7 @@ contract ImpactRegistry is AccessControl, Pausable {
     function updateParticipantImpact(
         address participant,
         string memory reason
-    ) external onlyRole(RECORDER_ROLE) {
+    ) external onlyConsensus {
         ParticipantImpact storage impact = participantImpacts[participant];
         
         uint256 oldScore = impact.impactScore;
@@ -412,14 +432,14 @@ contract ImpactRegistry is AccessControl, Pausable {
     /**
      * @dev Pause registry
      */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyConsensus {
         _pause();
     }
     
     /**
      * @dev Unpause registry
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyConsensus {
         _unpause();
     }
 }
