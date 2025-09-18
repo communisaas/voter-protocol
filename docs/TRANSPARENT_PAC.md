@@ -1,10 +1,10 @@
-# Transparent Corporate PAC
+# Democracy's Market Solution: From Templates to Direct Prizes
 
 Microsoft has a PAC. Google has NetPAC. Every Fortune 500 company has a PAC.
 
 They're opaque, executive-controlled, backroom-driven. Quarterly filings hide decisions made in secret meetings. Citizens have zero input on how corporate political money flows.
 
-We built the first algorithmic, transparent, citizen-driven PAC in history.
+We built something better: the first market for political outcomes where citizens stake tokens and politicians claim direct prizes for delivering results.
 
 ## Legal Territory
 
@@ -40,11 +40,11 @@ This isn't avoiding the law—this is advancing it through radical transparency.
 **Score Decay**: Continuous responsiveness vs party loyalty  
 **Real-time Transparency**: Every decision on blockchain vs quarterly filings
 
-## Information → Power
+## Information → Outcomes → Prizes
 
-Citizens create templates → templates appear in congressional communications → representatives cite template language → impact scores update algorithmically → employees contribute to PAC → PAC funds responsive representatives → quadratic matching amplifies many voices → everything auditable on blockchain.
+Citizens create templates → templates appear in congressional communications → representatives cite template language → citizens stake tokens on desired outcomes → politicians achieve those outcomes → politicians claim direct prizes as taxable income → everything auditable on blockchain.
 
-Information changes positions. Position changes get rewarded. Representatives learn that responsiveness pays.
+Information changes positions. Position changes create outcomes. Outcomes pay prizes. Representatives learn that responsiveness pays.
 
 ## Microsoft vs VOTER
 
@@ -55,12 +55,12 @@ Information changes positions. Position changes get rewarded. Representatives le
 - Quarterly disclosure only
 - No citizen input mechanism
 
-### VOTER Protocol PAC (Legal AND Transparent)
-- Algorithm-controlled decisions based on citizen impact
-- Real-time blockchain disclosure
-- Quadratic funding amplifies citizen voices
-- FEC limits enforced by smart contracts
-- First transparent corporate PAC in history
+### VOTER Protocol (Legal AND Revolutionary)
+- Outcome markets where citizens stake on policy changes
+- Politicians claim transparent prizes for delivering results
+- Real-time blockchain disclosure of all decisions
+- Direct accountability through performance rewards
+- First transparent market for political outcomes
 
 ## 50 Years vs Blockchain
 

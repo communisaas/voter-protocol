@@ -37,6 +37,40 @@ flowchart TB
     Templates --> ImpactRegistry
 ```
 
+## Agent Network Architecture
+
+VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
+
+### Five Specialized Agents
+
+**VerificationAgent**: Validates civic actions through multi-source verification—adapting thresholds based on action patterns and network conditions. Uses Congressional APIs for delivery confirmation and multi-agent consensus for quality assessment.
+
+**SupplyAgent**: Dynamically adjusts VOTER token minting rates based on participation levels, economic conditions, and governance goals. Prevents inflation while maintaining engagement incentives.
+
+**MarketAgent**: Monitors and optimizes economic incentives to maintain sustainable engagement without distorting democratic authenticity. Tracks challenge market performance and reputation scoring accuracy.
+
+**ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems. Collects from media coverage, social networks, congressional records, and direct template citations.
+
+**ReputationAgent**: Builds credibility scores from discourse quality and challenge market participation, coordinating priority routing for high-reputation participants. Manages VOTERRecords (soulbound NFTs) and cross-platform reputation portability.
+
+### Multi-Provider Verification
+
+Agent consensus operates through OpenRouter's 100+ model ecosystem:
+- **Major Providers**: OpenAI, Anthropic, Google (33% weight)
+- **International Models**: Mistral (French), Cohere (Canadian), Alibaba (Chinese) (34% weight)  
+- **Open Source**: Llama, Mixtral, local models run by staked operators (33% weight)
+
+No single provider can manipulate verification outcomes. Agents must reach consensus across diverse model classes for any action to be validated.
+
+### Dynamic Parameter Calibration
+
+Unlike traditional protocols with hardcoded constants, VOTER's infrastructure continuously calibrates:
+
+- **Reward calculations** adapt based on civic impact measurement rather than fixed "10 VOTER per message" rules
+- **Verification thresholds** adjust based on network conditions and spam detection patterns  
+- **Economic incentives** evolve to maintain authentic democratic participation vs. speculative gaming
+- **Governance proposals** emerge from system analysis of community needs and participation patterns
+
 ### ERC-8004 Implementation Strategy
 
 **Three Registry Implementation:**
@@ -52,6 +86,62 @@ flowchart TB
 - Domain expertise tracking (healthcare, economy, etc.)
 - Challenge market integration with reputation staking
 - Time decay and growth algorithms for authentic engagement
+
+**3. ActionRegistry.sol**
+- Immutable record of verified civic actions
+- Congressional API delivery confirmations
+- Template usage tracking with impact correlation
+- Challenge market resolution history
+
+## Technical Implementation
+
+### Smart Contract Stack
+- **CommuniqueCore.sol**: Orchestration and reward distribution
+- **VOTERToken.sol**: ERC-20 with staking and governance extensions
+- **VOTERRegistry.sol**: Identity verification and action tracking
+- **AgentConsensus.sol**: Multi-provider verification coordination
+- **AgentParameters.sol**: Dynamic parameter management with bounds
+- **ChallengeMarket.sol**: Information quality dispute resolution
+
+### Infrastructure Integration
+
+**Identity Verification**: Zero-cost verification via Didit.me
+- ID verification, face match, passive liveness
+- No PII stored on-chain
+- Congressional district mapping for geographic correlation
+- Premium compliance options ($0.35 AML, $0.50 proof of address)
+
+**Congressional API Integration**: Communicating with Congress (CWC)
+- Secure XML schema with rate limits
+- Delivery confirmations for both House and Senate
+- Multi-agent verification of message quality
+- Cryptographic receipts pinned to IPFS
+
+**Agent Infrastructure**:
+- LangGraph coordination between specialized agents
+- Temporal workflows for complex civic action verification
+- ChromaDB vector memory for agent learning
+- N8N automation pipelines for civic actions
+
+**Security Architecture**:
+- Multi-sig governance with emergency pause functionality
+- Comprehensive smart contract auditing requirements
+- Redundant oracle networks prevent single points of failure
+- No PII stored on-chain while maintaining verification capabilities
+
+### Data Flow Architecture
+
+```
+Citizen Action → Multi-Agent Verification → Cryptographic Receipt → 
+VOTER Token Reward → Reputation Update → Congressional Routing Priority
+```
+
+1. **Action Submission**: Citizen creates template or sends message
+2. **Multi-Source Verification**: Agents verify through diverse models
+3. **Congressional Delivery**: CWC API confirms message delivery
+4. **Impact Tracking**: ImpactAgent monitors policy responses
+5. **Reward Distribution**: SupplyAgent calculates dynamic rewards
+6. **Reputation Building**: ReputationAgent updates cross-platform credibility
 
 **3. CivicActionRegistry.sol**
 - Event-driven civic action recording with minimal storage
