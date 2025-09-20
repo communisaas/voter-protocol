@@ -10,58 +10,70 @@ While [TRUMP-linked memecoins touched $40B in 24 hours](https://www.aljazeera.co
 
 Corporate PACs spent billions through secret meetings while citizens got form letters. Microsoft's PAC channeled $1.2 million in 2022 with zero citizen input. Every Fortune 500 company has a PAC; none serve actual democracy.
 
-**VOTER makes them obsolete.** Citizens earn tokens through verified civic work, stake them on policy outcomes, politicians claim transparent prizes for delivery. Not campaign contributions—performance bounties. Not quarterly filings—real-time transparency. Not backroom deals—algorithmic governance that rewards minds changed, not loyalty purchased.
+**VOTER makes them obsolete.** Challenge markets where quality discourse pays and bad faith costs money. Five AI agents that learn from real civic behavior instead of hardcoded rules. Reputation you earn but can't buy. Direct prizes for politicians who actually deliver.
 
-## How It Works
+## How It Works: Complete Democratic Flow
 
-**Phase 1: Template Economy**
-Citizens use Communiqué to create email templates for contacting representatives. Quality templates earn VOTER tokens through the underlying protocol. Template senders earn tokens for verified delivery through Congressional APIs and multi-agent consensus.
+**Templates → Challenges → Stakes → Prizes**
 
-**Phase 2: Outcome Markets** 
-Citizens stake VOTER tokens on desired policy outcomes through Communiqué: "100k VOTER for Austin's 4-day work week ordinance." Staking signals collective will and creates prize pools managed by VOTER Protocol smart contracts.
+1. **Template Creation**: Citizens write templates with verifiable claims about policy impacts. Quality earns VOTER tokens through multi-agent verification.
 
-**Phase 3: Direct Prizes**
-Politicians who achieve those outcomes claim prizes as taxable income through the Communiqué platform. First transparent reward system where representatives get paid directly for responsive governance, powered by immutable VOTER Protocol verification.
+2. **Challenge Markets**: Community evaluates template quality through economic stakes. Winners take losers' stakes. Bad faith literally costs money.
 
-## The Innovation: Prize Economics
+3. **Outcome Staking**: Citizens stake tokens on desired policy changes: "100k VOTER for Austin's 4-day work week." Creates prize pools politicians can claim.
 
-Traditional political funding flows through intermediaries that maybe influence outcomes. VOTER Protocol creates direct markets: Citizens stake tokens on specific policy changes, politicians claim transparent prizes for delivery.
+4. **Prize Claims**: Politicians who achieve outcomes claim transparent, taxable income. ImpactAgent verifies achievement through legislative records. Template creators get bonuses when their work drives successful outcomes.
 
-**Not campaign contributions. Performance prizes for verified results.**
+## Challenge Markets: Quality Discourse Pays
 
-Politicians earn transparent, taxable income for achieving what citizens actually want. A city councilor passes the bike lane ordinance? Claims $50k. A rep introduces the climate bill? Claims $200k.
+Political discourse drowns in noise because bad information costs nothing. VOTER changes the economics.
 
-## Verification Without Complexity
+**Two Types of Challenges:**
+- **Template Challenges**: Dispute the core claims in a template. Higher stakes, affects everyone using it.
+- **Usage Challenges**: Challenge how someone used a template. Focused disputes, personal stakes.
 
-**Multi-Agent Consensus**: Five specialized agents verify every action through diverse model providers using [OpenRouter's 100+ AI models](https://openrouter.ai/docs). No single entity controls truth.
+**Economic Consequences:**
+- Stake VOTER tokens to challenge questionable claims
+- Community consensus evaluates reasoning quality (not truth, not ideology)
+- Winners take losers' stakes
+- High reputation = lower stakes required
+- Quadratic scaling prevents whale dominance
 
-**Cryptographic Receipts**: Congressional delivery via official [Communicating with Congress APIs](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc). Template usage tracked. Policy outcomes verified through prediction markets and public records.
+Templates that survive challenges and change legislative positions earn creators 10x rewards. Bad faith actors literally pay the community.
 
-**Reputation Building**: VOTERRecords (soulbound NFTs) track civic participation. High-reputation participants get priority routing to congressional offices.
+## Living Infrastructure: Death to Hardcoded Tyranny
 
-## Making Democracy Compete
+Traditional protocols trap themselves with fixed parameters forever. VOTER adapts.
 
-The $140B+ memecoin market proves attention combined with economic incentives creates massive adoption. VOTER applies those mechanics to civic participation while maintaining democratic authenticity.
+**Five Specialized Agents:**
+- **VerificationAgent**: Validates civic actions through multi-source consensus
+- **SupplyAgent**: Adjusts token economics based on actual participation patterns
+- **MarketAgent**: Optimizes rewards to maintain authentic engagement
+- **ImpactAgent**: Tracks which templates actually change legislative positions
+- **ReputationAgent**: Builds credibility scores from discourse quality
 
-**Challenge Markets**: Dispute template claims or message quality. Winners take stakes. Information rewards pay higher for surprising insights that change minds.
+**Mathematical Safety Rails:**
+Every parameter has hard floors and ceilings in smart contracts. Daily change limits prevent manipulation. Agents optimize within bounds—humans set limits, math enforces them.
 
-**Quality Discourse Pays**: Reputation multipliers reward constructive engagement. Bad faith actors lose stakes and reputation.
+Static protocols can't adapt to political dynamics. Our agents learn what works. Parameters evolve. Democracy improves itself.
 
-**Templates That Change Reality**: When legislators cite template data; change votes after campaigns; evolve positions based on citizen expertise—creators earn credibility and rewards.
+## Revolutionary Architecture
 
-## Economic Model
+**Soul-Bound Democracy**: VOTERRecords create permanent, non-transferable proof of civic participation. Democracy you earn, not buy. High-credibility actions get 10x reward multipliers.
 
-**Civic Labor → Value Creation**
-- Write templates → Earn VOTER
-- Send verified messages → Earn VOTER  
-- Stake on outcomes → Influence prizes
-- Build reputation → Priority access
+**ERC-8004 Infrastructure**: Built for AI agents, extended to humans. Three registries (Identity, Reputation, Action) create portable civic credibility across every platform. Your reputation follows you everywhere.
 
-**Prize Funding Sources**
-- Corporate treasury invests in infrastructure
-- Token economics create sustainable prize pools
-- Institutional data licensing (future)
-- International expansion opportunities
+**Quadratic Mathematics**: 100 people staking $10 creates more impact than 1 person staking $1000. Square root scaling ensures community consensus beats concentrated wealth.
+
+**Observable Impact**: ImpactAgent tracks template citations in Congressional Record. When legislators quote your template verbatim, that's causation, not correlation. We measure minds changed through legislative behavior.
+
+## Prize Economics: Direct Political Markets
+
+Traditional funding flows through PACs that maybe influence campaigns that might affect policy. VOTER creates direct markets.
+
+Citizens stake tokens on outcomes they want. Politicians who deliver claim transparent, taxable prizes. Not campaign contributions—performance bounties verified by blockchain.
+
+A city councilor passes the bike lane ordinance? Claims $50k. A representative introduces climate legislation? Claims $200k. Everything traceable, auditable, transparent.
 
 **Bright-Line Compliance**
 We never reward voting, registering to vote, or choosing candidates per [federal election law](https://www.law.cornell.edu/uscode/text/18/597). We reward the verifiable work of contacting representatives and creating public value.
@@ -82,21 +94,11 @@ We never reward voting, registering to vote, or choosing candidates per [federal
 
 ## Why This Wins
 
-**Current civic platforms**: Send message, maybe get form letter, watch your voice disappear into the bureaucratic void.
-**VOTER**: Create templates that change minds, stake tokens on outcomes you want, watch politicians claim transparent prizes for delivering results.
+**Current civic platforms**: Send message, get form letter, watch your voice disappear.
 
-We're building infrastructure everyone else needs. Portable reputation via ERC-8004. Verified delivery receipts. Quality information filtering. Cross-platform credibility.
+**VOTER Protocol**: Templates that change legislative positions. Stakes that create real political consequences. Reputation that follows you everywhere. Politicians earning transparent income for verified results.
 
-**Strategic Advantages**:
-First mover in political outcome markets; network effects through reputation portability; technical integration barriers for competitors; international expansion opportunities across parliamentary systems worldwide.
-
-## The Endgame
-
-Politicians earn millions in transparent prizes for achieving what citizens want. Traditional lobbyists can't compete with 100k citizens staking tokens on verified outcomes. Democracy becomes a market where responsive governance pays.
-
-**We don't count responses. We count minds changed.**
-
-Templates cause information flow; information causes position changes; changed positions get funded. Democracy starts rewarding learning over ideology.
+First mover in political outcome markets. Network effects through portable reputation. Mathematical governance that prevents both plutocracy and chaos. Infrastructure everyone else will need.
 
 ## Legal Innovation Through Transparency
 
@@ -108,27 +110,40 @@ We're not hiding. We're pioneering.
 
 - **[Impact Protocol Vision](docs/IMPACT_PROTOCOL.md)** - From templates to direct political prizes
 - **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - How agents replace hardcoded governance  
-- **[Engagement Strategy](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Making democracy compete for attention
-- **[Development Roadmap](docs/implementation/DEVELOPMENT_ROADMAP.md)** - From bootstrap to scale
+- **[Engagement Strategy](docs/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Making democracy compete for attention
+- **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - From bootstrap to scale
 - **[ERC-8004 Integration](docs/ERC8004_ADAPTATION.md)** - AI-human coordination infrastructure
+- **[Observable Impact](docs/OBSERVABLE_IMPACT.md)** - How we track minds changed vs messages sent
 
-## Implementation
+## Technical Implementation
 
-**Platform**: Communiqué civic engagement platform at communi.email with integrated VOTER token rewards.
+**Blockchain**: Monad for high-performance execution. Optional ETH L2 mirrors for cross-chain liquidity.
 
-**Smart Contracts**: VOTER Protocol deployed on Monad for cost-efficient execution with ETH L2 mirrors for liquidity access.
+**Identity**: Zero-cost KYC via [Didit.me](https://didit.me/features). Congressional district mapping without exposing personal information.
 
-**Identity**: Zero-cost verification via [Didit.me](https://didit.me/features) - ID verification, face match, passive liveness without exposing PII.
+**Verification**: [OpenRouter's 100+ AI models](https://openrouter.ai/docs) provide multi-agent consensus. No single truth source.
 
-**Delivery**: Congressional API integration for verified message delivery with cryptographic receipts.
+**Delivery**: [Congressional APIs](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) provide cryptographic receipts for every message.
 
-**Security**: Multi-sig governance, comprehensive audits, emergency pause functionality, no single points of failure.
+**Global Scale**: Parliamentary API integration across Brazil, Argentina, Canada, UK, Germany, Australia, India, Israel, South Korea, Japan, Indonesia, and developing democracies worldwide.
+
+**Security**: Multi-sig governance. Mathematical parameter bounds. Emergency pause mechanisms.
+
+-----
+
+## The Bottom Line
+
+Traditional PACs: Secret meetings, quarterly filings, zero citizen input.
+
+VOTER Protocol: Every stake visible, every achievement verified, every prize transparent.
+
+We didn't build a better PAC. We built infrastructure that makes PACs obsolete.
+
+**Quality discourse pays. Bad faith costs. Democracy wins.**
 
 -----
 
 *Communiqué Inc. | Building Democracy Infrastructure | 2025*
-
-**Making democracy viral while keeping it real.**
 
 ## Sources
 

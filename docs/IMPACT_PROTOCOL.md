@@ -66,11 +66,11 @@ Template creates information flow. Information creates position changes. Positio
 
 ## Microsoft vs Protocol
 
-Traditional corporate PACs like [Microsoft's channeled 1.2 million dollars in 2022](https://www.opensecrets.org/political-action-committees-pacs/) through executive-controlled decisions with quarterly disclosure only. No citizen input mechanism. No accountability for responsiveness.
+Traditional corporate PACs like [Microsoft's channeled 1.2 million dollars in 2022](https://www.opensecrets.org/political-action-committees-pacs/) through executive-controlled decisions with quarterly disclosure only. No citizen input. No accountability for responsiveness.
 
-The Impact Protocol creates algorithmic rewards based on citizen impact with real-time blockchain disclosure. Politicians earn transparent income for demonstrable responsiveness. Citizens control funding decisions through verifiable civic participation.
+The Impact Protocol creates algorithmic rewards based on citizen impact with real-time blockchain disclosure. Politicians earn transparent income for demonstrable responsiveness. Citizens control funding through verifiable civic participation.
 
-First transparent reward system for political outcomes in history.
+The first transparent reward system for political outcomes in history.
 
 ## Fifty Years vs Blockchain
 

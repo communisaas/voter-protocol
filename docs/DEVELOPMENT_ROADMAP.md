@@ -276,23 +276,53 @@ Track what legislators do, not think:
 5. **Funding**: Treasury allocates $25K to representative's campaign
 6. **Result**: Democracy rewards information that changes positions
 
-### Phase 5: Global Infrastructure (Months 10-12)
+### Phase 5: Global Democratic Infrastructure (Months 10-12)
 
 **Democracy Without Borders**
 
-Why should democratic infrastructure be limited to the United States? It shouldn't.
+Democratic infrastructure designed for global deployment across parliamentary systems worldwide.
 
-- **Human-AI Coordination**: ERC-8004 registries serve both AI coordination and human civic reputation globally
-- **International Expansion**: Global adapters with invariant UX across parliamentary systems
-- **Predictive Analytics**: AI-assisted civic recommendations based on proven impact patterns
-- **Cross-Platform Integration**: Export verified impact scores to every democratic platform worldwide
+**Parliamentary Adaptation**:
+- **Brazil**: Dados Abertos API integration for Chamber of Deputies
+- **Argentina**: Open data portal and voting API infrastructure  
+- **Canada**: OpenParliament.ca API + e-petitions system
+- **UK**: Members API + WriteToThem service integration
+- **Germany**: E-petition portal + DIP documentation system
+- **Australia**: TheyVoteForYou API + state parliamentary systems
+- **India**: API Setu platform + InfoMP API integration
+- **Israel**: Open Knesset project + OData API
+- **South Korea**: Digital Platform Government + KakaoTalk integration
+- **Japan**: Digital Agency + National Diet systems
+- **Indonesia**: INA Digital platform integration
 
-### Global Vision
+**Regional Customization**:
+- **Language Localization**: Multi-language template creation and impact tracking
+- **Electoral Systems**: Adapt staking mechanisms for proportional representation vs first-past-the-post
+- **Legal Frameworks**: Compliance modules for different campaign finance and civic engagement laws
+- **Cultural Context**: Regional gamification and engagement strategies respecting local democratic traditions
 
-**Building Democracy's Future**
+**Implementation Tiers**:
 
-- **Global Civic Network**: Worldwide democratic participation with portable reputation that crosses borders
-- **Institutional Integration**: Direct partnerships with government entities via machine-readable civic credentials
-- **Human-AI Democracy**: Infrastructure serving both human participation and AI coordination seamlessly
+**Tier 1 - API-Ready (Months 10-12)**:
+Brazil, Argentina, Canada, UK, Australia - Direct API integration with existing parliamentary systems
 
-**The Ultimate Goal**: Infrastructure that serves both humans and AI agents in the pursuit of better governance—everywhere democracy exists.
+**Tier 2 - Platform Integration (Months 13-15)**:
+Germany, India, Israel, South Korea, Japan - Integration with digital government platforms
+
+**Tier 3 - Custom Development (Months 16+)**:
+Indonesia, Mexico, developing democracies - Custom integration with emerging digital infrastructure
+
+**Global Infrastructure**:
+- **Cross-Border Reputation**: Portable civic credibility across international democratic platforms
+- **Multi-Jurisdiction Compliance**: Automated legal compliance for democratic participation across countries
+- **International Coordination**: Templates and impact tracking for global policy coordination
+
+### Global Vision: Infrastructure for Every Democracy
+
+**Worldwide Civic Network**: Democratic participation with portable reputation that crosses borders. British citizens earn credibility challenging MPs in Westminster that follows them when engaging with EU Parliament. German civic experts on climate policy build reputation that influences Canadian parliamentary committees.
+
+**Institutional Integration**: Direct partnerships with government entities via machine-readable civic credentials. Parliamentary offices in Ottawa, Westminster, and Berlin all recognize the same ERC-8004 reputation scores for routing priority.
+
+**Human-AI Democracy**: Infrastructure serving both human participation and AI coordination seamlessly across every democratic system worldwide.
+
+Infrastructure that serves both humans and AI agents in the pursuit of better governance—everywhere democracy exists.

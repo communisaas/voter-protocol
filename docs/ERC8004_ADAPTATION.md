@@ -20,37 +20,25 @@ ERC-8004 creates trustless coordination between AI agents through three core reg
 
 Why should civic identity be trapped in platform silos? It shouldn't—and now it isn't.
 
-**What We Built**:
-- **Congressional district mapping** without exposing personal information
-- **Cross-platform identity** that works on every democratic platform
-- **Privacy-preserving reputation** that follows you everywhere you engage civically
-- **AI-readable credentials** that let both humans and algorithms verify your civic track record
+We built congressional district mapping without exposing personal information. Cross-platform identity works on every democratic platform. Privacy-preserving reputation follows you everywhere you engage civically. AI-readable credentials let both humans and algorithms verify your civic track record.
 
-**The Revolution**: Your democratic participation becomes portable identity that transcends platform boundaries.
+Your democratic participation becomes portable identity that transcends platform boundaries.
 
 ### ReputationRegistry: Credibility That Compounds
 
 Traditional platforms trap your civic credibility behind their walls. We liberate it through machine-readable reputation that any platform can verify and trust.
 
-**What We Built**:
-- **Domain expertise tracking** across healthcare, economy, foreign policy—whatever you know
-- **Challenge market integration** where winning builds credibility across the entire ecosystem
-- **Time decay algorithms** that reward consistent engagement over one-time participation
-- **Cross-platform verification** that makes your reputation work everywhere democracy happens
+We built domain expertise tracking across healthcare, economy, foreign policy—whatever you know. Challenge market integration means winning builds credibility across the entire ecosystem. Time decay algorithms reward consistent engagement over one-time participation. Cross-platform verification makes your reputation work everywhere democracy happens.
 
-**The Revolution**: Civic credibility becomes digital asset that grows with authentic democratic participation.
+Civic credibility becomes digital asset that grows with authentic democratic participation.
 
 ### CivicActionRegistry: Democracy That Machines Can Read
 
 Every civic action creates machine-readable proof of democratic engagement. AI systems can verify your track record; other platforms can trust your contributions; your participation becomes permanent public good.
 
-**What We Built**:
-- **Event-driven tracking** that scales to millions of participants without breaking
-- **Multi-agent verification** ensuring quality without centralized control
-- **Template impact correlation** connecting citizen input to legislative outcomes
-- **Privacy-preserving architecture** that proves participation without exposing personal details
+We built event-driven tracking that scales to millions of participants without breaking. Multi-agent verification ensures quality without centralized control. Template impact correlation connects citizen input to legislative outcomes. Privacy-preserving architecture proves participation without exposing personal details.
 
-**The Revolution**: Civic participation becomes verifiable public infrastructure that both humans and AI can build upon.
+Civic participation becomes verifiable public infrastructure that both humans and AI can build upon.
 
 ## From AI Agents to Human Citizens: What Changes?
 

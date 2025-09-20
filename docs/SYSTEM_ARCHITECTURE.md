@@ -22,19 +22,19 @@ Ethereum Layer 2 mirrors enable ERC-8004 registry consumption by ETH-native appl
 
 ```mermaid
 flowchart TB
-    ProofOfWork["ProofOfWork.sol<br/>(Civic Labor Verification)"]
-    BountyProtocol["BountyProtocol.sol<br/>(Outcome Staking)"]
-    OutcomeOracle["OutcomeOracle.sol<br/>(Achievement Verification)"]
-    PrizeVault["PrizeVault.sol<br/>(Direct Payments)"]
+    VOTERRegistry["VOTERRegistry.sol<br/>(Civic Action Verification)"]
+    VOTERToken["VOTERToken.sol<br/>(Reward Distribution)"]
+    CommuniqueCore["CommuniqueCore.sol<br/>(Agent Coordination)"]
+    ChallengeMarket["ChallengeMarket.sol<br/>(Information Quality)"]
     
     Citizens["Citizens"] --> Templates["Template<br/>Creation"]
-    Templates --> ProofOfWork
-    ProofOfWork --> VOTERTokens["VOTER Token<br/>Rewards"]
-    VOTERTokens --> BountyProtocol
-    BountyProtocol --> Stakes["Outcome<br/>Stakes"]
-    Stakes --> OutcomeOracle
-    OutcomeOracle --> PrizeVault
-    PrizeVault --> Politicians["Politician<br/>Prize Claims"]
+    Templates --> VOTERRegistry
+    VOTERRegistry --> VOTERToken
+    VOTERToken --> CommuniqueCore
+    CommuniqueCore --> Stakes["Outcome<br/>Stakes"]
+    Stakes --> ChallengeMarket
+    ChallengeMarket --> Prizes["Prize<br/>Claims"]
+    Prizes --> Politicians["Politicians"]
 ```
 
 ## Agent Network Architecture
@@ -55,7 +55,23 @@ VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents 
 
 ### Multi-Provider Verification
 
-Agent consensus operates through [OpenRouter's 100+ AI models](https://openrouter.ai/docs) distributed across three equal weight classes. Major providers like OpenAI, Anthropic, and Google carry thirty-three percent weight. International models from Mistral, Cohere, and Alibaba represent thirty-four percent. Open source implementations including Llama, Mixtral, and local models operated by staked validators complete the final thirty-three percent.
+## Agent Consensus Mechanisms
+
+Agent consensus operates through [OpenRouter's 100+ AI models](https://openrouter.ai/docs) distributed across three equal weight classes:
+
+**Provider Distribution**:
+- **Major Providers** (33%): OpenAI, Anthropic, Google, xAI
+- **International Models** (34%): Mistral, Cohere, Alibaba  
+- **Open Source** (33%): Llama, Mixtral, locally operated models
+
+**Consensus Requirements**:
+- **Standard Actions**: 51% agreement across all provider classes
+- **High-Value Actions** (>$1000): 67% agreement with minimum representation from each class
+- **Parameter Changes**: 75% agreement with human oversight approval
+- **Emergency Actions**: 90% agreement with immediate human review
+
+**Conflict Resolution**:
+When agents disagree, conflicts escalate through weighted voting where track record determines influence. Agents with higher accuracy scores on similar historical decisions carry more weight. If disagreement persists above 25%, human arbitrators review with full transparency of all agent reasoning.
 
 No single provider can manipulate verification outcomes. Agents must achieve consensus across diverse model classes before any action receives validation.
 
@@ -88,14 +104,13 @@ Unlike traditional protocols trapped by hardcoded constants, VOTER infrastructur
 ## Technical Implementation
 
 ### Smart Contract Stack
-- **ProofOfWork.sol**: Civic labor verification and VOTER token distribution
-- **BountyProtocol.sol**: Outcome staking and prize pool management
-- **OutcomeOracle.sol**: Multi-agent achievement verification
-- **PrizeVault.sol**: Direct politician prize claiming
-- **VOTERToken.sol**: ERC-20 bridge between civic work and outcomes
-- **VOTERRecords.sol**: Soulbound reputation and anti-sybil defense
-- **AgentConsensus.sol**: Multi-provider verification coordination
+- **VOTERRegistry.sol**: Civic action verification and VOTER token distribution
+- **VOTERToken.sol**: ERC-20 governance and utility token with staking
+- **CommuniqueCore.sol**: Agent coordination and reward calculation
 - **ChallengeMarket.sol**: Information quality dispute resolution
+- **AgentParameters.sol**: Dynamic parameter management with safety bounds
+- **ActionVerifierMultiSig.sol**: Multi-signature verification coordination
+- **TreasuryManager.sol**: Prize pool and treasury management
 
 ### Infrastructure Integration: Breaking Down Barriers
 
@@ -109,56 +124,42 @@ Didit.me provides free forever core KYC: ID verification, face match, passive li
 
 **Congressional API Integration: Direct Democracy Infrastructure**
 
-Why should citizen messages disappear into bureaucratic voids? They shouldn't—and now they don't.
+Both House and Senate route constituent messages through CWC's secure XML schema with built-in rate limits. Delivery confirmations provide cryptographic proof of message receipt. Multi-agent verification ensures message quality while receipts get pinned to IPFS for permanent verification.
 
-Both House and Senate route constituent messages through CWC's secure XML schema with built-in rate limits; delivery confirmations provide cryptographic proof of message receipt; multi-agent verification ensures message quality while receipts get pinned to IPFS for permanent verification.
-
-**The Result**: Citizens get cryptographic proof their voices reached legislators; legislators get verified constituent input instead of spam.
+Citizens get cryptographic proof their voices reached legislators; legislators get verified constituent input instead of spam.
 
 **Agent Infrastructure: Intelligence That Serves Democracy**
 
-Why should civic verification depend on centralized human reviewers? It shouldn't—and now it doesn't.
-
 - **LangGraph coordination** between specialized agents that learn democratic patterns
-- **Temporal workflows** for complex civic action verification that humans couldn't scale  
-- **ChromaDB vector memory** enabling agents to learn from democratic participation patterns
-- **N8N automation pipelines** connecting civic actions to real-world legislative consequences
+- **Temporal workflows** for complex civic action verification at scale  
+- **ChromaDB vector memory** enabling agents to learn from participation patterns
+- **N8N automation pipelines** connecting civic actions to legislative consequences
 
-**Security Architecture: Democracy Without Single Points of Failure**
+**Security Architecture**
 
-Why should democratic infrastructure depend on any single entity? It shouldn't—and now it doesn't.
+- **Multi-sig governance** with emergency pause functionality preventing capture while enabling evolution
+- **Comprehensive auditing** ensuring smart contract security meets institutional standards
+- **Redundant oracle networks** preventing single points of failure
+- **Zero PII on-chain** while maintaining verification capabilities
 
-- **Multi-sig governance** with emergency pause functionality that prevents capture while enabling evolution
-- **Comprehensive auditing** requirements ensuring smart contract security matches institutional standards
-- **Redundant oracle networks** preventing single points of failure that could manipulate democratic truth
-- **Zero PII on-chain** while maintaining verification capabilities that prove civic participation
+Democratic infrastructure that can't be captured, manipulated, or shut down by any single entity.
 
-**The Result**: Democratic infrastructure that can't be captured, manipulated, or shut down by any single entity.
-
-### Data Flow Architecture: Democracy That Learns
-
-**Why should civic participation create dead-end messages? It shouldn't—and now it doesn't.**
+### Data Flow Architecture
 
 ```
 Citizen Action → Multi-Agent Verification → Cryptographic Receipt → 
 VOTER Token Reward → Reputation Update → Congressional Routing Priority
 ```
 
-**The Revolutionary Flow**:
-1. **Action Submission**: Citizens create templates or send messages that matter
-2. **Multi-Source Verification**: Agents verify quality through diverse AI models—no single truth source
+1. **Action Submission**: Citizens create templates or send messages
+2. **Multi-Source Verification**: Agents verify quality through diverse AI models
 3. **Congressional Delivery**: CWC API provides cryptographic proof of legislative receipt
-4. **Impact Tracking**: ImpactAgent monitors whether templates actually change minds
-5. **Reward Distribution**: SupplyAgent calculates dynamic rewards based on real democratic impact
-6. **Reputation Building**: ReputationAgent creates portable credibility that follows you across every platform
+4. **Impact Tracking**: ImpactAgent monitors whether templates change minds
+5. **Reward Distribution**: SupplyAgent calculates dynamic rewards based on impact
+6. **Reputation Building**: ReputationAgent creates portable credibility
 
-**The Result**: Civic participation becomes verifiable infrastructure that builds influence over time.
+Civic participation becomes verifiable infrastructure that builds influence over time.
 
-**3. CivicActionRegistry.sol**
-- Event-driven civic action recording with minimal storage
-- Privacy-preserving action tracking via events
-- Multi-agent verification integration
-- Template impact correlation for reward optimization
 
 ### Two-Token Economic Model
 
@@ -178,9 +179,18 @@ VOTER Token Reward → Reputation Update → Congressional Routing Priority
 
 **Prize Vault: Direct Politician Rewards**
 
-Politicians earn transparent prizes for achieving what citizens want. No intermediaries, no backroom deals, no corporate treasuries. Citizens stake tokens on outcomes, politicians claim prizes for delivery.
+## Prize Claiming Process
 
-The difference from traditional funding? Every stake visible, every achievement verified, every prize claim public. Transparent taxable income replacing dark money influence.
+Politicians claim transparent prizes for verified achievement through a multi-step verification process:
+
+1. **Achievement Submission**: Politicians submit claims with supporting documentation (bill numbers, vote records, implementation evidence)
+2. **Multi-Agent Verification**: ImpactAgent cross-references claims against public records, legislative databases, and prediction market outcomes
+3. **Challenge Period**: 7-day window for community challenges with stake-based disputes
+4. **Consensus Verification**: Requires 67% agent consensus across diverse model providers
+5. **Prize Release**: Automatic transfer to politician's verified wallet address
+6. **Tax Documentation**: 1099 forms generated for transparent taxable income
+
+Every stake visible, every achievement verified, every prize claim public. Transparent taxable income replacing dark money influence.
 
 **Revolutionary Prize Mechanics:**
 - Direct staking on policy outcomes—no PAC intermediaries
@@ -380,10 +390,14 @@ Zero-cost identity + privacy preservation + global coverage = civic infrastructu
 
 ### Cross-Platform Integration
 
-**Cross-Platform Integration: Why Should Democratic Credibility Be Platform-Locked?**
+**Multi-API Gateway Framework**:
+- **Unified Interface Layer**: Standardized VOTER Protocol endpoints regardless of underlying national API differences
+- **Parliamentary Adapter Pattern**: Standardized integration for OpenParliament, Dados Abertos, Members API, KakaoTalk, and other national systems
+- **Regional Compliance Engine**: Automated adaptation to local campaign finance and civic engagement laws
+- **Cross-Platform Identity Bridge**: ERC-8004 reputation portability across all integrated parliamentary systems globally
 
 **ERC-8004 Portable Reputation:**
-It shouldn't—and now it isn't. Civic credibility works across every platform. Challenge market reputation follows you everywhere. Template impact scores travel with you. Domain expertise gets verified once, trusted everywhere. Democratic capital becomes truly portable.
+Civic credibility works across every platform. Challenge market reputation follows you everywhere. Template impact scores travel with you. Domain expertise gets verified once, trusted everywhere. Democratic capital becomes truly portable.
 
 **Institutional Integration Architecture:**
 Treasury partnerships enable electoral funding based on verified civic impact. Machine-readable civic credentials let AI systems understand your democratic track record. Government entity integration provides official endpoints. Cross-platform challenge markets create universal standards for information quality.
