@@ -2,7 +2,7 @@
 
 ## Overview
 
-VOTER Protocol implements transparent corporate PAC infrastructure using blockchain technology. The system combines legal corporate PAC structures with algorithmic transparency, quadratic funding mechanisms, and observable impact measurement.
+VOTER Protocol provides blockchain infrastructure for the first market for political outcomes. Citizens use Communiqué to earn tokens through verified civic labor, stake those tokens on desired policy changes, and politicians claim direct prizes for delivering results. Pure protocol economics powering democratic engagement platforms.
 
 **ERC-8004 was built for AI agents. We extend it to human civic participants.**
 
@@ -11,30 +11,30 @@ VOTER Protocol implements transparent corporate PAC infrastructure using blockch
 ### Hybrid Deployment Strategy
 
 **Primary Execution Layer: Monad**
-- High-performance EVM execution for civic engagement scale
-- Cost-efficient anchoring with proven infrastructure
-- Core contracts: CorporateTreasury, PACTreasury, ImpactRegistry
+
+Monad provides high-performance EVM execution designed for civic engagement at democratic scale. Cost-efficient anchoring while core VOTER Protocol contracts—ProofOfWork, BountyProtocol, and OutcomeOracle—handle direct political prize distribution with mathematical precision. Communiqué and other platforms integrate with these contracts.
 
 **Optional L2 Mirror: Ethereum Layer 2**
-- ERC-8004 registries for ETH-native consumption
-- Cross-platform reputation portability
-- Institutional integration endpoints
+
+Ethereum Layer 2 mirrors enable ERC-8004 registry consumption by ETH-native applications. Cross-platform reputation portability creates seamless civic credibility transfer. Institutional integration endpoints facilitate enterprise adoption of democratic infrastructure.
 
 ### Core Smart Contract Architecture
 
 ```mermaid
 flowchart TB
-    CorporateTreasury["CorporateTreasury.sol<br/>(C-Corp Funds)"]
-    PACTreasury["PACTreasury.sol<br/>(PAC Funds)"]
-    ImpactRegistry["ImpactRegistry.sol<br/>(Public Scoring)"]
+    ProofOfWork["ProofOfWork.sol<br/>(Civic Labor Verification)"]
+    BountyProtocol["BountyProtocol.sol<br/>(Outcome Staking)"]
+    OutcomeOracle["OutcomeOracle.sol<br/>(Achievement Verification)"]
+    PrizeVault["PrizeVault.sol<br/>(Direct Payments)"]
     
-    CorporateTreasury --> Infrastructure["Infrastructure<br/>PAC Overhead<br/>Smart Contracts"]
-    PACTreasury --> Politicians["Representative<br/>Funding Based<br/>on Impact Scores"]
-    ImpactRegistry --> Scores["Algorithmic<br/>Responsiveness<br/>Scoring"]
-    
-    Employees["Employees/<br/>Shareholders"] --> PACTreasury
     Citizens["Citizens"] --> Templates["Template<br/>Creation"]
-    Templates --> ImpactRegistry
+    Templates --> ProofOfWork
+    ProofOfWork --> VOTERTokens["VOTER Token<br/>Rewards"]
+    VOTERTokens --> BountyProtocol
+    BountyProtocol --> Stakes["Outcome<br/>Stakes"]
+    Stakes --> OutcomeOracle
+    OutcomeOracle --> PrizeVault
+    PrizeVault --> Politicians["Politician<br/>Prize Claims"]
 ```
 
 ## Agent Network Architecture
@@ -43,11 +43,11 @@ VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents 
 
 ### Five Specialized Agents
 
-**VerificationAgent**: Validates civic actions through multi-source verification—adapting thresholds based on action patterns and network conditions. Uses Congressional APIs for delivery confirmation and multi-agent consensus for quality assessment.
+**VerificationAgent** validates civic actions through multi-source verification, adapting thresholds based on emerging action patterns and network conditions. Congressional APIs provide delivery confirmation while multi-agent consensus ensures quality assessment remains decentralized.
 
-**SupplyAgent**: Dynamically adjusts VOTER token minting rates based on participation levels, economic conditions, and governance goals. Prevents inflation while maintaining engagement incentives.
+**SupplyAgent** dynamically adjusts VOTER token minting rates responding to participation levels, economic conditions, and evolving governance goals. Inflation prevention balances with engagement incentives through real-time algorithmic optimization.
 
-**MarketAgent**: Monitors and optimizes economic incentives to maintain sustainable engagement without distorting democratic authenticity. Tracks challenge market performance and reputation scoring accuracy.
+**MarketAgent** monitors and optimizes economic incentives maintaining sustainable engagement without corrupting democratic authenticity. Challenge market performance tracking ensures reputation scoring accuracy reflects actual civic contribution.
 
 **ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems. Collects from media coverage, social networks, congressional records, and direct template citations.
 
@@ -55,21 +55,13 @@ VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents 
 
 ### Multi-Provider Verification
 
-Agent consensus operates through OpenRouter's 100+ model ecosystem:
-- **Major Providers**: OpenAI, Anthropic, Google (33% weight)
-- **International Models**: Mistral (French), Cohere (Canadian), Alibaba (Chinese) (34% weight)  
-- **Open Source**: Llama, Mixtral, local models run by staked operators (33% weight)
+Agent consensus operates through [OpenRouter's 100+ AI models](https://openrouter.ai/docs) distributed across three equal weight classes. Major providers like OpenAI, Anthropic, and Google carry thirty-three percent weight. International models from Mistral, Cohere, and Alibaba represent thirty-four percent. Open source implementations including Llama, Mixtral, and local models operated by staked validators complete the final thirty-three percent.
 
-No single provider can manipulate verification outcomes. Agents must reach consensus across diverse model classes for any action to be validated.
+No single provider can manipulate verification outcomes. Agents must achieve consensus across diverse model classes before any action receives validation.
 
 ### Dynamic Parameter Calibration
 
-Unlike traditional protocols with hardcoded constants, VOTER's infrastructure continuously calibrates:
-
-- **Reward calculations** adapt based on civic impact measurement rather than fixed "10 VOTER per message" rules
-- **Verification thresholds** adjust based on network conditions and spam detection patterns  
-- **Economic incentives** evolve to maintain authentic democratic participation vs. speculative gaming
-- **Governance proposals** emerge from system analysis of community needs and participation patterns
+Unlike traditional protocols trapped by hardcoded constants, VOTER infrastructure continuously calibrates based on observed democratic behavior. Reward calculations adapt to measured civic impact rather than arbitrary "ten tokens per message" rules. Verification thresholds adjust responding to network conditions and emerging spam patterns. Economic incentives evolve maintaining authentic democratic participation while preventing speculative gaming. Governance proposals emerge from systematic analysis of community needs rather than founder preferences.
 
 ### ERC-8004 Implementation Strategy
 
@@ -96,26 +88,22 @@ Unlike traditional protocols with hardcoded constants, VOTER's infrastructure co
 ## Technical Implementation
 
 ### Smart Contract Stack
-- **CommuniqueCore.sol**: Orchestration and reward distribution
-- **VOTERToken.sol**: ERC-20 with staking and governance extensions
-- **VOTERRegistry.sol**: Identity verification and action tracking
+- **ProofOfWork.sol**: Civic labor verification and VOTER token distribution
+- **BountyProtocol.sol**: Outcome staking and prize pool management
+- **OutcomeOracle.sol**: Multi-agent achievement verification
+- **PrizeVault.sol**: Direct politician prize claiming
+- **VOTERToken.sol**: ERC-20 bridge between civic work and outcomes
+- **VOTERRecords.sol**: Soulbound reputation and anti-sybil defense
 - **AgentConsensus.sol**: Multi-provider verification coordination
-- **AgentParameters.sol**: Dynamic parameter management with bounds
 - **ChallengeMarket.sol**: Information quality dispute resolution
 
 ### Infrastructure Integration
 
 **Identity Verification**: Zero-cost verification via Didit.me
-- ID verification, face match, passive liveness
-- No PII stored on-chain
-- Congressional district mapping for geographic correlation
-- Premium compliance options ($0.35 AML, $0.50 proof of address)
+Didit.me provides free forever core KYC including ID verification, face match, and passive liveness detection without storing PII on-chain. Congressional district mapping enables geographic correlation while premium compliance options ($0.35 AML screening, $0.50 proof of address) serve institutional requirements.
 
 **Congressional API Integration**: Communicating with Congress (CWC)
-- Secure XML schema with rate limits
-- Delivery confirmations for both House and Senate
-- Multi-agent verification of message quality
-- Cryptographic receipts pinned to IPFS
+Both House and Senate route constituent messages through CWC's secure XML schema with built-in rate limits. Delivery confirmations provide cryptographic proof of message receipt. Multi-agent verification ensures message quality while receipts get pinned to IPFS for permanent verification.
 
 **Agent Infrastructure**:
 - LangGraph coordination between specialized agents
@@ -165,38 +153,46 @@ VOTER Token Reward → Reputation Update → Congressional Routing Priority
 
 ### Infrastructure That Never Sleeps
 
-**Corporate Treasury: What Happens When Backrooms Meet Blockchain?**
+**Prize Vault: Direct Politician Rewards**
 
-Microsoft PAC operates in backrooms. We operate on blockchain. The difference? Every grant proposal becomes public record. Every vote gets recorded permanently. Every purpose must be validated by smart contracts.
+Politicians earn transparent prizes for achieving what citizens want. No intermediaries, no backroom deals, no corporate treasuries. Citizens stake tokens on outcomes, politicians claim prizes for delivery.
 
-What does multi-sig governance actually prevent? Capture—while enabling rapid infrastructure development that never stops building democratic capacity.
+The difference from traditional funding? Every stake visible, every achievement verified, every prize claim public. Transparent taxable income replacing dark money influence.
 
-**Revolutionary Mechanisms:**
-- Transparent grant allocation—no more black box infrastructure funding
-- Multi-signature governance that prevents single-party control
-- Smart contract validation of purposes: infrastructure, development, audits, overhead
-- Real-time transparency that makes traditional corporate opacity look primitive
+**Revolutionary Prize Mechanics:**
+- Direct staking on policy outcomes—no PAC intermediaries
+- Multi-agent verification of achievements—no subjective scoring  
+- Algorithmic prize distribution—no executive decisions
+- Real-time transparency that makes corporate PACs look primitive
 
-Why should corporate treasuries hide their decisions? They shouldn't—and now they can't.
+Why should political funding flow through corporate treasuries? It shouldn't—and now it doesn't.
 
-**PAC Treasury: Can Math Kill Plutocracy?**
+**Bounty Protocol: Can Citizens Price Political Change?**
 
-What happens when smart contracts enforce FEC limits automatically? No human error. No regulatory violations. No backroom decisions about who gets funded—just algorithmic compliance that makes traditional PACs look primitive.
+What happens when citizens can directly fund political outcomes? Markets for policy that bypass traditional campaign finance entirely. Stake tokens on the four-day work week ordinance. Politicians who deliver claim transparent prizes.
 
 **Revolutionary Funding Architecture:**
-- Smart contract FEC enforcement: automatic, auditable, unbreakable
-- Quadratic funding mathematics: many small voices amplified; whale dominance mathematically diminished  
-- Restricted class solicitation—because legal compliance isn't optional
-- Algorithmic funding decisions that replace executive meetings entirely
-- Real-time transparency that makes quarterly reports look like cave paintings
+- Quadratic staking mathematics: many small voices amplified; whale dominance mathematically diminished  
+- Multi-agent consensus prevents manipulation—no single truth source
+- Direct outcome verification through public records—no subjective interpretation
+- Market-driven prize pools that replace traditional fundraising entirely
+- Real-time transparency that makes quarterly PAC reports look like cave paintings
 
 **The Mathematics of Democracy:**
-Why does quadratic math matter? Simple: 100 people contributing $10 each generates more matching funds than 1 person contributing $1000. Square root scaling ensures that community consensus beats concentrated wealth; maximum 10x amplification prevents runaway scenarios while preserving voice amplification.
+Why does quadratic math matter? Simple: 100 people staking $10 each creates more prize money than 1 person staking $1000. Square root scaling ensures that community consensus beats concentrated wealth; maximum 10x amplification prevents runaway scenarios while preserving voice amplification.
 
-**Legal Innovation Through Transparency:**
-We use the same legal structure Microsoft and Google use—except everything happens on blockchain. Individual contribution limits? Enforced by smart contracts. Election cycle restrictions? Coded into the mathematics. Reporting requirements? Real-time and permanent. 
+**Protocol Innovation Beyond Compliance:**
+We're not improving corporate PACs—we're making them obsolete. Citizens stake directly on outcomes. Politicians earn directly for results. Everything traceable, auditable, immutable. The first market for political change in history.
 
-Fifty years of corporate PAC precedent meets radical transparency. The law doesn't change—the implementation becomes revolutionary.
+## Sources
+
+1. ERC-8004: Trustless Agents, https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md
+2. Monad Docs, https://docs.monad.xyz
+3. House.gov, "Communicating with Congress (CWC) Overview," https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc
+4. House.gov, "CWC Advocacy Vendor Level of Service Standards," https://www.house.gov/sites/default/files/uploads/documents/cwc-advocacy-vendor-level-of-service-standards.pdf
+5. Didit.me Documentation, https://docs.didit.me
+6. Didit.me Features, "Free Forever Core KYC with Premium Compliance Options," https://didit.me/features
+7. OpenRouter Documentation, https://openrouter.ai/docs
 
 ### Minds Changed, Not Messages Sent
 
@@ -296,7 +292,7 @@ Democracy stops being something you inherit or purchase. It becomes something yo
 
 **ERC-8004 was built for AI agents. We extended it to humans. Now both can coordinate.**
 
-What does this actually mean? Three revolutionary registries create coordination infrastructure that serves both artificial and human intelligence:
+What does this actually mean? Three registries create coordination infrastructure that serves both artificial and human intelligence:
 
 **IdentityRegistry**: Portable civic identity that works across every democratic platform—human or AI-operated.
 **ReputationRegistry**: Cross-platform credibility that follows participants everywhere they engage democratically.  
@@ -341,7 +337,7 @@ Critical functions require multiple signatures—because power concentration cor
 Smart contracts enforce limits that humans can't override. Humans set the boundaries that agents can't exceed. Mathematics prevents manipulation that governance can't detect.
 
 **The Formula for Trust:**
-Multi-sig governance + parametric bounds + emergency controls = infrastructure that stays revolutionary without becoming reckless.
+Multi-sig governance + parametric bounds + emergency controls = infrastructure that enables political innovation without becoming reckless.
 
 ### Zero-Cost Identity Infrastructure
 

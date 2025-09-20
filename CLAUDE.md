@@ -41,6 +41,144 @@ The VOTER Protocol provides blockchain infrastructure for democratic participati
 - **TemplateRegistry.sol** - Template storage and verification
 - **IdentityRegistry.sol** - Zero-knowledge identity verification
 
+## Solidity Code Quality Standards
+
+### CRITICAL: Smart Contract Security - ZERO TOLERANCE
+
+**THIS IS NON-NEGOTIABLE: We enforce STRICT Solidity best practices with ZERO exceptions.**
+
+#### Security Requirements (MANDATORY):
+- ✅ **Check-Effects-Interactions pattern** - Always update state before external calls
+- ✅ **Reentrancy guards** - Use OpenZeppelin's ReentrancyGuard on all public functions
+- ✅ **Integer overflow protection** - Solidity 0.8+ automatic checks
+- ✅ **Access control** - Every function must have appropriate modifiers
+- ✅ **Input validation** - Validate ALL inputs with require() statements
+- ✅ **Event emission** - Emit events for all state changes
+
+#### Forbidden Practices (NEVER use these):
+- ❌ **NEVER use `tx.origin`** - Use msg.sender for authentication
+- ❌ **NEVER use `block.timestamp` for randomness** - Miners can manipulate
+- ❌ **NEVER use `delegatecall` to untrusted contracts** - Code injection risk
+- ❌ **NEVER use `selfdestruct`** - Deprecated and dangerous
+- ❌ **NEVER leave functions without access control** - All functions need appropriate modifiers
+- ❌ **NEVER use floating pragma** - Lock to specific compiler version
+
+#### Required Patterns:
+```solidity
+// ✅ CORRECT - Proper function structure
+function submitAction(
+    uint256 actionId,
+    bytes calldata data
+) external 
+    nonReentrant 
+    whenNotPaused 
+    onlyVerified 
+{
+    // 1. Checks (input validation)
+    require(actionId > 0, "Invalid action ID");
+    require(data.length > 0, "Empty data");
+    
+    // 2. Effects (state changes)
+    actions[msg.sender][actionId] = Action({
+        data: data,
+        timestamp: block.timestamp,
+        status: ActionStatus.Pending
+    });
+    
+    // 3. Interactions (external calls)
+    emit ActionSubmitted(msg.sender, actionId, data);
+}
+
+// ❌ WRONG - Vulnerable pattern
+function submitAction(uint256 actionId, bytes calldata data) public {
+    // No access control, no reentrancy guard, no validation
+    externalContract.call(data); // External call before state change
+    actions[msg.sender][actionId] = data; // State change after
+}
+```
+
+#### Gas Optimization Requirements:
+```solidity
+// ✅ CORRECT - Gas efficient
+contract VOTERToken {
+    // Pack structs efficiently
+    struct Action {
+        uint128 amount;      // Pack smaller types together
+        uint64 timestamp;    
+        uint64 actionId;
+        address user;        // 20 bytes
+        bool verified;       // 1 byte
+    }
+    
+    // Use mappings over arrays for lookups
+    mapping(address => Action[]) public userActions;
+    
+    // Cache array length in loops
+    function processActions(uint256[] memory ids) external {
+        uint256 length = ids.length;
+        for (uint256 i; i < length;) {
+            // Process
+            unchecked { ++i; }  // Gas efficient increment
+        }
+    }
+}
+```
+
+#### Testing Requirements:
+```solidity
+// Every contract MUST have comprehensive tests
+contract VOTERTokenTest is Test {
+    function setUp() public {
+        // Setup test environment
+    }
+    
+    function test_RevertWhen_Unauthorized() public {
+        vm.expectRevert("Unauthorized");
+        token.mint(address(this), 100);
+    }
+    
+    function test_Success_ValidMint() public {
+        vm.prank(minter);
+        token.mint(user, 100);
+        assertEq(token.balanceOf(user), 100);
+    }
+    
+    function testFuzz_MintAmount(uint256 amount) public {
+        vm.assume(amount < type(uint256).max);
+        // Fuzz test
+    }
+}
+```
+
+### Foundry Commands:
+```bash
+# Build and test
+forge build          # Compile contracts
+forge test           # Run all tests
+forge test -vvv      # Verbose test output
+forge coverage       # Check test coverage
+
+# Security
+forge fmt            # Format code
+slither .            # Static analysis
+mythril analyze      # Security analysis
+
+# Gas optimization
+forge snapshot       # Gas usage snapshot
+forge test --gas-report
+```
+
+### Pre-deployment Checklist:
+- [ ] All tests passing with >95% coverage
+- [ ] Slither analysis shows no high/medium issues
+- [ ] Gas optimization completed
+- [ ] Multi-sig setup configured
+- [ ] Emergency pause mechanism tested
+- [ ] Audit report reviewed and issues fixed
+- [ ] Deployment script tested on testnet
+
+**Remember: Smart contract bugs are irreversible and can lose millions. Every line of code must be secure.**
+
 ## Key Development Concepts
 
 ### Compliance Posture
