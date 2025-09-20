@@ -179,6 +179,182 @@ forge test --gas-report
 
 **Remember: Smart contract bugs are irreversible and can lose millions. Every line of code must be secure.**
 
+## TypeScript Code Quality Standards
+
+### 🚨 NUCLEAR-LEVEL TYPESCRIPT STRICTNESS - ABSOLUTE ZERO TOLERANCE 🚨
+
+**SMART CONTRACTS AREN'T THE ONLY CODE THAT NEEDS TO BE PERFECT. EVERY TYPESCRIPT FILE IN THIS REPO MUST MEET THE SAME UNCOMPROMISING STANDARDS.**
+
+**EVERY SINGLE TYPE SHORTCUT COSTS US DEVELOPMENT TIME. EVERY `any` TYPE LEADS TO PRODUCTION BUGS. EVERY TYPE SUPPRESSION COMMENT CREATES TECHNICAL DEBT.**
+
+#### ⚡ INSTANT PR REJECTION CRITERIA ⚡
+**Any PR containing these patterns will be INSTANTLY REJECTED without review:**
+
+- ❌ **`any` type usage** - No exceptions, no "temporary" uses, no "quick fixes"
+- ❌ **`@ts-ignore` comments** - Fix the fucking type issue, don't silence it
+- ❌ **`@ts-nocheck` comments** - Every single file MUST be type-checked
+- ❌ **`@ts-expect-error` comments** - Fix the code, not suppress the error
+- ❌ **`as any` casting** - Use proper type guards and type assertions
+- ❌ **`Record<string, any>` patterns** - Define proper interfaces
+- ❌ **`(obj as any).property` access** - Define proper object types
+- ❌ **`unknown` misuse as `any` substitute** - Use proper type narrowing
+- ❌ **Generic function parameters without constraints** - Always constrain generics
+- ❌ **Loose object casting like `data as SomeType`** - Use type guards
+
+#### 💀 CONSEQUENCES OF TYPE VIOLATIONS 💀
+- **Immediate PR rejection** - No discussion, no exceptions
+- **Forced refactoring** - Violating code must be completely rewritten
+- **Build failure** - CI will fail and block deployments
+- **Code review rejection** - Reviewers are instructed to reject without mercy
+
+#### ✅ MANDATORY TYPE PRACTICES ✅
+**Every line of code MUST follow these practices:**
+
+- ✅ **Explicit types for ALL function parameters and returns**
+- ✅ **Comprehensive interfaces for ALL data structures**
+- ✅ **Type guards for ALL runtime validation**
+- ✅ **Discriminated unions for ALL variant types**
+- ✅ **Exhaustive type checking in ALL switch statements**
+- ✅ **Proper generic constraints for ALL generic functions**
+- ✅ **Strict null checks enabled and enforced**
+- ✅ **No implicit any configurations**
+
+### Web3 TypeScript Best Practices
+
+#### Smart Contract Interaction Types:
+```typescript
+// ✅ CORRECT - Proper Web3 typing
+import type { Contract, ContractTransaction, BigNumber } from 'ethers';
+
+interface VOTERTokenInterface {
+  mint(to: string, amount: BigNumber): Promise<ContractTransaction>;
+  balanceOf(account: string): Promise<BigNumber>;
+  transfer(to: string, amount: BigNumber): Promise<ContractTransaction>;
+}
+
+// Type guard for contract responses
+function isValidTransactionResponse(
+  response: unknown
+): response is ContractTransaction {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'hash' in response &&
+    'wait' in response
+  );
+}
+
+// ❌ WRONG - Loose Web3 typing
+const contract: any = getContract();
+const result: any = await contract.mint(address, amount);
+```
+
+#### Agent Decision Types:
+```typescript
+// ✅ CORRECT - Strict agent decision typing
+interface SupplyAgentDecision {
+  readonly rewardAmount: BigNumber;
+  readonly baseRewardUSD: number;
+  readonly multipliers: {
+    readonly participationScore: number;
+    readonly marketConditions: number;
+    readonly timeDecay: number;
+  };
+  readonly reasoning: string;
+  readonly confidence: number;
+  readonly timestamp: number;
+  readonly validUntil: number;
+}
+
+function isSupplyAgentDecision(value: unknown): value is SupplyAgentDecision {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'rewardAmount' in value &&
+    'multipliers' in value &&
+    typeof (value as SupplyAgentDecision).confidence === 'number'
+  );
+}
+
+// ❌ WRONG - Loose agent typing
+const decision: any = await supplyAgent.makeDecision();
+const amount = decision.rewardAmount; // No type safety
+```
+
+#### Blockchain Event Types:
+```typescript
+// ✅ CORRECT - Proper event typing
+interface VoterActionEvent {
+  readonly transactionHash: string;
+  readonly blockNumber: number;
+  readonly args: {
+    readonly user: string;
+    readonly actionId: BigNumber;
+    readonly rewardAmount: BigNumber;
+    readonly timestamp: BigNumber;
+  };
+}
+
+// Type-safe event filtering
+function filterVoterActionEvents(
+  events: unknown[]
+): VoterActionEvent[] {
+  return events.filter((event): event is VoterActionEvent => {
+    return (
+      typeof event === 'object' &&
+      event !== null &&
+      'args' in event &&
+      typeof (event as VoterActionEvent).transactionHash === 'string'
+    );
+  });
+}
+```
+
+### ⚡ ENFORCEMENT PROTOCOL ⚡
+
+#### Pre-Commit Requirements (ALL MUST PASS):
+```bash
+# These commands MUST return ZERO errors or the commit is REJECTED:
+npm run typecheck     # TypeScript compilation check
+npm run lint:strict   # Zero-tolerance ESLint check
+forge build          # Smart contract compilation
+forge test           # Contract tests must pass
+npm run test         # TypeScript tests must pass
+```
+
+#### Development Workflow Requirements:
+- **Before every commit**: Run all type-checking commands
+- **Before every PR**: Verify 0 TypeScript errors
+- **During development**: Use `npx tsc --noEmit --watch` for real-time checking
+- **In CI/CD**: Automated rejection of any type violations
+
+#### Code Review Standards:
+- **Any `any` type = INSTANT REJECTION**
+- **Any type suppression = INSTANT REJECTION**
+- **Any loose casting = INSTANT REJECTION**
+- **Any missing interface = REQUIRES IMMEDIATE FIX**
+
+### 💰 THE REAL COST OF TYPE SHORTCUTS 💰
+**Why we're this fucking strict:**
+
+- **Smart contracts lose millions** when types are wrong
+- **Agent decisions fail** when data structures are loose
+- **Production bugs** caused by runtime type mismatches
+- **Technical debt** that compounds over time
+- **Developer frustration** from dealing with type chaos
+
+**EVERY TYPE SHORTCUT COSTS MORE TIME THAN DOING IT RIGHT THE FIRST TIME.**
+
+### 🎯 ZERO EXCEPTIONS POLICY 🎯
+**No matter who you are, no matter how "urgent" the feature:**
+- **No temporary `any` types** - There is no such thing as "temporary"
+- **No "quick fixes" with type suppression** - Fix the actual issue
+- **No "I'll fix it later" type violations** - Fix it now or don't commit
+- **No "it's just a test" exceptions** - Tests must be strictly typed too
+- **No "Web3 is hard to type" excuses** - Use proper Web3 type libraries
+
+**Remember: We're building financial infrastructure that handles real money. Type safety isn't negotiable.**
+
 ## Key Development Concepts
 
 ### Compliance Posture
