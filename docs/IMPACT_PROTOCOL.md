@@ -26,7 +26,7 @@ Everything traceable. Everything auditable. Everything transparent.
 
 ## Information Creates Outcomes
 
-Citizens create templates that appear in congressional communications. Representatives cite that language in speeches and votes. Position changes become observable through public records. Citizens stake tokens on the outcomes they want those positions to create.
+Citizens create templates that appear in congressional communications; representatives cite that language in speeches and votes; position changes become observable through public records. Citizens stake tokens on the outcomes they want those positions to create.
 
 When politicians achieve those outcomes, they claim direct rewards. Template creators who contributed get bonus payments. Democracy starts rewarding learning over ideology.
 
@@ -74,9 +74,9 @@ First transparent reward system for political outcomes in history.
 
 ## Fifty Years vs Blockchain
 
-Fifty years of corporate PACs gave us executive control with zero citizen input. Quarterly disclosure hiding decisions made in secret meetings. Backroom dealing serving boardrooms instead of democracy. Opacity as standard operating procedure.
+Fifty years of corporate PACs: executive control with zero citizen input; quarterly disclosure hiding secret decisions; backroom dealing serving boardrooms instead of democracy; opacity as standard operating procedure.
 
-Blockchain changes everything. Algorithmic control based on measurable citizen impact. Real-time disclosure where every decision lives permanently on-chain. Direct scoring of representative responsiveness, not party loyalty. On-chain decision making that makes backrooms obsolete.
+Blockchain changes everything: algorithmic control based on measurable citizen impact; real-time disclosure where every decision lives permanently on-chain; direct scoring of representative responsiveness, not party loyalty; on-chain decision making that makes backrooms obsolete.
 
 Innovation within legal boundaries using established corporate structures enhanced with blockchain transparency.
 

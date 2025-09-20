@@ -29,10 +29,7 @@ When legislators quote template language verbatim, that's observable. A template
 Observable position evolution happens. A legislator consistently votes one way, receives thousands of coordinated messages with specific information, then votes differently. We track that pattern.
 
 **Observable indicators:**
-- Historical voting record on similar issues
-- Volume and timing of constituent template messages
-- Subsequent voting behavior changes
-- Public statements referencing constituent input
+Historical voting record on similar issues; volume and timing of constituent template messages; subsequent voting behavior changes; public statements referencing constituent input.
 
 **Confidence scoring:**
 - High confidence: Position change immediately follows mass campaign with new information
@@ -44,10 +41,7 @@ Observable position evolution happens. A legislator consistently votes one way, 
 When citizen-proposed language appears in actual legislation, that's measurable. Templates suggest specific policy fixes. Amendments incorporate that exact language. We document the connection.
 
 **Tracking methodology:**
-- Text similarity analysis between template proposals and amendment language
-- Temporal tracking from template creation to amendment introduction
-- Attribution chain from template creator to legislative sponsor
-- Public record of committee discussions referencing constituent input
+Text similarity analysis between template proposals and amendment language; temporal tracking from template creation to amendment introduction; attribution chain from template creator to legislative sponsor; public record of committee discussions referencing constituent input.
 
 ## The ImpactAgent: Building Causal Models and Correlation Maps
 

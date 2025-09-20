@@ -76,11 +76,11 @@ Partnership with political content creators amplifies verified information inste
 
 ### Meaningful Feedback Loops
 
-Template creation produces content with verifiable claims that others adopt for coordinated campaigns. Citizens stake tokens on desired policy changes while multi-agent systems track achievement verification. Politicians earn transparent income for demonstrated responsiveness. Template creators receive bonuses when their work contributes to successful outcomes. Credibility scores reflect actual political influence rather than theoretical engagement.
+Template creation produces content with verifiable claims that others adopt for coordinated campaigns; citizens stake tokens on desired policy changes while multi-agent systems track achievement verification; politicians earn transparent income for demonstrated responsiveness; template creators receive bonuses when their work contributes to successful outcomes. Credibility scores reflect actual political influence rather than theoretical engagement.
 
 ### Sustained Engagement
 
-Civic engagement streaks encourage consistent participation without burnout. Long-term outcome tracking reveals cumulative impact over electoral cycles. Time-sensitive opportunities capitalize on crucial legislative moments when influence peaks. Guild participation creates community accountability that sustains individual motivation.
+Civic engagement streaks encourage consistent participation without burnout; long-term outcome tracking reveals cumulative impact over electoral cycles; time-sensitive opportunities capitalize on crucial legislative moments when influence peaks. Guild participation creates community accountability that sustains individual motivation.
 
 ### Social Recognition
 

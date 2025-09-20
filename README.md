@@ -8,9 +8,9 @@
 
 While [TRUMP-linked memecoins touched $40B in 24 hours](https://www.aljazeera.com/economy/2025/1/20/trumps-new-meme-coin-and-crypto-token-soar-on-his-first-day-in-office) on Inauguration Day, a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers overnight. When TikTok optimizes for engagement and Robinhood gamifies markets, civic work reads like homework in a world built for dopamine.
 
-The problem isn't technology. It's incentive design. Speculation rewards attention with immediate feedback. Democratic participation offers delayed outcomes with no personal value.
+Corporate PACs spent billions through secret meetings while citizens got form letters. Microsoft's PAC channeled $1.2 million in 2022 with zero citizen input. Every Fortune 500 company has a PAC; none serve actual democracy.
 
-**VOTER changes this.** We create the first market for political outcomes where citizens stake tokens on policy changes and politicians claim direct prizes for delivering results.
+**VOTER makes them obsolete.** Citizens earn tokens through verified civic work, stake them on policy outcomes, politicians claim transparent prizes for delivery. Not campaign contributions—performance bounties. Not quarterly filings—real-time transparency. Not backroom deals—algorithmic governance that rewards minds changed, not loyalty purchased.
 
 ## How It Works
 
@@ -47,7 +47,7 @@ The $140B+ memecoin market proves attention combined with economic incentives cr
 
 **Quality Discourse Pays**: Reputation multipliers reward constructive engagement. Bad faith actors lose stakes and reputation.
 
-**Templates That Change Reality**: When legislators cite template data, change votes after campaigns, or evolve positions based on citizen expertise, creators earn credibility and rewards.
+**Templates That Change Reality**: When legislators cite template data; change votes after campaigns; evolve positions based on citizen expertise—creators earn credibility and rewards.
 
 ## Economic Model
 
@@ -88,10 +88,7 @@ We never reward voting, registering to vote, or choosing candidates per [federal
 We're building infrastructure everyone else needs. Portable reputation via ERC-8004. Verified delivery receipts. Quality information filtering. Cross-platform credibility.
 
 **Strategic Advantages**:
-- First mover in political outcome markets
-- Network effects through reputation portability  
-- Technical integration barriers for competitors
-- International expansion opportunities across parliamentary systems
+First mover in political outcome markets; network effects through reputation portability; technical integration barriers for competitors; international expansion opportunities across parliamentary systems worldwide.
 
 ## The Endgame
 
@@ -99,7 +96,7 @@ Politicians earn millions in transparent prizes for achieving what citizens want
 
 **We don't count responses. We count minds changed.**
 
-Templates cause information flow. Information causes position changes. Changed positions get funded. Democracy starts rewarding learning over ideology.
+Templates cause information flow; information causes position changes; changed positions get funded. Democracy starts rewarding learning over ideology.
 
 ## Legal Innovation Through Transparency
 

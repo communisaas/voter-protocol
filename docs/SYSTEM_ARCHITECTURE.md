@@ -97,39 +97,62 @@ Unlike traditional protocols trapped by hardcoded constants, VOTER infrastructur
 - **AgentConsensus.sol**: Multi-provider verification coordination
 - **ChallengeMarket.sol**: Information quality dispute resolution
 
-### Infrastructure Integration
+### Infrastructure Integration: Breaking Down Barriers
 
-**Identity Verification**: Zero-cost verification via Didit.me
-Didit.me provides free forever core KYC including ID verification, face match, and passive liveness detection without storing PII on-chain. Congressional district mapping enables geographic correlation while premium compliance options ($0.35 AML screening, $0.50 proof of address) serve institutional requirements.
+**Identity Verification: Democracy Without Economic Gatekeeping**
 
-**Congressional API Integration**: Communicating with Congress (CWC)
-Both House and Senate route constituent messages through CWC's secure XML schema with built-in rate limits. Delivery confirmations provide cryptographic proof of message receipt. Multi-agent verification ensures message quality while receipts get pinned to IPFS for permanent verification.
+Why should civic participation cost money? It shouldn't—and now it doesn't.
 
-**Agent Infrastructure**:
-- LangGraph coordination between specialized agents
-- Temporal workflows for complex civic action verification
-- ChromaDB vector memory for agent learning
-- N8N automation pipelines for civic actions
+Didit.me provides free forever core KYC: ID verification, face match, passive liveness detection without storing personal information on-chain. Congressional district mapping enables geographic correlation for democratic routing while premium compliance options ($0.35 AML screening, $0.50 proof of address) serve institutional requirements only when needed.
 
-**Security Architecture**:
-- Multi-sig governance with emergency pause functionality
-- Comprehensive smart contract auditing requirements
-- Redundant oracle networks prevent single points of failure
-- No PII stored on-chain while maintaining verification capabilities
+**The Revolution**: Zero-cost identity verification removes the largest barrier to authentic civic participation at scale.
 
-### Data Flow Architecture
+**Congressional API Integration: Direct Democracy Infrastructure**
+
+Why should citizen messages disappear into bureaucratic voids? They shouldn't—and now they don't.
+
+Both House and Senate route constituent messages through CWC's secure XML schema with built-in rate limits; delivery confirmations provide cryptographic proof of message receipt; multi-agent verification ensures message quality while receipts get pinned to IPFS for permanent verification.
+
+**The Result**: Citizens get cryptographic proof their voices reached legislators; legislators get verified constituent input instead of spam.
+
+**Agent Infrastructure: Intelligence That Serves Democracy**
+
+Why should civic verification depend on centralized human reviewers? It shouldn't—and now it doesn't.
+
+- **LangGraph coordination** between specialized agents that learn democratic patterns
+- **Temporal workflows** for complex civic action verification that humans couldn't scale  
+- **ChromaDB vector memory** enabling agents to learn from democratic participation patterns
+- **N8N automation pipelines** connecting civic actions to real-world legislative consequences
+
+**Security Architecture: Democracy Without Single Points of Failure**
+
+Why should democratic infrastructure depend on any single entity? It shouldn't—and now it doesn't.
+
+- **Multi-sig governance** with emergency pause functionality that prevents capture while enabling evolution
+- **Comprehensive auditing** requirements ensuring smart contract security matches institutional standards
+- **Redundant oracle networks** preventing single points of failure that could manipulate democratic truth
+- **Zero PII on-chain** while maintaining verification capabilities that prove civic participation
+
+**The Result**: Democratic infrastructure that can't be captured, manipulated, or shut down by any single entity.
+
+### Data Flow Architecture: Democracy That Learns
+
+**Why should civic participation create dead-end messages? It shouldn't—and now it doesn't.**
 
 ```
 Citizen Action → Multi-Agent Verification → Cryptographic Receipt → 
 VOTER Token Reward → Reputation Update → Congressional Routing Priority
 ```
 
-1. **Action Submission**: Citizen creates template or sends message
-2. **Multi-Source Verification**: Agents verify through diverse models
-3. **Congressional Delivery**: CWC API confirms message delivery
-4. **Impact Tracking**: ImpactAgent monitors policy responses
-5. **Reward Distribution**: SupplyAgent calculates dynamic rewards
-6. **Reputation Building**: ReputationAgent updates cross-platform credibility
+**The Revolutionary Flow**:
+1. **Action Submission**: Citizens create templates or send messages that matter
+2. **Multi-Source Verification**: Agents verify quality through diverse AI models—no single truth source
+3. **Congressional Delivery**: CWC API provides cryptographic proof of legislative receipt
+4. **Impact Tracking**: ImpactAgent monitors whether templates actually change minds
+5. **Reward Distribution**: SupplyAgent calculates dynamic rewards based on real democratic impact
+6. **Reputation Building**: ReputationAgent creates portable credibility that follows you across every platform
+
+**The Result**: Civic participation becomes verifiable infrastructure that builds influence over time.
 
 **3. CivicActionRegistry.sol**
 - Event-driven civic action recording with minimal storage

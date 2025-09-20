@@ -40,13 +40,13 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 
 ## Next Steps
 
-**Critical Tasks:**
-- CWC adapter for mail routing verification
-- Observability: metrics, anomaly detection
-- Agent coordination deployment
-- Challenge market launch
-- Governance: timelock/DAO for role/param changes; guardian pause
-- E2E tests: agent‑consensus path; param override behavior; caps invariants
+**Building the Revolution:**
+- CWC adapter connecting citizen messages to legislative reality
+- Observability infrastructure that catches manipulation before it spreads
+- Agent coordination deployment—death to hardcoded parameters
+- Challenge market launch—quality discourse finally pays
+- Governance systems that prevent capture while enabling evolution
+- End-to-end verification that agents stay within mathematical boundaries
 - **Impact Verification Infrastructure:**
   - Develop `ImpactAgent` to track template influence on legislative behavior
   - Monitor floor speeches and committee testimony for template talking points
@@ -80,11 +80,11 @@ Deploy on Monad with zero-cost identity verification that removes all barriers t
 - ERC-8004 reputation system creating portable credibility across all democratic platforms
 - Community building phase before full economic activation—prove engagement patterns first
 
-**Victory Conditions:**
-- 1,000+ verified participants proving zero-cost identity verification works at scale
-- Challenge markets functioning with community consensus—not centralized control
-- Proven civic engagement patterns that demonstrate sustainable democratic participation
-- Zero critical security incidents showing infrastructure reliability
+**Revolutionary Proof:**
+- 1,000+ verified participants proving zero-cost identity removes all barriers to civic engagement
+- Challenge markets operating through community consensus—centralized control becomes obsolete
+- Sustainable democratic participation patterns that prove engagement without economic gatekeeping works
+- Security infrastructure that protects democracy without surveillance
 
 ### Phase 2: Proof of Impact (Months 3-4)
 
@@ -99,11 +99,11 @@ Track observable patterns that prove causation, not just correlation:
 - Launch public impact dashboard showing real democratic influence
 - No electoral funding yet—prove impact first, monetize later
 
-**Victory Conditions:**
-- Agent-determined correlation thresholds that demonstrate statistical significance
-- High-confidence correlations above mathematically calculated confidence levels
-- Public dashboard with transparent methodology anyone can audit
-- Community consensus validating impact measurement approach
+**Proof of Causation:**
+- Agent-determined confidence thresholds proving templates actually change legislative behavior
+- High-confidence correlations that survive mathematical scrutiny and challenge market validation
+- Public methodology so transparent that anyone can verify our democracy claims
+- Community consensus on impact measurement—not top-down truth declaration
 
 ### Phase 3: Living Infrastructure (Months 5-6)
 
@@ -118,11 +118,11 @@ Deploy agent-driven optimization within mathematical boundaries:
 - Human circuit breakers ensuring agents stay within governance boundaries  
 - Treasury value accumulation through proven civic impact—not speculation
 
-**Victory Conditions:**
-- Agents demonstrably outperform fixed parameters in civic engagement outcomes
-- Zero runaway scenarios—mathematical bounds prevent chaos
-- Successful human interventions when agents approach boundaries
-- Treasury accumulates value according to agent-optimized targets based on real impact
+**Adaptive Democracy Proof:**
+- Agents demonstrably outperform hardcoded parameters—learning beats rigid rules
+- Mathematical boundaries prevent chaos—optimization within safe constraints works
+- Human circuit breakers function when needed—agents serve democracy, not rule it
+- Treasury growth reflects real civic impact rather than speculative token pumping
 
 ### Phase 4: Closing the Loop (Months 7-9)
 
@@ -136,11 +136,11 @@ After proving all previous phases work, introduce electoral components:
 - Fund representatives based on proven learning from citizen input
 - Full transparency dashboard showing the complete loop: template → mind change → funding
 
-**Victory Conditions:**
-- Legal entity properly established with regulatory compliance
-- First funds deployed for issue advocacy based on verified impact
-- 10+ responsive legislators identified through algorithmic measurement
-- Zero regulatory violations—legal compliance with radical transparency
+**Democracy That Pays:**
+- Legal infrastructure enabling transparent political funding without regulatory violations
+- First electoral consequences flowing to representatives who actually respond to constituents
+- Algorithmic measurement identifying legislators who learn from citizen input versus party loyalty
+- Radical transparency that makes traditional PAC secrecy look primitive
 
 ---
 
@@ -181,16 +181,16 @@ Track what legislators do, not think:
 
 ---
 
-## Launch Requirements
-- [ ] CWC pipeline live—verified marks flow to chain
-- [x] Reward/interval clamps and daily caps enforced on-chain
-- [ ] Timelock + guardian pause wired and tested
-- [ ] E2E tests for consensus gateway and param behaviors
-- [ ] Metrics/alerts runbooks—synthetic attack tightens parameters automatically
-- [ ] Documentation updated—sources preserved
-- [ ] Impact tracking infrastructure operational
-- [ ] Template influence verification pipeline complete
-- [ ] Treasury fund allocation governance ready
+## Revolutionary Infrastructure Ready
+- [ ] CWC pipeline connecting citizen messages to legislative verification
+- [x] Mathematical safety rails preventing agent manipulation through hardcoded bounds
+- [ ] Governance systems balancing agent optimization with human oversight
+- [ ] End-to-end verification that consensus mechanisms function under attack
+- [ ] Monitoring infrastructure that catches exploitation and adapts automatically
+- [ ] Documentation proving methodology transparency for community verification
+- [ ] Impact tracking proving templates actually change minds
+- [ ] Template-to-funding pipeline enabling first transparent political prizes
+- [ ] Treasury governance ready for algorithmic fund allocation based on verified responsiveness
 
 ---
 
@@ -233,36 +233,36 @@ Track what legislators do, not think:
 
 ## How We Win
 
-### User Growth
-- **Target**: 10,000+ verified citizens within initial deployment
-- **Victory**: 75% monthly retention rate proves engaging civic infrastructure
-- **Reality Check**: Monthly active users and retention rates
+### Democratic Participation Revolution
+- **The Goal**: 10,000+ verified citizens proving zero-cost identity enables mass civic engagement
+- **Democracy Wins**: 75% retention proving civic infrastructure can compete with social media for attention
+- **Reality**: Monthly active users choosing democracy over dopamine
 
-### Civic Impact
-- **Target**: 50,000+ verified civic actions
-- **Victory**: Representatives responding to verified constituents more than random emails
-- **Reality Check**: Congressional messages sent and community actions taken
+### Civic Action That Matters
+- **The Goal**: 50,000+ verified civic actions creating observable legislative pressure
+- **Democracy Wins**: Representatives responding to template campaigns more than random constituent emails
+- **Reality**: Congressional routing priority for high-reputation participants
 
-### Mind Change Metrics
-- **Target**: 10+ verified legislative position changes from template campaigns
-- **Victory**: Template talking points appearing in 50+ floor speeches
-- **Reality Check**: ImpactAgent tracking of information propagation
-- **Electoral Consequence**: $1M+ directed to responsive legislators
+### Minds Actually Changed
+- **The Goal**: 10+ verified legislative position shifts directly traceable to template campaigns
+- **Democracy Wins**: Template language appearing in 50+ floor speeches with temporal correlation
+- **Reality**: ImpactAgent tracking proving causation, not just correlation
+- **The Prize**: $1M+ flowing to responsive legislators through transparent algorithmic allocation
 
-### Economic Performance
-- **Target**: Sustainable token economics with <5% monthly inflation
-- **Victory**: Treasury accumulation sufficient for electoral impact
-- **Reality Check**: Token distribution, treasury growth, fund deployment rates
+### Economics That Work
+- **The Goal**: Sustainable token mechanics surviving market volatility without breaking incentives
+- **Democracy Wins**: Treasury accumulation enabling electoral consequences while rewarding civic participation
+- **Reality**: Agent-optimized economics that adapt to changing conditions within mathematical bounds
 
-### Electoral Impact
-- **Target**: Support 20+ legislators based on verified learning
-- **Victory**: First template-to-funding loop completion
-- **Reality Check**: Legislators funded, position changes tracked, media coverage
+### Electoral Consequences
+- **The Goal**: 20+ legislators funded based on verified responsiveness to constituent input
+- **Democracy Wins**: First complete template-to-funding cycle proving the system works end-to-end
+- **Reality**: Politicians earning transparent income for learning from citizens rather than following party lines
 
-### Technical Excellence
-- **Target**: 99.9% uptime with sub-3 second response times
-- **Victory**: Zero critical security incidents
-- **Reality Check**: System monitoring and user experience metrics
+### Infrastructure That Scales
+- **The Goal**: 99.9% uptime handling millions of civic actions without breaking
+- **Democracy Wins**: Zero critical security incidents while maintaining radical transparency
+- **Reality**: Infrastructure that enables democratic revolution without compromising on reliability
 
 ---
 
