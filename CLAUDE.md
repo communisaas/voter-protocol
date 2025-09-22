@@ -41,7 +41,55 @@ The VOTER Protocol provides blockchain infrastructure for democratic participati
 - **TemplateRegistry.sol** - Template storage and verification
 - **IdentityRegistry.sol** - Zero-knowledge identity verification
 
-## Solidity Code Quality Standards
+## Code Quality Standards
+
+### 🚨 ABSOLUTE ZERO ESLint ERROR POLICY 🚨
+
+**BASED ON COMMUNIQUE REPO ESLint DISASTER: We learned from 1000+ ESLint errors causing complete development paralysis. This never happens again.**
+
+**ROOT CAUSE ANALYSIS: Inconsistent tooling, unclear standards, and reactive error-fixing created an endless cycle of technical debt.**
+
+#### 🛡️ PREVENTION-FIRST APPROACH (Applies to Communique Integration) 🛡️
+
+**BEFORE writing ANY TypeScript code in Communique integration:**
+1. **Run `npm run lint` locally** - Must show 0 errors before committing
+2. **Configure IDE with ESLint integration** - Real-time error prevention
+3. **Use TypeScript strict mode** - Catch issues at development time
+4. **Follow established patterns** - Don't create new anti-patterns
+
+**CI WILL FAIL ON ANY ESLint ERROR. No exceptions. No "we'll fix it later."**
+
+#### 🔧 TypeScript/ESLint Standards (For Communique Integration)
+
+**Error Handling Patterns (NEVER change these):**
+```typescript
+// ✅ CORRECT - Use error when needed
+try {
+  riskyOperation();
+} catch (error) {
+  console.error('Operation failed:', error);
+  throw error;
+}
+
+// ✅ CORRECT - Anonymous when unused  
+try {
+  simpleOperation();
+} catch {
+  return { success: false };
+}
+
+// ❌ WRONG - Don't prefix used variables
+try {
+  riskyOperation();
+} catch (_error) {
+  console.error('Operation failed:', _error); // ERROR: _error used but prefixed
+}
+```
+
+**Unused Variable Rules:**
+- **Prefix with `_` ONLY if truly unused**: `_error`, `_event`, `_config`
+- **Remove unused imports entirely** - Don't just prefix them
+- **Use destructuring with rest**: `const { used, ..._unused } = obj;`
 
 ### CRITICAL: Smart Contract Security - ZERO TOLERANCE
 
@@ -344,6 +392,18 @@ npm run test         # TypeScript tests must pass
 - **Developer frustration** from dealing with type chaos
 
 **EVERY TYPE SHORTCUT COSTS MORE TIME THAN DOING IT RIGHT THE FIRST TIME.**
+
+### 🆘 Emergency ESLint Recovery Procedure (For Communique Integration)
+
+**If you encounter >100 ESLint errors in Communique codebase:**
+
+1. **STOP IMMEDIATELY** - Don't try to fix them manually
+2. **Revert to last known good commit**: `git reset --hard HEAD~1`
+3. **Run `npm run lint` to verify 0 errors**
+4. **Make smaller, incremental changes**
+5. **Test each change with `npm run lint` before proceeding**
+
+**Never attempt mass automated fixes. They create more problems than they solve.**
 
 ### 🎯 ZERO EXCEPTIONS POLICY 🎯
 **No matter who you are, no matter how "urgent" the feature:**
