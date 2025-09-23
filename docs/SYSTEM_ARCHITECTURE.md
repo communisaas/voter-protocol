@@ -2,21 +2,19 @@
 
 ## Overview
 
-VOTER Protocol provides blockchain infrastructure for the first market for political outcomes. Citizens use Communiqué to earn tokens through verified civic labor, stake those tokens on desired policy changes, and politicians claim direct prizes for delivering results. Pure protocol economics powering democratic engagement platforms.
+VOTER Protocol creates the first market for political outcomes, where citizens directly fund the changes they want to see and politicians earn transparent rewards for delivering results. This isn't another civic engagement platform—it's blockchain infrastructure that makes corporate PACs obsolete.
 
-**ERC-8004 was built for AI agents. We extend it to human civic participants.**
+The architecture starts from a simple observation: ERC-8004 was designed for AI agent coordination, but what if we extended it to human civic participants? The result is infrastructure both humans and AI can use for authentic democratic coordination, where every action is verified, every stake is transparent, and every prize claim is auditable.
 
 ## Architecture Components
 
 ### Hybrid Deployment Strategy
 
-**Primary Execution Layer: Monad**
+We face a fundamental challenge: democracy operates at massive scale with millions of participants, but blockchain infrastructure typically handles thousands. Our solution combines the best of multiple chains to create infrastructure that actually works at democratic scale.
 
-Monad provides high-performance EVM execution designed for civic engagement at democratic scale. Cost-efficient anchoring while core VOTER Protocol contracts—ProofOfWork, BountyProtocol, and OutcomeOracle—handle direct political prize distribution with mathematical precision. Communiqué and other platforms integrate with these contracts.
+Monad serves as our primary execution layer, providing high-performance EVM execution specifically designed for civic engagement volumes. The core VOTER Protocol contracts—ProofOfWork, BountyProtocol, and OutcomeOracle—live here, handling direct political prize distribution with mathematical precision. When citizens stake tokens on policy outcomes or politicians claim prizes, these contracts execute with cost efficiency that makes mass participation viable.
 
-**Optional L2 Mirror: Ethereum Layer 2**
-
-Ethereum Layer 2 mirrors enable ERC-8004 registry consumption by ETH-native applications. Cross-platform reputation portability creates seamless civic credibility transfer. Institutional integration endpoints facilitate enterprise adoption of democratic infrastructure.
+For broader ecosystem compatibility, we maintain optional Ethereum Layer 2 mirrors that enable ERC-8004 registry consumption by ETH-native applications. This creates cross-platform reputation portability where your civic credibility seamlessly transfers between platforms. Institutional partners can integrate through familiar Ethereum infrastructure while benefiting from Monad's performance advantages.
 
 ### Core Smart Contract Architecture
 
@@ -37,69 +35,63 @@ flowchart TB
     Prizes --> Politicians["Politicians"]
 ```
 
-## Agent Network Architecture
+## Agent Network Architecture: Death to Hardcoded Tyranny
 
-VOTER replaces rigid, hardcoded blockchain mechanics with intelligent AI agents that adapt to real human behavior and political dynamics. Rather than fixed parameters, specialized agents optimize for authentic democratic participation.
+Traditional blockchain protocols trap themselves with parameters chosen at launch and frozen forever. A founder decides "10 tokens per action" and that arbitrary number becomes immutable law. But democracy isn't static—it evolves, adapts, learns. VOTER Protocol replaces rigid mechanics with intelligent agents that respond to actual human behavior and political dynamics.
 
-### Five Specialized Agents
+Think about the absurdity of hardcoded parameters: why should rewards be the same during a crucial vote as during congressional recess? Why should spam detection thresholds remain constant as attack patterns evolve? Static systems can't answer these questions, but our agent network can.
 
-**VerificationAgent** validates civic actions through multi-source verification, adapting thresholds based on emerging action patterns and network conditions. Congressional APIs provide delivery confirmation while multi-agent consensus ensures quality assessment remains decentralized.
+### Five Specialized Agents Creating Living Infrastructure
 
-**SupplyAgent** dynamically adjusts VOTER token minting rates responding to participation levels, economic conditions, and evolving governance goals. Inflation prevention balances with engagement incentives through real-time algorithmic optimization.
+The **VerificationAgent** serves as democracy's immune system, validating civic actions through multi-source verification that adapts to emerging patterns. When Congressional APIs confirm message delivery, the agent doesn't just mark it complete—it learns from traffic patterns, adjusts quality thresholds based on network conditions, and maintains decentralized consensus across diverse AI models. During coordinated campaigns, it distinguishes authentic grassroots movements from astroturfing by analyzing participation patterns impossible to fake at scale.
 
-**MarketAgent** monitors and optimizes economic incentives maintaining sustainable engagement without corrupting democratic authenticity. Challenge market performance tracking ensures reputation scoring accuracy reflects actual civic contribution.
+The **SupplyAgent** manages VOTER token economics like a central bank that actually understands its economy. Rather than arbitrary inflation schedules, it dynamically adjusts minting rates based on real participation levels, market conditions, and governance goals. When civic engagement surges during major legislation, rewards scale up to capture momentum. During quiet periods, emissions reduce to prevent dilution. The system breathes with democracy's natural rhythms.
 
-**ImpactAgent**: Measures real civic impact and representative responsiveness to calibrate reward systems. Collects from media coverage, social networks, congressional records, and direct template citations.
+The **MarketAgent** acts as democracy's invisible hand, monitoring economic incentives to maintain authentic engagement without creating perverse incentives. It tracks challenge market performance, adjusts staking requirements based on dispute patterns, and ensures reputation scoring reflects genuine civic contribution rather than gaming. When speculation threatens to overwhelm participation, circuit breakers activate to protect democratic integrity.
 
-**ReputationAgent**: Builds credibility scores from discourse quality and challenge market participation, coordinating priority routing for high-reputation participants. Manages VOTERRecords (soulbound NFTs) and cross-platform reputation portability.
+The **ImpactAgent** answers democracy's hardest question: did this actually change anything? It measures real civic impact by tracking template language in congressional records, monitoring vote pattern changes after coordinated campaigns, and correlating civic actions with legislative outcomes. This isn't correlation-as-causation nonsense—it uses confidence intervals and humble causal claims to measure observable influence without overstating impact.
 
-### Multi-Provider Verification
+The **ReputationAgent** builds democracy's memory, creating credibility scores from discourse quality and challenge market participation. It manages VOTERRecords as soul-bound proof of civic engagement while enabling cross-platform portability through ERC-8004. High-reputation participants earn priority congressional routing and bonus multipliers—your track record becomes your civic capital.
 
-## Agent Consensus Mechanisms
+## Agent Consensus: Preventing AI Capture Through Diversity
 
-Agent consensus operates through [OpenRouter's 100+ AI models](https://openrouter.ai/docs) distributed across three equal weight classes:
+The greatest risk to any AI-governed system is capture by a single provider or model architecture. If OpenAI controls your verification, what happens when their models share systematic biases? If governance depends on one company's API, you've just created a new form of centralization.
 
-**Provider Distribution**:
-- **Major Providers** (33%): OpenAI, Anthropic, Google, xAI
-- **International Models** (34%): Mistral, Cohere, Alibaba  
-- **Open Source** (33%): Llama, Mixtral, locally operated models
+VOTER Protocol prevents this through radical model diversity. Our consensus mechanisms operate through [OpenRouter's 100+ AI models](https://openrouter.ai/docs), but we don't just aggregate opinions—we enforce structural diversity across three equal weight classes.
 
-**Consensus Requirements**:
-- **Standard Actions**: 51% agreement across all provider classes
-- **High-Value Actions** (>$1000): 67% agreement with minimum representation from each class
-- **Parameter Changes**: 75% agreement with human oversight approval
-- **Emergency Actions**: 90% agreement with immediate human review
+Major providers like OpenAI, Anthropic, Google, and xAI comprise 33% of voting weight. Their sophisticated models bring capability, but their shared Silicon Valley training creates potential groupthink. International models from Mistral, Cohere, and Alibaba provide 34% weight, introducing different cultural training and architectural assumptions. Open source models running on distributed infrastructure supply the final 33%, ensuring no corporate entity can capture consensus.
 
-**Conflict Resolution**:
-When agents disagree, conflicts escalate through weighted voting where track record determines influence. Agents with higher accuracy scores on similar historical decisions carry more weight. If disagreement persists above 25%, human arbitrators review with full transparency of all agent reasoning.
+Consensus requirements scale with importance. Standard civic actions need just 51% agreement across provider classes—fast and efficient for routine operations. High-value actions exceeding $1000 require 67% consensus with mandatory representation from each class. Parameter changes demand 75% agreement plus human oversight. Emergency actions trigger 90% thresholds with immediate human review.
 
-No single provider can manipulate verification outcomes. Agents must achieve consensus across diverse model classes before any action receives validation.
+When agents disagree, the system doesn't just average their opinions. Conflicts escalate through weighted voting where historical accuracy determines influence. An agent that correctly predicted similar situations carries more weight than one consistently wrong. If disagreement exceeds 25%, human arbitrators review with complete transparency—every model's reasoning visible, every decision auditable.
 
-### Dynamic Parameter Calibration
+This architecture makes manipulation mathematically expensive. Corrupting one provider means nothing when two other classes disagree. Gaming becomes economically irrational when consensus requires diverse agreement. The result: verification you can trust because no single entity can control it.
 
-Unlike traditional protocols trapped by hardcoded constants, VOTER infrastructure continuously calibrates based on observed democratic behavior. Reward calculations adapt to measured civic impact rather than arbitrary "ten tokens per message" rules. Verification thresholds adjust responding to network conditions and emerging spam patterns. Economic incentives evolve maintaining authentic democratic participation while preventing speculative gaming. Governance proposals emerge from systematic analysis of community needs rather than founder preferences.
+### Dynamic Parameter Calibration: Learning What Democracy Needs
 
-### ERC-8004 Implementation Strategy
+Every blockchain protocol starts with founders making educated guesses about optimal parameters. They choose reward amounts, staking requirements, and voting thresholds based on theory and hope. Then reality hits: users behave differently than expected, market conditions change, attackers find exploits. But those parameters are frozen in smart contracts forever.
 
-**Three Registry Implementation:**
+VOTER infrastructure breaks this pattern through continuous calibration based on observed democratic behavior. Instead of guessing that messages deserve "ten tokens each," we measure which civic actions actually influence outcomes and adjust rewards accordingly. When the ImpactAgent notices templates with certain characteristics consistently change legislative positions, rewards automatically flow toward those patterns.
 
-**1. IdentityRegistry.sol**
-- Incremental IDs with congressional district mapping
-- Privacy-preserving identity without exposing PII
-- Cross-platform portable identity foundation
-- `ParticipantID` system for humans with geographic correlation
+Verification thresholds respond to network realities rather than founder fantasies. During peaceful periods, the system relaxes to encourage participation. When spam attacks emerge, thresholds tighten within minutes, not months of governance debates. The VerificationAgent learns attack signatures and adapts defenses faster than human governance ever could.
 
-**2. ReputationRegistry.sol**
-- Portable credibility with cross-platform verification
-- Domain expertise tracking (healthcare, economy, etc.)
-- Challenge market integration with reputation staking
-- Time decay and growth algorithms for authentic engagement
+Economic incentives evolve through measurement, not ideology. The MarketAgent tracks which reward structures create authentic engagement versus speculation. When certain incentives produce template farms instead of civic participation, parameters adjust to close the loophole. When genuine grassroots campaigns struggle against whale manipulation, quadratic scaling amplifies to restore balance.
 
-**3. ActionRegistry.sol**
-- Immutable record of verified civic actions
-- Congressional API delivery confirmations
-- Template usage tracking with impact correlation
-- Challenge market resolution history
+Governance proposals emerge from data, not politics. Instead of founders or large token holders deciding what the protocol needs, agents analyze participation patterns and surface systematic issues. When the data shows certain districts consistently underparticipate, targeted incentive adjustments activate. When challenge markets reveal information quality problems in specific domains, reputation requirements adapt.
+
+This isn't ungoverned chaos—every parameter operates within smart contract bounds that agents cannot exceed. Humans set the rails; agents optimize within them; mathematics enforces the limits. Democracy gets infrastructure that learns and adapts while remaining fundamentally secure.
+
+### ERC-8004 Implementation: Infrastructure for Human-AI Democratic Coordination
+
+ERC-8004 was designed for autonomous AI agents to coordinate without human intervention. We asked a different question: what if humans and AI used the same coordination infrastructure? The answer revolutionizes democratic participation.
+
+Our implementation uses three interconnected registries that create portable, verifiable civic identity across every platform—human or AI-operated.
+
+**IdentityRegistry.sol** creates the foundation with privacy-preserving civic identity. Each participant receives an incremental ID mapped to their congressional district without exposing personal information. This isn't surveillance—it's democratic routing that ensures your message reaches your actual representative while maintaining pseudonymity. The registry operates across platforms, so your civic identity works everywhere without platform lock-in.
+
+**ReputationRegistry.sol** transforms credibility from social media followers into forfeitable collateral. Your reputation becomes your stake in the system—not a shield for spreading misinformation, but skin in the game that scales with influence. Domain-specific scoring prevents someone with healthcare expertise from wielding unearned influence in climate debates. Time-weighted decay ensures no one becomes permanently untouchable—reputation requires continuous quality contribution, not historical accumulation. When you make incorrect challenges, slashing mechanisms reduce your credibility proportional to claim severity.
+
+**ActionRegistry.sol** creates immutable proof of democratic participation. Every verified civic action—from sending congressional messages to winning challenge disputes—gets permanently recorded. Congressional API confirmations provide cryptographic proof of delivery. Template usage tracking correlates your contributions with legislative outcomes. Challenge market history builds your track record across domains. This isn't just record-keeping—it's portable civic capital that any platform can verify and reward.
 
 ## Technical Implementation
 
@@ -227,97 +219,106 @@ We're not improving corporate PACs—we're making them obsolete. Citizens stake 
 6. Didit.me Features, "Free Forever Core KYC with Premium Compliance Options," https://didit.me/features
 7. OpenRouter Documentation, https://openrouter.ai/docs
 
-### Minds Changed, Not Messages Sent
+## Measuring Impact: From Messages Sent to Minds Changed
 
-**Impact Registry: Do Templates Actually Change Minds?**
+Every civic platform counts messages sent. We count minds changed.
 
-We track observable behavior, not claimed intentions. Why? Because intentions lie; legislative records don't.
+This distinction transforms democratic engagement from volume-based activism to impact-oriented participation. Congressional offices receive 81 million messages yearly, but how many actually influence decisions? How many change positions? How many shape legislation? Traditional platforms can't answer because they measure activity, not influence.
 
-**What We Actually Measure:**
-- Template text appearing verbatim in Congressional Record—not correlation, causation
-- Temporal sequencing: template creation → coordinated campaign → floor speech citation
-- Geographic clustering: districts with template campaigns show position changes; districts without don't
-- Representative responsiveness measured algorithmically—with score decay ensuring continuous engagement over party loyalty
-- Observable influence patterns that create verifiable chains from citizen information to political outcomes
+The ImpactAgent tracks observable behavior rather than claimed intentions because intentions lie but legislative records don't. When template text appears verbatim in the Congressional Record, that's not correlation—it's direct citation we can verify. When representatives quote citizen language in floor speeches after coordinated campaigns using those exact templates, we map the influence chain from creation to consequence.
 
-**The Confidence Algorithm:**
-How do we know templates changed minds? Mathematics: 40% weight for direct citation verification; 30% for temporal correlation patterns; 20% for geographic clustering evidence; minus 10% for alternative explanations.
+Temporal sequencing reveals causation patterns. A template gets created Monday, spreads through coordinated campaigns Tuesday through Thursday, appears in a floor speech Friday. That's observable influence. Geographic clustering strengthens confidence—when districts with heavy template campaigns show position changes while similar districts without campaigns don't, we're seeing democracy in action.
 
-**Transparent Methodology Without Financial Incentive:**
-All data public—because if we're measuring democracy, democracy should be able to see how. No financial implications for the registry itself; pure information architecture that any observer can read, verify, and interpret independently.
+Our confidence algorithm weighs multiple factors: 40% for direct citation verification when template language appears in official records, 30% for temporal correlation between campaigns and position changes, 20% for geographic clustering showing differential impacts, minus 10% for alternative explanations that could account for the change.
 
-We create the methodology. You judge the results. Democracy wins when information flows transparently.
+This methodology remains completely transparent and publicly auditable. Every data point, every calculation, every conclusion is visible because measuring democracy requires democratic transparency. The registry has no financial stake in these measurements—we provide pure information architecture that anyone can verify independently.
 
-### Death to Hardcoded Tyranny
+When templates demonstrably change legislative positions, creators earn up to 10x reward multipliers. For the first time in democratic history, we reward actual impact rather than mere activity.
 
-**Why Should Blockchain Parameters Be Hardcoded Forever?**
+## Living Infrastructure: How VOTER Protocol Evolves With Democracy
 
-They shouldn't—and now they aren't.
+Every blockchain protocol launches with parameters that become permanent prisoners of their genesis block. The founders guess that staking should require 1000 tokens, rewards should be 10 tokens per action, and verification needs 5 confirmations. Then reality proves them wrong, but the parameters are frozen forever in immutable smart contracts.
 
-**The Agent Revolution:**
-**SupplyAgent** adapts token economics based on actual network participation—not founder guesses about "optimal" inflation rates.
-**MarketAgent** optimizes rewards based on measured civic impact—not arbitrary "10 tokens per message" constants.
-**ImpactAgent** tracks real influence in legislative records—adjusting parameters based on what actually changes minds.
-**ReputationAgent** builds credibility from discourse quality—learning what predicts constructive engagement.
+VOTER Protocol breaks this trap through living infrastructure that learns and adapts while remaining mathematically secure. Instead of hardcoded constants, specialized agents continuously optimize parameters based on observed outcomes.
 
-**Safety Through Mathematical Boundaries:**
-Can agents go rogue? No. Every parameter has hard floors and ceilings written into smart contracts. Daily change limits prevent rapid manipulation. Agents optimize within auditable ranges—but humans set the boundaries, and mathematics enforces the limits.
+The **SupplyAgent** adapts token economics to actual participation patterns rather than theoretical models. When civic engagement surges during crucial legislation, emission rates increase to capture momentum. During quiet periods, rewards decrease to prevent inflation. The system breathes with democracy's natural rhythm rather than forcing arbitrary schedules.
 
-**The Revolutionary Principle:**
-Why should smart contracts use the same reward amounts, staking requirements, and system behaviors forever? Static parameters can't adapt to changing political dynamics, network effects, or user behavior patterns.
+The **MarketAgent** optimizes reward calculations based on measured impact rather than fixed formulas. Why should a template that changes ten legislative positions earn the same as one that changes none? Dynamic multipliers ensure rewards flow toward actual influence, not just activity.
 
-Our agents learn what works; parameters evolve toward effectiveness; safety rails prevent chaos. The result? Living infrastructure that improves itself while staying mathematically constrained.
+The **ImpactAgent** tracks which approaches actually work by monitoring legislative records, vote changes, and policy outcomes. When certain template patterns consistently succeed, the system learns and adapts incentives accordingly. Democracy gets smarter through observation.
 
-Agents optimize. Humans govern. Mathematics enforces. Democracy evolves.
+The **ReputationAgent** builds sophisticated understanding of what predicts quality discourse. Which early signals indicate a participant will contribute constructively versus destructively? The system learns these patterns and adjusts trust accordingly.
 
-### Quality Discourse Pays. Bad Faith Costs.
+But can agents go rogue? No—every parameter operates within hard limits encoded in smart contracts. Rewards can vary between $0.10 and $10 but never exceed those bounds. Daily change caps prevent sudden manipulation. Humans set the rails, agents optimize within them, mathematics enforces the boundaries.
 
-**Challenge Markets: Can Economics Fix Information Quality?**
+The result is infrastructure that improves continuously without sacrificing security—living democracy that evolves with its participants.
 
-Political discourse drowns in noise because bad information travels as fast as good. What if we could change that? What if quality reasoning paid, and bad faith actually cost money?
+## Challenge Markets: The Economic Solution to Information Quality
 
-**Markets for Truth:**
-We fix democracy's information problem with economic consequences for information quality. Community consensus evaluates discourse standards—not truth, not ideology, just the quality of reasoning itself. The result? Market mechanisms that reward constructive engagement and punish bad faith actors.
+Political discourse drowns in misinformation because spreading false claims costs nothing while fact-checking exhausts honest participants. Bad actors profit from confusion while truth-seekers burn out playing defense. VOTER's challenge markets flip this equation: quality discourse pays real money, bad faith costs real stakes.
 
-**Two Types of Challenges:**
-**Template Challenges:** Dispute the underlying claims or sourcing in templates—affects everyone using that template. Stakes higher, impact broader.
-**Usage Challenges:** Challenge how someone used a template or their personal additions—one-on-one disputes with focused stakes.
+The mechanism is elegantly simple. When you see a questionable claim about voting records, policy impacts, or political positions, you can stake VOTER tokens to challenge it. But we don't adjudicate opinions or ideology—only verifiable facts. Your grandmother's healthcare story remains protected as personal truth. Claiming a senator voted against a bill they actually supported? That's economically challengeable.
 
-**What We Judge:**
-- Source quality and citation standards—did you do the homework?
-- Evidence-based reasoning that engages with complexity
-- Good faith interaction with counterarguments—not strawman demolition
-- Constructive discourse contribution—building understanding, not destroying opponents
+The system recognizes two distinct challenge types that create different economic dynamics:
 
-**What We Don't Judge:**
-- Political positions or ideological alignment
-- Factual accuracy of claims—that's community consensus, not truth arbitration
-- Popularity or mainstream acceptance—groupthink isn't wisdom
+**Template Challenges** target the underlying claims in templates themselves—the core information that thousands of citizens might adopt and send. Because these affect everyone using that template, stakes run higher and impact spreads broader. Successfully challenging a viral template containing false voting records doesn't just win you tokens—it prevents thousands of citizens from unwittingly spreading misinformation.
+
+**Usage Challenges** focus on personal additions citizens make when customizing templates. Citizens often strengthen templates with personal anecdotes: "This policy destroyed my family's small business" or "My grandmother died waiting for approval." These stories add emotional weight, but when they're fabricated, they corrupt democratic discourse. The staking system scales with verifiability: minor personal details cost 10-50 VOTER to challenge, significant experiences require 100-500 VOTER stakes, and easily verifiable claims through public records demand 1000+ VOTER commitments.
+
+### How Challenge Resolution Actually Works
+
+Resolving challenges requires sophisticated analysis that no single AI model or human reviewer could accomplish alone. Our multi-layer consensus architecture creates robust adjudication through systematic evaluation.
+
+The first layer performs content analysis where specialized agents examine disputed claims from different angles. The VerificationAgent scans for factual inconsistencies, comparing claims against its vast training on political records and public documents. Simultaneously, the ReputationAgent weighs the track records of both challenger and challenged—not to bias toward authority, but to factor in historical accuracy. The ImpactAgent assesses the potential democratic harm if the misinformation spreads unchecked.
+
+The second layer evaluates context that pure content analysis might miss. Agents cross-reference personal claims against public records where possible—did that factory actually close? Did that bill actually pass? Pattern detection algorithms identify suspicious repetitions, like identical "personal" stories appearing across multiple users. Temporal analysis reveals coordination, such as personal additions spiking just before crucial votes.
+
+The third layer integrates democratic participation with algorithmic determination. Agent consensus provides 60% of the decision weight through transparent scoring, while a community validation period contributes 40%—ensuring human wisdom tempers pure algorithmic judgment. Edge cases that confuse both AI and community trigger escalation protocols for specialist human review. Once consensus is reached, smart contracts automatically redistribute stakes from the incorrect party to the truthful one.
+
+### The Standards: What Gets Rewarded vs What Gets Punished
+
+Challenge markets evaluate information quality, not truth itself. This distinction matters because democracy needs good faith disagreement, not algorithmic enforcement of approved facts.
+
+We reward high-quality reasoning regardless of conclusions. Did you cite credible sources? Did you engage with counterarguments honestly rather than constructing strawmen? Did you acknowledge complexity rather than pretending simple answers to difficult questions? These standards create constructive discourse that builds understanding rather than destroying opponents.
+
+We explicitly don't judge political positions or ideological alignment—a conservative argument with excellent sourcing beats a progressive argument with poor evidence, and vice versa. We don't arbitrate ultimate truth—that's for democratic consensus, not algorithmic determination. We don't reward popularity—groupthink isn't wisdom, and contrarian perspectives with solid reasoning deserve rewards even when unpopular.
 
 **Information Rewards:**
-Higher payouts for surprising, verifiable insights that change minds or reveal new data. Templates that shift legislative positions earn creators massive reputation boosts. Community consensus determines credibility—not centralized truth committees.
+Higher payouts for surprising, verifiable insights that change minds or reveal new data. Templates that shift legislative positions earn creators massive reputation boosts. Agent consensus combined with community validation determines credibility—not centralized truth committees.
 
-**Economic Incentives for Quality:**
-High reputation participants pay lower stakes—they've earned trust. Broader claims require higher stakes—skin in the game scales with impact. Winners receive losing stakes; bad faith actors literally pay the community for wasting everyone's time.
+**Economic Consequences:**
+- Stake VOTER tokens to challenge questionable claims
+- Winners take losers' stakes through autonomous resolution
+- High reputation means more to lose (reputation as forfeitable collateral)
+- Quadratic scaling prevents whale dominance through mathematical constraints
 
-**The Formula:**
-Quality discourse pays; bad faith costs. Community judgment + economic consequences = information architecture that actually works for democracy.
+### The Resolution Process: From Challenge to Consequence
 
-### Non-Transferable Proof of Democracy
+When someone initiates a challenge, a sophisticated resolution process activates that balances speed with accuracy, automation with human oversight.
 
-**VOTER Registry: Can Democracy Be Soul-Bound?**
+The challenger must submit evidence supporting their dispute along with their token stake. This isn't casual flagging—real money is on the line. The system then triggers autonomous evidence gathering, where AI models collect relevant documentation, voting records, public statements, and historical precedents. This happens within minutes, not days.
 
-**Soul-bound proof.** Democracy you can't sell, only earn.
+Twenty-plus AI systems across diverse providers perform independent analysis, each evaluating the evidence through different training and architectures. Some models excel at detecting logical fallacies, others at verifying citations, still others at identifying doctored evidence. Each system produces confidence scores explaining not just their conclusion but their certainty level.
 
-What happens when civic participation becomes permanent record? Every verified civic action creates immutable, non-transferable proof of democratic engagement. Congressional district mapped without exposing identity. Timestamp preserved permanently. Credibility scores recorded on-chain. Democratic participation that follows you across platforms—but can never be bought or sold.
+Adversarial review adds another protection layer. Specialized dispute models actively try to find flaws in the majority position, challenging assumptions and poking holes in reasoning. This isn't consensus-seeking—it's stress-testing conclusions before stakes get redistributed.
 
-**Epistemic Leverage in Action:**
-Why should all civic actions receive identical rewards? They shouldn't. High-credibility actions receive bonus multipliers—quality information gets mathematically amplified. Template impact scores drive up to 10x reward multipliers for proven effectiveness. The result? Verified civic participation becomes portable reputation that compounds over time.
+Consensus formation requires 67% agreement across architecturally diverse systems. This threshold prevents both false positives and false negatives while remaining achievable for clear-cut cases. When consensus crystallizes, smart contracts automatically execute stake redistribution—winners receive losers' stakes minus a small protocol fee that funds system operations.
 
-**The Architecture of Earned Democracy:**
-Your civic record can't be transferred, sold, or manipulated—but it travels with you across every democratic platform. Want higher rewards? Build credibility through consistent quality engagement. Want priority access? Prove your track record through verifiable civic actions. 
+The formula is simple but powerful: quality discourse literally pays while bad faith actually costs. Economic stakes plus autonomous consensus equals information accountability without censorship.
 
-Democracy stops being something you inherit or purchase. It becomes something you earn—and keep earning.
+## Non-Transferable Proof: Democracy as Earned Credibility
+
+Traditional democracy treats all voices equally—the informed expert and the random troll get identical weight. Social media "fixes" this through follower counts that can be bought, manipulated, or inherited. VOTER Protocol offers a third way: democracy as earned, non-transferable credibility.
+
+Every verified civic action you take creates permanent, soul-bound proof of participation. These VOTERRecords can't be sold, transferred, or faked. Your congressional district gets mapped without exposing your identity. Timestamps preserve the chronology of your civic engagement. Credibility scores accumulate based on discourse quality, not popularity.
+
+This civic record follows you across every democratic platform but remains forever yours alone. Unlike NFTs that trade on speculation, VOTERRecords have value precisely because they can't be traded. They represent authentic democratic participation that must be earned through actual civic work.
+
+The system recognizes that not all civic actions deserve identical rewards. High-credibility participants—those with track records of quality discourse and successful challenges—receive bonus multipliers up to 10x. Templates from proven contributors get priority routing to congressional offices. Quality information gets mathematically amplified while noise gets naturally suppressed.
+
+This creates profound incentive alignment. Want higher rewards? Build credibility through consistent quality engagement. Want your templates to reach decision-makers? Establish a track record of accuracy and impact. Want to influence democratic outcomes? Earn trust through verifiable civic contribution.
+
+Democracy transforms from something you're born into or buy into, into something you build through sustained quality participation.
 
 ### ERC-8004: AI-Human Coordination Infrastructure
 
@@ -415,3 +416,34 @@ Dynamic USD-based rewards survive token price volatility—because civic partici
 This architecture creates transparent, algorithmic political funding that combines proven legal corporate PAC structures with unprecedented blockchain transparency. Democracy infrastructure that actually works—at scale, sustainably, transparently.
 
 **We didn't just build a better civic platform. We built infrastructure for democracy's future.**
+
+## Sources and Technical Standards
+
+**Core Protocol References:**
+- [ERC-8004 Specification](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) - Autonomous Agent Coordination Infrastructure
+- [Kleros Protocol](https://kleros.io/assets/whitepaper.pdf) - Decentralized Justice System Design
+- [Myerson Mechanism Design](https://www.jstor.org/stable/1911865) - Optimal Auction Theory for Consensus
+- [BrightID Social Verification](https://www.brightid.org/whitepaper) - Decentralized Identity Networks
+- [CLARITY Act Framework](https://www.congress.gov/bill/118th-congress/house-bill/1628) - Digital Commodity Regulation
+
+**AI and Consensus Research:**
+- [Multi-Agent Systems](https://www.wiley.com/en-us/An+Introduction+to+MultiAgent+Systems%2C+2nd+Edition-p-9780470519462) - Distributed Intelligence Architecture
+- [Artificial Intelligence: Modern Approach](https://aima.cs.berkeley.edu/) - Autonomous System Design
+- [Zero-Knowledge Proofs](https://dl.acm.org/doi/10.1145/22145.22178) - Privacy-Preserving Verification
+- [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/) - Identity Verification Standards
+
+**Economic and Reputation Systems:**
+- [Reputation Economics](https://www.jstor.org/stable/3132171) - Trust in Internet Transactions
+- [Bootstrap Statistical Methods](https://www.routledge.com/An-Introduction-to-the-Bootstrap/Efron-Tibshirani/p/book/9780412042317) - Confidence Interval Methodology
+- [Seller Reputation Dynamics](https://www.jstor.org/stable/40864904) - Market-Based Credibility Systems
+
+**Legal and Compliance:**
+- [18 U.S.C. §597](https://www.law.cornell.edu/uscode/text/18/597) - Federal Election Crimes Prevention
+- [Congressional API Documentation](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) - Verified Delivery Systems
+
+**Implementation Infrastructure:**
+- [OpenAI Platform](https://platform.openai.com/docs) - Commercial AI Model Access
+- [Anthropic Claude](https://docs.anthropic.com/) - Constitutional AI Framework  
+- [xAI Documentation](https://docs.x.ai/) - Adversarial AI Models
+
+This autonomous consensus architecture transforms democratic participation from human-captured validation to mathematically verifiable civic infrastructure.

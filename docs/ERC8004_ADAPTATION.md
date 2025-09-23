@@ -162,3 +162,25 @@ Democracy that scales. Coordination that works. Infrastructure that serves both 
 **We didn't wait for perfect standards. We built the future democracy needs—and kept building while others planned.**
 
 *Quality discourse pays. Bad faith costs. Infrastructure wins.*
+
+## Sources and Technical Standards
+
+**Core Identity and Reputation Research:**
+- [BrightID Social Identity Network](https://www.brightid.org/whitepaper) - Decentralized Sybil Resistance
+- [Zero-Knowledge Proof Systems](https://dl.acm.org/doi/10.1145/22145.22178) - Privacy-Preserving Verification
+- [NIST Digital Identity Guidelines](https://pages.nist.gov/800-63-3/) - Identity Verification Standards
+- [Reputation Economics](https://www.jstor.org/stable/3132171) - Trust in Internet Transactions
+- [Bootstrap Statistical Methods](https://www.routledge.com/An-Introduction-to-the-Bootstrap/Efron-Tibshirani/p/book/9780412042317) - Mathematical Decay Modeling
+
+**Multi-Agent and Consensus Systems:**
+- [Multi-Agent Systems](https://www.wiley.com/en-us/An+Introduction+to+MultiAgent+Systems%2C+2nd+Edition-p-9780470519462) - Distributed Intelligence Architecture
+- [ERC-8004 Specification](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004.md) - Agent Coordination Infrastructure
+- [Network Effects Research](https://www.nfx.com/post/network-effects-bible) - Viral Growth Mechanics
+- [Seller Reputation Dynamics](https://www.jstor.org/stable/40864904) - Market-Based Credibility
+
+**Legal and Compliance Framework:**
+- [W3C Decentralized Identifiers](https://www.w3.org/TR/did-core/) - Interoperable Identity Standards
+- [GDPR Privacy Regulation](https://gdpr.eu/) - European Data Protection
+- [CCPA Privacy Standards](https://oag.ca.gov/privacy/ccpa) - California Consumer Protection
+
+This forfeitable reputation architecture transforms ERC-8004 from AI coordination to human accountability infrastructure that prevents oligarchy while maintaining democratic authenticity.
