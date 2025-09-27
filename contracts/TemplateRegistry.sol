@@ -137,9 +137,16 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
         string reason
     );
     
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(CREATOR_ROLE, admin);
+    constructor(address[] memory creators, address[] memory oracles) {
+        // Grant CREATOR_ROLE to initial creators (no admin role)
+        for (uint256 i = 0; i < creators.length; i++) {
+            _grantRole(CREATOR_ROLE, creators[i]);
+        }
+        
+        // Grant IMPACT_ORACLE_ROLE to initial oracles
+        for (uint256 i = 0; i < oracles.length; i++) {
+            _grantRole(IMPACT_ORACLE_ROLE, oracles[i]);
+        }
     }
     
     /**
@@ -410,38 +417,18 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
      */
     function deprecateTemplate(bytes32 templateId) external {
         require(
-            msg.sender == templates[templateId].creator || 
-            hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "Not authorized"
+            msg.sender == templates[templateId].creator,
+            "Only creator can deprecate"
         );
         
         templates[templateId].deprecated = true;
     }
     
-    /**
-     * @dev Update minimum stake amount (admin only)
-     * @param newMinStake New minimum stake in wei
-     */
-    function updateMinStake(uint256 newMinStake) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
-        minStakeAmount = newMinStake;
-    }
+    // REMOVED: Admin stake update function eliminated
+    // Minimum stake is now immutable after deployment
     
-    /**
-     * @dev Emergency pause (admin only)
-     */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-    
-    /**
-     * @dev Unpause (admin only)
-     */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
     
     /**
      * @dev Enhanced recordImpact with causal chain tracking
@@ -486,38 +473,8 @@ contract TemplateRegistry is AccessControl, ReentrancyGuard, Pausable {
         emit CausalChainRecorded(templateId, representative, directCitation, positionChanged, confidenceScore);
     }
     
-    /**
-     * @dev Allocate treasury funds based on verified impact
-     * @param templateId Template that changed minds
-     * @param legislatorId Legislator who learned
-     * @param amount Amount to allocate
-     * @param reason Reason for allocation
-     */
-    function allocateTreasuryFunds(
-        bytes32 templateId,
-        string memory legislatorId,
-        uint256 amount,
-        string memory reason
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(causalChains[templateId].length > 0, "No causal chain recorded");
-        
-        // Find the relevant causal chain
-        bool found = false;
-        for (uint256 i = 0; i < causalChains[templateId].length; i++) {
-            if (keccak256(bytes(causalChains[templateId][i].legislatorId)) == 
-                keccak256(bytes(legislatorId))) {
-                causalChains[templateId][i].treasuryAllocation += amount;
-                found = true;
-                break;
-            }
-        }
-        
-        require(found, "Legislator not in causal chain");
-        
-        totalTreasuryAllocated[templateId] += amount;
-        
-        emit TreasuryAllocated(templateId, legislatorId, amount, reason);
-    }
+    // REMOVED: Admin treasury allocation function eliminated
+    // Treasury allocation should be handled by external governance mechanisms
     
     /**
      * @dev Get total participants across all campaigns for a template

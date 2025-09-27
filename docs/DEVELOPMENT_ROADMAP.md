@@ -18,14 +18,17 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 
 ## Current Status
 
-**Smart Contracts (Production Ready):**
-- ✅ CorporateTreasury.sol - Funds infrastructure and PAC overhead
-- ✅ PACTreasury.sol - Quadratic funding with automatic FEC enforcement
-- ✅ ImpactRegistry.sol - Algorithmic scoring with decay
-- ✅ ChallengeMarket.sol - Decentralized information quality markets
-- ✅ VOTERToken.sol - No pre-mint, fair distribution
-- ✅ Security: Multi-sig governance, parameter safety rails
-- ✅ Tests: Comprehensive Forge test suite
+**Smart Contracts (Pre-Testnet Architecture):**
+- 🏗️ VOTERRegistry.sol - Civic action verification design with agent consensus requirements
+- 🏗️ VOTERToken.sol - No pre-mint, dynamic USD rewards planned, emission caps designed
+- 🏗️ CommuniqueCore.sol - Agent orchestration architecture requiring consensus
+- 🏗️ AgentParameters.sol - Time-locked parameter management (48-hour delays) designed
+- 🏗️ ActionVerifierMultiSig.sol - Immutable threshold verification planned
+- 🏗️ TreasuryManager.sol - Mathematical spending limits, circuit breaker patterns
+- 🏗️ ChallengeMarket.sol - Information quality market mechanisms designed
+- 🏗️ CircuitBreaker.sol - Attack detection patterns specified
+- ⚠️ Security: Admin functions removed, agent consensus interfaces defined
+- ⚠️ Tests: Contracts compile, awaiting integration testing
 
 **Identity Infrastructure:**
 - ✅ Didit.me Integration: Free core KYC, global coverage
@@ -57,11 +60,15 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 
 **We don't count messages. We count minds changed.**
 
-**Production-Ready Infrastructure Built:**
-- Multi-agent coordination system with intelligent parameter optimization
-- Sophisticated challenge markets with contextual staking mechanisms  
-- ERC-8004 strategic implementation for portable democratic reputation
-- Zero-cost identity verification enabling massive civic participation
+**Architecture Design Complete:**
+- Multi-agent coordination system designed without administrative overrides
+- Challenge market mechanisms specified for information quality
+- ERC-8004 interfaces defined for portable reputation
+- Zero-cost identity verification integration planned
+- Circuit breaker patterns designed for automated security
+- 48-hour timelock specifications for parameter changes
+
+**Status**: Pre-testnet. Architecture phase complete, awaiting implementation and deployment.
 
 ---
 

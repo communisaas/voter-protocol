@@ -13,7 +13,6 @@ import "./interfaces/IDiditVerifier.sol";
  */
 contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant EPISTEMIC_AGENT_ROLE = keccak256("EPISTEMIC_AGENT_ROLE");
     
     IDiditVerifier public immutable diditVerifier;
@@ -85,11 +84,18 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         _;
     }
     
-    constructor(address _diditVerifier) {
+    constructor(address _diditVerifier, address[] memory verifiers, address[] memory agents) {
         diditVerifier = IDiditVerifier(_diditVerifier);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        _grantRole(EPISTEMIC_AGENT_ROLE, msg.sender); // Grant to deployer
+        
+        // Grant VERIFIER_ROLE to initial verifiers (no admin role)
+        for (uint256 i = 0; i < verifiers.length; i++) {
+            _grantRole(VERIFIER_ROLE, verifiers[i]);
+        }
+        
+        // Grant EPISTEMIC_AGENT_ROLE to initial agents (no admin role)
+        for (uint256 i = 0; i < agents.length; i++) {
+            _grantRole(EPISTEMIC_AGENT_ROLE, agents[i]);
+        }
     }
 
     // VOTERPoints concept removed
@@ -210,16 +216,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         return districtActionCounts[districtHash];
     }
     
-    /**
-     * @dev Deactivate a citizen (emergency use)
-     * @param citizen Address of the citizen
-     * @param reason Reason for deactivation
-     */
-    function deactivateCitizen(address citizen, string memory reason) external onlyRole(ADMIN_ROLE) {
-        require(citizenProfiles[citizen].verified, "Citizen not verified");
-        citizenProfiles[citizen].isActive = false;
-        emit CitizenDeactivated(citizen, reason);
-    }
+    // REMOVED: Admin deactivation function eliminated
+    // Citizens can only be deactivated through external challenge/validation mechanisms
     
     /**
      * @dev Check if action hash has been used
@@ -239,19 +237,8 @@ contract VOTERRegistry is AccessControl, ReentrancyGuard, Pausable {
         return (totalRecords, totalVerifiedCitizens);
     }
     
-    /**
-     * @dev Emergency pause function
-     */
-    function pause() external onlyRole(ADMIN_ROLE) {
-        _pause();
-    }
-    
-    /**
-     * @dev Unpause function
-     */
-    function unpause() external onlyRole(ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
 
     /**
      * @dev DEPRECATED: Use ReputationRegistry instead

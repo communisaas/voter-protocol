@@ -53,10 +53,14 @@ contract ReputationRegistry is AccessControl {
         address indexed platform
     );
     
-    constructor(address _identityRegistry) {
+    constructor(address _identityRegistry, address[] memory initialUpdaters) {
         identityRegistry = IdentityRegistry(_identityRegistry);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(UPDATER_ROLE, msg.sender);
+        
+        // Grant UPDATER_ROLE to initial updaters (no admin role)
+        for (uint256 i = 0; i < initialUpdaters.length; i++) {
+            _grantRole(UPDATER_ROLE, initialUpdaters[i]);
+            _grantRole(AGENT_ROLE, initialUpdaters[i]);
+        }
     }
     
     /**

@@ -1,6 +1,42 @@
-# Security Incident Response: Exposed Credentials
+# Security Documentation: Circuit Breakers & Incident Response
 
-## Incident Summary
+## Automated Security: Mathematical Circuit Breakers
+
+VOTER Protocol implements multi-layer automated security without administrative intervention.
+
+### Circuit Breaker Protection Levels
+
+**CircuitBreaker.sol** - Automatic attack prevention:
+- **Massive single actions**: Block individual actions >100,000 VOTER tokens
+- **Rapid user actions**: Limit users to 50 actions per hour
+- **Suspicious batches**: Flag >20 identical actions in same block
+- **Zero-value spam**: Reject all zero-value transactions
+
+**Treasury Protection** - Mathematical spending limits:
+- **Daily disbursement caps**: Automatic limits prevent treasury drainage
+- **Weekly spending limits**: Multi-day protection against sustained attacks
+- **Emergency reserves**: Protected funds that can only grow, never withdraw
+
+**Parameter Protection** - Time-locked changes:
+- **48-hour timelock**: All parameter changes require waiting period
+- **Agent consensus required**: No changes without cryptographic proof
+- **Bounded modifications**: Hard min/max limits agents cannot exceed
+
+### Attack Response Protocol
+
+1. **Automatic detection**: Circuit breakers trigger on suspicious patterns
+2. **Mathematical halting**: Attacks blocked by code, not administrators
+3. **Agent consensus**: Only mechanism for emergency responses
+4. **Event emission**: All security actions logged transparently
+5. **No human override**: Zero administrative backdoors exist
+
+**Security Status**: Zero admin control. Attacks prevented by mathematics.
+
+---
+
+## Incident History
+
+### Previous Incident Summary
 **Date**: January 15, 2025
 **Severity**: CRITICAL
 **Type**: Exposed credentials in version control

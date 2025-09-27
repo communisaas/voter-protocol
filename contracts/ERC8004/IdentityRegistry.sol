@@ -58,9 +58,11 @@ contract IdentityRegistry is AccessControl {
         string reason
     );
     
-    constructor() {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ATTESTOR_ROLE, msg.sender);
+    constructor(address[] memory initialAttestors) {
+        // Grant ATTESTOR_ROLE to initial attestors (no admin role)
+        for (uint256 i = 0; i < initialAttestors.length; i++) {
+            _grantRole(ATTESTOR_ROLE, initialAttestors[i]);
+        }
     }
     
     /**

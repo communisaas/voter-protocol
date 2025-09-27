@@ -15,13 +15,21 @@ interface IAggregatorV3 {
 
 /**
  * @title AgentParameters
- * @dev Parameter store with oracle integration and bounds checking
- * @notice Controlled by agent consensus after genesis initialization
+ * @dev Truly decentralized parameter store with oracle integration and bounds checking
+ * @notice ONLY controlled by agent consensus - no genesis backdoors or admin overrides
+ * @notice All parameter changes require time-locks to prevent instant manipulation
  */
 contract AgentParameters {
-    address public agentConsensus;
-    address public immutable genesis; // Only genesis can set initial parameters
-    bool public initialized = false;
+    address public immutable agentConsensus;
+    
+    // Time-locked parameter changes
+    struct PendingChange {
+        uint256 proposedValue;
+        uint256 executeAfter;
+        bool exists;
+    }
+    mapping(bytes32 => PendingChange) public pendingParameterChanges;
+    uint256 public constant TIMELOCK_DELAY = 48 hours;
     
     mapping(bytes32 => uint256) private uintParams;
     mapping(bytes32 => address) private addressParams;
@@ -36,15 +44,10 @@ contract AgentParameters {
         require(msg.sender == agentConsensus, "Only consensus");
         _;
     }
-    
-    modifier onlyGenesis() {
-        require(msg.sender == genesis, "Only genesis");
-        require(!initialized, "Already initialized");
-        _;
-    }
 
-    constructor() {
-        genesis = msg.sender; // Genesis contract deploys this
+    constructor(address _agentConsensus) {
+        require(_agentConsensus != address(0), "Invalid consensus address");
+        agentConsensus = _agentConsensus;
         
         // Set max bounds for USD-based rewards (8 decimals for USD price feeds)
         maxValues[keccak256("rewardUSD:CWC_MESSAGE")] = 10 * 1e8; // Max $10 per action
@@ -89,47 +92,72 @@ contract AgentParameters {
     }
 
     /**
-     * @dev Set genesis parameters (one-time, called by Genesis contract)
+     * @dev Initialize parameters with safe defaults (consensus-only)
+     * @notice Can only be called once by consensus to set initial values
      */
-    function setGenesisParameters(
+    function initializeParameters(
         uint256 _cwcReward,
         uint256 _directActionReward,
         uint256 _maxDailyMintUser,
         uint256 _maxDailyMintProtocol
-    ) external onlyGenesis {
+    ) external onlyConsensus {
+        require(uintParams[keccak256("initialized")] == 0, "Already initialized");
+        
+        // Validate parameters are within bounds
+        require(_cwcReward >= minValues[keccak256("rewardUSD:CWC_MESSAGE")] && 
+               _cwcReward <= maxValues[keccak256("rewardUSD:CWC_MESSAGE")], "CWC reward out of bounds");
+        require(_directActionReward >= minValues[keccak256("rewardUSD:DIRECT_ACTION")] && 
+               _directActionReward <= maxValues[keccak256("rewardUSD:DIRECT_ACTION")], "Direct action reward out of bounds");
+        
         uintParams[keccak256("rewardUSD:CWC_MESSAGE")] = _cwcReward;
         uintParams[keccak256("rewardUSD:DIRECT_ACTION")] = _directActionReward;
         uintParams[keccak256("maxDailyMintPerUser")] = _maxDailyMintUser;
         uintParams[keccak256("maxDailyMintProtocol")] = _maxDailyMintProtocol;
-        
-        initialized = true;
-    }
-    
-    /**
-     * @dev Transfer control to agent consensus (called by Genesis)
-     */
-    function transferControlToConsensus(address _consensus) external onlyGenesis {
-        require(_consensus != address(0), "Invalid consensus");
-        agentConsensus = _consensus;
-        initialized = true;
-        emit ControlTransferred(_consensus);
+        uintParams[keccak256("initialized")] = 1;
     }
 
-    function setUint(bytes32 key, uint256 value) external onlyConsensus {
+    /**
+     * @dev Propose a parameter change with time-lock
+     */
+    function proposeUintChange(bytes32 key, uint256 value) external onlyConsensus {
+        // Validate bounds
         if (maxValues[key] > 0) {
             require(value <= maxValues[key], "Exceeds maximum");
         }
         if (minValues[key] > 0) {
             require(value >= minValues[key], "Below minimum");
         }
-        uintParams[key] = value;
-        emit UintParamSet(key, value);
+        
+        pendingParameterChanges[key] = PendingChange({
+            proposedValue: value,
+            executeAfter: block.timestamp + TIMELOCK_DELAY,
+            exists: true
+        });
+        
+        emit ParameterChangeProposed(key, value, block.timestamp + TIMELOCK_DELAY);
+    }
+    
+    /**
+     * @dev Execute a time-locked parameter change
+     */
+    function executeUintChange(bytes32 key) external {
+        PendingChange memory change = pendingParameterChanges[key];
+        require(change.exists, "No pending change");
+        require(block.timestamp >= change.executeAfter, "Timelock not expired");
+        
+        uintParams[key] = change.proposedValue;
+        delete pendingParameterChanges[key];
+        
+        emit UintParamSet(key, change.proposedValue);
     }
 
     function getUint(bytes32 key) external view returns (uint256) {
         return uintParams[key];
     }
     
+    /**
+     * @dev Set address parameters (critical oracle addresses require consensus)
+     */
     function setAddress(bytes32 key, address value) external onlyConsensus {
         require(value != address(0), "Zero address");
         addressParams[key] = value;
@@ -195,4 +223,7 @@ contract AgentParameters {
         
         return (price, isValid);
     }
+    
+    // Events for time-locked parameter changes
+    event ParameterChangeProposed(bytes32 indexed key, uint256 newValue, uint256 executeAfter);
 }

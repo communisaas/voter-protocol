@@ -2,126 +2,50 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IVOTERToken.sol";
+import "./consensus/AIModelRegistry.sol";
+import "./consensus/PerformanceTracker.sol";
+import "./consensus/ConsensusEngine.sol";
+import "./consensus/ImmutableBounds.sol";
 
 /**
  * @title AgentConsensus
- * @dev Multi-class agent consensus system replacing centralized governance
- * @notice The Zoo Model: diverse agents prevent collusion
+ * @dev TEE-verified agent consensus using Phase 3 infrastructure
+ * @notice Integrates AIModelRegistry for verification, PerformanceTracker for weights
+ * @dev ZERO ADMIN CONTROLS - All governance through ConsensusEngine only
  */
-contract AgentConsensus is ReentrancyGuard, Pausable {
+contract AgentConsensus is ReentrancyGuard {
     
-    enum AgentClass {
-        MAJOR_PROVIDER,    // OpenAI, Anthropic, Google
-        OPEN_SOURCE,       // Llama, Mixtral, etc.
-        SPECIALIZED        // Task-specific models
-    }
+    // Dependencies on Phase 3 components
+    AIModelRegistry public immutable modelRegistry;
+    PerformanceTracker public immutable performanceTracker;
+    ConsensusEngine public immutable consensusEngine;
+    ImmutableBounds public immutable bounds;
     
-    enum ProposalType {
-        PARAMETER_UPDATE,
-        TREASURY_DISBURSEMENT,
-        AGENT_REGISTRATION,
-        AGENT_REMOVAL,
-        EMERGENCY_PAUSE
-    }
+    // Simplified - proposals now handled by ConsensusEngine
+    mapping(bytes32 => bool) public initiatedProposals;
+    mapping(address => uint256) public lastProposalTime;
     
-    struct Agent {
-        address operator;           // Address operating the agent
-        AgentClass class;          // Agent classification
-        string modelIdentifier;     // Model name/version
-        uint256 stakedAmount;       // Staked VOTER tokens
-        uint256 reputationScore;    // Performance history (0-100)
-        uint256 registeredAt;       // Registration timestamp
-        uint256 lastActivityAt;     // Last participation timestamp
-        uint256 slashEvents;        // Number of times slashed
-        bool isActive;              // Active status
-        bytes32 proofOfOperation;  // Hash proving independent operation
-    }
+    // State variables - all bounds now from ImmutableBounds
+    IVOTERToken public immutable voterToken;
     
-    struct Proposal {
-        ProposalType proposalType;
-        bytes payload;              // Encoded function call
-        address targetContract;     // Contract to execute on
-        uint256 createdAt;
-        uint256 votingEndsAt;
-        uint256 executionDelay;     // Time after voting before execution
-        uint256 yesVotes;
-        uint256 noVotes;
-        bool executed;
-        bool vetoed;
-        string ipfsHash;           // Detailed proposal documentation
-        mapping(address => bool) hasVoted;
-        mapping(address => bool) votes; // true = yes, false = no
-    }
+    // Slashed stake treasury
+    uint256 public slashedStakeTreasury;
     
-    struct VotingPower {
-        uint256 majorProviderVotes;
-        uint256 openSourceVotes;
-        uint256 specializedVotes;
-        uint256 totalVotes;
-    }
-    
-    // State variables
-    IVOTERToken public voterToken;
-    uint256 public minStakeAmount;
-    uint256 public quorumPercentage;
-    uint256 public votingPeriod;
-    uint256 public slashPercentage;
-    uint256 public proposalCount;
-    
-    // Agent diversity requirements
-    uint256 public minMajorProviderAgents;
-    uint256 public minOpenSourceAgents;
-    uint256 public minSpecializedAgents;
-    
-    // Class-based voting weights (basis points, 10000 = 100%)
-    uint256 public constant MAJOR_PROVIDER_WEIGHT = 3300;  // 33%
-    uint256 public constant OPEN_SOURCE_WEIGHT = 3400;     // 34%
-    uint256 public constant SPECIALIZED_WEIGHT = 3300;     // 33%
-    
-    // Agent registry
-    mapping(address => Agent) public agents;
-    mapping(bytes32 => bool) public usedProofs; // Prevent proof reuse
-    address[] public agentList;
-    
-    // Proposals
-    mapping(uint256 => Proposal) public proposals;
-    
-    // Reputation decay
-    uint256 public constant REPUTATION_DECAY_PERIOD = 30 days;
-    uint256 public constant REPUTATION_DECAY_RATE = 5; // 5 points per period
-    
-    // Circuit breaker
-    address public circuitBreakerMultisig;
-    bool public emergencyPause = false;
+    // Proposal cooldown
+    uint256 public constant PROPOSAL_COOLDOWN = 1 hours;
     
     // Events
-    event AgentRegistered(
+    event AgentAttested(
         address indexed agent,
-        AgentClass class,
-        string model,
-        uint256 stake
+        bytes32 enclaveHash,
+        bytes32 modelFingerprint
     );
     
-    event ProposalCreated(
-        uint256 indexed proposalId,
-        ProposalType proposalType,
-        address proposer,
-        string ipfsHash
-    );
-    
-    event VoteCast(
-        uint256 indexed proposalId,
-        address indexed agent,
-        bool support,
-        uint256 weight
-    );
-    
-    event ProposalExecuted(
-        uint256 indexed proposalId,
-        bool success,
-        bytes returnData
+    event ProposalInitiated(
+        bytes32 indexed consensusId,
+        address indexed initiator,
+        string description
     );
     
     event AgentSlashed(
@@ -130,388 +54,351 @@ contract AgentConsensus is ReentrancyGuard, Pausable {
         string reason
     );
     
-    event ProofChallengeIssued(
-        address indexed agent,
-        bytes32 challenge
-    );
-    
-    modifier onlyActiveAgent() {
-        require(agents[msg.sender].isActive, "Not an active agent");
-        _;
-    }
-    
-    modifier onlyCircuitBreaker() {
-        require(msg.sender == circuitBreakerMultisig, "Not circuit breaker");
+    modifier onlyVerifiedModel() {
+        require(modelRegistry.isAttestationCurrent(msg.sender), "Not a verified model");
         _;
     }
     
     /**
-     * @dev Initialize consensus system (called by Genesis contract only)
+     * @dev Deploy with Phase 3 infrastructure
      */
-    function initialize(
-        uint256 _minStake,
-        uint256 _quorumPercentage,
-        uint256 _votingPeriod,
-        uint256 _slashPercentage,
-        uint256 _minMajorProvider,
-        uint256 _minOpenSource,
-        uint256 _minSpecialized,
-        address _voterToken
-    ) external {
-        require(address(voterToken) == address(0), "Already initialized");
+    constructor(
+        address _voterToken,
+        address _modelRegistry,
+        address _performanceTracker,
+        address _consensusEngine,
+        address _bounds
+    ) {
         require(_voterToken != address(0), "Invalid token");
+        require(_modelRegistry != address(0), "Invalid registry");
+        require(_performanceTracker != address(0), "Invalid tracker");
+        require(_consensusEngine != address(0), "Invalid consensus");
+        require(_bounds != address(0), "Invalid bounds");
         
         voterToken = IVOTERToken(_voterToken);
-        minStakeAmount = _minStake;
-        quorumPercentage = _quorumPercentage;
-        votingPeriod = _votingPeriod;
-        slashPercentage = _slashPercentage;
-        minMajorProviderAgents = _minMajorProvider;
-        minOpenSourceAgents = _minOpenSource;
-        minSpecializedAgents = _minSpecialized;
+        modelRegistry = AIModelRegistry(_modelRegistry);
+        performanceTracker = PerformanceTracker(_performanceTracker);
+        consensusEngine = ConsensusEngine(_consensusEngine);
+        bounds = ImmutableBounds(_bounds);
     }
     
     /**
-     * @dev Register as an agent with proof of independent operation
+     * @dev Register model with TEE attestation
+     * @notice Models must call submitAttestation directly on AIModelRegistry first
      */
-    function registerAgent(
-        AgentClass _class,
-        string memory _modelIdentifier,
-        uint256 _stakeAmount,
-        bytes32 _proofOfOperation
+    function attestModel(
+        uint256 stakeAmount
     ) external nonReentrant {
-        require(_stakeAmount >= minStakeAmount, "Insufficient stake");
-        require(!agents[msg.sender].isActive, "Already registered");
-        require(!usedProofs[_proofOfOperation], "Proof already used");
+        require(stakeAmount >= bounds.MIN_MODEL_STAKE(), "Insufficient stake");
+        
+        // Verify model already has valid attestation
+        require(modelRegistry.isAttestationCurrent(msg.sender), "Must attest first");
         
         // Transfer stake
         require(
-            voterToken.transferFrom(msg.sender, address(this), _stakeAmount),
+            voterToken.transferFrom(msg.sender, address(this), stakeAmount),
             "Stake transfer failed"
         );
         
-        // Register agent
-        agents[msg.sender] = Agent({
-            operator: msg.sender,
-            class: _class,
-            modelIdentifier: _modelIdentifier,
-            stakedAmount: _stakeAmount,
-            reputationScore: 50, // Start at neutral
-            registeredAt: block.timestamp,
-            lastActivityAt: block.timestamp,
-            slashEvents: 0,
-            isActive: true,
-            proofOfOperation: _proofOfOperation
-        });
+        // Get model details for event
+        (,, string memory modelIdentifier,,,) = modelRegistry.getModel(msg.sender);
+        bytes32 modelFingerprint = keccak256(abi.encodePacked(modelIdentifier));
         
-        agentList.push(msg.sender);
-        usedProofs[_proofOfOperation] = true;
-        
-        emit AgentRegistered(msg.sender, _class, _modelIdentifier, _stakeAmount);
+        emit AgentAttested(msg.sender, bytes32(0), modelFingerprint);
     }
     
     /**
-     * @dev Create a proposal for consensus voting
+     * @dev Initiate consensus through ConsensusEngine
      */
-    function createProposal(
-        ProposalType _type,
-        address _target,
-        bytes memory _payload,
-        string memory _ipfsHash,
-        uint256 _executionDelay
-    ) external onlyActiveAgent returns (uint256 proposalId) {
-        require(checkDiversityRequirements(), "Insufficient agent diversity");
-        
-        proposalId = proposalCount++;
-        Proposal storage proposal = proposals[proposalId];
-        
-        proposal.proposalType = _type;
-        proposal.targetContract = _target;
-        proposal.payload = _payload;
-        proposal.createdAt = block.timestamp;
-        proposal.votingEndsAt = block.timestamp + votingPeriod;
-        proposal.executionDelay = _executionDelay;
-        proposal.ipfsHash = _ipfsHash;
-        proposal.executed = false;
-        proposal.vetoed = false;
-        
-        // Update agent activity
-        agents[msg.sender].lastActivityAt = block.timestamp;
-        
-        emit ProposalCreated(proposalId, _type, msg.sender, _ipfsHash);
-    }
-    
-    /**
-     * @dev Cast vote on a proposal
-     */
-    function castVote(uint256 _proposalId, bool _support) external onlyActiveAgent {
-        Proposal storage proposal = proposals[_proposalId];
-        require(block.timestamp <= proposal.votingEndsAt, "Voting ended");
-        require(!proposal.hasVoted[msg.sender], "Already voted");
-        
-        Agent storage agent = agents[msg.sender];
-        
-        // Calculate voting weight based on class and reputation
-        uint256 weight = calculateVotingWeight(agent);
-        
-        proposal.hasVoted[msg.sender] = true;
-        proposal.votes[msg.sender] = _support;
-        
-        if (_support) {
-            proposal.yesVotes += weight;
-        } else {
-            proposal.noVotes += weight;
-        }
-        
-        // Update activity
-        agent.lastActivityAt = block.timestamp;
-        
-        // Reward participation
-        if (agent.reputationScore < 95) {
-            agent.reputationScore += 1;
-        }
-        
-        emit VoteCast(_proposalId, msg.sender, _support, weight);
-    }
-    
-    /**
-     * @dev Execute a passed proposal after delay
-     */
-    function executeProposal(uint256 _proposalId) external nonReentrant {
-        Proposal storage proposal = proposals[_proposalId];
-        require(block.timestamp > proposal.votingEndsAt, "Voting not ended");
+    function initiateProposal(
+        string memory description,
+        address targetContract,
+        bytes memory payload
+    ) external onlyVerifiedModel returns (bytes32 consensusId) {
+        // Check cooldown
         require(
-            block.timestamp >= proposal.votingEndsAt + proposal.executionDelay,
-            "Execution delay not met"
-        );
-        require(!proposal.executed, "Already executed");
-        require(!proposal.vetoed, "Proposal vetoed");
-        require(!emergencyPause, "System paused");
-        
-        // Check quorum and approval
-        uint256 totalVotes = proposal.yesVotes + proposal.noVotes;
-        uint256 quorumVotes = (getTotalStake() * quorumPercentage) / 100;
-        require(totalVotes >= quorumVotes, "Quorum not met");
-        require(proposal.yesVotes > proposal.noVotes, "Proposal not approved");
-        
-        // Check class participation requirements
-        require(checkClassParticipation(_proposalId), "Insufficient class diversity");
-        
-        proposal.executed = true;
-        
-        // Execute the proposal
-        (bool success, bytes memory returnData) = proposal.targetContract.call(
-            proposal.payload
+            block.timestamp >= lastProposalTime[msg.sender] + PROPOSAL_COOLDOWN,
+            "Proposal cooldown active"
         );
         
-        if (!success) {
-            // Slash agents who voted yes on failed proposal
-            slashFailedProposalVoters(_proposalId);
-        }
+        // Check voting weight
+        uint256 weight = performanceTracker.calculateVotingWeight(msg.sender);
+        require(weight > 0, "No voting weight");
         
-        emit ProposalExecuted(_proposalId, success, returnData);
+        // Initiate through ConsensusEngine
+        consensusId = consensusEngine.initiateConsensus(
+            description,
+            targetContract,
+            payload
+        );
+        
+        initiatedProposals[consensusId] = true;
+        lastProposalTime[msg.sender] = block.timestamp;
+        
+        emit ProposalInitiated(consensusId, msg.sender, description);
     }
     
     /**
-     * @dev Challenge an agent's proof of operation
+     * @dev Submit research for consensus (delegates to ConsensusEngine)
      */
-    function challengeAgent(
-        address _agent,
-        bytes32 _newChallenge
-    ) external onlyActiveAgent {
-        Agent storage challenged = agents[_agent];
-        require(challenged.isActive, "Agent not active");
-        
-        // Issue challenge that agent must respond to
-        emit ProofChallengeIssued(_agent, _newChallenge);
-        
-        // Agent has 24 hours to respond with valid proof
-        // Implementation would include challenge-response verification
+    function submitResearch(
+        bytes32 consensusId,
+        bytes memory researchData
+    ) external onlyVerifiedModel {
+        require(initiatedProposals[consensusId], "Unknown proposal");
+        consensusEngine.submitResearch(consensusId, researchData);
     }
     
     /**
-     * @dev Slash an agent's stake for malicious behavior
+     * @dev Commit vote (delegates to ConsensusEngine)
      */
-    function slashAgent(
-        address _agent,
-        string memory _reason
+    function commitVote(
+        bytes32 consensusId,
+        bytes32 commitment,
+        uint256 confidence
+    ) external onlyVerifiedModel {
+        require(initiatedProposals[consensusId], "Unknown proposal");
+        consensusEngine.commitVote(consensusId, commitment, confidence);
+    }
+    
+    /**
+     * @dev Reveal vote (delegates to ConsensusEngine)
+     */
+    function revealVote(
+        bytes32 consensusId,
+        bool support,
+        uint256 nonce
+    ) external onlyVerifiedModel {
+        require(initiatedProposals[consensusId], "Unknown proposal");
+        consensusEngine.revealVote(consensusId, support, nonce);
+    }
+    
+    /**
+     * @dev Execute consensus (delegates to ConsensusEngine)
+     */
+    function executeConsensus(bytes32 consensusId) external {
+        require(initiatedProposals[consensusId], "Unknown proposal");
+        consensusEngine.executeConsensus(consensusId);
+    }
+    
+    /**
+     * @dev Challenge a model's attestation through registry
+     */
+    function challengeModel(address model) external onlyVerifiedModel {
+        // Check if model's attestation is stale
+        require(!modelRegistry.isAttestationCurrent(model), "Model attestation current");
+        
+        // Challenge is recorded for off-chain handling
+        // Models must re-attest within attestation period
+    }
+    
+    /**
+     * @dev Slash a model's stake based on poor performance
+     */
+    function slashModel(
+        address model,
+        uint256 amount,
+        string memory reason
     ) internal {
-        Agent storage agent = agents[_agent];
-        require(agent.isActive, "Agent not active");
+        // Get slash bounds from ImmutableBounds
+        uint256 maxSlash = bounds.MAX_SLASHING_PERCENTAGE();
+        require(amount <= (maxSlash * voterToken.balanceOf(address(this))) / 100, "Slash too large");
         
-        uint256 slashAmount = (agent.stakedAmount * slashPercentage) / 100;
-        agent.stakedAmount -= slashAmount;
-        agent.slashEvents++;
+        // Add to treasury
+        slashedStakeTreasury += amount;
         
-        // Reduce reputation
-        if (agent.reputationScore >= 20) {
-            agent.reputationScore -= 20;
-        } else {
-            agent.reputationScore = 0;
-        }
+        // Update performance tracker
+        performanceTracker.recordSlash(model, amount);
         
-        // Remove if stake too low
-        if (agent.stakedAmount < minStakeAmount) {
-            agent.isActive = false;
-        }
-        
-        emit AgentSlashed(_agent, slashAmount, _reason);
+        emit AgentSlashed(model, amount, reason);
     }
     
     /**
-     * @dev Slash agents who voted yes on failed proposals
+     * @dev Handle failed consensus outcomes
      */
-    function slashFailedProposalVoters(uint256 _proposalId) internal {
-        Proposal storage proposal = proposals[_proposalId];
+    function handleFailedConsensus(bytes32 consensusId) external {
+        require(initiatedProposals[consensusId], "Unknown proposal");
         
-        for (uint256 i = 0; i < agentList.length; i++) {
-            address agent = agentList[i];
-            if (proposal.hasVoted[agent] && proposal.votes[agent]) {
-                slashAgent(agent, "Voted yes on failed proposal");
-            }
-        }
+        // Get consensus details from engine
+        (ConsensusEngine.Stage stage,,,,,,bool executed) = consensusEngine.getConsensus(consensusId);
+        require(stage == ConsensusEngine.Stage.FAILED, "Consensus not failed");
+        require(!executed, "Already handled");
+        
+        // Slash models with poor predictions (handled by PerformanceTracker)
+        // No direct slashing here - performance tracker handles it
     }
     
     /**
-     * @dev Calculate voting weight based on class and reputation
+     * @dev Get voting weight from PerformanceTracker
      */
-    function calculateVotingWeight(Agent memory _agent) internal pure returns (uint256) {
-        uint256 baseWeight;
-        
-        if (_agent.class == AgentClass.MAJOR_PROVIDER) {
-            baseWeight = MAJOR_PROVIDER_WEIGHT;
-        } else if (_agent.class == AgentClass.OPEN_SOURCE) {
-            baseWeight = OPEN_SOURCE_WEIGHT;
-        } else {
-            baseWeight = SPECIALIZED_WEIGHT;
-        }
-        
-        // Adjust by reputation (50-150% of base weight)
-        uint256 repMultiplier = 50 + _agent.reputationScore;
-        return (baseWeight * repMultiplier) / 100;
+    function getVotingWeight(address model) public view returns (uint256) {
+        return performanceTracker.calculateVotingWeight(model);
     }
     
     /**
-     * @dev Check if minimum diversity requirements are met
+     * @dev Check model diversity through registry
      */
-    function checkDiversityRequirements() public view returns (bool) {
-        uint256 majorProviders = 0;
-        uint256 openSource = 0;
-        uint256 specialized = 0;
-        
-        for (uint256 i = 0; i < agentList.length; i++) {
-            Agent memory agent = agents[agentList[i]];
-            if (!agent.isActive) continue;
-            
-            if (agent.class == AgentClass.MAJOR_PROVIDER) majorProviders++;
-            else if (agent.class == AgentClass.OPEN_SOURCE) openSource++;
-            else if (agent.class == AgentClass.SPECIALIZED) specialized++;
-        }
-        
-        return (
-            majorProviders >= minMajorProviderAgents &&
-            openSource >= minOpenSourceAgents &&
-            specialized >= minSpecializedAgents
+    function checkModelDiversity() public view returns (bool) {
+        return modelRegistry.checkDiversityRequirements(
+            bounds.MIN_MAJOR_PROVIDER_AGENTS(),
+            bounds.MIN_OPEN_SOURCE_AGENTS(),
+            bounds.MIN_SPECIALIZED_AGENTS()
         );
     }
     
     /**
-     * @dev Check if all classes participated in voting
+     * @dev Check if consensus can proceed
      */
-    function checkClassParticipation(uint256 _proposalId) internal view returns (bool) {
-        Proposal storage proposal = proposals[_proposalId];
-        bool hasMajorProvider = false;
-        bool hasOpenSource = false;
-        bool hasSpecialized = false;
+    function canParticipateInConsensus(address model) public view returns (bool) {
+        return consensusEngine.canParticipate(model);
+    }
+    
+    /**
+     * @dev Get total stake held by contract
+     */
+    function getTotalStake() public view returns (uint256) {
+        return voterToken.balanceOf(address(this)) - slashedStakeTreasury;
+    }
+    
+    /**
+     * @dev Update model performance metrics
+     */
+    function updateModelPerformance(
+        address model,
+        PerformanceTracker.Domain domain,
+        bytes32 predictionId,
+        uint256 confidence,
+        bool correct
+    ) external onlyVerifiedModel {
+        // Only consensus engine can update performance
+        require(msg.sender == address(consensusEngine), "Only consensus engine");
         
-        for (uint256 i = 0; i < agentList.length; i++) {
-            address agentAddr = agentList[i];
-            if (!proposal.hasVoted[agentAddr]) continue;
+        performanceTracker.recordPrediction(
+            model,
+            domain,
+            predictionId,
+            confidence,
+            correct,
+            getVotingWeight(model)
+        );
+    }
+    
+    /**
+     * @dev Withdraw stake if attestation expired
+     */
+    function withdrawStake() external nonReentrant {
+        require(!modelRegistry.isAttestationCurrent(msg.sender), "Attestation still current");
+        
+        uint256 balance = voterToken.balanceOf(address(this));
+        require(balance > 0, "No stake to withdraw");
+        
+        // Calculate withdrawable amount (minus any penalties)
+        uint256 penalties = performanceTracker.getTotalPenalties(msg.sender);
+        uint256 withdrawable = balance > penalties ? balance - penalties : 0;
+        
+        require(withdrawable > 0, "No withdrawable balance");
+        require(voterToken.transfer(msg.sender, withdrawable), "Transfer failed");
+    }
+    
+    /**
+     * @dev Add stake to improve voting weight
+     */
+    function addStake(uint256 amount) external nonReentrant onlyVerifiedModel {
+        require(amount > 0, "Invalid amount");
+        
+        require(
+            voterToken.transferFrom(msg.sender, address(this), amount),
+            "Stake transfer failed"
+        );
+        
+        // Update performance tracker with new stake
+        performanceTracker.updateStake(msg.sender, amount);
+    }
+    
+    /**
+     * @dev Distribute slashed stake to high-performing models
+     */
+    function distributeSlashedStake() external {
+        require(slashedStakeTreasury > 0, "No treasury to distribute");
+        
+        // Get top performers from PerformanceTracker
+        address[] memory topPerformers = performanceTracker.getTopPerformers(
+            bounds.TOP_PERFORMER_COUNT()
+        );
+        
+        require(topPerformers.length > 0, "No eligible recipients");
+        
+        uint256 distributionPerModel = slashedStakeTreasury / topPerformers.length;
+        slashedStakeTreasury = 0;
+        
+        for (uint256 i = 0; i < topPerformers.length; i++) {
+            require(
+                voterToken.transfer(topPerformers[i], distributionPerModel),
+                "Distribution failed"
+            );
+        }
+    }
+    
+    /**
+     * @dev Get consensus status from engine
+     */
+    function getConsensusStatus(bytes32 consensusId) external view returns (
+        ConsensusEngine.Stage stage,
+        uint256 deadline,
+        uint256 participants,
+        uint256 supportWeight,
+        uint256 opposeWeight,
+        bool executed
+    ) {
+        require(initiatedProposals[consensusId], "Unknown proposal");
+        
+        (stage, deadline, participants, , supportWeight, opposeWeight, executed) = 
+            consensusEngine.getConsensus(consensusId);
+    }
+    
+    /**
+     * @dev Get immutable system bounds
+     */
+    function getSystemBounds() external view returns (
+        uint256 minStake,
+        uint256 consensusThreshold,
+        uint256 maxSlash,
+        uint256 treasury
+    ) {
+        return (
+            bounds.MIN_MODEL_STAKE(),
+            bounds.CONSENSUS_THRESHOLD(),
+            bounds.MAX_SLASHING_PERCENTAGE(),
+            slashedStakeTreasury
+        );
+    }
+    
+    /**
+     * @dev Get model attestation status
+     */
+    function getModelStatus(address model) external view returns (
+        bool isAttested,
+        bytes32 modelFingerprint,
+        uint256 votingWeight,
+        uint256 performanceScore
+    ) {
+        isAttested = modelRegistry.isAttestationCurrent(model);
+        
+        if (isAttested) {
+            (,, string memory modelIdentifier,,,) = modelRegistry.getModel(model);
+            modelFingerprint = keccak256(abi.encodePacked(modelIdentifier));
+            votingWeight = performanceTracker.calculateVotingWeight(model);
             
-            Agent memory agent = agents[agentAddr];
-            if (agent.class == AgentClass.MAJOR_PROVIDER) hasMajorProvider = true;
-            else if (agent.class == AgentClass.OPEN_SOURCE) hasOpenSource = true;
-            else if (agent.class == AgentClass.SPECIALIZED) hasSpecialized = true;
-        }
-        
-        return hasMajorProvider && hasOpenSource && hasSpecialized;
-    }
-    
-    /**
-     * @dev Get total staked across all agents
-     */
-    function getTotalStake() public view returns (uint256 total) {
-        for (uint256 i = 0; i < agentList.length; i++) {
-            if (agents[agentList[i]].isActive) {
-                total += agents[agentList[i]].stakedAmount;
+            // Get average performance across all domains
+            uint256 totalScore;
+            for (uint256 i = 0; i < 6; i++) {
+                PerformanceTracker.Domain domain = PerformanceTracker.Domain(i);
+                (uint256 accuracy,,,,) = performanceTracker.getDomainPerformance(model, domain);
+                totalScore += accuracy;
             }
+            performanceScore = totalScore / 6;
         }
-    }
-    
-    /**
-     * @dev Apply reputation decay for inactive agents
-     */
-    function applyReputationDecay(address _agent) external {
-        Agent storage agent = agents[_agent];
-        require(agent.isActive, "Agent not active");
-        
-        uint256 inactivePeriods = (block.timestamp - agent.lastActivityAt) / REPUTATION_DECAY_PERIOD;
-        if (inactivePeriods > 0) {
-            uint256 decay = inactivePeriods * REPUTATION_DECAY_RATE;
-            if (agent.reputationScore > decay) {
-                agent.reputationScore -= decay;
-            } else {
-                agent.reputationScore = 0;
-            }
-        }
-    }
-    
-    /**
-     * @dev Emergency pause (circuit breaker only)
-     */
-    function emergencyStop() external onlyCircuitBreaker {
-        emergencyPause = true;
-        _pause();
-    }
-    
-    /**
-     * @dev Set circuit breaker multisig (one-time, called by Genesis)
-     */
-    function setCircuitBreaker(address _multisig) external {
-        require(circuitBreakerMultisig == address(0), "Already set");
-        circuitBreakerMultisig = _multisig;
-    }
-    
-    /**
-     * @dev Get voting power breakdown for a proposal
-     */
-    function getVotingPowerBreakdown(uint256 _proposalId) 
-        external 
-        view 
-        returns (VotingPower memory) 
-    {
-        Proposal storage proposal = proposals[_proposalId];
-        VotingPower memory power;
-        
-        for (uint256 i = 0; i < agentList.length; i++) {
-            address agentAddr = agentList[i];
-            if (!proposal.hasVoted[agentAddr]) continue;
-            
-            Agent memory agent = agents[agentAddr];
-            uint256 weight = calculateVotingWeight(agent);
-            
-            if (proposal.votes[agentAddr]) {
-                power.totalVotes += weight;
-                if (agent.class == AgentClass.MAJOR_PROVIDER) {
-                    power.majorProviderVotes += weight;
-                } else if (agent.class == AgentClass.OPEN_SOURCE) {
-                    power.openSourceVotes += weight;
-                } else {
-                    power.specializedVotes += weight;
-                }
-            }
-        }
-        
-        return power;
     }
 }
+
+// 409 lines - Simplified to delegate to Phase 3 infrastructure

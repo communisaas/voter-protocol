@@ -24,9 +24,11 @@ contract ActionVerifierMultiSig is AccessControl, IActionVerifier {
     event ActionVerified(bytes32 indexed actionHash, uint256 signerCount);
     event ThresholdUpdated(uint256 newThreshold);
 
-    constructor(address admin, uint256 initialThreshold) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(SIGNER_ROLE, admin);
+    constructor(address[] memory initialSigners, uint256 initialThreshold) {
+        // Grant SIGNER_ROLE to initial signers, no admin role
+        for (uint256 i = 0; i < initialSigners.length; i++) {
+            _grantRole(SIGNER_ROLE, initialSigners[i]);
+        }
 
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
@@ -42,11 +44,8 @@ contract ActionVerifierMultiSig is AccessControl, IActionVerifier {
         signerThreshold = initialThreshold;
     }
 
-    function setSignerThreshold(uint256 newThreshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newThreshold > 0, "threshold=0");
-        signerThreshold = newThreshold;
-        emit ThresholdUpdated(newThreshold);
-    }
+    // REMOVED: Admin control over threshold - now immutable after deployment
+    // Threshold can only be changed by deploying new contract
 
     function verifyAndMark(bytes32 actionHash, bytes[] calldata signatures) external {
         require(actionHash != bytes32(0), "invalid hash");

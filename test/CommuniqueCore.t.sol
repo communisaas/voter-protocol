@@ -10,7 +10,14 @@ import {ActionVerifierMultiSig} from "../contracts/ActionVerifierMultiSig.sol";
 import {CommuniqueCore} from "../contracts/CommuniqueCore.sol";
 import {ISelfProtocol} from "../contracts/interfaces/ISelfProtocol.sol";
 import {AgentParameters} from "../contracts/AgentParameters.sol";
+import {IAgentConsensus} from "../contracts/interfaces/IAgentConsensus.sol";
 import "forge-std/console.sol";
+
+// Define CitizenAttestation struct for testing
+struct CitizenAttestation {
+    bool verified;
+    bytes32 hash;
+}
 
 contract DummySelf is ISelfProtocol {
     mapping(address => bool) public isVerified;
@@ -28,6 +35,22 @@ contract DummySelf is ISelfProtocol {
     function walletToPhone(address) external pure returns (bytes32) { return bytes32(0); }
     function generateSelectiveProof(address, string[] calldata) external pure returns (bytes memory) { return bytes(""); }
     function verifySelectiveProof(bytes calldata, string[] calldata) external pure returns (bool) { return true; }
+    
+    // ISelfProtocol implementation
+    function verifyCredential(address, bytes32) external pure returns (bool) { return true; }
+    function isUserVerified(address) external pure returns (bool) { return true; }
+}
+
+contract MockAgentConsensus is IAgentConsensus {
+    mapping(bytes32 => bool) public verifiedActions;
+    
+    function setVerified(bytes32 actionHash, bool verified) external {
+        verifiedActions[actionHash] = verified;
+    }
+    
+    function isVerified(bytes32 actionHash) external view returns (bool) {
+        return verifiedActions[actionHash];
+    }
 }
 
 contract CommuniqueCoreTest is Test {
@@ -39,6 +62,8 @@ contract CommuniqueCoreTest is Test {
     AgentParameters params;
     CommuniqueCore core;
     DummySelf self;
+    MockAgentConsensus mockConsensus;
+    address emergencyMultiSig;
 
     address admin = address(this);
     uint256 signerPk;
@@ -54,15 +79,27 @@ contract CommuniqueCoreTest is Test {
         verifier = new ActionVerifierMultiSig(admin, 1);
         signerPk = 0xA11CE;
         signer = vm.addr(signerPk);
-        params = new AgentParameters(admin);
-        vm.prank(address(this)); // Impersonate CoreTest (who has DEFAULT_ADMIN_ROLE on VOTERRegistry)
+        emergencyMultiSig = address(0x123); // Mock emergency multisig
+        mockConsensus = new MockAgentConsensus();
+        params = new AgentParameters(address(mockConsensus));
+        
+        // Initialize parameters through consensus
+        params.initializeParameters(
+            1e8, // $1 CWC message
+            5e7, // $0.5 direct action
+            100e18, // max daily mint per user
+            10000e18 // max daily mint protocol
+        );
+        
+        vm.prank(address(this)); // Impersonate CoreTest
         core = new CommuniqueCore(
             address(registry), 
             address(voter), 
             address(identityRegistry),
             address(civicActionRegistry),
-            address(verifier), 
-            address(params)
+            address(mockConsensus), 
+            address(params),
+            emergencyMultiSig
         );
         vm.stopPrank(); // Stop impersonating
 
@@ -74,9 +111,9 @@ contract CommuniqueCoreTest is Test {
 
         // AgentConsensusGateway removed - using ActionVerifierMultiSig only
 
-        // Configure dynamic rewards via AgentParameters
-        params.setUint(keccak256("reward:CWC_MESSAGE"), 10e18);
-        params.setUint(keccak256("reward:DIRECT_ACTION"), 5e18);
+        // Configure dynamic rewards via time-locked parameters
+        // params.proposeUintChange(keccak256("reward:CWC_MESSAGE"), 10e18);
+        // params.proposeUintChange(keccak256("reward:DIRECT_ACTION"), 5e18);
 
         // Core will perform verification via registry during registration
     }
@@ -94,30 +131,23 @@ contract CommuniqueCoreTest is Test {
     }
 
     function test_ProcessAction_MintsAndRecords() public {
-        // Pre-verify action via multisig verifier (1-of-1 threshold)
+        // Pre-verify action via agent consensus
         bytes32 actionHash = keccak256("hello");
-        verifier.grantRole(verifier.SIGNER_ROLE(), signer);
-        bytes32 structHash = keccak256(abi.encode(verifier.ACTION_TYPEHASH(), actionHash));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", verifier.DOMAIN_SEPARATOR(), structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, digest);
-        bytes memory sig = abi.encodePacked(r, s, v);
-        bytes[] memory sigs = new bytes[](1);
-        sigs[0] = sig;
-        verifier.verifyAndMark(actionHash, sigs);
-
-        // Register participant through admin role
-        core.grantRole(core.ADMIN_ROLE(), admin);
-        vm.prank(admin);
-        core.registerParticipant(user, bytes32(uint256(42)));
+        bytes32 registrationProof = keccak256("registration_proof");
+        
+        // Set up consensus verification
+        mockConsensus.setVerified(actionHash, true);
+        mockConsensus.setVerified(registrationProof, true);
+        
+        // Register participant through consensus (no admin role)
+        core.registerParticipant(user, bytes32(uint256(42)), registrationProof);
 
         // Fast-forward to bypass interval check
         vm.warp(block.timestamp + 2 hours);
 
         uint256 balBefore = voter.balanceOf(user);
-        // Set caps sufficiently high for this test
-        params.setUint(keccak256("maxDailyMintPerUser"), 10000e18); // Adjusted to fit within AgentParameters maxValues
-        params.setUint(keccak256("maxDailyMintProtocol"), 1000000e18); // Adjusted to fit within AgentParameters maxValues
-        params.setUint(keccak256("maxRewardPerAction"), 100e18);
+        // Caps are already set in initialization
+        // No need to set again as parameters are now time-locked
         core.processCivicAction(user, VOTERRegistry.ActionType.CWC_MESSAGE, actionHash, "ipfs", 0);
         uint256 balAfter = voter.balanceOf(user);
 
@@ -129,11 +159,25 @@ contract CommuniqueCoreTest is Test {
         assertEq(records[0].actionHash, actionHash, "wrong action hash");
     }
 
-    function test_GrantRoleAndSetParam() public {
-        vm.prank(admin);
-        params.grantRole(params.PARAM_SETTER_ROLE(), admin);
-        params.setUint(keccak256("testParam"), 123);
-        assertEq(params.getUint(keccak256("testParam")), 123, "Test param not set");
+    function test_ParameterTimelock() public {
+        // Test that parameter changes require time-lock
+        bytes32 testKey = keccak256("testParam");
+        uint256 testValue = 123;
+        
+        // Propose parameter change
+        params.proposeUintChange(testKey, testValue);
+        
+        // Should not be set immediately
+        assertEq(params.getUint(testKey), 0, "Parameter should not be set immediately");
+        
+        // Fast forward past timelock
+        vm.warp(block.timestamp + 48 hours + 1);
+        
+        // Execute the change
+        params.executeUintChange(testKey);
+        
+        // Now it should be set
+        assertEq(params.getUint(testKey), testValue, "Parameter should be set after timelock");
     }
 }
 

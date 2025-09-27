@@ -86,11 +86,14 @@ contract CivicActionRegistry is AccessControl, Pausable {
         string reason
     );
     
-    constructor(address _identityRegistry, address admin) {
+    constructor(address _identityRegistry, address[] memory verifiers) {
         identityRegistry = IdentityRegistry(_identityRegistry);
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(VERIFIER_ROLE, admin);
-        _grantRole(RECORDER_ROLE, admin);
+        
+        // Grant VERIFIER_ROLE to initial verifiers (no admin role)
+        for (uint256 i = 0; i < verifiers.length; i++) {
+            _grantRole(VERIFIER_ROLE, verifiers[i]);
+            _grantRole(RECORDER_ROLE, verifiers[i]);
+        }
     }
     
     /**
@@ -258,14 +261,9 @@ contract CivicActionRegistry is AccessControl, Pausable {
         return actionAuthorizations[authKey];
     }
     
-    // Admin functions
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-    
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
+    // or upgrade patterns, not through centralized admin control
     
     /**
      * OFF-CHAIN DATA STRUCTURE (for documentation):

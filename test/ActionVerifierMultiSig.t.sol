@@ -23,12 +23,12 @@ contract ActionVerifierMultiSigTest is Test {
         signer2 = vm.addr(signer2Pk);
         signer3 = vm.addr(signer3Pk);
         
-        verifier = new ActionVerifierMultiSig(admin, 2); // 2-of-3 threshold
+        address[] memory initialSigners = new address[](3);
+        initialSigners[0] = signer1;
+        initialSigners[1] = signer2;
+        initialSigners[2] = signer3;
         
-        // Grant signer roles
-        verifier.grantRole(verifier.SIGNER_ROLE(), signer1);
-        verifier.grantRole(verifier.SIGNER_ROLE(), signer2);
-        verifier.grantRole(verifier.SIGNER_ROLE(), signer3);
+        verifier = new ActionVerifierMultiSig(initialSigners, 2); // 2-of-3 threshold
     }
     
     function test_SingleSignerBelowThreshold() public {
@@ -128,24 +128,12 @@ contract ActionVerifierMultiSigTest is Test {
         verifier.verifyAndMark(actionHash, signatures);
     }
     
-    function test_UpdateThreshold() public {
-        // Update threshold to 3
-        verifier.setSignerThreshold(3);
+    function test_ThresholdIsImmutable() public {
+        // Verify threshold cannot be changed after deployment
+        assertEq(verifier.signerThreshold(), 2);
         
-        bytes32 actionHash = keccak256("action6");
-        bytes32 digest = _hashAction(actionHash);
-        
-        // Sign with only 2 signers (now below threshold)
-        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(signer1Pk, digest);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(signer2Pk, digest);
-        
-        bytes[] memory signatures = new bytes[](2);
-        signatures[0] = abi.encodePacked(r1, s1, v1);
-        signatures[1] = abi.encodePacked(r2, s2, v2);
-        
-        // Should fail with new threshold
-        vm.expectRevert("insufficient sigs");
-        verifier.verifyAndMark(actionHash, signatures);
+        // The setSignerThreshold function no longer exists - threshold is immutable
+        // This prevents centralized threshold manipulation
     }
     
     function test_ThreeSignersExceedThreshold() public {
@@ -183,14 +171,9 @@ contract ActionVerifierMultiSigTest is Test {
     }
     
     function test_ZeroThresholdRejected() public {
+        address[] memory emptySigners = new address[](0);
         vm.expectRevert("threshold=0");
-        new ActionVerifierMultiSig(admin, 0);
-    }
-    
-    function test_OnlyAdminCanUpdateThreshold() public {
-        vm.prank(signer1);
-        vm.expectRevert();
-        verifier.setSignerThreshold(1);
+        new ActionVerifierMultiSig(emptySigners, 0);
     }
     
     // Helper function to create EIP-712 digest

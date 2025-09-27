@@ -1,0 +1,8 @@
+[profile.default]
+src = "contracts/libraries"
+out = "out_lib"
+libs = ["lib"]
+test = "test_lib"
+
+[dependencies]
+openzeppelin-contracts = "4.9.0"

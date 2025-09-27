@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract ReputationRegistry is AccessControl, ReentrancyGuard, Pausable {
     bytes32 public constant REPUTATION_UPDATER_ROLE = keccak256("REPUTATION_UPDATER_ROLE");
     bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     
     struct Reputation {
         uint256 overallScore;           // 0-1000 overall credibility score
@@ -76,10 +75,16 @@ contract ReputationRegistry is AccessControl, ReentrancyGuard, Pausable {
         address verifiedBy
     );
     
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(ADMIN_ROLE, admin);
-        _grantRole(REPUTATION_UPDATER_ROLE, admin);
+    constructor(address[] memory updaters, address[] memory agents) {
+        // Grant REPUTATION_UPDATER_ROLE to initial updaters (no admin role)
+        for (uint256 i = 0; i < updaters.length; i++) {
+            _grantRole(REPUTATION_UPDATER_ROLE, updaters[i]);
+        }
+        
+        // Grant AGENT_ROLE to initial agents
+        for (uint256 i = 0; i < agents.length; i++) {
+            _grantRole(AGENT_ROLE, agents[i]);
+        }
     }
     
     /**
@@ -346,17 +351,6 @@ contract ReputationRegistry is AccessControl, ReentrancyGuard, Pausable {
         }
     }
     
-    /**
-     * @dev Emergency pause
-     */
-    function pause() external onlyRole(ADMIN_ROLE) {
-        _pause();
-    }
-    
-    /**
-     * @dev Unpause
-     */
-    function unpause() external onlyRole(ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
 }

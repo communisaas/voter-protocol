@@ -68,9 +68,11 @@ contract IdentityRegistry is AccessControl, Pausable {
         string reason
     );
     
-    constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(REGISTRAR_ROLE, admin);
+    constructor(address[] memory registrars) {
+        // Grant REGISTRAR_ROLE to initial registrars (no admin role)
+        for (uint256 i = 0; i < registrars.length; i++) {
+            _grantRole(REGISTRAR_ROLE, registrars[i]);
+        }
     }
     
     /**
@@ -189,21 +191,8 @@ contract IdentityRegistry is AccessControl, Pausable {
         return districtParticipants[districtHash];
     }
     
-    /**
-     * @dev Deactivate a participant (admin function)
-     */
-    function deactivateParticipant(
-        uint256 participantId,
-        string memory reason
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        Participant storage participant = participants[participantId];
-        require(participant.isActive, "Already inactive");
-        
-        participant.isActive = false;
-        activeParticipants--;
-        
-        emit ParticipantDeactivated(participantId, reason);
-    }
+    // REMOVED: Admin deactivation function eliminated
+    // Participants can only be deactivated through external challenge/validation mechanisms
     
     /**
      * @dev Check if address is registered
@@ -212,16 +201,8 @@ contract IdentityRegistry is AccessControl, Pausable {
         return addressToId[participantAddress] != 0;
     }
     
-    /**
-     * @dev Pause/unpause functions
-     */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-    
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
     
     // Internal helper
     function _removeFromDistrict(uint256 participantId, bytes32 districtHash) internal {

@@ -75,18 +75,26 @@ contract PACTreasury is AccessControl, ReentrancyGuard, Pausable {
     event ContributorRegistered(address indexed contributor, bool employee, bool shareholder);
     event ContributionMade(address indexed contributor, uint256 proposalId, uint256 amount);
     event AutoContributionSet(address indexed contributor, uint256 rate);
-    event QuadraticFundingCalculated(uint256 indexed proposalId, uint256 match, uint256 contributors);
+    event QuadraticFundingCalculated(uint256 indexed proposalId, uint256 matchingAmount, uint256 contributors);
     event RepresentativeFunded(string representative, uint256 amount, uint256 proposalId);
     event FECLimitUpdated(uint256 newLimit, string limitType);
     event FundingProposalCreated(uint256 indexed proposalId, string representative, uint256 targetAmount);
     
     constructor(
-        address admin,
+        address[] memory governanceMembers,
+        address[] memory initialContributors,
         address _voterToken,
         address _impactRegistry
     ) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(GOVERNANCE_ROLE, admin);
+        // Grant GOVERNANCE_ROLE to initial governance members (no admin role)
+        for (uint256 i = 0; i < governanceMembers.length; i++) {
+            _grantRole(GOVERNANCE_ROLE, governanceMembers[i]);
+        }
+        
+        // Grant CONTRIBUTOR_ROLE to initial contributors
+        for (uint256 i = 0; i < initialContributors.length; i++) {
+            _grantRole(CONTRIBUTOR_ROLE, initialContributors[i]);
+        }
         
         voterToken = IVOTERToken(_voterToken);
         impactRegistry = ImpactRegistry(_impactRegistry);
@@ -373,19 +381,8 @@ contract PACTreasury is AccessControl, ReentrancyGuard, Pausable {
         return (contributorList, amounts);
     }
     
-    /**
-     * @dev Emergency pause
-     */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-    
-    /**
-     * @dev Unpause
-     */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+    // REMOVED: Admin pause/unpause functions eliminated
+    // Contract is now pausable only through external emergency mechanisms
     
     /**
      * @dev Square root function (simplified - would use library in production)

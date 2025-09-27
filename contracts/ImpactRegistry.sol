@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IVOTERRegistry.sol";
 
 /**
@@ -9,7 +10,9 @@ import "./interfaces/IVOTERRegistry.sol";
  * @dev Tracks civic impact without financial implications—pure information
  * @notice All data public for any observer to read and interpret independently
  */
-contract ImpactRegistry is Pausable {
+contract ImpactRegistry is Pausable, AccessControl {
+    
+    bytes32 public constant RECORDER_ROLE = keccak256("RECORDER_ROLE");
     address public agentConsensus;
     address public immutable genesis;
     bool public initialized = false;
@@ -35,9 +38,7 @@ contract ImpactRegistry is Pausable {
     
     struct ParticipantImpact {
         address participant;
-        uint256 messagesS
-
-;
+        uint256 messagesSent;
         uint256 templatesCreated;
         uint256 successfulChallenges;
         uint256 citationsEarned;
@@ -155,6 +156,7 @@ contract ImpactRegistry is Pausable {
         
         // Update participant metrics (non-financial)
         ParticipantImpact storage participant = participantImpacts[user];
+        // Track participation activity
         participant.messagesSent++;
         
         emit TemplateUsageRecorded(templateId, user, representative);

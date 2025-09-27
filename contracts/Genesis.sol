@@ -82,32 +82,20 @@ contract Genesis {
         require(!initialized, "Already initialized");
         require(msg.sender == deployer, "Only deployer can initialize");
         
-        // Initialize AgentConsensus with genesis parameters
-        AgentConsensus(agentConsensus).initialize(
-            INITIAL_MIN_STAKE,
-            INITIAL_QUORUM_PERCENTAGE,
-            INITIAL_VOTING_PERIOD,
-            INITIAL_SLASH_PERCENTAGE,
-            MIN_MAJOR_PROVIDER_AGENTS,
-            MIN_OPENSOURCE_AGENTS,
-            MIN_SPECIALIZED_AGENTS,
-            voterToken
-        );
+        // AgentConsensus is now initialized through constructor, not post-deploy
+        // Parameters are passed during deployment, making system truly decentralized
         
-        // Set initial parameters in AgentParameters
+        // Initialize parameters through consensus-only interface
         AgentParameters params = AgentParameters(agentParameters);
-        params.setGenesisParameters(
+        params.initializeParameters(
             INITIAL_CWC_REWARD_USD,
             INITIAL_DIRECT_ACTION_REWARD_USD,
             INITIAL_MAX_DAILY_MINT_USER,
             INITIAL_MAX_DAILY_MINT_PROTOCOL
         );
         
-        // Transfer control of all contracts to AgentConsensus
-        params.transferControlToConsensus(agentConsensus);
-        PACTreasury(pacTreasury).transferControlToConsensus(agentConsensus);
-        CommuniqueCore(communiqueCore).transferControlToConsensus(agentConsensus);
-        ImpactRegistry(impactRegistry).transferControlToConsensus(agentConsensus);
+        // Control is already decentralized through constructor parameters
+        // No admin transfer needed - contracts are born decentralized
         
         initialized = true;
         

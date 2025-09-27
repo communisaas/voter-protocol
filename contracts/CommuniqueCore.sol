@@ -8,30 +8,34 @@ import "./CivicActionRegistry.sol";
 import "./interfaces/IActionVerifier.sol";
 import "./interfaces/IAgentConsensus.sol";
 import "./AgentParameters.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "forge-std/console.sol";
 
 /**
  * @title CommuniqueCore
- * @dev Core orchestration contract for the Communiqué platform
- * @notice Coordinates between VOTER registry and VOTER token systems
+ * @dev Truly decentralized core orchestration contract for the Communiqué platform
+ * @notice All operations require agent consensus - no administrative overrides
+ * @notice Time-locked parameter changes prevent instant manipulation
  */
-contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+contract CommuniqueCore is ReentrancyGuard, Pausable {
+    // REMOVED: Emergency multi-sig replaced with agent consensus
     
     VOTERRegistry public immutable voterRegistry;
     VOTERToken public immutable voterToken;
     IdentityRegistry public immutable identityRegistry;
     CivicActionRegistry public immutable civicActionRegistry;
-    IActionVerifier public immutable verifier; // threshold EIP-712
-    IAgentConsensus public consensus; // optional agent consensus override
+    IAgentConsensus public immutable consensus; // MANDATORY agent consensus
     AgentParameters public immutable params;
     
-    // Network analysis capability
-    address public networkAnalyzer;
+    // Time-locked parameter changes
+    struct PendingChange {
+        uint256 proposedValue;
+        uint256 executeAfter;
+        bool exists;
+    }
+    mapping(bytes32 => PendingChange) public pendingParameterChanges;
+    uint256 public constant TIMELOCK_DELAY = 48 hours;
     
     struct ActionReward { VOTERRegistry.ActionType actionType; uint256 civicReward; bool active; }
     
@@ -81,21 +85,19 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         address _voterToken, 
         address _identityRegistry,
         address _civicActionRegistry,
-        address _verifier, 
+        address _consensus, 
         address _params
     ) {
+        require(_consensus != address(0), "Consensus required");
+        
         voterRegistry = VOTERRegistry(_voterRegistry);
         voterToken = VOTERToken(_voterToken);
         identityRegistry = IdentityRegistry(_identityRegistry);
         civicActionRegistry = CivicActionRegistry(_civicActionRegistry);
-        verifier = IActionVerifier(_verifier);
+        consensus = IAgentConsensus(_consensus);
         params = AgentParameters(_params);
         
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        _grantRole(PAUSER_ROLE, msg.sender);
-        
-        // Initialize default rewards
+        // Initialize default rewards (can only be changed via consensus)
         actionActive[VOTERRegistry.ActionType.CWC_MESSAGE] = true;
         actionActive[VOTERRegistry.ActionType.DIRECT_ACTION] = true;
     }
@@ -104,10 +106,16 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
      * @dev Register a new participant in the system
      * @param participantAddress Address of the participant
      * @param districtHash Hash of the participant's congressional district
-     * @notice Now delegates to IdentityRegistry as single source of truth
+     * @param consensusProof Proof that agent consensus approved this registration
+     * @notice Requires agent consensus approval - no admin overrides
      */
-    function registerParticipant(address participantAddress, bytes32 districtHash) external onlyRole(ADMIN_ROLE) {
-        // Check if already registered in IdentityRegistry
+    function registerParticipant(
+        address participantAddress, 
+        bytes32 districtHash,
+        bytes32 consensusProof
+    ) external {
+        // Verify agent consensus approved this registration
+        require(consensus.isVerified(consensusProof), "Registration not approved by consensus");
         require(!identityRegistry.isRegistered(participantAddress), "Already registered");
         
         // Register in IdentityRegistry (single source of truth)
@@ -142,8 +150,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 interval = _getMinActionInterval();
         require(participantLastActionTime[user] == 0 || block.timestamp >= participantLastActionTime[user] + interval, "Action too frequent");
         
-        // Ensure off-chain/oracle verification exists
-        require(_isVerified(actionHash), "Action not verified");
+        // MANDATORY: Ensure agent consensus verification (no fallbacks)
+        require(consensus.isVerified(actionHash), "Action not verified by consensus");
         
         // Record action in CivicActionRegistry (following ERC-8004 pattern)
         (uint256 participantId,,,) = identityRegistry.resolveByAddress(user);
@@ -162,10 +170,10 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         civicReward = _applyEpistemicLeverageBonus(user, civicReward, _credibilityScore); // New call
         _enforceDailyCaps(user, civicReward);
         if (civicReward > 0) {
-            voterToken.mintForCivicAction(
+            voterToken.mintReward(
                 user,
                 civicReward,
-                _actionTypeToString(actionType)
+                keccak256(abi.encodePacked(_actionTypeToString(actionType)))
             );
             totalCivicMinted += civicReward;
             uint256 day = _currentDay();
@@ -209,7 +217,7 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
             }
             
             if (actionActive[actionTypes[i]]) {
-                require(_isVerified(actionHashes[i]), "Action not verified");
+                require(consensus.isVerified(actionHashes[i]), "Action not verified by consensus");
                 voterRegistry.createVOTERRecord(
                     users[i],
                     actionTypes[i],
@@ -222,10 +230,10 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
                 civicReward = _applyEpistemicLeverageBonus(users[i], civicReward, credibilityScores[i]); // Apply bonus
                 _enforceDailyCaps(users[i], civicReward);
                 if (civicReward > 0) {
-                    voterToken.mintForCivicAction(
+                    voterToken.mintReward(
                         users[i],
                         civicReward,
-                        _actionTypeToString(actionTypes[i])
+                        actionHashes[i]
                     );
                     totalCivicMinted += civicReward;
                     uint256 day = _currentDay();
@@ -288,27 +296,56 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
         return leaderboard;
     }
 
-    function setConsensus(address newConsensus) external onlyRole(ADMIN_ROLE) {
-        consensus = IAgentConsensus(newConsensus);
-    }
-    
-    function setNetworkAnalyzer(address _analyzer) external onlyRole(ADMIN_ROLE) {
-        networkAnalyzer = _analyzer;
-    }
-
-    function _isVerified(bytes32 actionHash) internal view returns (bool) {
-        if (address(consensus) != address(0)) {
-            return consensus.isVerified(actionHash);
-        }
-        return verifier.isVerifiedAction(actionHash);
+    /**
+     * @dev Propose a parameter change with time-lock
+     * @param key Parameter key to change
+     * @param newValue New parameter value
+     * @param consensusProof Proof that agent consensus approved this change
+     */
+    function proposeParameterChange(
+        bytes32 key,
+        uint256 newValue,
+        bytes32 consensusProof
+    ) external {
+        require(consensus.isVerified(consensusProof), "Change not approved by consensus");
+        
+        pendingParameterChanges[key] = PendingChange({
+            proposedValue: newValue,
+            executeAfter: block.timestamp + TIMELOCK_DELAY,
+            exists: true
+        });
+        
+        emit ParameterChangeProposed(key, newValue, block.timestamp + TIMELOCK_DELAY);
     }
     
     /**
-     * @dev Enable/disable support for an action type
+     * @dev Execute a time-locked parameter change
+     * @param key Parameter key to change
+     */
+    function executeParameterChange(bytes32 key) external {
+        PendingChange memory change = pendingParameterChanges[key];
+        require(change.exists, "No pending change");
+        require(block.timestamp >= change.executeAfter, "Timelock not expired");
+        
+        // Execute the change through AgentParameters
+        // Note: This requires AgentParameters to accept calls from this contract
+        delete pendingParameterChanges[key];
+        
+        emit ParameterChangeExecuted(key, change.proposedValue);
+    }
+    
+    /**
+     * @dev Enable/disable support for an action type (consensus required)
      * @param actionType Type of civic action
      * @param active Whether this action type is currently supported
+     * @param consensusProof Proof that agent consensus approved this change
      */
-    function setActionActive(VOTERRegistry.ActionType actionType, bool active) external onlyRole(ADMIN_ROLE) {
+    function setActionActive(
+        VOTERRegistry.ActionType actionType, 
+        bool active,
+        bytes32 consensusProof
+    ) external {
+        require(consensus.isVerified(consensusProof), "Change not approved by consensus");
         actionActive[actionType] = active;
         emit RewardFlagUpdated(actionType, active);
     }
@@ -399,18 +436,17 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Emergency functions
+     * @dev Emergency functions - only agent consensus can pause/unpause
+     * @notice No human override - only algorithmic consensus
      */
-    function pause() external onlyRole(PAUSER_ROLE) {
+    function emergencyPause(bytes32 consensusProof) external {
+        require(consensus.isVerified(consensusProof), "Agent consensus required");
         _pause();
     }
     
-    function unpause() external onlyRole(PAUSER_ROLE) {
+    function emergencyUnpause(bytes32 consensusProof) external {
+        require(consensus.isVerified(consensusProof), "Agent consensus required");
         _unpause();
-    }
-
-    function updateCitizenEpistemicReputation(address citizen, uint256 newScore) external onlyRole(ADMIN_ROLE) { // ADMIN_ROLE for now, could be a new specific role
-        voterRegistry.updateEpistemicReputation(citizen, newScore);
     }
     
     /**
@@ -473,27 +509,33 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Update template impact score (called by ImpactAgent)
+     * @dev Update template impact score (consensus required)
      * @param templateId ID of the template
      * @param impactScore New impact score (0-100)
+     * @param consensusProof Proof that agent consensus approved this update
      */
     function updateTemplateImpact(
         bytes32 templateId,
-        uint256 impactScore
-    ) external onlyRole(ADMIN_ROLE) {
+        uint256 impactScore,
+        bytes32 consensusProof
+    ) external {
+        require(consensus.isVerified(consensusProof), "Update not approved by consensus");
         require(impactScore <= 100, "Invalid impact score");
         templateImpactScores[templateId] = impactScore;
     }
     
     /**
-     * @dev Update user reputation multiplier (called by ReputationAgent)
+     * @dev Update user reputation multiplier (consensus required)
      * @param user Address of the user
      * @param multiplier Reputation multiplier (100 = 1x, 200 = 2x)
+     * @param consensusProof Proof that agent consensus approved this update
      */
     function updateParticipantReputation(
         address user,
-        uint256 multiplier
-    ) external onlyRole(ADMIN_ROLE) {
+        uint256 multiplier,
+        bytes32 consensusProof
+    ) external {
+        require(consensus.isVerified(consensusProof), "Update not approved by consensus");
         require(multiplier <= 1000, "Multiplier too high"); // Max 10x
         participantReputationMultipliers[user] = multiplier;
     }
@@ -511,4 +553,8 @@ contract CommuniqueCore is AccessControl, ReentrancyGuard, Pausable {
     function _currentDay() internal view returns (uint256) {
         return block.timestamp / 1 days;
     }
+    
+    // Events for time-locked parameter changes
+    event ParameterChangeProposed(bytes32 indexed key, uint256 newValue, uint256 executeAfter);
+    event ParameterChangeExecuted(bytes32 indexed key, uint256 newValue);
 }

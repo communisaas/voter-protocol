@@ -129,12 +129,14 @@ Citizens get cryptographic proof their voices reached legislators; legislators g
 
 **Security Architecture**
 
-- **Multi-sig governance** with emergency pause functionality preventing capture while enabling evolution
+- **Agent consensus required** for all operations with no administrative overrides
+- **Mathematical circuit breakers** preventing attacks through algorithmic detection
+- **48-hour timelock** on all parameter changes with agent consensus requirement
 - **Comprehensive auditing** ensuring smart contract security meets institutional standards
 - **Redundant oracle networks** preventing single points of failure
 - **Zero PII on-chain** while maintaining verification capabilities
 
-Democratic infrastructure that can't be captured, manipulated, or shut down by any single entity.
+Infrastructure controlled by agent consensus with mathematical security constraints.
 
 ### Data Flow Architecture
 
@@ -363,15 +365,15 @@ Impact drives economics. Quality compounds rewards. Mathematics prevents gaming.
 
 ### Security Through Mathematical Constraints
 
-**Security: Can Mathematical Constraints Prevent Human Corruption?**
+**Mathematical Constraints Replace Administrative Control**
 
-Critical functions require multiple signatures—because power concentration corrupts, even in smart contracts. Agent parameters have hard bounds written into immutable code—because optimization without limits becomes chaos. Emergency pause mechanisms exist for true crisis scenarios—because even revolutionary systems need circuit breakers.
+Agent parameters have hard bounds written into immutable code. Circuit breakers provide automated protection without human intervention. Time-locked parameter changes prevent rapid manipulation.
 
-**The Security Trinity:**
-Smart contracts enforce limits that humans can't override. Humans set the boundaries that agents can't exceed. Mathematics prevents manipulation that governance can't detect.
+**The Security Model:**
+Smart contracts enforce limits that no entity can override. Agents operate within boundaries they cannot exceed. Mathematics prevents manipulation that human governance cannot detect.
 
-**The Formula for Trust:**
-Multi-sig governance + parametric bounds + emergency controls = infrastructure that enables political innovation without becoming reckless.
+**Protection Without Gatekeepers:**
+Agent consensus + parametric bounds + circuit breakers = infrastructure that protects itself through mathematics.
 
 ### Zero-Cost Identity Infrastructure
 
