@@ -10,12 +10,17 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 **The Strategic Bet**: We're not building for AI agents to coordinate with each other. We're building AI-verified infrastructure for human civic participation. The AI is the verification layer, the human is the participant. This positions VOTER as the foundational civic protocol where on-chain agency meets democratic authenticity.
 
-### Core Innovation: VOTER Protocol Smart Contracts
-The VOTER Protocol provides blockchain infrastructure for democratic participation:
-- **VOTER Records**: Non-transferable proof of civic actions (ERC-721)
-- **VOTER Tokens**: Governance and utility tokens with staking (ERC-20)
-- **Smart Contracts**: On-chain registries, reputation systems, and challenge markets
-- **Multi-sig Security**: Protected governance and treasury management
+### Architecture Split: VOTER Protocol + Communique
+**VOTER Protocol** (this repo): Smart contracts for on-chain settlement
+- **Smart Contracts**: VOTERToken, CommuniqueCore, AgentConsensus, ChallengeMarket
+- **On-chain Infrastructure**: Registries, reputation systems, consensus verification
+- **Blockchain Settlement**: Token minting, reward distribution, challenge resolution
+
+**Communique** (separate repo): Off-chain agent implementations
+- **Agent Logic**: `/src/lib/agents/voter-protocol/` contains TypeScript implementations
+- **SupplyAgent, MarketAgent, ImpactAgent, VerificationAgent, ReputationAgent**
+- **Template Processing**: Content moderation and enhancement
+- **CWC Integration**: Congressional message delivery and verification
 
 ## Technology Stack
 

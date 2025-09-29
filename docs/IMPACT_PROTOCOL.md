@@ -34,7 +34,7 @@ The process begins when citizens create templates containing verifiable claims a
 
 When thousands of citizens coordinate around powerful templates, representatives notice. Congressional staffers summarize recurring arguments. Representatives begin citing citizen-provided information in speeches. Committee members reference template evidence in hearings. Position changes become observable through public records.
 
-Our ImpactAgent tracks these influence chains with mathematical precision. When template language appears verbatim in the Congressional Record, we document direct citation. When voting patterns shift following coordinated campaigns, we measure correlation with confidence intervals. When representatives change positions after receiving template campaigns, we note the temporal relationship.
+Our ImpactAgent will track these influence chains with mathematical precision. When template language appears verbatim in the Congressional Record, we'll document direct citation. When voting patterns shift following coordinated campaigns, we'll measure correlation with confidence intervals. When representatives change positions after receiving template campaigns, we'll note the temporal relationship.
 
 This isn't claiming causation where none exists. We make humble claims about observable influence, always acknowledging alternative explanations. But when patterns emerge—templates created Monday, campaigns Tuesday through Thursday, floor speech citations Friday, vote changes the following week—the influence chain becomes undeniable.
 

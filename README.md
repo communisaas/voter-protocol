@@ -68,19 +68,19 @@ Every parameter has hard floors and ceilings in smart contracts. Daily change li
 
 Static protocols can't adapt to political dynamics. Our agents learn what works. Parameters evolve. Democracy improves itself.
 
-## Revolutionary Architecture: True Decentralization Achieved
+## Revolutionary Architecture: Consensus-Driven Governance
 
-**Zero Administrative Control**: No DEFAULT_ADMIN_ROLE. No admin functions. No backdoors. No emergency overrides. **Agent consensus is the only authority.** Every operation requires cryptographic proof of AI agent agreement. Parameters can only change through 48-hour timelocks. True decentralization isn't marketing—it's mathematical reality.
+**Agent Consensus Framework**: Smart contracts require consensus proofs for critical operations. Parameters change through 48-hour timelocks with agent agreement. The architecture eliminates single points of control through mathematical consensus requirements—not trust in administrators.
 
 **Soul-Bound Democracy**: VOTERRecords create permanent, non-transferable proof of civic participation. Democracy you earn, not buy. High-credibility actions get 10x reward multipliers.
 
 **ERC-8004 Infrastructure**: Built for AI agents, extended to humans. Three registries (Identity, Reputation, Action) create portable civic credibility across every platform. Your reputation follows you everywhere.
 
-**Mathematical Circuit Breakers**: Automatic attack detection through pattern recognition. Massive single actions blocked. Rapid user abuse prevented. Suspicious batch activity halted. **Security through mathematics, not administrators.**
+**Mathematical Circuit Breakers**: Automatic attack detection through pattern recognition. Massive single actions blocked. Rapid user abuse prevented. Suspicious batch activity halted. Security through mathematical constraints and consensus requirements.
 
 **Quadratic Mathematics**: 100 people staking $10 creates more impact than 1 person staking $1000. Square root scaling ensures community consensus beats concentrated wealth.
 
-**Observable Impact**: ImpactAgent tracks template language in legislative records with humble causal claims and confidence intervals. When legislators quote citizen templates, we measure correlation signals—causation requires far more evidence than any algorithm can provide.
+**Observable Impact**: ImpactAgent will track template language in legislative records with humble causal claims and confidence intervals. When legislators quote citizen templates, we'll measure correlation signals—causation requires far more evidence than any algorithm can provide.
 
 ## Prize Economics: Direct Political Markets
 
@@ -94,13 +94,13 @@ VOTER tokens qualify as digital commodities under federal framework—value deri
 
 ## Current Status & Roadmap
 
-**Status**: Pre-testnet architecture phase
+**Status**: Off-chain MVP with on-chain migration path
 
-**Smart Contracts**: VOTERRegistry, VOTERToken, CommuniqueCore architected with agent consensus requirements. Admin functions removed, security constraints added. **Awaiting testnet deployment.**
+**Smart Contracts**: VOTERRegistry, VOTERToken, CommuniqueCore implemented with consensus requirements. AgentConsensus and challenge market infrastructure ready for testnet deployment.
 
-**Agent Infrastructure Design**: Multi-provider verification planned through OpenRouter. LangGraph coordination specified. ChromaDB memory systems designed.
+**Agent Infrastructure**: TypeScript implementations exist in Communique repository (`/src/lib/agents/voter-protocol/`). SupplyAgent, MarketAgent, ImpactAgent, VerificationAgent, and ReputationAgent provide off-chain decision logic that will integrate with on-chain consensus.
 
-**Integration Planning**: Congressional API connections mapped. Email delivery verification designed. Reputation tracking architected.
+**Integration Architecture**: Communique handles off-chain agent logic and CWC API integration. VOTER Protocol provides on-chain settlement and consensus verification.
 
 **Next Milestones**:
 1. Deploy to testnet for validation
@@ -137,13 +137,13 @@ We're not hiding. We're pioneering.
 
 **Identity**: Multi-source sybil resistance through [BrightID](https://www.brightid.org/whitepaper), device heuristics, and verifiable credentials—not centralized KYC. Congressional district mapping via [zero-knowledge proofs](https://dl.acm.org/doi/10.1145/22145.22178) without exposing personal information.
 
-**Verification**: Twenty-plus AI models across diverse architectures create autonomous consensus. [Quadratic funding mathematics](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3243656) ensure no single provider dominance.
+**Verification**: Multi-model consensus architecture designed for diverse AI providers. [Quadratic funding mathematics](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3243656) ensure no single provider dominance when fully deployed.
 
 **Delivery**: [Congressional APIs](https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc) provide cryptographic receipts for every message.
 
 **Global Scale**: Parliamentary API integration across Brazil, Argentina, Canada, UK, Germany, Australia, India, Israel, South Korea, Japan, Indonesia, and developing democracies worldwide.
 
-**Security**: Zero admin control. Agent consensus required for all operations. Mathematical circuit breakers. True decentralization achieved.
+**Security**: Agent consensus required for critical operations. Mathematical circuit breakers. Progressive decentralization through consensus requirements.
 
 -----
 

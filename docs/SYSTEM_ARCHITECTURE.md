@@ -8,40 +8,66 @@ The architecture starts from a simple observation: ERC-8004 was designed for AI 
 
 ## Architecture Components
 
-### Hybrid Deployment Strategy
+### Consensus-First Architecture
 
-We face a fundamental challenge: democracy operates at massive scale with millions of participants, but blockchain infrastructure typically handles thousands. Our solution combines the best of multiple chains to create infrastructure that actually works at democratic scale.
+VOTER Protocol implements consensus-based governance where critical operations require multi-agent agreement. The architecture progressively removes centralized control points:
 
-Monad serves as our primary execution layer, providing high-performance EVM execution specifically designed for civic engagement volumes. The core VOTER Protocol contracts—ProofOfWork, BountyProtocol, and OutcomeOracle—live here, handling direct political prize distribution with mathematical precision. When citizens stake tokens on policy outcomes or politicians claim prizes, these contracts execute with cost efficiency that makes mass participation viable.
+**Implementation Status:**
+- **Smart Contracts**: Consensus requirements implemented in CommuniqueCore.sol and AgentConsensus.sol
+- **Agent Logic**: TypeScript implementations in Communique repository (`/src/lib/agents/voter-protocol/`)
+- **On-chain Consensus**: Framework deployed, awaiting full agent network activation
+- **Parameter Bounds**: AgentParameters.sol enforces min/max constraints with timelock updates
 
-For broader ecosystem compatibility, we maintain optional Ethereum Layer 2 mirrors that enable ERC-8004 registry consumption by ETH-native applications. This creates cross-platform reputation portability where your civic credibility seamlessly transfers between platforms. Institutional partners can integrate through familiar Ethereum infrastructure while benefiting from Monad's performance advantages.
+### Deployment Strategy
+
+**Target Network**: Ronin (100K TPS, 2.27M daily users) or Monad for initial deployment.
+
+**Contract Status**:
+- `CommuniqueCore.sol`: Implemented with consensus requirements
+- `UnifiedRegistry.sol`: Consolidated registry architecture deployed
+- `AgentConsensus.sol`: Framework for multi-agent decisions ready
+- `VOTERToken.sol`: ERC-20 with emission schedule implemented
+
+For broader ecosystem compatibility, we maintain optional Ethereum Layer 2 mirrors that enable ERC-8004 registry consumption by ETH-native applications. This creates cross-platform reputation portability where your civic credibility seamlessly transfers between platforms.
 
 ### Core Smart Contract Architecture
 
 ```mermaid
 flowchart TB
-    VOTERRegistry["VOTERRegistry.sol<br/>(Civic Action Verification)"]
+    UnifiedRegistry["UnifiedRegistry.sol<br/>(Single Source of Truth)"]
+    ConsensusEngine["ConsensusEngine.sol<br/>(Multi-Agent Consensus)"]
+    CommuniqueCoreV2["CommuniqueCoreV2.sol<br/>(Consensus Orchestration)"]
     VOTERToken["VOTERToken.sol<br/>(Reward Distribution)"]
-    CommuniqueCore["CommuniqueCore.sol<br/>(Agent Coordination)"]
-    ChallengeMarket["ChallengeMarket.sol<br/>(Information Quality)"]
     
-    Citizens["Citizens"] --> Templates["Template<br/>Creation"]
-    Templates --> VOTERRegistry
-    VOTERRegistry --> VOTERToken
-    VOTERToken --> CommuniqueCore
-    CommuniqueCore --> Stakes["Outcome<br/>Stakes"]
-    Stakes --> ChallengeMarket
-    ChallengeMarket --> Prizes["Prize<br/>Claims"]
-    Prizes --> Politicians["Politicians"]
+    Citizens["Citizens"] --> Request["Request<br/>Action"]
+    Request --> CommuniqueCoreV2
+    CommuniqueCoreV2 --> ConsensusEngine
+    ConsensusEngine --> AIAgents["AI Agent<br/>Network"]
+    AIAgents --> Consensus["Consensus<br/>Decision"]
+    Consensus --> UnifiedRegistry
+    UnifiedRegistry --> VOTERToken
+    VOTERToken --> Rewards["Reward<br/>Distribution"]
 ```
 
-## Agent Network Architecture: Death to Hardcoded Tyranny
+## Consensus-Based Agent Network: Mathematical Democracy
 
 Traditional blockchain protocols trap themselves with parameters chosen at launch and frozen forever. A founder decides "10 tokens per action" and that arbitrary number becomes immutable law. But democracy isn't static—it evolves, adapts, learns. VOTER Protocol replaces rigid mechanics with intelligent agents that respond to actual human behavior and political dynamics.
 
 Think about the absurdity of hardcoded parameters: why should rewards be the same during a crucial vote as during congressional recess? Why should spam detection thresholds remain constant as attack patterns evolve? Static systems can't answer these questions, but our agent network can.
 
-### Five Specialized Agents Creating Living Infrastructure
+### Consensus Engine Architecture
+
+**Design**: Five-stage consensus process for critical decisions:
+
+1. **PROPOSAL**: Action proposed with description and payload
+2. **RESEARCH**: AI agents analyze and gather information  
+3. **COMMITMENT**: Hidden votes submitted (hash of vote + nonce)
+4. **REVEAL**: Votes revealed and verified
+5. **EXECUTION**: Consensus-approved action executed on-chain
+
+**Current Implementation**: AgentConsensus.sol provides the framework. Full multi-stage consensus awaits agent network deployment.
+
+### Five Specialized Agents Within Consensus Framework
 
 The **VerificationAgent** serves as democracy's immune system, validating civic actions through multi-source verification that adapts to emerging patterns. When Congressional APIs confirm message delivery, the agent doesn't just mark it complete—it learns from traffic patterns, adjusts quality thresholds based on network conditions, and maintains decentralized consensus across diverse AI models. During coordinated campaigns, it distinguishes authentic grassroots movements from astroturfing by analyzing participation patterns impossible to fake at scale.
 
@@ -57,7 +83,7 @@ The **ReputationAgent** builds democracy's memory, creating credibility scores f
 
 The greatest risk to any AI-governed system is capture by a single provider or model architecture. If OpenAI controls your verification, what happens when their models share systematic biases? If governance depends on one company's API, you've just created a new form of centralization.
 
-VOTER Protocol prevents this through radical model diversity. Our consensus mechanisms operate through [OpenRouter's 100+ AI models](https://openrouter.ai/docs), but we don't just aggregate opinions—we enforce structural diversity across three equal weight classes.
+VOTER Protocol's design prevents this through radical model diversity. The consensus mechanisms will operate through multiple AI providers, enforcing structural diversity across different model architectures and providers to prevent single-point capture.
 
 Major providers like OpenAI, Anthropic, Google, and xAI comprise 33% of voting weight. Their sophisticated models bring capability, but their shared Silicon Valley training creates potential groupthink. International models from Mistral, Cohere, and Alibaba provide 34% weight, introducing different cultural training and architectural assumptions. Open source models running on distributed infrastructure supply the final 33%, ensuring no corporate entity can capture consensus.
 
@@ -96,8 +122,23 @@ Our implementation uses three interconnected registries that create portable, ve
 ## Technical Implementation
 
 ### Smart Contract Stack
-- **VOTERRegistry.sol**: Civic action verification and VOTER token distribution
-- **VOTERToken.sol**: ERC-20 governance and utility token with staking
+
+#### Core Contracts (Immutable)
+- **CommuniqueCoreV2.sol**: Orchestration with ZERO admin functions (192 lines)
+- **UnifiedRegistry.sol**: Consolidated 7 registries into single source of truth
+- **ConsensusEngine.sol**: Multi-stage consensus protocol for all actions
+- **VOTERToken.sol**: ERC-20 with consensus-controlled minting only
+
+#### Consensus Infrastructure
+- **AIModelRegistry.sol**: Manages roster of AI models across three tiers
+- **PerformanceTracker.sol**: Tracks model accuracy for vote weighting
+- **ImmutableBounds.sol**: Mathematical limits that cannot be changed
+
+#### Legacy Contracts (Removed)
+- ~~AdminControl.sol~~ - Deleted entirely
+- ~~OperatorManager.sol~~ - No privileged operators
+- ~~EmergencyPause.sol~~ - No emergency admin powers
+- ~~ParameterController.sol~~ - Parameters now immutable
 - **CommuniqueCore.sol**: Agent coordination and reward calculation
 - **ChallengeMarket.sol**: Information quality dispute resolution
 - **AgentParameters.sol**: Dynamic parameter management with safety bounds

@@ -18,17 +18,18 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 
 ## Current Status
 
-**Smart Contracts (Pre-Testnet Architecture):**
-- 🏗️ VOTERRegistry.sol - Civic action verification design with agent consensus requirements
-- 🏗️ VOTERToken.sol - No pre-mint, dynamic USD rewards planned, emission caps designed
-- 🏗️ CommuniqueCore.sol - Agent orchestration architecture requiring consensus
-- 🏗️ AgentParameters.sol - Time-locked parameter management (48-hour delays) designed
-- 🏗️ ActionVerifierMultiSig.sol - Immutable threshold verification planned
-- 🏗️ TreasuryManager.sol - Mathematical spending limits, circuit breaker patterns
-- 🏗️ ChallengeMarket.sol - Information quality market mechanisms designed
-- 🏗️ CircuitBreaker.sol - Attack detection patterns specified
-- ⚠️ Security: Admin functions removed, agent consensus interfaces defined
-- ⚠️ Tests: Contracts compile, awaiting integration testing
+**Smart Contracts (Implemented):**
+- ✅ VOTERRegistry.sol - Civic action verification with consensus requirements
+- ✅ VOTERToken.sol - ERC-20 with halving emission schedule, daily caps
+- ✅ CommuniqueCore.sol - Core orchestration with consensus proof requirements  
+- ✅ AgentParameters.sol - Parameter bounds with oracle integration and timelocks
+- ✅ AgentConsensus.sol - Multi-agent consensus framework
+- ✅ ActionVerifierMultiSig.sol - Multi-signature verification implemented
+- ✅ TreasuryManager.sol - Treasury management with spending limits
+- ✅ ChallengeMarket.sol - Sophisticated staking and resolution mechanisms
+- ✅ UnifiedRegistry.sol - Consolidated registry architecture
+- 🏗️ Full agent network deployment pending
+- 🏗️ Integration testing in progress
 
 **Identity Infrastructure:**
 - ✅ Didit.me Integration: Free core KYC, global coverage
@@ -68,7 +69,7 @@ Sources: [ERC‑8004](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-8004
 - Circuit breaker patterns designed for automated security
 - 48-hour timelock specifications for parameter changes
 
-**Status**: Pre-testnet. Architecture phase complete, awaiting implementation and deployment.
+**Status**: Off-chain MVP with smart contracts implemented. Agent logic in Communique repository (`/src/lib/agents/voter-protocol/`). Awaiting testnet deployment and full agent network activation.
 
 ---
 
