@@ -21,38 +21,39 @@
 ## System Architecture Overview
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff', 'secondaryTextColor':'#fff', 'tertiaryTextColor':'#fff'}}}%%
 flowchart TB
     User[User Entry]
 
     subgraph Entry["User Types"]
-        ETH[ETH-Native<br/>Has Metamask]
-        New[New to Web3<br/>No wallet]
+        ETH[ETH-Native Has Metamask]
+        New[New to Web3 No wallet]
     end
 
     subgraph NEAR["NEAR Control Layer"]
-        Account[alice.near<br/>Passkey Auth]
-        Vault[CipherVault<br/>Encrypted PII]
-        ChainSig[Chain Signatures<br/>Multi-chain Control]
+        Account[alice.near Passkey Auth]
+        Vault[CipherVault Encrypted PII]
+        ChainSig[Chain Signatures Multi-chain Control]
     end
 
     subgraph Privacy["ZK Privacy Layer"]
-        Atlas[Shadow Atlas<br/>District Merkle Tree]
-        Circuit[ResidencyCircuit<br/>ZK-SNARK]
-        Proof[ZK Proof<br/>8-12 sec generation]
+        Atlas[Shadow Atlas District Merkle Tree]
+        Circuit[ResidencyCircuit ZK-SNARK]
+        Proof[ZK Proof 8-12 sec generation]
     end
 
     subgraph Storage["Template Storage"]
-        PG[(PostgreSQL<br/>Fast Queries)]
-        FC[Filecoin<br/>Archival]
+        PG[(PostgreSQL Fast Queries)]
+        FC[Filecoin Archival]
     end
 
     subgraph Settlement["Settlement Layer"]
-        Scroll[Scroll zkEVM<br/>Stage 1 Decentralized<br/>$0.135/action]
+        Scroll[Scroll zkEVM Stage 1 Decentralized $0.135/action]
     end
 
     subgraph Verify["Verification"]
-        CWC[Congressional<br/>CWC API]
-        Agents[Multi-Agent<br/>Consensus]
+        CWC[Congressional CWC API]
+        Agents[Multi-Agent Consensus]
     end
 
     User --> Entry
@@ -73,12 +74,12 @@ flowchart TB
     Scroll --> Agents
     CWC --> Agents
 
-    Agents --> Rewards[VOTER Tokens<br/>+ Reputation]
+    Agents --> Rewards[VOTER Tokens + Reputation]
 
-    style NEAR fill:#4A90E2
-    style Privacy fill:#7B68EE
-    style Settlement fill:#50C878
-    style Storage fill:#FFB347
+    style NEAR fill:#4A90E2,stroke:#fff,color:#fff
+    style Privacy fill:#7B68EE,stroke:#fff,color:#fff
+    style Settlement fill:#50C878,stroke:#fff,color:#fff
+    style Storage fill:#FFB347,stroke:#fff,color:#fff
 ```
 
 ## System Architecture Layers
@@ -86,22 +87,23 @@ flowchart TB
 ### Layer 1: NEAR Account Creation (Universal Entry Point)
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart LR
     subgraph UserTypes["User Entry Points"]
-        A[ETH-Native User<br/>Has Metamask]
-        B[New to Web3<br/>No wallet]
+        A[ETH-Native User Has Metamask]
+        B[New to Web3 No wallet]
     end
 
     subgraph Create["NEAR Account Creation"]
-        C[WebAuthn Passkey<br/>Touch ID / Face ID]
-        D[alice.near created<br/>30 seconds]
+        C[WebAuthn Passkey Touch ID / Face ID]
+        D[alice.near created 30 seconds]
     end
 
     subgraph Structure["Account Structure"]
-        E[Full Access Key<br/>Passkey public key]
-        F[Function Call Keys<br/>Session keys]
-        G[Storage<br/>0.1 NEAR sponsored]
-        H[Chain Signatures<br/>Controls all chains]
+        E[Full Access Key Passkey public key]
+        F[Function Call Keys Session keys]
+        G[Storage 0.1 NEAR sponsored]
+        H[Chain Signatures Controls all chains]
     end
 
     A --> C
@@ -112,8 +114,8 @@ flowchart LR
     D --> G
     D --> H
 
-    style Create fill:#4A90E2
-    style Structure fill:#50C878
+    style Create fill:#4A90E2,stroke:#fff,color:#fff
+    style Structure fill:#50C878,stroke:#fff,color:#fff
 ```
 
 **Passkey Integration**:
@@ -262,13 +264,14 @@ sovereignKey.fill(0);
 **Security**: NEAR staking + Eigenlayer ETH restakers secure the MPC signing network.
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart TB
     subgraph NEAR["NEAR Protocol"]
         Account[alice.near]
-        Signer[v1.signer<br/>MPC Contract]
+        Signer[v1.signer MPC Contract]
     end
 
-    subgraph MPC["MPC Network (Threshold Signature)"]
+    subgraph MPC["MPC Network - Threshold Signature"]
         Node1[Node 1]
         Node2[Node 2]
         Node3[Node 3]
@@ -276,11 +279,11 @@ flowchart TB
     end
 
     subgraph Ethereum["Ethereum Ecosystem"]
-        Scroll[Scroll L2<br/>0xABCD...5678<br/>Primary Settlement]
-        ETH[Ethereum L1<br/>0xABCD...1234<br/>Future]
+        Scroll[Scroll L2 0xABCD...5678 Primary Settlement]
+        ETH[Ethereum L1 0xABCD...1234 Future]
     end
 
-    Account -->|"sign(payload, path)"| Signer
+    Account -->|sign payload path| Signer
     Signer -->|Distributed signing| MPC
     Node1 -.Partial signature.-> Combine[Combined Signature]
     Node2 -.Partial signature.-> Combine
@@ -290,10 +293,10 @@ flowchart TB
     Combine -->|Active Settlement| Scroll
     Combine -->|Future Migration| ETH
 
-    style NEAR fill:#4A90E2
-    style MPC fill:#7B68EE
-    style Ethereum fill:#50C878
-    style Combine fill:#FFB347
+    style NEAR fill:#4A90E2,stroke:#fff,color:#fff
+    style MPC fill:#7B68EE,stroke:#fff,color:#fff
+    style Ethereum fill:#50C878,stroke:#fff,color:#fff
+    style Combine fill:#FFB347,stroke:#333,color:#000
 ```
 
 **Scroll Address Derivation**:
@@ -350,32 +353,33 @@ await web3.eth.sendRawTransaction(signature);
 ### Shadow Atlas (Global District Registry)
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 graph TB
-    Root["Root Hash<br/>0x1a2b3c4d...<br/>(Stored on-chain)"]
+    Root["Root Hash 0x1a2b3c4d... Stored on-chain"]
 
     subgraph Global["Global Electoral Districts"]
-        USA[USA<br/>hash_USA]
-        UK[UK<br/>hash_UK]
-        Others[Other Countries<br/>...]
+        USA[USA hash_USA]
+        UK[UK hash_UK]
+        Others[Other Countries ...]
     end
 
     subgraph USStates["US States"]
-        TX[Texas<br/>hash_TX]
-        CA[California<br/>hash_CA]
-        NY[New York<br/>hash_NY]
+        TX[Texas hash_TX]
+        CA[California hash_CA]
+        NY[New York hash_NY]
     end
 
     subgraph TXDistricts["Texas Congressional Districts"]
-        TX21["TX-21<br/>hash_TX21<br/>(Austin)"]
-        TX22["TX-22<br/>hash_TX22"]
-        TX23["TX-23<br/>hash_TX23"]
+        TX21["TX-21 hash_TX21 Austin"]
+        TX22["TX-22 hash_TX22"]
+        TX23["TX-23 hash_TX23"]
         TXOther["..."]
     end
 
     subgraph UKRegions["UK Constituencies"]
-        London["Cities of London<br/>hash_london"]
-        Westminster["Westminster<br/>hash_west"]
-        UKOther["650 constituencies<br/>..."]
+        London["Cities of London hash_london"]
+        Westminster["Westminster hash_west"]
+        UKOther["650 constituencies ..."]
     end
 
     Root --> USA
@@ -395,12 +399,12 @@ graph TB
     UK --> Westminster
     UK --> UKOther
 
-    style Root fill:#FFB347
-    style Global fill:#4A90E2
-    style USStates fill:#50C878
-    style TXDistricts fill:#7B68EE
-    style UKRegions fill:#7B68EE
-    style TX21 fill:#FF6B6B
+    style Root fill:#FFB347,stroke:#333,color:#000
+    style Global fill:#4A90E2,stroke:#fff,color:#fff
+    style USStates fill:#50C878,stroke:#fff,color:#fff
+    style TXDistricts fill:#7B68EE,stroke:#fff,color:#fff
+    style UKRegions fill:#7B68EE,stroke:#fff,color:#fff
+    style TX21 fill:#FF6B6B,stroke:#fff,color:#fff
 ```
 
 **Merkle tree of all electoral districts worldwide**
@@ -757,31 +761,32 @@ contract DistrictGate {
 Binary prediction markets on legislative outcomes fund civic infrastructure retroactively. "Will H.R. 3337 pass House committee with Section 4(b) intact?" Stakes create market liquidity—resolved outcomes trigger retroactive funding to contributors (template creators, message senders, organizers).
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart TB
     subgraph Creation["Market Creation"]
         Org[Advocacy Organization]
-        Market[Create Outcome Market<br/>"H.R. 3337 passes Q4 2025"]
-        CTF[Gnosis CTF<br/>Binary ERC1155 Tokens]
+        Market["Create Outcome Market H.R. 3337 passes Q4 2025"]
+        CTF[Gnosis CTF Binary ERC1155 Tokens]
     end
 
     subgraph Trading["Market Participation"]
-        YES[YES Token Holders<br/>Stake on passage]
-        NO[NO Token Holders<br/>Stake on failure]
-        Pool[Liquidity Pool<br/>$500K total stakes]
+        YES[YES Token Holders Stake on passage]
+        NO[NO Token Holders Stake on failure]
+        Pool[Liquidity Pool $500K total stakes]
     end
 
     subgraph Resolution["Outcome Resolution"]
-        API[Congress.gov API v3<br/>Bill status verification]
-        UMA[UMA Optimistic Oracle<br/>Dispute resolution]
-        Resolve[Outcome Determined<br/>"PASSED"]
+        API[Congress.gov API v3 Bill status verification]
+        UMA[UMA Optimistic Oracle Dispute resolution]
+        Resolve[Outcome Determined PASSED]
     end
 
     subgraph Distribution["Retroactive Funding"]
-        Winners[YES Token Holders<br/>Collect winnings]
-        Retro[20% Prize Pool<br/>→ Contributors]
-        Impact[ImpactAgent<br/>Attribution Logic]
-        Creators[Template Creators<br/>10x multiplier]
-        Adopters[Message Senders<br/>Base rewards]
+        Winners[YES Token Holders Collect winnings]
+        Retro[20% Prize Pool to Contributors]
+        Impact[ImpactAgent Attribution Logic]
+        Creators[Template Creators 10x multiplier]
+        Adopters[Message Senders Base rewards]
     end
 
     Org --> Market
@@ -801,10 +806,10 @@ flowchart TB
     Impact --> Creators
     Impact --> Adopters
 
-    style Creation fill:#4A90E2
-    style Trading fill:#50C878
-    style Resolution fill:#FFB347
-    style Distribution fill:#7B68EE
+    style Creation fill:#4A90E2,stroke:#fff,color:#fff
+    style Trading fill:#50C878,stroke:#fff,color:#fff
+    style Resolution fill:#FFB347,stroke:#333,color:#000
+    style Distribution fill:#7B68EE,stroke:#fff,color:#fff
 ```
 
 ### Technical Stack
@@ -1023,19 +1028,20 @@ Challenge markets enforce information quality through economic stakes (fiat conv
 ### Architecture Overview
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart TB
     subgraph Challenge["Challenge Submission"]
-        User[User Stakes (Fiat → VOTER)]
-        Target[Disputed Claim<br/>"Template contains false data"]
-        Stake[Quadratic Stake Calculation<br/>sqrt(stakeAmount) influence]
+        User[User Stakes Fiat to VOTER]
+        Target[Disputed Claim Template contains false data]
+        Stake[Quadratic Stake Calculation sqrt influence]
     end
 
-    subgraph Orchestration["Multi-Model Consensus (Off-Chain)"]
-        CF[Chainlink Functions DON<br/>Off-chain computation]
-        OR[OpenRouter API<br/>500+ models, 60+ providers]
-        Tier1[Tier 1: Major Models<br/>GPT-5, Claude Sonnet 4.5, Grok 4]
-        Tier2[Tier 2: International<br/>Gemini, Qwen, DeepSeek]
-        Tier3[Tier 3: Open Source<br/>Llama 3.3, Mistral Large 2]
+    subgraph Orchestration["Multi-Model Consensus Off-Chain"]
+        CF[Chainlink Functions DON Off-chain computation]
+        OR[OpenRouter API 500+ models 60+ providers]
+        Tier1[Tier 1: Major Models GPT-5 Claude Sonnet 4.5 Grok 4]
+        Tier2[Tier 2: International Gemini Qwen DeepSeek]
+        Tier3[Tier 3: Open Source Llama 3.3 Mistral Large 2]
 
         CF --> OR
         OR --> Tier1
@@ -1044,21 +1050,21 @@ flowchart TB
     end
 
     subgraph Aggregation["On-Chain Aggregation"]
-        Results[20 Model Responses<br/>Each: VALID/INVALID + confidence]
-        Consensus[Consensus Algorithm<br/>67% threshold required]
-        Weight[Reputation Weighting<br/>Domain expertise multiplier]
+        Results[20 Model Responses Each VALID/INVALID + confidence]
+        Consensus[Consensus Algorithm 67% threshold required]
+        Weight[Reputation Weighting Domain expertise multiplier]
     end
 
     subgraph Resolution["Dispute Resolution"]
-        Auto[Automatic Resolution<br/>>80% consensus]
-        UMA[UMA Optimistic Oracle<br/>60-80% consensus range]
-        Human[Human Arbitration<br/><60% consensus]
+        Auto[Automatic Resolution greater than 80% consensus]
+        UMA[UMA Optimistic Oracle 60-80% consensus range]
+        Human[Human Arbitration less than 60% consensus]
     end
 
     subgraph Outcomes["Economic Consequences"]
-        Winner[Winner Recovers Stake<br/>+ Challenger's Stake]
-        Loser[Loser Loses Stake<br/>+ Reputation Penalty]
-        Rep[ReputationRegistry Update<br/>ERC-8004 attestation]
+        Winner[Winner Recovers Stake plus Challenger Stake]
+        Loser[Loser Loses Stake plus Reputation Penalty]
+        Rep[ReputationRegistry Update ERC-8004 attestation]
     end
 
     User --> Target --> Stake
@@ -1068,9 +1074,9 @@ flowchart TB
     Tier3 --> Results
     Results --> Consensus --> Weight
 
-    Weight -->|>80%| Auto
+    Weight -->|gt 80%| Auto
     Weight -->|60-80%| UMA
-    Weight -->|<60%| Human
+    Weight -->|lt 60%| Human
 
     Auto --> Winner
     Auto --> Loser
@@ -1081,6 +1087,12 @@ flowchart TB
 
     Winner --> Rep
     Loser --> Rep
+
+    style Challenge fill:#4A90E2,stroke:#fff,color:#fff
+    style Orchestration fill:#50C878,stroke:#fff,color:#fff
+    style Aggregation fill:#FFB347,stroke:#333,color:#000
+    style Resolution fill:#7B68EE,stroke:#fff,color:#fff
+    style Outcomes fill:#FF6B9D,stroke:#fff,color:#fff
 ```
 
 ### Multi-Model Consensus Architecture
@@ -1526,45 +1538,46 @@ Template impact correlation tracks the causal relationship between citizen-autho
 ### Architecture Overview
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart TB
     subgraph Creation["Template Creation & Distribution"]
-        Template[Citizen Creates Template<br/>"Infrastructure bill creates 50K jobs"]
-        Hash[IPFS Hash Registered<br/>On-chain timestamp]
-        Network[5000 constituents adopt<br/>Send via CWC]
+        Template[Citizen Creates Template Infrastructure bill creates 50K jobs]
+        Hash[IPFS Hash Registered On-chain timestamp]
+        Network[5000 constituents adopt Send via CWC]
     end
 
     subgraph Submission["Congressional Delivery"]
-        CWC[Senate/House CWC APIs<br/>Verified delivery]
-        Receipt[Message IDs logged<br/>PostgreSQL tracking]
-        District[Geographic clustering<br/>By congressional district]
+        CWC[Senate/House CWC APIs Verified delivery]
+        Receipt[Message IDs logged PostgreSQL tracking]
+        District[Geographic clustering By congressional district]
     end
 
     subgraph Monitoring["Legislative Record Monitoring"]
-        API[Congress.gov API v3<br/>Real-time bill tracking]
-        Record[Congressional Record<br/>Floor speeches/debates]
-        Committee[Committee Reports<br/>Markup sessions]
-        Votes[Roll call votes<br/>Position changes]
+        API[Congress.gov API v3 Real-time bill tracking]
+        Record[Congressional Record Floor speeches/debates]
+        Committee[Committee Reports Markup sessions]
+        Votes[Roll call votes Position changes]
     end
 
-    subgraph Analysis["Impact Correlation (Off-Chain)"]
-        Vector[ChromaDB Vector Search<br/>Semantic similarity matching]
-        GPT[GPT-5 Reasoning<br/>Causality analysis]
-        Temporal[Temporal Correlation<br/>Template → Speech timeline]
-        Geographic[Geographic Clustering<br/>Template districts vs control]
+    subgraph Analysis["Impact Correlation Off-Chain"]
+        Vector[ChromaDB Vector Search Semantic similarity matching]
+        GPT[GPT-5 Reasoning Causality analysis]
+        Temporal[Temporal Correlation Template to Speech timeline]
+        Geographic[Geographic Clustering Template districts vs control]
     end
 
     subgraph Scoring["Impact Confidence Scoring"]
-        Direct[Direct Citation: 40%<br/>Exact text match in speeches]
-        Time[Temporal Correlation: 30%<br/>2-week window significance]
-        Geo[Geographic Clustering: 20%<br/>Adopter districts vs control]
-        Alt[Alternative Explanations: -10%<br/>Party pressure, lobbying, trends]
+        Direct[Direct Citation: 40% Exact text match in speeches]
+        Time[Temporal Correlation: 30% 2-week window significance]
+        Geo[Geographic Clustering: 20% Adopter districts vs control]
+        Alt[Alternative Explanations: -10% Party pressure lobbying trends]
     end
 
     subgraph OnChain["On-Chain Attestation"]
-        Proof[Impact Proof Generation<br/>ZK-friendly commitment]
-        Registry[ImpactRegistry.sol<br/>Immutable attestation]
-        Reputation[ReputationRegistry Update<br/>ERC-8004 credibility boost]
-        Rewards[10x Reward Multiplier<br/>VOTERToken mint]
+        Proof[Impact Proof Generation ZK-friendly commitment]
+        Registry[ImpactRegistry.sol Immutable attestation]
+        Reputation[ReputationRegistry Update ERC-8004 credibility boost]
+        Rewards[10x Reward Multiplier VOTERToken mint]
     end
 
     Template --> Hash --> Network
@@ -1588,6 +1601,13 @@ flowchart TB
     Alt --> Proof
 
     Proof --> Registry --> Reputation --> Rewards
+
+    style Creation fill:#4A90E2,stroke:#fff,color:#fff
+    style Submission fill:#50C878,stroke:#fff,color:#fff
+    style Monitoring fill:#FFB347,stroke:#333,color:#000
+    style Analysis fill:#7B68EE,stroke:#fff,color:#fff
+    style Scoring fill:#FF6B9D,stroke:#fff,color:#fff
+    style OnChain fill:#4A90E2,stroke:#fff,color:#fff
 ```
 
 ### Legislative Data Pipeline
@@ -2037,46 +2057,47 @@ Retroactive funding distributes treasury pools to contributors based on verified
 ### Architecture Overview
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
 flowchart TB
     subgraph Pools["Treasury Pool Creation"]
-        Org[Advocacy Organizations<br/>Civic groups, NGOs]
-        Stake[Pool Stakes<br/>$100K for healthcare bills]
-        Matching[Matching Funds<br/>Protocol treasury contribution]
-        Total[Total Pool<br/>$200K available]
+        Org[Advocacy Organizations Civic groups NGOs]
+        Stake[Pool Stakes $100K for healthcare bills]
+        Matching[Matching Funds Protocol treasury contribution]
+        Total[Total Pool $200K available]
     end
 
     subgraph Contribution["Contribution Tracking"]
-        Templates[Template Creators<br/>High-impact content]
-        Adopters[Template Adopters<br/>5000 message senders]
-        Verifiers[Challenge Validators<br/>Information quality maintainers]
-        Organizers[Community Organizers<br/>District coordinators]
+        Templates[Template Creators High-impact content]
+        Adopters[Template Adopters 5000 message senders]
+        Verifiers[Challenge Validators Information quality maintainers]
+        Organizers[Community Organizers District coordinators]
     end
 
     subgraph Impact["Impact Verification"]
-        Registry[ImpactRegistry.sol<br/>On-chain attestations]
-        Scores[Impact Confidence Scores<br/>67%+ validated correlation]
-        Challenge[ChallengeMarket.sol<br/>Accuracy track record]
-        Reputation[ReputationRegistry<br/>Domain expertise]
+        Registry[ImpactRegistry.sol On-chain attestations]
+        Scores[Impact Confidence Scores 67%+ validated correlation]
+        Challenge[ChallengeMarket.sol Accuracy track record]
+        Reputation[ReputationRegistry Domain expertise]
     end
 
-    subgraph Calculation["Allocation Calculation (Off-Chain)"]
-        QF[Quadratic Funding<br/>sqrt(contribution) influence]
-        Multipliers[Impact Multipliers<br/>10x for verified outcomes]
-        Diversity[Diversity Bonuses<br/>Multi-district reach]
-        Weights[Final Weight Calculation<br/>Normalized to 100%]
+    subgraph Calculation["Allocation Calculation Off-Chain"]
+        QF[Quadratic Funding sqrt contribution influence]
+        Multipliers[Impact Multipliers 10x for verified outcomes]
+        Diversity[Diversity Bonuses Multi-district reach]
+        Weights[Final Weight Calculation Normalized to 100%]
     end
 
     subgraph Distribution["Multi-Sig Distribution"]
-        Proposal[Distribution Proposal<br/>Generated by agents]
-        Review[Human Review<br/>Multi-sig signers]
-        Approval[3-of-5 Approval<br/>Gnosis Safe execution]
-        Mint[VOTER Token Mint<br/>Direct to contributors]
+        Proposal[Distribution Proposal Generated by agents]
+        Review[Human Review Multi-sig signers]
+        Approval[3-of-5 Approval Gnosis Safe execution]
+        Mint[VOTER Token Mint Direct to contributors]
     end
 
     subgraph Transparency["Public Transparency"]
-        Dashboard[Allocation Dashboard<br/>Full breakdown visible]
-        Appeals[7-Day Appeal Window<br/>Challenge distributions]
-        Audit[Audit Trail<br/>Every decision logged]
+        Dashboard[Allocation Dashboard Full breakdown visible]
+        Appeals[7-Day Appeal Window Challenge distributions]
+        Audit[Audit Trail Every decision logged]
     end
 
     Org --> Stake --> Matching --> Total
@@ -2097,6 +2118,13 @@ flowchart TB
     Mint --> Dashboard
     Dashboard --> Appeals
     Appeals --> Audit
+
+    style Pools fill:#4A90E2,stroke:#fff,color:#fff
+    style Contribution fill:#50C878,stroke:#fff,color:#fff
+    style Impact fill:#FFB347,stroke:#333,color:#000
+    style Calculation fill:#7B68EE,stroke:#fff,color:#fff
+    style Distribution fill:#FF6B9D,stroke:#fff,color:#fff
+    style Transparency fill:#4A90E2,stroke:#fff,color:#fff
 ```
 
 ### Retroactive Funding Mechanism
@@ -2527,21 +2555,22 @@ export default new RetroFundingAllocator();
 - TEE public key included in attestation for E2E encryption
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff', 'actorTextColor':'#fff', 'noteBkgColor':'#4A90E2', 'noteTextColor':'#fff'}}}%%
 sequenceDiagram
     autonumber
     participant User
     participant Browser
     participant NEAR as NEAR CipherVault
     participant PG as PostgreSQL
-    participant TEE as GCP Confidential Space<br/>(Congressional Proxy)
-    participant ZK as ZK Prover (WASM)
+    participant TEE as GCP Confidential Space Congressional Proxy
+    participant ZK as ZK Prover WASM
     participant Senate as Senate CWC API
     participant House as House CWC API
     participant Chain as Chain Signatures
     participant Scroll as Scroll zkEVM
     participant Agents as Agent Consensus
 
-    Note over Browser,TEE: Phase 1: Attestation Verification (One-Time)
+    Note over Browser,TEE: Phase 1: Attestation Verification One-Time
     Browser->>TEE: Request attestation
     TEE-->>Browser: OIDC token + container hash + TEE public key
     Browser->>Browser: Verify attestation signature
@@ -2565,47 +2594,47 @@ sequenceDiagram
     Browser->>Browser: Encrypt message with symmetric key
     Browser->>Browser: Encrypt symmetric key with TEE public key
     User->>Browser: Submit civic action
-    Browser->>TEE: Encrypted payload (HTTPS + TEE encryption)
+    Browser->>TEE: Encrypted payload HTTPS + TEE encryption
 
-    Note over TEE: Phase 5: TEE Processing (Hardware Encrypted Memory)
+    Note over TEE: Phase 5: TEE Processing Hardware Encrypted Memory
     TEE->>TEE: Decrypt symmetric key with TEE private key
     TEE->>TEE: Decrypt message in AMD SEV-SNP memory
     TEE->>TEE: Generate CWC XML for Senate
     TEE->>TEE: Generate CWC XML for House
 
     Note over TEE,House: Phase 6: Direct Congressional API Emission
-    TEE->>Senate: Submit message (static whitelisted IP)
+    TEE->>Senate: Submit message static whitelisted IP
     Senate-->>TEE: Delivery receipt + confirmation
-    TEE->>House: Submit message (static whitelisted IP)
+    TEE->>House: Submit message static whitelisted IP
     House-->>TEE: Delivery receipt + confirmation
     TEE->>TEE: Sign receipts with TEE key
     TEE-->>Browser: Encrypted receipts + proofs
 
     Note over Browser,ZK: Phase 7: Zero-Knowledge Proof Generation
     alt First time OR proof cache empty
-        Browser->>ZK: Generate ZK proof (8-12 sec)
-        Note over ZK: Prove district membership<br/>without revealing location
-        ZK-->>Browser: Proof ready (256 bytes)
+        Browser->>ZK: Generate ZK proof 8-12 sec
+        Note over ZK: Prove district membership without revealing location
+        ZK-->>Browser: Proof ready 256 bytes
     end
 
     Note over Browser,Scroll: Phase 8: On-Chain Recording
     Browser->>Chain: Sign Scroll transaction
-    Note over Chain: MPC network (2-3 sec)<br/>Threshold signature
+    Note over Chain: MPC network 2-3 sec Threshold signature
     Chain-->>Browser: Signed transaction
     Browser->>Scroll: Submit ZK proof + receipt hashes
-    Scroll->>Scroll: Verify ZK proof (250K gas)
+    Scroll->>Scroll: Verify ZK proof 250K gas
     Scroll->>Scroll: Verify TEE attestation
     Scroll->>Scroll: Record action with receipt hashes
     Scroll-->>Agents: ActionSubmitted event
 
     Note over Agents,Scroll: Phase 9: Reward Calculation
     Agents->>Agents: Multi-agent consensus
-    Note over Agents: Supply, Market,<br/>Impact, Reputation
+    Note over Agents: Supply Market Impact Reputation
     Agents->>Scroll: Mint rewards based on consensus
     Scroll->>User: 2875 VOTER tokens
 
-    rect rgb(200, 250, 200)
-        Note over User,Scroll: Total time: 3-8 seconds<br/>Cost: $0.135 on Scroll<br/>E2E encrypted: Browser → TEE → Congress
+    rect rgb(50, 100, 50)
+        Note over User,Scroll: Total time 3-8 seconds Cost $0.135 on Scroll E2E encrypted Browser to TEE to Congress
     end
 ```
 
