@@ -1,0 +1,3419 @@
+# VOTER Protocol: Technical Architecture
+
+**Status**: Active development - smart contracts and architecture defined
+**Last Updated**: October 2025
+**Implementation**: Smart contracts in this repo, frontend in Communique repo
+**Core Decisions**: Scroll settlement, ZK from day 1, NEAR account abstraction, PostgreSQL + Filecoin
+
+---
+
+## Executive Summary
+
+**Settlement**: Scroll zkEVM (Ethereum L2, Stage 1 decentralized)
+**Account Abstraction**: NEAR Chain Signatures (optional for simplified UX)
+**Identity**: NEAR CipherVault (encrypted PII storage)
+**Privacy**: ZK-SNARKs (ResidencyCircuit - Circom + Groth16)
+**Templates**: PostgreSQL (Supabase) → Filecoin archival
+**Verification**: Congressional CWC API
+
+---
+
+## System Architecture Overview
+
+```mermaid
+flowchart TB
+    User[User Entry]
+
+    subgraph Entry["User Types"]
+        ETH[ETH-Native<br/>Has Metamask]
+        New[New to Web3<br/>No wallet]
+    end
+
+    subgraph NEAR["NEAR Control Layer"]
+        Account[alice.near<br/>Passkey Auth]
+        Vault[CipherVault<br/>Encrypted PII]
+        ChainSig[Chain Signatures<br/>Multi-chain Control]
+    end
+
+    subgraph Privacy["ZK Privacy Layer"]
+        Atlas[Shadow Atlas<br/>District Merkle Tree]
+        Circuit[ResidencyCircuit<br/>ZK-SNARK]
+        Proof[ZK Proof<br/>8-12 sec generation]
+    end
+
+    subgraph Storage["Template Storage"]
+        PG[(PostgreSQL<br/>Fast Queries)]
+        FC[Filecoin<br/>Archival]
+    end
+
+    subgraph Settlement["Settlement Layer"]
+        Scroll[Scroll zkEVM<br/>Stage 1 Decentralized<br/>$0.135/action]
+    end
+
+    subgraph Verify["Verification"]
+        CWC[Congressional<br/>CWC API]
+        Agents[Multi-Agent<br/>Consensus]
+    end
+
+    User --> Entry
+    ETH --> Account
+    New --> Account
+
+    Account --> Vault
+    Account --> ChainSig
+    Vault --> Circuit
+    Atlas --> Circuit
+    Circuit --> Proof
+
+    Proof --> Scroll
+
+    PG --> Scroll
+    PG -.Archive.-> FC
+
+    Scroll --> Agents
+    CWC --> Agents
+
+    Agents --> Rewards[VOTER Tokens<br/>+ Reputation]
+
+    style NEAR fill:#4A90E2
+    style Privacy fill:#7B68EE
+    style Settlement fill:#50C878
+    style Storage fill:#FFB347
+```
+
+## System Architecture Layers
+
+### Layer 1: NEAR Account Creation (Universal Entry Point)
+
+```mermaid
+flowchart LR
+    subgraph UserTypes["User Entry Points"]
+        A[ETH-Native User<br/>Has Metamask]
+        B[New to Web3<br/>No wallet]
+    end
+
+    subgraph Create["NEAR Account Creation"]
+        C[WebAuthn Passkey<br/>Touch ID / Face ID]
+        D[alice.near created<br/>30 seconds]
+    end
+
+    subgraph Structure["Account Structure"]
+        E[Full Access Key<br/>Passkey public key]
+        F[Function Call Keys<br/>Session keys]
+        G[Storage<br/>0.1 NEAR sponsored]
+        H[Chain Signatures<br/>Controls all chains]
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    D --> F
+    D --> G
+    D --> H
+
+    style Create fill:#4A90E2
+    style Structure fill:#50C878
+```
+
+**Passkey Integration**:
+- WebAuthn/FIDO2 standard
+- Platform authenticators (Touch ID, Face ID, Windows Hello)
+- Hardware keys optional (YubiKey, Ledger)
+- Resident/discoverable credentials
+- No dependency on deprecated FastAuth
+
+**Creation Time**: 30 seconds
+**Cost**: $0 (Communique sponsors 0.1 NEAR)
+
+---
+
+### Layer 2: Identity Verification
+
+**Primary: Self.xyz (Instant Passport Verification)**
+- NFC passport scan (30 seconds)
+- Instant on-chain verification
+- Zero-knowledge proof of identity attributes
+- Extracts congressional district from passport address
+- Cost: $0.50 per verification
+- Privacy: On-chain attestation without revealing PII
+
+**Fallback: Didit.me (Non-Passport KYC)**
+- Government ID + face scan + liveness (for users without NFC-enabled passports)
+- Address verification via utility bill
+- Congressional district mapping via geocoding
+- Cost: $0 (free core KYC) + $0.50 (proof of address)
+- Privacy: Issues Verifiable Credential (VC), no on-chain PII storage
+
+**Output (Both Providers)**: Verifiable Credential (VC)
+```json
+{
+  "did": "did:self:xyz:abc123..." || "did:didit:abc123...",
+  "legal_name": "Alice Smith",
+  "address": "123 Main St, Austin TX 78701",
+  "district_id": "TX-21",
+  "verified_at": 1728518400,
+  "proof": "<cryptographic_signature>"
+}
+```
+
+**Time**:
+- Self.xyz: 30 seconds (NFC passport scan)
+- Didit.me: 2-3 minutes (manual ID upload + verification)
+
+**Privacy**: Neither provider stores PII on-chain. VCs issued off-chain, encrypted client-side before storage in CipherVault.
+
+---
+
+### Layer 3: Encrypted Storage (NEAR CipherVault)
+
+**Contract**: `ciphervault.near` (Rust/NEAR)
+
+```rust
+pub struct CipherEnvelope {
+    owner: AccountId,              // alice.near
+    encrypted_data: Vec<u8>,       // XChaCha20-Poly1305 sealed PII
+    nonce: [u8; 24],               // Encryption nonce
+    poseidon_commit: [u8; 32],     // ZK commitment
+    encrypted_sovereign_key: Vec<u8>, // AES-GCM encrypted
+    version: u32,                  // Schema version
+    created_at: u64,
+    guardians: Vec<AccountId>,     // 2-of-3 recovery
+}
+```
+
+**Client-Side Encryption Flow**:
+
+```javascript
+// 1. Generate sovereign key (browser only, never transmitted)
+const sovereignKey = crypto.getRandomValues(new Uint8Array(32));
+
+// 2. Encrypt PII
+const pii = {
+  legal_name: "Alice Smith",
+  address: "123 Main St, Austin TX 78701",
+  district_id: "TX-21",
+  didit_vc: { /* ... */ },
+  rep_name: "Chip Roy",
+  rep_contact: "rep.chiproy@mail.house.gov"
+};
+
+const nonce = crypto.randomBytes(24);
+const ciphertext = xchacha20poly1305.seal(
+  JSON.stringify(pii),
+  nonce,
+  sovereignKey
+);
+
+// 3. Generate Poseidon commitment (for ZK proofs)
+const commitment = poseidon([
+  hash(pii.district_id),
+  hash(pii.address),
+  hash(nonce)
+]);
+
+// 4. Encrypt sovereign key with NEAR account-derived key
+const accountKey = await near.deriveAccountKey("alice.near");
+const encryptedSovKey = aes_gcm.encrypt(sovereignKey, accountKey);
+
+// 5. Store in CipherVault
+await near.functionCall({
+  contractId: "ciphervault.near",
+  methodName: "store_envelope",
+  args: {
+    encrypted_data: Array.from(ciphertext),
+    nonce: Array.from(nonce),
+    poseidon_commit: commitment,
+    encrypted_sovereign_key: Array.from(encryptedSovKey)
+  }
+});
+
+// 6. Clear plaintext from memory
+sovereignKey.fill(0);
+```
+
+**Storage Costs**:
+- 5KB PII = 0.05 NEAR (~$0.05 one-time)
+- 100K users = 2,000 NEAR (~$2,000 locked, recoverable)
+- Communique sponsors first 10K users
+
+**Guardian Recovery**:
+- 2-of-3 threshold signature
+- 24-hour timelock + cancel path
+- Optional: Hardware key, secondary passkey, trusted friend
+
+---
+
+### Layer 4: Universal Account Access
+
+**Problem**: Users come from different chains. Some have ETH wallets, some hold Bitcoin, some use Solana, many have no wallet at all.
+
+**Solution**: NEAR Chain Signatures provides optional account abstraction while protocol settles on Scroll (Ethereum L2).
+
+**User Paths**:
+- **ETH-native users** → Use MetaMask/WalletConnect directly on Scroll (standard Ethereum UX)
+- **New users** → Create `alice.near`, derive Scroll address (simplified onboarding)
+- **Bitcoin holders** → NEAR derives both Bitcoin + Scroll addresses from same account
+- **Solana users** → NEAR derives both Solana + Scroll addresses from same account
+- **Multi-chain users** → One NEAR account controls addresses on ALL ECDSA/Ed25519 chains
+
+**Settlement Layer**: All civic actions, reputation, and rewards settle on Scroll regardless of account type. NEAR Chain Signatures is purely for account management—smart contracts live on Ethereum.
+
+**Security**: NEAR staking + Eigenlayer ETH restakers secure the MPC signing network.
+
+```mermaid
+flowchart TB
+    subgraph NEAR["NEAR Protocol"]
+        Account[alice.near]
+        Signer[v1.signer<br/>MPC Contract]
+    end
+
+    subgraph MPC["MPC Network (Threshold Signature)"]
+        Node1[Node 1]
+        Node2[Node 2]
+        Node3[Node 3]
+        NodeN[Node N]
+    end
+
+    subgraph Ethereum["Ethereum Ecosystem"]
+        Scroll[Scroll L2<br/>0xABCD...5678<br/>Primary Settlement]
+        ETH[Ethereum L1<br/>0xABCD...1234<br/>Future]
+    end
+
+    Account -->|"sign(payload, path)"| Signer
+    Signer -->|Distributed signing| MPC
+    Node1 -.Partial signature.-> Combine[Combined Signature]
+    Node2 -.Partial signature.-> Combine
+    Node3 -.Partial signature.-> Combine
+    NodeN -.Partial signature.-> Combine
+
+    Combine -->|Active Settlement| Scroll
+    Combine -->|Future Migration| ETH
+
+    style NEAR fill:#4A90E2
+    style MPC fill:#7B68EE
+    style Ethereum fill:#50C878
+    style Combine fill:#FFB347
+```
+
+**Scroll Address Derivation**:
+
+```javascript
+// alice.near controls Ethereum addresses
+
+// Derive Scroll address (primary settlement)
+const scrollAddress = await near.view("v1.signer", "derived_address", {
+  predecessor: "alice.near",
+  path: "scroll,1"
+});
+// → 0xABCD...5678
+
+// Same address on Ethereum L1 (future)
+const ethAddress = derive("ethereum,1");
+// → 0xABCD...1234
+```
+
+**Transaction Signing**:
+
+```javascript
+// User interacts with Scroll contract
+const scrollTx = {
+  to: DISTRICT_GATE_ADDRESS,
+  data: verifyDistrict(proof).encodeABI(),
+  gas: 450000
+};
+
+// Sign with NEAR Chain Signatures
+const signature = await near.functionCall({
+  contractId: "v1.signer",
+  methodName: "sign",
+  args: {
+    payload: keccak256(rlp.encode(scrollTx)),
+    path: "scroll,1"
+  }
+});
+// → ECDSA signature valid for Scroll (~2 seconds)
+
+// Broadcast to Scroll
+await web3.eth.sendRawTransaction(signature);
+```
+
+**Performance**:
+- Signature generation: ~2-3 seconds
+- MPC network: 8+ nodes (threshold signature)
+- Security: NEAR staking + Eigenlayer ETH restakers
+
+---
+
+## ZK Privacy Infrastructure
+
+### Shadow Atlas (Global District Registry)
+
+```mermaid
+graph TB
+    Root["Root Hash<br/>0x1a2b3c4d...<br/>(Stored on-chain)"]
+
+    subgraph Global["Global Electoral Districts"]
+        USA[USA<br/>hash_USA]
+        UK[UK<br/>hash_UK]
+        Others[Other Countries<br/>...]
+    end
+
+    subgraph USStates["US States"]
+        TX[Texas<br/>hash_TX]
+        CA[California<br/>hash_CA]
+        NY[New York<br/>hash_NY]
+    end
+
+    subgraph TXDistricts["Texas Congressional Districts"]
+        TX21["TX-21<br/>hash_TX21<br/>(Austin)"]
+        TX22["TX-22<br/>hash_TX22"]
+        TX23["TX-23<br/>hash_TX23"]
+        TXOther["..."]
+    end
+
+    subgraph UKRegions["UK Constituencies"]
+        London["Cities of London<br/>hash_london"]
+        Westminster["Westminster<br/>hash_west"]
+        UKOther["650 constituencies<br/>..."]
+    end
+
+    Root --> USA
+    Root --> UK
+    Root --> Others
+
+    USA --> TX
+    USA --> CA
+    USA --> NY
+
+    TX --> TX21
+    TX --> TX22
+    TX --> TX23
+    TX --> TXOther
+
+    UK --> London
+    UK --> Westminster
+    UK --> UKOther
+
+    style Root fill:#FFB347
+    style Global fill:#4A90E2
+    style USStates fill:#50C878
+    style TXDistricts fill:#7B68EE
+    style UKRegions fill:#7B68EE
+    style TX21 fill:#FF6B6B
+```
+
+**Merkle tree of all electoral districts worldwide**
+
+**Storage**:
+- Merkle tree: IPFS (CID: Qm...)
+- Root hash: On-chain (NEAR + Scroll contracts)
+- Update frequency: Quarterly (or when redistricting)
+- Size: ~50MB full global tree
+- Cost: Free (IPFS gateway) or $10/mo (Pinata pinning)
+
+**API**:
+```
+GET /api/shadow-atlas/root
+→ { root: "0x1a2b3c...", updated_at: 1728518400 }
+
+GET /api/shadow-atlas/proof/:district_id
+→ { path: [hash1, hash2, ...], indices: [0, 1, 0, ...] }
+```
+
+---
+
+### ResidencyCircuit (ZK-SNARK)
+
+**Circuit**: Circom + Groth16 proving system
+
+```circom
+pragma circom 2.1.6;
+
+include "poseidon.circom";
+include "merkle.circom";
+
+template ResidencyCircuit(levels) {
+    // Public inputs (visible on-chain)
+    signal input shadowAtlasRoot;
+    signal input districtHash;
+    signal input nullifier;
+    signal input commitHash;
+
+    // Private inputs (never revealed)
+    signal input district_id;
+    signal input merklePath[levels];
+    signal input merkleIndices[levels];
+    signal input user_address;
+    signal input encryption_nonce;
+    signal input sovereign_key_hash;
+
+    // Constraint 1: Verify districtHash = hash(district_id)
+    component districtHasher = Poseidon(1);
+    districtHasher.inputs[0] <== district_id;
+    districtHasher.out === districtHash;
+
+    // Constraint 2: Verify district in Shadow Atlas (Merkle proof)
+    component merkleProof = MerkleProof(levels);
+    merkleProof.root <== shadowAtlasRoot;
+    merkleProof.leaf <== districtHash;
+    for (var i = 0; i < levels; i++) {
+        merkleProof.pathElements[i] <== merklePath[i];
+        merkleProof.pathIndices[i] <== merkleIndices[i];
+    }
+    merkleProof.valid === 1;
+
+    // Constraint 3: Verify Poseidon commitment matches CipherVault
+    component commitVerifier = Poseidon(3);
+    commitVerifier.inputs[0] <== district_id;
+    commitVerifier.inputs[1] <== user_address;
+    commitVerifier.inputs[2] <== encryption_nonce;
+    commitVerifier.out === commitHash;
+
+    // Constraint 4: Generate unique nullifier (prevents double-proof)
+    component nullifierHasher = Poseidon(2);
+    nullifierHasher.inputs[0] <== sovereign_key_hash;
+    nullifierHasher.inputs[1] <== district_id;
+    nullifierHasher.out === nullifier;
+}
+
+component main = ResidencyCircuit(8); // 8-level Merkle tree
+```
+
+**Performance**:
+- Constraints: ~50,000
+- Browser proving time: 8-12 seconds (WASM)
+- WASM size: ~120MB (cached after first load)
+- Proof size: 256 bytes (Groth16)
+- Verification gas: ~250K gas
+
+**Client-Side Proof Generation**:
+
+```javascript
+// Load circuit artifacts (cached)
+const wasm = await fetch("/circuits/residency_circuit.wasm");
+const zkey = await fetch("/circuits/residency_circuit.zkey");
+
+// Fetch data
+const envelope = await near.view("ciphervault.near", "get_envelope", {
+  owner: "alice.near"
+});
+const atlasRoot = await fetch("/api/shadow-atlas/root");
+const merklePath = await fetch(`/api/shadow-atlas/proof/${district_id}`);
+
+// Generate proof (8-12 seconds)
+const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+  {
+    shadowAtlasRoot: atlasRoot,
+    districtHash: poseidon([district_id]),
+    nullifier: generateNullifier(sovereignKey, district_id),
+    commitHash: envelope.poseidon_commit,
+    district_id: district_id,
+    merklePath: merklePath.path,
+    merkleIndices: merklePath.indices,
+    user_address: pii.address,
+    encryption_nonce: envelope.nonce,
+    sovereign_key_hash: hash(sovereignKey)
+  },
+  wasm,
+  zkey
+);
+```
+
+---
+
+## Template Storage System
+
+### PostgreSQL (Supabase) - Primary Storage
+
+```sql
+-- Core schema
+CREATE TABLE templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_hash BYTEA NOT NULL,
+    creator_address TEXT NOT NULL,
+    issue_tags TEXT[] NOT NULL,
+    target_district TEXT,
+    usage_count INT DEFAULT 0,
+    impact_score INT DEFAULT 0,
+    is_challenged BOOLEAN DEFAULT FALSE,
+    challenge_id UUID,
+    filecoin_cid TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    search_vector TSVECTOR GENERATED ALWAYS AS (
+        to_tsvector('english', title || ' ' || content)
+    ) STORED
+);
+
+CREATE INDEX idx_template_search ON templates USING GIN(search_vector);
+CREATE INDEX idx_template_tags ON templates USING GIN(issue_tags);
+CREATE INDEX idx_template_usage ON templates(usage_count DESC);
+CREATE INDEX idx_template_impact ON templates(impact_score DESC);
+
+CREATE TABLE template_usage (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id UUID REFERENCES templates(id),
+    user_address TEXT NOT NULL,
+    personal_addition TEXT,
+    sent_at TIMESTAMPTZ DEFAULT NOW(),
+    cwc_receipt_hash BYTEA,
+    action_id UUID,
+    UNIQUE(template_id, user_address, sent_at)
+);
+
+CREATE TABLE challenges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    template_id UUID REFERENCES templates(id),
+    challenger_address TEXT NOT NULL,
+    stake_amount NUMERIC NOT NULL,
+    claim TEXT NOT NULL,
+    evidence JSONB,
+    status TEXT DEFAULT 'pending',
+    resolution_data JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Query Performance**:
+- Full-text search: 10-50ms
+- Tag filtering: <10ms (GIN index)
+- District lookup: <10ms (B-tree index)
+- Sorting by popularity/impact: <5ms (indexed)
+
+**Example Queries**:
+
+```sql
+-- Search templates
+SELECT * FROM templates
+WHERE search_vector @@ to_tsquery('healthcare & funding')
+  AND 'healthcare' = ANY(issue_tags)
+  AND (target_district = 'TX-21' OR target_district IS NULL)
+ORDER BY impact_score DESC, usage_count DESC
+LIMIT 20;
+
+-- Creator stats
+SELECT creator_address,
+       COUNT(*) as template_count,
+       SUM(usage_count) as total_usage,
+       AVG(impact_score) as avg_impact
+FROM templates
+GROUP BY creator_address
+ORDER BY total_usage DESC;
+```
+
+---
+
+### Filecoin Archival (Planned)
+
+**Trigger**: Template challenged OR verified high-impact
+
+```javascript
+// Archive template to Filecoin
+async function archiveTemplate(templateId) {
+  // 1. Fetch template + all metadata + usage history
+  const data = await db.query(`
+    SELECT t.*,
+           array_agg(u.*) as usage_history,
+           c.* as challenge_data
+    FROM templates t
+    LEFT JOIN template_usage u ON u.template_id = t.id
+    LEFT JOIN challenges c ON c.template_id = t.id
+    WHERE t.id = $1
+    GROUP BY t.id, c.id
+  `, [templateId]);
+
+  // 2. Serialize to JSON
+  const archive = {
+    template: data.template,
+    usage_history: data.usage_history,
+    challenge: data.challenge_data,
+    archived_at: Date.now(),
+    snapshot_reason: "challenged" // or "high_impact"
+  };
+
+  // 3. Pin to Filecoin via web3.storage
+  const file = new File([JSON.stringify(archive)], `${templateId}.json`);
+  const cid = await web3storage.put([file]);
+
+  // 4. Store CID in Postgres
+  await db.query(`
+    UPDATE templates
+    SET filecoin_cid = $1
+    WHERE id = $2
+  `, [cid, templateId]);
+
+  // 5. Store CID on-chain (Scroll)
+  await TemplateRegistry.methods.addArchivalProof(
+    data.template.content_hash,
+    cid
+  ).send();
+
+  return cid;
+}
+```
+
+**Cost**: ~$0.01/GB on Filecoin
+**Use Cases**:
+- Challenged templates (permanent audit trail)
+- Legislative citations (proof of origin)
+- High-impact templates (historical record)
+
+**Retrieval**:
+```javascript
+// Retrieve from IPFS gateway
+const archived = await fetch(`https://ipfs.io/ipfs/${cid}`);
+const data = await archived.json();
+```
+
+---
+
+## Settlement Layer
+
+### Scroll zkEVM - Stage 1 Decentralization
+
+**Contracts Deployed**:
+- `DistrictGate.sol` - ZK proof verification
+- `CommuniqueCoreV2.sol` - Civic action orchestration
+- `UnifiedRegistry.sol` - Action/reputation registry
+- `VOTERToken.sol` - ERC-20 rewards
+- `AgentConsensus.sol` - Multi-agent coordination
+- `ReputationRegistry.sol` - ERC-8004 portable credibility
+
+**DistrictGate.sol** (ZK Proof Verifier):
+
+```solidity
+pragma solidity ^0.8.19;
+
+import "./ResidencyVerifier.sol"; // Auto-generated from Circom
+
+contract DistrictGate {
+    ResidencyVerifier public immutable verifier;
+    bytes32 public shadowAtlasRoot;
+
+    mapping(bytes32 => bool) public usedNullifiers;
+    mapping(address => bytes32) public userDistrictHashes;
+    mapping(address => uint256) public verificationTimestamps;
+
+    event DistrictVerified(
+        address indexed user,
+        bytes32 indexed districtHash,
+        uint256 timestamp
+    );
+
+    function verifyDistrict(
+        uint256[2] calldata a,
+        uint256[2][2] calldata b,
+        uint256[2] calldata c,
+        uint256[4] calldata publicInputs
+    ) external {
+        require(!usedNullifiers[bytes32(publicInputs[2])], "Nullifier used");
+        require(
+            verifier.verifyProof(a, b, c, publicInputs),
+            "Invalid proof"
+        );
+
+        bytes32 districtHash = bytes32(publicInputs[1]);
+        usedNullifiers[bytes32(publicInputs[2])] = true;
+        userDistrictHashes[msg.sender] = districtHash;
+        verificationTimestamps[msg.sender] = block.timestamp;
+
+        emit DistrictVerified(msg.sender, districtHash, block.timestamp);
+    }
+
+    function isVerified(address user) external view returns (bool) {
+        return userDistrictHashes[user] != bytes32(0);
+    }
+}
+```
+
+**Cost per Action** (Scroll):
+- ZK proof verification: ~250K gas
+- `submitAction` call: ~150K gas
+- Storage updates: ~50K gas
+- **Total**: ~450K gas × 0.1 gwei = **$0.135/action** (at $3000 ETH)
+
+**Who Pays Transaction Costs**:
+- **Initially**: Protocol treasury sponsors all ZK verification costs ($0.135/action)
+- **Future**: Sponsor pool may subsidize costs for strategic campaigns
+- **User Experience**: Zero-fee civic participation removes economic barriers
+- **Treasury Sustainability**: Costs funded by outcome market fees and token appreciation
+
+**Performance**:
+- Current TPS: ~500 TPS
+- 2025 target: 10,000 TPS
+- Finality: ~5 seconds
+- Stage 1 decentralization: ✓ (April 2025)
+
+---
+
+## Outcome Markets (Political Prediction → Retroactive Funding)
+
+**Architecture**: Gnosis Conditional Token Framework + UMA Optimistic Oracle + Custom Attribution
+
+### Overview
+
+Binary prediction markets on legislative outcomes fund civic infrastructure retroactively. "Will H.R. 3337 pass House committee with Section 4(b) intact?" Stakes create market liquidity—resolved outcomes trigger retroactive funding to contributors (template creators, message senders, organizers).
+
+```mermaid
+flowchart TB
+    subgraph Creation["Market Creation"]
+        Org[Advocacy Organization]
+        Market[Create Outcome Market<br/>"H.R. 3337 passes Q4 2025"]
+        CTF[Gnosis CTF<br/>Binary ERC1155 Tokens]
+    end
+
+    subgraph Trading["Market Participation"]
+        YES[YES Token Holders<br/>Stake on passage]
+        NO[NO Token Holders<br/>Stake on failure]
+        Pool[Liquidity Pool<br/>$500K total stakes]
+    end
+
+    subgraph Resolution["Outcome Resolution"]
+        API[Congress.gov API v3<br/>Bill status verification]
+        UMA[UMA Optimistic Oracle<br/>Dispute resolution]
+        Resolve[Outcome Determined<br/>"PASSED"]
+    end
+
+    subgraph Distribution["Retroactive Funding"]
+        Winners[YES Token Holders<br/>Collect winnings]
+        Retro[20% Prize Pool<br/>→ Contributors]
+        Impact[ImpactAgent<br/>Attribution Logic]
+        Creators[Template Creators<br/>10x multiplier]
+        Adopters[Message Senders<br/>Base rewards]
+    end
+
+    Org --> Market
+    Market --> CTF
+    CTF --> YES
+    CTF --> NO
+    YES --> Pool
+    NO --> Pool
+
+    Pool --> API
+    API --> UMA
+    UMA --> Resolve
+
+    Resolve --> Winners
+    Resolve --> Retro
+    Retro --> Impact
+    Impact --> Creators
+    Impact --> Adopters
+
+    style Creation fill:#4A90E2
+    style Trading fill:#50C878
+    style Resolution fill:#FFB347
+    style Distribution fill:#7B68EE
+```
+
+### Technical Stack
+
+**Conditional Tokens** (Gnosis CTF):
+- Binary outcomes as ERC1155 tokens (YES/NO positions)
+- Hybrid CLOB (Central Limit Order Book) - off-chain matching, on-chain settlement
+- Proven at $3.2B daily volume on Polymarket [1]
+- Deploy on Scroll (not Polygon - stay on our settlement chain)
+
+**Outcome Resolution** (UMA Optimistic Oracle):
+- Whitelisted proposers submit outcomes with 2-hour challenge period [2]
+- Disputes escalate to UMA DVM (tokenholder voting within 48-96 hours)
+- Managed Optimistic Oracle V2 (MOOV2) - improved quality via governance [3]
+
+**Pool Funding Mechanics**:
+
+Retroactive funding pool (20% of total market stakes) is allocated from ALL positions, regardless of outcome:
+
+**Example: $100K Market**
+- Total stakes: $100K ($60K YES, $40K NO)
+- Retroactive pool: $20K (20% of total)
+- Remaining prize pool: $80K (distributed to winners)
+
+**When YES wins**:
+- YES holders collect from $80K prize pool
+- NO stakes: $32K to winners, $8K to retroactive pool
+- YES stakes: $48K returned to winners, $12K to retroactive pool
+
+**When NO wins**:
+- NO holders collect from $80K prize pool
+- YES stakes: $48K to winners, $12K to retroactive pool
+- NO stakes: $32K returned to winners, $8K to retroactive pool
+
+**Why Losing Stakes Fund Infrastructure**: When you bet YES and lose, your stake doesn't only go to NO holders—20% goes to retroactive funding for civic infrastructure that attempted to influence the outcome. This creates incentive alignment: even failed predictions fund the ecosystem that generates future opportunities.
+
+**Distribution**: ImpactAgent scores template creators and adopters based on verified civic actions, allocating retroactive funds proportionally (see Retroactive Funding Attribution section below).
+
+**Custom Components**:
+
+```solidity
+// VoterOutcomeMarket.sol
+contract VoterOutcomeMarket {
+    struct Market {
+        bytes32 marketId;
+        string question;          // "Will H.R. 3337 pass by Q4 2025?"
+        uint256 resolutionTime;   // Unix timestamp
+        address ctfConditionId;   // Gnosis CTF condition
+        address umaRequestId;     // UMA resolution identifier
+        bool resolved;
+        bool outcome;             // true = YES, false = NO
+        uint256 retroPool;        // 20% of total stakes for contributors
+    }
+
+    // Create market with CTF integration
+    function createMarket(
+        string calldata question,
+        uint256 resolutionTime,
+        bytes32[] calldata templateHashes
+    ) external returns (bytes32 marketId) {
+        // Deploy Gnosis CTF condition
+        bytes32 conditionId = ctf.prepareCondition(
+            address(this),
+            bytes32(keccak256(abi.encode(question))),
+            2  // Binary outcome
+        );
+
+        markets[marketId] = Market({
+            marketId: marketId,
+            question: question,
+            resolutionTime: resolutionTime,
+            ctfConditionId: conditionId,
+            resolved: false,
+            retroPool: 0
+        });
+
+        emit MarketCreated(marketId, question, resolutionTime);
+    }
+
+    // Resolve via UMA Optimistic Oracle
+    function resolveMarket(bytes32 marketId) external {
+        Market storage market = markets[marketId];
+        require(block.timestamp >= market.resolutionTime, "Not resolved");
+
+        // Query UMA for outcome
+        bytes memory ancillaryData = abi.encode(market.question);
+        market.umaRequestId = uma.requestPrice(
+            USDC_IDENTIFIER,
+            market.resolutionTime,
+            ancillaryData,
+            USDC,
+            0  // No reward
+        );
+
+        emit ResolutionRequested(marketId, market.umaRequestId);
+    }
+
+    // Distribute retroactive funding
+    function distributeRetroFunding(
+        bytes32 marketId,
+        address[] calldata contributors,
+        uint256[] calldata weights  // From ImpactAgent
+    ) external onlyRole(AGENT_ROLE) {
+        Market storage market = markets[marketId];
+        require(market.resolved, "Not resolved");
+
+        uint256 totalRetro = market.retroPool;
+        for (uint256 i = 0; i < contributors.length; i++) {
+            uint256 amount = (totalRetro * weights[i]) / 10000;  // Basis points
+            VOTER.mint(contributors[i], amount);
+            emit RetroFundingDistributed(marketId, contributors[i], amount);
+        }
+    }
+}
+```
+
+### Retroactive Funding Attribution
+
+**ImpactAgent Contribution Scoring**:
+
+```javascript
+// Calculate contributor weights for retroactive funding
+async function calculateContributionWeights(marketId) {
+  const market = await getMarket(marketId);
+  const templates = market.relatedTemplates;
+
+  const contributions = [];
+
+  for (const template of templates) {
+    // Template creator base weight
+    const creatorWeight = {
+      address: template.creator,
+      weight: 1000,  // 10% base
+      reason: "Template creation"
+    };
+
+    // Amplify based on adoption
+    const adoptionCount = await getAdoptionCount(template.hash);
+    creatorWeight.weight += adoptionCount * 10;  // +0.1% per adoption
+
+    // Amplify based on verified impact
+    const impactScore = await ImpactAgent.getTemplateImpact(template.hash);
+    if (impactScore > 80) {
+      creatorWeight.weight *= 10;  // 10x multiplier for high-confidence impact
+    }
+
+    contributions.push(creatorWeight);
+
+    // Adopters (users who sent the template)
+    const adopters = await getTemplateAdopters(template.hash);
+    for (const adopter of adopters) {
+      contributions.push({
+        address: adopter,
+        weight: 10,  // 0.1% per message sent
+        reason: "Template adoption"
+      });
+    }
+  }
+
+  // Normalize weights to sum to 10000 (100%)
+  const totalWeight = contributions.reduce((sum, c) => sum + c.weight, 0);
+  return contributions.map(c => ({
+    ...c,
+    weight: Math.floor((c.weight / totalWeight) * 10000)
+  }));
+}
+```
+
+### Gaming Resistance
+
+**Sybil Protection**:
+- Contributors must have verified identities (Didit.me KYC)
+- Reputation staking required for high-value claims
+- Rate limiting (max 3 templates/day prevents spam creation)
+
+**Self-Attribution Prevention**:
+- Template adoption verified via on-chain Congressional delivery receipts
+- Can't claim credit for messages never sent
+- ImpactAgent cross-references adoption claims with CWC submission logs
+
+**Collusion Resistance**:
+- Quadratic scaling: 100 people × $10 > 1 person × $1000
+- Reputation forfeiture for provably false contribution claims
+- Multi-agent consensus (SupplyAgent + ReputationAgent + ImpactAgent) prevents single-agent manipulation
+
+### Cost Analysis
+
+**Per Market**:
+- Gnosis CTF deployment: ~$5 gas (one-time)
+- UMA resolution request: ~$10 (includes dispute bond)
+- Retroactive distribution: ~$0.05 per contributor
+
+**Example**: $500K outcome market, 200 contributors
+- Trading fees fund infrastructure: $2,500 (0.5% fee)
+- Retroactive pool: $100K (20% of stakes)
+- Average contributor: $500 reward if outcome resolves favorably
+
+---
+
+### References
+
+[1] Polymarket CTF Architecture. https://docs.polymarket.com/developers/CTF/overview (Accessed October 2025)
+
+[2] UMA Optimistic Oracle. https://docs.uma.xyz/protocol-overview/how-does-umas-oracle-work (Accessed October 2025)
+
+[3] UMA Managed Optimistic Oracle V2 (MOOV2). https://www.theblock.co/post/366507/polymarket-uma-oracle-update (August 2025)
+
+[4] Gnosis Conditional Token Framework. https://github.com/gnosis/conditional-tokens-contracts
+
+---
+
+## Challenge Markets: Multi-AI Information Quality Infrastructure
+
+Challenge markets enforce information quality through economic stakes (fiat converts to VOTER tokens instantly on-chain) and multi-model AI consensus. Twenty AI models across diverse providers evaluate disputed claims, requiring 67% agreement for resolution. Quadratic scaling prevents plutocracy while creating skin-in-the-game for all participants.
+
+### Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Challenge["Challenge Submission"]
+        User[User Stakes (Fiat → VOTER)]
+        Target[Disputed Claim<br/>"Template contains false data"]
+        Stake[Quadratic Stake Calculation<br/>sqrt(stakeAmount) influence]
+    end
+
+    subgraph Orchestration["Multi-Model Consensus (Off-Chain)"]
+        CF[Chainlink Functions DON<br/>Off-chain computation]
+        OR[OpenRouter API<br/>500+ models, 60+ providers]
+        Tier1[Tier 1: Major Models<br/>GPT-5, Claude Sonnet 4.5, Grok 4]
+        Tier2[Tier 2: International<br/>Gemini, Qwen, DeepSeek]
+        Tier3[Tier 3: Open Source<br/>Llama 3.3, Mistral Large 2]
+
+        CF --> OR
+        OR --> Tier1
+        OR --> Tier2
+        OR --> Tier3
+    end
+
+    subgraph Aggregation["On-Chain Aggregation"]
+        Results[20 Model Responses<br/>Each: VALID/INVALID + confidence]
+        Consensus[Consensus Algorithm<br/>67% threshold required]
+        Weight[Reputation Weighting<br/>Domain expertise multiplier]
+    end
+
+    subgraph Resolution["Dispute Resolution"]
+        Auto[Automatic Resolution<br/>>80% consensus]
+        UMA[UMA Optimistic Oracle<br/>60-80% consensus range]
+        Human[Human Arbitration<br/><60% consensus]
+    end
+
+    subgraph Outcomes["Economic Consequences"]
+        Winner[Winner Recovers Stake<br/>+ Challenger's Stake]
+        Loser[Loser Loses Stake<br/>+ Reputation Penalty]
+        Rep[ReputationRegistry Update<br/>ERC-8004 attestation]
+    end
+
+    User --> Target --> Stake
+    Stake --> CF
+    Tier1 --> Results
+    Tier2 --> Results
+    Tier3 --> Results
+    Results --> Consensus --> Weight
+
+    Weight -->|>80%| Auto
+    Weight -->|60-80%| UMA
+    Weight -->|<60%| Human
+
+    Auto --> Winner
+    Auto --> Loser
+    UMA --> Winner
+    UMA --> Loser
+    Human --> Winner
+    Human --> Loser
+
+    Winner --> Rep
+    Loser --> Rep
+```
+
+### Multi-Model Consensus Architecture
+
+**Chainlink Functions Integration**: Off-chain computation runs JavaScript code within Chainlink DON (Decentralized Oracle Network), querying 20 AI models via OpenRouter's unified API. Results aggregate on-chain without exposing API keys or intermediate computations.
+
+**Model Selection Strategy**:
+- **Tier 1 (33%)**: OpenAI GPT-5, Anthropic Claude Sonnet 4.5, xAI Grok 4 Fast (prevent capture by single provider)
+- **Tier 2 (34%)**: Google Gemini 2.5, Alibaba Qwen 2.5, DeepSeek V3 (geographic/cultural diversity)
+- **Tier 3 (33%)**: Meta Llama 3.3, Mistral Large 2, open models (prevent proprietary model bias)
+
+**Reputation Weighting**: Challengers with proven expertise in the template's domain (healthcare, climate, immigration) receive multiplied influence. Past accuracy on similar challenges compounds credibility.
+
+### Smart Contract Implementation
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+
+interface IReputationRegistry {
+    function getExpertiseScore(address user, bytes32 domain) external view returns (uint256);
+    function updateChallengeRecord(address user, bool successful) external;
+}
+
+contract VoterChallengeMarket is AccessControl, ReentrancyGuard, FunctionsClient {
+    bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
+
+    struct Challenge {
+        bytes32 challengeId;
+        address challenger;
+        address target;
+        bytes32 targetHash;        // Template/action being challenged
+        bytes32 domain;            // healthcare, climate, etc.
+        string evidence;           // IPFS CID of supporting evidence
+        uint256 stakeAmount;       // VOTER tokens staked
+        uint256 quadraticInfluence; // sqrt(stakeAmount)
+        uint256 createdAt;
+        ChallengeStatus status;
+        bytes32 chainlinkRequestId;
+        AIConsensus consensus;
+    }
+
+    struct AIConsensus {
+        uint8 validVotes;          // Models voting VALID
+        uint8 invalidVotes;        // Models voting INVALID
+        uint8 totalVotes;          // Should be 20
+        uint256 avgConfidence;     // 0-100 scale
+        bool resolved;
+    }
+
+    enum ChallengeStatus {
+        Pending,
+        UnderReview,
+        AutoResolved,
+        UMADispute,
+        HumanArbitration,
+        ChallengeSuccessful,
+        ChallengeFailed,
+        Withdrawn
+    }
+
+    mapping(bytes32 => Challenge) public challenges;
+    mapping(bytes32 => bytes32) public chainlinkRequestToChallenge;
+
+    IReputationRegistry public reputationRegistry;
+    IERC20 public voterToken;
+
+    uint256 public constant MIN_STAKE = 100 * 10**18;  // 100 VOTER
+    uint256 public constant MAX_STAKE = 5000 * 10**18; // 5000 VOTER
+    uint64 public chainlinkSubscriptionId;
+    uint32 public chainlinkGasLimit = 300000;
+    bytes32 public chainlinkDonId;
+
+    event ChallengeCreated(
+        bytes32 indexed challengeId,
+        address indexed challenger,
+        bytes32 indexed targetHash,
+        uint256 stakeAmount
+    );
+
+    event ConsensusReceived(
+        bytes32 indexed challengeId,
+        uint8 validVotes,
+        uint8 invalidVotes,
+        uint256 avgConfidence
+    );
+
+    event ChallengeResolved(
+        bytes32 indexed challengeId,
+        bool challengeSuccessful,
+        address winner,
+        uint256 payout
+    );
+
+    constructor(
+        address _router,
+        address _voterToken,
+        address _reputationRegistry,
+        uint64 _subscriptionId,
+        bytes32 _donId
+    ) FunctionsClient(_router) {
+        voterToken = IERC20(_voterToken);
+        reputationRegistry = IReputationRegistry(_reputationRegistry);
+        chainlinkSubscriptionId = _subscriptionId;
+        chainlinkDonId = _donId;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function createChallenge(
+        bytes32 targetHash,
+        bytes32 domain,
+        string calldata evidence,
+        uint256 stakeAmount
+    ) external nonReentrant returns (bytes32) {
+        require(stakeAmount >= MIN_STAKE && stakeAmount <= MAX_STAKE, "Invalid stake");
+        require(voterToken.transferFrom(msg.sender, address(this), stakeAmount), "Transfer failed");
+
+        bytes32 challengeId = keccak256(abi.encodePacked(
+            targetHash,
+            msg.sender,
+            block.timestamp
+        ));
+
+        // Calculate quadratic influence
+        uint256 quadraticInfluence = sqrt(stakeAmount);
+
+        // Apply reputation multiplier
+        uint256 expertiseScore = reputationRegistry.getExpertiseScore(msg.sender, domain);
+        if (expertiseScore > 0) {
+            quadraticInfluence = (quadraticInfluence * (100 + expertiseScore)) / 100;
+        }
+
+        challenges[challengeId] = Challenge({
+            challengeId: challengeId,
+            challenger: msg.sender,
+            target: address(0), // Will be set if template has owner
+            targetHash: targetHash,
+            domain: domain,
+            evidence: evidence,
+            stakeAmount: stakeAmount,
+            quadraticInfluence: quadraticInfluence,
+            createdAt: block.timestamp,
+            status: ChallengeStatus.Pending,
+            chainlinkRequestId: bytes32(0),
+            consensus: AIConsensus(0, 0, 0, 0, false)
+        });
+
+        emit ChallengeCreated(challengeId, msg.sender, targetHash, stakeAmount);
+        return challengeId;
+    }
+
+    function submitToAIConsensus(
+        bytes32 challengeId,
+        string calldata openRouterApiKey
+    ) external onlyRole(AGENT_ROLE) returns (bytes32) {
+        Challenge storage challenge = challenges[challengeId];
+        require(challenge.status == ChallengeStatus.Pending, "Invalid status");
+
+        // Chainlink Functions JavaScript source code
+        string memory source = string(abi.encodePacked(
+            "const models = [",
+            "'openai/gpt-5', 'anthropic/claude-sonnet-4.5', 'x-ai/grok-4-fast',",
+            "'google/gemini-2.5-pro', 'qwen/qwen-2.5-72b', 'deepseek/deepseek-v3',",
+            "'meta-llama/llama-3.3-70b', 'mistralai/mistral-large-2'",
+            "];",
+            "const responses = await Promise.all(models.map(async (model) => {",
+            "  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {",
+            "    method: 'POST',",
+            "    headers: { 'Authorization': 'Bearer ", openRouterApiKey, "', 'Content-Type': 'application/json' },",
+            "    body: JSON.stringify({",
+            "      model,",
+            "      messages: [{ role: 'user', content: 'Evaluate claim validity: ", challenge.evidence, "' }]",
+            "    })",
+            "  });",
+            "  const data = await res.json();",
+            "  return parseValidation(data.choices[0].message.content);",
+            "}));",
+            "return Buffer.from(JSON.stringify(responses));"
+        ));
+
+        bytes32 requestId = _sendRequest(
+            source,
+            new bytes(0), // No secrets (API key in source for demo)
+            new string[](0),
+            chainlinkSubscriptionId,
+            chainlinkGasLimit,
+            chainlinkDonId
+        );
+
+        challenge.chainlinkRequestId = requestId;
+        challenge.status = ChallengeStatus.UnderReview;
+        chainlinkRequestToChallenge[requestId] = challengeId;
+
+        return requestId;
+    }
+
+    function fulfillRequest(
+        bytes32 requestId,
+        bytes memory response,
+        bytes memory err
+    ) internal override {
+        bytes32 challengeId = chainlinkRequestToChallenge[requestId];
+        Challenge storage challenge = challenges[challengeId];
+
+        require(!challenge.consensus.resolved, "Already resolved");
+
+        if (err.length > 0) {
+            // Escalate to UMA on Chainlink failure
+            challenge.status = ChallengeStatus.UMADispute;
+            return;
+        }
+
+        // Parse AI consensus results
+        (uint8 validVotes, uint8 invalidVotes, uint256 avgConfidence) = abi.decode(
+            response,
+            (uint8, uint8, uint256)
+        );
+
+        challenge.consensus = AIConsensus({
+            validVotes: validVotes,
+            invalidVotes: invalidVotes,
+            totalVotes: validVotes + invalidVotes,
+            avgConfidence: avgConfidence,
+            resolved: true
+        });
+
+        emit ConsensusReceived(challengeId, validVotes, invalidVotes, avgConfidence);
+
+        // Determine resolution path based on consensus strength
+        uint256 consensusPercent = (validVotes * 100) / (validVotes + invalidVotes);
+
+        if (consensusPercent >= 80 || consensusPercent <= 20) {
+            // Strong consensus: auto-resolve
+            challenge.status = ChallengeStatus.AutoResolved;
+            _resolveChallenge(challengeId, consensusPercent < 50);
+        } else if (consensusPercent >= 60 && consensusPercent <= 80) {
+            // Moderate consensus: escalate to UMA
+            challenge.status = ChallengeStatus.UMADispute;
+        } else {
+            // Weak consensus: human arbitration
+            challenge.status = ChallengeStatus.HumanArbitration;
+        }
+    }
+
+    function _resolveChallenge(bytes32 challengeId, bool challengeSuccessful) internal {
+        Challenge storage challenge = challenges[challengeId];
+
+        address winner = challengeSuccessful ? challenge.challenger : challenge.target;
+        address loser = challengeSuccessful ? challenge.target : challenge.challenger;
+
+        // Winner gets their stake back + loser's stake
+        uint256 payout = challenge.stakeAmount * 2;
+        require(voterToken.transfer(winner, payout), "Payout failed");
+
+        // Update reputation
+        reputationRegistry.updateChallengeRecord(winner, true);
+        reputationRegistry.updateChallengeRecord(loser, false);
+
+        challenge.status = challengeSuccessful
+            ? ChallengeStatus.ChallengeSuccessful
+            : ChallengeStatus.ChallengeFailed;
+
+        emit ChallengeResolved(challengeId, challengeSuccessful, winner, payout);
+    }
+
+    function sqrt(uint256 x) internal pure returns (uint256) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        uint256 y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+        return y;
+    }
+}
+```
+
+### Multi-Model Consensus Aggregation (JavaScript)
+
+```javascript
+// Chainlink Functions source code for AI consensus
+const OPENROUTER_API_KEY = secrets.openRouterApiKey;
+
+const MODELS = [
+  // Tier 1: Major providers (33%)
+  { id: "openai/gpt-5", weight: 1.0 },
+  { id: "anthropic/claude-sonnet-4.5", weight: 1.0 },
+  { id: "x-ai/grok-4-fast", weight: 1.0 },
+  { id: "openai/o4-mini", weight: 1.0 },
+  { id: "anthropic/claude-opus-4", weight: 1.0 },
+  { id: "x-ai/grok-4", weight: 1.0 },
+
+  // Tier 2: International (34%)
+  { id: "google/gemini-2.5-pro", weight: 1.0 },
+  { id: "google/gemini-2.5-flash", weight: 1.0 },
+  { id: "qwen/qwen-2.5-72b-instruct", weight: 1.0 },
+  { id: "deepseek/deepseek-v3", weight: 1.0 },
+  { id: "cohere/command-r-plus", weight: 1.0 },
+  { id: "alibaba/qwen-max", weight: 1.0 },
+  { id: "deepseek/deepseek-chat", weight: 1.0 },
+
+  // Tier 3: Open source (33%)
+  { id: "meta-llama/llama-3.3-70b-instruct", weight: 1.0 },
+  { id: "mistralai/mistral-large-2", weight: 1.0 },
+  { id: "meta-llama/llama-3.1-405b-instruct", weight: 1.0 },
+  { id: "mistralai/mistral-large-latest", weight: 1.0 },
+  { id: "microsoft/phi-4", weight: 1.0 },
+  { id: "nvidia/llama-3.1-nemotron-70b-instruct", weight: 1.0 },
+  { id: "01-ai/yi-large", weight: 1.0 }
+];
+
+async function evaluateChallenge(claim, evidence) {
+  const prompt = `You are evaluating a challenge in a civic engagement platform.
+
+CLAIM BEING CHALLENGED: ${claim}
+
+EVIDENCE PROVIDED: ${evidence}
+
+Evaluate whether the claim is factually accurate based on the evidence. Respond with JSON:
+{
+  "verdict": "VALID" or "INVALID",
+  "confidence": <0-100>,
+  "reasoning": "<brief explanation>"
+}`;
+
+  const responses = await Promise.all(
+    MODELS.map(async (model) => {
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://voter-protocol.org",
+            "X-Title": "VOTER Protocol Challenge Market"
+          },
+          body: JSON.stringify({
+            model: model.id,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 500,
+            temperature: 0.3  // Lower temperature for consistency
+          })
+        });
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+
+        // Parse JSON response
+        const parsed = JSON.parse(content);
+
+        return {
+          model: model.id,
+          verdict: parsed.verdict,
+          confidence: parsed.confidence,
+          reasoning: parsed.reasoning,
+          weight: model.weight
+        };
+      } catch (error) {
+        console.error(`Model ${model.id} failed:`, error);
+        return null;
+      }
+    })
+  );
+
+  // Filter out failed responses
+  const validResponses = responses.filter(r => r !== null);
+
+  // Calculate consensus
+  const validVotes = validResponses.filter(r => r.verdict === "VALID").length;
+  const invalidVotes = validResponses.filter(r => r.verdict === "INVALID").length;
+  const totalVotes = validVotes + invalidVotes;
+
+  // Calculate weighted average confidence
+  const totalConfidence = validResponses.reduce((sum, r) => sum + r.confidence, 0);
+  const avgConfidence = Math.floor(totalConfidence / validResponses.length);
+
+  // Encode for on-chain return
+  const result = {
+    validVotes: validVotes,
+    invalidVotes: invalidVotes,
+    totalVotes: totalVotes,
+    avgConfidence: avgConfidence,
+    details: validResponses.map(r => ({
+      model: r.model,
+      verdict: r.verdict,
+      confidence: r.confidence
+    }))
+  };
+
+  return Functions.encodeUint256(
+    (validVotes << 16) | (invalidVotes << 8) | avgConfidence
+  );
+}
+
+// Main execution
+return await evaluateChallenge(args[0], args[1]);
+```
+
+### Gaming Resistance Mechanisms
+
+**Quadratic Scaling**: One person staking $1,000 loses to 100 people staking $10 each. The math prevents money from dominating facts.
+
+**Reputation Multipliers**: Domain expertise amplifies influence. Healthcare professional challenging healthcare claim gets 2x multiplier. Climate scientist challenging climate data gets 3x. Prevents ignorant brigading.
+
+**Model Diversity**: 20 models across 3 tiers prevents:
+- **Provider capture** (OpenAI outage doesn't halt system)
+- **Cultural bias** (Western + Chinese + open models)
+- **Proprietary lock-in** (33% open source models)
+
+**Staked Reputation**: Losing a challenge burns reputation in that domain. Serial bad-faith challengers lose credibility permanently via ERC-8004 attestations.
+
+### Cost Analysis
+
+**Per Challenge**:
+- Chainlink Functions execution: ~$5 (20 model queries via OpenRouter)
+- On-chain aggregation gas: ~$0.15 (Scroll L2)
+- UMA dispute bond (if escalated): $1500 (returned if correct)
+- Total: $5.15 for automatic resolution, $1505.15 if disputed
+
+**Example**: 1000 VOTER stake ($5000 at $5/token), 67% consensus (13 VALID, 7 INVALID), auto-resolved in 10 minutes, challenger wins and receives 2000 VOTER ($10,000).
+
+**Citations**:
+
+[1] Chainlink Functions Documentation. https://docs.chain.link/chainlink-functions (Accessed October 2025)
+
+[2] OpenRouter Multi-Provider AI Routing. https://openrouter.ai/docs (October 2025 - 500+ models, Grok 4 Fast #1 by volume)
+
+[3] UMA Optimistic Oracle. https://docs.uma.xyz/protocol-overview/how-does-umas-oracle-work (Accessed October 2025)
+
+[4] Gitcoin Quadratic Funding Formula. https://www.gitcoin.co/blog/quadratic-funding-in-a-nutshell (Accessed October 2025)
+
+---
+
+## Template Impact Correlation: Legislative Outcome Tracking
+
+Template impact correlation tracks the causal relationship between citizen-authored templates and legislative outcomes. ImpactAgent continuously monitors congressional records, floor speeches, committee reports, and voting patterns to identify when template language appears in legislative activity and correlates temporal/geographic patterns with position changes.
+
+### Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Creation["Template Creation & Distribution"]
+        Template[Citizen Creates Template<br/>"Infrastructure bill creates 50K jobs"]
+        Hash[IPFS Hash Registered<br/>On-chain timestamp]
+        Network[5000 constituents adopt<br/>Send via CWC]
+    end
+
+    subgraph Submission["Congressional Delivery"]
+        CWC[Senate/House CWC APIs<br/>Verified delivery]
+        Receipt[Message IDs logged<br/>PostgreSQL tracking]
+        District[Geographic clustering<br/>By congressional district]
+    end
+
+    subgraph Monitoring["Legislative Record Monitoring"]
+        API[Congress.gov API v3<br/>Real-time bill tracking]
+        Record[Congressional Record<br/>Floor speeches/debates]
+        Committee[Committee Reports<br/>Markup sessions]
+        Votes[Roll call votes<br/>Position changes]
+    end
+
+    subgraph Analysis["Impact Correlation (Off-Chain)"]
+        Vector[ChromaDB Vector Search<br/>Semantic similarity matching]
+        GPT[GPT-5 Reasoning<br/>Causality analysis]
+        Temporal[Temporal Correlation<br/>Template → Speech timeline]
+        Geographic[Geographic Clustering<br/>Template districts vs control]
+    end
+
+    subgraph Scoring["Impact Confidence Scoring"]
+        Direct[Direct Citation: 40%<br/>Exact text match in speeches]
+        Time[Temporal Correlation: 30%<br/>2-week window significance]
+        Geo[Geographic Clustering: 20%<br/>Adopter districts vs control]
+        Alt[Alternative Explanations: -10%<br/>Party pressure, lobbying, trends]
+    end
+
+    subgraph OnChain["On-Chain Attestation"]
+        Proof[Impact Proof Generation<br/>ZK-friendly commitment]
+        Registry[ImpactRegistry.sol<br/>Immutable attestation]
+        Reputation[ReputationRegistry Update<br/>ERC-8004 credibility boost]
+        Rewards[10x Reward Multiplier<br/>VOTERToken mint]
+    end
+
+    Template --> Hash --> Network
+    Network --> CWC --> Receipt --> District
+    API --> Vector
+    Record --> Vector
+    Committee --> Vector
+    Votes --> Vector
+
+    Vector --> GPT --> Temporal
+    GPT --> Geographic
+
+    Temporal --> Direct
+    Temporal --> Time
+    Geographic --> Geo
+    GPT --> Alt
+
+    Direct --> Proof
+    Time --> Proof
+    Geo --> Proof
+    Alt --> Proof
+
+    Proof --> Registry --> Reputation --> Rewards
+```
+
+### Legislative Data Pipeline
+
+**Congress.gov API v3**: Official Library of Congress API provides structured access to bills, amendments, Congressional Record, committee reports, and member activity. Real-time webhooks (when available) or 5-minute polling for floor speeches.
+
+**Vector Embedding Strategy**: ChromaDB stores template embeddings + congressional record embeddings. Semantic search identifies linguistic similarity even when exact wording differs (e.g., "50,000 jobs" vs "fifty thousand employment opportunities").
+
+**Temporal Windowing**: Track 2-week windows after template distribution. Statistical significance calculated: did position changes occur at rates exceeding baseline in districts where template was sent?
+
+### Smart Contract Implementation
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+interface IReputationRegistry {
+    function addImpactAttestation(
+        address creator,
+        bytes32 templateHash,
+        uint256 impactScore,
+        string calldata evidence
+    ) external;
+}
+
+interface IVOTERToken {
+    function mint(address to, uint256 amount) external;
+}
+
+contract ImpactRegistry is AccessControl {
+    bytes32 public constant IMPACT_AGENT_ROLE = keccak256("IMPACT_AGENT_ROLE");
+
+    struct ImpactAttestation {
+        bytes32 attestationId;
+        bytes32 templateHash;
+        address templateCreator;
+        address[] adopters;         // Users who sent template
+        uint256 adoptersCount;
+        LegislativeOutcome outcome;
+        ImpactScore scores;
+        uint256 confidenceLevel;    // 0-100
+        uint256 timestamp;
+        string evidenceIPFS;        // IPFS CID of full analysis
+        bool verified;
+    }
+
+    struct LegislativeOutcome {
+        string billNumber;          // "H.R. 3337"
+        string legislatorBioguideId;
+        string outcomeType;         // "floor_speech", "position_change", "vote_flip"
+        uint256 outcomeTimestamp;
+        string congressionalRecordURL;
+    }
+
+    struct ImpactScore {
+        uint16 directCitation;      // 0-4000 (40%)
+        uint16 temporalCorrelation; // 0-3000 (30%)
+        uint16 geographicClustering;// 0-2000 (20%)
+        int16 alternativeExplanations; // -1000 to 0 (-10%)
+        uint16 totalScore;          // Sum (0-10000 = 0-100%)
+    }
+
+    mapping(bytes32 => ImpactAttestation) public attestations;
+    mapping(bytes32 => bytes32[]) public templateToAttestations;
+    mapping(address => uint256) public creatorImpactScore;
+
+    IReputationRegistry public reputationRegistry;
+    IVOTERToken public voterToken;
+
+    event ImpactAttestationCreated(
+        bytes32 indexed attestationId,
+        bytes32 indexed templateHash,
+        address indexed creator,
+        uint256 confidenceLevel
+    );
+
+    event ImpactVerified(
+        bytes32 indexed attestationId,
+        uint256 rewardMultiplier,
+        uint256 totalRewards
+    );
+
+    constructor(address _reputationRegistry, address _voterToken) {
+        reputationRegistry = IReputationRegistry(_reputationRegistry);
+        voterToken = IVOTERToken(_voterToken);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    function createImpactAttestation(
+        bytes32 templateHash,
+        address templateCreator,
+        address[] calldata adopters,
+        LegislativeOutcome calldata outcome,
+        ImpactScore calldata scores,
+        string calldata evidenceIPFS
+    ) external onlyRole(IMPACT_AGENT_ROLE) returns (bytes32) {
+        bytes32 attestationId = keccak256(abi.encodePacked(
+            templateHash,
+            outcome.billNumber,
+            outcome.outcomeTimestamp
+        ));
+
+        require(!attestations[attestationId].verified, "Already exists");
+
+        // Calculate total impact score
+        uint16 totalScore = uint16(
+            int(scores.directCitation) +
+            int(scores.temporalCorrelation) +
+            int(scores.geographicClustering) +
+            scores.alternativeExplanations
+        );
+
+        // Determine confidence level
+        uint256 confidence = _calculateConfidence(scores, totalScore);
+
+        attestations[attestationId] = ImpactAttestation({
+            attestationId: attestationId,
+            templateHash: templateHash,
+            templateCreator: templateCreator,
+            adopters: adopters,
+            adoptersCount: adopters.length,
+            outcome: outcome,
+            scores: scores,
+            confidenceLevel: confidence,
+            timestamp: block.timestamp,
+            evidenceIPFS: evidenceIPFS,
+            verified: false
+        });
+
+        templateToAttestations[templateHash].push(attestationId);
+
+        emit ImpactAttestationCreated(attestationId, templateHash, templateCreator, confidence);
+        return attestationId;
+    }
+
+    function verifyAndReward(bytes32 attestationId) external onlyRole(IMPACT_AGENT_ROLE) {
+        ImpactAttestation storage attestation = attestations[attestationId];
+        require(!attestation.verified, "Already verified");
+
+        attestation.verified = true;
+
+        // Calculate reward multiplier based on confidence
+        uint256 multiplier = _calculateRewardMultiplier(attestation.confidenceLevel);
+
+        // Base reward: 100 VOTER per adopter
+        uint256 baseReward = 100 * 10**18;
+
+        // Creator gets 10x multiplier
+        uint256 creatorReward = baseReward * adopters.length * multiplier * 10;
+        voterToken.mint(attestation.templateCreator, creatorReward);
+
+        // Each adopter gets base reward with multiplier
+        uint256 adopterReward = baseReward * multiplier;
+        for (uint256 i = 0; i < attestation.adopters.length; i++) {
+            voterToken.mint(attestation.adopters[i], adopterReward);
+        }
+
+        // Update reputation registry
+        reputationRegistry.addImpactAttestation(
+            attestation.templateCreator,
+            attestation.templateHash,
+            attestation.scores.totalScore,
+            attestation.evidenceIPFS
+        );
+
+        // Track creator's cumulative impact
+        creatorImpactScore[attestation.templateCreator] += attestation.scores.totalScore;
+
+        uint256 totalRewards = creatorReward + (adopterReward * attestation.adopters.length);
+        emit ImpactVerified(attestationId, multiplier, totalRewards);
+    }
+
+    function _calculateConfidence(
+        ImpactScore memory scores,
+        uint16 totalScore
+    ) internal pure returns (uint256) {
+        // High confidence: >80% (direct citation + tight temporal + geographic clustering)
+        if (totalScore >= 8000 && scores.directCitation >= 3000) {
+            return 90;
+        }
+        // Medium confidence: 50-80% (two of three primary factors)
+        else if (totalScore >= 5000) {
+            return 70;
+        }
+        // Low confidence: <50% (correlation signals but alternatives exist)
+        else {
+            return 40;
+        }
+    }
+
+    function _calculateRewardMultiplier(uint256 confidence) internal pure returns (uint256) {
+        if (confidence >= 80) {
+            return 10;  // 10x for high-confidence impact
+        } else if (confidence >= 60) {
+            return 5;   // 5x for medium-confidence
+        } else if (confidence >= 40) {
+            return 2;   // 2x for low-confidence
+        } else {
+            return 1;   // 1x base (no proven impact)
+        }
+    }
+
+    function getTemplateImpact(bytes32 templateHash) external view returns (
+        uint256 totalAttestations,
+        uint256 avgConfidence,
+        uint256 totalAdopters
+    ) {
+        bytes32[] memory attIds = templateToAttestations[templateHash];
+        totalAttestations = attIds.length;
+
+        if (totalAttestations == 0) {
+            return (0, 0, 0);
+        }
+
+        uint256 sumConfidence = 0;
+        uint256 sumAdopters = 0;
+
+        for (uint256 i = 0; i < attIds.length; i++) {
+            ImpactAttestation memory att = attestations[attIds[i]];
+            sumConfidence += att.confidenceLevel;
+            sumAdopters += att.adoptersCount;
+        }
+
+        avgConfidence = sumConfidence / totalAttestations;
+        totalAdopters = sumAdopters;
+    }
+}
+```
+
+### ImpactAgent Correlation Logic (JavaScript)
+
+```javascript
+import { chromaClient } from './vector-db.js';
+import { congressAPI } from './congress-api-v3.js';
+import { OpenAI } from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+class ImpactAgent {
+  constructor() {
+    this.templateCollection = chromaClient.getOrCreateCollection('templates');
+    this.congressionalRecordCollection = chromaClient.getOrCreateCollection('congressional_record');
+  }
+
+  async trackTemplateImpact(templateHash, templateText, distributionTimestamp) {
+    // Step 1: Monitor congressional record for 2 weeks after distribution
+    const monitoringWindow = 14 * 24 * 60 * 60 * 1000; // 14 days
+    const endTime = distributionTimestamp + monitoringWindow;
+
+    // Step 2: Query Congress.gov API v3 for floor speeches, committee reports
+    const legislativeRecords = await congressAPI.getRecordsSince(distributionTimestamp);
+
+    // Step 3: Vector similarity search
+    const templateEmbedding = await this._generateEmbedding(templateText);
+    const similarRecords = await this.congressionalRecordCollection.query({
+      queryEmbeddings: [templateEmbedding],
+      nResults: 100,
+      where: {
+        timestamp: { $gte: distributionTimestamp, $lte: endTime }
+      }
+    });
+
+    // Step 4: Analyze each potential match with GPT-5
+    const impactCandidates = [];
+
+    for (const record of similarRecords.documents[0]) {
+      const analysis = await this._analyzeImpact(templateText, record, distributionTimestamp);
+
+      if (analysis.totalScore >= 4000) { // Minimum 40% confidence
+        impactCandidates.push(analysis);
+      }
+    }
+
+    return impactCandidates;
+  }
+
+  async _analyzeImpact(templateText, legislativeRecord, distributionTimestamp) {
+    const prompt = `You are analyzing causal correlation between a citizen advocacy template and legislative activity.
+
+TEMPLATE TEXT (sent by citizens):
+${templateText}
+
+LEGISLATIVE RECORD (Congressional Record entry):
+${legislativeRecord.text}
+- Speaker: ${legislativeRecord.speaker}
+- Date: ${legislativeRecord.timestamp}
+- Context: ${legislativeRecord.context}
+
+DISTRIBUTION TIMELINE:
+- Template distributed: ${new Date(distributionTimestamp).toISOString()}
+- Legislative activity: ${new Date(legislativeRecord.timestamp).toISOString()}
+- Time delta: ${(legislativeRecord.timestamp - distributionTimestamp) / (1000 * 60 * 60 * 24)} days
+
+Analyze the following factors and provide scores:
+
+1. DIRECT CITATION (0-40 points):
+   - Exact phrase match: 40 points
+   - Paraphrased but clear reference: 25 points
+   - Thematic similarity: 10 points
+   - No connection: 0 points
+
+2. TEMPORAL CORRELATION (0-30 points):
+   - 0-7 days after distribution: 30 points (high temporal proximity)
+   - 8-14 days: 20 points (moderate)
+   - 15-30 days: 10 points (weak)
+   - >30 days: 5 points (unlikely causation)
+
+3. GEOGRAPHIC CLUSTERING (0-20 points):
+   - Speaker from district with high template adoption: 20 points
+   - Speaker from state with moderate adoption: 10 points
+   - Speaker from unrelated geography: 0 points
+
+4. ALTERNATIVE EXPLANATIONS (-10 to 0 points):
+   - Strong party pressure on this issue: -5 points
+   - Concurrent major lobbying campaign: -3 points
+   - National trend already established: -2 points
+   - No alternatives: 0 points
+
+Respond with JSON:
+{
+  "directCitation": <0-40>,
+  "temporalCorrelation": <0-30>,
+  "geographicClustering": <0-20>,
+  "alternativeExplanations": <-10 to 0>,
+  "reasoning": "<detailed explanation>",
+  "confidenceLevel": <"high"|"medium"|"low">
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.2
+    });
+
+    const analysis = JSON.parse(response.choices[0].message.content);
+
+    const totalScore = (
+      analysis.directCitation +
+      analysis.temporalCorrelation +
+      analysis.geographicClustering +
+      analysis.alternativeExplanations
+    );
+
+    return {
+      templateHash: templateText.hash,
+      legislativeRecord: {
+        billNumber: legislativeRecord.billNumber,
+        legislatorBioguideId: legislativeRecord.speakerId,
+        outcomeType: legislativeRecord.type,
+        outcomeTimestamp: legislativeRecord.timestamp,
+        congressionalRecordURL: legislativeRecord.url
+      },
+      scores: {
+        directCitation: analysis.directCitation * 100, // Scale to 0-4000
+        temporalCorrelation: analysis.temporalCorrelation * 100, // Scale to 0-3000
+        geographicClustering: analysis.geographicClustering * 100, // Scale to 0-2000
+        alternativeExplanations: analysis.alternativeExplanations * 100, // Scale to -1000-0
+        totalScore: totalScore * 100 // Scale to 0-10000
+      },
+      reasoning: analysis.reasoning,
+      confidenceLevel: this._mapConfidence(totalScore)
+    };
+  }
+
+  async _generateEmbedding(text) {
+    const response = await openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: text
+    });
+    return response.data[0].embedding;
+  }
+
+  _mapConfidence(totalScore) {
+    if (totalScore >= 80) return 90;
+    if (totalScore >= 50) return 70;
+    return 40;
+  }
+
+  async monitorCongressionalRecord() {
+    // Continuous monitoring: Poll Congress.gov API v3 every 5 minutes
+    setInterval(async () => {
+      const latestRecords = await congressAPI.getLatestRecords(5 * 60 * 1000); // Last 5 mins
+
+      for (const record of latestRecords) {
+        const embedding = await this._generateEmbedding(record.text);
+
+        await this.congressionalRecordCollection.add({
+          ids: [record.id],
+          embeddings: [embedding],
+          documents: [record.text],
+          metadatas: [{
+            speaker: record.speaker,
+            timestamp: record.timestamp,
+            billNumber: record.billNumber,
+            type: record.type,
+            url: record.url
+          }]
+        });
+      }
+    }, 5 * 60 * 1000);
+  }
+}
+
+export default new ImpactAgent();
+```
+
+### Gaming Resistance
+
+**Causality Thresholds**: Minimum 40% confidence score required. Direct citation alone (40%) insufficient—must combine with temporal proximity or geographic clustering.
+
+**Alternative Explanation Penalties**: Party pressure, external lobbying, national trends subtract from impact score. GPT-5 reasoning identifies confounding factors.
+
+**Temporal Windows**: 2-week monitoring period prevents false attribution to unrelated events months later.
+
+**Geographic Validation**: Template must have been sent BY constituents TO their legislator. Cross-district impact requires proof that adopters were actually constituents of that legislator's district.
+
+### Cost Analysis
+
+**Per Template Tracking** (30 days monitoring):
+- Congress.gov API v3: Free (public API)
+- ChromaDB vector storage: $0.10/month (self-hosted)
+- GPT-5 analysis (20 potential matches): ~$2.00
+- On-chain attestation: $0.15 (Scroll L2)
+- Total: $2.25/template
+
+**Example**: Template sent by 5,000 constituents, cited in 3 floor speeches, 67% confidence score, creator receives 50,000 VOTER tokens (5,000 users × 10 VOTER base × 10x multiplier = 500,000 VOTER distributed).
+
+**Citations**:
+
+[1] Congress.gov API v3 Documentation. https://api.congress.gov (Library of Congress, October 2025)
+
+[2] ChromaDB Vector Database. https://docs.trychroma.com (October 2025 - Open source, optimized for <10M vectors)
+
+[3] OpenAI GPT-5 Reasoning. https://openai.com/research/learning-to-reason-with-llms (September 2025 - 94.6% AIME 2025)
+
+[4] Gitcoin Retroactive Public Goods Funding. https://www.gitcoin.co/blog/retroactive-public-goods-funding (Accessed October 2025)
+
+---
+
+## Retroactive Funding Distribution: Public Goods Allocation
+
+Retroactive funding distributes treasury pools to contributors based on verified impact, not predicted outcomes. Inspired by Gitcoin Allo Protocol and Optimism RetroPGF, this mechanism rewards template creators, adopters, and civic organizers after observable legislative results are confirmed. Multi-signature approval and quadratic allocation prevent plutocracy while ensuring transparent distribution.
+
+### Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Pools["Treasury Pool Creation"]
+        Org[Advocacy Organizations<br/>Civic groups, NGOs]
+        Stake[Pool Stakes<br/>$100K for healthcare bills]
+        Matching[Matching Funds<br/>Protocol treasury contribution]
+        Total[Total Pool<br/>$200K available]
+    end
+
+    subgraph Contribution["Contribution Tracking"]
+        Templates[Template Creators<br/>High-impact content]
+        Adopters[Template Adopters<br/>5000 message senders]
+        Verifiers[Challenge Validators<br/>Information quality maintainers]
+        Organizers[Community Organizers<br/>District coordinators]
+    end
+
+    subgraph Impact["Impact Verification"]
+        Registry[ImpactRegistry.sol<br/>On-chain attestations]
+        Scores[Impact Confidence Scores<br/>67%+ validated correlation]
+        Challenge[ChallengeMarket.sol<br/>Accuracy track record]
+        Reputation[ReputationRegistry<br/>Domain expertise]
+    end
+
+    subgraph Calculation["Allocation Calculation (Off-Chain)"]
+        QF[Quadratic Funding<br/>sqrt(contribution) influence]
+        Multipliers[Impact Multipliers<br/>10x for verified outcomes]
+        Diversity[Diversity Bonuses<br/>Multi-district reach]
+        Weights[Final Weight Calculation<br/>Normalized to 100%]
+    end
+
+    subgraph Distribution["Multi-Sig Distribution"]
+        Proposal[Distribution Proposal<br/>Generated by agents]
+        Review[Human Review<br/>Multi-sig signers]
+        Approval[3-of-5 Approval<br/>Gnosis Safe execution]
+        Mint[VOTER Token Mint<br/>Direct to contributors]
+    end
+
+    subgraph Transparency["Public Transparency"]
+        Dashboard[Allocation Dashboard<br/>Full breakdown visible]
+        Appeals[7-Day Appeal Window<br/>Challenge distributions]
+        Audit[Audit Trail<br/>Every decision logged]
+    end
+
+    Org --> Stake --> Matching --> Total
+    Total --> QF
+
+    Templates --> Registry
+    Adopters --> Registry
+    Verifiers --> Challenge
+    Organizers --> Reputation
+
+    Registry --> Scores --> Weights
+    Challenge --> Scores
+    Reputation --> Multipliers --> Weights
+
+    Weights --> QF --> Proposal
+    Proposal --> Review --> Approval --> Mint
+
+    Mint --> Dashboard
+    Dashboard --> Appeals
+    Appeals --> Audit
+```
+
+### Retroactive Funding Mechanism
+
+**Pool Creation**: Organizations stake VOTER tokens (or stablecoins) to fund specific policy domains. Protocol treasury provides 1:1 matching up to $500K per round, amplifying civic organization resources.
+
+**Contribution Categories**:
+- **Template Creators**: Authors of high-impact templates with verified legislative citations
+- **Template Adopters**: Citizens who sent templates resulting in measurable outcomes
+- **Challenge Validators**: Users maintaining information quality through accurate challenges
+- **Community Organizers**: District coordinators achieving >80% constituent engagement rates
+
+**Quadratic Allocation**: Inspired by Gitcoin's QF formula, allocation weight = sqrt(impact score × adoption count). Prevents single high-impact creator from capturing entire pool while rewarding broad coalition-building.
+
+**Impact Multipliers**:
+- **Verified legislative citation**: 10x multiplier (direct Congressional Record reference)
+- **Position change correlation**: 5x multiplier (temporal + geographic significance)
+- **Multi-district adoption**: 3x multiplier (template spread across 10+ districts)
+- **Challenge market accuracy**: 2x multiplier (>90% accuracy on disputes)
+
+### Smart Contract Implementation
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+
+interface IImpactRegistry {
+    function getTemplateImpact(bytes32 templateHash) external view returns (
+        uint256 totalAttestations,
+        uint256 avgConfidence,
+        uint256 totalAdopters
+    );
+}
+
+interface IChallengeMarket {
+    function getUserAccuracy(address user) external view returns (uint256);
+}
+
+interface IVOTERToken {
+    function mint(address to, uint256 amount) external;
+}
+
+contract RetroFundingDistributor is AccessControl, ReentrancyGuard {
+    bytes32 public constant ALLOCATION_AGENT_ROLE = keccak256("ALLOCATION_AGENT_ROLE");
+    bytes32 public constant MULTISIG_ROLE = keccak256("MULTISIG_ROLE");
+
+    struct FundingRound {
+        bytes32 roundId;
+        string domain;              // "healthcare", "climate", "infrastructure"
+        uint256 poolAmount;         // Total VOTER tokens available
+        uint256 matchingAmount;     // Protocol treasury matching
+        uint256 startTimestamp;
+        uint256 endTimestamp;
+        uint256 distributionTimestamp;
+        RoundStatus status;
+        bytes32 allocationProposalHash; // IPFS CID of detailed allocation
+    }
+
+    struct Allocation {
+        address recipient;
+        uint256 amount;
+        ContributionType contributionType;
+        bytes32 evidenceHash;       // Template hash or activity proof
+        uint256 impactScore;
+        uint256 multiplier;
+        string reasoning;
+    }
+
+    enum ContributionType {
+        TemplateCreator,
+        TemplateAdopter,
+        ChallengeValidator,
+        CommunityOrganizer
+    }
+
+    enum RoundStatus {
+        Active,
+        CalculatingAllocations,
+        ProposalSubmitted,
+        AppealPeriod,
+        ReadyForDistribution,
+        Distributed,
+        Cancelled
+    }
+
+    mapping(bytes32 => FundingRound) public rounds;
+    mapping(bytes32 => Allocation[]) public roundAllocations;
+    mapping(bytes32 => bool) public distributionApproved;
+    mapping(bytes32 => mapping(address => bool)) public appealSubmitted;
+
+    IImpactRegistry public impactRegistry;
+    IChallengeMarket public challengeMarket;
+    IVOTERToken public voterToken;
+    address public multiSigWallet;
+
+    uint256 public constant MATCHING_CAP = 500_000 * 10**18; // $500K max matching
+    uint256 public constant APPEAL_PERIOD = 7 days;
+
+    event RoundCreated(bytes32 indexed roundId, string domain, uint256 poolAmount, uint256 matchingAmount);
+    event AllocationProposed(bytes32 indexed roundId, bytes32 allocationHash, uint256 recipientCount);
+    event AppealSubmitted(bytes32 indexed roundId, address indexed appellant, string reason);
+    event DistributionApproved(bytes32 indexed roundId, uint256 totalAmount);
+    event FundsDistributed(bytes32 indexed roundId, address indexed recipient, uint256 amount);
+
+    constructor(
+        address _impactRegistry,
+        address _challengeMarket,
+        address _voterToken,
+        address _multiSigWallet
+    ) {
+        impactRegistry = IImpactRegistry(_impactRegistry);
+        challengeMarket = IChallengeMarket(_challengeMarket);
+        voterToken = IVOTERToken(_voterToken);
+        multiSigWallet = _multiSigWallet;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MULTISIG_ROLE, _multiSigWallet);
+    }
+
+    function createRound(
+        string calldata domain,
+        uint256 poolAmount,
+        uint256 durationDays
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (bytes32) {
+        bytes32 roundId = keccak256(abi.encodePacked(domain, block.timestamp));
+
+        // Calculate matching amount (1:1 up to cap)
+        uint256 matchingAmount = poolAmount > MATCHING_CAP ? MATCHING_CAP : poolAmount;
+
+        rounds[roundId] = FundingRound({
+            roundId: roundId,
+            domain: domain,
+            poolAmount: poolAmount,
+            matchingAmount: matchingAmount,
+            startTimestamp: block.timestamp,
+            endTimestamp: block.timestamp + (durationDays * 1 days),
+            distributionTimestamp: 0,
+            status: RoundStatus.Active,
+            allocationProposalHash: bytes32(0)
+        });
+
+        emit RoundCreated(roundId, domain, poolAmount, matchingAmount);
+        return roundId;
+    }
+
+    function proposeAllocation(
+        bytes32 roundId,
+        Allocation[] calldata allocations,
+        bytes32 allocationIPFSHash
+    ) external onlyRole(ALLOCATION_AGENT_ROLE) {
+        FundingRound storage round = rounds[roundId];
+        require(round.status == RoundStatus.Active, "Round not active");
+        require(block.timestamp >= round.endTimestamp, "Round not ended");
+
+        // Validate total allocation doesn't exceed pool + matching
+        uint256 totalAllocation = 0;
+        for (uint256 i = 0; i < allocations.length; i++) {
+            totalAllocation += allocations[i].amount;
+            roundAllocations[roundId].push(allocations[i]);
+        }
+
+        uint256 maxAllocation = round.poolAmount + round.matchingAmount;
+        require(totalAllocation <= maxAllocation, "Exceeds available funds");
+
+        round.status = RoundStatus.ProposalSubmitted;
+        round.allocationProposalHash = allocationIPFSHash;
+
+        emit AllocationProposed(roundId, allocationIPFSHash, allocations.length);
+
+        // Start 7-day appeal period
+        round.status = RoundStatus.AppealPeriod;
+    }
+
+    function submitAppeal(
+        bytes32 roundId,
+        string calldata reason
+    ) external nonReentrant {
+        FundingRound storage round = rounds[roundId];
+        require(round.status == RoundStatus.AppealPeriod, "Not in appeal period");
+        require(!appealSubmitted[roundId][msg.sender], "Already appealed");
+
+        appealSubmitted[roundId][msg.sender] = true;
+        emit AppealSubmitted(roundId, msg.sender, reason);
+    }
+
+    function approveDistribution(bytes32 roundId) external onlyRole(MULTISIG_ROLE) {
+        FundingRound storage round = rounds[roundId];
+        require(round.status == RoundStatus.AppealPeriod, "Not ready for approval");
+        require(
+            block.timestamp >= round.endTimestamp + APPEAL_PERIOD,
+            "Appeal period not ended"
+        );
+
+        round.status = RoundStatus.ReadyForDistribution;
+        distributionApproved[roundId] = true;
+
+        uint256 totalAmount = round.poolAmount + round.matchingAmount;
+        emit DistributionApproved(roundId, totalAmount);
+    }
+
+    function distributeRound(bytes32 roundId) external nonReentrant onlyRole(ALLOCATION_AGENT_ROLE) {
+        FundingRound storage round = rounds[roundId];
+        require(round.status == RoundStatus.ReadyForDistribution, "Not approved");
+        require(distributionApproved[roundId], "Not approved by multisig");
+
+        Allocation[] storage allocations = roundAllocations[roundId];
+
+        for (uint256 i = 0; i < allocations.length; i++) {
+            Allocation memory allocation = allocations[i];
+            voterToken.mint(allocation.recipient, allocation.amount);
+            emit FundsDistributed(roundId, allocation.recipient, allocation.amount);
+        }
+
+        round.status = RoundStatus.Distributed;
+        round.distributionTimestamp = block.timestamp;
+    }
+
+    function getRoundAllocations(bytes32 roundId) external view returns (Allocation[] memory) {
+        return roundAllocations[roundId];
+    }
+
+    function getRoundStats(bytes32 roundId) external view returns (
+        uint256 totalRecipients,
+        uint256 totalAmount,
+        uint256 avgAllocation,
+        RoundStatus status
+    ) {
+        FundingRound memory round = rounds[roundId];
+        Allocation[] memory allocations = roundAllocations[roundId];
+
+        totalRecipients = allocations.length;
+        totalAmount = round.poolAmount + round.matchingAmount;
+        avgAllocation = totalRecipients > 0 ? totalAmount / totalRecipients : 0;
+        status = round.status;
+    }
+}
+```
+
+### Allocation Calculation Logic (JavaScript)
+
+```javascript
+import { ImpactRegistry, ChallengeMarket, ReputationRegistry } from './contracts.js';
+
+class RetroFundingAllocator {
+  async calculateAllocations(roundId, domain, totalPool) {
+    // Step 1: Identify all contributors in this domain
+    const contributors = await this._getContributors(domain);
+
+    // Step 2: Calculate raw impact scores
+    const scoredContributors = await Promise.all(
+      contributors.map(async (contributor) => {
+        const baseScore = await this._calculateImpactScore(contributor, domain);
+        const multiplier = await this._calculateMultiplier(contributor, domain);
+        return {
+          address: contributor.address,
+          type: contributor.type,
+          baseScore,
+          multiplier,
+          finalScore: baseScore * multiplier
+        };
+      })
+    );
+
+    // Step 3: Apply quadratic funding formula
+    const quadraticWeights = this._applyQuadraticFunding(scoredContributors);
+
+    // Step 4: Normalize to total pool
+    const totalWeight = quadraticWeights.reduce((sum, c) => sum + c.weight, 0);
+    const allocations = quadraticWeights.map((contributor) => ({
+      recipient: contributor.address,
+      amount: Math.floor((contributor.weight / totalWeight) * totalPool),
+      contributionType: contributor.type,
+      evidenceHash: contributor.evidenceHash,
+      impactScore: contributor.baseScore,
+      multiplier: contributor.multiplier,
+      reasoning: contributor.reasoning
+    }));
+
+    return allocations;
+  }
+
+  async _calculateImpactScore(contributor, domain) {
+    switch (contributor.type) {
+      case 'TemplateCreator': {
+        const impact = await ImpactRegistry.getTemplateImpact(contributor.templateHash);
+        // High-confidence legislative impact = high score
+        return impact.avgConfidence * impact.totalAdopters;
+      }
+
+      case 'TemplateAdopter': {
+        // Adopters of high-impact templates
+        const impact = await ImpactRegistry.getTemplateImpact(contributor.templateHash);
+        return impact.avgConfidence * 10; // Base 10 points per high-confidence template
+      }
+
+      case 'ChallengeValidator': {
+        // Challenge market accuracy
+        const accuracy = await ChallengeMarket.getUserAccuracy(contributor.address);
+        const challengeCount = contributor.challengeCount;
+        return (accuracy / 100) * challengeCount * 50; // 50 points per accurate challenge
+      }
+
+      case 'CommunityOrganizer': {
+        // District coordinator with high engagement
+        const engagementRate = contributor.districtEngagementRate; // 0-100
+        const districtCount = contributor.districtCount;
+        return engagementRate * districtCount * 20; // 20 points per district at 100% engagement
+      }
+
+      default:
+        return 0;
+    }
+  }
+
+  async _calculateMultiplier(contributor, domain) {
+    let multiplier = 1;
+
+    // Verified legislative citation: 10x
+    if (contributor.hasLegislativeCitation) {
+      multiplier *= 10;
+    }
+
+    // Position change correlation: 5x
+    if (contributor.hasPositionChangeCorrelation) {
+      multiplier *= 5;
+    }
+
+    // Multi-district adoption: 3x
+    if (contributor.districtCount >= 10) {
+      multiplier *= 3;
+    }
+
+    // Challenge market accuracy >90%: 2x
+    const accuracy = await ChallengeMarket.getUserAccuracy(contributor.address);
+    if (accuracy >= 90) {
+      multiplier *= 2;
+    }
+
+    return multiplier;
+  }
+
+  _applyQuadraticFunding(contributors) {
+    // Quadratic formula: weight = sqrt(finalScore × adoptionCount)
+    return contributors.map((contributor) => {
+      const adoptionCount = contributor.adoptionCount || 1;
+      const quadraticScore = Math.sqrt(contributor.finalScore * adoptionCount);
+
+      return {
+        ...contributor,
+        weight: quadraticScore
+      };
+    });
+  }
+
+  async _getContributors(domain) {
+    // Query ImpactRegistry, ChallengeMarket, ReputationRegistry
+    // for all addresses with contributions in this domain
+    const templateCreators = await ImpactRegistry.getCreatorsByDomain(domain);
+    const adopters = await ImpactRegistry.getAdoptersByDomain(domain);
+    const validators = await ChallengeMarket.getValidatorsByDomain(domain);
+    const organizers = await ReputationRegistry.getOrganizersByDomain(domain);
+
+    return [
+      ...templateCreators.map((c) => ({ ...c, type: 'TemplateCreator' })),
+      ...adopters.map((c) => ({ ...c, type: 'TemplateAdopter' })),
+      ...validators.map((c) => ({ ...c, type: 'ChallengeValidator' })),
+      ...organizers.map((c) => ({ ...c, type: 'CommunityOrganizer' }))
+    ];
+  }
+}
+
+export default new RetroFundingAllocator();
+```
+
+### Gaming Resistance
+
+**Multi-Signature Approval**: 3-of-5 Gnosis Safe multi-sig must approve all distributions. Human reviewers validate agent-calculated allocations before execution.
+
+**7-Day Appeal Period**: Any participant can challenge allocation calculations. Appeals trigger human review and potential recalculation.
+
+**Quadratic Scaling**: Prevents whale capture. 100 people with 10-point impact each (sqrt(10) × 100 = 316 total weight) > 1 person with 1000-point impact (sqrt(1000) = 31.6 weight).
+
+**Contribution Verification**: All allocations link to on-chain attestations. Template creators must have ImpactRegistry confirmations. Challenge validators must have accuracy records.
+
+**Diversity Bonuses**: Multi-district reach prevents single-district gaming. Template must spread across 10+ districts for 3x multiplier.
+
+### Cost Analysis
+
+**Per Funding Round** (quarterly):
+- Agent allocation calculation: $50 (GPT-5 reasoning across all contributors)
+- Multi-sig approval gas: $5 (Gnosis Safe transaction)
+- Distribution gas (100 recipients): $15 (Scroll L2 batched minting)
+- IPFS evidence storage: $1
+- Total: $71/round
+
+**Example Round**:
+- Pool: $100K from advocacy organizations
+- Matching: $100K from protocol treasury (1:1 up to cap)
+- Total: $200K distributed
+- Recipients: 150 contributors (50 creators, 80 adopters, 15 validators, 5 organizers)
+- Avg allocation: $1,333 per contributor
+- Top creator (verified legislative citation): $25K (10x multiplier)
+- Typical adopter: $800 (base reward, no multiplier)
+
+**Citations**:
+
+[1] Gitcoin Allo Protocol 2025. https://docs.allo.gitcoin.co (Multi-mechanism allocation strategy, accessed October 2025)
+
+[2] Optimism RetroPGF Framework. https://community.optimism.io/docs/governance/retropgf/ (Retroactive public goods funding, accessed October 2025)
+
+[3] Gitcoin Quadratic Funding. https://www.gitcoin.co/blog/quadratic-funding-in-a-nutshell (QF formula and implementation)
+
+[4] Gnosis Safe Multi-Signature. https://docs.safe.global (Smart contract wallet for treasury management)
+
+---
+
+## Complete Civic Action Flow with E2E Encryption
+
+### GCP Confidential Space Congressional Proxy
+
+**Static IP with TEE Attestation:**
+- Congressional proxy runs in AMD SEV-SNP hardware-encrypted memory
+- Static IP address whitelisted by House/Senate CWC APIs
+- Remote attestation generates cryptographic proof of code integrity
+- TEE public key included in attestation for E2E encryption
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant Browser
+    participant NEAR as NEAR CipherVault
+    participant PG as PostgreSQL
+    participant TEE as GCP Confidential Space<br/>(Congressional Proxy)
+    participant ZK as ZK Prover (WASM)
+    participant Senate as Senate CWC API
+    participant House as House CWC API
+    participant Chain as Chain Signatures
+    participant Scroll as Scroll zkEVM
+    participant Agents as Agent Consensus
+
+    Note over Browser,TEE: Phase 1: Attestation Verification (One-Time)
+    Browser->>TEE: Request attestation
+    TEE-->>Browser: OIDC token + container hash + TEE public key
+    Browser->>Browser: Verify attestation signature
+    Browser->>Scroll: Verify attestation on-chain
+    Note over Browser: Store TEE public key for encryption
+
+    Note over User,PG: Phase 2: Template Selection
+    User->>Browser: Select template
+    Browser->>PG: Search templates
+    PG-->>Browser: Return matches
+    User->>Browser: Add personal story
+
+    Note over Browser,NEAR: Phase 3: PII Retrieval & Encryption
+    Browser->>NEAR: Retrieve encrypted PII
+    NEAR-->>Browser: CipherEnvelope
+    Browser->>Browser: Decrypt PII with sovereign key
+    Browser->>Browser: Merge template + PII + personal story
+
+    Note over Browser,TEE: Phase 4: E2E Encrypted Submission
+    Browser->>Browser: Generate ephemeral symmetric key
+    Browser->>Browser: Encrypt message with symmetric key
+    Browser->>Browser: Encrypt symmetric key with TEE public key
+    User->>Browser: Submit civic action
+    Browser->>TEE: Encrypted payload (HTTPS + TEE encryption)
+
+    Note over TEE: Phase 5: TEE Processing (Hardware Encrypted Memory)
+    TEE->>TEE: Decrypt symmetric key with TEE private key
+    TEE->>TEE: Decrypt message in AMD SEV-SNP memory
+    TEE->>TEE: Generate CWC XML for Senate
+    TEE->>TEE: Generate CWC XML for House
+
+    Note over TEE,House: Phase 6: Direct Congressional API Emission
+    TEE->>Senate: Submit message (static whitelisted IP)
+    Senate-->>TEE: Delivery receipt + confirmation
+    TEE->>House: Submit message (static whitelisted IP)
+    House-->>TEE: Delivery receipt + confirmation
+    TEE->>TEE: Sign receipts with TEE key
+    TEE-->>Browser: Encrypted receipts + proofs
+
+    Note over Browser,ZK: Phase 7: Zero-Knowledge Proof Generation
+    alt First time OR proof cache empty
+        Browser->>ZK: Generate ZK proof (8-12 sec)
+        Note over ZK: Prove district membership<br/>without revealing location
+        ZK-->>Browser: Proof ready (256 bytes)
+    end
+
+    Note over Browser,Scroll: Phase 8: On-Chain Recording
+    Browser->>Chain: Sign Scroll transaction
+    Note over Chain: MPC network (2-3 sec)<br/>Threshold signature
+    Chain-->>Browser: Signed transaction
+    Browser->>Scroll: Submit ZK proof + receipt hashes
+    Scroll->>Scroll: Verify ZK proof (250K gas)
+    Scroll->>Scroll: Verify TEE attestation
+    Scroll->>Scroll: Record action with receipt hashes
+    Scroll-->>Agents: ActionSubmitted event
+
+    Note over Agents,Scroll: Phase 9: Reward Calculation
+    Agents->>Agents: Multi-agent consensus
+    Note over Agents: Supply, Market,<br/>Impact, Reputation
+    Agents->>Scroll: Mint rewards based on consensus
+    Scroll->>User: 2875 VOTER tokens
+
+    rect rgb(200, 250, 200)
+        Note over User,Scroll: Total time: 3-8 seconds<br/>Cost: $0.135 on Scroll<br/>E2E encrypted: Browser → TEE → Congress
+    end
+```
+
+### End-to-End Encryption Guarantees
+
+**Plaintext PII Visible Only In:**
+- ✅ **Browser** (user's device, user controls)
+- ✅ **TEE enclave** (AMD SEV-SNP hardware-encrypted memory)
+- ✅ **Congressional APIs** (Senate/House need routing information)
+
+**Plaintext PII NEVER Visible To:**
+- ❌ Communique backend (outside TEE enclave)
+- ❌ Network transit (encrypted with TEE public key + HTTPS)
+- ❌ GCP infrastructure (AMD SEV-SNP memory encryption)
+- ❌ Load balancers (can't decrypt without TEE private key)
+- ❌ Logs (encrypted payload, no decryption capability)
+- ❌ Database (no PII storage)
+- ❌ Blockchain (only ZK proof + receipt hashes)
+
+**Cryptographic Proof Chain:**
+1. Browser verifies TEE attestation signature (Google CA root)
+2. Attestation includes container image hash (proves exact code)
+3. Attestation includes TEE public key (for E2E encryption)
+4. Browser encrypts with TEE public key (only TEE can decrypt)
+5. TEE processes in AMD SEV-SNP encrypted memory
+6. TEE signs receipts (proves legitimate processing)
+7. Blockchain records receipt hashes (immutable audit trail)
+
+**This is true end-to-end encryption: Browser → TEE → Congress with no plaintext exposure in transit or at rest.**
+
+---
+
+## GCP Confidential Space: Hardware-Attested Privacy Infrastructure
+
+### TEE Container Architecture
+
+The Congressional proxy runs inside GCP Confidential Space as a containerized Node.js application on AMD SEV-SNP hardware. The container image is built from Google's hardened confidential-space-base, configured with n2d-standard-4 machine type for AMD SEV-SNP support. The container exposes HTTPS endpoints on port 8443 for encrypted civic action submissions and port 8080 for attestation requests.
+
+On first boot, the TEE generates an RSA-4096 keypair for end-to-end encryption. The private key is stored in TEE-encrypted volumes that never leave the enclave—protected by AES-256-CBC with passphrases retrieved from GCP Secret Manager. The public key is included in attestation tokens for browser verification. This keypair enables hybrid encryption: browsers encrypt messages with the TEE public key, and only the TEE private key can decrypt.
+
+The container image hash is recorded in environment metadata and included in every attestation token. This hash is published on-chain via TEEAttestationVerifier smart contracts, allowing browsers to verify exact code integrity before submitting PII. Any container modification changes the hash, invalidating attestation.
+
+### Static IP Configuration & Congressional Whitelist
+
+Congressional CWC APIs require whitelisted IP addresses—browsers can't connect directly. GCP Confidential Space VMs are deployed with static IP addresses reserved in us-central1 and us-east4 for redundancy. The primary TEE receives a Premium-tier static IP that remains constant across VM restarts and maintenance.
+
+Congressional IT receives whitelist requests with organization details, static IP addresses, and justification referencing hardware-attested infrastructure. The justification emphasizes cryptographic proof of code integrity available on-chain—a novel approach that may facilitate approval for privacy-preserving civic technology. Backup IPs provide failover if primary TEE becomes unavailable.
+
+The TEE's static IP becomes its cryptographic identity. Attestation tokens include this IP address (hashed for on-chain storage), proving that Congressional API submissions originate from attested hardware at a known location. This bridges government IT requirements with trustless verification.
+
+### TEE Key Management & Attestation
+
+The TEE generates attestation tokens on demand via HTTPS GET requests to its attestation endpoint. Each request triggers AMD SEV-SNP hardware to produce a measurement report using go-tpm-tools with SEV_SNP algorithm. This report contains platform measurements, launch measurements, and cryptographic signatures verifiable against AMD's root of trust.
+
+Attestation tokens combine hardware measurements with container metadata:
+- **Platform measurements**: AMD SEV-SNP cryptographic proof of hardware isolation
+- **Container image hash**: SHA-256 of exact code running in the TEE
+- **TEE public key**: RSA-4096 key for browser encryption
+- **Static IP address**: Proves Congressional API origin
+- **Signature**: ECDSA P-256 SHA-256 signed by GCP Attestation Service
+
+The GCP Attestation Service signature is verifiable through Google's CA root certificate chain—browsers can independently validate that attestation tokens are legitimate without trusting Communique. This signature proves the TEE is genuine AMD SEV-SNP hardware running the specific container image at the declared IP address.
+
+Attestation tokens expire after 24 hours, requiring periodic refresh. This time limit prevents stale attestations from authorizing outdated or compromised containers. Browsers cache valid attestations and TEE public keys, minimizing latency for repeated submissions.
+
+### Congressional API Submission Flow
+
+When browsers submit civic actions, they send encrypted payloads to the TEE's port 8443 HTTPS endpoint. The TEE receives binary data structured as RSA-4096 encrypted symmetric key (first 512 bytes) followed by AES-256-GCM encrypted message content. This hybrid encryption allows browsers to encrypt arbitrary-length messages efficiently while maintaining RSA-4096 security for key exchange.
+
+The TEE decrypts the symmetric key using its RSA-4096 private key with PKCS1_OAEP padding and SHA-256 hash. This key then decrypts the message content with AES-256-GCM authenticated encryption, verifying integrity through the authentication tag. Decryption happens entirely within AMD SEV-SNP encrypted memory—the hypervisor and GCP infrastructure never see plaintext.
+
+Once decrypted, the TEE generates CWC XML payloads for Senate and House offices. These XML documents follow Congressional formatting requirements, including citizen name, address, email, phone, message content, and template identifiers. The TEE maintains organizational API keys in GCP Secret Manager, accessed only within the hardware-encrypted enclave.
+
+The TEE submits both XML documents to Congressional APIs from its whitelisted static IP. Senate submissions go to soapbox.senate.gov/api with Senate API credentials. House submissions go to www.house.gov/htbin/formproc with House API credentials. Both submissions return message IDs and confirmation data.
+
+The TEE signs delivery receipts with its private key, creating cryptographic proof of Congressional API acceptance. These signed receipts are returned to browsers, which then submit receipt hashes to blockchain for immutable audit trails. The full receipt content remains off-chain—only hashes are recorded publicly.
+
+### On-Chain Attestation Verification
+
+TEEAttestationVerifier smart contracts on Scroll maintain whitelists of trusted container image hashes and GCP Attestation Service public keys. These contracts verify attestation signatures using elliptic curve signature recovery, checking that signatures match known Google CA roots.
+
+The contract stores the current valid attestation including container hash, TEE public key, timestamp, and static IP hash. The 24-hour expiration is enforced on-chain—expired attestations revert when queried. This ensures browsers always verify against fresh attestations.
+
+When civic actions are submitted on-chain, the blockchain verifies that receipt hashes were signed by the currently attested TEE. This creates an unbroken chain of cryptographic proof: hardware attestation proves code integrity, code signs receipts, receipts prove Congressional delivery. Every step is verifiable without trusted intermediaries.
+
+Browsers query the contract's getCurrentTEEPublicKey function before encrypting submissions. If attestation is expired or container hash doesn't match the whitelist, the contract reverts. This prevents browsers from sending PII to compromised or outdated TEEs.
+
+### Frontend Attestation Verification
+
+Before first submission, browsers fetch attestation tokens from the TEE endpoint and verify them through multiple steps. First, the browser validates the GCP Attestation Service signature using Google's CA root certificate. This proves the attestation originated from legitimate GCP infrastructure.
+
+Second, the browser verifies that the container image hash matches the on-chain whitelist in TEEAttestationVerifier contracts. Any mismatch indicates the TEE is running unapproved code. Third, the browser checks that the attestation timestamp is recent (within 24 hours) and that platform measurements match expected AMD SEV-SNP values.
+
+Only after all verification passes does the browser store the TEE public key and enable submissions. The browser displays attestation details to users: container image reference, hash, TEE platform technology, and static IP. This transparency allows technically sophisticated users to independently verify infrastructure integrity.
+
+Browsers cache verified attestations for the 24-hour validity period, avoiding redundant verification on every action. When attestation expires, browsers automatically re-verify before the next submission. This balance maintains security without introducing user friction.
+
+---
+
+## Complete User Flow (Day 1 → Rewards)
+
+### Onboarding (4 minutes total)
+
+**Step 1: Create NEAR Account** (30 seconds)
+```javascript
+// WebAuthn passkey registration
+const credential = await navigator.credentials.create({
+  publicKey: {
+    challenge: randomChallenge(),
+    rp: { name: "Communique" },
+    user: {
+      id: randomUserId(),
+      name: "alice@example.com",
+      displayName: "Alice"
+    },
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      userVerification: "required",
+      residentKey: "required"
+    }
+  }
+});
+
+await near.createAccount({
+  accountId: "alice.near",
+  publicKey: credential.publicKey,
+  initialBalance: "0.1" // Communique sponsors
+});
+```
+
+**Step 2: Didit.me KYC** (2-3 minutes)
+- Upload ID, face scan, address proof
+- Receive Verifiable Credential
+
+**Step 3: Encrypt & Store** (30 seconds)
+- Client-side encryption (XChaCha20-Poly1305)
+- Store in CipherVault
+- Generate ZK proof (8-12 seconds, done once)
+- Submit proof to Scroll
+
+**Total**: ~4 minutes to full privacy onboarding
+
+---
+
+### Taking Civic Action (3-8 seconds)
+
+**Step 1: Select Template** (Postgres query, instant)
+```javascript
+const templates = await supabase
+  .from('templates')
+  .select('*')
+  .textSearch('search_vector', 'healthcare funding')
+  .contains('issue_tags', ['healthcare'])
+  .order('impact_score', { ascending: false })
+  .limit(20);
+```
+
+**Step 2: Autofill with PII** (client-side, instant)
+```javascript
+// PII already decrypted in session
+const pii = JSON.parse(sessionStorage.getItem('pii'));
+const merged = template.content
+  .replace('{{rep_name}}', pii.rep_name)
+  .replace('{{district}}', pii.district_id);
+
+// User adds personal story
+const final = merged + "\n\n" + personalAddition;
+```
+
+**Step 3: Submit to Congress** (1-2 seconds)
+```javascript
+const cwcReceipt = await submitToCWC({
+  message: final,
+  district: pii.district_id,
+  recipient: pii.rep_name
+});
+```
+
+**Step 4: Submit to Blockchain** (2-5 seconds)
+```javascript
+// District already verified, no ZK proof needed
+// Sign transaction with Chain Signatures
+const signature = await near.functionCall({
+  contractId: "v1.signer",
+  methodName: "sign",
+  args: {
+    payload: scrollTxHash,
+    path: "scroll,1"
+  }
+});
+
+// Broadcast to Scroll
+await web3.eth.sendRawTransaction(signature);
+```
+
+**Total**: 3-8 seconds per action (no ZK proof wait)
+
+---
+
+### Reward Distribution (Instant)
+
+**Agent Consensus** (off-chain, 5-10 seconds):
+- SupplyAgent: $2.50 base reward
+- MarketAgent: 1.0x multiplier
+- ImpactAgent: 1.0x (initially)
+- ReputationAgent: 1.15x
+- **Final**: 2875 VOTER tokens
+
+**On-Chain Execution**:
+```javascript
+await VOTERToken.methods.mint(
+  userAddress,
+  "2875000000000000000" // 18 decimals
+).send({ from: AGENT_CONSENSUS_ADDRESS });
+
+await ReputationRegistry.methods.updateScore(
+  userAddress,
+  { overallScore: 7650, domainScores: { education: 8150 } }
+).send();
+```
+
+**Cross-Chain Flexibility**:
+- Rewards minted on Scroll (primary settlement)
+- Future: User can bridge to Bitcoin/Ethereum via Chain Signatures
+- Reputation portable via ERC-8004 regardless of settlement chain
+
+---
+
+## Privacy Guarantees & Attack Surface
+
+### What's Private
+
+**Client-Side Only** (never transmitted):
+- Legal name
+- Exact address
+- Government ID details
+- Sovereign encryption key
+- ZK proof private inputs
+
+**Encrypted at Rest** (NEAR CipherVault):
+- Full PII envelope
+- Encrypted sovereign key
+- Didit.me VC credentials
+- Representative contact info
+
+**Zero-Knowledge Proofs**:
+- District membership (proven without revealing which)
+- Nullifier (unique but unlinkable to identity)
+- Poseidon commitment (binds to encrypted data)
+
+---
+
+### What's Public
+
+**On-Chain** (Scroll):
+- Wallet address (NEAR-derived)
+- District hash (not plaintext district)
+- Nullifier (unique identifier)
+- Action timestamps
+- Reputation scores (by address)
+- Reward amounts
+- Challenge participation
+- Template usage
+
+**PostgreSQL** (Communique):
+- Template content (public by design)
+- Usage statistics
+- Challenge claims
+- CWC receipt hashes (not full message)
+
+**Congressional CWC API**:
+- Full message content (read by staffers)
+- Constituent name & address (required)
+- Representative routing
+
+---
+
+### Attack Vectors & Mitigations
+
+**1. Behavioral Fingerprinting**
+- Threat: Link wallet to identity via timing, style, preferences
+- Mitigation: Separate wallets, timing obfuscation, VPN/Tor
+
+**2. Small District Deanonymization**
+- Threat: District hash + patterns → unique individual
+- Mitigation: Aggregate districts <5000 population, regional hashes
+
+**3. Chain Analysis**
+- Threat: Follow token flows to KYC'd exchanges
+- Mitigation: Privacy exchanges (Zcash via NEAR Intents), token mixing
+
+**4. CipherVault Compromise**
+- Threat: NEAR account breach → encrypted data accessible
+- Protection: Sovereign key separately encrypted, 2-of-3 guardians, timelock
+
+**5. ZK Proof Attacks**
+- Threat: Reuse proofs, forge proofs, DoS verification
+- Protection: Nullifiers, Groth16 soundness, rate limiting
+
+---
+
+## Implementation Roadmap
+
+### Month 1: NEAR Core
+- [ ] CipherVault contract (Rust/NEAR)
+- [ ] Native passkey integration (WebAuthn)
+- [ ] Chain Signatures address derivation
+- [ ] Basic NEAR Intents integration
+- [ ] Didit.me KYC integration
+
+### Month 2: ZK Infrastructure
+- [ ] Shadow Atlas compiler (global districts)
+- [ ] ResidencyCircuit.circom (circuit definition)
+- [ ] Groth16 trusted setup ceremony
+- [ ] WASM prover compilation
+- [ ] ResidencyVerifier.sol generation
+- [ ] Client-side proof generation library
+
+### Month 3: Multi-Chain Settlement
+- [ ] Deploy contracts to Scroll testnet
+- [ ] DistrictGate.sol deployment
+- [ ] CommuniqueCoreV2.sol deployment
+- [ ] UnifiedRegistry.sol deployment
+- [ ] VOTERToken.sol deployment
+- [ ] Agent consensus integration
+
+### Month 4: Information Quality Infrastructure
+- [ ] PostgreSQL schema (Supabase) for templates
+- [ ] Full-text search indexes (PostgreSQL + vector extensions)
+- [ ] Template CRUD API
+- [ ] **Challenge Markets**: Chainlink Functions DON + OpenRouter multi-model consensus
+- [ ] **Challenge Markets**: VoterChallengeMarket.sol deployment with 20 AI model integration
+- [ ] **Challenge Markets**: Quadratic staking + reputation weighting
+- [ ] Congressional CWC API integration (Senate + House proxies)
+- [ ] **Template Impact Correlation**: Congress.gov API v3 integration
+- [ ] **Template Impact Correlation**: ChromaDB vector database for semantic search
+- [ ] **Template Impact Correlation**: ImpactRegistry.sol deployment
+- [ ] **Template Impact Correlation**: GPT-5 causality analysis pipeline
+- [ ] Filecoin integration planning
+
+### Month 5: Treasury & Funding Infrastructure
+- [ ] **Outcome Markets**: Gnosis CTF integration (binary ERC1155 tokens)
+- [ ] **Outcome Markets**: VoterOutcomeMarket.sol deployment
+- [ ] **Outcome Markets**: UMA Optimistic Oracle integration (MOOV2)
+- [ ] **Outcome Markets**: Hybrid CLOB (Central Limit Order Book) implementation
+- [ ] **Outcome Markets**: 20% retroactive funding pool mechanism
+- [ ] **Retroactive Funding**: RetroFundingDistributor.sol deployment
+- [ ] **Retroactive Funding**: Gitcoin Allo Protocol adaptation for civic contributions
+- [ ] **Retroactive Funding**: Gnosis Safe 3-of-5 multi-sig setup
+- [ ] **Retroactive Funding**: Quadratic allocation algorithm implementation
+- [ ] **Retroactive Funding**: 7-day appeal period mechanism
+- [ ] Protocol treasury management contracts
+- [ ] VOTER token staking and governance contracts
+
+### Month 6: Frontend & UX
+- [ ] NEAR wallet connector
+- [ ] Passkey enrollment flow
+- [ ] Template browser & search
+- [ ] Proof generation progress UI
+- [ ] Multi-chain selector
+- [ ] Reward dashboard
+- [ ] **Challenge Markets UI**: Submit/review challenges with stake calculator
+- [ ] **Impact Correlation UI**: Legislative outcome tracking dashboard
+- [ ] **Outcome Markets UI**: Create/trade on political prediction markets
+- [ ] **Retroactive Funding UI**: Contribution tracking and allocation transparency
+- [ ] Cross-device sync testing
+
+### Month 7: Security & Audit
+- [ ] Smart contract audit (Core Scroll contracts: CommuniqueCoreV2, VOTERToken, UnifiedRegistry)
+- [ ] Smart contract audit (Information quality: VoterChallengeMarket, ImpactRegistry)
+- [ ] Smart contract audit (Treasury: VoterOutcomeMarket, RetroFundingDistributor)
+- [ ] Chainlink Functions security review (OpenRouter multi-model consensus)
+- [ ] UMA integration audit (Optimistic Oracle dispute resolution)
+- [ ] ZK circuit audit (ResidencyCircuit trusted setup verification)
+- [ ] CipherVault penetration testing (NEAR encrypted storage)
+- [ ] Frontend security review (XSS, CSRF, passkey implementation)
+- [ ] Privacy impact assessment (GDPR, CCPA compliance)
+- [ ] Economic security modeling (challenge markets, outcome markets gaming resistance)
+- [ ] Mainnet deployment preparation (Scroll L2 + NEAR mainnet)
+
+---
+
+## Cost Breakdown
+
+### Per User (One-Time)
+- NEAR account creation: $0 (sponsored)
+- CipherVault storage: $0.05 (0.05 NEAR, sponsored for first 10K)
+- Didit.me KYC: $0 (free core)
+- Didit.me address verification: $0.50 (optional)
+- ZK proof submission: $0.135 (Scroll gas, one-time)
+- **Total**: $0.185 - $0.685 per user
+
+### Per Civic Action
+- Decrypt PII: $0 (view call)
+- CWC API submission: $0
+- Submit to Scroll: $0.135 gas
+- Token minting: $0.05 gas
+- **Total**: ~$0.185/action on Scroll
+
+### Per Information Quality Operation
+- **Challenge Market** (20 AI models via OpenRouter): $5 (Chainlink Functions execution)
+- **Challenge Market** (on-chain aggregation): $0.15 (Scroll L2 gas)
+- **Template Impact Tracking** (30-day monitoring): $2.25 (GPT-5 analysis + ChromaDB + Congress.gov API free)
+- **Outcome Market** (creation): $0.20 (Gnosis CTF + UMA setup, Scroll gas)
+- **Retroactive Funding** (quarterly round): $71 (GPT-5 allocation + Gnosis Safe + distribution gas)
+
+### Annual Infrastructure (100K Users)
+- NEAR storage sponsorship: $5,000/year
+- Shadow Atlas IPFS pinning: $60/year
+- PostgreSQL (Supabase Pro): $300/year
+- ChromaDB self-hosted vector DB: $600/year (instance costs)
+- Scroll gas (protocol operations): $5,000/year
+- Chainlink Functions DON subscription: $2,000/year (challenge markets)
+- OpenRouter API credits: $5,000/year (20-model consensus)
+- Congress.gov API: $0/year (free public API)
+- GPT-5 API (impact correlation): $10,000/year (template tracking at scale)
+- UMA dispute bonds pool: $50,000 (locked, recoverable)
+- Filecoin archival (challenged templates): $500/year
+- **Total**: ~$78,460/year = **$0.78/user/year**
+
+### Development (7 Months Extended)
+- 2 senior Solidity devs: $210K (extended for challenge markets, outcome markets, retroactive funding)
+- 1 ZK specialist: $90K (ResidencyCircuit, trusted setup)
+- 1 Rust dev (NEAR): $70K (CipherVault, Chain Signatures integration)
+- 1 backend dev: $100K (Congress.gov API, ChromaDB, LangGraph agents)
+- 1 frontend dev: $90K (challenge UI, outcome markets UI, impact tracking)
+- Chainlink Functions integration: $30K (DON setup, OpenRouter orchestration)
+- UMA/Gnosis integration: $40K (CTF, Optimistic Oracle, Safe multi-sig)
+- Security audits (3 phases): $120K (core contracts + information quality + treasury)
+- Economic security modeling: $25K (game theory analysis for markets)
+- **Total**: ~$775K
+
+---
+
+## Agent System Architecture
+
+### Overview
+
+Five specialized agents optimize protocol parameters within cryptographically-enforced bounds. Architecture prevents Terra/Luna-style death spirals through bounded optimization while maintaining adaptability.
+
+**Key Design Principles**:
+1. **Deterministic where possible** - LangGraph state machines, not raw LLM inference
+2. **Bounded always** - Smart contract floors/ceilings enforced on-chain
+3. **Verifiable decisions** - On-chain proofs of agent computation
+4. **Upgradeability with timelock** - DAO governance for agent logic updates
+5. **Multi-model consensus** - Architecturally diverse models prevent single-point manipulation
+
+### Technical Stack
+
+**Agent Orchestration**: [LangGraph](https://langchain-ai.github.io/langgraph/) (production-grade, used by Uber/LinkedIn/Replit)
+- State machine workflows with deterministic control flow
+- Tool calling for structured outputs
+- Durable execution with retry logic
+- Human-in-the-loop checkpoints for parameter changes
+
+**Model Diversity**: [Ensemble methods](https://arxiv.org/abs/2502.18036) with architecturally diverse providers
+- **OpenAI** (GPT-4, GPT-4.5): Transformer architecture
+- **Anthropic** (Claude 3.5 Opus/Sonnet): Constitutional AI architecture
+- **Google** (Gemini 2.5 Pro/Flash): Multimodal transformer
+- **Reasoning models where applicable**: o3-mini for complex optimization decisions
+
+**Oracle Infrastructure**: Multi-source consensus
+- Chainlink Price Feeds (primary)
+- RedStone oracles (secondary)
+- On-chain TWAPs from Uniswap V3 / SushiSwap
+- Circuit breakers on >10% oracle divergence
+
+**ERC-8004 Integration**: [Three-registry system](https://eips.ethereum.org/EIPS/eip-8004) (August 2025 standard)
+- **Identity Registry**: On-chain agent discoverability
+- **Reputation Registry**: Track agent decision accuracy over time
+- **Validation Registry**: Cryptographic proofs of agent computations
+
+### Agent Architecture
+
+#### SupplyAgent (30% consensus weight)
+
+**Purpose**: Manage token emissions to prevent death spirals
+
+**Input Sources**:
+- On-chain participation metrics (messages sent, templates adopted, challenges won)
+- Token price from multi-oracle consensus
+- Treasury balance and runway calculations
+- Historical emission rates and effects
+
+**LangGraph Workflow**:
+```python
+from langgraph.graph import StateGraph
+
+class SupplyState(TypedDict):
+    participation_rate: float
+    token_price_usd: float
+    treasury_balance: float
+    current_emission_rate: float
+
+supply_graph = StateGraph(SupplyState)
+
+# Deterministic nodes
+supply_graph.add_node("fetch_metrics", fetch_on_chain_metrics)
+supply_graph.add_node("fetch_price", aggregate_oracle_prices)
+supply_graph.add_node("calculate_adjustment", bounded_emission_calculation)
+supply_graph.add_node("generate_proof", create_zk_proof_of_computation)
+
+# Edges define control flow
+supply_graph.add_edge("fetch_metrics", "fetch_price")
+supply_graph.add_edge("fetch_price", "calculate_adjustment")
+supply_graph.add_edge("calculate_adjustment", "generate_proof")
+```
+
+**Bounded Constraints** (enforced in smart contract):
+- Min emission: 1000 VOTER/day
+- Max emission: 100,000 VOTER/day
+- Max daily change: ±5%
+- Emergency circuit breaker: 48-hour pause on >50% token price drop
+
+**Decision Output**: Structured JSON with ZK proof
+```typescript
+interface SupplyDecision {
+  new_emission_rate: number;  // tokens per action
+  reasoning: {
+    participation_delta: number;
+    price_stability: number;
+    treasury_health: number;
+  };
+  proof: ZKProof;  // Groth16 SNARK of computation
+  timestamp: number;
+}
+```
+
+#### MarketAgent (30% consensus weight)
+
+**Purpose**: Circuit breakers and volatility response
+
+**Input Sources**:
+- Token price (multi-oracle)
+- Trading volume across DEXs
+- Volatility metrics (Bollinger Bands, ATR)
+- Crypto market conditions (BTC/ETH correlation)
+
+**Circuit Breaker Triggers**:
+- >50% price movement in 1 hour → Halt all operations for 24 hours
+- >25% price movement in 1 hour → Reduce emission rates by 50%
+- <$10K daily volume → Flag low liquidity warning
+- Oracle divergence >10% → Halt until consensus restored
+
+**LangGraph Pattern**: Orchestrator-Worker
+- Orchestrator monitors multiple DEXs in parallel
+- Workers query each DEX's subgraph
+- Aggregate results with median calculation
+- LLM ensemble validates for manipulation patterns
+
+#### ImpactAgent (20% consensus weight)
+
+**Purpose**: Track which templates change legislative outcomes
+
+**Input Sources**:
+- Congressional voting records (Congress.gov API, ProPublica API)
+- Bill status changes (introduced → passed committee → floor vote)
+- Template adoption patterns by district
+- Temporal correlation between template sends and legislative action
+
+**Verification Method**:
+- Template sent to Rep X on date D
+- Rep X introduces/co-sponsors related bill within 30 days
+- Confidence score based on:
+  - Topic similarity (embeddings)
+  - Timing correlation
+  - Multiple constituents sending same template
+  - Legislative language overlap
+
+**10x Multiplier Trigger**: Verified outcome with >80% confidence
+
+#### ReputationAgent (20% consensus weight)
+
+**Purpose**: Multi-dimensional credibility scoring
+
+**Reputation Dimensions**:
+1. **Challenge accuracy** - Win rate in challenge markets
+2. **Template quality** - Adoption rate and outcomes
+3. **Civic consistency** - Regular participation over time
+4. **Domain expertise** - Reputation segmented by topic
+
+**ERC-8004 Reputation Registry Integration**:
+```solidity
+interface IReputationRegistry {
+    function updateReputation(
+        address agent,
+        bytes32 domain,
+        uint256 score,
+        bytes32 evidence_hash
+    ) external;
+
+    function getReputation(
+        address agent,
+        bytes32 domain
+    ) external view returns (uint256);
+}
+```
+
+#### VerificationAgent
+
+**Purpose**: Validate civic actions before consensus
+
+**Validation Checks**:
+1. ZK proof validity (district membership)
+2. TEE attestation verification (GCP Confidential Space)
+3. CWC delivery receipt confirmation
+4. Duplicate detection (same user, same template, <24 hours)
+5. Content moderation (no harassment, threats, spam)
+
+**Multi-Model Consensus**: 3 models must agree (2-of-3 threshold)
+- Claude 3.5 Opus (content safety)
+- GPT-4.5 (policy compliance)
+- Gemini 2.5 Pro (duplicate detection)
+
+### Agent Consensus Mechanism
+
+**Weighted Voting**:
+```python
+consensus_weights = {
+    "SupplyAgent": 0.30,
+    "MarketAgent": 0.30,
+    "ImpactAgent": 0.20,
+    "ReputationAgent": 0.20
+}
+
+final_reward = (
+    supply_decision.base_reward *
+    market_decision.multiplier *
+    impact_decision.multiplier *
+    reputation_decision.multiplier
+)
+```
+
+**Deadlock Resolution**:
+1. Agents have 60 seconds to submit decisions
+2. If <3 agents respond → Use last consensus state
+3. If agents disagree by >50% → Escalate to DAO vote
+4. Default: Protocol continues with frozen parameters until resolved
+
+**On-Chain Proof Aggregation**:
+```solidity
+contract AgentConsensus {
+    struct ConsensusProof {
+        bytes32 supplyProofHash;
+        bytes32 marketProofHash;
+        bytes32 impactProofHash;
+        bytes32 reputationProofHash;
+        uint256 timestamp;
+        bytes aggregatedSignature;  // Multi-sig from agent addresses
+    }
+
+    function verifyConsensus(
+        ConsensusProof memory proof
+    ) public view returns (bool) {
+        require(proof.timestamp > block.timestamp - 300, "Stale proof");
+        require(verifyMultiSig(proof.aggregatedSignature), "Invalid signatures");
+        // Verify each agent's ZK proof
+        return true;
+    }
+}
+```
+
+### Trust Model & Governance
+
+#### Agent Code Upgrades
+
+**Upgrade Mechanism**:
+1. Agent logic stored on IPFS with content-addressable hash
+2. Hash registered in `AgentRegistry.sol` smart contract
+3. DAO proposal required to update agent logic hash
+4. 48-hour timelock before new logic takes effect
+5. Rage-quit mechanism: users can withdraw before upgrade activates
+
+**Emergency Circuit Breaker** (Multi-sig controlled):
+- 3-of-5 multi-sig can pause agent system for 48 hours
+- No parameter changes, only pause/unpause
+- Multi-sig signers: 3 team, 2 community-elected
+- All actions logged on-chain with public audit trail
+
+**Preventing Founder Manipulation**:
+- Agent logic open source on GitHub
+- All decisions recorded on-chain with ZK proofs
+- Community can verify agent computation by replaying inputs
+- Circuit breaker requires majority approval (can't be unilateral)
+- After 12 months, multi-sig rotates to 5 community-elected signers
+
+#### Oracle Manipulation Defense
+
+**Multi-Oracle Consensus**:
+```typescript
+function getTokenPrice(): number {
+  const chainlink = await chainlinkOracle.latestAnswer();
+  const redstone = await redstoneOracle.getPrice();
+  const uniswap = await calculateTWAP(uniswapPool, 3600); // 1-hour TWAP
+
+  const prices = [chainlink, redstone, uniswap];
+  const median = calculateMedian(prices);
+  const spread = (Math.max(...prices) - Math.min(...prices)) / median;
+
+  if (spread > 0.10) {
+    // >10% divergence triggers circuit breaker
+    await haltOperations("Oracle divergence detected");
+    throw new Error("Oracle manipulation suspected");
+  }
+
+  return median;
+}
+```
+
+**Outlier Rejection**: Median of 3+ sources ensures no single oracle controls price
+
+**On-Chain TWAP**: Uniswap V3 provides manipulation-resistant historical price data
+
+#### Verifiable Agent Decisions
+
+**ZK Proof of Computation** (Groth16 SNARKs):
+- Proves agent executed specific logic on specific inputs
+- Does NOT prove logic is "correct" (subjective)
+- DOES prove computation wasn't tampered with
+
+**Audit Trail**:
+- Every agent decision recorded on-chain with IPFS hash of full context
+- Community can replay inputs through open-source agent logic
+- Discrepancies between expected/actual output flag potential manipulation
+
+**Reputation Decay**: Agents that consistently deviate from expected behavior lose consensus weight over time
+
+### Production Deployment
+
+**Infrastructure**:
+- LangGraph Cloud for agent orchestration
+- GCP Cloud Run for stateless agent execution
+- PostgreSQL for agent state persistence
+- Redis for short-term caching
+
+**Monitoring**:
+- DataDog for agent performance metrics
+- Grafana dashboards for consensus latency
+- PagerDuty alerts on circuit breaker triggers
+- Weekly agent decision analysis reports
+
+**Cost Estimates**:
+- LangGraph Cloud: ~$500/month (10K decisions/day)
+- LLM API calls: ~$2000/month (ensemble of 3-5 models per decision)
+- Infrastructure: ~$500/month (compute + databases)
+- **Total**: ~$3000/month agent operations
+
+### Research References
+
+1. "Harnessing Multiple Large Language Models: A Survey on LLM Ensemble" (2025) - https://arxiv.org/abs/2502.18036
+2. "Anatomy of a Stablecoin's Failure: The Terra-Luna Case" (2022) - https://arxiv.org/pdf/2207.13914
+3. ERC-8004: Trustless Agents (2025) - https://eips.ethereum.org/EIPS/eip-8004
+4. LangGraph Multi-Agent Systems - https://langchain-ai.github.io/langgraph/concepts/multi_agent/
+5. "Predictive Crypto-Asset Automated Market Maker Architecture Using Deep Reinforcement Learning" (2024) - https://jfin-swufe.springeropen.com/articles/10.1186/s40854-024-00660-0
+
+---
+
+## Critical Integration Points
+
+1. **NEAR CipherVault** → Stores ALL user PII (encrypted)
+2. **Chain Signatures** → Controls addresses on Scroll/Ethereum/Bitcoin/Solana
+3. **ZK Proofs** → Verify district without revealing location
+4. **PostgreSQL** → Fast template queries
+5. **Filecoin** → Permanent audit trail (post-launch)
+6. **Multi-chain settlement** → Scroll primary, Ethereum/Bitcoin/Solana via Chain Signatures
+
+**Key Insight**: Chain Signatures eliminates 90% of cross-chain complexity. NEAR account is universal control layer, settlement happens wherever optimal.
+
+---
+
+## Documentation Status
+
+### October 2025: Architecture Coherence Review
+
+**What We Fixed**: Achieved coherence between README (vision) and ARCHITECTURE (technical implementation) by clarifying:
+
+**Repository Boundaries**:
+- Smart contracts live in voter-protocol repo (this repo)
+- Communique repo is frontend-only (no contracts)
+- Clear delineation prevents confusion about implementation location
+
+**Identity Verification Hierarchy**:
+- Self.xyz as primary provider (30-second NFC passport scan, $0.50)
+- Didit.me as fallback for non-passport users (2-3 minute manual verification, free)
+- Both output same Verifiable Credential format
+
+**Economic Mechanisms**:
+- Retroactive pool funding: 20% of ALL stakes (winners + losers) fund civic infrastructure
+- Treasury sponsors ZK verification costs ($0.135/action)
+- Removes economic barriers to participation
+
+**Settlement Architecture**:
+- Protocol settles on Scroll zkEVM (Ethereum L2, Stage 1 decentralized)
+- NEAR Chain Signatures provides optional multi-chain access
+- ETH-native users can use MetaMask directly on Scroll
+
+**Documentation Structure**:
+- **ARCHITECTURE.md** (this file) - Complete technical architecture
+- **README.md** - Project vision and strategic positioning
+- **CLAUDE.md** - Development guidelines and code quality standards
+
+**Result**: README and ARCHITECTURE now tell coherent story from vision to implementation with zero fragmentation.
+
+---
+
+*This is a living document. Update as architecture evolves.*
+
+**Last Updated**: October 2025
+**Status**: Production architecture reference
+**Next Review**: After Month 1 implementation

@@ -24,27 +24,39 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 ## Technology Stack
 
-### Blockchain Infrastructure
-- **Primary Network**: Ronin for proven high-performance civic engagement (100K TPS, 2.27M daily users)
-- **Alternative Consideration**: Monad testnet for early deployment, pending mainnet (late 2025)
-- **Optional L2 Mirror**: ERC‑8004 registries on major Ethereum L2 for ETH-native consumption
-- **Development**: Foundry for smart contract development and testing
+### Blockchain Infrastructure (October 2025 Architecture)
+- **Primary Settlement**: Scroll zkEVM (Stage 1 decentralized L2) for on-chain settlement
+- **Multi-Chain Expansion**: Ethereum-primary via NEAR Chain Signatures (universal account layer)
+- **Future Expansion**: Bitcoin and Solana via same NEAR account (no custom bridges)
+- **Development**: Smart contract implementation lives in Communique repository
 - **Deployment**: Multi-sig governance for production deployments
 
-**Performance Reality**: Ronin delivers 100K TPS vs Monad's 10K TPS, with battle-tested infrastructure supporting millions of daily users. When civic participation needs to compete with social media engagement rates, performance isn't theoretical—it's existential.
+**Why Scroll + NEAR Chain Signatures**: Scroll provides Ethereum-native settlement ($0.135/action, 5 sec finality) while NEAR Chain Signatures enable one account to control addresses on ALL ECDSA/Ed25519 chains. No custom bridges. No wrapped tokens. No trusted intermediaries.
 
-### Core Smart Contracts
-- **VOTERRegistry.sol** - Identity and action verification registry
-- **VOTERToken.sol** - ERC-20 governance token with staking
-- **CommuniqueCore.sol** - Central coordination contract
-- **ValidationRegistry.sol** - Action validation and attestation
-- **CivicActionRegistry.sol** - Non-transferable proof of participation
-- **ActionVerifierMultiSig.sol** - Multi-signature verification
-- **TreasuryManager.sol** - Protocol treasury management
-- **ChallengeMarket.sol** - Challenge and dispute resolution
-- **ReputationRegistry.sol** - ERC-8004 compliant reputation system
-- **TemplateRegistry.sol** - Template storage and verification
-- **IdentityRegistry.sol** - Zero-knowledge identity verification
+**See ARCHITECTURE.md** for complete technical architecture including:
+- Outcome Markets (Gnosis CTF + UMA Optimistic Oracle)
+- Challenge Markets (Chainlink Functions + OpenRouter 20-model consensus)
+- Template Impact Correlation (Congress.gov API v3 + GPT-5 causality)
+- Retroactive Funding (Gitcoin Allo + Optimism RetroPGF model)
+
+### Core Technology Primitives
+**NOTE**: Specific contract implementations live in Communique repository. This repo contains strategic vision and architecture.
+
+**Cryptographic Infrastructure**:
+- **Zero-Knowledge Proofs**: Groth16 SNARKs for district residency (8-12 sec browser proving)
+- **Multi-Party Computation**: NEAR Chain Signatures for cross-chain control (300x capacity Feb 2025)
+- **Trusted Execution Environments**: GCP Confidential Space for E2E encrypted congressional delivery
+- **End-to-End Encryption**: XChaCha20-Poly1305 for client-side PII encryption
+
+**Information Quality**:
+- **Multi-Model Consensus**: 20 AI models via OpenRouter (GPT-5, Claude Sonnet 4.5, Grok 4, Gemini 2.5, Qwen 2.5)
+- **Challenge Markets**: Chainlink Functions orchestrating diverse model evaluations
+- **Impact Tracking**: Congress.gov API v3 + ChromaDB semantic search + GPT-5 correlation analysis
+
+**Economic Primitives**:
+- **Quadratic Mechanisms**: Gitcoin-style quadratic funding preventing plutocracy
+- **Outcome Markets**: Gnosis CTF binary tokens + UMA Optimistic Oracle resolution
+- **Retroactive Funding**: Impact-based allocation after verified legislative outcomes
 
 ## Code Quality Standards
 
@@ -533,29 +545,33 @@ Challenge markets create economic incentives for information accuracy through qu
 
 ## Smart Contract Architecture
 
-### On-chain Anchors (Monad)
-- Registry (Monad): Stores IPFS CIDs (templates/channels/version graph)
-- Attest (Monad): Attests hash receipts (CWC/mail routing); supports revocations
-- Optional: ERC‑8004 mirror on L2 for on‑chain reads by ETH‑native consumers
+**NOTE**: All smart contract implementations live in the Communique repository. This repo contains strategic vision and architecture documentation.
 
-### EVM Contracts
-- `VOTERRegistry.sol`, `VOTERToken.sol`, `CommuniqueCore.sol`, `AgentParameters.sol`, `AgentConsensusGateway.sol`
+### Settlement Infrastructure
+- **Scroll zkEVM**: Primary settlement layer for on-chain state ($0.135/action, 5 sec finality)
+- **NEAR Chain Signatures**: Universal account layer enabling multi-chain expansion without custom bridges
+- **Registry Architecture**: IPFS CIDs for content storage, on-chain attestations for verification
+- **ERC-8004 Registries**: Portable reputation and credibility attestations
 
-### VOTERToken.sol
-- ERC-20 with voting extensions (ERC20Votes, ERC20Permit)
-- Staking mechanism with APR rewards
-- Governance proposal creation and voting
-- Agent-optimized reward distribution
+### Contract Primitives (Implemented in Communique)
+- **Token Economics**: ERC-20 governance with staking and voting extensions
+- **Challenge Markets**: Chainlink Functions orchestrating multi-model consensus
+- **Outcome Markets**: Gnosis CTF + UMA Optimistic Oracle integration
+- **Retroactive Funding**: Gitcoin Allo Protocol for impact-based allocation
+- **Multi-sig Governance**: Emergency controls and parameter boundaries
 
-### Cross-chain control
-- Avoid routine bridging; treasuries and liquidity remain on ETH/L2 (Safe). Bridge only for explicit flows; no MPC dependency required.
+### Multi-Chain Strategy
+- **Ethereum-primary approach**: Scroll L2 for primary settlement
+- **NEAR Chain Signatures**: One account controls addresses on ALL ECDSA/Ed25519 chains
+- **No custom bridges**: Native multi-chain via NEAR's MPC network (300x capacity Feb 2025)
+- **Treasury management**: ETH L2 Safe multi-sig, no routine bridging required
 
 ## Development Notes
 
-- **Smart Contracts**: Build and test with Foundry for all EVM contracts
-- **Deployment**: Multi-sig governance for production deployments on Monad
+- **Implementation Location**: All smart contract code lives in Communique repository
+- **Deployment**: Multi-sig governance for production deployments on Scroll L2
 - **Testing**: Comprehensive test suite covering security, economics, and governance
-- **Integration**: External systems interface with VOTER Protocol smart contracts
+- **Architecture Reference**: See ARCHITECTURE.md for complete technical architecture
 
 ## Critical Design Principles
 
@@ -612,33 +628,25 @@ Challenge markets create economic incentives for information accuracy through qu
 While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers overnight. When TikTok optimizes for engagement and Robinhood gamifies markets, civic work reads like homework.
 
 ### Competitive Landscape
-- **Memecoin market**: $140B+ proves attention + economic incentives = massive adoption  
+- **Memecoin market**: $140B+ proves attention + economic incentives = massive adoption
 - **Regulatory clarity**: CLARITY Act enables compliant civic tokenomics via digital commodity classification
-- **Infrastructure ready**: Ronin (100K TPS, 2.27M daily users), Didit.me (free identity verification), ERC-8004 (AI-human coordination)
+- **Infrastructure ready**: Scroll L2 (Stage 1 decentralized), NEAR Chain Signatures (universal accounts), Didit.me (free identity), ERC-8004 (AI-human coordination)
 
 ### VOTER's 2025 Advantages
-- **Performance at scale**: Ronin's proven infrastructure handles millions of daily civic actions without gas wars
+- **Multi-chain from day one**: NEAR Chain Signatures enable Ethereum + Bitcoin + Solana with zero custom bridges
 - **Zero-cost identity**: Free forever verification removes the largest barrier to authentic participation
 - **First democracy protocol** that competes for attention in the memecoin economy while delivering authentic civic impact
-- **AI-verified authenticity**: Trustless verification of human civic participation at social media speeds
+- **AI-verified authenticity**: 20-model consensus via Chainlink Functions for trustless verification at scale
 
-**Infrastructure advantage**: We're building the rails everyone else needs, with the performance to deliver them.
+**Infrastructure advantage**: We're building the rails everyone else needs—Ethereum-native settlement with universal multi-chain expansion.
 
 ## Documentation Structure
 
-Comprehensive documentation is organized in the `docs/` folder:
+**Architecture Documentation**:
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete technical architecture covering all systems: Scroll + NEAR + Outcome Markets + Challenge Markets + Template Impact Correlation + Retroactive Funding with full implementations
+- **[README.md](README.md)** - Project vision, user journey, and getting started guide
 
-### Architecture Documents (`docs/architecture/`)
-- **[AGENTIC_SYSTEM_DESIGN.md](docs/architecture/AGENTIC_SYSTEM_DESIGN.md)** - Death to hardcoded tyranny: dynamically calibrated parameters
-- **[OVERVIEW_HYBRID_ARCHITECTURE.md](docs/architecture/OVERVIEW_HYBRID_ARCHITECTURE.md)** - Cheap EVM anchoring on Monad with optional L2 mirrors
-- **[TOKENOMICS_MODEL.md](docs/architecture/TOKENOMICS_MODEL.md)** - Dual token system: VOTER Records + VOTER Tokens
-
-### Design Documents (`docs/design/`)
-- **[CREDIBILITY_GOVERNANCE_DESIGN.md](docs/design/CREDIBILITY_GOVERNANCE_DESIGN.md)** - Intelligent agents within robust frameworks
-- **[ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md](docs/design/ENGAGEMENT_AND_GAMIFICATION_STRATEGY.md)** - Carroll Mechanisms and challenge markets
-
-### Implementation (`docs/implementation/`)
-- **[DEVELOPMENT_ROADMAP.md](docs/implementation/DEVELOPMENT_ROADMAP.md)** - Production readiness checklist and milestones
+**NOTE**: All smart contract implementations and agent code live in the separate Communique repository. This repo contains strategic vision and architecture documentation only.
 
 ## Current Development Status
 
