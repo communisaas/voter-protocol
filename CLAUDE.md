@@ -12,15 +12,16 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 ### Architecture Split: VOTER Protocol + Communique
 **VOTER Protocol** (this repo): Smart contracts for on-chain settlement
-- **Smart Contracts**: VOTERToken, CommuniqueCore, AgentConsensus, ChallengeMarket
+- **Smart Contracts**: VOTERToken, CommuniqueCore, AgentConsensus, ChallengeMarket (Solidity, in this repo)
 - **On-chain Infrastructure**: Registries, reputation systems, consensus verification
 - **Blockchain Settlement**: Token minting, reward distribution, challenge resolution
 
-**Communique** (separate repo): Off-chain agent implementations
+**Communique** (separate repo): Frontend application and off-chain agent implementations
 - **Agent Logic**: `/src/lib/agents/voter-protocol/` contains TypeScript implementations
 - **SupplyAgent, MarketAgent, ImpactAgent, VerificationAgent, ReputationAgent**
 - **Template Processing**: Content moderation and enhancement
 - **CWC Integration**: Congressional message delivery and verification
+- **Frontend**: User-facing web application (TypeScript/SvelteKit)
 
 ## Technology Stack
 
@@ -28,7 +29,7 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - **Primary Settlement**: Scroll zkEVM (Stage 1 decentralized L2) for on-chain settlement
 - **Multi-Chain Expansion**: Ethereum-primary via NEAR Chain Signatures (universal account layer)
 - **Future Expansion**: Bitcoin and Solana via same NEAR account (no custom bridges)
-- **Development**: Smart contract implementation lives in Communique repository
+- **Development**: Smart contracts (Solidity) live in this repository
 - **Deployment**: Multi-sig governance for production deployments
 
 **Why Scroll + NEAR Chain Signatures**: Scroll provides Ethereum-native settlement ($0.135/action, 5 sec finality) while NEAR Chain Signatures enable one account to control addresses on ALL ECDSA/Ed25519 chains. No custom bridges. No wrapped tokens. No trusted intermediaries.
@@ -40,7 +41,6 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - Retroactive Funding (Gitcoin Allo + Optimism RetroPGF model)
 
 ### Core Technology Primitives
-**NOTE**: Specific contract implementations live in Communique repository. This repo contains strategic vision and architecture.
 
 **Cryptographic Infrastructure**:
 - **Zero-Knowledge Proofs**: Groth16 SNARKs for district residency (8-12 sec browser proving)
@@ -60,15 +60,53 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 ## Code Quality Standards
 
-### 🚨 ABSOLUTE ZERO ESLint ERROR POLICY 🚨
+**TYPE SAFETY PHILOSOPHY**: The same obsessive attention to correctness that prevents million-dollar smart contract bugs must extend to every TypeScript interface that interacts with those contracts. Loose types in agent logic or frontend code create runtime failures that brick the protocol just as thoroughly as a reentrancy vulnerability.
+
+### 🚨 TYPESCRIPT: NUCLEAR-LEVEL STRICTNESS - ABSOLUTE ZERO TOLERANCE 🚨
+
+**PRIMARY SCOPE**: These TypeScript standards apply to the Communique repository (frontend, agents, off-chain logic). However, the underlying principle—obsessive type correctness prevents catastrophic failures—applies equally to smart contract development in this repository.
 
 **BASED ON COMMUNIQUE REPO ESLint DISASTER: We learned from 1000+ ESLint errors causing complete development paralysis. This never happens again.**
 
 **ROOT CAUSE ANALYSIS: Inconsistent tooling, unclear standards, and reactive error-fixing created an endless cycle of technical debt.**
 
-#### 🛡️ PREVENTION-FIRST APPROACH (Applies to Communique Integration) 🛡️
+**EVERY SINGLE TYPE SHORTCUT COSTS US DEVELOPMENT TIME. EVERY `any` TYPE LEADS TO PRODUCTION BUGS. EVERY TYPE SUPPRESSION COMMENT CREATES TECHNICAL DEBT.**
 
-**BEFORE writing ANY TypeScript code in Communique integration:**
+#### ⚡ INSTANT PR REJECTION CRITERIA ⚡
+**Any PR containing these patterns will be INSTANTLY REJECTED without review:**
+
+- ❌ **`any` type usage** - No exceptions, no "temporary" uses, no "quick fixes"
+- ❌ **`@ts-ignore` comments** - Fix the fucking type issue, don't silence it
+- ❌ **`@ts-nocheck` comments** - Every single file MUST be type-checked
+- ❌ **`@ts-expect-error` comments** - Fix the code, not suppress the error
+- ❌ **`as any` casting** - Use proper type guards and type assertions
+- ❌ **`Record<string, any>` patterns** - Define proper interfaces
+- ❌ **`(obj as any).property` access** - Define proper object types
+- ❌ **`unknown` misuse as `any` substitute** - Use proper type narrowing
+- ❌ **Generic function parameters without constraints** - Always constrain generics
+- ❌ **Loose object casting like `data as SomeType`** - Use type guards
+
+#### 💀 CONSEQUENCES OF TYPE VIOLATIONS 💀
+- **Immediate PR rejection** - No discussion, no exceptions
+- **Forced refactoring** - Violating code must be completely rewritten
+- **Build failure** - CI will fail and block deployments
+- **Code review rejection** - Reviewers are instructed to reject without mercy
+
+#### ✅ MANDATORY TYPE PRACTICES ✅
+**Every line of code MUST follow these practices:**
+
+- ✅ **Explicit types for ALL function parameters and returns**
+- ✅ **Comprehensive interfaces for ALL data structures**
+- ✅ **Type guards for ALL runtime validation**
+- ✅ **Discriminated unions for ALL variant types**
+- ✅ **Exhaustive type checking in ALL switch statements**
+- ✅ **Proper generic constraints for ALL generic functions**
+- ✅ **Strict null checks enabled and enforced**
+- ✅ **No implicit any configurations**
+
+#### 🛡️ PREVENTION-FIRST APPROACH 🛡️
+
+**BEFORE writing ANY TypeScript code in Communique:**
 1. **Run `npm run lint` locally** - Must show 0 errors before committing
 2. **Configure IDE with ESLint integration** - Real-time error prevention
 3. **Use TypeScript strict mode** - Catch issues at development time
@@ -76,7 +114,7 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 **CI WILL FAIL ON ANY ESLint ERROR. No exceptions. No "we'll fix it later."**
 
-#### 🔧 TypeScript/ESLint Standards (For Communique Integration)
+#### 🔧 TypeScript/ESLint Standards
 
 **Error Handling Patterns (NEVER change these):**
 ```typescript
@@ -88,7 +126,7 @@ try {
   throw error;
 }
 
-// ✅ CORRECT - Anonymous when unused  
+// ✅ CORRECT - Anonymous when unused
 try {
   simpleOperation();
 } catch {
@@ -107,6 +145,157 @@ try {
 - **Prefix with `_` ONLY if truly unused**: `_error`, `_event`, `_config`
 - **Remove unused imports entirely** - Don't just prefix them
 - **Use destructuring with rest**: `const { used, ..._unused } = obj;`
+
+### Web3 TypeScript Best Practices
+
+#### Smart Contract Interaction Types:
+```typescript
+// ✅ CORRECT - Proper Web3 typing
+import type { Contract, ContractTransaction, BigNumber } from 'ethers';
+
+interface VOTERTokenInterface {
+  mint(to: string, amount: BigNumber): Promise<ContractTransaction>;
+  balanceOf(account: string): Promise<BigNumber>;
+  transfer(to: string, amount: BigNumber): Promise<ContractTransaction>;
+}
+
+// Type guard for contract responses
+function isValidTransactionResponse(
+  response: unknown
+): response is ContractTransaction {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    'hash' in response &&
+    'wait' in response
+  );
+}
+
+// ❌ WRONG - Loose Web3 typing
+const contract: any = getContract();
+const result: any = await contract.mint(address, amount);
+```
+
+#### Agent Decision Types:
+```typescript
+// ✅ CORRECT - Strict agent decision typing
+interface SupplyAgentDecision {
+  readonly rewardAmount: BigNumber;
+  readonly baseRewardUSD: number;
+  readonly multipliers: {
+    readonly participationScore: number;
+    readonly marketConditions: number;
+    readonly timeDecay: number;
+  };
+  readonly reasoning: string;
+  readonly confidence: number;
+  readonly timestamp: number;
+  readonly validUntil: number;
+}
+
+function isSupplyAgentDecision(value: unknown): value is SupplyAgentDecision {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'rewardAmount' in value &&
+    'multipliers' in value &&
+    typeof (value as SupplyAgentDecision).confidence === 'number'
+  );
+}
+
+// ❌ WRONG - Loose agent typing
+const decision: any = await supplyAgent.makeDecision();
+const amount = decision.rewardAmount; // No type safety
+```
+
+#### Blockchain Event Types:
+```typescript
+// ✅ CORRECT - Proper event typing
+interface VoterActionEvent {
+  readonly transactionHash: string;
+  readonly blockNumber: number;
+  readonly args: {
+    readonly user: string;
+    readonly actionId: BigNumber;
+    readonly rewardAmount: BigNumber;
+    readonly timestamp: BigNumber;
+  };
+}
+
+// Type-safe event filtering
+function filterVoterActionEvents(
+  events: unknown[]
+): VoterActionEvent[] {
+  return events.filter((event): event is VoterActionEvent => {
+    return (
+      typeof event === 'object' &&
+      event !== null &&
+      'args' in event &&
+      typeof (event as VoterActionEvent).transactionHash === 'string'
+    );
+  });
+}
+```
+
+### ⚡ ENFORCEMENT PROTOCOL ⚡
+
+#### Pre-Commit Requirements (ALL MUST PASS):
+```bash
+# Communique repository:
+npm run typecheck     # TypeScript compilation check
+npm run lint:strict   # Zero-tolerance ESLint check
+npm run test         # TypeScript tests must pass
+
+# VOTER Protocol repository (this repo):
+forge build          # Smart contract compilation
+forge test           # Contract tests must pass
+```
+
+#### Development Workflow Requirements:
+- **Before every commit**: Run all type-checking commands
+- **Before every PR**: Verify 0 TypeScript errors
+- **During development**: Use `npx tsc --noEmit --watch` for real-time checking
+- **In CI/CD**: Automated rejection of any type violations
+
+#### Code Review Standards:
+- **Any `any` type = INSTANT REJECTION**
+- **Any type suppression = INSTANT REJECTION**
+- **Any loose casting = INSTANT REJECTION**
+- **Any missing interface = REQUIRES IMMEDIATE FIX**
+
+### 💰 THE REAL COST OF TYPE SHORTCUTS 💰
+**Why we're this fucking strict:**
+
+- **Smart contracts lose millions** when types are wrong
+- **Agent decisions fail** when data structures are loose
+- **Production bugs** caused by runtime type mismatches
+- **Technical debt** that compounds over time
+- **Developer frustration** from dealing with type chaos
+
+**EVERY TYPE SHORTCUT COSTS MORE TIME THAN DOING IT RIGHT THE FIRST TIME.**
+
+### 🆘 ESLint Error Recovery Strategy (For Communique)
+
+**If you encounter many ESLint errors in Communique codebase:**
+
+1. **PAUSE** - Assess the scope of errors systematically
+2. **Categorize errors** - Group by type (unused vars, type issues, import problems)
+3. **Fix progressively** - Address one category at a time, starting with the simplest
+4. **Verify after each fix** - Run `npm run lint` to confirm progress
+5. **Commit incremental fixes** - Small commits make issues easier to isolate
+6. **Thread through systematically** - Fix underlying causes, not just symptoms
+
+**If errors exceed 200+ or cascade uncontrollably**: Consider creating a separate branch to isolate fixes, but always thread through and fix the root causes rather than reverting work. Mass automated fixes should be reviewed carefully for unintended changes.
+
+### 🎯 ZERO EXCEPTIONS POLICY 🎯
+**No matter who you are, no matter how "urgent" the feature:**
+- **No temporary `any` types** - There is no such thing as "temporary"
+- **No "quick fixes" with type suppression** - Fix the actual issue
+- **No "I'll fix it later" type violations** - Fix it now or don't commit
+- **No "it's just a test" exceptions** - Tests must be strictly typed too
+- **No "Web3 is hard to type" excuses** - Use proper Web3 type libraries
+
+**Remember: We're building financial infrastructure that handles real money. Type safety isn't negotiable.**
 
 ### CRITICAL: Smart Contract Security - ZERO TOLERANCE
 
@@ -244,193 +433,6 @@ forge test --gas-report
 
 **Remember: Smart contract bugs are irreversible and can lose millions. Every line of code must be secure.**
 
-## TypeScript Code Quality Standards
-
-### 🚨 NUCLEAR-LEVEL TYPESCRIPT STRICTNESS - ABSOLUTE ZERO TOLERANCE 🚨
-
-**SMART CONTRACTS AREN'T THE ONLY CODE THAT NEEDS TO BE PERFECT. EVERY TYPESCRIPT FILE IN THIS REPO MUST MEET THE SAME UNCOMPROMISING STANDARDS.**
-
-**EVERY SINGLE TYPE SHORTCUT COSTS US DEVELOPMENT TIME. EVERY `any` TYPE LEADS TO PRODUCTION BUGS. EVERY TYPE SUPPRESSION COMMENT CREATES TECHNICAL DEBT.**
-
-#### ⚡ INSTANT PR REJECTION CRITERIA ⚡
-**Any PR containing these patterns will be INSTANTLY REJECTED without review:**
-
-- ❌ **`any` type usage** - No exceptions, no "temporary" uses, no "quick fixes"
-- ❌ **`@ts-ignore` comments** - Fix the fucking type issue, don't silence it
-- ❌ **`@ts-nocheck` comments** - Every single file MUST be type-checked
-- ❌ **`@ts-expect-error` comments** - Fix the code, not suppress the error
-- ❌ **`as any` casting** - Use proper type guards and type assertions
-- ❌ **`Record<string, any>` patterns** - Define proper interfaces
-- ❌ **`(obj as any).property` access** - Define proper object types
-- ❌ **`unknown` misuse as `any` substitute** - Use proper type narrowing
-- ❌ **Generic function parameters without constraints** - Always constrain generics
-- ❌ **Loose object casting like `data as SomeType`** - Use type guards
-
-#### 💀 CONSEQUENCES OF TYPE VIOLATIONS 💀
-- **Immediate PR rejection** - No discussion, no exceptions
-- **Forced refactoring** - Violating code must be completely rewritten
-- **Build failure** - CI will fail and block deployments
-- **Code review rejection** - Reviewers are instructed to reject without mercy
-
-#### ✅ MANDATORY TYPE PRACTICES ✅
-**Every line of code MUST follow these practices:**
-
-- ✅ **Explicit types for ALL function parameters and returns**
-- ✅ **Comprehensive interfaces for ALL data structures**
-- ✅ **Type guards for ALL runtime validation**
-- ✅ **Discriminated unions for ALL variant types**
-- ✅ **Exhaustive type checking in ALL switch statements**
-- ✅ **Proper generic constraints for ALL generic functions**
-- ✅ **Strict null checks enabled and enforced**
-- ✅ **No implicit any configurations**
-
-### Web3 TypeScript Best Practices
-
-#### Smart Contract Interaction Types:
-```typescript
-// ✅ CORRECT - Proper Web3 typing
-import type { Contract, ContractTransaction, BigNumber } from 'ethers';
-
-interface VOTERTokenInterface {
-  mint(to: string, amount: BigNumber): Promise<ContractTransaction>;
-  balanceOf(account: string): Promise<BigNumber>;
-  transfer(to: string, amount: BigNumber): Promise<ContractTransaction>;
-}
-
-// Type guard for contract responses
-function isValidTransactionResponse(
-  response: unknown
-): response is ContractTransaction {
-  return (
-    typeof response === 'object' &&
-    response !== null &&
-    'hash' in response &&
-    'wait' in response
-  );
-}
-
-// ❌ WRONG - Loose Web3 typing
-const contract: any = getContract();
-const result: any = await contract.mint(address, amount);
-```
-
-#### Agent Decision Types:
-```typescript
-// ✅ CORRECT - Strict agent decision typing
-interface SupplyAgentDecision {
-  readonly rewardAmount: BigNumber;
-  readonly baseRewardUSD: number;
-  readonly multipliers: {
-    readonly participationScore: number;
-    readonly marketConditions: number;
-    readonly timeDecay: number;
-  };
-  readonly reasoning: string;
-  readonly confidence: number;
-  readonly timestamp: number;
-  readonly validUntil: number;
-}
-
-function isSupplyAgentDecision(value: unknown): value is SupplyAgentDecision {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'rewardAmount' in value &&
-    'multipliers' in value &&
-    typeof (value as SupplyAgentDecision).confidence === 'number'
-  );
-}
-
-// ❌ WRONG - Loose agent typing
-const decision: any = await supplyAgent.makeDecision();
-const amount = decision.rewardAmount; // No type safety
-```
-
-#### Blockchain Event Types:
-```typescript
-// ✅ CORRECT - Proper event typing
-interface VoterActionEvent {
-  readonly transactionHash: string;
-  readonly blockNumber: number;
-  readonly args: {
-    readonly user: string;
-    readonly actionId: BigNumber;
-    readonly rewardAmount: BigNumber;
-    readonly timestamp: BigNumber;
-  };
-}
-
-// Type-safe event filtering
-function filterVoterActionEvents(
-  events: unknown[]
-): VoterActionEvent[] {
-  return events.filter((event): event is VoterActionEvent => {
-    return (
-      typeof event === 'object' &&
-      event !== null &&
-      'args' in event &&
-      typeof (event as VoterActionEvent).transactionHash === 'string'
-    );
-  });
-}
-```
-
-### ⚡ ENFORCEMENT PROTOCOL ⚡
-
-#### Pre-Commit Requirements (ALL MUST PASS):
-```bash
-# These commands MUST return ZERO errors or the commit is REJECTED:
-npm run typecheck     # TypeScript compilation check
-npm run lint:strict   # Zero-tolerance ESLint check
-forge build          # Smart contract compilation
-forge test           # Contract tests must pass
-npm run test         # TypeScript tests must pass
-```
-
-#### Development Workflow Requirements:
-- **Before every commit**: Run all type-checking commands
-- **Before every PR**: Verify 0 TypeScript errors
-- **During development**: Use `npx tsc --noEmit --watch` for real-time checking
-- **In CI/CD**: Automated rejection of any type violations
-
-#### Code Review Standards:
-- **Any `any` type = INSTANT REJECTION**
-- **Any type suppression = INSTANT REJECTION**
-- **Any loose casting = INSTANT REJECTION**
-- **Any missing interface = REQUIRES IMMEDIATE FIX**
-
-### 💰 THE REAL COST OF TYPE SHORTCUTS 💰
-**Why we're this fucking strict:**
-
-- **Smart contracts lose millions** when types are wrong
-- **Agent decisions fail** when data structures are loose
-- **Production bugs** caused by runtime type mismatches
-- **Technical debt** that compounds over time
-- **Developer frustration** from dealing with type chaos
-
-**EVERY TYPE SHORTCUT COSTS MORE TIME THAN DOING IT RIGHT THE FIRST TIME.**
-
-### 🆘 Emergency ESLint Recovery Procedure (For Communique Integration)
-
-**If you encounter >100 ESLint errors in Communique codebase:**
-
-1. **STOP IMMEDIATELY** - Don't try to fix them manually
-2. **Revert to last known good commit**: `git reset --hard HEAD~1`
-3. **Run `npm run lint` to verify 0 errors**
-4. **Make smaller, incremental changes**
-5. **Test each change with `npm run lint` before proceeding**
-
-**Never attempt mass automated fixes. They create more problems than they solve.**
-
-### 🎯 ZERO EXCEPTIONS POLICY 🎯
-**No matter who you are, no matter how "urgent" the feature:**
-- **No temporary `any` types** - There is no such thing as "temporary"
-- **No "quick fixes" with type suppression** - Fix the actual issue
-- **No "I'll fix it later" type violations** - Fix it now or don't commit
-- **No "it's just a test" exceptions** - Tests must be strictly typed too
-- **No "Web3 is hard to type" excuses** - Use proper Web3 type libraries
-
-**Remember: We're building financial infrastructure that handles real money. Type safety isn't negotiable.**
 
 ## Key Development Concepts
 
@@ -545,7 +547,7 @@ Challenge markets create economic incentives for information accuracy through qu
 
 ## Smart Contract Architecture
 
-**NOTE**: All smart contract implementations live in the Communique repository. This repo contains strategic vision and architecture documentation.
+**Smart contracts (Solidity) live in this repository.** See `/contracts` directory for implementation. Architecture documentation in ARCHITECTURE.md.
 
 ### Settlement Infrastructure
 - **Scroll zkEVM**: Primary settlement layer for on-chain state ($0.135/action, 5 sec finality)
@@ -553,7 +555,7 @@ Challenge markets create economic incentives for information accuracy through qu
 - **Registry Architecture**: IPFS CIDs for content storage, on-chain attestations for verification
 - **ERC-8004 Registries**: Portable reputation and credibility attestations
 
-### Contract Primitives (Implemented in Communique)
+### Contract Primitives (Solidity implementations in this repo)
 - **Token Economics**: ERC-20 governance with staking and voting extensions
 - **Challenge Markets**: Chainlink Functions orchestrating multi-model consensus
 - **Outcome Markets**: Gnosis CTF + UMA Optimistic Oracle integration
@@ -568,9 +570,9 @@ Challenge markets create economic incentives for information accuracy through qu
 
 ## Development Notes
 
-- **Implementation Location**: All smart contract code lives in Communique repository
+- **Implementation Location**: Smart contracts (Solidity) in this repository. Frontend and agents in Communique repository.
 - **Deployment**: Multi-sig governance for production deployments on Scroll L2
-- **Testing**: Comprehensive test suite covering security, economics, and governance
+- **Testing**: Comprehensive test suite covering security, economics, and governance (Foundry for contracts, Vitest for TypeScript)
 - **Architecture Reference**: See ARCHITECTURE.md for complete technical architecture
 
 ## Critical Design Principles
@@ -646,7 +648,7 @@ While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, a flo
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete technical architecture covering all systems: Scroll + NEAR + Outcome Markets + Challenge Markets + Template Impact Correlation + Retroactive Funding with full implementations
 - **[README.md](README.md)** - Project vision, user journey, and getting started guide
 
-**NOTE**: All smart contract implementations and agent code live in the separate Communique repository. This repo contains strategic vision and architecture documentation only.
+**Repository Split**: Smart contracts (Solidity) live in this repository (`/contracts`). Frontend application, TypeScript agents, and off-chain logic live in the Communique repository.
 
 ## Current Development Status
 
