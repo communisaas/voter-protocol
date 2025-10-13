@@ -624,7 +624,7 @@ Challenge markets create economic incentives for information accuracy through qu
 
 ## Market Context (2025)
 
-### The Attention War Reality
+### The Attention Game Reality
 **Democracy has a distribution problem.**
 
 While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, a floor vote barely dents the feed. Citizens who've never called a representative learned automated market makers overnight. When TikTok optimizes for engagement and Robinhood gamifies markets, civic work reads like homework.
