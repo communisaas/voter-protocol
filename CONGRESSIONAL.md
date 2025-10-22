@@ -61,7 +61,7 @@ VOTER Protocol gives you the filtering infrastructure you're asking for.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERIFIED CONSTITUENT MESSAGE (Phase 1)
 
-District: TX-18 ✓ (Hybrid GKR+SNARK cryptographic proof - no trusted setup)
+District: TX-18 ✓ (Halo2 zero-knowledge proof - no PII revealed, no database storage)
 Reputation Score: 8,740 in Healthcare Policy
 Content Moderation: ✓ Passed 3-layer security review (CSAM, threats, spam)
 Identity Verification: ✓ self.xyz passport NFC scan (not bot, unique human)
@@ -159,7 +159,7 @@ Phase 2 additions (12-18 months):
 ### Spam Elimination
 
 **Automated filtering removes:**
-- ❌ Non-constituents (hybrid GKR+SNARK proof verification fails)
+- ❌ Non-constituents (Halo2 zero-knowledge proof verification fails)
 - ❌ Bot-generated messages (no verified identity via self.xyz/Didit.me)
 - ❌ Duplicate spam (rate limits prevent mass flooding: 10 messages/day)
 - ❌ Low-quality templates (3-layer moderation catches illegal/harmful content)
@@ -197,7 +197,7 @@ Phase 2 additions (12-18 months):
 ### What Gets Verified
 
 **Cryptographic proof confirms (Phase 1):**
-- Constituent is registered voter in your district (hybrid GKR+SNARK zero-knowledge proof)
+- Constituent is registered voter in your district (Halo2 zero-knowledge proof, no PII revealed, no database storage)
 - Identity verified via [self.xyz](https://www.self.xyz) NFC passport or [Didit.me](https://www.didit.me) government ID (not bot, not duplicate)
 - Reputation score earned through on-chain actions (Scroll L2 blockchain)
 - Content moderation passed (OpenAI + Gemini/Claude consensus + human review)
@@ -353,7 +353,7 @@ A: No. VOTER integrates with Fireside, IQ, and Quorum as a credibility layer. Me
 A: Traditional email/phone/mail still works exactly as it does today. VOTER provides additional signal for constituents who choose to participate. You're not losing anything, just gaining better filtering for messages sent through the protocol.
 
 **Q: How do we know zero-knowledge proofs actually work?**
-A: Cryptography is peer-reviewed (hybrid GKR+SNARK architecture: GKR protocol published October 19, 2025 by Vitalik Buterin, wrapped in SNARK for on-chain verification, no trusted setup required). Congressional IT can verify proofs on-chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
+A: Cryptography is peer-reviewed and battle-tested (Halo2 recursive proofs used in production by Zcash since 2022, no trusted setup required). Congressional IT can verify proofs on-chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
 
 **Q: What about constituents without smartphones?**
 A: Traditional contact methods unchanged. VOTER is additive infrastructure for constituents who want cryptographic privacy and credibility signaling. Not a replacement for existing channels.

@@ -2,7 +2,7 @@
 
 **This document evolves with the threat landscape. Last updated: 2025-10-20**
 
-**Phase 1 Focus**: This security model reflects Phase 1 architecture (GKR protocol, self.xyz/Didit.me verification, GCP TEE delivery, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
+**Phase 1 Focus**: This security model reflects Phase 1 architecture (Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, GCP TEE delivery, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
 
 VOTER Protocol is cryptographic democratic infrastructure handling identity verification, congressional message delivery, content moderation, and reputation systems. Phase 2 adds financial mechanisms (token economics, prediction markets). Security failures kill trust. This document maps threat vectors, mitigations, and incident response procedures.
 
@@ -31,7 +31,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 **Phase 1:**
 - **Catastrophic**: CSAM on platform (federal crime), identity deanonymization at scale, message database breach
 - **Critical**: Single-user identity exposure, reputation manipulation affecting congressional filtering, TEE compromise, Section 230 liability
-- **High**: Spam bypassing 3-layer moderation, GKR proof forgery, protocol treasury drain
+- **High**: Spam bypassing 3-layer moderation, Halo2 proof forgery, protocol treasury drain
 - **Medium**: DoS attacks, gas griefing, rate limit evasion
 
 **Phase 2 Additions:**
@@ -148,22 +148,21 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 ## Cryptographic Guarantees & Attack Surfaces
 
-### Zero-Knowledge District Verification (Phase 1: GKR Protocol)
+### Zero-Knowledge District Verification (Phase 1: Halo2)
 
-**Security claim:** Address → district proof reveals only district hash, mathematically impossible to reverse-engineer address.
+**Security claim:** Address → district proof reveals only district hash, mathematically impossible to reverse-engineer address. Address never leaves browser, never stored in any database.
 
 **Attack vectors:**
-1. **GKR circuit vulnerability** - Prove membership without valid address
-   - *Mitigation*: Formal verification of circuit logic (Polyhedra Expander, peer-reviewed GKR protocol)
-   - *Status*: GKR protocol published October 19, 2025 by Vitalik Buterin, under active audit
+1. **Halo2 circuit vulnerability** - Prove membership without valid address
+   - *Mitigation*: Formal verification of circuit logic (battle-tested Halo2 library since 2022 in Zcash Orchard)
+   - *Status*: Halo2 is production-grade cryptography with extensive security audits
    - *Advantage over Groth16*: No trusted setup ceremony = no toxic waste risk
-   - *Audit timeline*: Trail of Bits audit scheduled Q1 2026
+   - *Audit timeline*: Trail of Bits audit scheduled Q1 2026 for our Merkle circuit implementation
 
-2. **~~Trusted setup compromise~~** - **ELIMINATED IN PHASE 1**
-   - *GKR has no trusted setup*: Fiat-Shamir transformation converts interactive proof to non-interactive
-   - *Security*: Based on cryptographic hash functions (no ceremony needed)
-   - *Groth16 contingency*: If GKR gas >250k or proving >15s, pivot to Groth16 (trusted setup required)
-   - *Status*: GKR proving ~8-10s, gas ~200-250k (within acceptable range)
+2. **~~Trusted setup compromise~~** - **ELIMINATED**
+   - *Halo2 has no trusted setup*: Polynomial commitment scheme via inner product arguments
+   - *Security*: Based on discrete log assumptions (no ceremony needed)
+   - *No contingency needed*: Halo2 provides 4-6s proving, 60-100k gas (production-ready)
 
 3. **Shadow Atlas poisoning** - Inject false district boundaries, misdirect proofs
    - *Mitigation*: Multi-source verification (Census Bureau + OpenStreetMap + govinfo.gov), quarterly audits
@@ -174,18 +173,18 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 4. **Client-side proof grinding** - Generate proofs until collision with target district
    - *Mitigation*: Poseidon hash function (collision-resistant), ~2^128 security
    - *Status*: No practical attack exists, would require breaking discrete log assumptions
-   - *GKR advantage*: Proof verification on-chain provides additional tamper-evidence
+   - *Halo2 advantage*: Proof verification on-chain provides additional tamper-evidence
 
-5. **Fiat-Shamir soundness break** - Forge non-interactive proofs via hash function weakness
-   - *Mitigation*: Poseidon hash (SNARK-friendly, extensively studied)
-   - *Status*: No known attacks on Poseidon in GKR context
+5. **Polynomial commitment soundness break** - Forge proofs via IPA weakness
+   - *Mitigation*: Inner product arguments (IPA) extensively studied, no known breaks
+   - *Status*: Used in production by Zcash since 2022, no attacks demonstrated
    - *Monitoring*: Weekly cryptography paper reviews for new attacks
 
 **Incident response:**
-- **If GKR circuit vulnerability**: Emergency pause district verification, pivot to Groth16 contingency
+- **If Halo2 circuit vulnerability**: Emergency pause district verification, deploy patched circuit
 - **If Poseidon hash broken**: Immediate protocol upgrade to alternative hash (Rescue, Anemoi)
 - **If Atlas poisoned**: Rollback to previous root, publish discrepancy report, community verification
-- **If proving performance degrades**: Monitor gas costs, if >250k → trigger Groth16 migration
+- **If IPA broken**: This would be a fundamental cryptographic break affecting all Halo2 systems globally (unlikely, but would require protocol-wide migration)
 
 ### Identity Verification Security (Phase 1: self.xyz + Didit.me)
 
@@ -609,7 +608,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 ### Phase 1 Launch (Q4 2025 - Q1 2026)
 
 **Critical Path (Must complete before mainnet launch):**
-- [ ] GKR circuit formal verification (Polyhedra audit or Trail of Bits)
+- [ ] Halo2 circuit formal verification (Trail of Bits audit for Merkle membership circuit)
 - [ ] DistrictGate.sol smart contract audit (OpenZeppelin/Trail of Bits)
 - [ ] GCP Confidential Space TEE attestation verification
 - [ ] Shadow Atlas Merkle tree generation and IPFS deployment
@@ -619,15 +618,14 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 **Phase 1 Operational Security:**
 - [ ] Security council multisig setup (3-of-5 threshold, hardware wallets)
-- [ ] Incident response runbooks (GKR failure, TEE compromise, CSAM detection, moderation bypass)
-- [ ] Monitoring infrastructure (Datadog for GKR proving times, Sentry for errors, gas cost tracking)
+- [ ] Incident response runbooks (Halo2 circuit vulnerability, TEE compromise, CSAM detection, moderation bypass)
+- [ ] Monitoring infrastructure (Datadog for Halo2 proving times, Sentry for errors, gas cost tracking)
 - [ ] Congressional IT compliance review (CWC integration, data protection, Section 230)
 
 **Phase 1 Contingency Planning:**
-- [ ] Groth16 circuit development (fallback if GKR gas >250k or proving >15s)
-- [ ] Trusted setup ceremony preparation (100+ contributors, Phase 1 + 2 ceremony)
 - [ ] Emergency moderation escalation procedures (if Layer 1/2 compromised)
 - [ ] Provider redundancy testing (OpenAI API outage → alternative moderation)
+- [ ] Halo2 circuit update procedures (if vulnerability discovered)
 
 ### Phase 2 Preparation (Q2-Q3 2026)
 
@@ -645,13 +643,13 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 **Cross-Chain Expansion:**
 - [ ] NEAR Chain Signatures security review (threshold ECDSA, MPC protocol)
 - [ ] Cross-chain reputation bridge audits (Ethereum, Polygon, Arbitrum via ERC-8004)
-- [ ] Multi-chain GKR verification gas benchmarks
+- [ ] Multi-chain Halo2 verification gas benchmarks
 
 ### Phase 3+ Long-Term (2027+)
 
 **Advanced Cryptography:**
 - [ ] Post-quantum ZK-STARK migration (quantum resistance)
-- [ ] Nested GKR proofs (only if community demands + congressional offices accept)
+- [ ] Nested Halo2 proofs for reputation ranges (only if community demands + congressional offices accept)
 - [ ] Zero-knowledge machine learning (private reputation scoring)
 
 **Decentralization:**

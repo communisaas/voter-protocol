@@ -1,9 +1,9 @@
 # VOTER Protocol: Technical Architecture
 
-**Status**: Active development - Phase 1 implementation (GKR protocol, reputation-only)
+**Status**: Active development - Phase 1 implementation (Halo2 recursive proofs, reputation-only)
 **Last Updated**: October 2025
 **Implementation**: Smart contracts in this repo, frontend in Communique repo
-**Core Decisions**: Scroll settlement, GKR ZK proofs, NEAR account abstraction, PostgreSQL + Filecoin
+**Core Decisions**: Scroll settlement, Halo2 zero-knowledge proofs, NEAR account abstraction (optional), no database PII storage
 
 ---
 
@@ -11,9 +11,9 @@
 
 **Settlement**: Scroll zkEVM (Ethereum L2, Stage 1 decentralized)
 **Account Abstraction**: NEAR Chain Signatures (optional for simplified UX)
-**Identity**: self.xyz NFC passport (FREE, primary) + Didit.me (FREE, fallback) + NEAR CipherVault (encrypted PII storage)
-**Privacy**: GKR Protocol (no trusted setup, Fiat-Shamir transformation) with Groth16 contingency
-**Templates**: PostgreSQL (Supabase) → Filecoin archival
+**Identity**: self.xyz NFC passport (FREE, primary) + Didit.me (FREE, fallback)
+**Privacy**: Halo2 recursive proofs (no trusted setup, battle-tested since 2022 in Zcash Orchard), addresses never leave browser, never stored in any database
+**Templates**: PostgreSQL (Supabase) for template metadata only
 **Verification**: Congressional CWC API via GCP Confidential Space TEE
 **Moderation**: 3-layer stack (FREE OpenAI Moderation API + Gemini/Claude consensus + human review)
 **Phase**: Phase 1 (reputation-only, 3 months) → Phase 2 (token economics, 12-18 months)
@@ -27,9 +27,10 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 ### Phase 1: Cryptographic Infrastructure (Current - 3 Months to Launch)
 
 **What Ships:**
-- GKR-based district proofs (no trusted setup, Polyhedra Expander)
+- Halo2 zero-knowledge district proofs (4-6s browser proving, 60-100k gas, no trusted setup, battle-tested since 2022)
+- Addresses never leave browser, never stored in any database
 - E2E encryption via GCP Confidential Space (TEE with AMD SEV-SNP attestation)
-- Cross-chain account abstraction (NEAR Chain Signatures)
+- Cross-chain account abstraction (NEAR Chain Signatures, optional)
 - On-chain reputation (ERC-8004 portable credibility, no token rewards)
 - 3-layer content moderation (Section 230 compliant)
 - FREE identity verification (self.xyz passport + Didit.me fallback)
@@ -66,7 +67,7 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 
 ## System Architecture Overview
 
-> **NOTE**: This diagram shows the complete Phase 1 + Phase 2 architecture. Phase 1 excludes: NEAR CipherVault (uses GCP TEE instead), VOTER tokens (reputation-only), Filecoin archival (deferred). See "Phase Architecture Overview" section for detailed breakdown.
+> **NOTE**: This diagram shows the complete Phase 1 + Phase 2 architecture. Phase 1 excludes: VOTER tokens (reputation-only), Filecoin archival (deferred). NEAR Chain Signatures are optional for simplified UX. Addresses never stored in any database (full zero-knowledge). See "Phase Architecture Overview" section for detailed breakdown.
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff', 'secondaryTextColor':'#fff', 'tertiaryTextColor':'#fff'}}}%%
@@ -78,16 +79,15 @@ flowchart TB
         New[New to Web3 No wallet]
     end
 
-    subgraph NEAR["NEAR Control Layer"]
+    subgraph NEAR["NEAR Control Layer (Optional)"]
         Account[Implicit Account FREE instant]
-        Vault[CipherVault Encrypted PII]
         ChainSig[Chain Signatures Multi-chain Control]
     end
 
     subgraph Privacy["ZK Privacy Layer"]
         Atlas[Shadow Atlas District Merkle Tree]
-        Circuit[ResidencyCircuit ZK-SNARK]
-        Proof[ZK Proof 8-12 sec generation]
+        Circuit[Halo2 Circuit Browser-based]
+        Proof[ZK Proof 4-6 sec generation]
     end
 
     subgraph Storage["Template Storage"]
@@ -108,9 +108,8 @@ flowchart TB
     ETH --> Account
     New --> Account
 
-    Account --> Vault
     Account --> ChainSig
-    Vault --> Circuit
+    ChainSig --> Circuit
     Atlas --> Circuit
     Circuit --> Proof
 

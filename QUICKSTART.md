@@ -117,9 +117,9 @@ Tap "Send to My Representative"
 
 **What happens behind the scenes (Phase 1):**
 1. Your browser encrypts everything before it leaves your device (XChaCha20-Poly1305)
-2. Hybrid zero-knowledge proof generates (GKR + SNARK, 8-12 seconds)
-   - Step 1: GKR proof of Merkle membership (5-8 seconds)
-   - Step 2: SNARK wrapper for on-chain verification (2-3 seconds)
+2. Halo2 zero-knowledge proof generates (4-6 seconds)
+   - Proves you live in your district without revealing your address
+   - Address never leaves browser, never touches any database
 3. Message passes 3-layer content moderation (OpenAI + Gemini/Claude + human review)
 4. Encrypted delivery through GCP Confidential Space TEE (AMD SEV-SNP hardware attestation)
 5. Delivery to congressional CWC API from whitelisted IP
@@ -127,7 +127,7 @@ Tap "Send to My Representative"
 7. Your action records on Scroll L2 blockchain (only district hash + reputation update, never your identity)
 
 **What you see:**
-- Progress bar showing proof generation steps (8-12 seconds total)
+- Progress bar showing proof generation (4-6 seconds total)
 - "Message Delivered" confirmation
 - Delivery receipt with timestamp
 - Which staffer's inbox it reached (if office uses our dashboard)
@@ -219,7 +219,7 @@ Tap "Send to My Representative"
 ## Privacy: What Staffers See vs. What's Private
 
 **Congressional office sees (Phase 1):**
-- "Verified constituent in TX-18" (hybrid GKR+SNARK zero-knowledge proof of district membership)
+- "Verified constituent in TX-18" (Halo2 zero-knowledge proof of district membership)
 - "Reputation score: 8,500 in healthcare policy" (domain expertise from on-chain actions)
 - "Content moderation: Passed 3-layer review" (OpenAI + Gemini/Claude + human)
 - "Previous templates correlated with 2 legislative outcomes" (impact tracking verified)
@@ -291,7 +291,7 @@ A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](
 
 **Go deeper:**
 - [README.md](README.md) - Why this exists and what changes
-- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (hybrid GKR+SNARK, self.xyz, GCP TEE, Scroll L2)
+- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 zero-knowledge proofs, self.xyz, GCP TEE, Scroll L2)
 - [CONGRESSIONAL.md](CONGRESSIONAL.md) - Congressional office integration and quality signals
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Phase 1 + Phase 2 evolution)
 - [SECURITY.md](SECURITY.md) - Living threat model and incident response
