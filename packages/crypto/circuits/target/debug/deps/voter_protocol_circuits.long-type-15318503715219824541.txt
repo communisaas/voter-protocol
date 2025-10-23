@@ -1,0 +1,2 @@
+NamespacedLayouter<'_, halo2curves::bn256::Fr, <impl Layouter<Fr> as Layouter<halo2curves::bn256::Fr>>::Root>
+NamespacedLayouter<'_, halo2curves::bn256::Fr, <impl Layouter<Fr> as Layouter<halo2curves::bn256::Fr>>::Root>: halo2_proofs::circuit::Layouter<halo2curves::bn256::Fr>

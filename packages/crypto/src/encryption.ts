@@ -8,7 +8,7 @@
  */
 
 import sodium from 'libsodium-wrappers';
-import { poseidon } from 'circomlibjs';
+import { buildPoseidon } from 'circomlibjs';
 import { sha256 } from '@noble/hashes/sha256';
 
 /**
@@ -204,22 +204,27 @@ export async function encryptSovereignKey(
     throw new Error('Account key must be 32 bytes');
   }
 
-  // Generate random IV (12 bytes for GCM)
-  const iv = sodium.randombytes_buf(12);
+  // Generate random nonce (24 bytes for XChaCha20)
+  const nonce = sodium.randombytes_buf(24);
 
-  // AES-256-GCM encryption (libsodium uses detached tag)
-  const result = sodium.crypto_aead_aes256gcm_encrypt_detached(
+  // Use XChaCha20-Poly1305 for sovereign key encryption (consistent with PII encryption)
+  const encrypted = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
     sovereignKey,
     null,  // No AAD for sovereign key encryption
     null,  // No secret nonce
-    iv,
+    nonce,
     accountKey
   );
 
+  // XChaCha20-Poly1305 returns ciphertext with tag appended
+  // Split into ciphertext (32 bytes) + tag (16 bytes)
+  const ciphertext = encrypted.slice(0, 32);
+  const tag = encrypted.slice(32);
+
   return {
-    ciphertext: result.ciphertext,
-    iv,
-    tag: result.mac  // Authentication tag (16 bytes)
+    ciphertext,
+    iv: nonce,  // Use nonce field for XChaCha20 nonce
+    tag
   };
 }
 
@@ -248,19 +253,23 @@ export async function decryptSovereignKey(
   if (accountKey.length !== 32) {
     throw new Error('Account key must be 32 bytes');
   }
-  if (encrypted.iv.length !== 12) {
-    throw new Error('IV must be 12 bytes for AES-256-GCM');
+  if (encrypted.iv.length !== 24) {
+    throw new Error('Nonce must be 24 bytes for XChaCha20');
   }
   if (encrypted.tag.length !== 16) {
-    throw new Error('Tag must be 16 bytes for AES-256-GCM');
+    throw new Error('Tag must be 16 bytes');
   }
 
-  // AES-256-GCM decryption with tag verification
+  // XChaCha20-Poly1305 decryption with tag verification
   try {
-    const decrypted = sodium.crypto_aead_aes256gcm_decrypt_detached(
+    // Reconstruct full ciphertext (ciphertext + tag)
+    const fullCiphertext = new Uint8Array(encrypted.ciphertext.length + encrypted.tag.length);
+    fullCiphertext.set(encrypted.ciphertext);
+    fullCiphertext.set(encrypted.tag, encrypted.ciphertext.length);
+
+    const decrypted = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
       null,  // No secret nonce
-      encrypted.ciphertext,
-      encrypted.tag,
+      fullCiphertext,
       null,  // No AAD
       encrypted.iv,
       accountKey
@@ -304,11 +313,13 @@ export async function generateCommitment(
   const nonceField = BigInt('0x' + Buffer.from(nonceHash).toString('hex'));
   const accountField = BigInt('0x' + Buffer.from(accountHash).toString('hex'));
 
-  // Poseidon hash (ZK-friendly)
+  // Build Poseidon hasher and hash (ZK-friendly)
+  const poseidon = await buildPoseidon();
   const commitment = poseidon([dataField, nonceField, accountField]);
 
   // Convert to 64-char hex string (32 bytes)
-  return commitment.toString(16).padStart(64, '0');
+  const commitmentBigInt = poseidon.F.toObject(commitment);
+  return commitmentBigInt.toString(16).padStart(64, '0');
 }
 
 /**

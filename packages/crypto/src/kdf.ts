@@ -79,7 +79,7 @@ export function deriveKeyFromWallet(params: WalletKeyDerivation): Uint8Array {
  * @returns 32-byte sovereign key for XChaCha20-Poly1305
  */
 export function deriveSovereignKey(signature: Uint8Array, accountId: string): Uint8Array {
-  return deriveKeyFrom Wallet({
+  return deriveKeyFromWallet({
     signature,
     accountId,
     purpose: PURPOSES.SOVEREIGN_KEY,

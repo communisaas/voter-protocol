@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MDSMatrices","MDSMatrix","Poseidon","SparseMDSMatrix","Spec","SpecRef","State"]};

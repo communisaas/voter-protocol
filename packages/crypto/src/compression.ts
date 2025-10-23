@@ -67,8 +67,9 @@ export async function loadDictionary(): Promise<Uint8Array> {
 /**
  * Train a Zstd dictionary from PII samples
  *
- * Use this during development to create the embedded dictionary.
- * Requires 1000+ diverse PII samples for optimal compression.
+ * NOTE: Dictionary training is not supported by @bokuweb/zstd-wasm
+ * This function is kept for future implementation with a different zstd library
+ * or manual dictionary creation.
  *
  * @param samples - Array of PII data objects
  * @param dictionarySize - Dictionary size in bytes (default: 16KB)
@@ -92,14 +93,14 @@ export async function trainPIIDictionary(
     console.warn('Dictionary training requires 100+ samples for good results. Provided:', samples.length);
   }
 
-  // Stage 1: Convert all samples to MessagePack
-  const packedSamples = samples.map(sample => msgpack.encode(sample));
+  // TODO: Implement dictionary training
+  // @bokuweb/zstd-wasm doesn't support dictionary training
+  // Options:
+  // 1. Use zstd CLI tool to train dictionary offline
+  // 2. Switch to a different WASM zstd library that supports training
+  // 3. Pre-train dictionaries in Rust and embed them
 
-  // Stage 2: Train Zstd dictionary
-  await zstd.init();
-  const dictionary = await zstd.train(packedSamples, dictionarySize);
-
-  return dictionary;
+  throw new Error('Dictionary training not yet implemented - use pre-trained dictionary');
 }
 
 /**
@@ -134,12 +135,10 @@ export async function compressPII(pii: PIIData): Promise<Uint8Array> {
   await zstd.init();
   const dictionary = await loadDictionary();
 
-  const compressed = await zstd.compress(packed, {
-    level: 22,  // Maximum compression
-    ...(dictionary.length > 0 && { dictionary })
-  });
+  const compressed = await zstd.compress(packed.buffer as ArrayBuffer, 22);
 
-  return compressed;
+  // Convert to Uint8Array
+  return new Uint8Array(compressed);
 }
 
 /**
@@ -162,14 +161,14 @@ export async function compressPII(pii: PIIData): Promise<Uint8Array> {
 export async function decompressPII(compressed: Uint8Array): Promise<PIIData> {
   // Stage 1: Zstd decompression
   await zstd.init();
-  const dictionary = await loadDictionary();
 
-  const decompressed = await zstd.decompress(compressed, {
-    ...(dictionary.length > 0 && { dictionary })
-  });
+  const decompressed = await zstd.decompress(compressed.buffer as ArrayBuffer);
+
+  // Convert to Uint8Array
+  const decompressedBytes = new Uint8Array(decompressed);
 
   // Stage 2: MessagePack deserialization
-  const pii = msgpack.decode(decompressed) as PIIData;
+  const pii = msgpack.decode(decompressedBytes) as PIIData;
 
   return pii;
 }
