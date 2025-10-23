@@ -151,7 +151,7 @@ Cypherpunk values mean privacy for civic discourse, not hosting illegal content.
 ## 5. End-to-End Encryption (Required)
 
 **Implementation:**
-- GCP Confidential Space (AMD SEV-SNP TEE)
+- AWS Nitro Enclaves (hardware-isolated compute)
 - Client-side: XChaCha20-Poly1305 encryption (libsodium)
 - TEE: Decryption inside hardware-attested enclave
 - Delivery: Plaintext from TEE → CWC API → congressional CRM
@@ -162,10 +162,10 @@ Cypherpunk values mean privacy for civic discourse, not hosting illegal content.
 **Privacy Guarantee:**
 - Plaintext exists only in: user's browser, TEE enclave, congressional office
 - Platform operators never see message content
-- Google cloud admins prevented by AMD SEV-SNP hardware guarantees
+- AWS Nitro hardware isolation prevents cloud operator access
 
 **Tension Acknowledged:**
-Using Google infrastructure contradicts pure sovereignty. AMD SEV-SNP hardware prevents Google from reading plaintext (architectural difference vs "Google promises not to look"). Self-hosted TEEs researched for Phase 2.
+Using AWS infrastructure contradicts pure sovereignty. AWS Nitro hardware prevents AWS from reading plaintext (architectural difference vs "AWS promises not to look"). Self-hosted TEEs researched for Phase 2.
 
 ---
 
@@ -194,7 +194,7 @@ Using Google infrastructure contradicts pure sovereignty. AMD SEV-SNP hardware p
 ### Monthly Costs (1,000 users / 10,000 messages)
 
 **Fixed:**
-- GCP Confidential Space (TEE): $150
+- AWS Nitro Enclaves (TEE): $150
 - Database/hosting: $0 (free tiers: Supabase, Vercel)
 
 **Variable:**
@@ -522,7 +522,7 @@ Proving system (GKR vs Groth16) is internal implementation detail. Staffers see 
 - [ ] Human review queue infrastructure
 - [ ] NEAR CipherVault PII storage
 - [ ] self.xyz + Didit.me identity verification
-- [ ] GCP Confidential Space TEE setup
+- [ ] AWS Nitro Enclaves TEE setup
 - [ ] Congressional dashboard (verification status display)
 
 ---

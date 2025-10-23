@@ -69,7 +69,7 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 **End-to-End Encryption**: Message delivery to congressional offices
 - Client-side: XChaCha20-Poly1305 AEAD (libsodium)
-- TEE delivery: GCP Confidential Space (AMD SEV-SNP)
+- TEE delivery: AWS Nitro Enclaves (hardware isolation)
 - CWC integration: Whitelisted IP delivery to congressional systems
 - Plaintext exists only: browser → enclave → CWC → congressional CRM
 

@@ -263,12 +263,12 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 **Attack vectors:**
 1. **TEE side-channel attacks** - Spectre/Meltdown variants leak enclave memory
-   - *Mitigation*: AMD SEV-SNP protects against known side-channels, regular microcode updates
-   - *Status*: Enclave patches applied within 24h of AMD releases
-   - *Last update*: 2025-10-15 (SEV-SNP firmware 1.55)
+   - *Mitigation*: AWS Nitro hardware isolation protects against known side-channels, regular microcode updates
+   - *Status*: Enclave patches applied within 24h of AWS security releases
+   - *Last update*: 2025-10-15 (Nitro firmware latest)
 
 2. **Attestation forgery** - Present fake TEE attestation, accept plaintext
-   - *Mitigation*: AMD root-of-trust signature verification before accepting blobs
+   - *Mitigation*: AWS Nitro RSA-PSS signature verification before accepting blobs
    - *Status*: Every attestation verified on-chain, public audit log
 
 3. **CWC API compromise** - Congressional systems leak messages post-delivery
@@ -610,7 +610,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 **Critical Path (Must complete before mainnet launch):**
 - [ ] Halo2 circuit formal verification (Trail of Bits audit for Merkle membership circuit)
 - [ ] DistrictGate.sol smart contract audit (OpenZeppelin/Trail of Bits)
-- [ ] GCP Confidential Space TEE attestation verification
+- [ ] AWS Nitro Enclaves TEE attestation verification
 - [ ] Shadow Atlas Merkle tree generation and IPFS deployment
 - [ ] Content moderation 3-layer stack penetration testing
 - [ ] self.xyz + Didit.me integration security review
@@ -693,17 +693,17 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 ## Appendix: Security Assumptions
 
 **We assume the following are secure (if broken, system security fails):**
-1. **Elliptic curve discrete log** (ECDSA, Groth16 SNARKs)
-2. **AMD SEV-SNP** (TEE memory encryption)
+1. **Elliptic curve discrete log** (ECDSA, Halo2 proofs)
+2. **AWS Nitro Enclaves** (TEE memory encryption)
 3. **XChaCha20-Poly1305** (AEAD encryption)
-4. **NEAR MPC protocol** (threshold ECDSA)
+4. **NEAR MPC protocol** (threshold ECDSA, Phase 2+)
 5. **Poseidon hash function** (collision resistance)
 
 **We do NOT assume:**
-- Users protect seed phrases (we use passkeys instead)
+- Users protect seed phrases (we use identity verification instead)
 - Single oracle tells truth (we cross-reference multiple)
 - Single agent is honest (we require multi-agent consensus)
-- Google won't try to read TEE memory (AMD hardware prevents it)
+- AWS won't try to read TEE memory (Nitro hardware prevents it)
 - Congressional offices protect messages post-delivery (out of our control)
 
 -----

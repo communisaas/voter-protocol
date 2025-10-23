@@ -121,7 +121,7 @@ Tap "Send to My Representative"
    - Proves you live in your district without revealing your address
    - Address never leaves browser, never touches any database
 3. Message passes 3-layer content moderation (OpenAI + Gemini/Claude + human review)
-4. Encrypted delivery through GCP Confidential Space TEE (AMD SEV-SNP hardware attestation)
+4. Encrypted delivery through AWS Nitro Enclaves TEE (hardware attestation)
 5. Delivery to congressional CWC API from whitelisted IP
 6. Cryptographic receipt confirms delivery (timestamp + proof verification)
 7. Your action records on Scroll L2 blockchain (only district hash + reputation update, never your identity)
@@ -291,7 +291,7 @@ A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](
 
 **Go deeper:**
 - [README.md](README.md) - Why this exists and what changes
-- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 zero-knowledge proofs, self.xyz, GCP TEE, Scroll L2)
+- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 zero-knowledge proofs, self.xyz, AWS Nitro TEE, Scroll L2)
 - [CONGRESSIONAL.md](CONGRESSIONAL.md) - Congressional office integration and quality signals
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Phase 1 + Phase 2 evolution)
 - [SECURITY.md](SECURITY.md) - Living threat model and incident response

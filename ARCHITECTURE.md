@@ -14,7 +14,7 @@
 **Identity**: self.xyz NFC passport (FREE, primary) + Didit.me (FREE, fallback)
 **Privacy**: Halo2 recursive proofs (no trusted setup, battle-tested since 2022 in Zcash Orchard), addresses never leave browser, never stored in any database
 **Templates**: PostgreSQL (Supabase) for template metadata only
-**Verification**: Congressional CWC API via GCP Confidential Space TEE
+**Verification**: Congressional CWC API via AWS Nitro Enclaves (ARM TEE, no Intel ME/AMD PSP, independently audited 2025)
 **Moderation**: 3-layer stack (FREE OpenAI Moderation API + Gemini/Claude consensus + human review)
 **Phase**: Phase 1 (reputation-only, 3 months) → Phase 2 (token economics, 12-18 months)
 
@@ -29,7 +29,9 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 **What Ships:**
 - Halo2 zero-knowledge district proofs (4-6s browser proving, 60-100k gas, no trusted setup, battle-tested since 2022)
 - Addresses never leave browser, never stored in any database
-- E2E encryption via GCP Confidential Space (TEE with AMD SEV-SNP attestation)
+- E2E encryption via AWS Nitro Enclaves (ARM Graviton TEE, hypervisor-isolated, CBOR attestation)
+
+**Security Note:** AWS Nitro avoids x86 management engines (Intel ME/AMD PSP) but relies on AWS hypervisor trust. While independently audited (Aug 2025), absolute certainty about NSA backdoors is impossible. ARM architecture + open-source components reduce but don't eliminate state-actor risk.
 - Cross-chain account abstraction (NEAR Chain Signatures, optional)
 - On-chain reputation (ERC-8004 portable credibility, no token rewards)
 - 3-layer content moderation (Section 230 compliant)
@@ -3061,13 +3063,19 @@ export default new RetroFundingAllocator();
 
 ## Complete Civic Action Flow with E2E Encryption
 
-### GCP Confidential Space Congressional Proxy
+### AWS Nitro Enclaves Congressional Proxy
 
 **Static IP with TEE Attestation:**
-- Congressional proxy runs in AMD SEV-SNP hardware-encrypted memory
+- Congressional proxy runs in ARM Graviton hypervisor-isolated enclave (no Intel ME/AMD PSP)
 - Static IP address whitelisted by House/Senate CWC APIs
-- Remote attestation generates cryptographic proof of code integrity
+- CBOR attestation document provides cryptographic proof of code integrity
 - TEE public key included in attestation for E2E encryption
+
+**Security Considerations:**
+- AWS Nitro uses hypervisor isolation with memory encryption via Nitro Security Module
+- ARM Graviton instances available (avoids x86 management engine backdoors: Intel ME, AMD PSP)
+- Independently audited (August 2025) but cannot guarantee NSA backdoor absence
+- Coinbase uses Nitro Enclaves for crypto wallet security (production-proven)
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff', 'actorTextColor':'#fff', 'noteBkgColor':'#4A90E2', 'noteTextColor':'#fff'}}}%%
@@ -3077,7 +3085,7 @@ sequenceDiagram
     participant Browser
     participant NEAR as NEAR CipherVault
     participant PG as PostgreSQL
-    participant TEE as GCP Confidential Space Congressional Proxy
+    participant TEE as AWS Nitro Enclaves Congressional Proxy
     participant ZK as ZK Prover WASM
     participant Senate as Senate CWC API
     participant House as House CWC API
@@ -3087,8 +3095,8 @@ sequenceDiagram
 
     Note over Browser,TEE: Phase 1: Attestation Verification One-Time
     Browser->>TEE: Request attestation
-    TEE-->>Browser: OIDC token + container hash + TEE public key
-    Browser->>Browser: Verify attestation signature
+    TEE-->>Browser: CBOR attestation doc + PCRs + TEE public key
+    Browser->>Browser: Verify AWS certificate chain
     Browser->>Scroll: Verify attestation on-chain
     Note over Browser: Store TEE public key for encryption
 
@@ -3111,9 +3119,9 @@ sequenceDiagram
     User->>Browser: Submit civic action
     Browser->>TEE: Encrypted payload HTTPS + TEE encryption
 
-    Note over TEE: Phase 5: TEE Processing Hardware Encrypted Memory
+    Note over TEE: Phase 5: TEE Processing Hypervisor-Isolated Memory
     TEE->>TEE: Decrypt symmetric key with TEE private key
-    TEE->>TEE: Decrypt message in AMD SEV-SNP memory
+    TEE->>TEE: Decrypt message in Nitro hypervisor-isolated memory
     TEE->>TEE: Generate CWC XML for Senate
     TEE->>TEE: Generate CWC XML for House
 
@@ -3157,71 +3165,73 @@ sequenceDiagram
 
 **Plaintext PII Visible Only In:**
 - ✅ **Browser** (user's device, user controls)
-- ✅ **TEE enclave** (AMD SEV-SNP hardware-encrypted memory)
+- ✅ **TEE enclave** (AWS Nitro hypervisor-isolated memory, ARM Graviton)
 - ✅ **Congressional APIs** (Senate/House need routing information)
 
 **Plaintext PII NEVER Visible To:**
 - ❌ Communique backend (outside TEE enclave)
 - ❌ Network transit (encrypted with TEE public key + HTTPS)
-- ❌ GCP infrastructure (AMD SEV-SNP memory encryption)
+- ❌ AWS infrastructure (hypervisor isolation prevents access)
 - ❌ Load balancers (can't decrypt without TEE private key)
 - ❌ Logs (encrypted payload, no decryption capability)
 - ❌ Database (no PII storage)
 - ❌ Blockchain (only ZK proof + receipt hashes)
 
 **Cryptographic Proof Chain:**
-1. Browser verifies TEE attestation signature (Google CA root)
-2. Attestation includes container image hash (proves exact code)
+1. Browser verifies TEE attestation signature (AWS certificate chain)
+2. Attestation includes PCR measurements (proves exact enclave image)
 3. Attestation includes TEE public key (for E2E encryption)
 4. Browser encrypts with TEE public key (only TEE can decrypt)
-5. TEE processes in AMD SEV-SNP encrypted memory
+5. TEE processes in Nitro hypervisor-isolated memory (ARM, no Intel ME/AMD PSP)
 6. TEE signs receipts (proves legitimate processing)
 7. Blockchain records receipt hashes (immutable audit trail)
+
+**Security Caveat:** While AWS Nitro Enclaves avoid x86 management engine backdoors and have been independently audited (Aug 2025), we cannot provide absolute certainty about NSA backdoor absence. Users must trust AWS hypervisor. ARM architecture + auditable components reduce but don't eliminate state-actor risk.
 
 **This is true end-to-end encryption: Browser → TEE → Congress with no plaintext exposure in transit or at rest.**
 
 ---
 
-## GCP Confidential Space: Hardware-Attested Privacy Infrastructure
+## AWS Nitro Enclaves: Hardware-Attested Privacy Infrastructure
 
 ### TEE Container Architecture
 
-The Congressional proxy runs inside GCP Confidential Space as a containerized Node.js application on AMD SEV-SNP hardware. The container image is built from Google's hardened confidential-space-base, configured with n2d-standard-4 machine type for AMD SEV-SNP support. The container exposes HTTPS endpoints on port 8443 for encrypted civic action submissions and port 8080 for attestation requests.
+The Congressional proxy runs inside AWS Nitro Enclaves as a containerized Node.js application with Nitro hardware isolation. The enclave image is built from a hardened base image and converted to EIF (Enclave Image File) format, deployed on c6a.xlarge or c6i.xlarge EC2 instances with Nitro Enclaves enabled. The enclave exposes HTTPS endpoints on port 8443 for encrypted civic action submissions and port 8080 for attestation requests.
 
-On first boot, the TEE generates an RSA-4096 keypair for end-to-end encryption. The private key is stored in TEE-encrypted volumes that never leave the enclave—protected by AES-256-CBC with passphrases retrieved from GCP Secret Manager. The public key is included in attestation tokens for browser verification. This keypair enables hybrid encryption: browsers encrypt messages with the TEE public key, and only the TEE private key can decrypt.
+On first boot, the TEE generates an RSA-4096 keypair for end-to-end encryption. The private key is stored in Nitro-encrypted volumes that never leave the enclave—protected by AES-256-CBC with passphrases retrieved from AWS Secrets Manager. The public key is included in attestation documents for browser verification. This keypair enables hybrid encryption: browsers encrypt messages with the TEE public key, and only the TEE private key can decrypt.
 
-The container image hash is recorded in environment metadata and included in every attestation token. This hash is published on-chain via TEEAttestationVerifier smart contracts, allowing browsers to verify exact code integrity before submitting PII. Any container modification changes the hash, invalidating attestation.
+The enclave image PCR measurements (Platform Configuration Registers) are recorded and included in every attestation document. These PCRs are published on-chain via TEEAttestationVerifier smart contracts, allowing browsers to verify exact code integrity before submitting PII. Any enclave modification changes the PCR values, invalidating attestation.
 
 ### Static IP Configuration & Congressional Whitelist
 
-Congressional CWC APIs require whitelisted IP addresses—browsers can't connect directly. GCP Confidential Space VMs are deployed with static IP addresses reserved in us-central1 and us-east4 for redundancy. The primary TEE receives a Premium-tier static IP that remains constant across VM restarts and maintenance.
+Congressional CWC APIs require whitelisted IP addresses—browsers can't connect directly. AWS EC2 instances running Nitro Enclaves are deployed with Elastic IP addresses reserved in us-east-1 and us-west-2 for redundancy. The primary TEE receives an Elastic IP that remains constant across enclave restarts and maintenance.
 
 Congressional IT receives whitelist requests with organization details, static IP addresses, and justification referencing hardware-attested infrastructure. The justification emphasizes cryptographic proof of code integrity available on-chain—a novel approach that may facilitate approval for privacy-preserving civic technology. Backup IPs provide failover if primary TEE becomes unavailable.
 
-The TEE's static IP becomes its cryptographic identity. Attestation tokens include this IP address (hashed for on-chain storage), proving that Congressional API submissions originate from attested hardware at a known location. This bridges government IT requirements with trustless verification.
+The TEE's static IP becomes its cryptographic identity. Attestation documents include this IP address (hashed for on-chain storage), proving that Congressional API submissions originate from attested hardware at a known location. This bridges government IT requirements with trustless verification.
 
 ### TEE Key Management & Attestation
 
-The TEE generates attestation tokens on demand via HTTPS GET requests to its attestation endpoint. Each request triggers AMD SEV-SNP hardware to produce a measurement report using go-tpm-tools with SEV_SNP algorithm. This report contains platform measurements, launch measurements, and cryptographic signatures verifiable against AMD's root of trust.
+The TEE generates attestation documents on demand via HTTPS GET requests to its attestation endpoint. Each request triggers AWS Nitro Enclaves to produce a CBOR-encoded attestation document via the NSM (Nitro Security Module) API. This document contains PCR measurements, certificate chains, and RSA-PSS signatures verifiable against AWS's root certificate.
 
-Attestation tokens combine hardware measurements with container metadata:
-- **Platform measurements**: AMD SEV-SNP cryptographic proof of hardware isolation
-- **Container image hash**: SHA-256 of exact code running in the TEE
+Attestation documents combine hardware measurements with enclave metadata:
+- **PCR measurements**: AWS Nitro cryptographic proof of enclave code integrity (PCR0, PCR2)
+- **Enclave image hash**: SHA-384 of exact EIF running in the enclave
 - **TEE public key**: RSA-4096 key for browser encryption
 - **Static IP address**: Proves Congressional API origin
-- **Signature**: ECDSA P-256 SHA-256 signed by GCP Attestation Service
+- **Signature**: RSA-PSS signed with AWS Nitro certificate chain
 
-The GCP Attestation Service signature is verifiable through Google's CA root certificate chain—browsers can independently validate that attestation tokens are legitimate without trusting Communique. This signature proves the TEE is genuine AMD SEV-SNP hardware running the specific container image at the declared IP address.
+The AWS Nitro attestation signature is verifiable through AWS's CA root certificate chain—browsers can independently validate that attestation documents are legitimate without trusting Communique. This signature proves the TEE is genuine AWS Nitro hardware running the specific enclave image at the declared IP address.
 
-Attestation tokens expire after 24 hours, requiring periodic refresh. This time limit prevents stale attestations from authorizing outdated or compromised containers. Browsers cache valid attestations and TEE public keys, minimizing latency for repeated submissions.
+Attestation documents expire after 24 hours, requiring periodic refresh. This time limit prevents stale attestations from authorizing outdated or compromised enclaves. Browsers cache valid attestations and TEE public keys, minimizing latency for repeated submissions.
 
 ### Congressional API Submission Flow
 
 When browsers submit civic actions, they send encrypted payloads to the TEE's port 8443 HTTPS endpoint. The TEE receives binary data structured as RSA-4096 encrypted symmetric key (first 512 bytes) followed by AES-256-GCM encrypted message content. This hybrid encryption allows browsers to encrypt arbitrary-length messages efficiently while maintaining RSA-4096 security for key exchange.
 
-The TEE decrypts the symmetric key using its RSA-4096 private key with PKCS1_OAEP padding and SHA-256 hash. This key then decrypts the message content with AES-256-GCM authenticated encryption, verifying integrity through the authentication tag. Decryption happens entirely within AMD SEV-SNP encrypted memory—the hypervisor and GCP infrastructure never see plaintext.
+The TEE decrypts the symmetric key using its RSA-4096 private key with PKCS1_OAEP padding and SHA-256 hash. This key then decrypts the message content with AES-256-GCM authenticated encryption, verifying integrity through the authentication tag. Decryption happens entirely within AWS Nitro encrypted memory—the hypervisor and AWS infrastructure never see plaintext.
 
-Once decrypted, the TEE generates CWC XML payloads for Senate and House offices. These XML documents follow Congressional formatting requirements, including citizen name, address, email, phone, message content, and template identifiers. The TEE maintains organizational API keys in GCP Secret Manager, accessed only within the hardware-encrypted enclave.
+Once decrypted, the TEE generates CWC XML payloads for Senate and House offices. These XML documents follow Congressional formatting requirements, including citizen name, address, email, phone, message content, and template identifiers. The TEE maintains organizational API keys in AWS Secrets Manager, accessed only within the hardware-encrypted enclave.
 
 The TEE submits both XML documents to Congressional APIs from its whitelisted static IP. Senate submissions go to soapbox.senate.gov/api with Senate API credentials. House submissions go to www.house.gov/htbin/formproc with House API credentials. Both submissions return message IDs and confirmation data.
 
@@ -3229,21 +3239,21 @@ The TEE signs delivery receipts with its private key, creating cryptographic pro
 
 ### On-Chain Attestation Verification
 
-TEEAttestationVerifier smart contracts on Scroll maintain whitelists of trusted container image hashes and GCP Attestation Service public keys. These contracts verify attestation signatures using elliptic curve signature recovery, checking that signatures match known Google CA roots.
+TEEAttestationVerifier smart contracts on Scroll maintain whitelists of trusted enclave PCR measurements and AWS Nitro root certificates. These contracts verify attestation signatures using RSA-PSS signature verification, checking that signatures match known AWS CA roots.
 
-The contract stores the current valid attestation including container hash, TEE public key, timestamp, and static IP hash. The 24-hour expiration is enforced on-chain—expired attestations revert when queried. This ensures browsers always verify against fresh attestations.
+The contract stores the current valid attestation including PCR measurements, TEE public key, timestamp, and static IP hash. The 24-hour expiration is enforced on-chain—expired attestations revert when queried. This ensures browsers always verify against fresh attestations.
 
 When civic actions are submitted on-chain, the blockchain verifies that receipt hashes were signed by the currently attested TEE. This creates an unbroken chain of cryptographic proof: hardware attestation proves code integrity, code signs receipts, receipts prove Congressional delivery. Every step is verifiable without trusted intermediaries.
 
-Browsers query the contract's getCurrentTEEPublicKey function before encrypting submissions. If attestation is expired or container hash doesn't match the whitelist, the contract reverts. This prevents browsers from sending PII to compromised or outdated TEEs.
+Browsers query the contract's getCurrentTEEPublicKey function before encrypting submissions. If attestation is expired or PCR measurements don't match the whitelist, the contract reverts. This prevents browsers from sending PII to compromised or outdated TEEs.
 
 ### Frontend Attestation Verification
 
-Before first submission, browsers fetch attestation tokens from the TEE endpoint and verify them through multiple steps. First, the browser validates the GCP Attestation Service signature using Google's CA root certificate. This proves the attestation originated from legitimate GCP infrastructure.
+Before first submission, browsers fetch attestation documents from the TEE endpoint and verify them through multiple steps. First, the browser validates the AWS Nitro RSA-PSS signature using AWS's CA root certificate. This proves the attestation originated from legitimate AWS Nitro infrastructure.
 
-Second, the browser verifies that the container image hash matches the on-chain whitelist in TEEAttestationVerifier contracts. Any mismatch indicates the TEE is running unapproved code. Third, the browser checks that the attestation timestamp is recent (within 24 hours) and that platform measurements match expected AMD SEV-SNP values.
+Second, the browser verifies that the PCR measurements match the on-chain whitelist in TEEAttestationVerifier contracts. Any mismatch indicates the TEE is running unapproved code. Third, the browser checks that the attestation timestamp is recent (within 24 hours) and that all PCR values match expected AWS Nitro enclave measurements.
 
-Only after all verification passes does the browser store the TEE public key and enable submissions. The browser displays attestation details to users: container image reference, hash, TEE platform technology, and static IP. This transparency allows technically sophisticated users to independently verify infrastructure integrity.
+Only after all verification passes does the browser store the TEE public key and enable submissions. The browser displays attestation details to users: enclave image reference, PCR measurements, TEE platform technology, and static IP. This transparency allows technically sophisticated users to independently verify infrastructure integrity.
 
 Browsers cache verified attestations for the 24-hour validity period, avoiding redundant verification on every action. When attestation expires, browsers automatically re-verify before the next submission. This balance maintains security without introducing user friction.
 
@@ -3567,7 +3577,7 @@ await ReputationRegistry.methods.updateScore(
 - [ ] ~~UMA integration audit (Optimistic Oracle dispute resolution)~~ **→ Phase 2 ONLY**
 - [ ] ~~ZK circuit audit (ResidencyCircuit trusted setup verification)~~ **→ Phase 1: GKR has no trusted setup**
 - [ ] GKR implementation audit (Polyhedra Expander, Fiat-Shamir transformation) **→ Phase 1**
-- [ ] ~~CipherVault penetration testing (NEAR encrypted storage)~~ **→ Phase 1: GCP Confidential Space TEE audit**
+- [ ] ~~CipherVault penetration testing (NEAR encrypted storage)~~ **→ Phase 1: AWS Nitro Enclaves TEE audit**
 - [ ] Frontend security review (XSS, CSRF, NFC implementation) **→ Phase 1**
 - [ ] Privacy impact assessment (GDPR, CCPA compliance) **→ Phase 1**
 - [ ] ~~Economic security modeling (challenge markets, outcome markets gaming resistance)~~ **→ Phase 2 ONLY**
@@ -3587,7 +3597,7 @@ await ReputationRegistry.methods.updateScore(
 > - self.xyz + Didit.me: FREE identity verification
 > - Content moderation: $65.49/month (OpenAI API free + Gemini/Claude consensus)
 > - PostgreSQL (Supabase): $25/month
-> - GCP Confidential Space: $150/month
+> - AWS Nitro Enclaves: $150/month
 > - Scroll gas: $10/month
 > - Shadow Atlas IPFS: $5/month
 > - Domain + SSL: $20/month
@@ -3608,7 +3618,7 @@ await ReputationRegistry.methods.updateScore(
 - **Total**: $0.245 - $0.745 per user (vs $2.43-$3.93 with named accounts)
 
 ### Per Civic Action — HISTORICAL VISION
-- Decrypt PII: $0 (view call) **→ Phase 1: GCP TEE decryption**
+- Decrypt PII: $0 (view call) **→ Phase 1: AWS Nitro TEE decryption**
 - CWC API submission: $0 **→ Phase 1: Same**
 - Submit to Scroll: $0.135 gas **→ Phase 1: ~$0.01 (GKR verification)**
 - ~~Token minting: $0.05 gas~~ **→ Phase 2 ONLY**
@@ -3847,7 +3857,7 @@ interface IReputationRegistry {
 
 **Validation Checks**:
 1. ZK proof validity (district membership)
-2. TEE attestation verification (GCP Confidential Space)
+2. TEE attestation verification (AWS Nitro Enclaves)
 3. CWC delivery receipt confirmation
 4. Duplicate detection (same user, same template, <24 hours)
 5. Content moderation (no harassment, threats, spam)
@@ -3974,7 +3984,7 @@ function getTokenPrice(): number {
 
 **Infrastructure**:
 - LangGraph Cloud for agent orchestration
-- GCP Cloud Run for stateless agent execution
+- AWS Lambda or ECS for stateless agent execution
 - PostgreSQL for agent state persistence
 - Redis for short-term caching
 
@@ -4013,10 +4023,10 @@ function getTokenPrice(): number {
   - 8GB database, 100GB bandwidth
   - Full-text search for 10,000+ templates
   - Realtime subscriptions for dashboard updates
-- GCP Confidential Space TEE: $150/month
-  - AMD SEV-SNP attestation for congressional delivery
+- AWS Nitro Enclaves TEE: $150/month
+  - Nitro attestation for congressional delivery
   - Hardware-encrypted PII decryption
-  - n2d-standard-2 (2 vCPU, 8GB RAM)
+  - c6a.xlarge or c6i.xlarge (4 vCPU, 8GB RAM)
 - Scroll L2 Gas Budget: $10/month
   - ~$0.01 per GKR proof verification
   - 1,000 verifications/month capacity
@@ -4097,7 +4107,7 @@ function getTokenPrice(): number {
 - Monthly infrastructure: $326/month = $3,912/year
 - Scroll gas scales: +$900/month = $10,800/year
 - Supabase scales: +$175/month = $2,100/year
-- GCP TEE scales: +$150/month = $1,800/year (load balancing)
+- AWS Nitro TEE scales: +$150/month = $1,800/year (load balancing)
 - User onboarding: 100,000 × $0.011 = $1,100
 - Civic actions (10/user/year): 1,000,000 × $0.015 = $15,000
 - Reputation updates (50/user/year): 5,000,000 × $0.005 = $25,000
@@ -4119,7 +4129,7 @@ function getTokenPrice(): number {
   - Performance optimization (target: 8-10 seconds)
 - 1 backend developer: $50,000
   - Congressional CWC API integration
-  - GCP Confidential Space TEE setup
+  - AWS Nitro Enclaves TEE setup
   - PostgreSQL schema design
   - ImpactAgent legislative correlation
   - Content moderation pipeline
@@ -4135,9 +4145,9 @@ function getTokenPrice(): number {
   - Core contracts: DistrictGate, CommuniqueCoreV2, UnifiedRegistry
   - GKR verifier security review
   - Agent consensus logic audit
-- GCP Confidential Space penetration test: $10,000
+- AWS Nitro Enclaves penetration test: $10,000
   - TEE attestation verification
-  - AMD SEV-SNP security review
+  - Nitro security review
   - PII encryption audit
 
 **Total Development**: **$300,000**
@@ -4163,7 +4173,7 @@ function getTokenPrice(): number {
 
 **No Outcome Markets**: Gnosis CTF + UMA Optimistic Oracle + Hybrid CLOB + Retroactive Funding infrastructure = $40,000 integration deferred to Phase 2.
 
-**No NEAR CipherVault**: $11,000/year storage costs eliminated. GCP TEE ($150/month) replaces NEAR for congressional delivery only.
+**No NEAR CipherVault**: $11,000/year storage costs eliminated. AWS Nitro TEE ($150/month) replaces NEAR for congressional delivery only.
 
 **FREE Identity Verification**: self.xyz + Didit.me both offer FREE tiers with unlimited verifications. Phase 1 prioritized partnerships over paid APIs.
 
@@ -4190,20 +4200,20 @@ function getTokenPrice(): number {
 **Phase 1 Integration Points** (launching in 3 months):
 1. **GKR Protocol (Polyhedra Expander)** → Zero-knowledge district verification without trusted setup
 2. **self.xyz + Didit.me** → FREE identity verification (NFC passport + Core KYC fallback)
-3. **GCP Confidential Space** → Hardware-attested congressional delivery (AMD SEV-SNP TEE)
+3. **AWS Nitro Enclaves** → Hardware-attested congressional delivery (Nitro TEE)
 4. **PostgreSQL (Supabase)** → Template storage, full-text search, realtime updates
 5. **Scroll L2** → zkEVM settlement (~$0.01/action gas cost)
 6. **Congressional CWC API** → Federal delivery to Senate + House offices
 
 **Phase 2 Integration Points** (12-18 months):
-1. ~~**NEAR CipherVault** → Stores ALL user PII (encrypted)~~ **→ Phase 1: GCP TEE for delivery only**
+1. ~~**NEAR CipherVault** → Stores ALL user PII (encrypted)~~ **→ Phase 1: AWS Nitro TEE for delivery only**
 2. ~~**Chain Signatures** → Controls addresses on Scroll/Ethereum/Bitcoin/Solana~~ **→ Optional cross-chain future**
 3. **Gnosis CTF** → Outcome markets for legislative predictions
 4. **UMA Optimistic Oracle** → Dispute resolution for market outcomes
 5. **Chainlink Functions DON** → Multi-model AI consensus for challenge markets
 6. **Filecoin** → Permanent audit trail for challenged templates
 
-**Key Insight**: Phase 1 eliminates NEAR dependency entirely. GCP TEE handles congressional delivery. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
+**Key Insight**: Phase 1 eliminates NEAR dependency entirely. AWS Nitro TEE handles congressional delivery. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
 
 ---
 
@@ -4262,7 +4272,7 @@ function getTokenPrice(): number {
 **Critical Integration Points Updated** (lines 4177-4195):
 - Separated Phase 1 integration points (6) vs Phase 2 (6)
 - Removed NEAR CipherVault from Phase 1 (replaced with GCP TEE)
-- Added GKR Protocol, self.xyz, GCP Confidential Space as Phase 1 integrations
+- Added GKR Protocol, self.xyz, AWS Nitro Enclaves as Phase 1 integrations
 
 **Revision-First Policy**: Updated outdated content to reflect current architecture instead of deleting. Preserved historical context with update notes. Phase 2 features labeled clearly, not removed.
 

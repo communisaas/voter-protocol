@@ -9,18 +9,19 @@
 
 ## Overview
 
-The Client SDK provides a high-level interface for interacting with CipherVault smart contract on NEAR Protocol. It abstracts storage management, cost calculations, and transaction handling.
+The Client SDK provides a high-level interface for interacting with VOTER Protocol smart contracts across NEAR Protocol (PII storage) and Scroll L2 (ZK proof verification). It abstracts storage management, cost calculations, transaction handling, and district verification.
 
 **Key Features:**
-- Automatic storage deposit management
-- Cost calculation and balance tracking
-- Transaction retry logic
-- Type-safe contract interface
+- **PII Storage (NEAR)**: Automatic storage deposit management, cost calculation, encrypted envelope storage
+- **District Verification (Scroll L2)**: TEE proof submission, attestation verification, on-chain ZK verification
+- Transaction retry logic and error handling
+- Type-safe contract interfaces
 - Implicit account creation
 
 **Related Specs:**
-- [CIPHERVAULT-CONTRACT-SPEC.md](./CIPHERVAULT-CONTRACT-SPEC.md) - Contract methods and validation
-- [CRYPTO-SDK-SPEC.md](./CRYPTO-SDK-SPEC.md) - Encryption and compression
+- [CIPHERVAULT-CONTRACT-SPEC.md](./CIPHERVAULT-CONTRACT-SPEC.md) - NEAR contract methods and validation
+- [CRYPTO-SDK-SPEC.md](./CRYPTO-SDK-SPEC.md) - Encryption, compression, and TEE proving
+- [ZK-PROOF-SPEC.md](./ZK-PROOF-SPEC.md) - Halo2 + TEE proving architecture
 - [COMPRESSION-STRATEGY.md](../COMPRESSION-STRATEGY.md) - Cost optimization
 
 ---
