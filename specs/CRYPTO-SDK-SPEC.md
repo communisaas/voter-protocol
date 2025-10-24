@@ -1,13 +1,27 @@
 # Crypto SDK Engineering Specification
 
-**Component:** TypeScript Cryptography Library
-**Language:** TypeScript
-**Location:** `packages/crypto/`
-**Status:** 📋 Day 3-4 Implementation
+⚠️ **DEPRECATED SPECIFICATION - OBSOLETE ARCHITECTURE**
+
+**This document describes an earlier architecture using AWS Nitro TEE proving.**
+
+**The VOTER Protocol now uses browser-native Halo2 + KZG proving instead. All TEE-based proving has been eliminated in favor of client-side WASM proving.**
+
+**For current specifications, see:**
+- [ZK-PROOF-SPEC-REVISED.md](./ZK-PROOF-SPEC-REVISED.md) - Browser-native Halo2 + KZG architecture (CURRENT)
+- [TECHNICAL.md](../TECHNICAL.md) - Current implementation details with browser-native proving
+
+**This file is retained for historical reference only. Do not use for new development.**
 
 ---
 
-## Overview
+**Component:** TypeScript Cryptography Library
+**Language:** TypeScript
+**Location:** `packages/crypto/`
+**Status:** ❌ DEPRECATED - See ZK-PROOF-SPEC-REVISED.md for current architecture
+
+---
+
+## Overview (HISTORICAL - Do Not Use)
 
 The Crypto SDK provides client-side encryption, compression, key derivation, and zero-knowledge proof generation for VOTER Protocol. It ensures privacy through multi-stage compression, authenticated encryption, and TEE-based ZK proofs.
 

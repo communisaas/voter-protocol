@@ -609,7 +609,8 @@ User pays gas, receives:
 
 **Storage:**
 
-- Reputation scores: Off-chain (NEAR CipherVault) + on-chain merkle root
+- Reputation scores: On-chain ERC-8004 (Scroll L2) + merkle root for gas optimization
+- Identity commitments: Scroll Identity Registry (Poseidon hashes, not PII)
 - Reward calculations: Off-chain computation, on-chain verification
 - Token transfers: Standard ERC-20 on Scroll zkEVM
 

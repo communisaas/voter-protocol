@@ -2,7 +2,7 @@
 
 **This document evolves with the threat landscape. Last updated: 2025-10-20**
 
-**Phase 1 Focus**: This security model reflects Phase 1 architecture (Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, GCP TEE delivery, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
+**Phase 1 Focus**: This security model reflects Phase 1 architecture (browser-native Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, E2E encrypted congressional delivery, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
 
 VOTER Protocol is cryptographic democratic infrastructure handling identity verification, congressional message delivery, content moderation, and reputation systems. Phase 2 adds financial mechanisms (token economics, prediction markets). Security failures kill trust. This document maps threat vectors, mitigations, and incident response procedures.
 
@@ -17,7 +17,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 2. **Message plaintext** - Read congressional communications (surveillance)
 3. **Reputation manipulation** - Farm credibility scores fraudulently
 4. **Content moderation bypass** - Inject illegal content (CSAM, threats), evade detection
-5. **TEE compromise** - Read PII during congressional delivery
+5. **Client-side proof manipulation** - Generate invalid ZK proofs to forge district membership
 6. **Smart contract exploits** - Drain protocol treasury, manipulate reputation registry
 
 **Phase 2 Additional Assets** (12-18 months):
@@ -30,7 +30,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 **Phase 1:**
 - **Catastrophic**: CSAM on platform (federal crime), identity deanonymization at scale, message database breach
-- **Critical**: Single-user identity exposure, reputation manipulation affecting congressional filtering, TEE compromise, Section 230 liability
+- **Critical**: Single-user identity exposure, reputation manipulation affecting congressional filtering, browser WASM proof bypass, Section 230 liability
 - **High**: Spam bypassing 3-layer moderation, Halo2 proof forgery, protocol treasury drain
 - **Medium**: DoS attacks, gas griefing, rate limit evasion
 
@@ -259,30 +259,38 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 ### End-to-End Message Encryption
 
-**Security claim:** Plaintext exists only in: constituent browser → TEE enclave → CWC API → congressional CRM. Platform operators cannot read messages.
+**Security claim:** Plaintext exists only in: constituent browser → encrypted network transit → CWC API decryption → congressional CRM. Platform operators cannot read messages.
 
 **Attack vectors:**
-1. **TEE side-channel attacks** - Spectre/Meltdown variants leak enclave memory
-   - *Mitigation*: AWS Nitro hardware isolation protects against known side-channels, regular microcode updates
-   - *Status*: Enclave patches applied within 24h of AWS security releases
-   - *Last update*: 2025-10-15 (Nitro firmware latest)
+1. **Backend server compromise** - Attacker gains access to backend infrastructure
+   - *Mitigation*: Backend receives only encrypted blobs (lacks decryption keys)
+   - *Status*: Encrypted messages pass through backend without decryption capability
+   - *Even if compromised*: Attacker gets XChaCha20-Poly1305 encrypted blobs (256-bit keys, ephemeral, deleted after use)
 
-2. **Attestation forgery** - Present fake TEE attestation, accept plaintext
-   - *Mitigation*: AWS Nitro RSA-PSS signature verification before accepting blobs
-   - *Status*: Every attestation verified on-chain, public audit log
+2. **Man-in-the-middle on CWC API** - Intercept encrypted messages in transit to congressional offices
+   - *Mitigation*: TLS 1.3 for all network transit, certificate pinning
+   - *Status*: CWC API whitelist only accepts connections from verified backend IPs
+   - *Even if intercepted*: Still encrypted with congressional office's public key (RSA-OAEP)
 
 3. **CWC API compromise** - Congressional systems leak messages post-delivery
    - *Mitigation*: Outside VOTER control, messages ephemeral (not stored after CWC handoff)
    - *Status*: Congressional offices control their own security posture
+   - *Platform responsibility*: Delivery confirmation only, not post-delivery storage
 
 4. **Key management failure** - Lose congressional office public keys, can't encrypt
-   - *Mitigation*: Multi-party key generation ceremony, IPFS backup
-   - *Status*: Keys regenerated annually, previous keys retained for decryption
+   - *Mitigation*: Keys retrieved from CWC API per-message (not stored platform-side)
+   - *Status*: CWC maintains authoritative key registry for all congressional offices
+   - *Backup*: Keys published to IPFS as secondary source
+
+5. **Client-side JavaScript compromise** - Malicious code injected into browser encryption
+   - *Mitigation*: Subresource Integrity (SRI) hashes for all JavaScript, Content Security Policy
+   - *Status*: WASM modules cryptographically signed, browser verifies before execution
+   - *Detection*: Any SRI mismatch prevents page load (user sees security warning)
 
 **Incident response:**
-- **If TEE compromised**: Immediate migration to self-hosted TEEs or FHE (v2 architecture)
-- **If attestation forged**: Pause message delivery, forensic analysis, update verification logic
-- **If CWC breach**: Not VOTER responsibility, but notify affected offices immediately
+- **If backend compromised**: Only encrypted blobs exposed (attacker cannot decrypt without ephemeral keys)
+- **If CWC API breached**: Not VOTER responsibility, but notify affected offices immediately
+- **If client-side compromise detected**: Emergency rollback to known-good JavaScript version, publish security advisory
 
 -----
 
@@ -529,20 +537,20 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 **Current state:**
 - Messages encrypted client-side before network transit
-- Decryption happens only in TEE enclave
-- Plaintext never persists (delivered to CWC, then deleted)
-- Encrypted blobs stored temporarily (<24 hours)
+- Encrypted blobs pass through backend (no decryption capability)
+- Plaintext never persists in backend (delivered to CWC encrypted, CWC decrypts)
+- Encrypted blobs stored temporarily (<24 hours for delivery confirmation)
 
 **If database compromised:**
-- Attacker gets: Encrypted blobs (XChaCha20-Poly1305)
-- Attacker needs: Client ephemeral keys (deleted after encryption)
-- Brute force infeasible: 256-bit key space, ~2^256 operations
+- Attacker gets: Encrypted blobs (XChaCha20-Poly1305 + RSA-OAEP wrapped keys)
+- Attacker needs: Congressional office private keys (controlled by CWC, not platform)
+- Brute force infeasible: 256-bit symmetric keys + 2048-bit RSA, ~2^256 operations
 
 **Response:**
-1. Rotate all encryption keys (future messages use new keys)
-2. Audit TEE attestation logs (did any unauthorized code run?)
-3. Notify congressional offices of potential exposure (even though plaintext unreachable)
-4. Accelerate v2 migration (self-hosted TEEs remove centralized database)
+1. Immediate incident notification to affected congressional offices
+2. Forensic analysis to determine breach vector and scope
+3. Purge all temporary encrypted message storage
+4. Congressional offices can rotate their CWC keys if concerned (platform has no control)
 
 -----
 
@@ -598,7 +606,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 **Runbooks:**
 - Smart contract exploit: `/runbooks/contract-freeze.md`
 - Privacy breach: `/runbooks/identity-exposure.md`
-- TEE compromise: `/runbooks/enclave-incident.md`
+- Browser WASM compromise: `/runbooks/client-security-incident.md`
 - Oracle manipulation: `/runbooks/oracle-pause.md`
 
 -----
@@ -610,7 +618,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 **Critical Path (Must complete before mainnet launch):**
 - [ ] Halo2 circuit formal verification (Trail of Bits audit for Merkle membership circuit)
 - [ ] DistrictGate.sol smart contract audit (OpenZeppelin/Trail of Bits)
-- [ ] AWS Nitro Enclaves TEE attestation verification
+- [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity)
 - [ ] Shadow Atlas Merkle tree generation and IPFS deployment
 - [ ] Content moderation 3-layer stack penetration testing
 - [ ] self.xyz + Didit.me integration security review
@@ -618,8 +626,8 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 
 **Phase 1 Operational Security:**
 - [ ] Security council multisig setup (3-of-5 threshold, hardware wallets)
-- [ ] Incident response runbooks (Halo2 circuit vulnerability, TEE compromise, CSAM detection, moderation bypass)
-- [ ] Monitoring infrastructure (Datadog for Halo2 proving times, Sentry for errors, gas cost tracking)
+- [ ] Incident response runbooks (Halo2 circuit vulnerability, browser WASM compromise, CSAM detection, moderation bypass)
+- [ ] Monitoring infrastructure (Datadog for browser proving times, Sentry for errors, gas cost tracking)
 - [ ] Congressional IT compliance review (CWC integration, data protection, Section 230)
 
 **Phase 1 Contingency Planning:**
@@ -636,9 +644,9 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 - [ ] Outcome market integration audit (UMA/Gnosis CTF security review)
 
 **Privacy Enhancements:**
-- [ ] Self-hosted TEE deployment research (removes GCP dependency)
-- [ ] Privacy pools implementation (Tornado Cash-style unlinkability)
-- [ ] Fully homomorphic encryption research (removes TEE entirely, Phase 3+)
+- [ ] Privacy pools implementation (Buterin 2023/2025, Tornado Cash-style unlinkability)
+- [ ] Fully homomorphic encryption research (encrypt computational inputs, Phase 3+)
+- [ ] Nested ZK proofs for reputation ranges (only if congressional offices accept weaker signals)
 
 **Cross-Chain Expansion:**
 - [ ] NEAR Chain Signatures security review (threshold ECDSA, MPC protocol)
@@ -656,7 +664,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 - [ ] DAO governance transition security review
 - [ ] Decentralized oracle network (reduce Chainlink/Band reliance)
 - [ ] Community-run Shadow Atlas verification tools
-- [ ] Distributed TEE network (multi-provider redundancy)
+- [ ] Distributed WASM proving verification (community-run IPFS nodes for KZG parameters)
 
 **Compliance & Audits:**
 - [ ] Annual penetration testing (red team exercises)
@@ -693,17 +701,19 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 ## Appendix: Security Assumptions
 
 **We assume the following are secure (if broken, system security fails):**
-1. **Elliptic curve discrete log** (ECDSA, Halo2 proofs)
-2. **AWS Nitro Enclaves** (TEE memory encryption)
-3. **XChaCha20-Poly1305** (AEAD encryption)
-4. **NEAR MPC protocol** (threshold ECDSA, Phase 2+)
-5. **Poseidon hash function** (collision resistance)
+1. **Elliptic curve discrete log** (ECDSA, Halo2 proofs, BN254 curve)
+2. **XChaCha20-Poly1305** (AEAD encryption for congressional messages)
+3. **RSA-OAEP** (Key encapsulation for congressional office public keys)
+4. **NEAR MPC protocol** (threshold ECDSA, Phase 2+ if adopted)
+5. **Poseidon hash function** (collision resistance, SNARK-friendly)
+6. **KZG commitment scheme** (Polynomial commitments via Ethereum's 141K-participant ceremony)
+7. **Browser sandbox security** (WASM isolation, COOP/COEP headers enforced)
 
 **We do NOT assume:**
 - Users protect seed phrases (we use identity verification instead)
 - Single oracle tells truth (we cross-reference multiple)
 - Single agent is honest (we require multi-agent consensus)
-- AWS won't try to read TEE memory (Nitro hardware prevents it)
+- Platform operators are trustworthy (cryptography eliminates need for trust)
 - Congressional offices protect messages post-delivery (out of our control)
 
 -----

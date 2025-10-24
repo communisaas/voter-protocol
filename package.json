@@ -9,11 +9,18 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "dev": "turbo run dev"
+    "dev": "turbo run dev",
+    "atlas:dev": "NODE_ENV=development ATLAS_MODE=mock tsx scripts/build-shadow-atlas.ts",
+    "atlas:prod": "NODE_ENV=production ATLAS_MODE=census tsx scripts/build-shadow-atlas.ts",
+    "atlas:serve": "tsx scripts/serve-atlas.ts",
+    "atlas:verify": "tsx scripts/verify-atlas.ts"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "tsx": "^4.19.2",
+    "circomlibjs": "^0.1.7",
+    "@types/node": "^24.3.2"
   }
 }

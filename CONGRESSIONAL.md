@@ -233,10 +233,10 @@ Phase 2 additions (12-18 months):
 
 **Cryptographic delivery:**
 - Messages encrypted before network transit (XChaCha20-Poly1305)
-- Delivered through hardware-attested secure environment (AWS Nitro Enclaves)
-- Decryption happens only in isolated enclave
-- Delivered to CWC (Communicating with Congress) API from whitelisted IP
-- Plaintext exists only in: constituent browser → enclave → CWC → your CRM
+- Encrypted delivery to congressional CWC API from backend server
+- Decryption handled by CWC (Communicating with Congress) API
+- Delivered to your CRM through existing congressional communication infrastructure
+- Plaintext exists only in: constituent browser → encrypted transit → CWC → your CRM
 
 **On-chain reputation:**
 - Wallet addresses earn reputation scores (on Scroll blockchain)

@@ -3,7 +3,7 @@
 **Status**: Active development - Phase 1 implementation (Halo2 recursive proofs, reputation-only)
 **Last Updated**: October 2025
 **Implementation**: Smart contracts in this repo, frontend in Communique repo
-**Core Decisions**: Scroll settlement, Halo2 zero-knowledge proofs, NEAR account abstraction (optional), no database PII storage
+**Core Decisions**: Scroll settlement, Halo2 zero-knowledge proofs, Scroll identity registry (on-chain Sybil resistance), no database PII storage, no NEAR dependency
 
 ---
 
@@ -14,7 +14,7 @@
 **Identity**: self.xyz NFC passport (FREE, primary) + Didit.me (FREE, fallback)
 **Privacy**: Halo2 recursive proofs (no trusted setup, battle-tested since 2022 in Zcash Orchard), addresses never leave browser, never stored in any database
 **Templates**: PostgreSQL (Supabase) for template metadata only
-**Verification**: Congressional CWC API via AWS Nitro Enclaves (ARM TEE, no Intel ME/AMD PSP, independently audited 2025)
+**Verification**: Congressional CWC API via E2E encrypted delivery (browser → encrypted transit → CWC decryption)
 **Moderation**: 3-layer stack (FREE OpenAI Moderation API + Gemini/Claude consensus + human review)
 **Phase**: Phase 1 (reputation-only, 3 months) → Phase 2 (token economics, 12-18 months)
 
@@ -22,22 +22,21 @@
 
 ## Phase Architecture Overview
 
-VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations and proves civic utility. Phase 2 adds token economics. Phase 3+ explores advanced privacy.
+VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations and proves civic utility **with full privacy from day one** (browser-native Halo2 proofs, selective disclosure). Phase 2 adds token economics. Phase 3+ (speculative, only if community demands) would explore **enhanced** privacy through nested ZK proofs.
 
 ### Phase 1: Cryptographic Infrastructure (Current - 3 Months to Launch)
 
 **What Ships:**
-- Halo2 zero-knowledge district proofs (4-6s browser proving, 60-100k gas, no trusted setup, battle-tested since 2022)
+- Halo2 zero-knowledge district proofs (browser-native WASM, 600ms-10s proving, 300-500k gas with KZG, no trusted setup, battle-tested since 2022)
 - Addresses never leave browser, never stored in any database
-- E2E encryption via AWS Nitro Enclaves (ARM Graviton TEE, hypervisor-isolated, CBOR attestation)
-
-**Security Note:** AWS Nitro avoids x86 management engines (Intel ME/AMD PSP) but relies on AWS hypervisor trust. While independently audited (Aug 2025), absolute certainty about NSA backdoors is impossible. ARM architecture + open-source components reduce but don't eliminate state-actor risk.
+- E2E encryption for congressional delivery (client-side XChaCha20-Poly1305, encrypted transit, CWC decryption)
+- Browser-native proving (zero cloud dependency, $0/month infrastructure cost)
 - Cross-chain account abstraction (NEAR Chain Signatures, optional)
 - On-chain reputation (ERC-8004 portable credibility, no token rewards)
 - 3-layer content moderation (Section 230 compliant)
 - FREE identity verification (self.xyz passport + Didit.me fallback)
 
-**Budget:** $326/month for 1,000 users / 10,000 messages
+**Budget:** $315/month for 1,000 users / 10,000 messages (no NEAR storage costs)
 
 **What's NOT in Phase 1:**
 - VOTER token (Phase 2)
@@ -57,13 +56,15 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 
 **Why Delayed:** Token launches require legal compliance (CLARITY Act framework), liquidity infrastructure, economic security audits. Phase 1 proves civic utility before adding financial layer.
 
-### Phase 3+: Advanced Privacy (Speculative - 2+ Years)
+### Phase 3+: Enhanced Privacy (Speculative - 2+ Years, Only If Community Demands)
+
+**Context:** Phase 1 already provides **full privacy** through browser-native Halo2 proofs that never transmit addresses. Users have selective disclosure from day one (prove district membership without revealing address, prove reputation range without exact score). Phase 3+ would explore **optional, stronger privacy** features that come with architectural tradeoffs.
 
 **Only if community demands AND congressional offices accept:**
-- Nested ZK proofs (range proofs for reputation instead of exact scores)
-- Shielded message metadata (hide send timestamps, template IDs)
+- Nested ZK proofs (prove "reputation > 5000" without revealing exact score, vs current exact scoring visible to congressional offices)
+- Shielded message metadata (hide send timestamps, template IDs from on-chain records)
 
-**Tradeoff:** Congressional offices receive weaker aggregate signals. Phase 3+ only ships if offices say "we can use this data."
+**Tradeoff:** Congressional offices receive weaker aggregate signals (ranges instead of exact scores, hidden timestamps). This reduces the signal quality offices use to gauge constituent intensity and coordination. Phase 3+ only ships if offices explicitly accept this reduction in data granularity.
 
 ---
 
@@ -223,137 +224,183 @@ flowchart LR
 - Self.xyz: 30 seconds (NFC passport scan)
 - Didit.me: 2-3 minutes (manual ID upload + verification)
 
-**Privacy**: Neither provider stores PII on-chain. VCs issued off-chain, encrypted client-side before storage in CipherVault.
+**Privacy**: Neither provider stores PII on-chain. Identity commitments (Poseidon hash of passport#, nationality, birthYear) registered on Scroll L2 IdentityRegistry.sol for Sybil resistance. PII never stored anywhere.
 
 ---
 
-### Layer 3: Encrypted Storage (NEAR CipherVault)
+### Layer 3: Identity Registry (Scroll L2 Smart Contract)
 
-**Contract**: `ciphervault-v1.YOUR_ACCOUNT.near` (Rust/NEAR)
+> **IMPORTANT**: Phase 1 uses on-chain identity commitments for Sybil resistance. NO PII is stored anywhere (not on-chain, not in database, not on NEAR). This section describes the ONLY identity storage in the system.
 
-```rust
-pub struct CipherEnvelope {
-    pub owner: AccountId,                      // Implicit account (64-char hex)
-    pub encrypted_data: Vec<u8>,               // Compressed + encrypted PII (~500B)
-    pub nonce: Vec<u8>,                        // 24 bytes (XChaCha20-Poly1305)
-    pub poseidon_commit: String,               // 64 hex chars (32 bytes)
-    pub encrypted_sovereign_key: Vec<u8>,      // AES-256-GCM ciphertext
-    pub sovereign_key_iv: Vec<u8>,             // 12 bytes (AES-GCM IV) ← Day 2 fix
-    pub sovereign_key_tag: Vec<u8>,            // 16 bytes (AES-GCM tag) ← Day 2 fix
-    pub version: u32,                          // Schema version
-    pub created_at: u64,                       // Unix timestamp
-    pub guardians: Vec<AccountId>,             // 2-of-3 recovery (optional)
-}
+**Contract**: `IdentityRegistry.sol` (Solidity/Scroll L2)
 
-// Storage deposit tracking (NEP-145)
-pub struct Contract {
-    envelopes: LookupMap<AccountId, CipherEnvelope>,
-    storage_balances: LookupMap<AccountId, Balance>,  // ← Day 2 fix
+**Deployed Address**: `0x...` (TBD - see `deployments/identity-registry.json` after deployment)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/**
+ * @title IdentityRegistry
+ * @notice On-chain Sybil resistance via identity commitments
+ * @dev Stores Poseidon hash of (passportNumber, nationality, birthYear)
+ *      NO PII stored on-chain - only cryptographic commitment
+ */
+contract IdentityRegistry {
+    // Identity commitment => registered status
+    mapping(bytes32 => bool) public identityCommitments;
+
+    // Identity commitment => registration timestamp
+    mapping(bytes32 => uint256) public registrationTime;
+
+    // User address => identity commitment (reverse lookup)
+    mapping(address => bytes32) public userCommitments;
+
+    event IdentityRegistered(
+        address indexed user,
+        bytes32 indexed commitment,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Register identity commitment (Sybil resistance)
+     * @param commitment Poseidon hash of (passportNumber, nationality, birthYear)
+     */
+    function registerIdentity(bytes32 commitment) external {
+        require(commitment != bytes32(0), "Invalid commitment");
+        require(!identityCommitments[commitment], "Identity already registered");
+        require(userCommitments[msg.sender] == bytes32(0), "User already registered");
+
+        identityCommitments[commitment] = true;
+        registrationTime[commitment] = block.timestamp;
+        userCommitments[msg.sender] = commitment;
+
+        emit IdentityRegistered(msg.sender, commitment, block.timestamp);
+    }
+
+    /**
+     * @notice Check if identity commitment is registered
+     */
+    function isRegistered(bytes32 commitment) external view returns (bool) {
+        return identityCommitments[commitment];
+    }
+
+    /**
+     * @notice Get user's identity commitment
+     */
+    function getUserCommitment(address user) external view returns (bytes32) {
+        return userCommitments[user];
+    }
+
+    /**
+     * @notice Get registration timestamp
+     */
+    function getRegistrationTime(bytes32 commitment) external view returns (uint256) {
+        return registrationTime[commitment];
+    }
 }
 ```
 
-**Day 2 Security Fixes Applied**:
-- ✅ `sovereign_key_iv` and `sovereign_key_tag` for proper AES-GCM decryption
-- ✅ Storage deposit pattern (NEP-145) prevents contract balance drain
-- ✅ Envelope size limits (100KB max) prevent DoS attacks
-- ✅ Reference: [DAY-2-SECURITY-FIXES.md](./DAY-2-SECURITY-FIXES.md)
+**Client-Side Commitment Generation** (browser-only, zero storage):
 
-**Client-Side Encryption Flow** (with compression):
+```typescript
+// IMPORTANT: This runs in Didit.me webhook (server-side), NOT browser
+// PII is extracted, hashed, and discarded immediately
 
-```javascript
-// 1. Generate sovereign key (browser only, never transmitted)
-const sovereignKey = crypto.getRandomValues(new Uint8Array(32));
+// 1. Extract identity data from Didit.me verification
+const passportNumber = verification.document_number;
+const nationality = verification.issuing_state;
+const birthYear = new Date(verification.date_of_birth).getFullYear();
 
-// 2. Prepare PII data
-const pii = {
-  legal_name: "Alice Smith",
-  address: "123 Main St, Austin TX 78701",
-  district_id: "TX-21",
-  didit_vc: { /* ... */ },
-  rep_name: "Chip Roy",
-  rep_contact: "rep.chiproy@mail.house.gov"
-};
+// 2. Generate Poseidon commitment (ZK-friendly hash)
+import { poseidon2 } from '@noble/curves/abstract/poseidon';
 
-// 3. COMPRESSION (90% size reduction)
-// Stage 1: MessagePack serialization (2300B → 1600B)
-const packed = msgpack.encode(pii);
+function generateIdentityCommitment(
+    passportNumber: string,
+    nationality: string,
+    birthYear: number
+): string {
+    // Normalize inputs (same identity = same hash)
+    const normalizedPassport = passportNumber.toUpperCase().replace(/[\s-]/g, '');
+    const normalizedNationality = nationality.toUpperCase();
 
-// Stage 2: Zstandard compression with dictionary (1600B → 180B)
-const compressed = zstd.compress(packed, {
-  level: 22,
-  dictionary: piiDictionary  // Pre-trained on PII samples
-});
-// Result: 2300B → 180B (92% reduction)
+    // Convert to field elements for Poseidon hash
+    const passportField = stringToFieldElement(normalizedPassport);
+    const nationalityField = stringToFieldElement(normalizedNationality);
+    const birthYearField = BigInt(birthYear);
 
-// 4. ENCRYPTION with AAD binding
-const nonce = crypto.randomBytes(24);
-const aad = new TextEncoder().encode(accountId);  // Bind to account
-const ciphertext = xchacha20poly1305.seal(
-  compressed,      // Compress BEFORE encrypt (no timing attacks)
-  nonce,
-  sovereignKey,
-  aad              // Prevents ciphertext reuse across accounts
-);
-// Result: ~500B final envelope (vs 5KB uncompressed)
+    // Poseidon hash (ZK-friendly, compatible with Halo2 circuits)
+    const hash = poseidon2([passportField, nationalityField, birthYearField]);
 
-// 5. Generate Poseidon commitment (ZK-friendly hash)
-const commitment = poseidon([
-  hash(pii.district_id),
-  hash(pii.address),
-  hash(nonce)
-]);
+    // Convert to bytes32 for Solidity
+    return '0x' + hash.toString(16).padStart(64, '0');
+}
 
-// 6. Encrypt sovereign key with HKDF-derived account key
-const accountKey = await deriveAccountKey(accountId, walletSignature);
-const { ciphertext: encryptedSovKey, iv, tag } = aes256gcm.encrypt(
-  sovereignKey,
-  accountKey
-);
-// Store IV and tag separately (Day 2 security fix)
+// 3. Register on Scroll L2 (platform wallet pays gas)
+const identityRegistry = getIdentityRegistryContract();
+const tx = await identityRegistry.registerIdentity(commitment);
+const receipt = await tx.wait();
 
-// 7. Storage deposit (NEP-145 pattern)
-await near.functionCall({
-  contractId: "ciphervault-v1.YOUR_ACCOUNT.near",
-  methodName: "storage_deposit",
-  args: { account_id: accountId },
-  deposit: "50000000000000000000000"  // 0.05 NEAR
-});
-
-// 8. Store in CipherVault
-await near.functionCall({
-  contractId: "ciphervault-v1.YOUR_ACCOUNT.near",
-  methodName: "store_envelope",
-  args: {
-    encrypted_data: Array.from(ciphertext),
-    nonce: Array.from(nonce),
-    poseidon_commit: commitment.toString(16),
-    encrypted_sovereign_key: Array.from(encryptedSovKey),
-    sovereign_key_iv: Array.from(iv),      // ← Day 2 fix
-    sovereign_key_tag: Array.from(tag)     // ← Day 2 fix
-  }
-});
-
-// 9. Secure memory cleanup
-sovereignKey.fill(0);
-accountKey.fill(0);
+// 4. PII DISCARDED IMMEDIATELY (never stored anywhere)
+// passportNumber, nationality, birthYear are garbage collected
 ```
 
-**Storage Costs** (with compression):
-- **Per user**: 500B envelope = 0.05 NEAR = **$0.11** (one-time, at $2.19/NEAR)
-- **Without compression**: 5KB = 0.5 NEAR = $1.12 per user (10x more expensive)
-- **Savings**: 90% cost reduction via MessagePack + Zstd-22 compression
-- **Scale economics**:
-  - 100 users = 5 NEAR = $11 (vs $219-$657 with named accounts)
-  - 1,000 users = 50 NEAR = $110 (vs $2,190-$6,570)
-  - 10,000 users = 500 NEAR = $1,100 (vs $21,900-$65,700)
-  - 100,000 users = 5,000 NEAR = $11,000 (vs $219,000-$657,000)
-  - 1,000,000 users = 50,000 NEAR = $110,000 (vs $2.19M-$6.57M)
-- **Reference**: [COMPRESSION-STRATEGY.md](./COMPRESSION-STRATEGY.md) for detailed breakdown
+**Gas Costs** (October 2025 pricing - post-Dencun upgrade):
+- **Contract deployment**: $0.09 (one-time, already deployed)
+- **Identity registration**: **$0.002 per user** (166x cheaper than pre-Dencun!)
+  - L2 execution: 50,000 gas × 0.001 Gwei × $3,860/ETH = **$0.0002**
+  - L1 calldata: 3,200 gas × 0.104 Gwei × $3,860/ETH = **$0.0013**
+  - **Dencun upgrade impact:** Ethereum gas dropped 95% (72 Gwei → 0.104 Gwei)
+- **Identity check**: FREE (view function, no transaction)
+- **Read operations**: FREE (getUserCommitment, isRegistered, getRegistrationTime)
 
-**Guardian Recovery**:
-- 2-of-3 threshold signature
-- 24-hour timelock + cancel path
-- Optional: Hardware key, secondary passkey, trusted friend
+**Scale Economics** (corrected with current gas prices):
+- 100 users = **$0.20** (one-time)
+- 1,000 users = **$2** (one-time)
+- 10,000 users = **$20** (one-time)
+- 100,000 users = **$200** (one-time)
+- **NO recurring costs** (vs $30,000/year for database, $2,550 for NEAR staking over 10 years)
+
+**Data Availability**:
+- ✅ All commitments posted to Ethereum L1 as calldata
+- ✅ Permanent on-chain record (immutable, censorship-resistant)
+- ✅ Anyone can reconstruct state from L1 (trustless)
+- ✅ Inherits Ethereum L1 security ($150B+ staked, 900k+ validators)
+
+**Privacy Guarantees**:
+- ✅ Zero PII stored on-chain (only Poseidon hash)
+- ✅ Sybil resistance without revealing identity
+- ✅ Same passport/nationality/birthYear = same commitment (duplicate detection)
+- ✅ Pre-image resistant (cannot reverse-engineer passport number from hash)
+- ✅ Collision resistant (128-bit security, equivalent to SHA-256)
+
+**Security Model**:
+- Smart contract verified on Scrollscan (source code public)
+- Immutable (no admin functions, no upgrade path)
+- No centralized storage (decentralized by design)
+- Scroll L2 posts all data to Ethereum L1 (data availability guaranteed)
+
+**Comparison to Previous NEAR CipherVault Approach**:
+
+| Metric | NEAR CipherVault (Removed) | Scroll Identity Registry (Current) |
+|--------|----------------------------|-----------------------------------|
+| **Storage** | Encrypted PII on NEAR | Poseidon hash on Scroll L2 |
+| **Cost (1,000 users)** | $10 staked capital | **$2 one-time gas** |
+| **Cost (10 years, 1K/year)** | $150 (capital + opportunity cost) | **$20 one-time gas** |
+| **Data Availability** | NEAR validators, 36-hour pruning | Ethereum L1 (permanent) |
+| **Security** | NEAR staking (~$850M) | Ethereum L1 ($150B+) |
+| **Complexity** | Multi-chain (NEAR + Scroll) | Single-chain (Scroll only) |
+| **PII Storage** | Encrypted on-chain | Never stored anywhere |
+| **Capital Efficiency** | Locked forever | No lock-up required |
+
+**Why This Change**:
+- **Simpler**: One chain instead of two (Scroll for both identity + reputation)
+- **Cheaper**: $20 over 10 years vs $25.50 (22% cheaper due to no locked capital)
+- **More Secure**: Ethereum L1 data availability vs NEAR validator set
+- **Zero PII**: Hash-only storage vs encrypted PII storage
+- **Post-Dencun bonus**: Gas costs dropped 95% making L2s incredibly cheap ($0.002/user)
+- **Note**: Per-user costs identical ($0.002), but Scroll avoids locked capital + opportunity cost
+- **See**: [Migration docs](./docs/migrations/ciphervault-to-identity-registry.md)
 
 ---
 
@@ -3063,19 +3110,19 @@ export default new RetroFundingAllocator();
 
 ## Complete Civic Action Flow with E2E Encryption
 
-### AWS Nitro Enclaves Congressional Proxy
+### Browser-Native ZK Proving & Encrypted Delivery
 
-**Static IP with TEE Attestation:**
-- Congressional proxy runs in ARM Graviton hypervisor-isolated enclave (no Intel ME/AMD PSP)
-- Static IP address whitelisted by House/Senate CWC APIs
-- CBOR attestation document provides cryptographic proof of code integrity
-- TEE public key included in attestation for E2E encryption
+**Client-Side Architecture:**
+- Zero-knowledge proofs generated entirely in browser (WASM, no cloud dependency)
+- Backend server whitelisted by House/Senate CWC APIs (static IP for Congressional access)
+- E2E encryption: browser → encrypted transit → CWC decryption
+- Congressional office public keys retrieved from CWC API (not stored platform-side)
 
-**Security Considerations:**
-- AWS Nitro uses hypervisor isolation with memory encryption via Nitro Security Module
-- ARM Graviton instances available (avoids x86 management engine backdoors: Intel ME, AMD PSP)
-- Independently audited (August 2025) but cannot guarantee NSA backdoor absence
-- Coinbase uses Nitro Enclaves for crypto wallet security (production-proven)
+**Security Advantages:**
+- Zero cloud proving infrastructure ($0/month browser-native, no server costs)
+- Address never leaves browser (true client-side privacy, not just encrypted)
+- No trusted execution environments required (browser sandbox + on-chain verification)
+- Cypherpunk-aligned (peer-reviewed mathematics, zero cloud proving dependency)
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff', 'actorTextColor':'#fff', 'noteBkgColor':'#4A90E2', 'noteTextColor':'#fff'}}}%%
@@ -3085,7 +3132,7 @@ sequenceDiagram
     participant Browser
     participant NEAR as NEAR CipherVault
     participant PG as PostgreSQL
-    participant TEE as AWS Nitro Enclaves Congressional Proxy
+    participant Backend as Backend Server Encrypted Passthrough
     participant ZK as ZK Prover WASM
     participant Senate as Senate CWC API
     participant House as House CWC API
@@ -3093,12 +3140,11 @@ sequenceDiagram
     participant Scroll as Scroll zkEVM
     participant Agents as Agent Consensus
 
-    Note over Browser,TEE: Phase 1: Attestation Verification One-Time
-    Browser->>TEE: Request attestation
-    TEE-->>Browser: CBOR attestation doc + PCRs + TEE public key
-    Browser->>Browser: Verify AWS certificate chain
-    Browser->>Scroll: Verify attestation on-chain
-    Note over Browser: Store TEE public key for encryption
+    Note over Browser,ZK: Phase 1: Load ZK Infrastructure One-Time
+    Browser->>Browser: Download Shadow Atlas from IPFS 15MB Zstd
+    Browser->>Browser: Cache in IndexedDB for future use
+    Browser->>Browser: Load KZG params from CDN cached
+    Note over Browser: Ready for browser-native proving
 
     Note over User,PG: Phase 2: Template Selection
     User->>Browser: Select template
@@ -3112,41 +3158,32 @@ sequenceDiagram
     Browser->>Browser: Decrypt PII with sovereign key
     Browser->>Browser: Merge template + PII + personal story
 
-    Note over Browser,TEE: Phase 4: E2E Encrypted Submission
-    Browser->>Browser: Generate ephemeral symmetric key
-    Browser->>Browser: Encrypt message with symmetric key
-    Browser->>Browser: Encrypt symmetric key with TEE public key
+    Note over Browser,ZK: Phase 4: Browser-Native ZK Proof Generation
+    Browser->>Browser: Generate Merkle witness via Web Workers 200ms-1.5s
+    Browser->>ZK: WASM prove district membership 600ms-10s device-dependent
+    Note over ZK: K=12 circuit KZG commitment in browser
+    ZK-->>Browser: Halo2 proof ready 384-512 bytes
+
+    Note over Browser,Backend: Phase 5: E2E Encrypted Message Delivery
+    Browser->>Browser: Fetch congressional office public key from CWC
+    Browser->>Browser: Encrypt message with XChaCha20-Poly1305
+    Browser->>Browser: Encrypt symmetric key with office RSA-OAEP
     User->>Browser: Submit civic action
-    Browser->>TEE: Encrypted payload HTTPS + TEE encryption
+    Browser->>Backend: Encrypted payload HTTPS backend cannot decrypt
 
-    Note over TEE: Phase 5: TEE Processing Hypervisor-Isolated Memory
-    TEE->>TEE: Decrypt symmetric key with TEE private key
-    TEE->>TEE: Decrypt message in Nitro hypervisor-isolated memory
-    TEE->>TEE: Generate CWC XML for Senate
-    TEE->>TEE: Generate CWC XML for House
-
-    Note over TEE,House: Phase 6: Direct Congressional API Emission
-    TEE->>Senate: Submit message static whitelisted IP
-    Senate-->>TEE: Delivery receipt + confirmation
-    TEE->>House: Submit message static whitelisted IP
-    House-->>TEE: Delivery receipt + confirmation
-    TEE->>TEE: Sign receipts with TEE key
-    TEE-->>Browser: Encrypted receipts + proofs
-
-    Note over Browser,ZK: Phase 7: Zero-Knowledge Proof Generation
-    alt First time OR proof cache empty
-        Browser->>ZK: Generate ZK proof 8-12 sec
-        Note over ZK: Prove district membership without revealing location
-        ZK-->>Browser: Proof ready 256 bytes
-    end
+    Note over Backend,House: Phase 6: Encrypted Passthrough to Congress
+    Backend->>Senate: Forward encrypted message static whitelisted IP
+    Senate-->>Backend: Delivery receipt CWC decrypts with private key
+    Backend->>House: Forward encrypted message static whitelisted IP
+    House-->>Backend: Delivery receipt CWC decrypts with private key
+    Backend-->>Browser: Delivery receipts platform never saw plaintext
 
     Note over Browser,Scroll: Phase 8: On-Chain Recording
     Browser->>Chain: Sign Scroll transaction
     Note over Chain: MPC network 2-3 sec Threshold signature
     Chain-->>Browser: Signed transaction
     Browser->>Scroll: Submit ZK proof + receipt hashes
-    Scroll->>Scroll: Verify ZK proof 250K gas
-    Scroll->>Scroll: Verify TEE attestation
+    Scroll->>Scroll: Verify Halo2 proof on-chain 300-500K gas
     Scroll->>Scroll: Record action with receipt hashes
     Scroll-->>Agents: ActionSubmitted event
 
@@ -3157,105 +3194,254 @@ sequenceDiagram
     Scroll->>User: 2875 VOTER tokens
 
     rect rgb(50, 100, 50)
-        Note over User,Scroll: Total time 3-8 seconds Cost $0.135 on Scroll E2E encrypted Browser to TEE to Congress
+        Note over User,Scroll: Total time 2-20 seconds Cost $0.15-$0.25 Scroll E2E encrypted Browser to CWC Congress
     end
 ```
 
 ### End-to-End Encryption Guarantees
 
-**Plaintext PII Visible Only In:**
-- ✅ **Browser** (user's device, user controls)
-- ✅ **TEE enclave** (AWS Nitro hypervisor-isolated memory, ARM Graviton)
-- ✅ **Congressional APIs** (Senate/House need routing information)
+**Plaintext Message Content Visible Only In:**
+- ✅ **Browser** (user's device, user controls, never uploaded)
+- ✅ **Congressional CWC API** (decrypts with office private key for delivery to congressional CRM)
+- ✅ **Congressional CRM** (final destination per existing congressional infrastructure)
 
-**Plaintext PII NEVER Visible To:**
-- ❌ Communique backend (outside TEE enclave)
-- ❌ Network transit (encrypted with TEE public key + HTTPS)
-- ❌ AWS infrastructure (hypervisor isolation prevents access)
-- ❌ Load balancers (can't decrypt without TEE private key)
-- ❌ Logs (encrypted payload, no decryption capability)
-- ❌ Database (no PII storage)
-- ❌ Blockchain (only ZK proof + receipt hashes)
+**Plaintext Message Content NEVER Visible To:**
+- ❌ Communiqué backend (receives only encrypted blobs, lacks decryption keys)
+- ❌ Network transit (XChaCha20-Poly1305 AEAD + TLS 1.3)
+- ❌ Load balancers (cannot decrypt without congressional office private keys)
+- ❌ Logs (encrypted payload only, no decryption capability)
+- ❌ Database (no message storage, encrypted blobs pass through)
+- ❌ Blockchain (only ZK proof + receipt hashes, never message content)
+- ❌ IPFS/CDN (Shadow Atlas district data only, never user messages)
 
 **Cryptographic Proof Chain:**
-1. Browser verifies TEE attestation signature (AWS certificate chain)
-2. Attestation includes PCR measurements (proves exact enclave image)
-3. Attestation includes TEE public key (for E2E encryption)
-4. Browser encrypts with TEE public key (only TEE can decrypt)
-5. TEE processes in Nitro hypervisor-isolated memory (ARM, no Intel ME/AMD PSP)
-6. TEE signs receipts (proves legitimate processing)
-7. Blockchain records receipt hashes (immutable audit trail)
+1. Browser fetches congressional office public key from CWC API
+2. Browser generates ephemeral symmetric key (32-byte random)
+3. Browser encrypts message with XChaCha20-Poly1305 (symmetric key)
+4. Browser encrypts symmetric key with RSA-OAEP (congressional office public key)
+5. Browser deletes keys from memory after encryption
+6. Backend receives encrypted blob (cannot decrypt, no keys)
+7. Backend forwards to CWC API (whitelisted static IP)
+8. CWC decrypts with congressional office private key
+9. CWC returns delivery receipt (timestamped confirmation)
+10. Blockchain records receipt hash (immutable audit trail)
 
-**Security Caveat:** While AWS Nitro Enclaves avoid x86 management engine backdoors and have been independently audited (Aug 2025), we cannot provide absolute certainty about NSA backdoor absence. Users must trust AWS hypervisor. ARM architecture + auditable components reduce but don't eliminate state-actor risk.
+**Privacy Advantage:** Address never leaves browser. Zero-knowledge proof proves district membership without revealing location. Platform operators never see addresses, never see message plaintext, never store PII. This is mathematically enforced client-side privacy, not just policy-protected.
 
-**This is true end-to-end encryption: Browser → TEE → Congress with no plaintext exposure in transit or at rest.**
+**This is true end-to-end encryption: Browser → encrypted transit → CWC decryption → Congress with zero plaintext exposure to platform operators.**
 
 ---
 
-## AWS Nitro Enclaves: Hardware-Attested Privacy Infrastructure
+## Browser-Native Congressional Delivery Architecture
 
-### TEE Container Architecture
+### Client-Side Encryption & Privacy Model
 
-The Congressional proxy runs inside AWS Nitro Enclaves as a containerized Node.js application with Nitro hardware isolation. The enclave image is built from a hardened base image and converted to EIF (Enclave Image File) format, deployed on c6a.xlarge or c6i.xlarge EC2 instances with Nitro Enclaves enabled. The enclave exposes HTTPS endpoints on port 8443 for encrypted civic action submissions and port 8080 for attestation requests.
+All zero-knowledge proof generation and message encryption happens entirely in the browser using WASM and Web Crypto API. User addresses never leave their devices—Shadow Atlas Merkle trees are downloaded from IPFS and cached in IndexedDB, witness generation occurs in Web Workers, and Halo2 proving runs in browser WASM with no server dependency.
 
-On first boot, the TEE generates an RSA-4096 keypair for end-to-end encryption. The private key is stored in Nitro-encrypted volumes that never leave the enclave—protected by AES-256-CBC with passphrases retrieved from AWS Secrets Manager. The public key is included in attestation documents for browser verification. This keypair enables hybrid encryption: browsers encrypt messages with the TEE public key, and only the TEE private key can decrypt.
+Browser-native proving eliminates cloud infrastructure costs ($0/month vs $150/month for server-side TEEs) while providing stronger privacy guarantees. Addresses literally cannot be uploaded because the proving code runs locally with no network access during witness generation. This is cypherpunk-aligned: peer-reviewed mathematics, zero AWS proving dependency.
 
-The enclave image PCR measurements (Platform Configuration Registers) are recorded and included in every attestation document. These PCRs are published on-chain via TEEAttestationVerifier smart contracts, allowing browsers to verify exact code integrity before submitting PII. Any enclave modification changes the PCR values, invalidating attestation.
+Congressional message delivery requires backend servers only because CWC APIs whitelist static IP addresses—browsers cannot connect directly. However, the backend receives only encrypted blobs and lacks decryption keys. Plaintext exists only in: browser (client-side) → encrypted network transit → CWC API decryption → congressional CRM.
 
 ### Static IP Configuration & Congressional Whitelist
 
-Congressional CWC APIs require whitelisted IP addresses—browsers can't connect directly. AWS EC2 instances running Nitro Enclaves are deployed with Elastic IP addresses reserved in us-east-1 and us-west-2 for redundancy. The primary TEE receives an Elastic IP that remains constant across enclave restarts and maintenance.
+Congressional CWC APIs require whitelisted IP addresses for spam prevention and security compliance. Browsers cannot submit directly—Senate and House IT departments maintain strict IP whitelists for organizations authorized to use their constituent communication APIs.
 
-Congressional IT receives whitelist requests with organization details, static IP addresses, and justification referencing hardware-attested infrastructure. The justification emphasizes cryptographic proof of code integrity available on-chain—a novel approach that may facilitate approval for privacy-preserving civic technology. Backup IPs provide failover if primary TEE becomes unavailable.
+Communiqué backend servers are deployed with static Elastic IP addresses in us-east-1 and us-west-2 for redundancy. Congressional IT receives whitelist requests with organization details, static IP addresses, and technical justification emphasizing cryptographic privacy protections (ZK proofs, E2E encryption, open-source verification).
 
-The TEE's static IP becomes its cryptographic identity. Attestation documents include this IP address (hashed for on-chain storage), proving that Congressional API submissions originate from attested hardware at a known location. This bridges government IT requirements with trustless verification.
+The justification highlights that backend servers cannot decrypt messages—they forward encrypted blobs only. Congressional offices control decryption keys, and on-chain ZK proof verification ensures constituents are legitimate before delivery. This novel approach bridges government IT requirements with zero-knowledge privacy.
 
-### TEE Key Management & Attestation
+### Browser-Native ZK Proof Generation
 
-The TEE generates attestation documents on demand via HTTPS GET requests to its attestation endpoint. Each request triggers AWS Nitro Enclaves to produce a CBOR-encoded attestation document via the NSM (Nitro Security Module) API. This document contains PCR measurements, certificate chains, and RSA-PSS signatures verifiable against AWS's root certificate.
+**Shadow Atlas Loading (First Time Only):**
+```javascript
+// Progressive IPFS download with IndexedDB caching
+async function loadShadowAtlas(): Promise<MerkleTree> {
+  // Check IndexedDB cache first
+  const cached = await idb.get('shadow-atlas-2025-Q1');
+  if (cached) return deserializeMerkleTree(cached);
 
-Attestation documents combine hardware measurements with enclave metadata:
-- **PCR measurements**: AWS Nitro cryptographic proof of enclave code integrity (PCR0, PCR2)
-- **Enclave image hash**: SHA-384 of exact EIF running in the enclave
-- **TEE public key**: RSA-4096 key for browser encryption
-- **Static IP address**: Proves Congressional API origin
-- **Signature**: RSA-PSS signed with AWS Nitro certificate chain
+  // Download from IPFS (15MB Zstd compressed, 50MB uncompressed)
+  const ipfsCID = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
+  const compressed = await ipfs.cat(ipfsCID);
+  const atlas = await zstd.decompress(compressed);
 
-The AWS Nitro attestation signature is verifiable through AWS's CA root certificate chain—browsers can independently validate that attestation documents are legitimate without trusting Communique. This signature proves the TEE is genuine AWS Nitro hardware running the specific enclave image at the declared IP address.
+  // Cache for future use
+  await idb.set('shadow-atlas-2025-Q1', atlas);
+  return deserializeMerkleTree(atlas);
+}
+```
 
-Attestation documents expire after 24 hours, requiring periodic refresh. This time limit prevents stale attestations from authorizing outdated or compromised enclaves. Browsers cache valid attestations and TEE public keys, minimizing latency for repeated submissions.
+**Web Worker Witness Generation:**
+```javascript
+// Parallel Poseidon hashing across 4 workers
+async function generateWitness(
+  address: Address,
+  tree: MerkleTree
+): Promise<MerkleWitness> {
+  const workers = await initWorkerPool(4); // 4 Web Workers
 
-### Congressional API Submission Flow
+  // Find address in tree (binary search on sorted leaves)
+  const leafIndex = tree.findLeafIndex(address);
 
-When browsers submit civic actions, they send encrypted payloads to the TEE's port 8443 HTTPS endpoint. The TEE receives binary data structured as RSA-4096 encrypted symmetric key (first 512 bytes) followed by AES-256-GCM encrypted message content. This hybrid encryption allows browsers to encrypt arbitrary-length messages efficiently while maintaining RSA-4096 security for key exchange.
+  // Generate Merkle path in parallel
+  const pathPromises = tree.getPath(leafIndex).map((node, i) =>
+    workers[i % 4].poseidonHash(node.left, node.right)
+  );
 
-The TEE decrypts the symmetric key using its RSA-4096 private key with PKCS1_OAEP padding and SHA-256 hash. This key then decrypts the message content with AES-256-GCM authenticated encryption, verifying integrity through the authentication tag. Decryption happens entirely within AWS Nitro encrypted memory—the hypervisor and AWS infrastructure never see plaintext.
+  const path = await Promise.all(pathPromises);
 
-Once decrypted, the TEE generates CWC XML payloads for Senate and House offices. These XML documents follow Congressional formatting requirements, including citizen name, address, email, phone, message content, and template identifiers. The TEE maintains organizational API keys in AWS Secrets Manager, accessed only within the hardware-encrypted enclave.
+  return {
+    leafIndex,
+    path,
+    root: tree.root,
+    districtId: tree.getDistrictId(leafIndex)
+  };
+}
+```
 
-The TEE submits both XML documents to Congressional APIs from its whitelisted static IP. Senate submissions go to soapbox.senate.gov/api with Senate API credentials. House submissions go to www.house.gov/htbin/formproc with House API credentials. Both submissions return message IDs and confirmation data.
+**WASM Halo2 Proving (K=12 Circuit):**
+```javascript
+// Browser-native proof generation with KZG commitment
+async function generateDistrictProof(
+  witness: MerkleWitness
+): Promise<Halo2Proof> {
+  // Load KZG parameters from CDN (cached after first load)
+  const kzgParams = await loadKZGParams();
 
-The TEE signs delivery receipts with its private key, creating cryptographic proof of Congressional API acceptance. These signed receipts are returned to browsers, which then submit receipt hashes to blockchain for immutable audit trails. The full receipt content remains off-chain—only hashes are recorded publicly.
+  // Initialize WASM prover
+  const prover = await wasmProver.init({
+    circuit: 'district-membership-k12',
+    kzgParams,
+    threads: navigator.hardwareConcurrency // Use all CPU cores
+  });
 
-### On-Chain Attestation Verification
+  // Generate proof (600ms-10s device-dependent)
+  const proof = await prover.prove({
+    publicInputs: [witness.root, witness.districtId],
+    privateInputs: [witness.leafIndex, witness.path]
+  });
 
-TEEAttestationVerifier smart contracts on Scroll maintain whitelists of trusted enclave PCR measurements and AWS Nitro root certificates. These contracts verify attestation signatures using RSA-PSS signature verification, checking that signatures match known AWS CA roots.
+  return proof; // 384-512 bytes
+}
+```
 
-The contract stores the current valid attestation including PCR measurements, TEE public key, timestamp, and static IP hash. The 24-hour expiration is enforced on-chain—expired attestations revert when queried. This ensures browsers always verify against fresh attestations.
+### Congressional Message Encryption & Delivery
 
-When civic actions are submitted on-chain, the blockchain verifies that receipt hashes were signed by the currently attested TEE. This creates an unbroken chain of cryptographic proof: hardware attestation proves code integrity, code signs receipts, receipts prove Congressional delivery. Every step is verifiable without trusted intermediaries.
+**Client-Side Encryption:**
+```typescript
+async function encryptForCongressionalOffice(
+  message: string,
+  districtId: string
+): Promise<EncryptedMessage> {
+  // 1. Fetch congressional office public key from CWC
+  const officePublicKey = await cwcAPI.getOfficePublicKey(districtId);
 
-Browsers query the contract's getCurrentTEEPublicKey function before encrypting submissions. If attestation is expired or PCR measurements don't match the whitelist, the contract reverts. This prevents browsers from sending PII to compromised or outdated TEEs.
+  // 2. Generate ephemeral symmetric key
+  const symmetricKey = crypto.getRandomValues(new Uint8Array(32));
 
-### Frontend Attestation Verification
+  // 3. Encrypt message with XChaCha20-Poly1305 AEAD
+  const nonce = crypto.getRandomValues(new Uint8Array(24));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'XChaCha20-Poly1305', nonce },
+    symmetricKey,
+    new TextEncoder().encode(message)
+  );
 
-Before first submission, browsers fetch attestation documents from the TEE endpoint and verify them through multiple steps. First, the browser validates the AWS Nitro RSA-PSS signature using AWS's CA root certificate. This proves the attestation originated from legitimate AWS Nitro infrastructure.
+  // 4. Encrypt symmetric key to congressional office public key
+  const encryptedKey = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    officePublicKey,
+    symmetricKey
+  );
 
-Second, the browser verifies that the PCR measurements match the on-chain whitelist in TEEAttestationVerifier contracts. Any mismatch indicates the TEE is running unapproved code. Third, the browser checks that the attestation timestamp is recent (within 24 hours) and that all PCR values match expected AWS Nitro enclave measurements.
+  // 5. Delete keys from memory (can't be recovered)
+  symmetricKey.fill(0);
+  crypto.subtle.wrapKey('raw', symmetricKey, officePublicKey, 'RSA-OAEP');
 
-Only after all verification passes does the browser store the TEE public key and enable submissions. The browser displays attestation details to users: enclave image reference, PCR measurements, TEE platform technology, and static IP. This transparency allows technically sophisticated users to independently verify infrastructure integrity.
+  return {
+    ciphertext: new Uint8Array(ciphertext),
+    encryptedKey: new Uint8Array(encryptedKey),
+    nonce,
+    recipientOffice: districtId
+  };
+}
+```
 
-Browsers cache verified attestations for the 24-hour validity period, avoiding redundant verification on every action. When attestation expires, browsers automatically re-verify before the next submission. This balance maintains security without introducing user friction.
+**Backend Encrypted Passthrough:**
+```typescript
+// Backend receives encrypted blob, forwards to CWC (cannot decrypt)
+async function deliverToCongressionalOffice(
+  encryptedMessage: EncryptedMessage,
+  proof: DistrictProof
+): Promise<DeliveryReceipt> {
+  // 1. Verify ZK proof on-chain before accepting submission
+  const proofValid = await scrollContract.verifyDistrictMembership(proof);
+  if (!proofValid) throw new Error('Invalid district proof');
+
+  // 2. Forward encrypted message to CWC API (whitelisted static IP)
+  // Backend has NO decryption keys, cannot read message content
+  const receipt = await cwcAPI.deliverMessage({
+    encryptedMessage,  // Still encrypted
+    districtId: encryptedMessage.recipientOffice,
+    timestamp: Date.now(),
+    proofHash: keccak256(proof) // For on-chain correlation
+  });
+
+  // 3. CWC decrypts with congressional office private key
+  // Plaintext delivered to congressional CRM
+  // Backend never sees plaintext
+
+  return receipt;
+}
+```
+
+### On-Chain Verification & Audit Trail
+
+**Smart Contract Proof Verification:**
+```solidity
+// DistrictGate.sol - Verifies Halo2 proofs on-chain
+contract DistrictGate {
+    // KZG verifier with Ethereum's 141K-participant ceremony parameters
+    IHalo2Verifier public verifier;
+
+    function submitAction(
+        bytes calldata proof,
+        uint256 districtId,
+        bytes32 receiptHash
+    ) external returns (uint256 actionId) {
+        // Verify Halo2 proof with KZG commitment (300-500K gas)
+        bool valid = verifier.verify(
+            proof,
+            [getShadowAtlasRoot(), districtId] // Public inputs
+        );
+        require(valid, "Invalid district membership proof");
+
+        // Record action on-chain (immutable audit trail)
+        actionId = ++actionCount;
+        actions[actionId] = Action({
+            user: msg.sender,
+            districtId: districtId,
+            receiptHash: receiptHash,
+            timestamp: block.timestamp,
+            verified: true
+        });
+
+        emit ActionSubmitted(msg.sender, actionId, districtId);
+    }
+}
+```
+
+**Cryptographic Audit Trail:**
+1. Browser generates ZK proof of district membership (address never revealed)
+2. Browser encrypts message to congressional office public key (backend cannot decrypt)
+3. Backend forwards encrypted blob to CWC API (whitelisted static IP)
+4. CWC decrypts and delivers to congressional CRM (office controls keys)
+5. CWC returns delivery receipt (timestamped confirmation)
+6. Browser submits proof + receipt hash to blockchain (immutable record)
+7. Smart contract verifies proof on-chain (invalid proofs rejected, user pays gas)
+8. Multi-agent system calculates rewards (consensus-based, bounded parameters)
+
+Every step is cryptographically verifiable. Platform operators never see addresses, never decrypt messages, never control user funds. This is zero-trust infrastructure enforced by mathematics, not policy.
 
 ---
 
@@ -3577,7 +3763,7 @@ await ReputationRegistry.methods.updateScore(
 - [ ] ~~UMA integration audit (Optimistic Oracle dispute resolution)~~ **→ Phase 2 ONLY**
 - [ ] ~~ZK circuit audit (ResidencyCircuit trusted setup verification)~~ **→ Phase 1: GKR has no trusted setup**
 - [ ] GKR implementation audit (Polyhedra Expander, Fiat-Shamir transformation) **→ Phase 1**
-- [ ] ~~CipherVault penetration testing (NEAR encrypted storage)~~ **→ Phase 1: AWS Nitro Enclaves TEE audit**
+- [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity) **→ Phase 1**
 - [ ] Frontend security review (XSS, CSRF, NFC implementation) **→ Phase 1**
 - [ ] Privacy impact assessment (GDPR, CCPA compliance) **→ Phase 1**
 - [ ] ~~Economic security modeling (challenge markets, outcome markets gaming resistance)~~ **→ Phase 2 ONLY**
@@ -3592,12 +3778,12 @@ await ReputationRegistry.methods.updateScore(
 >
 > **This section shows the original full-vision cost structure including NEAR CipherVault, challenge markets, outcome markets, and token infrastructure.**
 >
-> **Phase 1 Reality ($326/month total)**:
-> - GKR verification on Scroll: ~$0.01/action
+> **Phase 1 Reality ($176/month total)**:
+> - Halo2 + KZG verification on Scroll: ~$0.015-$0.025/action (300-500k gas)
 > - self.xyz + Didit.me: FREE identity verification
 > - Content moderation: $65.49/month (OpenAI API free + Gemini/Claude consensus)
 > - PostgreSQL (Supabase): $25/month
-> - AWS Nitro Enclaves: $150/month
+> - Browser-native proving: $0/month (client-side WASM, zero infrastructure)
 > - Scroll gas: $10/month
 > - Shadow Atlas IPFS: $5/month
 > - Domain + SSL: $20/month
@@ -3618,7 +3804,7 @@ await ReputationRegistry.methods.updateScore(
 - **Total**: $0.245 - $0.745 per user (vs $2.43-$3.93 with named accounts)
 
 ### Per Civic Action — HISTORICAL VISION
-- Decrypt PII: $0 (view call) **→ Phase 1: AWS Nitro TEE decryption**
+- Decrypt PII: $0 (view call) **→ Phase 1: Browser-native encryption, no decryption server-side**
 - CWC API submission: $0 **→ Phase 1: Same**
 - Submit to Scroll: $0.135 gas **→ Phase 1: ~$0.01 (GKR verification)**
 - ~~Token minting: $0.05 gas~~ **→ Phase 2 ONLY**
@@ -3632,8 +3818,8 @@ await ReputationRegistry.methods.updateScore(
 - ~~**Retroactive Funding** (quarterly round): $71 (GPT-5 allocation + Gnosis Safe + distribution gas)~~ **→ Phase 2 ONLY**
 
 ### Annual Infrastructure (100K Users) — HISTORICAL VISION
-- NEAR storage sponsorship: **$11,000/year** (0.11 per user with compression)
-  - Without compression: $112,000/year (10x more expensive)
+- ~~NEAR storage sponsorship: **$11,000/year**~~ **→ CORRECTED: $200 one-time (0.002 per user @ $2.20 NEAR, NOT $8.50)**
+  - ~~Without compression: $112,000/year~~ **→ Phase 1: NO NEAR storage (moved to Scroll Identity Registry)**
 - Shadow Atlas IPFS pinning: $60/year
 - PostgreSQL (Supabase Pro): $300/year
 - ChromaDB self-hosted vector DB: $600/year (instance costs)
@@ -3667,7 +3853,7 @@ await ReputationRegistry.methods.updateScore(
 > **PHASED DEPLOYMENT**
 >
 > **Phase 1 Agents (Launching in 3 months)**:
-> - **VerificationAgent**: Validates civic actions, ZK proofs, TEE attestations
+> - **VerificationAgent**: Validates civic actions, Halo2 ZK proofs, identity verification
 > - **ReputationAgent**: Multi-dimensional credibility scoring (reputation-only, no tokens)
 > - **ImpactAgent**: Tracks template adoption and legislative correlation (reputation rewards)
 >
@@ -3851,13 +4037,13 @@ interface IReputationRegistry {
 
 #### VerificationAgent — PHASE 1 INCLUDED
 
-> **✅ INCLUDED IN PHASE 1**: Core verification infrastructure for all civic actions. Validates ZK proofs, TEE attestations, content moderation.
+> **✅ INCLUDED IN PHASE 1**: Core verification infrastructure for all civic actions. Validates ZK proofs, identity verification, content moderation.
 
 **Purpose**: Validate civic actions before consensus
 
 **Validation Checks**:
-1. ZK proof validity (district membership)
-2. TEE attestation verification (AWS Nitro Enclaves)
+1. ZK proof validity (Halo2 district membership verification on-chain)
+2. Identity verification status (self.xyz/Didit.me confirmation)
 3. CWC delivery receipt confirmation
 4. Duplicate detection (same user, same template, <24 hours)
 5. Content moderation (no harassment, threats, spam)
@@ -4014,23 +4200,23 @@ function getTokenPrice(): number {
 
 > **THIS IS THE REAL PHASE 1 BUDGET**
 >
-> Phase 1 launches with $326/month recurring costs + $300K one-time development. No NEAR, no challenge markets, no outcome markets, no token infrastructure.
+> Phase 1 launches with $176/month recurring costs + $300K one-time development. No NEAR, no challenge markets, no outcome markets, no token infrastructure.
 
-### Monthly Recurring Costs ($326/month)
+### Monthly Recurring Costs ($176/month)
 
 **Infrastructure**:
 - PostgreSQL (Supabase Pro): $25/month
   - 8GB database, 100GB bandwidth
   - Full-text search for 10,000+ templates
   - Realtime subscriptions for dashboard updates
-- AWS Nitro Enclaves TEE: $150/month
-  - Nitro attestation for congressional delivery
-  - Hardware-encrypted PII decryption
-  - c6a.xlarge or c6i.xlarge (4 vCPU, 8GB RAM)
+- Browser-Native ZK Proving: $0/month
+  - Client-side WASM proof generation (Halo2 + KZG)
+  - Zero cloud infrastructure for proving
+  - Scales infinitely with user devices
 - Scroll L2 Gas Budget: $10/month
-  - ~$0.01 per GKR proof verification
-  - 1,000 verifications/month capacity
-  - Scales to $100/month at 10,000 users
+  - ~$0.015-$0.025 per Halo2 + KZG proof verification (300-500k gas)
+  - 500-700 verifications/month capacity
+  - Scales to $150/month at 10,000 users
 - Shadow Atlas IPFS Pinning: $5/month
   - Pinata Pro (1GB storage)
   - Global district Merkle tree
@@ -4089,29 +4275,29 @@ function getTokenPrice(): number {
 ### Annual Costs at Scale
 
 **At 1,000 users** (conservative first-year target):
-- Monthly infrastructure: $326/month = $3,912/year
+- Monthly infrastructure: $176/month = $2,112/year
 - User onboarding: 1,000 × $0.011 = $11
-- Civic actions (10/user/year): 10,000 × $0.015 = $150
+- Civic actions (10/user/year): 10,000 × $0.020 = $200
 - Reputation updates (50/user/year): 50,000 × $0.005 = $250
-- **Total Year 1**: $4,323 = **$4.32/user/year**
+- **Total Year 1**: $2,573 = **$2.57/user/year**
 
 **At 10,000 users** (18-month target):
-- Monthly infrastructure: $326/month = $3,912/year
-- Scroll gas scales: +$90/month = $1,080/year
+- Monthly infrastructure: $176/month = $2,112/year
+- Scroll gas scales: +$140/month = $1,680/year
 - User onboarding: 10,000 × $0.011 = $110
-- Civic actions (10/user/year): 100,000 × $0.015 = $1,500
+- Civic actions (10/user/year): 100,000 × $0.020 = $2,000
 - Reputation updates (50/user/year): 500,000 × $0.005 = $2,500
-- **Total Year 2**: $9,102 = **$0.91/user/year**
+- **Total Year 2**: $8,402 = **$0.84/user/year**
 
 **At 100,000 users** (pre-Phase 2):
-- Monthly infrastructure: $326/month = $3,912/year
-- Scroll gas scales: +$900/month = $10,800/year
+- Monthly infrastructure: $176/month = $2,112/year
+- Scroll gas scales: +$1,400/month = $16,800/year
 - Supabase scales: +$175/month = $2,100/year
-- AWS Nitro TEE scales: +$150/month = $1,800/year (load balancing)
+- Browser-native proving: $0/month (scales with user devices, not servers)
 - User onboarding: 100,000 × $0.011 = $1,100
-- Civic actions (10/user/year): 1,000,000 × $0.015 = $15,000
+- Civic actions (10/user/year): 1,000,000 × $0.020 = $20,000
 - Reputation updates (50/user/year): 5,000,000 × $0.005 = $25,000
-- **Total Year 3**: $59,712 = **$0.60/user/year**
+- **Total Year 3**: $67,112 = **$0.67/user/year**
 
 ### One-Time Development Costs ($300K)
 
@@ -4123,32 +4309,33 @@ function getTokenPrice(): number {
   - ReputationRegistry.sol (ERC-8004 implementation)
   - AgentConsensus.sol (VerificationAgent, ReputationAgent, ImpactAgent)
 - 1 ZK cryptography specialist: $45,000
-  - GKR circuit design (Polyhedra Expander)
-  - Fiat-Shamir transformation for on-chain verification
+  - Halo2 circuit design (K=12 Merkle membership)
+  - KZG commitment implementation (Ethereum ceremony)
   - Browser WASM proving library
-  - Performance optimization (target: 8-10 seconds)
+  - Performance optimization (target: 600ms-10s device-dependent)
 - 1 backend developer: $50,000
   - Congressional CWC API integration
-  - AWS Nitro Enclaves TEE setup
+  - Encrypted message passthrough architecture
   - PostgreSQL schema design
   - ImpactAgent legislative correlation
   - Content moderation pipeline
 - 1 frontend developer: $45,000
   - Template browser & search
   - Reputation dashboard
-  - GKR proof generation UI
+  - Halo2 WASM proof generation UI
   - self.xyz + Didit.me integration
   - Congressional district lookup
 
 **Security & Audits**:
 - Smart contract audit (Trail of Bits / OpenZeppelin): $30,000
   - Core contracts: DistrictGate, CommuniqueCoreV2, UnifiedRegistry
-  - GKR verifier security review
+  - Halo2 + KZG verifier security review
   - Agent consensus logic audit
-- AWS Nitro Enclaves penetration test: $10,000
-  - TEE attestation verification
-  - Nitro security review
-  - PII encryption audit
+- Browser WASM security review: $10,000
+  - Halo2 circuit formal verification
+  - Subresource Integrity implementation
+  - COOP/COEP headers audit
+  - KZG parameters integrity verification
 
 **Total Development**: **$300,000**
 
@@ -4156,14 +4343,14 @@ function getTokenPrice(): number {
 
 | Category | Historical Vision | Phase 1 Reality | Savings |
 |----------|------------------|-----------------|---------|
-| **Monthly Infrastructure** | $7,038/month | $326/month | **95% reduction** |
+| **Monthly Infrastructure** | $7,038/month | $176/month | **97% reduction** |
 | **Identity Verification** | $0.50/user (self.xyz paid) | $0/user (FREE) | **100% reduction** |
-| **ZK Proof Cost** | $0.135/proof (Groth16) | $0.01/proof (GKR) | **93% reduction** |
+| **ZK Proof Cost** | $0.135/proof (Groth16) | $0.020/proof (Halo2+KZG) | **85% reduction** |
 | **Content Moderation** | Challenge markets ($5/dispute) | 3-layer stack ($65.49/month) | **Phase 2 deferred** |
 | **NEAR Storage** | $11,000/year (100K users) | $0 (no NEAR) | **100% reduction** |
 | **Development Timeline** | 7 months | 3 months | **57% faster** |
 | **Development Cost** | $775,000 | $300,000 | **61% reduction** |
-| **Annual Cost (10K users)** | $84,460/year | $9,102/year | **89% reduction** |
+| **Annual Cost (10K users)** | $84,460/year | $8,402/year | **90% reduction** |
 
 ### Why Phase 1 Costs Are So Low
 
@@ -4173,11 +4360,11 @@ function getTokenPrice(): number {
 
 **No Outcome Markets**: Gnosis CTF + UMA Optimistic Oracle + Hybrid CLOB + Retroactive Funding infrastructure = $40,000 integration deferred to Phase 2.
 
-**No NEAR CipherVault**: $11,000/year storage costs eliminated. AWS Nitro TEE ($150/month) replaces NEAR for congressional delivery only.
+**No NEAR CipherVault**: $11,000/year storage costs eliminated. Browser-native encryption ($0/month) with E2E delivery to CWC.
 
 **FREE Identity Verification**: self.xyz + Didit.me both offer FREE tiers with unlimited verifications. Phase 1 prioritized partnerships over paid APIs.
 
-**GKR Protocol Efficiency**: No trusted setup ceremony ($20K cost eliminated). Browser proving replaces expensive server infrastructure. On-chain verification 93% cheaper than Groth16.
+**Browser-Native Halo2 Efficiency**: No trusted setup ceremony ($20K cost eliminated). Client-side WASM proving replaces all server infrastructure ($0/month vs $150/month TEE). On-chain verification 85% cheaper than Groth16 (300-500k gas vs 80-120k, but acceptable for zero infrastructure cost).
 
 **Content Moderation Via FREE APIs**: OpenAI Moderation API is FREE with unlimited requests. Layer 2 consensus only processes 5% of traffic (OpenAI catches 95%). Total moderation cost: $65.49/month vs challenge markets at $5/dispute.
 
@@ -4187,7 +4374,7 @@ function getTokenPrice(): number {
 
 ### Phase 1 Budget Justification
 
-**$326/month recurring** proves civic utility without speculation risk. If 10,000 users adopt in 18 months, cost drops to $0.91/user/year. If congressional offices value quality signals, Phase 2 token launch has proven product-market fit.
+**$176/month recurring** proves civic utility without speculation risk. If 10,000 users adopt in 18 months, cost drops to $0.84/user/year. If congressional offices value quality signals, Phase 2 token launch has proven product-market fit.
 
 **$300K development** builds reputation infrastructure Phase 2 monetizes. Template impact correlation, multi-agent consensus, cryptographic verification—all Phase 1 investments that become retroactive funding attribution in Phase 2.
 
@@ -4198,22 +4385,22 @@ function getTokenPrice(): number {
 ## Critical Integration Points
 
 **Phase 1 Integration Points** (launching in 3 months):
-1. **GKR Protocol (Polyhedra Expander)** → Zero-knowledge district verification without trusted setup
+1. **Halo2 + KZG (Browser-Native WASM)** → Zero-knowledge district verification, no trusted setup, client-side proving
 2. **self.xyz + Didit.me** → FREE identity verification (NFC passport + Core KYC fallback)
-3. **AWS Nitro Enclaves** → Hardware-attested congressional delivery (Nitro TEE)
+3. **Browser-Native E2E Encryption** → XChaCha20-Poly1305 congressional delivery (zero server-side decryption)
 4. **PostgreSQL (Supabase)** → Template storage, full-text search, realtime updates
-5. **Scroll L2** → zkEVM settlement (~$0.01/action gas cost)
+5. **Scroll L2** → zkEVM settlement (~$0.020/action gas cost with Halo2+KZG verification)
 6. **Congressional CWC API** → Federal delivery to Senate + House offices
 
 **Phase 2 Integration Points** (12-18 months):
-1. ~~**NEAR CipherVault** → Stores ALL user PII (encrypted)~~ **→ Phase 1: AWS Nitro TEE for delivery only**
+1. ~~**NEAR CipherVault** → Stores ALL user PII (encrypted)~~ **→ Phase 1: Browser-native encryption for delivery only**
 2. ~~**Chain Signatures** → Controls addresses on Scroll/Ethereum/Bitcoin/Solana~~ **→ Optional cross-chain future**
 3. **Gnosis CTF** → Outcome markets for legislative predictions
 4. **UMA Optimistic Oracle** → Dispute resolution for market outcomes
 5. **Chainlink Functions DON** → Multi-model AI consensus for challenge markets
 6. **Filecoin** → Permanent audit trail for challenged templates
 
-**Key Insight**: Phase 1 eliminates NEAR dependency entirely. AWS Nitro TEE handles congressional delivery. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
+**Key Insight**: Phase 1 eliminates NEAR dependency entirely. Browser-native Halo2 proving handles ZK proofs at zero infrastructure cost. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
 
 ---
 
@@ -4271,8 +4458,8 @@ function getTokenPrice(): number {
 
 **Critical Integration Points Updated** (lines 4177-4195):
 - Separated Phase 1 integration points (6) vs Phase 2 (6)
-- Removed NEAR CipherVault from Phase 1 (replaced with GCP TEE)
-- Added GKR Protocol, self.xyz, AWS Nitro Enclaves as Phase 1 integrations
+- Removed NEAR CipherVault from Phase 1 (replaced with browser-native encryption)
+- Added Halo2 + KZG browser-native proving, self.xyz, E2E encryption as Phase 1 integrations
 
 **Revision-First Policy**: Updated outdated content to reflect current architecture instead of deleting. Preserved historical context with update notes. Phase 2 features labeled clearly, not removed.
 

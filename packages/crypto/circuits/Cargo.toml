@@ -1,55 +1,55 @@
 [package]
-name = "voter-protocol-circuits"
+name = "voter-district-circuit"
 version = "0.1.0"
 edition = "2021"
-authors = ["VOTER Protocol"]
-description = "Zero-knowledge circuits for district membership verification"
-license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Halo2 proving system (Privacy & Scaling Explorations fork - most actively maintained)
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", package = "halo2_proofs" }
-halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves" }
+# Axiom halo2-base (production-proven, Trail of Bits audited 2023)
+# v0.4.1: Axiom Mainnet V2 launch release (January 21, 2025)
+# Commit: 4dc5c4833f16b3f3686697856fd8e285dc47d14f (GPG verified)
+halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib", tag = "v0.4.1", default-features = false, features = ["halo2-axiom", "display"] }
 
-# Poseidon hash (PSE fork compatible with their halo2)
-poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon", package = "poseidon" }
+# Axiom's optimized halo2_proofs fork (aliased as halo2_proofs in code)
+# Required by halo2-base for proving system
+halo2_proofs = { version = "0.4", package = "halo2-axiom" }
 
-# Poseidon Halo2 circuit gadget (PSE) - separate repository
-halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget", package = "halo2_poseidon" }
-
-# Finite field arithmetic
-ff = "0.13"
-group = "0.13"
-
-# Utilities
+# Standard utilities
 rand = "0.8"
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 
 # WASM support
-wasm-bindgen = "0.2"
-serde-wasm-bindgen = "0.6"
-getrandom = { version = "0.2", features = ["js"] }
-console_error_panic_hook = "0.1"
+wasm-bindgen = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-rayon = { version = "1.2", optional = true }
 
 [dev-dependencies]
-# Testing and benchmarking
 criterion = "0.5"
 proptest = "1.0"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[features]
+default = ["halo2-base/halo2-axiom"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "getrandom", "console_error_panic_hook", "wasm-bindgen-rayon"]
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 
-# WASM-specific optimizations
-[profile.release.package."*"]
-opt-level = 3
+[profile.dev]
+opt-level = 0
 
-# Benchmarks will be added once circuit is complete
-# [[bench]]
-# name = "district_proof"
-# harness = false
+# For WASM build with rayon parallelism
+# Uncomment when building for browser:
+# [target.wasm32-unknown-unknown]
+# rustflags = [
+#     "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
+#     "-C", "link-arg=--max-memory=4294967296",
+# ]

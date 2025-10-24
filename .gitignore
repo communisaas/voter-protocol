@@ -140,4 +140,5 @@ public
 
 # Temporary folders
 tmp/
-temp/
+temp/target/
+Cargo.lock

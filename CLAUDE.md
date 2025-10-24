@@ -51,29 +51,31 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - No bridges, no wrapped tokens, no trusted intermediaries
 - Sub-second signature latency
 
-**Identity & Privacy**: NEAR CipherVault (encrypted PII storage)
-- XChaCha20-Poly1305 encryption client-side
-- Zstd compression (90% storage cost reduction)
-- Storage deposit pattern (NEP-145) for sustainable economics
-- Users pay for own storage (~$0.11 per user)
+**Identity & Privacy**: Scroll Identity Registry + Browser-Native Encryption
+- Poseidon hash commitments on-chain (Scroll L2)
+- XChaCha20-Poly1305 encryption client-side (PII never leaves browser)
+- Zero PII storage anywhere (browser-only encryption for delivery)
+- Platform pays gas costs ($0.002 per user registration)
 
 **See [ARCHITECTURE.md](ARCHITECTURE.md) and [TECHNICAL.md](TECHNICAL.md)** for complete technical details.
 
 ### Core Cryptographic Primitives
 
-**Zero-Knowledge Proofs**: Groth16 SNARKs for district residency verification
-- 8-12 second browser proving time (WASM)
-- 256-byte proof size
+**Zero-Knowledge Proofs**: Halo2 recursive proofs with KZG commitments for district residency verification
+- Browser-native WASM proving (600ms-10s device-dependent)
+- 384-512 byte proof size (K=12 circuit)
 - Verifies congressional district membership without revealing address
 - Shadow Atlas Merkle tree (190+ countries, quarterly IPFS updates)
+- KZG ceremony via Ethereum's 141K-participant setup (no custom trusted setup)
+- On-chain verification: 300-500k gas on Scroll zkEVM
 
 **End-to-End Encryption**: Message delivery to congressional offices
-- Client-side: XChaCha20-Poly1305 AEAD (libsodium)
-- TEE delivery: AWS Nitro Enclaves (hardware isolation)
+- Client-side: XChaCha20-Poly1305 AEAD (Web Crypto API)
+- Encrypted passthrough: Backend cannot decrypt messages
 - CWC integration: Whitelisted IP delivery to congressional systems
-- Plaintext exists only: browser → enclave → CWC → congressional CRM
+- Plaintext exists only: browser → encrypted transit → CWC decryption → congressional CRM
 
-**Multi-Party Computation**: NEAR Chain Signatures
+**Multi-Party Computation**: NEAR Chain Signatures (Phase 2+ optional)
 - Threshold ECDSA across validator set
 - No single node sees complete private key
 - Byzantine fault tolerance (2/3 validators must collude)
@@ -200,6 +202,66 @@ function isSupplyAgentDecision(value: unknown): value is SupplyAgentDecision {
 }
 ```
 
+### CRITICAL: Zero-Knowledge Circuit Security - ZERO TOLERANCE
+
+**ZK circuits are cryptographic code. A bug doesn't throw an error—it silently accepts fraudulent proofs.**
+
+#### Circuit Security Requirements (MANDATORY):
+
+**Supply-Chain Attack Prevention:**
+- ✅ **Pin ALL git dependencies to specific audited commits** - Never use branch names or `rev = "main"`
+- ✅ **Golden test vectors** - Hardcode expected outputs from audited implementations, never derive from same library
+- ✅ **Canonical constant verification** - Test that pre-computed constants match canonical generation
+- ✅ **Dependency audit trail** - Document which commit hash was audited and when
+
+**Adversarial Testing:**
+- ✅ **Test with MockProver, not just reference implementations** - Circuit tests must validate actual constraints
+- ✅ **Witness tampering tests** - Verify circuit rejects proofs with wrong private inputs
+- ✅ **Output forgery tests** - Verify circuit rejects proofs claiming wrong public outputs
+- ✅ **Non-commutativity tests** - For hash functions, verify hash(a,b) ≠ hash(b,a)
+- ✅ **Edge case tests** - Zero inputs, boundary values, domain separation
+
+**Example: ZK Circuit Dependency Management**
+```toml
+# ❌ WRONG - Vulnerable to supply-chain attacks
+halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget" }
+
+# ✅ CORRECT - Pinned to audited commit
+# SECURITY: Pinned to specific commit to prevent supply-chain attacks
+# Audited: 2025-10-23, Commit: 2478c862 (PSE v0.2.0)
+halo2_poseidon = { git = "https://github.com/privacy-scaling-explorations/poseidon-gadget", rev = "2478c862" }
+```
+
+**Example: Golden Test Vector**
+```rust
+#[test]
+fn test_golden_vector_hash_pair() {
+    // GOLDEN VECTOR: Computed ONCE from audited PSE implementation (commit 2478c862)
+    // If this test fails, either:
+    // 1. Circuit implementation changed (REVIEW IMMEDIATELY)
+    // 2. Constants were tampered with (SECURITY BREACH)
+    // 3. PSE library was updated (requires new golden vectors)
+    const LEFT: u64 = 12345;
+    const RIGHT: u64 = 67890;
+
+    // These values CANNOT be derived from the library we're testing
+    const EXPECTED_HASH: [u64; 4] = [
+        0x224ffa2d44f50c63,
+        0xc7d45db7f1374a2f,
+        0x2358c2792363943d,
+        0x1d6ba2017dc0aa6a,
+    ];
+
+    // ... circuit test using EXPECTED_HASH
+}
+```
+
+**Forbidden Practices (NEVER do these in ZK circuits):**
+- ❌ **NEVER derive test expectations from the library you're testing** - Supply-chain attacks can hide this way
+- ❌ **NEVER skip MockProver tests** - Reference-only tests don't validate constraints
+- ❌ **NEVER use unpinned git dependencies** - One malicious push bricks your cryptography
+- ❌ **NEVER test only happy paths** - Adversarial tests are not optional for production crypto
+
 ### CRITICAL: Smart Contract Security - ZERO TOLERANCE
 
 **THIS IS NON-NEGOTIABLE: We enforce STRICT Solidity best practices with ZERO exceptions.**
@@ -259,13 +321,20 @@ npm run lint:strict   # Zero-tolerance ESLint check
 npm run test          # TypeScript tests must pass
 
 # VOTER Protocol repository (this repo):
+# Smart Contracts (Solidity):
 forge build           # Smart contract compilation
 forge test            # Contract tests must pass
 forge coverage        # Verify >95% coverage
 slither .             # Static analysis (no high/medium issues)
+
+# ZK Circuits (Halo2/Rust):
+cd packages/crypto/circuits
+cargo test --lib      # All circuit tests must pass (includes golden vectors + adversarial tests)
+cargo clippy          # Zero warnings allowed
+cargo build --release # Production build must succeed
 ```
 
-**Remember: We're building financial infrastructure that handles real money. Type safety isn't negotiable.**
+**Remember: We're building financial infrastructure AND cryptographic proofs that handle real money. Type safety and circuit soundness are non-negotiable.**
 
 ## Key Development Concepts
 
@@ -273,7 +342,7 @@ slither .             # Static analysis (no high/medium issues)
 
 - **CLARITY Act Digital Commodity**: VOTER tokens qualify as digital commodities under federal framework - value derives from network utility, not expectation of profit from management efforts
 - **Bright-line rules**: We never reward voting, registering to vote, or choosing candidates. We reward the verifiable work of contacting representatives.
-- **Privacy-preserving**: Zero PII on-chain; encrypted storage in NEAR CipherVault
+- **Privacy-preserving**: Zero PII storage anywhere (Poseidon hash commitments on Scroll L2, browser-native encryption for delivery only)
 - **Democratic authenticity**: Clear separation between verified participation records and economic incentives
 
 In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while we build on emerging regulatory clarity. The CLARITY Act provides the regulatory framework we need.

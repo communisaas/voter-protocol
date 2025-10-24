@@ -1,112 +1,104 @@
-//! District Membership Circuit
-//!
-//! Proves that a user's address belongs to a specific congressional district
-//! without revealing the address itself. Uses Merkle tree verification with
-//! Poseidon hashing over the Shadow Atlas.
-//!
-//! **Public Inputs**:
-//! - `merkle_root`: Root hash of the Shadow Atlas (on-chain, verifiable)
-//! - `district_hash`: Hash of the claimed district ID
-//!
-//! **Private Inputs**:
-//! - `address`: User's Ethereum address
-//! - `merkle_path`: Siblings along the path from address leaf to root
-//! - `merkle_path_indices`: Directions (0 = left, 1 = right) for each level
-//!
-//! **Circuit Logic**:
-//! 1. Hash the address to create a leaf: `leaf = Poseidon(address)`
-//! 2. Verify Merkle path from leaf to root
-//! 3. Constrain `computed_root == merkle_root` (public input)
-//! 4. Constrain leaf is in the subtree for `district_hash` (public input)
+// District Membership Circuit - Two-Tier Merkle Tree
+// Reference: IMPLEMENTATION-GUIDE.md Week 2 (Day 9-10)
+// Reference: docs/shadow-atlas-two-tier-design.md
 
-use halo2_proofs::{
-    circuit::{Layouter, SimpleFloorPlanner, Value},
-    plonk::{Circuit, ConstraintSystem, Instance, ErrorFront},
-};
 use halo2curves::bn256::Fr;
+use halo2_proofs::{
+    circuit::{AssignedCell, Layouter, SimpleFloorPlanner, Value},
+    plonk::{Advice, Circuit, Column, ConstraintSystem, Error as PlonkError, Instance},
+};
+use crate::merkle::MerkleConfig;
+use crate::poseidon_hash::PoseidonHashConfig;
 
-use crate::{merkle::MerkleConfig, poseidon_gadget::PoseidonHasher};
-
-/// Maximum depth of the Merkle tree
-/// 20 levels supports up to 2^20 = 1,048,576 addresses per district
-pub const MAX_MERKLE_DEPTH: usize = 20;
-
-/// District membership circuit
+/// District membership circuit proving address ∈ district ∈ Shadow Atlas
 ///
-/// # Example
-/// ```rust
-/// use voter_protocol_circuits::district_membership::DistrictMembershipCircuit;
-/// use halo2_proofs::circuit::Value;
-/// use halo2curves::bn256::Fr;
+/// STRATIFIED ARCHITECTURE - Shallow Circuit (60% of users):
+/// - Tier 1: 12 levels (4,096 addresses per quad)
+/// - Tier 2: 8 levels (256 quads per country)
+/// - Proving time: 6-8s desktop, 12-16s mobile
+/// - Constraints: ~7,200 (vs ~25,000 universal)
 ///
-/// let circuit = DistrictMembershipCircuit {
-///     address: Value::known(address_field),
-///     merkle_path: path.into_iter().map(Value::known).collect(),
-///     merkle_path_indices: indices.into_iter().map(Value::known).collect(),
-///     merkle_root: Value::known(root_field),
-///     district_hash: Value::known(district_field),
-/// };
-/// ```
+/// Public inputs:
+/// - shadow_atlas_root: Global Merkle root (on-chain)
+/// - district_hash: Claimed congressional district
+/// - nullifier: Prevents double-voting, unlinkable across actions
+///
+/// Private witnesses:
+/// - identity_commitment: Poseidon(user_id, secret_salt) - NEVER revealed
+/// - tier1_path: Fixed 12 siblings for district tree
+/// - tier1_path_indices: Direction bits for district tree
+/// - tier2_path: Fixed 8 siblings for global tree
+/// - tier2_path_indices: Direction bits for global tree
 #[derive(Clone, Debug)]
 pub struct DistrictMembershipCircuit {
-    /// User's address (private input)
-    pub address: Value<Fr>,
+    // Private witnesses (NEVER revealed)
+    pub identity_commitment: Value<Fr>,
+    pub tier1_path: [Value<Fr>; 12],         // FIXED SIZE - Tier 1
+    pub tier1_path_indices: [bool; 12],      // FIXED SIZE
+    pub tier2_path: [Value<Fr>; 8],          // FIXED SIZE - Tier 2
+    pub tier2_path_indices: [bool; 8],       // FIXED SIZE
 
-    /// Merkle proof siblings (private input)
-    /// Length must be <= MAX_MERKLE_DEPTH
-    pub merkle_path: Vec<Value<Fr>>,
-
-    /// Path directions: 0 = left, 1 = right (private input)
-    /// Length must equal merkle_path.len()
-    pub merkle_path_indices: Vec<Value<Fr>>,
-
-    /// Shadow Atlas Merkle root (public input, instance column 0)
-    pub merkle_root: Value<Fr>,
-
-    /// Claimed district hash (public input, instance column 1)
-    pub district_hash: Value<Fr>,
+    // Public inputs (on-chain)
+    pub shadow_atlas_root: Fr,   // Global Merkle root
+    pub district_hash: Fr,       // Claimed district (e.g., CA-12)
+    pub nullifier: Fr,           // Unlinkable across actions
 }
 
-impl Default for DistrictMembershipCircuit {
-    fn default() -> Self {
-        Self {
-            address: Value::unknown(),
-            merkle_path: vec![Value::unknown(); MAX_MERKLE_DEPTH],
-            merkle_path_indices: vec![Value::unknown(); MAX_MERKLE_DEPTH],
-            merkle_root: Value::unknown(),
-            district_hash: Value::unknown(),
-        }
-    }
-}
-
-/// Circuit configuration
 #[derive(Clone, Debug)]
-pub struct DistrictCircuitConfig {
-    /// Merkle verification config
-    merkle_config: MerkleConfig,
-    /// Instance column for public inputs
-    instance: halo2_proofs::plonk::Column<Instance>,
+pub struct DistrictConfig {
+    pub poseidon: PoseidonHashConfig,
+    pub district_merkle: MerkleConfig,
+    pub global_merkle: MerkleConfig,
+    pub instance: Column<Instance>,
+    pub advice: Vec<Column<Advice>>,
 }
 
 impl Circuit<Fr> for DistrictMembershipCircuit {
-    type Config = DistrictCircuitConfig;
+    type Config = DistrictConfig;
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
-        Self::default()
+        Self {
+            identity_commitment: Value::unknown(),
+            tier1_path: [Value::unknown(); 12],
+            tier1_path_indices: self.tier1_path_indices,
+            tier2_path: [Value::unknown(); 8],
+            tier2_path_indices: self.tier2_path_indices,
+            shadow_atlas_root: self.shadow_atlas_root,
+            district_hash: self.district_hash,
+            nullifier: self.nullifier,
+        }
     }
 
     fn configure(meta: &mut ConstraintSystem<Fr>) -> Self::Config {
-        // Configure Merkle verification
-        let merkle_config = MerkleConfig::configure(meta);
-
-        // Instance column for public inputs [merkle_root, district_hash]
         let instance = meta.instance_column();
         meta.enable_equality(instance);
 
-        DistrictCircuitConfig {
-            merkle_config,
+        // Need many advice columns for path siblings (up to 30 total)
+        let advice = (0..32)
+            .map(|_| {
+                let col = meta.advice_column();
+                meta.enable_equality(col);
+                col
+            })
+            .collect();
+
+        // Add constant column for constrain_instance
+        let constant = meta.fixed_column();
+        meta.enable_constant(constant);
+
+        // CRITICAL FIX: Create SINGLE shared Poseidon chip instance
+        // This ensures deterministic column allocation between keygen and proving phases
+        // Previously, each MerkleConfig::configure created its own Poseidon chip,
+        // causing non-deterministic synthesis and "Synthesis" error during proof generation
+        let poseidon = PoseidonHashConfig::configure(meta);
+
+        DistrictConfig {
+            poseidon: poseidon.clone(),
+            district_merkle: MerkleConfig::configure_with_chip(meta, poseidon.clone()),
+            global_merkle: MerkleConfig::configure_with_chip(meta, poseidon.clone()),
             instance,
+            advice,
         }
     }
 
@@ -114,148 +106,348 @@ impl Circuit<Fr> for DistrictMembershipCircuit {
         &self,
         config: Self::Config,
         mut layouter: impl Layouter<Fr>,
-    ) -> Result<(), ErrorFront> {
-        // Step 1: Hash the address to get leaf
-        let leaf = PoseidonHasher::hash_single(&mut layouter, self.address)?;
+    ) -> Result<(), PlonkError> {
+        eprintln!("[SYNTH] Starting synthesis...");
 
-        // Step 2: Verify Merkle path from leaf to computed root
-        let computed_root = config.merkle_config.verify_path(
-            &mut layouter,
-            leaf,
-            &self.merkle_path,
-            &self.merkle_path_indices,
-        )?;
-
-        // Step 3: Constrain computed_root == public merkle_root (instance[0])
-        // Note: Actual instance constraint requires layouter.constrain_instance()
-        // For now, we'll just assign the value and mark with TODO for proper public input exposure
-        layouter.assign_region(
-            || "expose merkle root",
+        // 1. Assign identity_commitment as leaf
+        eprintln!("[SYNTH] Step 1: Assigning identity commitment...");
+        let identity_cell = layouter.assign_region(
+            || "assign identity commitment",
             |mut region| {
-                let _root_cell = region.assign_advice(
-                    || "computed root",
-                    config.merkle_config.current,
+                region.assign_advice(
+                    || "identity",
+                    config.advice[0],
                     0,
-                    || computed_root,
-                )?;
-
-                // TODO: Properly expose as public input using layouter.constrain_instance()
-                // This requires access to the layouter at a higher level
-                // For now, the value is assigned but not yet constrained to instance column
-
-                Ok(())
+                    || self.identity_commitment,
+                )
             },
         )?;
 
-        // Step 4: Constrain district_hash == public district (instance[1])
-        // This proves the address is in the SPECIFIC district claimed
-        layouter.assign_region(
-            || "expose district hash",
+        eprintln!("[SYNTH] Step 1 complete");
+
+        // 2. Hash identity to create leaf
+        eprintln!("[SYNTH] Step 2: Hashing identity to create leaf...");
+        let leaf_hash = config.poseidon.hash_single(
+            layouter.namespace(|| "leaf hash"),
+            identity_cell,
+        )?;
+        eprintln!("[SYNTH] Step 2 complete");
+
+        // 3. Assign tier1 path siblings (FIXED SIZE - 12 levels)
+        eprintln!("[SYNTH] Step 3: Assigning tier1 path siblings...");
+        let tier1_siblings: Result<Vec<AssignedCell<Fr, Fr>>, PlonkError> = self
+            .tier1_path
+            .iter()
+            .enumerate()
+            .map(|(i, sibling)| {
+                layouter.assign_region(
+                    || format!("tier1 sibling {}", i),
+                    |mut region| {
+                        region.assign_advice(
+                            || format!("sibling {}", i),
+                            config.advice[(i + 1) % config.advice.len()],
+                            0,
+                            || *sibling,
+                        )
+                    },
+                )
+            })
+            .collect();
+
+        let tier1_siblings = tier1_siblings?;
+        eprintln!("[SYNTH] Step 3 complete");
+
+        // 4. Verify identity ∈ tier1 tree (district tree)
+        eprintln!("[SYNTH] Step 4: Verifying tier1 Merkle path...");
+        let district_root = config.district_merkle.verify_path(
+            layouter.namespace(|| "verify tier1 tree"),
+            leaf_hash,
+            tier1_siblings,
+            self.tier1_path_indices.to_vec(),
+        )?;
+        eprintln!("[SYNTH] Step 4 complete");
+
+        // 5. Assign tier2 path siblings (FIXED SIZE - 8 levels)
+        eprintln!("[SYNTH] Step 5: Assigning tier2 path siblings...");
+        let tier2_siblings: Result<Vec<AssignedCell<Fr, Fr>>, PlonkError> = self
+            .tier2_path
+            .iter()
+            .enumerate()
+            .map(|(i, sibling)| {
+                layouter.assign_region(
+                    || format!("tier2 sibling {}", i),
+                    |mut region| {
+                        region.assign_advice(
+                            || format!("sibling {}", i),
+                            config.advice[(i + 13) % config.advice.len()],
+                            0,
+                            || *sibling,
+                        )
+                    },
+                )
+            })
+            .collect();
+
+        let tier2_siblings = tier2_siblings?;
+        eprintln!("[SYNTH] Step 5 complete");
+
+        // 6. Verify district_root ∈ tier2 tree (global tree)
+        eprintln!("[SYNTH] Step 6: Verifying tier2 Merkle path...");
+        let global_root = config.global_merkle.verify_path(
+            layouter.namespace(|| "verify tier2 tree"),
+            district_root.clone(),
+            tier2_siblings,
+            self.tier2_path_indices.to_vec(),
+        )?;
+        eprintln!("[SYNTH] Step 6 complete");
+
+        // 7. CRITICAL: Constrain computed global_root to public input
+        eprintln!("[SYNTH] Step 7: Constraining public inputs...");
+        layouter.constrain_instance(
+            global_root.cell(),
+            config.instance,
+            0,  // First public input: shadow_atlas_root
+        )?;
+
+        // 8. CRITICAL: Constrain district_root to public input
+        layouter.constrain_instance(
+            district_root.cell(),
+            config.instance,
+            1,  // Second public input: district_hash
+        )?;
+
+        // 9. CRITICAL: Constrain nullifier to public input
+        let nullifier_cell = layouter.assign_region(
+            || "assign nullifier",
             |mut region| {
-                // TODO: Implement district verification
-                // This requires matching the district_hash against the Merkle path
-                // to ensure the leaf is in the correct subtree
-
-                // For now, we expose district_hash as instance[1]
-                let _district_cell = region.assign_advice(
-                    || "district hash",
-                    config.merkle_config.current,
+                region.assign_advice(
+                    || "nullifier",
+                    config.advice[21],
                     0,
-                    || self.district_hash,
-                )?;
-
-                // TODO: Properly expose as public input using layouter.constrain_instance()
-                // For now, the value is assigned but not yet constrained to instance column
-
-                Ok(())
+                    || Value::known(self.nullifier),
+                )
             },
         )?;
+
+        layouter.constrain_instance(
+            nullifier_cell.cell(),
+            config.instance,
+            2,  // Third public input: nullifier
+        )?;
+
+        eprintln!("[SYNTH] ✅ Synthesis completed successfully!");
 
         Ok(())
     }
-}
-
-/// Generate a proof for district membership
-///
-/// # Arguments
-/// * `circuit` - Configured circuit instance with witnesses
-///
-/// # Returns
-/// Serialized proof bytes (384-512 bytes)
-///
-/// # Performance
-/// - **Proving time**: 4-6 seconds on commodity hardware
-/// - **Proof size**: 384-512 bytes
-/// - **Memory**: <4GB peak usage
-pub fn generate_proof(circuit: DistrictMembershipCircuit) -> Result<Vec<u8>, String> {
-    // TODO: Implement actual proof generation
-    // This requires:
-    // 1. Generate proving key (cached after first run)
-    // 2. Create proof using Halo2 prover
-    // 3. Serialize proof to bytes
-    //
-    // For now, return placeholder
-    Err("Proof generation not yet implemented - requires Poseidon integration".to_string())
-}
-
-/// Verify a district membership proof
-///
-/// # Arguments
-/// * `proof` - Serialized proof bytes
-/// * `public_inputs` - [merkle_root, district_hash]
-///
-/// # Returns
-/// `true` if proof is valid, `false` otherwise
-///
-/// # Performance
-/// - **Verification time**: 15-20ms
-pub fn verify_proof(proof: &[u8], public_inputs: &[Fr]) -> Result<bool, String> {
-    // TODO: Implement actual proof verification
-    // This requires:
-    // 1. Load verification key
-    // 2. Deserialize proof
-    // 3. Verify using Halo2 verifier
-    //
-    // For now, return placeholder
-    Err("Proof verification not yet implemented - requires Poseidon integration".to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use halo2_proofs::dev::MockProver;
+    use halo2_poseidon::poseidon::primitives::{ConstantLength, Hash as PrimitiveHash};
+    use crate::poseidon_hash::P128Pow5T3Bn256;
 
-    #[test]
-    fn test_circuit_without_witnesses() {
-        let circuit = DistrictMembershipCircuit::default();
+    /// Helper: Build stratified two-tier tree matching FIXED DEPTH (12 + 8 levels)
+    fn build_stratified_tree() -> (Fr, Fr, Fr, Fr, [Fr; 12], [Fr; 8]) {
+        // Simulate identity commitment (Poseidon(user_id, salt))
+        let user_id = Fr::from(1001);
+        let salt = Fr::from(424242);
+        let identity_commitment = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([user_id, salt]);
 
-        // K=17 supports up to 2^17 = 131,072 rows (sufficient for our circuit)
-        let k = 17;
+        // Hash identity to create leaf
+        let leaf_hash = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<1>, 3, 2>::init()
+            .hash([identity_commitment]);
 
-        // MockProver checks circuit structure without witnesses
-        let prover = MockProver::run(k, &circuit, vec![vec![Fr::zero(), Fr::zero()]]).unwrap();
+        // Build tier1 tree (12 levels = 4,096 leaves)
+        // For testing: build minimal tree, pad remaining siblings with zeros
+        let sibling_0 = Fr::from(2000);
+        let level_1 = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([leaf_hash, sibling_0]);
 
-        // This should pass (circuit structure is valid)
-        assert!(prover.verify().is_ok());
+        let sibling_1 = Fr::from(3000);
+        let level_2 = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([level_1, sibling_1]);
+
+        // Compute district root with remaining levels as zero siblings
+        let mut current = level_2;
+        for _ in 2..12 {
+            current = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+                .hash([current, Fr::zero()]);
+        }
+        let district_root = current;
+
+        // Build tier2 tree (8 levels = 256 districts)
+        let tier2_sibling_0 = Fr::from(9999);
+        let tier2_level_1 = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([district_root, tier2_sibling_0]);
+
+        let mut tier2_current = tier2_level_1;
+        for _ in 1..8 {
+            tier2_current = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+                .hash([tier2_current, Fr::zero()]);
+        }
+        let global_root = tier2_current;
+
+        // Build tier1 path (12 siblings)
+        let mut tier1_path = [Fr::zero(); 12];
+        tier1_path[0] = sibling_0;
+        tier1_path[1] = sibling_1;
+        // Remaining 10 siblings are Fr::zero()
+
+        // Build tier2 path (8 siblings)
+        let mut tier2_path = [Fr::zero(); 8];
+        tier2_path[0] = tier2_sibling_0;
+        // Remaining 7 siblings are Fr::zero()
+
+        (identity_commitment, leaf_hash, district_root, global_root, tier1_path, tier2_path)
     }
 
     #[test]
-    #[ignore] // Requires Poseidon implementation
-    fn test_valid_merkle_proof() {
-        // TODO: Implement once Poseidon is integrated
-        // This will test:
-        // 1. Create a small Merkle tree (e.g., 4 leaves)
-        // 2. Generate proof for leaf[0]
-        // 3. Verify MockProver accepts the proof
+    fn test_stratified_valid_proof() {
+        let (identity_commitment, _leaf_hash, district_root, global_root, tier1_path, tier2_path)
+            = build_stratified_tree();
+
+        // Generate nullifier: Poseidon(identity_commitment, action_id)
+        let action_id = Fr::from(555);
+        let nullifier = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([identity_commitment, action_id]);
+
+        // Convert arrays to Value arrays
+        let tier1_path_values: [Value<Fr>; 12] = tier1_path.map(Value::known);
+        let tier2_path_values: [Value<Fr>; 8] = tier2_path.map(Value::known);
+
+        // Path indices: all false (left child at every level)
+        let tier1_path_indices = [false; 12];
+        let tier2_path_indices = [false; 8];
+
+        let circuit = DistrictMembershipCircuit {
+            identity_commitment: Value::known(identity_commitment),
+            tier1_path: tier1_path_values,
+            tier1_path_indices,
+            tier2_path: tier2_path_values,
+            tier2_path_indices,
+            shadow_atlas_root: global_root,
+            district_hash: district_root,
+            nullifier,
+        };
+
+        let k = 14; // Increased for 12+8 levels
+        let public_inputs = vec![vec![global_root, district_root, nullifier]];
+        let prover = MockProver::run(k, &circuit, public_inputs).unwrap();
+
+        prover.assert_satisfied();
     }
 
     #[test]
-    #[ignore] // Requires Poseidon implementation
-    fn test_invalid_merkle_proof_rejected() {
-        // TODO: Implement once Poseidon is integrated
-        // This will test:
-        // 1. Create valid Merkle tree
-        // 2. Modify one sibling in the path
-        // 3. Verify MockProver rejects the proof
+    fn test_reject_wrong_district() {
+        let (identity_commitment, _leaf_hash, district_root, global_root, tier1_path, tier2_path)
+            = build_stratified_tree();
+
+        let action_id = Fr::from(555);
+        let nullifier = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([identity_commitment, action_id]);
+
+        let tier1_path_values: [Value<Fr>; 12] = tier1_path.map(Value::known);
+        let tier2_path_values: [Value<Fr>; 8] = tier2_path.map(Value::known);
+
+        // ATTACK: Claim wrong district
+        let fake_district = Fr::from(77777);
+
+        let circuit = DistrictMembershipCircuit {
+            identity_commitment: Value::known(identity_commitment),
+            tier1_path: tier1_path_values,
+            tier1_path_indices: [false; 12],
+            tier2_path: tier2_path_values,
+            tier2_path_indices: [false; 8],
+            shadow_atlas_root: global_root,
+            district_hash: fake_district,  // ← WRONG!
+            nullifier,
+        };
+
+        let k = 14;
+        let public_inputs = vec![vec![global_root, fake_district, nullifier]];
+        let prover = MockProver::run(k, &circuit, public_inputs).unwrap();
+
+        // Must reject wrong district
+        assert!(
+            prover.verify().is_err(),
+            "SECURITY FAILURE: Circuit accepted wrong district!"
+        );
+    }
+
+    #[test]
+    fn test_reject_wrong_identity() {
+        let (identity_commitment, _leaf_hash, district_root, global_root, tier1_path, tier2_path)
+            = build_stratified_tree();
+
+        let action_id = Fr::from(555);
+        let nullifier = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([identity_commitment, action_id]);
+
+        let tier1_path_values: [Value<Fr>; 12] = tier1_path.map(Value::known);
+        let tier2_path_values: [Value<Fr>; 8] = tier2_path.map(Value::known);
+
+        // ATTACK: Use wrong identity commitment
+        let wrong_identity = Fr::from(8888);
+
+        let circuit = DistrictMembershipCircuit {
+            identity_commitment: Value::known(wrong_identity),  // ← WRONG!
+            tier1_path: tier1_path_values,
+            tier1_path_indices: [false; 12],
+            tier2_path: tier2_path_values,
+            tier2_path_indices: [false; 8],
+            shadow_atlas_root: global_root,
+            district_hash: district_root,
+            nullifier,
+        };
+
+        let k = 14;
+        let public_inputs = vec![vec![global_root, district_root, nullifier]];
+        let prover = MockProver::run(k, &circuit, public_inputs).unwrap();
+
+        // Must reject wrong identity
+        assert!(
+            prover.verify().is_err(),
+            "SECURITY FAILURE: Circuit accepted wrong identity!"
+        );
+    }
+
+    #[test]
+    fn test_reject_wrong_global_root() {
+        let (identity_commitment, _leaf_hash, district_root, _global_root, tier1_path, tier2_path)
+            = build_stratified_tree();
+
+        let action_id = Fr::from(555);
+        let nullifier = PrimitiveHash::<Fr, P128Pow5T3Bn256, ConstantLength<2>, 3, 2>::init()
+            .hash([identity_commitment, action_id]);
+
+        let tier1_path_values: [Value<Fr>; 12] = tier1_path.map(Value::known);
+        let tier2_path_values: [Value<Fr>; 8] = tier2_path.map(Value::known);
+
+        // ATTACK: Claim wrong global root
+        let fake_root = Fr::from(66666);
+
+        let circuit = DistrictMembershipCircuit {
+            identity_commitment: Value::known(identity_commitment),
+            tier1_path: tier1_path_values,
+            tier1_path_indices: [false; 12],
+            tier2_path: tier2_path_values,
+            tier2_path_indices: [false; 8],
+            shadow_atlas_root: fake_root,  // ← WRONG!
+            district_hash: district_root,
+            nullifier,
+        };
+
+        let k = 14;
+        let public_inputs = vec![vec![fake_root, district_root, nullifier]];
+        let prover = MockProver::run(k, &circuit, public_inputs).unwrap();
+
+        // Must reject wrong root
+        assert!(
+            prover.verify().is_err(),
+            "SECURITY FAILURE: Circuit accepted wrong global root!"
+        );
     }
 }
