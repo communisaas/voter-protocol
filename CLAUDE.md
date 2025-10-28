@@ -62,12 +62,12 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 ### Core Cryptographic Primitives
 
 **Zero-Knowledge Proofs**: Halo2 recursive proofs with KZG commitments for district residency verification
-- Browser-native WASM proving (600ms-10s device-dependent)
-- 384-512 byte proof size (K=12 circuit)
+- Browser-native WASM proving (8-15 seconds on mid-range mobile)
+- 384-512 byte proof size (K=14 circuit, 117,473 cells, 8 columns, 16,384 rows)
 - Verifies congressional district membership without revealing address
 - Shadow Atlas Merkle tree (190+ countries, quarterly IPFS updates)
 - KZG ceremony via Ethereum's 141K-participant setup (no custom trusted setup)
-- On-chain verification: 300-500k gas on Scroll zkEVM
+- On-chain verification: 300-400k gas on Scroll zkEVM
 
 **End-to-End Encryption**: Message delivery to congressional offices
 - Client-side: XChaCha20-Poly1305 AEAD (Web Crypto API)

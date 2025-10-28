@@ -118,8 +118,8 @@ Tap "Send to My Representative"
 **What happens behind the scenes (Phase 1):**
 1. Your browser loads Shadow Atlas district tree from IPFS (cached locally in IndexedDB after first use)
 2. Web Workers generate Merkle witness in parallel (4 workers for Poseidon hashing)
-3. Halo2 zero-knowledge proof generates in browser WASM (1-5 seconds)
-   - K=12 circuit with KZG commitment (Ethereum's 141K-participant ceremony)
+3. Halo2 zero-knowledge proof generates in browser WASM (8-15 seconds)
+   - K=14 circuit with KZG commitment (Ethereum's 141K-participant ceremony)
    - Proves you live in your district without revealing your address
    - Address never leaves browser, never sent to any server
 4. Message encrypted before leaving device (XChaCha20-Poly1305)
@@ -129,7 +129,7 @@ Tap "Send to My Representative"
 8. Your action records on Scroll L2 blockchain (only district hash + reputation update, never your identity)
 
 **What you see:**
-- Progress bar showing proof generation (1-5 seconds: 600-800ms on modern laptops, 3-5s on mobile)
+- Progress bar showing proof generation (8-15 seconds on mid-range mobile)
 - "Message Delivered" confirmation
 - Delivery receipt with timestamp
 - Which staffer's inbox it reached (if office uses our dashboard)
@@ -221,7 +221,7 @@ Tap "Send to My Representative"
 ## Privacy: What Staffers See vs. What's Private
 
 **Congressional office sees (Phase 1):**
-- "Verified constituent in TX-18" (Halo2 zero-knowledge proof, browser-native generation)
+- "Verified constituent in TX-18" (Halo2 K=14 zero-knowledge proof, browser-native generation)
 - "Reputation score: 8,500 in healthcare policy" (domain expertise from on-chain actions)
 - "Content moderation: Passed 3-layer review" (OpenAI + Gemini/Claude + human)
 - "Previous templates correlated with 2 legislative outcomes" (impact tracking verified)
@@ -293,7 +293,7 @@ A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](
 
 **Go deeper:**
 - [README.md](README.md) - Why this exists and what changes
-- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
+- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 K=14 zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
 - [CONGRESSIONAL.md](CONGRESSIONAL.md) - Congressional office integration and quality signals
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Phase 1 + Phase 2 evolution)
 - [SECURITY.md](SECURITY.md) - Living threat model and incident response
