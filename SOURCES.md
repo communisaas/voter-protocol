@@ -97,167 +97,170 @@ All claims in VOTER Protocol documentation are backed by peer-reviewed research,
 27. **Corporate Compliance Insights (2024).** *Refresher on Workplace Social Media Policies as Contentious US Presidential Election Nears*.
     https://www.corporatecomplianceinsights.com/refresher-workplace-social-media-policies-election-2024/
 
+28. **NPR (2025, April 7).** *They had left their DEI roles. Trump still fired them*.
+    https://www.npr.org/2025/04/07/nx-s1-5348922/trump-dei-federal-employees-firing
+
 -----
 
 ## Congressional Communication & Lobbying
 
-28. **McDonald, S. (2018).** *Constituent Correspondence in the U.S. Congress: A Survey of Staff Perspectives* (Doctoral dissertation). University of California, Irvine.
+29. **McDonald, S. (2018).** *Constituent Correspondence in the U.S. Congress: A Survey of Staff Perspectives* (Doctoral dissertation). University of California, Irvine.
     http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf
 
-29. **Fireside (2023).** *Congressional Constituent Communication Statistics 2022*.
+30. **Fireside (2023).** *Congressional Constituent Communication Statistics 2022*.
     https://www.fireside21.com/resources/congressional-staffer-communication/
 
-30. **Congressional Management Foundation (archived 2025).** *Someone Really Reads Advocacy Emails - It's Just Not Who You Think*.
+31. **Congressional Management Foundation (archived 2025).** *Someone Really Reads Advocacy Emails - It's Just Not Who You Think*.
     https://web.archive.org/web/20250528073829/https://www.congressfoundation.org/blog/1380
 
-31. **Congressional Management Foundation (archived 2025).** *Legislative Correspondent Survey*.
+32. **Congressional Management Foundation (archived 2025).** *Legislative Correspondent Survey*.
     https://web.archive.org/web/20250619130156/https://www.congressfoundation.org/lc-survey
 
-32. **Congressional Management Foundation (2024).** *Responding to Constituent Correspondence and the CMF*.
-    https://www.congressfoundation.org/storage/documents/CMF_Pubs/SC119/sc_119_ch17_2024-cbk.pdf
+33. **Congressional Management Foundation (archived 2025).** *Responding to Constituent Correspondence and the CMF*.
+    https://web.archive.org/web/20251028000000/https://www.congressfoundation.org/storage/documents/CMF_Pubs/SC119/sc_119_ch17_2024-cbk.pdf
 
-33. **Congressional Management Foundation (archived 2025).** *It's Not How You Send It, It's What's Inside*.
+34. **Congressional Management Foundation (archived 2025).** *It's Not How You Send It, It's What's Inside*.
     https://web.archive.org/web/20250619124443/https://www.congressfoundation.org/blog/917-its-not-how-you-send-it-its-whats-inside
 
-34. **Congressional Management Foundation.** *Life in Congress: Aligning Work and Life in the U.S. House and Senate*.
-    https://www.congressfoundation.org/revitalizing-congress/life-in-congress/973-aligning-work-life-in-house-senate
+35. **Congressional Management Foundation (archived 2025).** *Life in Congress: Aligning Work and Life in the U.S. House and Senate*.
+    https://web.archive.org/web/20250405232711/https://www.congressfoundation.org/revitalizing-congress/life-in-congress/973-aligning-work-life-in-house-senate
 
-35. **Statista (2024).** *Lobbying expenditure on pharmaceuticals and health products in the U.S. 2000-2024*.
+36. **Statista (2024).** *Lobbying expenditure on pharmaceuticals and health products in the U.S. 2000-2024*.
     https://www.statista.com/statistics/1377721/lobbying-spending-on-pharmaceuticals-and-health-products-in-the-us/
 
-36. **OpenSecrets (2023, February).** *Despite record federal lobbying spending, the pharmaceutical and health product industry lost their biggest legislative bet in 2022*.
+37. **OpenSecrets (2023, February).** *Despite record federal lobbying spending, the pharmaceutical and health product industry lost their biggest legislative bet in 2022*.
     https://www.opensecrets.org/news/2023/02/despite-record-federal-lobbying-spending-the-pharmaceutical-and-health-product-industry-lost-their-biggest-legislative-bet-in-2022/
 
-37. **KFF (2025).** *FAQs about the Inflation Reduction Act's Medicare Drug Price Negotiation Program*.
+38. **KFF (2025).** *FAQs about the Inflation Reduction Act's Medicare Drug Price Negotiation Program*.
     https://www.kff.org/medicare/faqs-about-the-inflation-reduction-acts-medicare-drug-price-negotiation-program/
 
-38. **Tucson Sentinel (2025, February 13).** *Record-breaking $4.4 billion spent on lobbying efforts in 2024*.
+39. **Tucson Sentinel (2025, February 13).** *Record-breaking $4.4 billion spent on lobbying efforts in 2024*.
     https://www.tucsonsentinel.com/nationworld/report/021325_lobbying_record/
 
-39. **OpenSecrets.** *Layers of Lobbying: Federal and state lobbying trends in spending, representation and messaging*.
+40. **OpenSecrets.** *Layers of Lobbying: Federal and state lobbying trends in spending, representation and messaging*.
     https://www.opensecrets.org/news/reports/layers-of-lobbying
 
-40. **Inequality.org (2024).** *Shareholders Unite! Opportunities Ahead in 2025 to Increase Corporate Lobbying Transparency and Accountability*.
+41. **Inequality.org (2024).** *Shareholders Unite! Opportunities Ahead in 2025 to Increase Corporate Lobbying Transparency and Accountability*.
     https://inequality.org/article/corporate-lobbying-transparency-and-accountability/
 
-41. **The Commonwealth Fund (2022, January).** *International Prescription Drug Price Comparisons: Current Empirical Estimates and Comparisons with Previous Studies*.
+42. **The Commonwealth Fund (2022, January).** *International Prescription Drug Price Comparisons: Current Empirical Estimates and Comparisons with Previous Studies*.
     https://www.commonwealthfund.org/publications/issue-briefs/2022/jan/international-prescription-drug-price-comparisons
 
 -----
 
 ## Cryptography & Zero-Knowledge Proofs
 
-42. **Goldwasser, S., Micali, S., & Rackoff, C. (1989).** *The Knowledge Complexity of Interactive Proof-Systems*. SIAM Journal on Computing, 18(1), 186-208.
+43. **Goldwasser, S., Micali, S., & Rackoff, C. (1989).** *The Knowledge Complexity of Interactive Proof-Systems*. SIAM Journal on Computing, 18(1), 186-208.
     https://people.csail.mit.edu/silvio/Selected%20Scientific%20Papers/Proof%20Systems/The_Knowledge_Complexity_Of_Interactive_Proof_Systems.pdf
 
-43. **Gabizon, A., Williamson, Z. J., & Ciobotaru, O. (2019).** *PLONK: Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge*. ePrint Archive.
+44. **Gabizon, A., Williamson, Z. J., & Ciobotaru, O. (2019).** *PLONK: Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge*. ePrint Archive.
     https://eprint.iacr.org/2019/953
 
-44. **Grassi, L., Khovratovich, D., Rechberger, C., Roy, A., & Schofnegger, M. (2019).** *Poseidon: A New Hash Function for Zero-Knowledge Proof Systems*. ePrint Archive.
+45. **Grassi, L., Khovratovich, D., Rechberger, C., Roy, A., & Schofnegger, M. (2019).** *Poseidon: A New Hash Function for Zero-Knowledge Proof Systems*. ePrint Archive.
     https://eprint.iacr.org/2019/458
 
-45. **Bernstein, D. J., et al.** *XSalsa20 and XChaCha20: Extended-Nonce Variants*. Libsodium Documentation.
+46. **Bernstein, D. J., et al.** *XSalsa20 and XChaCha20: Extended-Nonce Variants*. Libsodium Documentation.
     https://doc.libsodium.org/
 
 -----
 
 ## Blockchain & Multi-Party Computation
 
-46. **NEAR Foundation (2024).** *Chain Signatures: Cross-Chain Without Bridges*. NEAR Protocol Documentation.
+47. **NEAR Foundation (2024).** *Chain Signatures: Cross-Chain Without Bridges*. NEAR Protocol Documentation.
     https://docs.near.org/chain-abstraction/chain-signatures
 
-47. **Gennaro, R., & Goldfeder, S. (2018).** *Fast Multiparty Threshold ECDSA with Fast Trustless Setup*. ACM CCS.
+48. **Gennaro, R., & Goldfeder, S. (2018).** *Fast Multiparty Threshold ECDSA with Fast Trustless Setup*. ACM CCS.
     https://eprint.iacr.org/2019/114
 
 -----
 
 ## Trusted Execution Environments
 
-48. **Google Cloud (2025).** *Confidential Space Overview*. Google Cloud Documentation.
+49. **Google Cloud (2025).** *Confidential Space Overview*. Google Cloud Documentation.
     https://cloud.google.com/confidential-computing/confidential-space/docs/confidential-space-overview
 
-49. **AMD (2025).** *AMD Secure Encrypted Virtualization - Secure Nested Paging (SEV-SNP)*. AMD Developer Documentation.
+50. **AMD (2025).** *AMD Secure Encrypted Virtualization - Secure Nested Paging (SEV-SNP)*. AMD Developer Documentation.
     https://www.amd.com/en/developer/sev.html
 
-50. **Microsoft Azure (2025).** *Azure Confidential Computing Attestation*. Microsoft Azure Documentation.
+51. **Microsoft Azure (2025).** *Azure Confidential Computing Attestation*. Microsoft Azure Documentation.
     https://learn.microsoft.com/en-us/azure/attestation/overview
 
 -----
 
 ## Economic Mechanisms & Governance
 
-51. **Buterin, V., Hitzig, Z., & Weyl, E.G. (2018).** *Liberal Radicalism: A Flexible Design for Philanthropic Matching Funds*. SSRN Electronic Journal.
+52. **Buterin, V., Hitzig, Z., & Weyl, E.G. (2018).** *Liberal Radicalism: A Flexible Design for Philanthropic Matching Funds*. SSRN Electronic Journal.
     https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3243656
 
-52. **BrightID Foundation.** *A Social Identity Network* [Whitepaper].
+53. **BrightID Foundation.** *A Social Identity Network* [Whitepaper].
     https://www.brightid.org/whitepaper
 
-53. **The Block (2024).** *Total Trading Volume on Polymarket (Daily)*. Polymarket Data.
+54. **The Block (2024).** *Total Trading Volume on Polymarket (Daily)*. Polymarket Data.
     https://www.theblock.co/data/decentralized-finance/prediction-markets/total-trading-volume-on-polymarket-daily
 
-54. **Liu, J., Makarov, I., & Schoar, A. (2023).** *Anatomy of a Run: The Terra Luna Crash*. Harvard Law School Forum on Corporate Governance.
+55. **Liu, J., Makarov, I., & Schoar, A. (2023).** *Anatomy of a Run: The Terra Luna Crash*. Harvard Law School Forum on Corporate Governance.
     https://corpgov.law.harvard.edu/2023/05/22/anatomy-of-a-run-the-terra-luna-crash/
 
-55. **Briola, A., et al. (2023).** *Anatomy of a stablecoin's failure: The Terra-Luna case*. Research Gate.
+56. **Briola, A., et al. (2023).** *Anatomy of a stablecoin's failure: The Terra-Luna case*. Research Gate.
     https://www.researchgate.net/publication/363790824_Anatomy_of_a_stablecoin's_failure_The_Terra-Luna_case
 
-56. **Govind, V. (Medium).** *Building Antifragile DeFi: Why Smart Contracts Need to Get Smarter*.
+57. **Govind, V. (Medium).** *Building Antifragile DeFi: Why Smart Contracts Need to Get Smarter*.
     https://vishnugovind10.medium.com/building-antifragile-defi-why-smart-contracts-need-to-get-smarter-6c87afb4085b
 
 -----
 
 ## Multi-Agent Systems
 
-57. **Li, X., Wang, S., Zeng, S., Wu, Y., & Yang, Y. (2024).** *A survey on LLM-based multi-agent systems: workflow, infrastructure, and challenges*. Vicinagearth, 1, Article 9.
+58. **Li, X., Wang, S., Zeng, S., Wu, Y., & Yang, Y. (2024).** *A survey on LLM-based multi-agent systems: workflow, infrastructure, and challenges*. Vicinagearth, 1, Article 9.
     https://link.springer.com/article/10.1007/s44336-024-00009-2
 
-58. **MDPI Journals (2025).** *Multi-Agent Coordination in Decentralized Systems*. Future Internet, 17(2), 57.
+59. **MDPI Journals (2025).** *Multi-Agent Coordination in Decentralized Systems*. Future Internet, 17(2), 57.
     https://www.mdpi.com/1999-5903/17/2/57
 
 -----
 
 ## Legal & Regulatory
 
-59. **U.S. Congress (2025).** *H.R.3633 - Digital Asset Market Clarity Act of 2025*. 119th Congress.
+60. **U.S. Congress (2025).** *H.R.3633 - Digital Asset Market Clarity Act of 2025*. 119th Congress.
     https://www.congress.gov/bill/119th-congress/house-bill/3633/text
 
-60. **Cornell Law School.** *18 U.S.C. §597 - Expenditures to Influence Voting*. Legal Information Institute.
+61. **Cornell Law School.** *18 U.S.C. §597 - Expenditures to Influence Voting*. Legal Information Institute.
     https://www.law.cornell.edu/uscode/text/18/597
 
-61. **House of Representatives.** *Communicating with Congress (CWC) Overview*.
+62. **House of Representatives.** *Communicating with Congress (CWC) Overview*.
     https://www.house.gov/doing-business-with-the-house/communicating-with-congress-cwc
 
 -----
 
 ## Identity Verification Infrastructure
 
-62. **self.xyz.** *Self Identity Verification Platform*.
+63. **self.xyz.** *Self Identity Verification Platform*.
     https://www.self.xyz
 
-63. **Didit.me.** *Digital Identity Verification*.
+64. **Didit.me.** *Digital Identity Verification*.
     https://www.didit.me
 
 -----
 
 ## Cypherpunk Philosophy
 
-64. **Hughes, E. (1993).** *A Cypherpunk's Manifesto*.
+65. **Hughes, E. (1993).** *A Cypherpunk's Manifesto*.
     https://www.activism.net/cypherpunk/manifesto.html
 
 -----
 
 ## Recent ZK Protocol Developments
 
-65. **Buterin, V. (2025, October 19).** *The GKR protocol*.
+66. **Buterin, V. (2025, October 19).** *The GKR protocol*.
     https://vitalik.eth.limo/general/2025/10/19/gkr.html
 
-66. **Buterin, V., Ashton, J., Buterin, L., Soleimani, A., Lesuisse, C., & Weyl, E.G. (2023).** *Blockchain Privacy and Regulatory Compliance: Towards a Practical Equilibrium*.
+67. **Buterin, V., Ashton, J., Buterin, L., Soleimani, A., Lesuisse, C., & Weyl, E.G. (2023).** *Blockchain Privacy and Regulatory Compliance: Towards a Practical Equilibrium*.
     https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4563364
 
-67. **Polyhedra Network (2024).** *Introducing Expander: The Fastest GKR Proof System to Date*.
+68. **Polyhedra Network (2024).** *Introducing Expander: The Fastest GKR Proof System to Date*.
     https://blog.polyhedra.network/introducing-expander-the-fastest-gkr-proof-system-to-date/
 
-68. **Thaler, J. (Georgetown University).** *A Note on the GKR Protocol*.
+69. **Thaler, J. (Georgetown University).** *A Note on the GKR Protocol*.
     https://people.cs.georgetown.edu/jthaler/GKRNote.pdf
 
 -----
