@@ -34,7 +34,7 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 **Small-town resident** where everyone knows your politics: Advocate without neighbors tracking your every stance. Zero-knowledge proofs mean political participation doesn't become local gossip or business retaliation. Cryptographic privacy in tight-knit communities.
 
-**Federal employee** who watched 62,000 colleagues purged for political views in 2025: Participate without career risk. Zero-knowledge proofs mean your civic engagement can't be weaponized during administration changes. Cryptographic protection, not civil service promises.
+**Federal employee** who watched [62,530 colleagues dismissed in early 2025](https://www.newsweek.com/doge-layoffs-federal-government-tracker-2025-dod-cuts-2042525): Participate without career risk. Zero-knowledge proofs mean your civic engagement can't be weaponized during administration changes. Cryptographic protection, not civil service promises.
 
 **Healthcare worker** whose off-duty political posts trigger licensing complaints: Speak freely without professional consequences. Zero-knowledge proofs mean advocacy platforms can't become ammunition for viral campaigns targeting your livelihood. Cryptographic anonymity, not hoping your employer never finds out.
 
