@@ -4,11 +4,16 @@
  *
  * Usage:
  *   npm run atlas:verify
+ *
+ * SECURITY FIX (2025-10-31):
+ * Replaced circomlibjs with WASM Poseidon (Axiom halo2_base implementation).
+ * circomlibjs uses different round constants than circuit → 100% proof failure.
  */
 
-import { buildPoseidon } from 'circomlibjs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { readFile } from 'fs/promises';
+import init, { hash_pair } from '../packages/crypto/circuits/pkg/voter_district_circuit.js';
 
 interface DistrictLeaf {
   districtId: string;
@@ -36,6 +41,13 @@ interface AtlasData {
 
 async function verifyAtlas() {
   console.log('🔍 Shadow Atlas Verification\n');
+
+  // Initialize WASM module (Axiom Poseidon implementation)
+  console.log('Initializing WASM Poseidon...');
+  const wasmPath = path.join(process.cwd(), 'packages/crypto/circuits/pkg/voter_district_circuit_bg.wasm');
+  const wasmBytes = await readFile(wasmPath);
+  await init(wasmBytes);
+  console.log('✓ WASM initialized\n');
 
   const atlasPath = path.join(process.cwd(), 'shadow-atlas-us.json');
 
@@ -113,7 +125,6 @@ async function verifyAtlas() {
   console.log('5. Verifying Merkle root...');
   console.log(`   Computing Merkle tree...`);
 
-  const poseidon = await buildPoseidon();
   let currentLevel = atlas.districts.map(d => d.hash);
 
   while (currentLevel.length > 1) {
@@ -125,12 +136,8 @@ async function verifyAtlas() {
         ? currentLevel[i + 1]
         : currentLevel[i];
 
-      const leftBigInt = BigInt(left);
-      const rightBigInt = BigInt(right);
-
-      const hashBytes = poseidon([leftBigInt, rightBigInt]);
-      const hashString = poseidon.F.toString(hashBytes);
-      const hash = '0x' + BigInt(hashString).toString(16).padStart(64, '0');
+      // Use WASM hash_pair (Axiom implementation)
+      const hash = await hash_pair(left, right);
 
       nextLevel.push(hash);
     }
@@ -198,12 +205,8 @@ async function verifyAtlas() {
           ? currentLevelData[i + 1]
           : currentLevelData[i];
 
-        const leftBigInt = BigInt(left);
-        const rightBigInt = BigInt(right);
-
-        const hashBytes = poseidon([leftBigInt, rightBigInt]);
-        const hashString = poseidon.F.toString(hashBytes);
-        const parentHash = '0x' + BigInt(hashString).toString(16).padStart(64, '0');
+        // Use WASM hash_pair (Axiom implementation)
+        const parentHash = await hash_pair(left, right);
 
         parentLevel.push(parentHash);
       }
@@ -215,12 +218,11 @@ async function verifyAtlas() {
     // Verify proof
     let computedHash = district.hash;
     for (let i = 0; i < path.length; i++) {
-      const leftBigInt = pathIndices[i] === 0 ? BigInt(computedHash) : BigInt(path[i]);
-      const rightBigInt = pathIndices[i] === 0 ? BigInt(path[i]) : BigInt(computedHash);
+      const left = pathIndices[i] === 0 ? computedHash : path[i];
+      const right = pathIndices[i] === 0 ? path[i] : computedHash;
 
-      const hashBytes = poseidon([leftBigInt, rightBigInt]);
-      const hashString = poseidon.F.toString(hashBytes);
-      computedHash = '0x' + BigInt(hashString).toString(16).padStart(64, '0');
+      // Use WASM hash_pair (Axiom implementation)
+      computedHash = await hash_pair(left, right);
     }
 
     if (computedHash === atlas.root) {

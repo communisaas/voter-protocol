@@ -30,14 +30,12 @@
     "@near-js/biometric-ed25519": "^2.3.4",
     "@near-js/crypto": "^2.3.3",
     "@near-js/keystores-browser": "^2.3.3",
-    "circomlibjs": "^0.1.7",
     "ethers": "^6.15.0",
     "idb": "^8.0.3",
     "libsodium-wrappers": "^0.7.13",
     "near-api-js": "^6.3.0"
   },
   "devDependencies": {
-    "@types/circomlibjs": "^0.1.6",
     "@types/node": "^24.3.2",
     "js-sha256": "^0.11.1",
     "typescript": "^5.7.2",

@@ -8,6 +8,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:atlas": "tsx scripts/test-shadow-atlas.ts",
     "lint": "turbo run lint",
     "dev": "turbo run dev",
     "atlas:dev": "NODE_ENV=development ATLAS_MODE=mock tsx scripts/build-shadow-atlas.ts",
@@ -20,7 +21,6 @@
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
     "tsx": "^4.19.2",
-    "circomlibjs": "^0.1.7",
     "@types/node": "^24.3.2"
   }
 }

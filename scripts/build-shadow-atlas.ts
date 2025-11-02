@@ -6,11 +6,16 @@
  *
  * Usage:
  *   npx tsx scripts/build-shadow-atlas.ts
+ *
+ * SECURITY FIX (2025-10-31):
+ * Replaced circomlibjs with WASM Poseidon (Axiom halo2_base implementation).
+ * circomlibjs uses different round constants than circuit → 100% proof failure.
  */
 
-import { buildPoseidon } from 'circomlibjs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { readFile } from 'fs/promises';
+import init, { hash_pair } from '../packages/crypto/circuits/pkg/voter_district_circuit.js';
 
 // Census TIGER/Line REST API endpoint for 119th Congressional Districts
 // Using tigerWMS_Current service which has Layer 54 for 119th Congressional Districts
@@ -203,12 +208,10 @@ async function addSenateDistricts(houseDistricts: DistrictGeometry[]): Promise<D
 }
 
 /**
- * Build Merkle tree from district leaves
+ * Build Merkle tree from district leaves (WASM Poseidon)
  */
 async function buildMerkleTree(districts: DistrictLeaf[]): Promise<string> {
-  console.log('Building Merkle tree with Poseidon hashing...');
-
-  const poseidon = await buildPoseidon();
+  console.log('Building Merkle tree with WASM Poseidon hashing...');
 
   let currentLevel = districts.map(d => d.hash);
 
@@ -221,12 +224,8 @@ async function buildMerkleTree(districts: DistrictLeaf[]): Promise<string> {
         ? currentLevel[i + 1]
         : currentLevel[i]; // Duplicate if odd number
 
-      const leftBigInt = BigInt(left);
-      const rightBigInt = BigInt(right);
-
-      const hashBytes = poseidon([leftBigInt, rightBigInt]);
-      const hashString = poseidon.F.toString(hashBytes);
-      const hash = '0x' + BigInt(hashString).toString(16).padStart(64, '0');
+      // Use WASM hash_pair (Axiom implementation)
+      const hash = await hash_pair(left, right);
 
       nextLevel.push(hash);
     }
@@ -241,11 +240,9 @@ async function buildMerkleTree(districts: DistrictLeaf[]): Promise<string> {
 }
 
 /**
- * Convert district geometry to Merkle leaf
+ * Convert district geometry to Merkle leaf (WASM Poseidon)
  */
 async function districtToLeaf(district: DistrictGeometry): Promise<DistrictLeaf> {
-  const poseidon = await buildPoseidon();
-
   const districtId = district.districtType === 'senate'
     ? `${district.state}-${district.cd119}`
     : `${district.state}-${district.cd119.padStart(2, '0')}`;
@@ -256,10 +253,15 @@ async function districtToLeaf(district: DistrictGeometry): Promise<DistrictLeaf>
   const districtNum = BigInt(parseInt(district.cd119) || 0);
   const typeCode = BigInt(district.districtType === 'house' ? 1 : 2);
 
-  // Hash the metadata
-  const hashBytes = poseidon([stateCode, districtNum, typeCode]);
-  const hashString = poseidon.F.toString(hashBytes);
-  const hash = '0x' + BigInt(hashString).toString(16).padStart(64, '0');
+  // Convert to 64-char hex strings for WASM
+  const stateHex = '0x' + stateCode.toString(16).padStart(64, '0');
+  const districtHex = '0x' + districtNum.toString(16).padStart(64, '0');
+  const typeHex = '0x' + typeCode.toString(16).padStart(64, '0');
+
+  // Hash the metadata using WASM Poseidon
+  // For 3 inputs, compose hash_pair: hash(hash(a,b),c)
+  const temp = await hash_pair(stateHex, districtHex);
+  const hash = await hash_pair(temp, typeHex);
 
   return {
     districtId,
@@ -276,6 +278,13 @@ async function districtToLeaf(district: DistrictGeometry): Promise<DistrictLeaf>
  */
 async function main() {
   console.log('=== Shadow Atlas Build Pipeline ===\n');
+
+  // Initialize WASM module (Axiom Poseidon implementation)
+  console.log('Initializing WASM Poseidon...');
+  const wasmPath = path.join(process.cwd(), 'packages/crypto/circuits/pkg/voter_district_circuit_bg.wasm');
+  const wasmBytes = await readFile(wasmPath);
+  await init(wasmBytes);
+  console.log('✓ WASM initialized\n');
 
   try {
     // Step 1: Fetch Congressional Districts (House)
