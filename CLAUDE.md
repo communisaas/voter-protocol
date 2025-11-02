@@ -51,10 +51,16 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - No bridges, no wrapped tokens, no trusted intermediaries
 - Sub-second signature latency
 
-**Identity & Privacy**: Scroll Identity Registry + Browser-Native Encryption
-- Poseidon hash commitments on-chain (Scroll L2)
-- XChaCha20-Poly1305 encryption client-side (PII never leaves browser)
-- Zero PII storage anywhere (browser-only encryption for delivery)
+**Identity & Privacy**: Dual-Layer Architecture with Clear AWS Boundaries
+- **On-chain identity (NO AWS dependency):**
+  - Poseidon hash commitments on Scroll L2 (district membership)
+  - Halo2 ZK proofs generated 100% in browser (address never leaves device)
+  - Zero server trust for identity verification
+- **Message delivery (AWS Nitro Enclaves dependency):**
+  - PII encrypted at rest, decrypted ONLY inside AWS Nitro Enclave
+  - Platform operators cannot access plaintext (architectural enforcement)
+  - Enclave delivers plaintext address + message to congressional offices via CWC API
+  - AI moderation runs inside enclave (content filtered without platform access)
 - Platform pays gas costs ($0.002 per user registration)
 
 **See [ARCHITECTURE.md](ARCHITECTURE.md) and [TECHNICAL.md](TECHNICAL.md)** for complete technical details.
@@ -69,11 +75,15 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - KZG ceremony via Ethereum's 141K-participant setup (no custom trusted setup)
 - On-chain verification: 300-400k gas on Scroll zkEVM
 
-**End-to-End Encryption**: Message delivery to congressional offices
-- Client-side: XChaCha20-Poly1305 AEAD (Web Crypto API)
-- Encrypted passthrough: Backend cannot decrypt messages
-- CWC integration: Whitelisted IP delivery to congressional systems
-- Plaintext exists only: browser → encrypted transit → CWC decryption → congressional CRM
+**End-to-End Encryption**: AWS Nitro Enclaves for Message Privacy
+- Browser encrypts to enclave public key (XChaCha20-Poly1305 AEAD)
+- Backend stores encrypted blob (cannot decrypt, lacks keys)
+- AWS Nitro Enclave decrypts for AI moderation + congressional delivery
+- Enclave attestation proves correct code running (cryptographically verifiable)
+- CWC integration: Whitelisted IP delivery from enclave to congressional systems
+- Plaintext exists only: browser → enclave (isolated compute) → congressional CRM
+- **AWS dependency**: Enclave infrastructure required for SOAP XML delivery
+- **Immunity**: Nitro uses hypervisor isolation (NOT Intel SGX/AMD SEV) → immune to DDR5 memory interposer attacks (TEE.fail)
 
 **Multi-Party Computation**: NEAR Chain Signatures (Phase 2+ optional)
 - Threshold ECDSA across validator set
@@ -342,7 +352,11 @@ cargo build --release # Production build must succeed
 
 - **CLARITY Act Digital Commodity**: VOTER tokens qualify as digital commodities under federal framework - value derives from network utility, not expectation of profit from management efforts
 - **Bright-line rules**: We never reward voting, registering to vote, or choosing candidates. We reward the verifiable work of contacting representatives.
-- **Privacy-preserving**: Zero PII storage anywhere (Poseidon hash commitments on Scroll L2, browser-native encryption for delivery only)
+- **Honest Privacy Architecture**:
+  - **On-chain identity**: Truly private (Poseidon commitments, browser-native ZK proofs, zero server dependency)
+  - **Message delivery**: Encrypted from platform operators via AWS Nitro Enclaves (platform cannot decrypt, enclave delivers plaintext to congressional offices)
+  - **PII storage**: Encrypted at rest, decrypted only inside isolated enclave for delivery to congressional offices
+  - **Clear dependency**: Congressional SOAP API requires centralized delivery from whitelisted IP with plaintext address + message (Nitro Enclave provides this while protecting platform operators from accessing content)
 - **Democratic authenticity**: Clear separation between verified participation records and economic incentives
 
 In a world where the President's memecoin cleared $40B on inauguration day, compensating civic labor makes us competitive while we build on emerging regulatory clarity. The CLARITY Act provides the regulatory framework we need.
@@ -496,10 +510,36 @@ While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, civic
 - Emergency pause mechanisms
 - Compliance with regulatory frameworks
 
+## Cost Architecture (Honest Numbers)
+
+**Phase 1 costs at 1M messages/month:**
+- **AI moderation**: $2k/month (runs inside Nitro Enclave, $0.002/message)
+- **AWS Nitro Enclaves**: $500-800/month (c6a.xlarge instance)
+- **Batch on-chain logging**: $450/month (hourly merkle roots, NOT per-message)
+- **Infrastructure**: $500/month (database, CDN)
+- **Total**: ~$3.5k/month
+
+**Key cost optimizations:**
+- **Batch logging** (99% savings): Post merkle roots hourly instead of per-message
+  - Per-message logging: $20k/month (BROKEN)
+  - Batch logging: $450/month (CORRECT)
+- **Nitro Enclaves** (security + cost): FREE enclave software, just EC2 instance costs
+  - Replaces HSM ($1-2k/month saved)
+  - Runs moderation AI inside enclave (zero additional compute cost)
+- **Client-side ZKP**: $0 infrastructure (browser-native proving eliminates server costs)
+
+**Comparison to broken architecture:**
+- Old (dishonest): $20-24k/month with per-message logging + HSM theater
+- New (honest): $3.5k/month with batch logging + Nitro
+- **Savings**: 85% cost reduction through honesty
+
 ## Development Notes
 
 - **Implementation Location**: Smart contracts (Solidity) in this repository (`/contracts`). Frontend and agents in Communique repository.
-- **Testing**: Comprehensive test suite (Foundry for contracts, Vitest for TypeScript)
+- **AWS Dependency Boundaries**:
+  - **Zero AWS for on-chain identity**: Browser-native ZK proofs, Scroll L2 settlement, IPFS Shadow Atlas
+  - **AWS Nitro required for message delivery**: Congressional SOAP API demands centralized delivery with plaintext address + message from whitelisted IP (Nitro Enclave protects platform operators from accessing content)
+- **Testing**: Comprehensive test suite (Foundry for contracts, Vitest for TypeScript, Nitro Enclave integration tests)
 - **Deployment**: Multi-sig governance for production deployments on Scroll L2
 - **Architecture Reference**: See [ARCHITECTURE.md](ARCHITECTURE.md) for complete technical architecture
 
@@ -510,10 +550,14 @@ While TRUMP-linked memecoins touched $40B in 24 hours on Inauguration Day, civic
 Key security principles:
 - Smart contracts must undergo professional security audits before deployment
 - Multi-sig governance prevents single points of failure
+- **AWS Nitro Enclaves threat model**:
+  - ✅ Protects against: Server compromise, insider threats, legal compulsion (we cannot decrypt)
+  - ❌ Does NOT protect against: Physical AWS data center attacks (excluded from threat model per industry standards)
+  - ✅ Immune to TEE.fail DDR5 attacks (hypervisor-based, not CPU TEE)
 - Rate limiting prevents spam and gaming
 - Identity verification balances privacy with authenticity
 - Emergency controls for crisis situations
-- Challenge markets create economic consequences for misinformation
+- Challenge markets create economic consequences for misinformation (Phase 2)
 - Living documentation: Security threats evolve, our defenses evolve with them
 
 The VOTER Protocol positions democracy to compete for attention while creating authentic political impact. We're building infrastructure both humans and AI can use.

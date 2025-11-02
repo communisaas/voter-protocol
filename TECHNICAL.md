@@ -14,7 +14,7 @@ VOTER Protocol ships in two phases. Phase 1 establishes cryptographic foundation
 
 **Cryptographic Infrastructure:**
 - **Halo2 zero-knowledge district proofs** (browser-native WASM proving, KZG commitment, battle-tested since 2022 in Zcash Orchard)
-- **E2E encryption for congressional delivery** (client-side XChaCha20-Poly1305, plaintext only in browser and CWC endpoint)
+- **Message content encryption from platform operators** (XChaCha20-Poly1305, delivered as plaintext to congressional offices via CWC API)
 - **Cross-chain account abstraction** (NEAR Chain Signatures for wallet-free participation)
 - **On-chain reputation** (ERC-8004 portable credibility, no token rewards)
 
@@ -522,12 +522,12 @@ const scrollAddress = deriveScrollAddress(nearMPC.sign(masterPath, "scroll"));
 - Byzantine fault tolerance: 2/3 of NEAR validators must collude to extract keys
 - Passkey compromise requires device physical access + biometric break
 
-### End-to-End Message Encryption via AWS Nitro Enclaves
+### Message Content Encryption from Platform Operators
 
 **Problem:** Deliver messages to congressional offices requiring:
 1. Content moderation (legal requirement, Section 230 compliance)
 2. SOAP XML delivery from whitelisted static IP (congressional API constraint)
-3. True E2E encryption (platform cannot read messages)
+3. Platform operators cannot decrypt message content (architectural enforcement)
 
 **Solution: AWS Nitro Enclaves**
 
@@ -626,18 +626,20 @@ async fn process_message_in_enclave(message_id: String) -> Result<DeliveryReceip
         return Err("Content policy violation");
     }
 
-    // 4. Fetch user PII (encrypted at rest, decrypt in enclave)
-    let user_pii = decrypt_pii_in_enclave(encrypted_blob.user_id).await?;
+    // 4. Fetch user address (encrypted at rest, decrypt in enclave)
+    // CWC API requires address for congressional delivery
+    let user_address = decrypt_address_in_enclave(encrypted_blob.user_id).await?;
 
     // 5. Construct SOAP XML for congressional delivery
-    let soap_xml = build_cwc_request(user_pii, plaintext);
+    // Congressional offices receive: address + message content (plaintext)
+    let soap_xml = build_cwc_request(user_address, plaintext);
 
     // 6. Send from enclave to CWC (whitelisted static IP)
     let receipt = send_to_cwc_from_enclave(soap_xml).await?;
 
     // 7. Zero all secrets before returning
     zero_memory(&plaintext);
-    zero_memory(&user_pii);
+    zero_memory(&user_address);
 
     Ok(receipt)
 }
@@ -671,17 +673,25 @@ async function verifyNitroAttestation(attestation: AttestationDocument): Promise
 
 **Privacy Guarantees:**
 
-✅ **What Nitro Enclaves PROTECTS:**
+✅ **What Nitro Enclaves PROTECTS (platform operators):**
 - Server compromise: Attacker gets root on EC2 → cannot read enclave memory
 - Insider threat: Rogue employee → cannot access enclave
 - Legal compulsion: Subpoena → we literally cannot decrypt (keys in enclave)
 - Database breach: Encrypted blobs stolen → useless without enclave keys
+- **Platform operators never see address or message content** (architectural enforcement)
+
+✅ **What Congressional Offices RECEIVE:**
+- Constituent address (CWC API requirement)
+- Message content (plaintext)
+- Zero-knowledge district verification proof (cryptographic, no PII beyond address)
+- Reputation score (on-chain data)
 
 ❌ **What Nitro Enclaves DOES NOT protect against:**
 - Physical attacks on AWS data centers (requires breaking into AWS facilities)
 - AWS as malicious actor (you trust AWS infrastructure)
 - Bugs in enclave code itself (open-source for audit)
 - Side-channel attacks on enclaves (mitigated, not eliminated)
+- **Congressional offices seeing address/message** (required for CWC delivery, can't be encrypted)
 
 **Honest Comparison:**
 
@@ -1409,7 +1419,7 @@ TOTAL MONTHLY:                   $196.00
 
 **Phase 1 delivers:**
 - Zero-knowledge district proofs (Halo2 browser-native, KZG commitment, no trusted setup, battle-tested since 2022)
-- E2E encrypted congressional delivery (client-side encryption)
+- Message content encrypted from platform operators (XChaCha20-Poly1305, delivered as plaintext to congressional offices via CWC API)
 - 3-layer content moderation (Section 230 compliant)
 - Cross-chain reputation (ERC-8004 portable)
 - FREE identity verification (self.xyz + Didit.me)

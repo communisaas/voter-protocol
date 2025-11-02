@@ -2,7 +2,7 @@
 
 **This document evolves with the threat landscape. Last updated: 2025-10-20**
 
-**Phase 1 Focus**: This security model reflects Phase 1 architecture (browser-native Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, E2E encrypted congressional delivery, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
+**Phase 1 Focus**: This security model reflects Phase 1 architecture (browser-native Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, message content encrypted from platform operators via AWS Nitro Enclaves and delivered as plaintext to congressional offices, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
 
 VOTER Protocol is cryptographic democratic infrastructure handling identity verification, congressional message delivery, content moderation, and reputation systems. Phase 2 adds financial mechanisms (token economics, prediction markets). Security failures kill trust. This document maps threat vectors, mitigations, and incident response procedures.
 
@@ -346,9 +346,9 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 - **If MPC broken**: Immediate key rotation, migrate all user funds to new addresses
 - **If validator compromise**: NEAR protocol-level response, outside VOTER control
 
-### End-to-End Message Encryption via AWS Nitro Enclaves
+### Message Content Encryption from Platform Operators via AWS Nitro Enclaves
 
-**Security claim:** True E2E encryption—backend architecturally CANNOT decrypt. Plaintext exists only in: constituent browser → AWS Nitro Enclave (isolated compute) → congressional CRM. Platform operators cannot read messages even if they wanted to.
+**Security claim:** Platform operators architecturally CANNOT decrypt message content or addresses. Decryption occurs only in AWS Nitro Enclaves (isolated compute), which deliver plaintext to congressional offices via CWC API. Platform backend never sees plaintext messages or addresses.
 
 **Why Nitro Enclaves:**
 - Hypervisor-based isolation (NOT Intel SGX/AMD SEV vulnerable to TEE.fail DDR5 attacks)
@@ -394,17 +394,25 @@ function isValidRoot(bytes32 root) external view returns (bool) {
    - *Detection*: Community reports if attestation bypassed in wild
    - *Response*: Publish security advisory, users update to patched client
 
-**What Nitro Enclaves PROTECTS against:**
-✅ Server compromise (backend cannot decrypt)
-✅ Insider threats (we cannot access enclave)
-✅ Legal compulsion (we literally cannot decrypt to comply)
-✅ Database breach (encrypted blobs useless)
+**What Nitro Enclaves PROTECTS (platform operators):**
+✅ Server compromise (platform backend cannot decrypt)
+✅ Insider threats (platform operators cannot access enclave)
+✅ Legal compulsion (platform literally cannot decrypt to comply)
+✅ Database breach (encrypted blobs useless without enclave keys)
+✅ Platform surveillance (addresses and message content never seen by platform)
+
+**What Congressional Offices RECEIVE:**
+✅ Constituent address (CWC API requirement)
+✅ Message content (plaintext)
+✅ Zero-knowledge district verification proof
+✅ Reputation score (on-chain data)
 
 **What Nitro Enclaves DOES NOT protect against:**
 ❌ Physical AWS data center attacks (excluded from threat model)
 ❌ AWS as malicious actor (you trust AWS infrastructure)
 ❌ Bugs in enclave code (mitigated via open-source audit)
 ❌ Side-channel attacks (mitigated but not eliminated)
+❌ Congressional offices seeing address/message (required for CWC delivery)
 
 **Honest comparison to alternatives:**
 - **vs. "Trust us" encryption**: We CANNOT decrypt (architectural), not "we promise not to"
@@ -414,7 +422,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 **Cost:**
 - EC2 instance: $500-800/month (c6a.xlarge for Nitro Enclaves)
 - AI moderation: Runs inside enclave ($0 additional compute)
-- Total: $500-800/month for E2E encryption + moderation
+- Total: $500-800/month for message encryption + moderation
 
 **Incident response:**
 - **If enclave code bug**: Deploy patch, publish new PCR measurements, transparency report
@@ -666,21 +674,23 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 **Scenario:** Attacker gains access to encrypted message database.
 
 **Current state:**
-- Messages encrypted client-side before network transit
-- Encrypted blobs pass through backend (no decryption capability)
-- Plaintext never persists in backend (delivered to CWC encrypted, CWC decrypts)
-- Encrypted blobs stored temporarily (<24 hours for delivery confirmation)
+- Messages encrypted client-side (XChaCha20-Poly1305) to TEE public key before network transit
+- Encrypted blobs stored in backend database (platform cannot decrypt)
+- Decryption occurs only in AWS Nitro Enclaves (isolated from platform)
+- Enclave decrypts message + address, sends as plaintext to congressional offices via CWC API
+- Addresses and message content never persist in platform-accessible storage
 
 **If database compromised:**
-- Attacker gets: Encrypted blobs (XChaCha20-Poly1305 + RSA-OAEP wrapped keys)
-- Attacker needs: Congressional office private keys (controlled by CWC, not platform)
-- Brute force infeasible: 256-bit symmetric keys + 2048-bit RSA, ~2^256 operations
+- Attacker gets: Encrypted blobs (XChaCha20-Poly1305 encrypted to TEE public key)
+- Attacker needs: TEE private keys (exist only in AWS Nitro Enclave memory, inaccessible)
+- Brute force infeasible: 256-bit symmetric keys, ~2^256 operations
+- Platform operators cannot decrypt even if they wanted to (architectural enforcement)
 
 **Response:**
 1. Immediate incident notification to affected congressional offices
 2. Forensic analysis to determine breach vector and scope
 3. Purge all temporary encrypted message storage
-4. Congressional offices can rotate their CWC keys if concerned (platform has no control)
+4. Encrypted blobs are useless without TEE keys (which remain secure in enclaves)
 
 -----
 
