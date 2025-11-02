@@ -34,11 +34,11 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 **Small-town resident** where everyone knows your politics: Advocate without neighbors tracking your every stance. Zero-knowledge proofs mean political participation doesn't become local gossip or business retaliation. Cryptographic privacy in tight-knit communities.
 
-**Federal employee** who watched [62,530 colleagues dismissed in early 2025](https://www.newsweek.com/doge-layoffs-federal-government-tracker-2025-dod-cuts-2042525): Participate without career risk. Zero-knowledge proofs mean your civic engagement can't be weaponized during administration changes. Cryptographic protection, not civil service promises.
+**Federal employee** [fired for past DEI work despite changing roles](https://www.npr.org/2025/04/07/nx-s1-5348922/trump-dei-federal-employees-firing): Participate without career risk. Zero-knowledge proofs mean your civic participation history can't be weaponized during administration changes. Cryptographic protection, not civil service promises.
 
 **Healthcare worker** whose off-duty political posts trigger licensing complaints: Speak freely without professional consequences. Zero-knowledge proofs mean advocacy platforms can't become ammunition for viral campaigns targeting your livelihood. Cryptographic anonymity, not hoping your employer never finds out.
 
-**Teacher** facing employment consequences for political speech: Participate without risking your job. Hardware-attested encryption means messages exist in plaintext only in your browser and congressional delivery—nowhere else. Platform operators can't read them. Schools can't trace them.
+**Teacher** facing employment consequences for political speech: Participate without risking your job. End-to-end encryption via AWS Nitro Enclaves means we architecturally cannot decrypt your messages—only the isolated enclave can, for moderation and congressional delivery. Platform operators cannot read them. Schools cannot trace them.
 
 ### If You Create Value
 
@@ -56,7 +56,10 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 ### If You're Technical
 
-**Cypherpunk** who knows surveillance capitalism is the enemy: Privacy through peer-reviewed mathematics (Halo2 proofs with no trusted setup, KZG commitment using Ethereum's 141K-participant ceremony, threshold ECDSA, Poseidon hashing), not platform policies. Surveillance resistance is architectural. Zero-knowledge proofs generated entirely in browser—no cloud proving, no TEEs, address never leaves your device. Ethereum's KZG ceremony (141,000 participants, 2022-2023) provides universal commitment scheme with zero custom trusted setup. Browser-native WASM proving (K=14 circuit, 8-15 seconds mobile) eliminates AWS dependency entirely. Halo2 battle-tested since 2022 in Zcash Orchard—we're shipping production-grade cryptography proven at scale, now 100% client-side.
+**Privacy advocate** who knows surveillance capitalism is the enemy: Privacy through architecture, not promises.
+- **On-chain identity**: Truly private—Halo2 ZK proofs with no trusted setup, KZG via Ethereum's 141K-participant ceremony, browser-native WASM proving (K=14 circuit, 8-15s mobile). Address never leaves your device. Zero AWS dependency. Zcash Orchard battle-tested since 2022.
+- **Message delivery**: E2E encrypted via AWS Nitro Enclaves (we cannot decrypt, architectural enforcement). Enclave attestation proves correct code. Immune to TEE.fail DDR5 attacks (hypervisor-based, not CPU TEE).
+- **Honest dependencies**: Congressional SOAP API requires centralized delivery. Nitro Enclaves provide this while maintaining E2E encryption. No HSM theater.
 
 **Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments, **$0.002/user post-Dencun**, Ethereum L1 data availability). Optional NEAR chain signatures for cross-chain UX. Halo2 K=14 proofs for district verification (8-15s mobile browser WASM with KZG, 300-400k gas, no trusted setup, battle-tested in Zcash Orchard since 2022). Phase 1: Reputation-only. Phase 2: Token economics. See [TECHNICAL.md](TECHNICAL.md) for deep dive.
 

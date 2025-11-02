@@ -274,8 +274,8 @@ ATLAS_CACHE_DIR=.atlas-cache
 **Problem:** Census API returns 500 error
 **Solution:** Use local shapefiles instead (download manually)
 
-**Problem:** `CircomLibJS` import error
-**Solution:** `npm install circomlibjs @types/circomlibjs`
+**Problem:** WASM Poseidon module not found
+**Solution:** Ensure `@voter-protocol/crypto` package is built: `cd packages/crypto/circuits && cargo build --release --target wasm32-unknown-unknown`
 
 ### Verification Fails
 
