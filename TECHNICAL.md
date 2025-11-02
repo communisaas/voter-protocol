@@ -94,8 +94,9 @@ VOTER Protocol ships in two phases. Phase 1 establishes cryptographic foundation
   - Shadow Atlas district tree is public data (IPFS, no privacy concerns)
   - Witness generation happens client-side in Web Workers (isolated JavaScript execution)
   - **Proof reveals only district hash, never address** (selective disclosure of location without revealing exact address)
-  - Zero cloud dependency (no AWS, no TEEs, no trusted intermediaries)
+  - **Zero AWS dependency for on-chain identity** (browser-native ZK proofs, Scroll L2, IPFS)
   - **This is peak privacy for district verification** - address stays local, only membership proof goes on-chain
+  - **AWS Nitro dependency** applies ONLY to message delivery (separate system, see below)
 
 **Smart Contract Implementation (Two-Step Verification):**
 
@@ -521,85 +522,187 @@ const scrollAddress = deriveScrollAddress(nearMPC.sign(masterPath, "scroll"));
 - Byzantine fault tolerance: 2/3 of NEAR validators must collude to extract keys
 - Passkey compromise requires device physical access + biometric break
 
-### End-to-End Message Encryption
+### End-to-End Message Encryption via AWS Nitro Enclaves
 
-**Problem:** Deliver messages to congressional offices without platform operators reading plaintext.
+**Problem:** Deliver messages to congressional offices requiring:
+1. Content moderation (legal requirement, Section 230 compliance)
+2. SOAP XML delivery from whitelisted static IP (congressional API constraint)
+3. True E2E encryption (platform cannot read messages)
+
+**Solution: AWS Nitro Enclaves**
+
+**Why Nitro Enclaves:**
+- Hypervisor-based isolation (NOT Intel SGX/AMD SEV vulnerable to TEE.fail DDR5 attacks)
+- Cryptographic attestation (proves correct code running in enclave)
+- FREE (no additional cost beyond EC2 instance)
+- We architecturally CANNOT decrypt (keys live in enclave, not accessible to us)
+
+**Architecture:**
+```
+User Browser → Encrypt to Enclave Pubkey → Backend Stores Encrypted Blob →
+AWS Nitro Enclave Decrypts → AI Moderation (in enclave) →
+SOAP XML Construction → CWC Delivery → Congressional CRM
+```
 
 **Implementation:**
-- **Client-side encryption:** [XChaCha20-Poly1305](https://doc.libsodium.org/) AEAD (libsodium)
-  - User generates ephemeral key pair per message
-  - Encrypts message with symmetric key
-  - Encrypts symmetric key to congressional office public key (retrieved from CWC API)
-  - Deletes keys immediately after encryption
-- **Encrypted transit:** Message transmitted in encrypted form through backend server
-  - Backend server cannot decrypt (lacks private key)
-  - Encrypted delivery to CWC (Communicating with Congress) API
-  - CWC decrypts using congressional office's private key
-- **Congressional delivery:** Plaintext exists only in: user's browser → encrypted network transit → CWC decryption → congressional CRM
 
-**Privacy guarantee:**
+**Step 1: Browser encrypts to enclave public key**
 ```typescript
 // Client-side encryption (happens in browser before any network transmission)
-async function encryptForCongressionalOffice(
+async function encryptForNitroEnclave(
   message: string,
   districtId: string
 ): Promise<EncryptedMessage> {
-  // 1. Fetch congressional office public key from CWC
-  const officePublicKey = await cwcAPI.getOfficePublicKey(districtId);
+  // 1. Fetch enclave public key with attestation
+  const { publicKey, attestation } = await verifyEnclaveAttestation(districtId);
 
-  // 2. Generate ephemeral symmetric key
-  const symmetricKey = crypto.getRandomValues(new Uint8Array(32));
+  // 2. Verify attestation proves correct code running
+  const attestationValid = await verifyNitroAttestation(attestation);
+  if (!attestationValid) throw new Error('Enclave attestation failed');
 
-  // 3. Encrypt message with symmetric key
+  // 3. Encrypt message to enclave public key (XChaCha20-Poly1305)
   const nonce = crypto.getRandomValues(new Uint8Array(24));
   const ciphertext = await crypto.subtle.encrypt(
     { name: 'XChaCha20-Poly1305', nonce },
-    symmetricKey,
+    publicKey,
     new TextEncoder().encode(message)
   );
 
-  // 4. Encrypt symmetric key to congressional office public key
-  const encryptedKey = await crypto.subtle.encrypt(
-    { name: 'RSA-OAEP' },
-    officePublicKey,
-    symmetricKey
-  );
-
-  // 5. Delete keys from memory
-  crypto.subtle.wrapKey('raw', symmetricKey, officePublicKey, 'RSA-OAEP');
-
   return {
     ciphertext,
-    encryptedKey,
     nonce,
-    recipientOffice: districtId
+    recipientOffice: districtId,
+    attestation  // Proof of enclave identity
   };
 }
 ```
 
-**Backend delivery (encrypted passthrough):**
+**Step 2: Backend stores encrypted blob (CANNOT decrypt)**
 ```typescript
-// Backend server receives encrypted blob, cannot decrypt
-async function deliverToCongressionalOffice(
+// Backend server receives encrypted blob, stores without decryption
+async function storeEncryptedMessage(
   encryptedMessage: EncryptedMessage,
   proof: DistrictProof
-): Promise<DeliveryReceipt> {
+): Promise<MessageId> {
   // Verify ZK proof that sender is constituent in target district
   const proofValid = await scrollContract.verifyDistrictMembership(proof);
   if (!proofValid) throw new Error('Invalid district proof');
 
-  // Forward encrypted message to CWC API (backend cannot decrypt)
-  const receipt = await cwcAPI.deliverMessage({
-    encryptedMessage,  // Still encrypted
+  // Store encrypted blob (backend CANNOT decrypt, lacks enclave private key)
+  const messageId = await db.messages.create({
+    ciphertext: encryptedMessage.ciphertext,
+    nonce: encryptedMessage.nonce,
     districtId: encryptedMessage.recipientOffice,
-    timestamp: Date.now()
+    createdAt: Date.now()
   });
 
-  return receipt;
+  // Queue for enclave processing
+  await enclaveQueue.push({ messageId });
+
+  return messageId;
 }
 ```
 
-**Cypherpunk alignment:** Zero cloud decryption. Zero TEE dependency. Plaintext only exists in browser (user controls) and CWC endpoint (congressional office controls). Platform operators see only encrypted blobs in transit.
+**Step 3: Enclave processes (ONLY place with decryption keys)**
+```rust
+// THIS CODE RUNS INSIDE AWS NITRO ENCLAVE
+// Backend cannot access this environment
+use aws_nitro_enclaves_sdk::*;
+
+async fn process_message_in_enclave(message_id: String) -> Result<DeliveryReceipt> {
+    // 1. Fetch encrypted blob from backend
+    let encrypted_blob = fetch_encrypted_message(message_id).await?;
+
+    // 2. Decrypt with enclave private key (NEVER leaves enclave)
+    let plaintext = decrypt_xchacha20_poly1305(
+        &encrypted_blob.ciphertext,
+        &encrypted_blob.nonce,
+        &ENCLAVE_PRIVATE_KEY  // Stored in enclave memory only
+    )?;
+
+    // 3. AI moderation (runs INSIDE enclave, backend cannot see)
+    let moderation_result = moderate_content_in_enclave(&plaintext).await?;
+    if !moderation_result.approved {
+        return Err("Content policy violation");
+    }
+
+    // 4. Fetch user PII (encrypted at rest, decrypt in enclave)
+    let user_pii = decrypt_pii_in_enclave(encrypted_blob.user_id).await?;
+
+    // 5. Construct SOAP XML for congressional delivery
+    let soap_xml = build_cwc_request(user_pii, plaintext);
+
+    // 6. Send from enclave to CWC (whitelisted static IP)
+    let receipt = send_to_cwc_from_enclave(soap_xml).await?;
+
+    // 7. Zero all secrets before returning
+    zero_memory(&plaintext);
+    zero_memory(&user_pii);
+
+    Ok(receipt)
+}
+```
+
+**Step 4: Attestation verification**
+```typescript
+// Users verify enclave code BEFORE encrypting
+async function verifyNitroAttestation(attestation: AttestationDocument): Promise<boolean> {
+  // 1. Verify AWS Nitro signature on attestation
+  const signatureValid = await verifyAWSSignature(attestation);
+
+  // 2. Verify PCR measurements match expected enclave code
+  const expectedPCRs = {
+    PCR0: "expected_hash_of_enclave_code",  // Open-source, community can audit
+    PCR1: "expected_hash_of_kernel",
+    PCR2: "expected_hash_of_application"
+  };
+
+  const pcrsMatch = Object.entries(expectedPCRs).every(
+    ([pcr, expectedHash]) => attestation.pcrs[pcr] === expectedHash
+  );
+
+  if (!pcrsMatch) {
+    throw new Error('Enclave code mismatch - not running expected code!');
+  }
+
+  return signatureValid && pcrsMatch;
+}
+```
+
+**Privacy Guarantees:**
+
+✅ **What Nitro Enclaves PROTECTS:**
+- Server compromise: Attacker gets root on EC2 → cannot read enclave memory
+- Insider threat: Rogue employee → cannot access enclave
+- Legal compulsion: Subpoena → we literally cannot decrypt (keys in enclave)
+- Database breach: Encrypted blobs stolen → useless without enclave keys
+
+❌ **What Nitro Enclaves DOES NOT protect against:**
+- Physical attacks on AWS data centers (requires breaking into AWS facilities)
+- AWS as malicious actor (you trust AWS infrastructure)
+- Bugs in enclave code itself (open-source for audit)
+- Side-channel attacks on enclaves (mitigated, not eliminated)
+
+**Honest Comparison:**
+
+**vs. "Trust us" encryption:**
+- ❌ "We pinky promise not to read": Backend has keys, can decrypt anytime
+- ✅ Nitro Enclaves: We CANNOT decrypt, architectural enforcement
+
+**vs. Congressional office holding keys:**
+- Realistic? No (535 offices won't manage keypairs)
+- Nitro alternative: Enclave holds keys, offices still get plaintext delivery
+
+**AWS Dependency:**
+- **On-chain identity**: ZERO AWS (browser-native ZK proofs, Scroll L2, IPFS)
+- **Message delivery**: AWS Nitro REQUIRED (congressional SOAP API constraint)
+- **Clear boundary**: Identity privacy vs message delivery privacy
+
+**Cost:**
+- EC2 instance: $500-800/month (c6a.xlarge for Nitro Enclaves)
+- AI moderation: Runs inside enclave ($0 additional compute)
+- Batch logging: $450/month (hourly merkle roots)
+- Total: ~$1.5k/month infrastructure (vs $20k+ without batch logging)
 
 ### On-Chain Reputation (ERC-8004 Extension)
 
@@ -1557,3 +1660,44 @@ See CONTRIBUTING.md for guidelines.
 -----
 
 *Technical questions: [email protected]*
+
+## Operational Procedures
+
+### Verifier Regeneration (Circuit Changes)
+
+**When to regenerate** (ANY of these changes require new verifier):
+- Circuit structure modifications
+- Public input configuration changes
+- Column configuration changes  
+- Proving key parameters (K value, break points)
+- Commitment scheme changes
+
+**Procedure:**
+```bash
+cd packages/crypto/circuits
+
+# Ensure solc 0.8.19 in PATH (verifier generation requirement)
+export PATH="/path/to/solc-0.8.19:$PATH"
+
+# Regenerate with test params
+ALLOW_TEST_PARAMS=1 cargo run --bin generate_verifier --release --target aarch64-apple-darwin
+```
+
+**Outputs:**
+- `contracts/src/Halo2Verifier.bytecode` (~20KB, must fit EIP-170 24KB limit)
+- `contracts/src/Halo2Verifier.deployment.md` (deployment info)
+- `packages/crypto/circuits/kzg_params/pk_k14_break_points.json` (break points)
+
+**Verification:**
+```bash
+cd contracts
+forge test --match-contract Integration --match-test testProof
+```
+
+**Expected**: `[PASS] testProof() (gas: ~294k-300k)`
+
+**Critical**: Stale verifier bytecode = silent verification failures. Always regenerate after circuit changes.
+
+**See**: `packages/crypto/circuits/VERIFIER_REGENERATION.md` for detailed procedures.
+
+-----

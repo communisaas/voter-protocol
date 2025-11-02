@@ -180,11 +180,100 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
    - *Status*: Used in production by Zcash since 2022, no attacks demonstrated
    - *Monitoring*: Weekly cryptography paper reviews for new attacks
 
+**Circuit Soundness Testing (Critical):**
+
+Following external security audit findings, we enforce **adversarial constraint testing**:
+
+```rust
+// ✅ REQUIRED: Tests that SHOULD fail
+#[test]
+#[should_panic]
+fn test_reject_wrong_merkle_path() {
+    let circuit = DistrictCircuitForKeygen {
+        merkle_path: tampered_siblings,  // Invalid path
+        /* ... */
+    };
+
+    // MockProver MUST panic if circuit accepts invalid witnesses
+    run_circuit_with_mock_prover(&circuit, outputs)
+        .expect("SOUNDNESS BROKEN: accepted invalid path");
+}
+```
+
+**Required adversarial tests** (blocks production):
+- ❌ `test_reject_wrong_merkle_path` - Tampered siblings
+- ❌ `test_reject_wrong_leaf_index` - Wrong position claim
+- ❌ `test_reject_identity_mismatch` - Valid path for DIFFERENT identity
+- ❌ `test_reject_nullifier_grinding` - Attempt specific nullifier generation
+
+**Dependency Security Monitoring:**
+
+Pinned dependencies prevent supply-chain attacks via `cargo update`, but create **vulnerability lag** when CVEs published:
+
+```toml
+# ✅ Pinned to audited Trail of Bits commit
+halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib",
+               rev = "4dc5c4833f16b3f3686697856fd8e285dc47d14f" }
+```
+
+**Monitoring setup:**
+- [ ] Weekly RustSec advisory database checks
+- [ ] Quarterly dependency review (check for new releases/CVEs)
+- [ ] GitHub Actions workflow: `cargo audit` on every PR
+
+**If CVE discovered:**
+1. Assess impact on our circuit usage
+2. Schedule security review for updated version
+3. Deploy patched dependency (may require re-audit)
+
+**Browser WASM KZG Parameter Integrity:**
+
+**Attack**: Malicious npm package ships tampered KZG params → users generate invalid proofs
+
+**Mitigation:**
+```typescript
+export async function verifyKZGParamsIntegrity(): Promise<boolean> {
+    const EXPECTED_HASH = "91f59ebe47e55c18a318724a1b3fbf9a...";
+
+    const paramsBuffer = await getEmbeddedKZGParams();
+    const hash = await crypto.subtle.digest('SHA-512', paramsBuffer);
+
+    if (hashHex !== EXPECTED_HASH) {
+        throw new Error(`KZG parameter integrity FAILED. Package may be compromised.`);
+    }
+    return true;
+}
+
+// ✅ Call BEFORE every proof generation
+await verifyKZGParamsIntegrity();
+const proof = prover.prove(/* ... */);
+```
+
+**Shadow Atlas Merkle Root Grace Period:**
+
+**Attack**: Governance fat-fingers root update → all valid proofs become invalid
+
+**Mitigation:**
+```solidity
+mapping(bytes32 => bool) public historicalRoots;  // 7-day grace period
+
+function updateShadowAtlasRoot(bytes32 newRoot) external onlyOwner {
+    bytes32 previousRoot = currentShadowAtlasRoot;
+    historicalRoots[previousRoot] = true;  // Keep old root valid
+    currentShadowAtlasRoot = newRoot;
+}
+
+function isValidRoot(bytes32 root) external view returns (bool) {
+    return root == currentShadowAtlasRoot || historicalRoots[root];
+}
+```
+
 **Incident response:**
 - **If Halo2 circuit vulnerability**: Emergency pause district verification, deploy patched circuit
 - **If Poseidon hash broken**: Immediate protocol upgrade to alternative hash (Rescue, Anemoi)
 - **If Atlas poisoned**: Rollback to previous root, publish discrepancy report, community verification
 - **If IPA broken**: This would be a fundamental cryptographic break affecting all Halo2 systems globally (unlikely, but would require protocol-wide migration)
+- **If KZG params compromised**: Emergency npm package unpublish, security advisory, re-publish with correct params
 
 ### Identity Verification Security (Phase 1: self.xyz + Didit.me)
 
@@ -257,40 +346,81 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
 - **If MPC broken**: Immediate key rotation, migrate all user funds to new addresses
 - **If validator compromise**: NEAR protocol-level response, outside VOTER control
 
-### End-to-End Message Encryption
+### End-to-End Message Encryption via AWS Nitro Enclaves
 
-**Security claim:** Plaintext exists only in: constituent browser → encrypted network transit → CWC API decryption → congressional CRM. Platform operators cannot read messages.
+**Security claim:** True E2E encryption—backend architecturally CANNOT decrypt. Plaintext exists only in: constituent browser → AWS Nitro Enclave (isolated compute) → congressional CRM. Platform operators cannot read messages even if they wanted to.
+
+**Why Nitro Enclaves:**
+- Hypervisor-based isolation (NOT Intel SGX/AMD SEV vulnerable to TEE.fail DDR5 attacks)
+- Cryptographic attestation (users verify correct code running before encrypting)
+- We cannot access enclave memory (architectural enforcement, not policy)
+- FREE (no additional cost beyond EC2 instance)
 
 **Attack vectors:**
-1. **Backend server compromise** - Attacker gains access to backend infrastructure
-   - *Mitigation*: Backend receives only encrypted blobs (lacks decryption keys)
-   - *Status*: Encrypted messages pass through backend without decryption capability
-   - *Even if compromised*: Attacker gets XChaCha20-Poly1305 encrypted blobs (256-bit keys, ephemeral, deleted after use)
 
-2. **Man-in-the-middle on CWC API** - Intercept encrypted messages in transit to congressional offices
-   - *Mitigation*: TLS 1.3 for all network transit, certificate pinning
-   - *Status*: CWC API whitelist only accepts connections from verified backend IPs
-   - *Even if intercepted*: Still encrypted with congressional office's public key (RSA-OAEP)
+1. **Backend server compromise** - Attacker gains root access to EC2 instance
+   - *Mitigation*: Backend stores only encrypted blobs, lacks decryption keys
+   - *Enclave isolation*: Even with root access, attacker cannot read enclave memory
+   - *Status*: AWS Nitro Hypervisor prevents host OS from accessing enclave
+   - *Even if compromised*: Attacker gets XChaCha20-Poly1305 encrypted blobs useless without enclave keys
 
-3. **CWC API compromise** - Congressional systems leak messages post-delivery
-   - *Mitigation*: Outside VOTER control, messages ephemeral (not stored after CWC handoff)
-   - *Status*: Congressional offices control their own security posture
-   - *Platform responsibility*: Delivery confirmation only, not post-delivery storage
+2. **Enclave code vulnerability** - Bug in enclave moderation/delivery logic
+   - *Mitigation*: Open-source enclave code, community auditable
+   - *Attestation*: Users verify PCR measurements match expected code hash before encrypting
+   - *Status*: Any code change requires new attestation, users see mismatch and refuse to encrypt
+   - *Response*: Deploy patched enclave, publish new PCR measurements, transparency report
 
-4. **Key management failure** - Lose congressional office public keys, can't encrypt
-   - *Mitigation*: Keys retrieved from CWC API per-message (not stored platform-side)
-   - *Status*: CWC maintains authoritative key registry for all congressional offices
-   - *Backup*: Keys published to IPFS as secondary source
+3. **AWS as malicious actor** - AWS itself attempts to extract enclave keys
+   - *Mitigation*: Nitro Enclave design makes this architecturally difficult
+   - *Honest assessment*: You trust AWS infrastructure (same as any cloud provider)
+   - *Comparison*: Better than "trust us" (we can't decrypt) but requires trusting AWS data center security
+   - *Alternative*: Congressional offices could hold keys (they won't manage 535 keypairs)
 
-5. **Client-side JavaScript compromise** - Malicious code injected into browser encryption
-   - *Mitigation*: Subresource Integrity (SRI) hashes for all JavaScript, Content Security Policy
-   - *Status*: WASM modules cryptographically signed, browser verifies before execution
-   - *Detection*: Any SRI mismatch prevents page load (user sees security warning)
+4. **Physical attack on AWS data center** - Attacker physically accesses servers
+   - *Threat model exclusion*: Physical data center attacks are OUT OF SCOPE per industry standards
+   - *Status*: Requires breaking into AWS facilities, bypassing armed guards and physical security
+   - *Honest assessment*: If your threat model includes nation-state physical AWS infiltration, use different infrastructure
+   - *TEE.fail immunity*: Nitro uses hypervisor isolation (not vulnerable to DDR5 memory interposer attacks)
+
+5. **Side-channel attacks on enclave** - Extract keys via timing, cache, power analysis
+   - *Mitigation*: Nitro Enclaves designed with side-channel resistance
+   - *Status*: Mitigated but not eliminated (side channels are hard problem)
+   - *Monitoring*: AWS publishes security bulletins, we track and patch
+   - *Response*: If side-channel discovered, emergency key rotation within enclave
+
+6. **Attestation verification bypass** - User client skips PCR verification, encrypts to wrong enclave
+   - *Mitigation*: Client-side attestation verification enforced in open-source code
+   - *Status*: Users can audit JavaScript, verify attestation logic correct
+   - *Detection*: Community reports if attestation bypassed in wild
+   - *Response*: Publish security advisory, users update to patched client
+
+**What Nitro Enclaves PROTECTS against:**
+✅ Server compromise (backend cannot decrypt)
+✅ Insider threats (we cannot access enclave)
+✅ Legal compulsion (we literally cannot decrypt to comply)
+✅ Database breach (encrypted blobs useless)
+
+**What Nitro Enclaves DOES NOT protect against:**
+❌ Physical AWS data center attacks (excluded from threat model)
+❌ AWS as malicious actor (you trust AWS infrastructure)
+❌ Bugs in enclave code (mitigated via open-source audit)
+❌ Side-channel attacks (mitigated but not eliminated)
+
+**Honest comparison to alternatives:**
+- **vs. "Trust us" encryption**: We CANNOT decrypt (architectural), not "we promise not to"
+- **vs. Congressional offices holding keys**: Realistic? No (535 offices won't manage keypairs)
+- **vs. No moderation**: Legal requirement (Section 230 compliance needs content filtering)
+
+**Cost:**
+- EC2 instance: $500-800/month (c6a.xlarge for Nitro Enclaves)
+- AI moderation: Runs inside enclave ($0 additional compute)
+- Total: $500-800/month for E2E encryption + moderation
 
 **Incident response:**
-- **If backend compromised**: Only encrypted blobs exposed (attacker cannot decrypt without ephemeral keys)
-- **If CWC API breached**: Not VOTER responsibility, but notify affected offices immediately
-- **If client-side compromise detected**: Emergency rollback to known-good JavaScript version, publish security advisory
+- **If enclave code bug**: Deploy patch, publish new PCR measurements, transparency report
+- **If attestation bypassed**: Emergency client update, security advisory
+- **If AWS Nitro vulnerability**: Follow AWS security bulletins, emergency key rotation if needed
+- **If physical data center attack**: This is AWS's responsibility, we monitor AWS security advisories
 
 -----
 
