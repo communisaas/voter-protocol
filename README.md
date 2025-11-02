@@ -20,7 +20,7 @@ Citizens who say politics is too complicated mastered DeFi in a weekend. They le
 
 VOTER Protocol creates infrastructure where authentic civic participation pays. Not moral appeals. Economic architecture.
 
-**Zero-knowledge cryptography** proves you're a constituent without revealing where you live. Your browser generates Halo2 K=14 proof—8-15 seconds on mobile with KZG optimization—that congressional offices verify on-chain. Your address never leaves your device, never touches any database. Data brokers monitoring advocacy platforms see cryptographic proofs scroll by. They can't reverse-engineer your location from zero-knowledge proofs any more than they can factor 2048-bit RSA keys. Employers can't subpoena databases that don't contain identity mappings. The surveillance surface doesn't exist by design.
+**Zero-knowledge cryptography** proves you're a constituent without revealing where you live. Your browser generates proof that congressional offices verify on-chain. Your address never leaves your device, never touches any database. Data brokers monitoring advocacy platforms see cryptographic proofs scroll by. They can't reverse-engineer your location from zero-knowledge proofs any more than they can factor 2048-bit RSA keys. Employers can't subpoena databases that don't contain identity mappings. The surveillance surface doesn't exist by design.
 
 **Challenge markets** make false claims expensive. Anyone can stake tokens challenging questionable facts—not opinions, only verifiable claims like voting records or policy impacts. Diverse AI models across major providers (OpenAI, Anthropic, xAI, Gemini) evaluate evidence independently. 67% consensus required. Quadratic weighting means one person staking $1,000 loses to a hundred citizens staking $10 each. Rich people can't buy truth. Bad faith actors literally fund quality discourse through forfeited stakes.
 
@@ -30,46 +30,41 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 ## For You
 
-### If You Need Privacy
+### If You Work in Democracy
 
-**Small-town resident** where everyone knows your politics: Advocate without neighbors tracking your every stance. Zero-knowledge proofs mean political participation doesn't become local gossip or business retaliation. Cryptographic privacy in tight-knit communities.
+**Legislative Correspondent** trying to help your Member understand the district: You can't tell what constituents actually care about versus what's loudest. 10,000 identical emails about national issue, but what about local priorities? Verified constituent messages start building the systematic pathway you've been missing. Real district residents, not bots. Actual concerns, not astroturfing. The signal your Member needs to represent constituents, not just respond to noise.
 
-**Federal employee** [fired for past DEI work despite changing roles](https://www.npr.org/2025/04/07/nx-s1-5348922/trump-dei-federal-employees-firing): Participate without career risk. Zero-knowledge proofs mean your civic participation history can't be weaponized during administration changes. Cryptographic protection, not civil service promises.
+### If You Need to Act Without Risk
 
-**Healthcare worker** whose off-duty political posts trigger licensing complaints: Speak freely without professional consequences. Zero-knowledge proofs mean advocacy platforms can't become ammunition for viral campaigns targeting your livelihood. Cryptographic anonymity, not hoping your employer never finds out.
+**Teacher** [watching colleagues fired for single political posts](https://www.edweek.org/teaching-learning/teachers-across-the-u-s-get-suspended-or-fired-over-posts-linked-to-charlie-kirk/2025/09): Contact your representative about education funding without creating searchable social media posts. Your address verified once, never stored. Congressional offices receive your message and verification proof, never your identity. Schools can't trace messages that leave no database record.
 
-**Teacher** facing employment consequences for political speech: Participate without risking your job. End-to-end encryption via AWS Nitro Enclaves means we architecturally cannot decrypt your messages—only the isolated enclave can, for moderation and congressional delivery. Platform operators cannot read them. Schools cannot trace them.
+**Federal employee** [watching 280+ Texas teachers investigated for political speech](https://calmatters.org/education/k-12-education/2025/10/charlie-kirk-teachers-comments/): Participate without career risk. Your civic participation creates no database record that can be weaponized during administration changes. Cryptographic protection, not civil service promises.
+
+**Fire chief** [seeing colleagues put on leave for reposting cartoons](https://www.npr.org/2025/10/11/nx-s1-5550366/charlie-kirk-social-media-firings): Act on issues you care about without risking decades of career. Platform cannot link pseudonymous messages to your real identity. Employers can't subpoena databases that don't contain identity mappings.
 
 ### If You Create Value
 
-**Policy expert** spending uncompensated time debunking misinformation: Challenge false claims. Win stake rewards when you're right. Build portable reputation proving domain expertise. Earn when staffers prioritize your messages over spam.
+**Policy expert** spending uncompensated time debunking misinformation: Build portable on-chain reputation proving domain expertise. Staffers see verified constituent with expertise score, not anonymous spam. Phase 2 adds challenge markets—stake on false claims, win when you're right.
 
-**Template creator** whose work articulates what thousands feel but can't express: Earn rewards proportional to genuine adoption. When your template influences legislation, earn 10x multipliers. Network effects reward authentic civic labor.
+**Template creator** whose work articulates what thousands feel but can't express: See genuine adoption as constituents use your templates. Build reputation through quality civic labor. Phase 2 adds token economics—earn rewards proportional to adoption, 10x multipliers when templates influence legislation.
 
-### If You Want Power
+### If You're Not Technical
 
-**Citizen** watching billion-dollar lobbying dominate: Take tradeable positions on outcomes you care about. Lobbying wins → you lose stake but win politically. Lobbying loses → policy victory plus market position funds your next campaign. Financially punch back.
-
-### If You Work in Democracy
-
-**Legislative Correspondent** processing 50 identical emails every morning: Finally see quality signals. This message came from a verified constituent with proven healthcare expertise whose previous templates correlated with 3 legislative outcomes. Not the 51st bot-generated email today.
+**You**: Face ID → pick template → add your story → send. 2 minutes total. Zero blockchain knowledge required. Build reputation, earn credibility. Phase 2 adds token rewards. See [QUICKSTART.md](QUICKSTART.md).
 
 ### If You're Technical
 
 **Privacy advocate** who knows surveillance capitalism is the enemy: Privacy through architecture, not promises.
-- **On-chain identity**: Truly private—Halo2 ZK proofs with no trusted setup, KZG via Ethereum's 141K-participant ceremony, browser-native WASM proving (K=14 circuit, 8-15s mobile). Address never leaves your device. Zero AWS dependency. Zcash Orchard battle-tested since 2022.
-- **Message delivery**: E2E encrypted via AWS Nitro Enclaves (we cannot decrypt, architectural enforcement). Enclave attestation proves correct code. Immune to TEE.fail DDR5 attacks (hypervisor-based, not CPU TEE).
-- **Honest dependencies**: Congressional SOAP API requires centralized delivery. Nitro Enclaves provide this while maintaining E2E encryption. No HSM theater.
+- **On-chain identity**: Truly private—Halo2 ZK proofs with no trusted setup, browser-native WASM proving. Address never leaves your device. Zero AWS dependency. Zcash Orchard battle-tested since 2022.
+- **Message delivery**: Address verified in AWS Nitro Enclaves then destroyed. Message content plaintext for congressional offices to read—privacy protects your identity, not your voice. Enclave attestation proves correct code.
+- **Honest dependencies**: Congressional SOAP API requires centralized delivery and plaintext messages. Nitro Enclaves verify identity without storing it. No HSM theater.
 
 **Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments, **$0.002/user post-Dencun**, Ethereum L1 data availability). Optional NEAR chain signatures for cross-chain UX. Halo2 K=14 proofs for district verification (8-15s mobile browser WASM with KZG, 300-400k gas, no trusted setup, battle-tested in Zcash Orchard since 2022). Phase 1: Reputation-only. Phase 2: Token economics. See [TECHNICAL.md](TECHNICAL.md) for deep dive.
 
-### If You're Not Technical
-
-**You**: Face ID → pick template → add your story → send. 4 minutes total. Zero blockchain knowledge required. Build reputation, earn credibility. (Phase 2 adds token rewards.) See [QUICKSTART.md](QUICKSTART.md).
 
 ## Why Now
 
-The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan, FREE. [Didit.me](https://www.didit.me) for users without passports, also FREE. Blockchain infrastructure proven at civic scale. Halo2 recursive proofs battle-tested in Zcash Orchard since 2022—production-grade zero-knowledge cryptography with no trusted setup. Every piece we need exists and is battle-tested.
+The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Halo2 recursive proofs battle-tested in Zcash Orchard since 2022—production-grade zero-knowledge cryptography with no trusted setup. Every piece we need exists and is battle-tested.
 
 [Prediction markets on electoral outcomes reached $3.2 billion daily volume on Polymarket](https://www.theblock.co/data/decentralized-finance/prediction-markets/total-trading-volume-on-polymarket-daily) during 2024 elections. That proved people stake massive capital on political predictions. But electoral predictions don't *influence* outcomes—you're just betting. VOTER creates markets for *legislative outcomes* where staking funds the civic infrastructure attempting to influence the result (Phase 2 feature, 12-18 months post-launch). You're not just predicting Medicare drug pricing reform—you're funding the template campaigns, rewarding constituent messaging, financially backing the advocacy that makes it happen.
 
@@ -79,7 +74,7 @@ No one else is building this. First mover becomes the standard. When AI systems 
 
 Congressional staffers desperately need ["small surprising things like bills they may have missed"](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) or "more niche issues" not already on the Member's radar. But current systems can't identify these signals. Technology designed for monitoring makes it worse: constituent databases are ["painfully slow, hard to learn, confusing to use"](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) and by design limit what information can be collected.
 
-VOTER gives staffers what they're asking for: cryptographic quality signals. This constituent is verified district resident (Halo2 K=14 zero-knowledge proof, no PII revealed, no database storage, no trusted setup) + domain expertise score (portable reputation) + not bot spam (Sybil-resistant verification via FREE passport/ID scan) + correlated with outcomes (impact tracking shows similar templates influenced 3 previous bills).
+VOTER gives staffers what they're asking for: cryptographic quality signals. This constituent is verified district resident (zero-knowledge proof, no PII revealed, no database storage) + domain expertise score (portable reputation) + not bot spam (Sybil-resistant verification).
 
 **Phase 1 (launching 3 months):** Reputation-only system. Cryptographic verification, encrypted delivery, quality signals for congressional offices. No token. Proves civic utility before adding financial layer.
 

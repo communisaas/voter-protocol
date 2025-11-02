@@ -231,13 +231,12 @@ Phase 2 additions (12-18 months):
 - Your dashboard verifies proof on-chain (yes/no answer)
 - Addresses never leave constituent devices, never touch your servers
 
-**Cryptographic delivery:**
-- Messages encrypted before network transit (XChaCha20-Poly1305)
-- Isolated secure environment decrypts for content moderation (AWS Nitro Enclaves)
-- Platform operators cannot access plaintext (architectural enforcement)
-- Moderated message delivered to CWC (Communicating with Congress) API
-- CWC delivers to your CRM through existing congressional infrastructure
-- Plaintext exists only in: constituent browser → isolated enclave (moderation) → CWC → your CRM
+**Message delivery:**
+- Constituent's address verified once in AWS Nitro Enclaves, then destroyed—exists only in enclave memory during proof generation
+- Message content remains plaintext for your office to read—privacy protects constituent identity, not their voice
+- Platform cannot link messages to real identities (no database mapping exists)
+- Verification proof delivered via CWC (Communicating with Congress) API to your CRM
+- You receive: message content + cryptographic proof of district residency, never PII
 
 **On-chain reputation:**
 - Wallet addresses earn reputation scores (on Scroll blockchain)
@@ -332,16 +331,16 @@ Phase 2 additions (12-18 months):
 ### For the Member
 
 **Current pain points:**
-- Constituent correspondence feels like monitoring sentiment, not communication
+- Can't tell what district actually wants versus what's loudest nationally
 - "66% perceived as campaign mail with minimal policy value"
-- Authentic constituent voices buried under bot spam
-- No feedback loop showing constituent input influenced decisions
+- Authentic constituent priorities buried under coordinated campaigns
+- Building agenda disconnected from real district concerns because no systematic pathway exists
 
 **After VOTER:**
-- Briefing packets include constituents with proven expertise
-- Geographic clustering shows district-wide concerns
-- Impact tracking demonstrates constituent influence on outcomes
-- Authentic two-way communication becomes possible
+- Understand district priorities: "247 verified TX-18 constituents on healthcare, 89 on climate, 43 on education funding"
+- Find niche issues you're missing: Informed expertise on bills not yet on your radar
+- Build agenda reflecting constituents: Systematic pathway from constituent input to policy priorities
+- Represent district, not just respond to noise: Quality signals distinguish real concerns from manufactured outrage
 
 -----
 

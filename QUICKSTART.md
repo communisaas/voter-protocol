@@ -37,35 +37,30 @@ If your device doesn't have biometrics, you can use a PIN. The point: no frictio
 
 **Phase 1 requires verification** - Your messages must cryptographically prove district membership to reach congressional offices. This eliminates spam and gives staffers quality signals they're asking for.
 
-**Both methods are FREE:**
-
 ### Method 1: Passport NFC Scan (Recommended - 70% of users)
 - Tap "Verify with [self.xyz](https://www.self.xyz)"
 - Hold phone near passport (NFC chip authentication)
 - Face ID liveness check confirms it's you
 - Done - instant cryptographic verification
-- **Cost:** $0 (FREE tier, no credit card)
 
 ### Method 2: Government ID Upload (Alternative - 30% of users)
 - Tap "Verify with [Didit.me](https://www.didit.me)"
 - Upload government ID (driver's license, state ID)
 - Face ID liveness check confirms it's you
 - Verification completes in 1-2 minutes
-- **Cost:** $0 (FREE Core KYC tier)
 
 **What verification gets you (Phase 1):**
-- Messages reach congressional offices (unverified messages filtered as spam)
-- Reputation building that follows you across platforms (ERC-8004 portable standard)
-- Higher priority when congressional staff filter messages (reputation score visible)
-- Ability to create templates (not just use them)
-- Sybil resistance (one verified identity = one account, cryptographically enforced)
+- Your message actually reaches congressional offices (unverified = filtered as spam)
+- Staffers see quality signal distinguishing you from bot farms
+- Build reputation proving civic expertise across platforms
+- Create templates others can adopt (not just use existing ones)
 
-**Phase 2 additions:**
-- Full token reward amounts (unverified users earn 50% rates)
-- Participation in challenge markets (economic stakes on verifiable claims)
-- Outcome market positions (bet on legislative outcomes)
+**Phase 2 additions (12-18 months):**
+- Token rewards for verified civic actions
+- Challenge markets (economic stakes on verifiable claims)
+- Outcome markets (financially compete with lobbying)
 
-**Privacy guarantee:** Your passport/ID data never touches our servers. NFC authentication happens locally on your device using government-issued cryptographic signatures. Congressional offices see only "verified constituent in TX-18" - never your name, address, or ID details.
+**Privacy guarantee:** Your passport/ID data never touches our servers. NFC authentication happens locally on your device. Congressional offices receive your message and verification proof—never your name, address, or ID details. Privacy protects your identity, not your voice.
 
 -----
 
@@ -116,17 +111,14 @@ Example template: "Support Medicare Drug Price Negotiation"
 Tap "Send to My Representative"
 
 **What happens behind the scenes (Phase 1):**
-1. Your browser loads Shadow Atlas district tree from IPFS (cached locally in IndexedDB after first use)
-2. Web Workers generate Merkle witness in parallel (4 workers for Poseidon hashing)
-3. Halo2 zero-knowledge proof generates in browser WASM (8-15 seconds)
-   - K=14 circuit with KZG commitment (Ethereum's 141K-participant ceremony)
+1. Your browser generates zero-knowledge proof (8-15 seconds)
    - Proves you live in your district without revealing your address
-   - Address never leaves browser, never sent to any server
-4. Message encrypted before leaving device (XChaCha20-Poly1305)
-5. Message passes 3-layer content moderation (OpenAI + Gemini/Claude + human review)
-6. Encrypted delivery to congressional CWC API
-7. Cryptographic receipt confirms delivery (timestamp + proof verification)
-8. Your action records on Scroll L2 blockchain (only district hash + reputation update, never your identity)
+   - Address verified in secure enclave, then destroyed
+   - Address never leaves browser, never stored anywhere
+2. Message passes 3-layer content moderation (AI consensus + human review)
+3. Verification proof + message content delivered to congressional office via CWC API
+4. Cryptographic receipt confirms delivery
+5. Your action records on-chain (reputation update, never your identity)
 
 **What you see:**
 - Progress bar showing proof generation (8-15 seconds on mid-range mobile)
@@ -274,7 +266,7 @@ A: **Phase 1**: Report it for human review (moderation team investigates). **Pha
 A: Cryptographic receipt with timestamp. If office uses our dashboard, you can see which staffer's queue it entered.
 
 **Q: Do I have to verify identity?**
-A: **Phase 1**: Yes, for messages to reach congressional offices. Unverified messages filtered as spam (staffers need quality signals). Verification is FREE ([self.xyz](https://www.self.xyz) passport NFC or [Didit.me](https://www.didit.me) government ID). **Phase 2**: Unverified users can participate with reduced token rewards (50% rate) but verified users get full economic benefits.
+A: **Phase 1**: Yes, for messages to reach congressional offices. Congressional staff can't tell community coordination from bot farms without verification. They dismiss 66% of digital contact as spam because they have no way to verify district membership. Verification solves their filtering problem—your message reaches policy staff instead of spam folder. Verify via [self.xyz](https://www.self.xyz) passport NFC or [Didit.me](https://www.didit.me) government ID. **Phase 2**: Unverified users can participate with reduced token rewards but verified users get full economic benefits.
 
 **Q: What if I don't care about earning tokens?**
 A: **Phase 1**: You're building reputation that proves civic expertise. Staffers prioritize your messages over spam. Your impact gets tracked and verified. Phase 1 is about proving democracy can work better. **Phase 2**: When economic layer launches, your Phase 1 reputation converts to token reward multipliers. Early participants positioned for significant Phase 2 earnings. Privacy protection and congressional access matter regardless of economic incentives.
