@@ -1,1 +1,0 @@
-Result<AssignedCell<halo2curves::bn256::Fr, halo2curves::bn256::Fr>, halo2_proofs::plonk::Error>

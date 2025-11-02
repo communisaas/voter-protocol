@@ -140,5 +140,14 @@ public
 
 # Temporary folders
 tmp/
-temp/target/
-Cargo.lock
+temp/
+
+# Rust build artifacts
+packages/crypto/circuits/target/
+packages/crypto/circuits/.cargo/
+packages/crypto/circuits/.bin/
+packages/crypto/circuits/Cargo.lock
+
+# Large binary KZG params (use Git LFS or exclude)
+packages/crypto/circuits/kzg_params/*.bin
+!packages/crypto/circuits/kzg_params/*.json
