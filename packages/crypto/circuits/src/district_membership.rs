@@ -13,7 +13,7 @@ use halo2_base::{
     halo2_proofs::halo2curves::bn256::Fr,
 };
 use crate::poseidon_hash::{
-    hash_pair_with_hasher, hash_single_with_hasher, create_poseidon_hasher
+    hash_pair_with_hasher, hash_single_with_hasher, hash_triple_with_hasher, create_poseidon_hasher
 };
 use crate::merkle::verify_merkle_path_with_hasher;
 
@@ -27,7 +27,7 @@ use crate::merkle::verify_merkle_path_with_hasher;
 /// PUBLIC OUTPUTS (computed by circuit, verified by on-chain contract):
 /// - computed_global_root: Merkle root computed from witnesses
 /// - computed_district_root: District Merkle root computed from witnesses
-/// - nullifier: Poseidon(identity, action_id) - prevents double-voting
+/// - nullifier: Poseidon(identity, action_id, atlas_version) - prevents double-voting + timeline attacks
 /// - action_id: Exposed so verifier can validate it's authorized
 ///
 /// VERIFIER SECURITY CHECKS (on-chain smart contract):
@@ -66,6 +66,7 @@ pub struct DistrictMembershipCircuit {
     pub shadow_atlas_root: Fr,   // Global Merkle root (from trusted source)
     pub district_hash: Fr,        // Claimed district (e.g., CA-12)
     pub action_id: Fr,            // 🔴 FIX: Now PUBLIC - verifier validates it's authorized
+    pub atlas_version: Fr,        // 🔴 SHADOW ATLAS TIMELINE DESYNC FIX: Binds proof to specific atlas snapshot
 }
 
 impl DistrictMembershipCircuit {
@@ -135,14 +136,21 @@ impl DistrictMembershipCircuit {
         );
 
         // 4. Compute nullifier IN-CIRCUIT (CONSTRAINED + OPTIMIZED)
-        // nullifier = Poseidon(identity_commitment, action_id)
+        // nullifier = Poseidon(identity_commitment, action_id, atlas_version)
+        // 🔴 SHADOW ATLAS TIMELINE DESYNC FIX (CRITICAL #1):
+        // Adding atlas_version binds each proof to specific atlas snapshot.
+        // During IPFS→contract update windows (4-8 hours), users could prove
+        // residency in multiple districts. Including atlas_version in nullifier
+        // prevents multi-district exploitation during update windows.
         let action_id_assigned = ctx.load_witness(self.action_id);
-        let computed_nullifier = hash_pair_with_hasher(
+        let atlas_version_assigned = ctx.load_witness(self.atlas_version);
+        let computed_nullifier = hash_triple_with_hasher(
             &mut hasher,  // ← REUSABLE HASHER (saves ~1400 cells)
             ctx,
             gate,
             identity_assigned,
             action_id_assigned,
+            atlas_version_assigned,
         );
 
         // 🔴 CRITICAL: Public outputs are COMPUTED values (not constrained to expected)
@@ -210,6 +218,24 @@ mod tests {
         let right_assigned = ctx.load_witness(right);
 
         let hash = hash_pair_with_hasher(&mut hasher, ctx, gate, left_assigned, right_assigned);
+
+        *hash.value()
+    }
+
+    /// Helper: Compute Poseidon(a, b, c) using circuit
+    fn hash_triple_native(first: Fr, second: Fr, third: Fr) -> Fr {
+        let mut builder: RangeCircuitBuilder<Fr> = RangeCircuitBuilder::from_stage(CircuitBuilderStage::Mock).use_k(K);
+        builder.set_lookup_bits(8);
+        let range = builder.range_chip();
+        let gate = range.gate();
+        let ctx = builder.main(0);
+
+        let mut hasher = create_poseidon_hasher(ctx, gate);
+        let first_assigned = ctx.load_witness(first);
+        let second_assigned = ctx.load_witness(second);
+        let third_assigned = ctx.load_witness(third);
+
+        let hash = hash_triple_with_hasher(&mut hasher, ctx, gate, first_assigned, second_assigned, third_assigned);
 
         *hash.value()
     }
@@ -360,9 +386,10 @@ mod tests {
         let (identity_commitment, district_root, global_root, tier1_path, tier2_path) =
             build_stratified_tree();
 
-        // Expected nullifier: Poseidon(identity_commitment, action_id)
+        // Expected nullifier: Poseidon(identity_commitment, action_id, atlas_version)
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity_commitment, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_commitment, action_id, atlas_version);
 
         // Leaf indices: 0 for both tiers (left child at every level)
         let tier1_leaf_index = 0;
@@ -376,6 +403,7 @@ mod tests {
             tier2_leaf_index,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -420,6 +448,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: correct_global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: correct_district_root,
         };
 
@@ -484,6 +513,7 @@ mod tests {
             tier2_leaf_index: wrong_tier2_index,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: correct_global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: correct_district_root,
         };
 
@@ -548,6 +578,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: correct_global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: correct_district_root,
         };
 
@@ -602,7 +633,8 @@ mod tests {
             build_stratified_tree();
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity_commitment, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_commitment, action_id, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment,
@@ -612,6 +644,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
             // nullifier removed - now COMPUTED in-circuit
         };
@@ -649,6 +682,7 @@ mod tests {
 
         let real_action_id = Fr::from(100);
         let fake_action_id = Fr::from(200);
+        let atlas_version = Fr::from(1);
 
         // Prover uses fake_action_id in circuit
         let circuit = DistrictMembershipCircuit {
@@ -659,12 +693,13 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
         // Expected outputs: Circuit computes nullifier using FAKE action_id
-        let expected_fake_nullifier = hash_pair_native(identity_commitment, fake_action_id);
-        let expected_real_nullifier = hash_pair_native(identity_commitment, real_action_id);
+        let expected_fake_nullifier = hash_triple_native(identity_commitment, fake_action_id, atlas_version);
+        let expected_real_nullifier = hash_triple_native(identity_commitment, real_action_id, atlas_version);
 
         // ✅ MOCKPROVER: Validates constraints with fake_action_id
         let expected_outputs = (global_root, district_root, expected_fake_nullifier, fake_action_id);
@@ -707,9 +742,10 @@ mod tests {
 
         let action_id_1 = Fr::from(100);
         let action_id_2 = Fr::from(200);
+        let atlas_version = Fr::from(1);
 
-        let expected_nullifier_1 = hash_pair_native(identity_commitment, action_id_1);
-        let expected_nullifier_2 = hash_pair_native(identity_commitment, action_id_2);
+        let expected_nullifier_1 = hash_triple_native(identity_commitment, action_id_1, atlas_version);
+        let expected_nullifier_2 = hash_triple_native(identity_commitment, action_id_2, atlas_version);
 
         // Circuit 1: Same identity, action 1
         let circuit_1 = DistrictMembershipCircuit {
@@ -720,6 +756,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -732,6 +769,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -778,9 +816,10 @@ mod tests {
 
         let identity_b = Fr::from(9999); // Different identity (NOT in tree)
         let action_id = Fr::from(555);   // Same action
+        let atlas_version = Fr::from(1);
 
-        let expected_nullifier_a = hash_pair_native(identity_a, action_id);
-        let expected_nullifier_b = hash_pair_native(identity_b, action_id);
+        let expected_nullifier_a = hash_triple_native(identity_a, action_id, atlas_version);
+        let expected_nullifier_b = hash_triple_native(identity_b, action_id, atlas_version);
 
         // Circuit A: identity_a + action (correct identity in tree)
         let circuit_a = DistrictMembershipCircuit {
@@ -791,6 +830,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -803,6 +843,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -904,7 +945,8 @@ mod tests {
         tier2_path[0] = tier2_sibling_0;
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity_zero, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_zero, action_id, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity_zero,
@@ -914,6 +956,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path,
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -952,7 +995,8 @@ mod tests {
             build_stratified_tree();
 
         let action_id_zero = Fr::ZERO;
-        let expected_nullifier = hash_pair_native(identity_commitment, action_id_zero);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_commitment, action_id_zero, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment,
@@ -962,6 +1006,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1016,7 +1061,8 @@ mod tests {
         let tier2_path = vec![Fr::ZERO; 8];  // All zeros
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity,
@@ -1026,6 +1072,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path,
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1080,7 +1127,8 @@ mod tests {
         let global_root = tier2_current;
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity,
@@ -1090,6 +1138,7 @@ mod tests {
             tier2_leaf_index: max_tier2_index,
             tier2_path,
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1125,7 +1174,8 @@ mod tests {
 
         for action_id_val in 1..=5 {
             let action_id = Fr::from(action_id_val);
-            let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+            let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
             let circuit = DistrictMembershipCircuit {
                 identity_commitment: identity,
@@ -1135,6 +1185,7 @@ mod tests {
                 tier2_leaf_index: 0,
                 tier2_path: tier2_path.clone(),
                 shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
                 district_hash: district_root,
             };
 
@@ -1222,7 +1273,8 @@ mod tests {
         let tier2_path = vec![Fr::ZERO; 8];
         let global_root = Fr::from(99999); // Doesn't matter for this test
 
-        let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
         // Circuit A: Same identity in district A
         let circuit_a = DistrictMembershipCircuit {
@@ -1233,6 +1285,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root_a,
         };
 
@@ -1245,6 +1298,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root_b,
         };
 
@@ -1330,7 +1384,8 @@ mod tests {
         tier2_path[0] = tier2_sibling_0;
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity_max, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_max, action_id, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity_max,
@@ -1340,6 +1395,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path,
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1377,9 +1433,10 @@ mod tests {
         let identity_1 = Fr::from(1001);
         let identity_2 = Fr::from(1002); // Very close to identity_1 (differ by 1)
         let action_id = Fr::from(555);
+        let atlas_version = Fr::from(1);
 
-        let nullifier_1 = hash_pair_native(identity_1, action_id);
-        let nullifier_2 = hash_pair_native(identity_2, action_id);
+        let nullifier_1 = hash_triple_native(identity_1, action_id, atlas_version);
+        let nullifier_2 = hash_triple_native(identity_2, action_id, atlas_version);
 
         // CRITICAL: Small change in identity should cause large change in nullifier
         // (Avalanche effect - cryptographic hash property)
@@ -1441,7 +1498,8 @@ mod tests {
         let tier1_path = vec![Fr::ZERO; 12]; // All zeros
         let tier2_path = vec![Fr::ZERO; 8];  // All zeros
 
-        let expected_nullifier = hash_pair_native(identity_zero, action_id_zero);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity_zero, action_id_zero, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity_zero,
@@ -1451,6 +1509,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path,
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1492,7 +1551,8 @@ mod tests {
             build_stratified_tree();
 
         let action_id = Fr::from(555);
-        let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
         // Run circuit TWICE with identical inputs
         let circuit_1 = DistrictMembershipCircuit {
@@ -1503,6 +1563,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1514,6 +1575,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1580,7 +1642,8 @@ mod tests {
             build_stratified_tree();
 
         let action_id_max = -Fr::ONE; // Maximum field element
-        let expected_nullifier = hash_pair_native(identity, action_id_max);
+        let atlas_version = Fr::from(1);
+        let expected_nullifier = hash_triple_native(identity, action_id_max, atlas_version);
 
         let circuit = DistrictMembershipCircuit {
             identity_commitment: identity,
@@ -1590,6 +1653,7 @@ mod tests {
             tier2_leaf_index: 0,
             tier2_path: tier2_path.clone(),
             shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
             district_hash: district_root,
         };
 
@@ -1644,7 +1708,8 @@ mod tests {
         // Generate 20 nullifiers with sequential action_ids
         for action_id_val in 1..=20 {
             let action_id = Fr::from(action_id_val);
-            let expected_nullifier = hash_pair_native(identity, action_id);
+        let atlas_version = Fr::from(1);
+            let expected_nullifier = hash_triple_native(identity, action_id, atlas_version);
 
             let circuit = DistrictMembershipCircuit {
                 identity_commitment: identity,
@@ -1654,6 +1719,7 @@ mod tests {
                 tier2_leaf_index: 0,
                 tier2_path: tier2_path.clone(),
                 shadow_atlas_root: global_root,
+            atlas_version: Fr::from(1), // Shadow Atlas v1
                 district_hash: district_root,
             };
 

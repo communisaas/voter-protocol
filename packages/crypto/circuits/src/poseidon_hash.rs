@@ -95,6 +95,41 @@ pub fn hash_single_with_hasher<F: BigPrimeField>(
     hasher.hash_fix_len_array(ctx, gate, &[value])
 }
 
+/// Hash three field elements using a reusable hasher (OPTIMIZED)
+///
+/// **CRITICAL**: Use this instead of creating a new hasher to avoid DOS vector.
+///
+/// # Parameters
+/// - `hasher`: Reusable PoseidonHasher (create with `create_poseidon_hasher()`)
+/// - `ctx`, `gate`: Circuit context and gate chip
+/// - `first`, `second`, `third`: Values to hash
+///
+/// # Security
+/// - Non-commutative: hash(a,b,c) ≠ hash(a,c,b) ≠ hash(b,a,c)
+/// - Domain separated from pair/single hashing by input length (3 elements)
+/// - Constants cached (OnceCell) - no reinitialization overhead
+///
+/// # Usage
+/// Used for nullifier computation with atlas versioning:
+/// `nullifier = hash_triple(identity_commitment, action_id, atlas_version)`
+///
+/// This prevents Shadow Atlas Timeline Desync attack (CRITICAL #1):
+/// During IPFS→contract update windows (4-8 hours), users could prove
+/// residency in multiple districts. Adding atlas_version to nullifier
+/// binds each proof to a specific atlas snapshot, preventing multi-district
+/// exploitation during update windows.
+pub fn hash_triple_with_hasher<F: BigPrimeField>(
+    hasher: &mut PoseidonHasher<F, T, RATE>,
+    ctx: &mut Context<F>,
+    gate: &impl GateInstructions<F>,
+    first: AssignedValue<F>,
+    second: AssignedValue<F>,
+    third: AssignedValue<F>,
+) -> AssignedValue<F> {
+    // Constants already initialized in hasher (OnceCell caching)
+    hasher.hash_fix_len_array(ctx, gate, &[first, second, third])
+}
+
 // ============================================================================
 // LEGACY API - Per-Hash Hasher Creation (DEPRECATED - DOS VECTOR)
 // ============================================================================
