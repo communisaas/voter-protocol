@@ -32,7 +32,8 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.GOVERNANCE_TIMELOCK(), 7 days);
     }
 
-    function testFail_ConstructorZeroAddress() public {
+    function test_RevertWhen_ConstructorZeroAddress() public {
+        vm.expectRevert(DistrictRegistry.ZeroAddress.selector);
         new DistrictRegistry(address(0));
     }
 
@@ -48,20 +49,23 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.getCountry(DISTRICT_ROOT_1), USA);
     }
 
-    function testFail_RegisterDistrictUnauthorized() public {
+    function test_RevertWhen_RegisterDistrictUnauthorized() public {
         vm.prank(attacker);
+        vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
         registry.registerDistrict(DISTRICT_ROOT_1, USA);
     }
 
-    function testFail_RegisterDistrictDuplicate() public {
+    function test_RevertWhen_RegisterDistrictDuplicate() public {
         vm.startPrank(governance);
         registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        vm.expectRevert(DistrictRegistry.DistrictAlreadyRegistered.selector);
         registry.registerDistrict(DISTRICT_ROOT_1, USA); // Should fail
         vm.stopPrank();
     }
 
-    function testFail_RegisterDistrictInvalidCountry() public {
+    function test_RevertWhen_RegisterDistrictInvalidCountry() public {
         vm.prank(governance);
+        vm.expectRevert(DistrictRegistry.InvalidCountryCode.selector);
         registry.registerDistrict(DISTRICT_ROOT_1, bytes3(0));
     }
 
@@ -83,11 +87,12 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.getCountry(DISTRICT_ROOT_2), GBR);
     }
 
-    function testFail_RegisterDistrictsBatchLengthMismatch() public {
+    function test_RevertWhen_RegisterDistrictsBatchLengthMismatch() public {
         bytes32[] memory roots = new bytes32[](2);
         bytes3[] memory countries = new bytes3[](1);
 
         vm.prank(governance);
+        vm.expectRevert("Length mismatch");
         registry.registerDistrictsBatch(roots, countries);
     }
 
@@ -105,18 +110,21 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.pendingGovernance(newGovernance), expectedExecuteTime);
     }
 
-    function testFail_InitiateGovernanceTransferUnauthorized() public {
+    function test_RevertWhen_InitiateGovernanceTransferUnauthorized() public {
         vm.prank(attacker);
+        vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
         registry.initiateGovernanceTransfer(newGovernance);
     }
 
-    function testFail_InitiateGovernanceTransferZeroAddress() public {
+    function test_RevertWhen_InitiateGovernanceTransferZeroAddress() public {
         vm.prank(governance);
+        vm.expectRevert(DistrictRegistry.ZeroAddress.selector);
         registry.initiateGovernanceTransfer(address(0));
     }
 
-    function testFail_InitiateGovernanceTransferToSelf() public {
+    function test_RevertWhen_InitiateGovernanceTransferToSelf() public {
         vm.prank(governance);
+        vm.expectRevert(DistrictRegistry.ZeroAddress.selector);
         registry.initiateGovernanceTransfer(governance);
     }
 
@@ -153,20 +161,22 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.governance(), newGovernance);
     }
 
-    function testFail_ExecuteGovernanceTransferNotInitiated() public {
+    function test_RevertWhen_ExecuteGovernanceTransferNotInitiated() public {
+        vm.expectRevert(DistrictRegistry.TransferNotInitiated.selector);
         registry.executeGovernanceTransfer(newGovernance);
     }
 
-    function testFail_ExecuteGovernanceTransferBeforeTimelock() public {
+    function test_RevertWhen_ExecuteGovernanceTransferBeforeTimelock() public {
         // Initiate transfer
         vm.prank(governance);
         registry.initiateGovernanceTransfer(newGovernance);
 
         // Try to execute immediately (should fail)
+        vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
         registry.executeGovernanceTransfer(newGovernance);
     }
 
-    function testFail_ExecuteGovernanceTransferOneDayEarly() public {
+    function test_RevertWhen_ExecuteGovernanceTransferOneDayEarly() public {
         // Initiate transfer
         vm.prank(governance);
         registry.initiateGovernanceTransfer(newGovernance);
@@ -175,6 +185,7 @@ contract DistrictRegistryTest is Test {
         vm.warp(block.timestamp + 6 days);
 
         // Try to execute (should fail)
+        vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
         registry.executeGovernanceTransfer(newGovernance);
     }
 
@@ -195,18 +206,20 @@ contract DistrictRegistryTest is Test {
         assertEq(registry.pendingGovernance(newGovernance), 0);
     }
 
-    function testFail_CancelGovernanceTransferUnauthorized() public {
+    function test_RevertWhen_CancelGovernanceTransferUnauthorized() public {
         // Initiate transfer
         vm.prank(governance);
         registry.initiateGovernanceTransfer(newGovernance);
 
         // Attacker tries to cancel (should fail)
         vm.prank(attacker);
+        vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
         registry.cancelGovernanceTransfer(newGovernance);
     }
 
-    function testFail_CancelGovernanceTransferNotInitiated() public {
+    function test_RevertWhen_CancelGovernanceTransferNotInitiated() public {
         vm.prank(governance);
+        vm.expectRevert(DistrictRegistry.TransferNotInitiated.selector);
         registry.cancelGovernanceTransfer(newGovernance);
     }
 

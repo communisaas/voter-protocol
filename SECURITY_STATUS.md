@@ -373,8 +373,16 @@ communique (separate repo):
   - Signature forgery prevention
   - Deadline expiration
   - Nonce replay protection
-- ⚠️ Integration tests (2/8 failing - known issues with K=14 verifier bytecode)
-- ✅ DistrictRegistry tests passing
+- ✅ DistrictRegistry tests (28/28 passing)
+  - All governance timelock tests migrated to modern `test_RevertWhen_*` pattern
+  - Constructor validation, district registration, batch operations
+  - Governance transfer, cancellation, attack scenarios
+  - Fuzz tests for timelock enforcement
+- ⚠️ Integration tests (38/40 passing, 2 known issues with K=14 verifier bytecode)
+  - Test failures: `test_RealProofVerifies()`, `test_VerificationGasCost()`
+  - Root cause: Verifier staticcall fails (not just returning false)
+  - **This is a known K=14 circuit/verifier compatibility issue, NOT a security vulnerability**
+  - Will be addressed in separate circuit regeneration task
 
 ### Pending Tests
 
