@@ -113,6 +113,7 @@ contract DistrictGate {
     error VerificationFailed();
     error NullifierAlreadyUsed();
     error UnauthorizedDistrict();
+    error DistrictNotRegistered();
     error ActionNotAuthorized();
     error UnauthorizedCaller();
     error ZeroAddress();
@@ -196,6 +197,7 @@ contract DistrictGate {
 
         // Step 2: Verify district is registered for expected country
         bytes3 actualCountry = registry.getCountry(districtRoot);
+        if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
         if (actualCountry != expectedCountry) {
             revert UnauthorizedDistrict();
         }
@@ -300,6 +302,7 @@ contract DistrictGate {
 
         // Step 2: Verify district is registered for expected country
         bytes3 actualCountry = registry.getCountry(districtRoot);
+        if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
         if (actualCountry != expectedCountry) {
             revert UnauthorizedDistrict();
         }
@@ -372,6 +375,7 @@ contract DistrictGate {
 
             // Verify district→country mapping
             bytes3 actualCountry = registry.getCountry(districtRoots[i]);
+            if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
             if (actualCountry != expectedCountry) {
                 revert UnauthorizedDistrict();
             }
