@@ -63,6 +63,12 @@ contract DistrictGate {
     /// @notice Multi-sig governance address
     address public governance;
 
+    /// @notice Timelock period for governance transfers (7 days)
+    uint256 public constant GOVERNANCE_TIMELOCK = 7 days;
+
+    /// @notice Pending governance transfer target → execution timestamp
+    mapping(address => uint256) public pendingGovernance;
+
     /// @notice EIP-712 domain separator for signature verification
     bytes32 public immutable DOMAIN_SEPARATOR;
 
@@ -95,8 +101,14 @@ contract DistrictGate {
     /// @notice Emitted when an action is authorized/deauthorized
     event ActionAuthorized(bytes32 indexed actionId, bool authorized);
 
-    /// @notice Emitted when governance is transferred
+    /// @notice Emitted when governance transfer is initiated (7-day timelock starts)
+    event GovernanceTransferInitiated(address indexed newGovernance, uint256 executeTime);
+
+    /// @notice Emitted when governance transfer is executed (after timelock)
     event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
+
+    /// @notice Emitted when governance transfer is cancelled
+    event GovernanceTransferCancelled(address indexed newGovernance);
 
     error VerificationFailed();
     error NullifierAlreadyUsed();
@@ -106,6 +118,8 @@ contract DistrictGate {
     error ZeroAddress();
     error InvalidSignature();
     error SignatureExpired();
+    error TransferNotInitiated();
+    error TimelockNotExpired();
 
     modifier onlyGovernance() {
         if (msg.sender != governance) revert UnauthorizedCaller();
@@ -409,12 +423,46 @@ contract DistrictGate {
         }
     }
 
-    /// @notice Transfer governance (emergency only)
+    /// @notice Initiate governance transfer (starts 7-day timelock)
     /// @param newGovernance New governance address
-    function transferGovernance(address newGovernance) external onlyGovernance {
+    /// @dev Only current governance can initiate
+    ///      Timelock prevents instant takeover if multi-sig compromised
+    ///      Community has 7 days to detect and respond to malicious transfer
+    function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
         if (newGovernance == address(0)) revert ZeroAddress();
-        emit GovernanceTransferred(governance, newGovernance);
+        if (newGovernance == governance) revert ZeroAddress(); // Cannot transfer to self
+
+        uint256 executeTime = block.timestamp + GOVERNANCE_TIMELOCK;
+        pendingGovernance[newGovernance] = executeTime;
+
+        emit GovernanceTransferInitiated(newGovernance, executeTime);
+    }
+
+    /// @notice Execute pending governance transfer (after 7-day timelock)
+    /// @param newGovernance New governance address
+    /// @dev Anyone can execute after timelock expires
+    ///      This ensures transfer completes even if current governance is compromised
+    function executeGovernanceTransfer(address newGovernance) external {
+        uint256 executeTime = pendingGovernance[newGovernance];
+        if (executeTime == 0) revert TransferNotInitiated();
+        if (block.timestamp < executeTime) revert TimelockNotExpired();
+
+        address previousGovernance = governance;
         governance = newGovernance;
+        delete pendingGovernance[newGovernance];
+
+        emit GovernanceTransferred(previousGovernance, newGovernance);
+    }
+
+    /// @notice Cancel pending governance transfer
+    /// @param newGovernance Target governance address to cancel
+    /// @dev Only current governance can cancel
+    ///      Use this if transfer was initiated in error or compromise detected
+    function cancelGovernanceTransfer(address newGovernance) external onlyGovernance {
+        if (pendingGovernance[newGovernance] == 0) revert TransferNotInitiated();
+
+        delete pendingGovernance[newGovernance];
+        emit GovernanceTransferCancelled(newGovernance);
     }
 
     /// @notice Check if a nullifier has been used
