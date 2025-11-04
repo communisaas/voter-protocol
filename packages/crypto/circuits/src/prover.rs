@@ -117,12 +117,19 @@ impl CircuitExt<Fr> for DistrictCircuitForKeygen {
     }
 
     fn instances(&self) -> Vec<Vec<Fr>> {
-        // 🔒 CRITICAL: Use builder's assigned_instances, not public_outputs
-        // The builder.assigned_instances contains the actual instance values
-        // from the circuit execution, which MUST match what's committed
-        self.builder.assigned_instances.iter()
-            .map(|instance_column| instance_column.iter().map(|v| *v.value()).collect())
-            .collect()
+        // 🔒 CRITICAL FIX: Use public_outputs as source of truth, NOT builder.assigned_instances
+        //
+        // WHY: When gen_evm_proof_shplonk() synthesizes the circuit internally, it calls
+        // this instances() method. At that point, builder.assigned_instances might be empty
+        // or stale because the synthesis happens in a different context.
+        //
+        // The public_outputs field stores the EXACT values we want as public inputs,
+        // and they're immutably bound to this wrapper instance.
+        //
+        // This ensures num_instance() and instances() are ALWAYS consistent:
+        // - num_instance() returns vec![3] (1 column with 3 values)
+        // - instances() returns vec![vec![v0, v1, v2]] (1 column with 3 values)
+        vec![self.public_outputs.iter().map(|v| *v.value()).collect()]
     }
 }
 
@@ -605,58 +612,165 @@ impl Prover {
         // Import snark-verifier-sdk's EVM proof generation
         use snark_verifier_sdk::evm::gen_evm_proof_shplonk;
 
+        eprintln!("\n═══════════════════════════════════════════════════════");
+        eprintln!("🔍 DEEP DEBUG: prove_evm() Circuit State Analysis");
+        eprintln!("═══════════════════════════════════════════════════════");
+
+        eprintln!("\n1️⃣ CONFIG PARAMS:");
+        eprintln!("   K: {}", self.k);
+        eprintln!("   Advice columns: {:?}", self.config_params.num_advice_per_phase);
+        eprintln!("   Fixed columns: {}", self.config_params.num_fixed);
+        eprintln!("   Lookup advice: {:?}", self.config_params.num_lookup_advice_per_phase);
+        eprintln!("   Instance columns: {}", self.config_params.num_instance_columns);
+
+        eprintln!("\n2️⃣ BREAK POINTS:");
+        eprintln!("   Phases: {}", self.break_points.len());
+        for (i, phase) in self.break_points.iter().enumerate() {
+            eprintln!("   Phase {}: {} break points {:?}", i, phase.len(), phase);
+        }
+
         // Create builder in Prover stage (witness generation only)
+        // 🔒 CRITICAL: config_params and break_points contain ALL configuration including instance columns
+        // DO NOT call set_instance_columns() or set_lookup_bits() after RangeCircuitBuilder::prover()
+        // Those calls corrupt the builder state that was carefully configured during keygen
+        eprintln!("\n3️⃣ CREATING BUILDER (Prover stage)...");
         let mut builder = RangeCircuitBuilder::prover(
             self.config_params.clone(),
             self.break_points.clone(),
         );
 
-        // 🔒 CRITICAL FIX: Configure instance columns to match keygen
-        // This MUST be called before running circuit to ensure constraint system matches
-        // Without this, VK from keygen expects instance column but proof doesn't provide it
-        // Result: EVM pairing check FAILS with "pairing returns false"
-        //
-        // Compare with generate_verifier.rs line 124: builder.set_instance_columns(1)
-        // This configuration MUST match between keygen and proving stages
-        builder.set_lookup_bits(8);         // Match keygen configuration
-        builder.set_instance_columns(1);    // ⚠️ MISSING - causes pairing failure in EVM
+        eprintln!("   Builder created successfully");
+        eprintln!("   Builder assigned_instances BEFORE circuit: {} columns", builder.assigned_instances.len());
 
         // Run circuit with actual witness data
+        eprintln!("\n4️⃣ RUNNING CIRCUIT...");
         let range = builder.range_chip();
         let gate = range.gate();
         let ctx = builder.main(0);
         let (district_root, nullifier, action_id_out) =
             circuit.verify_membership(ctx, gate);
 
+        eprintln!("   Circuit executed successfully");
+        eprintln!("   district_root: {:?}", district_root.value());
+        eprintln!("   nullifier: {:?}", nullifier.value());
+        eprintln!("   action_id: {:?}", action_id_out.value());
+
         // Populate assigned_instances for 3 public outputs (single-tier)
+        eprintln!("\n5️⃣ POPULATING ASSIGNED INSTANCES...");
+        eprintln!("   BEFORE clear: {} columns", builder.assigned_instances.len());
         builder.assigned_instances.clear();
         builder.assigned_instances.push(vec![district_root, nullifier, action_id_out]);
+        eprintln!("   AFTER push: {} columns, {} values in column 0",
+                  builder.assigned_instances.len(),
+                  builder.assigned_instances[0].len());
 
         // 🔒 CRITICAL FIX: Wrap builder in DistrictCircuitForKeygen
         // This MUST match the type used in generate_verifier.rs for gen_evm_verifier_shplonk()
         // Following Axiom pattern: same wrapper type for both keygen and proving
+        eprintln!("\n6️⃣ WRAPPING CIRCUIT...");
         let circuit_wrapper = DistrictCircuitForKeygen {
             builder,
             public_outputs: vec![district_root, nullifier, action_id_out],
         };
+        eprintln!("   Wrapper created: DistrictCircuitForKeygen");
+        eprintln!("   num_instance(): {:?}", circuit_wrapper.num_instance());
 
         // 🔒 BRUTALIST FIX: Extract instances FROM the wrapper using its instances() method
         // This ensures we pass the EXACT same values that will be used during synthesis.
         // The wrapper's instances() reads from builder.assigned_instances, which is the
         // canonical source that assign_instances() uses during circuit synthesis.
         // By extracting instances THIS way, we guarantee they match what the verifier expects.
+        eprintln!("\n7️⃣ EXTRACTING INSTANCES FROM WRAPPER...");
         let instances = circuit_wrapper.instances();
-
-        eprintln!("\n🔍 DEBUG: Instances extracted from wrapper:");
-        eprintln!("   Column 0 (district_root, nullifier, action_id): {:?}", instances[0]);
+        eprintln!("   Instance columns: {}", instances.len());
+        for (col_idx, col) in instances.iter().enumerate() {
+            eprintln!("   Column {}: {} values", col_idx, col.len());
+            for (val_idx, val) in col.iter().enumerate() {
+                // Convert to hex for comparison
+                use halo2_base::halo2_proofs::halo2curves::serde::SerdeObject;
+                let mut bytes_vec = Vec::new();
+                val.write_raw(&mut bytes_vec).expect("Failed to serialize");
+                bytes_vec.reverse(); // Little-endian to big-endian
+                eprintln!("     [{}]: 0x{}", val_idx, hex::encode(&bytes_vec));
+            }
+        }
 
         // Generate EVM-compatible proof using snark-verifier-sdk
         // This uses EvmTranscript with Keccak256 for Fiat-Shamir
         // ✅ NOW USING WRAPPED CIRCUIT - matches verifier generation
         // ✅ INSTANCES: Extracted as Fr values, matching what will be in assigned_instances
+        eprintln!("\n8️⃣ GENERATING EVM PROOF...");
+        eprintln!("   Using gen_evm_proof_shplonk()");
+        eprintln!("   Params: KZG ceremony (k={})", self.k);
+        eprintln!("   PK: Loaded from disk");
+        eprintln!("   Circuit: DistrictCircuitForKeygen wrapper");
+        eprintln!("   Instances: {} columns", instances.len());
+
         let proof = gen_evm_proof_shplonk(&self.params, &self.pk, circuit_wrapper, instances);
 
+        eprintln!("\n✅ PROOF GENERATED: {} bytes", proof.len());
+        eprintln!("═══════════════════════════════════════════════════════\n");
+
         Ok(proof)
+    }
+
+    /// Generate EVM-ready calldata (instances + proof encoded for Solidity verifier)
+    ///
+    /// **CRITICAL**: This is the CORRECT way to generate calldata for EVM verification.
+    /// Uses snark-verifier's canonical `encode_calldata` function which has specific
+    /// byte reversal logic that manual `abi.encodePacked` in Solidity doesn't replicate.
+    ///
+    /// Following Axiom's pattern: ALWAYS use encode_calldata, never manually construct.
+    ///
+    /// Returns ready-to-use calldata bytes that can be passed directly to the verifier contract.
+    pub fn prove_evm_calldata(
+        &self,
+        circuit: DistrictMembershipCircuit,
+    ) -> Result<Vec<u8>, String> {
+        use snark_verifier_sdk::evm::gen_evm_proof_shplonk;
+        use snark_verifier::loader::evm::encode_calldata;
+
+        eprintln!("\n🔒 GENERATING EVM CALLDATA (canonical encoding)...");
+
+        // Create builder and run circuit (same as prove_evm())
+        let mut builder = RangeCircuitBuilder::prover(
+            self.config_params.clone(),
+            self.break_points.clone(),
+        );
+
+        let range = builder.range_chip();
+        let gate = range.gate();
+        let ctx = builder.main(0);
+        let (district_root, nullifier, action_id_out) =
+            circuit.verify_membership(ctx, gate);
+
+        builder.assigned_instances.clear();
+        builder.assigned_instances.push(vec![district_root, nullifier, action_id_out]);
+
+        // Wrap circuit (must match verifier generation)
+        let circuit_wrapper = DistrictCircuitForKeygen {
+            builder,
+            public_outputs: vec![district_root, nullifier, action_id_out],
+        };
+
+        // Extract instances using wrapper's instances() method
+        let instances = circuit_wrapper.instances();
+
+        eprintln!("   Instances: {} columns, {} values", instances.len(), instances[0].len());
+
+        // Generate proof
+        let proof = gen_evm_proof_shplonk(&self.params, &self.pk, circuit_wrapper, instances.clone());
+
+        eprintln!("   Proof: {} bytes", proof.len());
+
+        // 🔒 CRITICAL: Use snark-verifier's canonical encoding
+        // This function handles byte reversal and proper concatenation
+        let calldata_bytes = encode_calldata(&instances, &proof);
+
+        eprintln!("   Calldata: {} bytes (instances + proof)", calldata_bytes.len());
+        eprintln!("✅ EVM calldata generated with canonical encoding\n");
+
+        Ok(calldata_bytes)
     }
 
     /// Verify proof
@@ -942,16 +1056,16 @@ mod tests {
 
         let (circuit, district_root, nullifier, action_id) = build_test_circuit();
 
-        println!("Generating EVM-compatible proof...");
-        let proof = prover.prove_evm(circuit).expect("EVM proof generation should succeed");
+        println!("Generating EVM-ready calldata (using canonical encode_calldata)...");
+        let calldata = prover.prove_evm_calldata(circuit).expect("Calldata generation should succeed");
 
-        println!("Proof generated: {} bytes", proof.len());
+        println!("Calldata generated: {} bytes", calldata.len());
 
-        // NOTE: EVM proofs use Keccak256 transcript (EvmTranscript), not Blake2b
-        // The Rust verify() method expects Blake2b transcript, so it won't work here
-        // This proof will be verified by the Solidity verifier in Integration.t.sol
-        println!("⚠️  EVM proof uses Keccak256 transcript - verification happens in Solidity");
-        println!("   (Rust verify() expects Blake2b and won't work for EVM proofs)");
+        // NOTE: This calldata includes BOTH instances AND proof, properly encoded
+        // using snark-verifier's canonical encode_calldata function. This matches
+        // exactly what the verifier expects (byte reversal, proper concatenation).
+        println!("⚠️  Calldata uses snark-verifier's canonical encoding");
+        println!("   (Do NOT manually construct with abi.encodePacked in Solidity)");
 
         // Convert Fr to hex string (32 bytes big-endian representation)
         fn fr_to_hex(value: Fr) -> String {
@@ -971,10 +1085,10 @@ mod tests {
 
         // Create JSON manually (since we have serde but not serde_json in dependencies)
         let json_output = format!(r#"{{
-  "description": "Integration test proof for Halo2Verifier.sol",
+  "description": "Integration test proof for Halo2Verifier.sol (canonical calldata encoding)",
   "circuit": {{
     "k": {},
-    "proof_size_bytes": {},
+    "calldata_size_bytes": {},
     "identity_commitment": "1001"
   }},
   "public_inputs": {{
@@ -987,19 +1101,20 @@ mod tests {
     "{}",
     "{}"
   ],
-  "proof": "0x{}",
+  "calldata": "0x{}",
   "verification_result": "valid",
-  "generated_at": "{}"
+  "generated_at": "{}",
+  "encoding_note": "Uses snark-verifier's encode_calldata (NOT manual abi.encodePacked)"
 }}"#,
             k,
-            proof.len(),
+            calldata.len(),
             fr_to_hex(district_root),
             fr_to_hex(nullifier),
             fr_to_hex(action_id),
             fr_to_hex(district_root),
             fr_to_hex(nullifier),
             fr_to_hex(action_id),
-            hex::encode(&proof),
+            hex::encode(&calldata),
             chrono::Utc::now().to_rfc3339(),
         );
 

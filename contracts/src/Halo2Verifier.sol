@@ -1797,8 +1797,11 @@ success := and(eq(mload(0x8940), 1), success)
             // Revert if anything fails
             if iszero(success) { revert(0, 0) }
 
-            // Return empty bytes on success
-            return(0, 0)
+            // Return encoded boolean (uint256(1) for success)
+            // Store 1 at memory position 0x00
+            mstore(0x00, 1)
+            // Return 32 bytes (one word)
+            return(0x00, 0x20)
 
         }
     }

@@ -1,11 +1,11 @@
 # Halo2Verifier Deployment Information
 
-**Generation Date**: 2025-11-02 11:16 UTC
+**Generation Date**: 2025-11-04 12:25 UTC
 **Circuit**: District Membership (Single-Tier K=14)
 **K**: 14
 **Public Outputs**: 3 (district_root, nullifier, action_id)
 **Commitment Scheme**: SHPLONK + KZG on BN256
-**Verifying Key Hash**: 7ac831b0b5a059e4
+**Verifying Key Hash**: 15f6065428deecc9
 
 ## Architecture (2025-10-28)
 
@@ -64,7 +64,7 @@ On-chain registry lookup adds ~2.1k gas (SLOAD operation)
 
 ## Security
 
-**Verifying Key Hash**: 7ac831b0b5a059e4
+**Verifying Key Hash**: 15f6065428deecc9
 
 This hash identifies the exact circuit configuration. Any change to:
 - Circuit structure

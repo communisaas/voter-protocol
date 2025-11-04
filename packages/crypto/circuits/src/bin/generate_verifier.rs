@@ -102,12 +102,19 @@ impl CircuitExt<Fr> for DistrictCircuitForKeygen {
     }
 
     fn instances(&self) -> Vec<Vec<Fr>> {
-        // 🔒 CRITICAL: Use builder's assigned_instances, not public_outputs
-        // The builder.assigned_instances contains the actual instance values
-        // from the circuit execution, which MUST match what's committed
-        self.builder.assigned_instances.iter()
-            .map(|instance_column| instance_column.iter().map(|v| *v.value()).collect())
-            .collect()
+        // 🔒 CRITICAL FIX: Use public_outputs as source of truth, NOT builder.assigned_instances
+        //
+        // WHY: When gen_evm_verifier_shplonk() processes the circuit during keygen, it may
+        // call this instances() method multiple times. The builder.assigned_instances might
+        // be in different states depending on when synthesis happens.
+        //
+        // The public_outputs field stores the EXACT values we want as public inputs,
+        // and they're immutably bound to this wrapper instance.
+        //
+        // This ensures num_instance() and instances() are ALWAYS consistent:
+        // - num_instance() returns vec![3] (1 column with 3 values)
+        // - instances() returns vec![vec![v0, v1, v2]] (1 column with 3 values)
+        vec![self.public_outputs.iter().map(|v| *v.value()).collect()]
     }
 }
 
@@ -268,10 +275,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Wrap circuit for keygen (MUST use same wrapper for keygen and proving)
     // 🔒 CRITICAL: This wrapper MUST be used for BOTH keygen AND proving
+    println!("\n🔍 P0 DIAGNOSTIC: Instance Structure Check");
+    println!("   builder.assigned_instances.len(): {}", builder.assigned_instances.len());
+    for (i, col) in builder.assigned_instances.iter().enumerate() {
+        println!("   Column {}: {} values", i, col.len());
+    }
+
     let circuit_for_keygen = DistrictCircuitForKeygen {
         builder: builder.clone(),
         public_outputs: vec![district_root, nullifier, action_id_out],
     };
+
+    println!("   circuit_for_keygen.num_instance(): {:?}", circuit_for_keygen.num_instance());
+    println!("   circuit_for_keygen.instances().len(): {}", circuit_for_keygen.instances().len());
+    for (i, col) in circuit_for_keygen.instances().iter().enumerate() {
+        println!("   Instance column {}: {} values", i, col.len());
+    }
+
+    println!("\n⚠️  CRITICAL CHECK:");
+    if circuit_for_keygen.num_instance().len() != circuit_for_keygen.instances().len() {
+        println!("   ❌ MISMATCH DETECTED!");
+        println!("   num_instance() says {} columns", circuit_for_keygen.num_instance().len());
+        println!("   instances() returns {} columns", circuit_for_keygen.instances().len());
+        println!("   THIS IS THE BUG - verifier expects different structure than prover provides");
+    } else {
+        println!("   ✅ Column count matches");
+    }
+    println!();
 
     // 4. Generate proving key (which contains verifying key)
     // 🔒 CRITICAL: This PK will be used for ALL proof generation
