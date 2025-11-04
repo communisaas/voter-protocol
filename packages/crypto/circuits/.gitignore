@@ -1,0 +1,18 @@
+# KZG ceremony parameters (cached locally, generated during tests)
+# ⚠️  WARNING: These are TEST-ONLY parameters, NOT Ethereum ceremony params
+# Production deployments must download and verify Ethereum ceremony parameters
+kzg_params/
+
+# Rust build artifacts
+/target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

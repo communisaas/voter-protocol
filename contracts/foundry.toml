@@ -1,0 +1,43 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+cache_path = "cache"
+
+# Solidity compiler settings
+solc_version = "0.8.19"
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 200
+via_ir = true  # Enable intermediate representation for better optimization
+
+# Testing settings
+verbosity = 2
+ffi = false
+fs_permissions = [{ access = "read", path = "./src" }, { access = "read", path = "./test" }]
+
+[fuzz]
+runs = 256
+
+# Formatter settings
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+
+# Gas reporting
+gas_reports = ["*"]
+
+# Deployment settings for Scroll L2
+[rpc_endpoints]
+scroll_sepolia = "https://sepolia-rpc.scroll.io"
+scroll_mainnet = "https://rpc.scroll.io"
+
+[etherscan]
+scroll_sepolia = { key = "${SCROLLSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
+scroll_mainnet = { key = "${SCROLLSCAN_API_KEY}", url = "https://api.scrollscan.com/api" }
