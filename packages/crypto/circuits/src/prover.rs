@@ -218,9 +218,9 @@ fn load_ceremony_params(k: usize, allow_test_params: bool) -> Result<ParamsKZG<B
         // Canonical Blake2b-512 hash from Axiom challenge_0085 ceremony (snark-verifier compatible)
         // Source: https://axiom-crypto.s3.amazonaws.com/challenge_0085/kzg_bn254_14.srs
         // CRITICAL: Must use challenge_0085 format for Axiom snark-verifier v0.1.7 EVM compatibility
-        // Verified: 2025-11-02
-        // NOTE: This hash will be computed on first run and should be recorded here
-        const CANONICAL_HASH_K14: &str = "PLACEHOLDER_WILL_BE_COMPUTED";
+        // Verified: 2025-11-04
+        // Hash computed from kzg_params/axiom_params_k14.srs (production trusted setup)
+        const CANONICAL_HASH_K14: &str = "5d56001304a118d53e48bb5b512c125497d58f16af5c115ac6b2360fe515f77f9c897d824b8824c0f2aff0a65b6f12c1cd7725c5a3631aade5731acf3f869ed8";
 
         eprintln!("📊 Parameter file hash: {}", &hash_hex[..16]);
         eprintln!("   (Full hash: {})", hash_hex);

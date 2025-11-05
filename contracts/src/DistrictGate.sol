@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import "./DistrictRegistry.sol";
 import "openzeppelin/utils/cryptography/ECDSA.sol";
+import "openzeppelin/security/Pausable.sol";
 
 /// @title DistrictGate
 /// @notice Master verification contract for district membership proofs
@@ -47,7 +48,13 @@ import "openzeppelin/utils/cryptography/ECDSA.sol";
 /// - Registry lookup: ~2.1k gas (single SLOAD)
 /// - Total: ~202-302k gas per verification
 /// - On Scroll L2: ~$0.001-$0.002 per verification
-contract DistrictGate {
+///
+/// PAUSABLE MECHANISM:
+/// - Emergency circuit breaker for critical vulnerabilities
+/// - Only governance can pause/unpause
+/// - All proof verification functions respect pause state
+/// - Governance operations (authorize actions, etc.) remain available when paused
+contract DistrictGate is Pausable {
     /// @notice Address of the Halo2 verifier contract (K=12 single-tier circuit)
     address public immutable verifier;
 
@@ -110,6 +117,12 @@ contract DistrictGate {
     /// @notice Emitted when governance transfer is cancelled
     event GovernanceTransferCancelled(address indexed newGovernance);
 
+    /// @notice Emitted when contract is paused (emergency circuit breaker)
+    event ContractPaused(address indexed governance);
+
+    /// @notice Emitted when contract is unpaused (normal operation restored)
+    event ContractUnpaused(address indexed governance);
+
     error VerificationFailed();
     error NullifierAlreadyUsed();
     error UnauthorizedDistrict();
@@ -152,70 +165,18 @@ contract DistrictGate {
         );
     }
 
-    /// @notice Verify district membership proof and authorize action
-    /// @param proof Halo2 proof bytes (SHPLONK proof, ~384-512 bytes)
-    /// @param districtRoot District Merkle root (public input)
-    /// @param nullifier Unique nullifier to prevent double-actions (public input)
-    /// @param actionId Action identifier (public input)
-    /// @param expectedCountry Expected ISO 3166-1 alpha-3 country code
-    /// @dev Performs two-step verification:
-    ///      1. Call Halo2Verifier to verify ZK proof
-    ///      2. Check DistrictRegistry for district→country mapping
+    /// @notice DEPRECATED: This function was removed due to MEV vulnerability
+    /// @dev Use verifyAndAuthorizeWithSignature instead for MEV-resistant proof submission
+    /// @dev This function emitted msg.sender as reward recipient, allowing MEV front-running
+    /// @dev Migration deadline: All frontends must use signature-based submission by 2025-12-01
     function verifyAndAuthorize(
-        bytes calldata proof,
-        bytes32 districtRoot,
-        bytes32 nullifier,
-        bytes32 actionId,
-        bytes3 expectedCountry
-    ) external {
-        // Check: Action is authorized
-        if (!authorizedActions[actionId]) revert ActionNotAuthorized();
-
-        // Check: Prevent nullifier reuse (double-voting protection)
-        if (nullifierUsed[nullifier]) revert NullifierAlreadyUsed();
-
-        // Step 1: Verify ZK proof
-        // Public inputs: [districtRoot, nullifier, actionId]
-        uint256[3] memory publicInputs = [
-            uint256(districtRoot),
-            uint256(nullifier),
-            uint256(actionId)
-        ];
-
-        // Call Halo2Verifier contract
-        (bool success, bytes memory result) = verifier.call(
-            abi.encodeWithSignature(
-                "verifyProof(bytes,uint256[3])",
-                proof,
-                publicInputs
-            )
-        );
-
-        if (!success || !abi.decode(result, (bool))) {
-            revert VerificationFailed();
-        }
-
-        // Step 2: Verify district is registered for expected country
-        bytes3 actualCountry = registry.getCountry(districtRoot);
-        if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
-        if (actualCountry != expectedCountry) {
-            revert UnauthorizedDistrict();
-        }
-
-        // Effects: Mark nullifier as used
-        nullifierUsed[nullifier] = true;
-
-        // Emit event for off-chain indexing
-        // NOTE: This function is DEPRECATED - use verifyAndAuthorizeWithSignature instead
-        // Emits msg.sender as both user and submitter (vulnerable to MEV)
-        emit ActionVerified(
-            msg.sender,  // user (vulnerable - should use signature)
-            msg.sender,  // submitter
-            districtRoot,
-            actualCountry,
-            nullifier,
-            actionId
-        );
+        bytes calldata, // proof
+        bytes32,        // districtRoot
+        bytes32,        // nullifier
+        bytes32,        // actionId
+        bytes3          // expectedCountry
+    ) external pure {
+        revert("DEPRECATED: Use verifyAndAuthorizeWithSignature");
     }
 
     /// @notice Verify district membership proof with EIP-712 signature (MEV-resistant)
@@ -232,6 +193,7 @@ contract DistrictGate {
     /// @dev CRITICAL SECURITY FIX: Addresses CRITICAL #5 from adversarial analysis
     ///      - MEV bots can front-run, but rewards always go to original signer
     ///      - Off-chain indexers MUST read 'user' field (not 'submitter') for rewards
+    /// @dev PAUSABLE: Respects circuit breaker for emergency response
     function verifyAndAuthorizeWithSignature(
         address signer,
         bytes calldata proof,
@@ -241,7 +203,7 @@ contract DistrictGate {
         bytes3 expectedCountry,
         uint256 deadline,
         bytes calldata signature
-    ) external {
+    ) external whenNotPaused {
         // Check: Signer not zero address
         if (signer == address(0)) revert ZeroAddress();
         // Check: Signature not expired
@@ -322,82 +284,18 @@ contract DistrictGate {
         );
     }
 
-    /// @notice Batch verify multiple proofs (gas-optimized)
-    /// @param proofs Array of Halo2 proofs
-    /// @param districtRoots Array of district Merkle roots
-    /// @param nullifiers Array of nullifiers
-    /// @param actionIds Array of action identifiers
-    /// @param expectedCountry Expected country for all proofs
-    /// @dev All arrays must be same length
+    /// @notice DEPRECATED: This function was removed due to MEV vulnerability
+    /// @dev Use individual verifyAndAuthorizeWithSignature calls instead
+    /// @dev Batch functions are vulnerable to partial failures and MEV front-running
+    /// @dev Migration deadline: All frontends must use signature-based submission by 2025-12-01
     function verifyBatch(
-        bytes[] calldata proofs,
-        bytes32[] calldata districtRoots,
-        bytes32[] calldata nullifiers,
-        bytes32[] calldata actionIds,
-        bytes3 expectedCountry
-    ) external {
-        uint256 length = proofs.length;
-        require(
-            length == districtRoots.length &&
-            length == nullifiers.length &&
-            length == actionIds.length,
-            "Length mismatch"
-        );
-
-        for (uint256 i = 0; i < length; ) {
-            bytes32 actionId = actionIds[i];
-            bytes32 nullifier = nullifiers[i];
-
-            // Check action authorized
-            if (!authorizedActions[actionId]) revert ActionNotAuthorized();
-
-            // Check nullifier not used
-            if (nullifierUsed[nullifier]) revert NullifierAlreadyUsed();
-
-            // Verify ZK proof
-            uint256[3] memory publicInputs = [
-                uint256(districtRoots[i]),
-                uint256(nullifier),
-                uint256(actionId)
-            ];
-
-            (bool success, bytes memory result) = verifier.call(
-                abi.encodeWithSignature(
-                    "verifyProof(bytes,uint256[3])",
-                    proofs[i],
-                    publicInputs
-                )
-            );
-
-            if (!success || !abi.decode(result, (bool))) {
-                revert VerificationFailed();
-            }
-
-            // Verify district→country mapping
-            bytes3 actualCountry = registry.getCountry(districtRoots[i]);
-            if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
-            if (actualCountry != expectedCountry) {
-                revert UnauthorizedDistrict();
-            }
-
-            // Mark nullifier as used
-            nullifierUsed[nullifier] = true;
-
-            // NOTE: Batch function is DEPRECATED - vulnerable to MEV
-            // Use individual verifyAndAuthorizeWithSignature calls instead
-            emit ActionVerified(
-                msg.sender,  // user (vulnerable - should use signature)
-                msg.sender,  // submitter
-                districtRoots[i],
-                actualCountry,
-                nullifier,
-                actionId
-            );
-
-            unchecked {
-                ++i;
-            }
-        }
+        bytes[] calldata, // proofs
+        bytes32[] calldata, // districtRoots
+        bytes32[] calldata, // nullifiers
+        bytes32[] calldata, // actionIds
+        bytes3              // expectedCountry
+    ) external pure {
+        revert("DEPRECATED: Use verifyAndAuthorizeWithSignature");
     }
 
     /// @notice Authorize an action ID
@@ -481,5 +379,24 @@ contract DistrictGate {
     /// @return True if action is authorized
     function isActionAuthorized(bytes32 actionId) external view returns (bool) {
         return authorizedActions[actionId];
+    }
+
+    /// @notice Pause contract (emergency circuit breaker)
+    /// @dev Only governance can pause
+    ///      Pausing stops all proof verification functions
+    ///      Governance operations (authorize actions, etc.) remain available
+    ///      Use this when critical vulnerability discovered or circuit compromise suspected
+    function pause() external onlyGovernance {
+        _pause();
+        emit ContractPaused(msg.sender);
+    }
+
+    /// @notice Unpause contract (restore normal operation)
+    /// @dev Only governance can unpause
+    ///      Unpausing re-enables all proof verification functions
+    ///      Only unpause after vulnerability patched and verified
+    function unpause() external onlyGovernance {
+        _unpause();
+        emit ContractUnpaused(msg.sender);
     }
 }

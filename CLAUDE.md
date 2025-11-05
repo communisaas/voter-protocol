@@ -25,16 +25,29 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 ## Documentation Structure
 
+### User-Facing Documentation (Root)
+
 **Start here for context:**
-- **[README.md](README.md)** - Main entry point: problem, solution, why now (108 lines, cypherpunk energy)
+- **[README.md](README.md)** - Main entry point: problem, solution, why now
 - **[QUICKSTART.md](QUICKSTART.md)** - Non-technical users: Face ID to first reward in 4 minutes
 - **[TECHNICAL.md](TECHNICAL.md)** - Blockchain developers: Cryptography deep dive, implementation details
 - **[CONGRESSIONAL.md](CONGRESSIONAL.md)** - Legislative staff: Solving the 66% spam problem
-- **[SECURITY.md](SECURITY.md)** - Living threat model: Attack vectors, mitigations, incident response (updated continuously)
+- **[SECURITY.md](SECURITY.md)** - Living threat model: Attack vectors, mitigations, incident response
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete system architecture with diagrams
 - **[SOURCES.md](SOURCES.md)** - All 64 academic citations and research backing claims
 
-**Key principle**: Zero repetition across docs. Each serves distinct audience with unique content.
+### Research Archive (`/docs/`)
+
+**Cryptographic research and technical decisions:**
+- **[RESEARCH_SUMMARY.md](docs/RESEARCH_SUMMARY.md)** - Complete research findings (200+ pages consolidated)
+  - Security analysis (P0 fixes complete)
+  - ZK proof system decision (Halo2 chosen)
+  - STARK research (four-phase analysis)
+  - Phase 1.5 optimization triggers
+- **[STARK_CAPACITY_CONJECTURE.md](docs/STARK_CAPACITY_CONJECTURE.md)** - Why Halo2 immune to STARK security issues
+- **[STARK_MOBILE_BENCHMARKS.md](docs/STARK_MOBILE_BENCHMARKS.md)** - Why no STARK migration (zero mobile benchmarks exist)
+
+**Key principle**: Zero repetition. User docs in root, research references in `/docs/`. Git history is the audit trail.
 
 ## Technology Stack
 
