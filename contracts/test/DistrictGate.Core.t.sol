@@ -58,9 +58,31 @@ contract DistrictGateCoreTest is Test {
         // Generate mock proof
         bytes memory proof = hex"deadbeef";
 
-        // Attempt verification without registering district
+        // Attempt verification without registering district (using signature-based function)
+        uint256 userPrivateKey = 0x1234;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            fakeDistrict,
+            NULLIFIER,
+            ACTION_ID,
+            bytes3(0)
+        );
+
         vm.expectRevert(DistrictGate.DistrictNotRegistered.selector);
-        gate.verifyAndAuthorize(proof, fakeDistrict, NULLIFIER, ACTION_ID, bytes3(0));
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            fakeDistrict,
+            NULLIFIER,
+            ACTION_ID,
+            bytes3(0),
+            deadline,
+            signature
+        );
     }
 
     function test_RevertWhen_DistrictNotRegisteredWithValidCountry() public {
@@ -72,9 +94,32 @@ contract DistrictGateCoreTest is Test {
 
         bytes memory proof = hex"deadbeef";
 
+        // Generate signature
+        uint256 userPrivateKey = 0x1234;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            fakeDistrict,
+            NULLIFIER,
+            ACTION_ID,
+            USA
+        );
+
         // Try with valid country code but unregistered district
         vm.expectRevert(DistrictGate.DistrictNotRegistered.selector);
-        gate.verifyAndAuthorize(proof, fakeDistrict, NULLIFIER, ACTION_ID, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            fakeDistrict,
+            NULLIFIER,
+            ACTION_ID,
+            USA,
+            deadline,
+            signature
+        );
     }
 
     function test_RevertWhen_DistrictNotRegisteredWithSignature() public {
@@ -148,8 +193,37 @@ contract DistrictGateCoreTest is Test {
         );
     }
 
+    /// @notice Helper to generate EIP-712 signature for proof submission
+    function _generateSignature(
+        uint256 privateKey,
+        address signer,
+        bytes memory proof,
+        bytes32 districtRoot,
+        bytes32 nullifier,
+        bytes32 actionId,
+        bytes3 country
+    ) internal view returns (bytes memory signature, uint256 deadline) {
+        deadline = block.timestamp + 1 hours;
+        uint256 nonce = gate.nonces(signer);
+
+        bytes32 digest = _getEIP712Digest(
+            signer,
+            keccak256(proof),
+            districtRoot,
+            nullifier,
+            actionId,
+            country,
+            nonce,
+            deadline
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        signature = abi.encodePacked(r, s, v);
+    }
+
     function test_RevertWhen_BatchContainsUnregisteredDistrict() public {
         // Test batch verification rejects if any district is unregistered
+        // NOTE: Batch functions are deprecated, so we test individual submission
         bytes32 goodDistrict = DISTRICT_ROOT;
         bytes32 badDistrict = bytes32(uint256(0xBADBEEF));
 
@@ -159,29 +233,38 @@ contract DistrictGateCoreTest is Test {
         gate.authorizeAction(ACTION_ID);
         vm.stopPrank();
 
-        // Create batch with one good and one bad district
-        bytes[] memory proofs = new bytes[](2);
-        proofs[0] = hex"deadbeef";
-        proofs[1] = hex"cafebabe";
+        // Try to submit proof for unregistered district
+        bytes memory proof = hex"cafebabe";
+        bytes32 nullifier = bytes32(uint256(0x999));
 
-        bytes32[] memory districtRoots = new bytes32[](2);
-        districtRoots[0] = goodDistrict;
-        districtRoots[1] = badDistrict; // Unregistered!
+        uint256 userPrivateKey = 0x1234;
+        address signer = vm.addr(userPrivateKey);
 
-        bytes32[] memory nullifiers = new bytes32[](2);
-        nullifiers[0] = NULLIFIER;
-        nullifiers[1] = bytes32(uint256(0x999));
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            badDistrict, // Unregistered!
+            nullifier,
+            ACTION_ID,
+            USA
+        );
 
-        bytes32[] memory actionIds = new bytes32[](2);
-        actionIds[0] = ACTION_ID;
-        actionIds[1] = ACTION_ID;
-
-        // Should fail on second district
+        // Should fail on unregistered district
         vm.expectRevert(DistrictGate.DistrictNotRegistered.selector);
-        gate.verifyBatch(proofs, districtRoots, nullifiers, actionIds, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            badDistrict,
+            nullifier,
+            ACTION_ID,
+            USA,
+            deadline,
+            signature
+        );
     }
 
-    // ============ CRITICAL #3: verifyAndAuthorize() Core Tests ============
+    // ============ CRITICAL #3: verifyAndAuthorizeWithSignature() Core Tests ============
 
     function test_VerifyAndAuthorize_BasicFlow() public {
         // Register district
@@ -195,12 +278,34 @@ contract DistrictGateCoreTest is Test {
         // Generate proof
         bytes memory proof = hex"deadbeef";
 
+        // Generate signature
+        uint256 userPrivateKey = 0x2222;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA
+        );
+
         // Verify action
         vm.expectEmit(true, true, true, true);
-        emit ActionVerified(user, user, DISTRICT_ROOT, USA, NULLIFIER, ACTION_ID);
+        emit ActionVerified(signer, address(this), DISTRICT_ROOT, USA, NULLIFIER, ACTION_ID);
 
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, ACTION_ID, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA,
+            deadline,
+            signature
+        );
 
         // Verify nullifier was marked as used
         assertTrue(gate.isNullifierUsed(NULLIFIER));
@@ -216,9 +321,30 @@ contract DistrictGateCoreTest is Test {
 
         bytes memory proof = hex"deadbeef";
 
+        uint256 userPrivateKey = 0x2222;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            unauthorizedAction,
+            USA
+        );
+
         vm.expectRevert(DistrictGate.ActionNotAuthorized.selector);
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, unauthorizedAction, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            unauthorizedAction,
+            USA,
+            deadline,
+            signature
+        );
     }
 
     function test_RevertWhen_NullifierAlreadyUsed() public {
@@ -232,14 +358,53 @@ contract DistrictGateCoreTest is Test {
 
         bytes memory proof = hex"deadbeef";
 
-        // First verification succeeds
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, ACTION_ID, USA);
+        uint256 userPrivateKey = 0x2222;
+        address signer = vm.addr(userPrivateKey);
 
-        // Second verification with same nullifier fails
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA
+        );
+
+        // First verification succeeds
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA,
+            deadline,
+            signature
+        );
+
+        // Second verification with same nullifier fails (need new signature with new nonce)
+        (bytes memory signature2, uint256 deadline2) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA
+        );
+
         vm.expectRevert(DistrictGate.NullifierAlreadyUsed.selector);
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, ACTION_ID, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA,
+            deadline2,
+            signature2
+        );
     }
 
     function test_RevertWhen_DistrictCountryMismatch() public {
@@ -253,10 +418,31 @@ contract DistrictGateCoreTest is Test {
 
         bytes memory proof = hex"deadbeef";
 
+        uint256 userPrivateKey = 0x2222;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            bytes3("GBR")
+        );
+
         // Try to verify with wrong country
         vm.expectRevert(DistrictGate.UnauthorizedDistrict.selector);
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, ACTION_ID, bytes3("GBR"));
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            bytes3("GBR"),
+            deadline,
+            signature
+        );
     }
 
     function test_NullifierMarkedUsedAfterSuccess() public {
@@ -273,9 +459,30 @@ contract DistrictGateCoreTest is Test {
         // Nullifier not used before
         assertFalse(gate.isNullifierUsed(NULLIFIER));
 
+        uint256 userPrivateKey = 0x2222;
+        address signer = vm.addr(userPrivateKey);
+
+        (bytes memory signature, uint256 deadline) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA
+        );
+
         // Verify action
-        vm.prank(user);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, NULLIFIER, ACTION_ID, USA);
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER,
+            ACTION_ID,
+            USA,
+            deadline,
+            signature
+        );
 
         // Nullifier marked as used
         assertTrue(gate.isNullifierUsed(NULLIFIER));
@@ -293,16 +500,56 @@ contract DistrictGateCoreTest is Test {
         bytes memory proof = hex"deadbeef";
 
         // User 1 verifies
-        address user1 = address(0xA);
+        uint256 user1PrivateKey = 0xAAA;
+        address user1 = vm.addr(user1PrivateKey);
         bytes32 nullifier1 = bytes32(uint256(0x111));
-        vm.prank(user1);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, nullifier1, ACTION_ID, USA);
+
+        (bytes memory signature1, uint256 deadline1) = _generateSignature(
+            user1PrivateKey,
+            user1,
+            proof,
+            DISTRICT_ROOT,
+            nullifier1,
+            ACTION_ID,
+            USA
+        );
+
+        gate.verifyAndAuthorizeWithSignature(
+            user1,
+            proof,
+            DISTRICT_ROOT,
+            nullifier1,
+            ACTION_ID,
+            USA,
+            deadline1,
+            signature1
+        );
 
         // User 2 verifies with different nullifier
-        address user2 = address(0xB);
+        uint256 user2PrivateKey = 0xBBB;
+        address user2 = vm.addr(user2PrivateKey);
         bytes32 nullifier2 = bytes32(uint256(0x222));
-        vm.prank(user2);
-        gate.verifyAndAuthorize(proof, DISTRICT_ROOT, nullifier2, ACTION_ID, USA);
+
+        (bytes memory signature2, uint256 deadline2) = _generateSignature(
+            user2PrivateKey,
+            user2,
+            proof,
+            DISTRICT_ROOT,
+            nullifier2,
+            ACTION_ID,
+            USA
+        );
+
+        gate.verifyAndAuthorizeWithSignature(
+            user2,
+            proof,
+            DISTRICT_ROOT,
+            nullifier2,
+            ACTION_ID,
+            USA,
+            deadline2,
+            signature2
+        );
 
         // Both nullifiers marked as used
         assertTrue(gate.isNullifierUsed(nullifier1));

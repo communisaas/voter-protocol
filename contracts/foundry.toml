@@ -38,6 +38,9 @@ gas_reports = ["*"]
 scroll_sepolia = "https://sepolia-rpc.scroll.io"
 scroll_mainnet = "https://rpc.scroll.io"
 
+# Etherscan API V2 (Scrollscan deprecated, now uses Etherscan V2)
+# Get API key from: https://etherscan.io/myapikey (works for all chains)
+# Chain IDs: Scroll Sepolia = 534351, Scroll Mainnet = 534352
 [etherscan]
-scroll_sepolia = { key = "${SCROLLSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
-scroll_mainnet = { key = "${SCROLLSCAN_API_KEY}", url = "https://api.scrollscan.com/api" }
+scroll_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
+scroll_mainnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.scrollscan.com/api" }
