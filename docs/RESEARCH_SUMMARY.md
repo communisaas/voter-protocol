@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-**Decision**: Deploy Halo2 PLONK with KZG commitments for Phase 1.
+**Decision**: Deploy Halo2 (SHPLONK/KZG) commitments for Phase 1 (Groth16 references are comparative only).
 
 **Why**: Known performance (8-15s mobile), $0 migration cost, proven stability, immune to capacity conjecture issues.
 
@@ -49,7 +49,7 @@
 - Field: BN254 scalar field (~2²⁵⁴)
 - Circuit: K=14 (16,384 rows, 8 columns, 117,473 cells)
 - Proof Size: 384-512 bytes (SHPLONK)
-- Verification: 300-400k gas on Scroll L2 (~$0.005-$0.05)
+- Verification: 300-400k gas on Scroll L2 (< $0.01 typical as of 2025‑11‑15; conservative $0.0001–$0.005)
 - Trusted Setup: Ethereum KZG ceremony (no custom setup)
 
 **Mobile Performance** (browser-native WASM, proven):

@@ -9,7 +9,7 @@
 
 Recent research (Diamond & Gruen 2025, IACR 2025/2010) found that STARK security parameters relying on the Reed-Solomon capacity conjecture may need adjustment (+10-20% query overhead). This has **ZERO impact** on the VOTER Protocol because:
 
-1. **We use Halo2 PLONK with KZG commitments** - NOT FRI-based STARKs
+1. **We use Halo2 (SHPLONK/KZG) commitments for Phase 1** - NOT FRI-based STARKs (Groth16 references are comparative only)
 2. **KZG security is algebraic** (pairing-based), NOT information-theoretic (Reed-Solomon proximity)
 3. **No code rate parameters** - KZG proofs are constant-size regardless of circuit
 

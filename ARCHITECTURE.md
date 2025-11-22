@@ -1,6 +1,6 @@
 # VOTER Protocol: Technical Architecture
 
-**Status**: Active development - Phase 1 implementation (Halo2 recursive proofs, reputation-only)
+**Status**: Active development - Phase 1 implementation (single-tier Halo2 (SHPLONK/KZG), reputation-only)
 **Last Updated**: October 2025
 **Implementation**: Smart contracts in this repo, frontend in Communique repo
 **Core Decisions**: Scroll settlement, Halo2 zero-knowledge proofs, Scroll identity registry (on-chain Sybil resistance), no database PII storage, no NEAR dependency
@@ -9,15 +9,15 @@
 
 ## Executive Summary
 
-**Settlement**: Scroll zkEVM (Ethereum L2, Stage 1 decentralized)
-**Account Abstraction**: NEAR Chain Signatures (optional for simplified UX)
-**Identity**: self.xyz NFC passport (FREE, primary) + Didit.me (FREE, fallback)
-**Privacy**: Halo2 recursive proofs (no trusted setup, battle-tested since 2022 in Zcash Orchard), addresses never leave browser, never stored in any database
-**Templates**: PostgreSQL (Supabase) for template metadata only
-**Verification**: Congressional CWC API (message content encrypted from platform operators via AWS Nitro Enclaves, delivered as plaintext to congressional offices)
-**Moderation**: AWS Nitro Enclaves (platform operators cannot decrypt message content, architectural enforcement)
-**Moderation**: 3-layer stack (FREE OpenAI Moderation API + Gemini/Claude consensus + human review)
-**Phase**: Phase 1 (reputation-only, 3 months) → Phase 2 (token economics, 12-18 months)
+Democratic infrastructure should not ask for permission to protect its citizens. Phase 1 enforces privacy by construction: proofs replace identities, signals replace surveillance, and reputation records—not people—touch the chain. Institutions get verifiable civic signal; citizens keep sovereignty.
+
+**Settlement**: Scroll zkEVM (Ethereum L2)
+**Identity**: self.xyz (primary) + Didit.me (fallback)
+**Privacy**: Browser‑native Halo2 proofs; addresses never leave the device
+**Storage**: Minimal metadata only; encrypted where needed
+**Delivery**: CWC API with enclave‑protected processing
+**Moderation**: 3‑layer stack (automation + consensus + human)
+**Phasing**: Phase 1 reputation; Phase 2 economics
 
 ---
 
@@ -28,7 +28,7 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 ### Phase 1: Cryptographic Infrastructure (Current - 3 Months to Launch)
 
 **What Ships:**
-- Halo2 zero-knowledge district proofs (browser-native WASM, 600ms-10s proving, 300-500k gas with KZG, no trusted setup, battle-tested since 2022)
+- Halo2 zero-knowledge district proofs (browser-native WASM, single-tier Halo2 (SHPLONK/KZG), 300–500k gas; no trusted setup; battle-tested since 2022)
 - Addresses never leave browser, never stored in any database
 - Message content encryption from platform operators (XChaCha20-Poly1305, delivered as plaintext to congressional offices via CWC API)
 - Browser-native proving (zero cloud dependency, $0/month infrastructure cost)
@@ -100,7 +100,7 @@ flowchart TB
     end
 
     subgraph Settlement["Settlement Layer"]
-        Scroll[Scroll zkEVM Stage 1 Decentralized $0.135/action]
+        Scroll[Scroll zkEVM Stage 1 Decentralized < $0.01 typical]
     end
 
     subgraph Verify["Verification"]
@@ -348,7 +348,7 @@ const receipt = await tx.wait();
 
 **Gas Costs** (October 2025 pricing - post-Dencun upgrade):
 - **Contract deployment**: $0.09 (one-time, already deployed)
-- **Identity registration**: **$0.002 per user** (166x cheaper than pre-Dencun!)
+- **Identity registration**: Typical costs are low on Scroll; defer specifics to the canonical costs section
   - L2 execution: 50,000 gas × 0.001 Gwei × $3,860/ETH = **$0.0002**
   - L1 calldata: 3,200 gas × 0.104 Gwei × $3,860/ETH = **$0.0013**
   - **Dencun upgrade impact:** Ethereum gas dropped 95% (72 Gwei → 0.104 Gwei)
@@ -399,8 +399,7 @@ const receipt = await tx.wait();
 - **Cheaper**: $20 over 10 years vs $25.50 (22% cheaper due to no locked capital)
 - **More Secure**: Ethereum L1 data availability vs NEAR validator set
 - **Zero PII**: Hash-only storage vs encrypted PII storage
-- **Post-Dencun bonus**: Gas costs dropped 95% making L2s incredibly cheap ($0.002/user)
-- **Note**: Per-user costs identical ($0.002), but Scroll avoids locked capital + opportunity cost
+- **Post-Dencun**: Gas costs dropped significantly on L2s; defer specifics to the canonical costs section
 - **See**: [Migration docs](./docs/migrations/ciphervault-to-identity-registry.md)
 
 ---
@@ -1347,10 +1346,10 @@ contract DistrictGate {
 - ZK proof verification: ~250K gas
 - `submitAction` call: ~150K gas
 - Storage updates: ~50K gas
-- **Total**: ~450K gas × 0.1 gwei = **$0.135/action** (at $3000 ETH)
+- **Total**: Typical on‑chain verification on Scroll: **< $0.01/action** (as of 2025‑11‑15); defer specifics to the canonical costs section
 
 **Who Pays Transaction Costs**:
-- **Initially**: Protocol treasury sponsors all ZK verification costs ($0.135/action)
+- **Initially**: Protocol treasury may sponsor ZK verification costs (typical **< $0.01/action**); see canonical costs section
 - **Future**: Sponsor pool may subsidize costs for strategic campaigns
 - **User Experience**: Zero-fee civic participation removes economic barriers
 - **Treasury Sustainability**: Costs funded by outcome market fees and token appreciation
@@ -4387,37 +4386,37 @@ function getTokenPrice(): number {
 
 **Halo2 Proof Generation (K=14)**:
 - Browser-side proving: $0 (client-side computation, 2-8 seconds mobile)
-- On-chain verification: ~$0.01 (Scroll L2 gas, Halo2Verifier.sol + registry lookup)
-- Nullifier storage: ~$0.001 (state update)
-- **Total**: **$0.011/user one-time**
+- On-chain verification: < $0.01 typical (Scroll L2; Halo2Verifier + registry lookup; conservative $0.0001–$0.005 as of 2025‑11‑15)
+- Nullifier storage: < $0.01 (state update)
+- **Total**: **< $0.02/user one-time** (conservative)
 
 **Civic Action Costs**:
-- Halo2 proof verification: ~$0.01/action (Scroll gas, two-step: ZK + registry)
+- Halo2 proof verification: < $0.01/action (Scroll gas; two-step: ZK + registry)
 - CWC API congressional delivery: $0 (federal government API)
-- Action registry update: ~$0.005 (state update)
-- **Total**: **$0.015/action**
+- Action registry update: < $0.01 (state update)
+- **Total**: **< $0.02/action** (conservative)
 
 **Reputation Updates**:
 - ReputationAgent scoring: $0 (deterministic on-chain logic)
-- ERC-8004 registry update: ~$0.005 (state update)
-- **Total**: **$0.005/update**
+- ERC-8004 registry update: < $0.01 (state update)
+- **Total**: **< $0.01/update** (conservative)
 
 ### Annual Costs at Scale
 
 **At 1,000 users** (conservative first-year target):
 - Monthly infrastructure: $3,600/month = $43,200/year
-- User onboarding: 1,000 × $0.011 = $11
-- Civic actions (10/user/year): 10,000 × $0.020 = $200
-- Reputation updates (50/user/year): 50,000 × $0.005 = $250
-- **Total Year 1**: $43,661 = **$43.66/user/year**
+- User onboarding: 1,000 × < $0.02 ≈ < $20
+- Civic actions (10/user/year): 10,000 × < $0.02 ≈ < $200
+- Reputation updates (50/user/year): 50,000 × < $0.01 ≈ < $500
+- **Total Year 1**: ~$43,920 = **~$43.92/user/year**
 
 **At 10,000 users** (18-month target):
 - Monthly infrastructure: $3,600/month = $43,200/year
 - Nitro Enclaves scale: +$1,525/month = $18,300/year (4× instances for load)
-- User onboarding: 10,000 × $0.011 = $110
-- Civic actions (10/user/year): 100,000 × $0.020 = $2,000
-- Reputation updates (50/user/year): 500,000 × $0.005 = $2,500
-- **Total Year 2**: $66,110 = **$6.61/user/year**
+- User onboarding: 10,000 × < $0.02 ≈ < $200
+- Civic actions (10/user/year): 100,000 × < $0.02 ≈ < $2,000
+- Reputation updates (50/user/year): 500,000 × < $0.01 ≈ < $5,000
+- **Total Year 2**: ~$68,700 = **~$6.87/user/year**
 
 **At 100,000 users** (pre-Phase 2):
 - Monthly infrastructure: $3,600/month = $43,200/year
@@ -4662,7 +4661,7 @@ function getTokenPrice(): number {
 
 **Economic Mechanisms**:
 - Retroactive pool funding: 20% of ALL stakes (winners + losers) fund civic infrastructure
-- Treasury sponsors ZK verification costs ($0.135/action)
+- Treasury sponsors ZK verification costs (typical **< $0.01/action**); see canonical costs section
 - Removes economic barriers to participation
 
 **Settlement Architecture**:
@@ -4684,3 +4683,6 @@ function getTokenPrice(): number {
 **Last Updated**: October 2025
 **Status**: Production architecture reference
 **Next Review**: After Month 1 implementation
+### Costs & Gas (Canonical)
+- Typical on‑chain verification on Scroll: < $0.01; conservative range $0.0001–$0.005 (as of 2025‑11‑15)
+- Numbers vary by circuit and network conditions; defer specifics to this section and avoid restating elsewhere.

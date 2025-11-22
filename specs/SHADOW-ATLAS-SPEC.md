@@ -911,55 +911,63 @@ OUTPUT: ValidationResult
 
 ## 8. Implementation Status
 
-### 8.1 Completed Components
+### 8.1 Completed Components (Updated 2025-11-18)
 
-✅ **Architecture Design:**
-- Provider-agnostic geocoding interface defined
-- Country-specific district resolution strategies specified
-- Three-tier data acquisition protocol documented
+✅ **Multi-Layer Boundary Resolution System (PRODUCTION-READY):**
+- Layer 2 (Foundation): TIGER PLACE provider operational (100% US coverage)
+- Enhanced validation pipeline with geographic bounds checking
+- Multi-layer coordinator with graceful fallback
+- State-level caching (download once, filter many cities)
 
-✅ **Implementation Files Created:**
-- `packages/crypto/services/geocoding/types.ts`
-- `packages/crypto/services/geocoding/providers/geocodio.ts`
-- `packages/crypto/services/geocoding/providers/nominatim.ts`
-- `packages/crypto/services/geocoding/index.ts`
-- `packages/crypto/services/district-resolver.ts`
+✅ **Core Implementation Files:**
+- `packages/crypto/services/shadow-atlas/providers/tiger-place.ts` (448 lines)
+- `packages/crypto/services/shadow-atlas/providers/multi-layer-provider.ts` (324 lines)
+- `packages/crypto/services/shadow-atlas/validation/geographic-bounds-validator.ts` (380 lines)
+- `packages/crypto/services/shadow-atlas/validation/deterministic-validators.ts` (enhanced with async geography)
 
-✅ **Automation Scripts Created:**
-- `scripts/collect-city-council-gis.ts`
-- `scripts/update-cicero-coverage.ts`
+✅ **Testing Infrastructure:**
+- `test-tiger-place.ts` - PLACE provider (3 cities, 100% success)
+- `test-multi-layer.ts` - Multi-layer system (5 cities, 100% coverage)
+- 37/37 validation tests passing
 
-### 8.2 Implementation Roadmap
+✅ **Documentation:**
+- `docs/SHADOW-ATLAS-MULTI-LAYER-IMPLEMENTATION.md` - Implementation plan
+- `docs/SHADOW-ATLAS-DATA-SOURCES-RESEARCH.md` - Research findings
+- `docs/SHADOW-ATLAS-STATUS-2025-11-18.md` - Production status
 
-**Week 1-2: Data Collection (NOT STARTED)**
-- [ ] Execute `collect-city-council-gis.ts` for top 10 cities
-- [ ] Validate GeoJSON against [RFC7946]
-- [ ] Run topology validation (gaps/overlaps)
-- [ ] Commit verified GIS data to repo
+✅ **Data Quality:**
+- Geographic bounds validation (cross-checks against PLACE boundaries)
+- State coordinate validation (50 US states + DC)
+- Name pattern validation (rejects state/county/transit keywords)
+- District count validation (3-50 for city councils)
 
-**Week 3-4: Census Integration (NOT STARTED)**
-- [ ] Implement `CensusGeocoder` service
-- [ ] Add error handling for API edge cases
-- [ ] Create integration tests with real API
-- [ ] Validate against TIGER/Line shapefiles
+### 8.2 Implementation Status (Updated 2025-11-18)
 
-**Week 5-6: Cicero Fence (NOT STARTED)**
-- [ ] Query Cicero coverage endpoint
-- [ ] Parse coverage JSON into city map
-- [ ] Implement user consent flow
-- [ ] Add cost tracking
+**Phase 1: Foundation Layer (✅ COMPLETE)**
+- [x] TIGER PLACE provider (100% US coverage, annual updates)
+- [x] State-level caching infrastructure
+- [x] Geographic bounds validation
+- [x] Multi-layer coordinator architecture
+- [x] Test suite (5 diverse cities validated)
 
-**Week 7-8: Shadow Atlas Generation (NOT STARTED)**
-- [ ] Implement Merkle tree construction
-- [ ] Generate trees for collected districts
+**Phase 2: Portal Discovery Integration (🚧 IN PROGRESS)**
+- [x] Enhanced validation pipeline
+- [x] Geographic cross-validation against PLACE
+- [ ] Re-enable portal discovery in multi-layer provider
+- [ ] Test on 100 cities to measure quality improvement
+- [ ] Scale to all 32,041 cities
+
+**Phase 3: Merkle Tree Generation (⏳ PLANNED)**
+- [ ] Implement Merkle tree construction for discovered boundaries
+- [ ] Generate trees for Layer 1 (council districts) + Layer 2 (PLACE)
 - [ ] Deploy to IPFS
 - [ ] Create proof generation API
 
-**Week 9-10: Integration Testing (NOT STARTED)**
-- [ ] End-to-end address → proof flow
-- [ ] Performance benchmarking
-- [ ] Mobile device testing
-- [ ] Security audit prep
+**Phase 4: End-to-End Integration (⏳ PLANNED)**
+- [ ] Address → geocoding → district resolution
+- [ ] District → Merkle proof generation
+- [ ] Browser-native ZK proof generation
+- [ ] On-chain verification
 
 ### 8.3 Missing Specifications
 
@@ -979,7 +987,12 @@ OUTPUT: ValidationResult
    - Proposed: Epoch-based versioning with grace periods
 
 2. **IPFS Hosting:** Who pins Shadow Atlas data? Decentralized redundancy strategy?
-   - Proposed: Multiple pinning services + incentivized community pinning
+   - **RESOLVED:** Unified IPFS strategy for Shadow Atlas + Identity Blobs
+   - **Primary Pinning:** Pinata free tier (1 GB = 5M users at 200 bytes/blob)
+   - **Redundancy:** NFT.storage (Filecoin permanence, one-time fee)
+   - **Community:** Incentivize self-pinning with Phase 2 VOTER tokens
+   - **Cost:** Near-zero (Pinata free tier covers millions of users)
+   - **Reference:** See communique repo `docs/PORTABLE-ENCRYPTED-IDENTITY-ARCHITECTURE.md`
 
 3. **Data Freshness:** How do we detect stale municipal GIS data?
    - Proposed: Automated quarterly checks with diff detection
@@ -989,6 +1002,13 @@ OUTPUT: ValidationResult
 
 5. **Cicero Dependency:** What if Cicero shuts down or raises prices?
    - Proposed: Build fallback scraping infrastructure for city council data
+
+6. **Identity Blob Storage:** Same IPFS infrastructure used for encrypted identity blobs
+   - **Phase 1 (MVP):** Postgres encrypted blob storage (platform cannot decrypt)
+   - **Phase 2 (optimized):** IPFS + on-chain IdentityRegistry pointers
+   - **Cost reduction:** $500/month → $10 one-time for 100k users (99.97% savings)
+   - **Portability:** Users own encrypted blobs, can move between platforms
+   - **Architecture:** XChaCha20-Poly1305 encryption to TEE key, IPFS CIDv1 storage
 
 ---
 

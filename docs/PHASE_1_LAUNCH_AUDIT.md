@@ -1,4 +1,5 @@
 # Phase 1 Launch Readiness Audit
+> Circuit parameters reflect the current build at the time of writing. When K or verifier size changes, link to the canonical document that carries the detail.
 
 **Date**: 2025-11-05
 **Status**: 🟡 **PARTIAL READINESS** - Critical gaps identified

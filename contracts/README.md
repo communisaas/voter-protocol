@@ -79,8 +79,9 @@ forge test --match-test testGasBatchVerification -vvv
 ```
 
 Expected gas costs:
-- **Single verification**: 300-500k gas (with real Halo2Verifier)
-- **Batch verification (10 proofs)**: ~3-5M gas total (~300-500k per proof)
+- **Single verification**: 300–500k gas (with real Halo2Verifier)
+- **Batch verification (10 proofs)**: ~3–5M gas total (~300–500k per proof)
+- **Fee (Scroll mainnet, Nov 15, 2025)**: < $0.01 typical per verification (conservative $0.0001–$0.005)
 
 ## Deployment
 

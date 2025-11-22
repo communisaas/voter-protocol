@@ -353,7 +353,7 @@ A: No. VOTER integrates with Fireside, IQ, and Quorum as a credibility layer. Me
 A: Traditional email/phone/mail still works exactly as it does today. VOTER provides additional signal for constituents who choose to participate. You're not losing anything, just gaining better filtering for messages sent through the protocol.
 
 **Q: How do we know zero-knowledge proofs actually work?**
-A: Cryptography is peer-reviewed and battle-tested (Halo2 recursive proofs used in production by Zcash since 2022, no trusted setup required). Congressional IT can verify proofs on-chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
+A: Cryptography is peer‑reviewed and battle‑tested (Halo2 proofs used in production by Zcash since 2022, no trusted setup required). Congressional IT can verify proofs on‑chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
 
 **Q: What about constituents without smartphones?**
 A: Traditional contact methods unchanged. VOTER is additive infrastructure for constituents who want cryptographic privacy and credibility signaling. Not a replacement for existing channels.
@@ -402,3 +402,5 @@ A: Reputation scores are on-chain (permanent). Dashboard is open-source (your IT
 -----
 
 *You told us the problem. We built the infrastructure you're asking for. Now let's solve the 66% spam problem together.*
+### Verification Overview (Phase 1)
+Constituents present cryptographic proof of district membership; you receive signal without surveillance. The dashboard surfaces “verified district” and credibility, never PII. Verification is inexpensive on Scroll. Implementation details live in `ARCHITECTURE.md`.

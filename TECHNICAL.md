@@ -88,7 +88,7 @@ VOTER Protocol ships in two phases. Phase 1 establishes cryptographic foundation
 
 - **Verification:** On-chain smart contract verifies Halo2 proof against current Shadow Atlas root
   - Gas cost: 300-400k gas on Scroll L2 (K=14 circuit verification)
-  - At 0.1 gwei: ~$0.015-$0.020 per verification (platform subsidizes)
+  - Typical verification on Scroll: < $0.01; defer specifics to the canonical costs section
 - **Privacy guarantee (CURRENT, Phase 1):**
   - **Address NEVER leaves browser** (zero server transmission, true privacy from day one)
   - Shadow Atlas district tree is public data (IPFS, no privacy concerns)
@@ -121,7 +121,7 @@ contract DistrictRegistry {
 
 // Step 2: Master verification contract orchestrates ZK proof + registry lookup
 contract DistrictGate {
-    address public immutable verifier;  // Halo2Verifier (K=14 single-tier circuit, 20,142 bytes)
+    address public immutable verifier;  // Halo2Verifier (single-tier Halo2, SHPLONK/KZG)
     DistrictRegistry public immutable registry;
     mapping(bytes32 => bool) public nullifierUsed;
 
@@ -378,7 +378,7 @@ async function generateDistrictProof(address: string, district: string): Promise
   - Progressive enhancement: Older browsers see "upgrade browser" message
 
 - **Verification gas:** 300-400k gas on Scroll L2 (K=14 circuit verification)
-  - At 0.1 gwei gas price: ~$0.015-$0.020 per verification
+  - Typical verification on Scroll: < $0.01; defer specifics to the canonical costs section
   - Platform subsidizes all gas costs (users pay nothing)
 
 - **Proof size:** 384-512 bytes (same as before, KZG commitment slightly larger)
@@ -389,7 +389,7 @@ async function generateDistrictProof(address: string, district: string): Promise
 - ✅ No trusted setup ceremony (KZG uses Ethereum's universal 141K-participant ceremony)
 - ✅ No custom ceremony coordination overhead
 - ✅ Battle-tested since 2022 in Zcash Orchard (production-grade Halo2)
-- ⚖️ Slightly higher gas (300-500k vs 150-250k for Groth16) - acceptable for universal setup
+- ⚖️ Slightly higher gas (300-500k vs 150-250k for Groth16) — Phase 1 uses Halo2 SHPLONK + KZG for universal setup; Groth16 references are comparative only
 
 **Decision:** K=14 Single-Tier provides optimal balance:
 - **Security:** No trusted setup beyond Ethereum's 141K-participant KZG ceremony
@@ -1351,7 +1351,7 @@ def execute_decision(agents_votes):
 ### Variable Costs (Content Moderation)
 
 **Layer 1: OpenAI Moderation API**
-- **Cost:** $0 (FREE, unlimited)
+- **Cost:** Low; provider SLAs vary. Use automated moderation with escalation; see canonical detail
 - **Volume:** 10,000 messages/month (100% pass through Layer 1)
 - **Cost:** $0
 
@@ -1372,8 +1372,8 @@ def execute_decision(agents_votes):
 
 **Scroll L2 Transactions:**
 - **District verification:** 1,000 users × $0.02 = $20
-- **Reputation updates:** 500 actions × $0.01 = $5
-- **Message delivery receipts:** 10,000 messages × $0.01 = $100
+- **Reputation updates:** Defer costs to the canonical section
+- **Message delivery receipts:** Defer costs to the canonical section
 
 **Total Blockchain:** $125/month
 
@@ -1563,7 +1563,7 @@ Phase 1 infrastructure costs are viable for bootstrapped launch. Revenue options
 
 **On-Chain Verification (Scroll L2):**
 - **Gas cost:** 300-400k gas (K=14 circuit verification)
-  - At 0.1 gwei gas price: ~$0.015-$0.020 per verification
+  - Typical verification on Scroll: < $0.01; defer specifics to the canonical costs section
   - Platform pays all gas (users see zero transaction costs)
 - **Latency:** Block confirmation ~2 seconds (Scroll L2)
 

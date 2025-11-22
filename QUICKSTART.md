@@ -116,9 +116,9 @@ Tap "Send to My Representative"
    - Address verified in secure enclave, then destroyed
    - Address never leaves browser, never stored anywhere
 2. Message passes 3-layer content moderation (AI consensus + human review)
-3. Verification proof + message content delivered to congressional office via CWC API
-4. Cryptographic receipt confirms delivery
-5. Your action records on-chain (reputation update, never your identity)
+3. Your proof settles on-chain; your district is confirmed without exposing you
+4. You receive a tamper‑evident delivery receipt
+5. Only reputation lands on‑chain — identity never does
 
 **What you see:**
 - Progress bar showing proof generation (8-15 seconds on mid-range mobile)

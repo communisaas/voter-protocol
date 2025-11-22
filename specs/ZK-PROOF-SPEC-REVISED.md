@@ -136,7 +136,7 @@ The meta-statement requires MORE work, not less.
 
 ### 3.1 Circuit Design
 
-**Halo2 uses recursive proofs WITHOUT trusted setup:**
+**Halo2 proofs use KZG commitments without trusted setup:**
 
 ```rust
 use halo2_proofs::{
@@ -369,7 +369,7 @@ export class DistrictProver {
 pragma solidity ^0.8.20;
 
 /// @title Halo2Verifier
-/// @notice Verifies Halo2 recursive proofs on-chain
+/// @notice Verifies Halo2 proofs on-chain
 /// @dev Generated from Halo2 circuit using halo2-solidity tool
 contract Halo2Verifier {
     uint256 constant PROOF_SIZE = 512; // 384-512 bytes

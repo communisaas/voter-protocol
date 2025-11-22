@@ -59,12 +59,12 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 - **Message delivery**: Address verified in AWS Nitro Enclaves then destroyed. Message content plaintext for congressional offices to read—privacy protects your identity, not your voice. Enclave attestation proves correct code.
 - **Honest dependencies**: Congressional SOAP API requires centralized delivery and plaintext messages. Nitro Enclaves verify identity without storing it. No HSM theater.
 
-**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments, **$0.002/user post-Dencun**, Ethereum L1 data availability). Optional NEAR chain signatures for cross-chain UX. Halo2 K=14 proofs for district verification (8-15s mobile browser WASM with KZG, 300-400k gas, no trusted setup, battle-tested in Zcash Orchard since 2022). Phase 1: Reputation-only. Phase 2: Token economics. See [TECHNICAL.md](TECHNICAL.md) for deep dive.
+**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments). Optional NEAR chain signatures for cross-chain UX. Halo2 single-tier proofs for district verification (8–15s mobile browser WASM, 300–500k gas, no trusted setup). Phase 1: Reputation-only. Phase 2: Token economics. See the canonical document carrying the detail.
 
 
 ## Why Now
 
-The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Halo2 recursive proofs battle-tested in Zcash Orchard since 2022—production-grade zero-knowledge cryptography with no trusted setup. Every piece we need exists and is battle-tested.
+The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Halo2 proofs battle-tested in Zcash Orchard since 2022—production-grade zero-knowledge cryptography with no trusted setup. Every piece we need exists and is battle-tested.
 
 [Prediction markets on electoral outcomes reached $3.2 billion daily volume on Polymarket](https://www.theblock.co/data/decentralized-finance/prediction-markets/total-trading-volume-on-polymarket-daily) during 2024 elections. That proved people stake massive capital on political predictions. But electoral predictions don't *influence* outcomes—you're just betting. VOTER creates markets for *legislative outcomes* where staking funds the civic infrastructure attempting to influence the result (Phase 2 feature, 12-18 months post-launch). You're not just predicting Medicare drug pricing reform—you're funding the template campaigns, rewarding constituent messaging, financially backing the advocacy that makes it happen.
 
@@ -92,6 +92,12 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - **[SECURITY.md](SECURITY.md)** - Living threat model: Attack vectors, mitigations, incident response
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete technical architecture
 - **[SOURCES.md](SOURCES.md)** - All academic citations and research backing these claims
+
+### How It Works (Phase 1)
+- You prove membership without surrendering identity — cryptography, not permission.
+- Offices receive verified signal without surveillance; the message stands on its own.
+- Reputation accrues to civic labor; economics arrive later. Integrity first.
+- Builders: the complete flow lives in `ARCHITECTURE.md`.
 
 ## Repository Structure
 

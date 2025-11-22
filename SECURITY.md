@@ -2,9 +2,9 @@
 
 **This document evolves with the threat landscape. Last updated: 2025-10-20**
 
-**Phase 1 Focus**: This security model reflects Phase 1 architecture (browser-native Halo2 zero-knowledge proofs, self.xyz/Didit.me verification, message content encrypted from platform operators via AWS Nitro Enclaves and delivered as plaintext to congressional offices, reputation-only, 3-layer content moderation). Phase 2 additions (challenge markets, outcome markets, VOTER token) marked clearly.
+**Phase 1 Focus**: Privacy is enforced by cryptography, not promises. Identity never leaves the device; offices receive verified signal without surveillance; reputation records, not identity, land on‑chain. Phase 2 adds economic mechanisms and is clearly marked.
 
-VOTER Protocol is cryptographic democratic infrastructure handling identity verification, congressional message delivery, content moderation, and reputation systems. Phase 2 adds financial mechanisms (token economics, prediction markets). Security failures kill trust. This document maps threat vectors, mitigations, and incident response procedures.
+VOTER is democratic infrastructure designed to be resilient under adversarial conditions. This document describes what can go wrong, how we detect it, and how we respond—living, precise, and biasing toward architectural guarantees over policy.
 
 -----
 
@@ -55,7 +55,7 @@ VOTER Protocol is cryptographic democratic infrastructure handling identity veri
   - Layer 1: OpenAI Moderation API (text-moderation-007) flags sexual/minors category with 95% accuracy
   - AUTO-REJECT + mandatory NCMEC CyberTipline report within 24 hours (federal law)
   - Layer 2/3 NEVER see CSAM (already rejected + reported at Layer 1)
-- **Status**: OpenAI API FREE, unlimited requests, 47ms latency
+- **Status**: Provider costs and SLAs vary; use automated moderation with escalation; see canonical detail
 - **Incident response**:
   - **If CSAM detected**: Immediate report to NCMEC (law enforcement access), suspend user account, preserve evidence
   - **If false positive**: Human review (Layer 3) within 24 hours, user appeal process
@@ -308,12 +308,11 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 5. **Provider API key compromise** - Attacker forges verification proofs via stolen API keys
    - *Mitigation*: Cryptographic signatures (verification proofs signed by provider private key)
-   - *On-chain verification*: DistrictGate.sol verifies provider signatures before accepting proofs
+   - *On-chain verification*: DistrictGate.sol verifies EIP‑712 signatures and Halo2 proofs via Halo2Verifier.sol before accepting proofs
    - *Key rotation*: self.xyz + Didit.me rotate signing keys quarterly
    - *Incident response**: If API key compromised, emergency key rotation + invalidate all proofs from compromised period
 
-**Phase 1 Status:**
-- **Cost**: $0 (both providers offer FREE tiers, unlimited verifications)
+- **Cost**: $0 (identity providers offer FREE tiers) + < $0.01 typical on‑chain verification (Scroll)
 - **Adoption split**: 70% self.xyz (NFC passport), 30% Didit.me (Core KYC fallback)
 - **Countries supported**: 120+ (NFC-enabled passports)
 

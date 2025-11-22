@@ -61,44 +61,42 @@ use halo2_base::{
     },
 };
 use rand::rngs::OsRng;
-use std::fs;
-use std::io::Read as _;
-use std::path::Path;
 
-/// Load KZG ceremony parameters (WASM version - test mode only for browser)
+// ============================================================================
+// EMBEDDED KZG PARAMETERS (Browser-Compatible)
+// ============================================================================
+
+/// Embedded K=14 test parameters (2MB) for browser compatibility
+///
+/// These params are embedded at compile time to avoid filesystem operations
+/// which don't work in browser WASM environments.
+const KZG_PARAMS_K14: &[u8] = include_bytes!("../kzg_params/test_params_k14.bin");
+
+/// Load KZG ceremony parameters (browser-compatible)
+///
+/// Uses embedded parameters to avoid filesystem operations.
+///
+/// # Arguments
+/// - `k`: Circuit size parameter (14 for production)
+///
+/// # Returns
+/// - `Result<ParamsKZG<Bn256>, String>`: KZG parameters or error
+///
+/// # Performance
+/// - K=14 (embedded): ~100-200ms deserialization
+/// - Other k values: 5-10s on-the-fly generation
 fn load_ceremony_params_wasm(k: usize) -> Result<ParamsKZG<Bn256>, String> {
-    let params_dir = Path::new("./kzg_params");
-    let test_path = params_dir.join(format!("test_params_k{}.bin", k));
-
-    // Try loading cached test params
-    if test_path.exists() {
-        let mut file = fs::File::open(&test_path)
-            .map_err(|e| format!("Failed to open test params: {}", e))?;
-
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .map_err(|e| format!("Failed to read test params: {}", e))?;
-
-        let params = ParamsKZG::<Bn256>::read(&mut buffer.as_slice())
-            .map_err(|e| format!("Failed to deserialize test params: {}", e))?;
-
-        return Ok(params);
+    match k {
+        14 => {
+            // Use embedded K=14 parameters
+            ParamsKZG::<Bn256>::read(&mut KZG_PARAMS_K14)
+                .map_err(|e| format!("Failed to deserialize embedded K=14 params: {}", e))
+        }
+        _ => {
+            // Generate on-the-fly for non-standard k values
+            Ok(ParamsKZG::<Bn256>::setup(k as u32, OsRng))
+        }
     }
-
-    // Generate test parameters
-    let params = ParamsKZG::<Bn256>::setup(k as u32, OsRng);
-
-    // Cache to disk
-    fs::create_dir_all(params_dir)
-        .map_err(|e| format!("Failed to create kzg_params directory: {}", e))?;
-
-    let mut file = fs::File::create(&test_path)
-        .map_err(|e| format!("Failed to create test params file: {}", e))?;
-
-    params.write(&mut file)
-        .map_err(|e| format!("Failed to write test params to disk: {}", e))?;
-
-    Ok(params)
 }
 
 /// WASM-compatible prover wrapper
@@ -217,9 +215,15 @@ impl Prover {
         // Parse identity_commitment from hex
         let identity = parse_fr_hex(identity_commitment)?;
 
-        // Parse action_id from decimal string
-        let action = Fr::from_str_vartime(action_id)
-            .ok_or_else(|| JsValue::from_str(&format!("Invalid action_id: {}", action_id)))?;
+        // Parse action_id (accept both hex "0x..." and decimal "555" formats)
+        let action = if action_id.starts_with("0x") || action_id.starts_with("0X") {
+            // Hex format (e.g., "0x0000...002")
+            parse_fr_hex(action_id)?
+        } else {
+            // Decimal format (e.g., "555")
+            Fr::from_str_vartime(action_id)
+                .ok_or_else(|| JsValue::from_str(&format!("Invalid action_id: {}", action_id)))?
+        };
 
         // Parse merkle_path from hex strings
         let path: Result<Vec<Fr>, JsValue> = merkle_path

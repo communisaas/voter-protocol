@@ -36,6 +36,45 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete system architecture with diagrams
 - **[SOURCES.md](SOURCES.md)** - All 64 academic citations and research backing claims
 
+## Editorial Standards: Voice Operating System
+
+### Operating Principles
+- Privacy by construction; signal without surveillance; sovereignty over permission.
+- Calm confidence, revolutionary restraint; never alarmist.
+- Use these as internal rails to shape output; print sparingly when they clarify or anchor context; avoid overuse.
+
+### Depth‑with‑Brevity Protocol
+- Lead with a 1–2 sentence thesis.
+- Follow with a maximum of three bullets, each carrying a precise fact, code reference (`file_path:line_number`), or action.
+- Remove hedging and filler; prefer verbs; only include numbers when necessary.
+
+### Layered Abstraction
+- General docs: evoke and assure; avoid contract names and cryptographic primitives; link to deep docs.
+- Institutional docs: credibility signals and workflows; compliance‑safe phrasing; no crypto minutiae.
+- Developer/spec docs: exact mechanisms, explicit constraints, and code references; no story fluff.
+
+### Anti‑Redundancy Heuristics (Internal Repetition Penalty)
+- If a noun phrase appears twice within ~200 words, refactor or delete.
+- If a bullet repeats the thesis, compress or replace it with a new insight.
+- Prioritize new information density over restatement.
+
+### Grounding Rails
+- "cryptography, not permission"; "signal without surveillance"; "privacy by construction"; "integrity first".
+- Use to steer outputs; print selectively where they help readers and writing agents; keep repetition low.
+
+### Phrasing Constraints
+- Minimal adjectives; present tense; parallel structure; no euphemisms.
+- Numbers: ranges + date when relevant; avoid speculative precision.
+
+### Link‑Out Policy
+- Replace repeated mechanics in general docs with links to the canonical document that carries the detail. Do not restate.
+
+### PR Checklist (Contributors)
+- Audience matches doc type (General / Institutional / Developer / Spec / Research)
+- Mechanics not restated; link to canonical detail instead
+- Numbers include a date when relevant; costs defer to the canonical section
+- Low repetition; grounding phrases used sparingly when they clarify
+
 ### Research Archive (`/docs/`)
 
 **Cryptographic research and technical decisions:**
