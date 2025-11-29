@@ -133,10 +133,12 @@ export class SemanticLayerValidator {
 
     // High-confidence patterns (40 points)
     const highConfidencePatterns: readonly RegExp[] = [
-      /council\s*district/i,
-      /district.*council/i,
+      /council\s*districts?/i,      // council district(s)
+      /districts?\s*council/i,      // district(s) council
       /city\s*council\s*district/i,
       /municipal\s*district/i,
+      /citizens?\s*council\s*district/i,  // citizens council districts (Helena)
+      /\w+\s+wards?\b/i,            // "{City} Wards" pattern (e.g., "Billings Wards")
     ];
 
     for (const pattern of highConfidencePatterns) {
@@ -148,10 +150,13 @@ export class SemanticLayerValidator {
 
     // Medium-confidence patterns (30 points)
     // NOTE: "voting" and "election" removed - now negative keywords
+    // NOTE: "political boundaries" too generic - could be neighborhoods
     const mediumConfidencePatterns: readonly RegExp[] = [
       /^ward/i,
-      /\bward\b/i,
+      /\bwards?\b/i,     // Match "ward" or "wards"
       /civic\s*district/i,
+      /city\s*boundaries/i,       // Municipal boundary data
+      /commission\s*district/i,   // Commission districts (Butte-Silver Bow style)
     ];
 
     for (const pattern of mediumConfidencePatterns) {

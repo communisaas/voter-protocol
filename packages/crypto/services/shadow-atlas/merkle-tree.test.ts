@@ -4,10 +4,24 @@
  * Validates implementation against SHADOW-ATLAS-SPEC.md Section 3
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { createShadowAtlasMerkleTree, type MerkleProof } from './merkle-tree';
+import init from '../../circuits/pkg/voter_district_circuit.js';
+
+// ES module path handling
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 describe('ShadowAtlasMerkleTree', () => {
+  // Initialize WASM module before running tests
+  beforeAll(async () => {
+    const wasmPath = join(__dirname, '../../circuits/pkg/voter_district_circuit_bg.wasm');
+    const wasmBuffer = readFileSync(wasmPath);
+    await init({ module_or_path: wasmBuffer });
+  });
   describe('Construction', () => {
     it('should construct tree with single address', () => {
       const addresses = ['123 Main St, Anytown, USA'];

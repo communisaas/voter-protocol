@@ -1,0 +1,24 @@
+# Shadow Atlas Agent Dependencies
+# Last Updated: 2025-11-25
+# Python >=3.10 required (Shapely 2.1.x constraint)
+
+# Async HTTP client for ArcGIS REST API
+# Latest: 3.13.2 (2025-10-28)
+aiohttp>=3.13.0,<4.0.0
+
+# Geospatial libraries for IoU calculation
+# Latest: 2.1.2 (2025-09-24)
+# Requires Python >=3.10, includes GEOS 3.13.1
+shapely>=2.1.0,<3.0.0
+
+# Optional: Spatial indexing for performance
+# Latest: 1.4.1 (2025-08-13)
+rtree>=1.4.0,<2.0.0
+
+# Progress bars
+# Latest: 4.67.1 (2025-11-27)
+tqdm>=4.67.0,<5.0.0
+
+# Coordinate transformation (CRS conversion)
+# Latest: 3.8.1 (2025)
+pyproj>=3.6.0,<4.0.0

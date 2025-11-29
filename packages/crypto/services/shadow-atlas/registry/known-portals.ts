@@ -172,12 +172,12 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     cityName: 'San Antonio',
     state: 'TX',
     portalType: 'arcgis',
-    downloadUrl: 'https://hub.arcgis.com/api/download/v1/items/513cfef832df4b7489a2df499972401f/geojson?redirect=true&layers=2',
+    downloadUrl: 'https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
     featureCount: 10,
-    lastVerified: new Date().toISOString(),
-    confidence: 85,
+    lastVerified: '2025-11-23T00:00:00.000Z',
+    confidence: 95,
     discoveredBy: 'manual',
-    notes: 'San Antonio City Council Districts - 10 districts, ArcGIS Hub (updated redirect URL)',
+    notes: 'San Antonio City Council Districts - 10 districts, official CoSAGIS FeatureServer. Fixed: old hub.arcgis.com URL redirected to temp Azure blob.',
   },
 
   '4819000': {
@@ -224,12 +224,12 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     cityName: 'Houston',
     state: 'TX',
     portalType: 'arcgis',
-    downloadUrl: 'https://opendata.arcgis.com/datasets/5e6112bc942f47d89414dba9793b676e_2.geojson',
+    downloadUrl: 'https://mycity2.houstontx.gov/pubgis02/rest/services/HoustonMap/Administrative_Boundary/MapServer/2/query?where=1%3D1&outFields=*&f=geojson',
     featureCount: 11,
-    lastVerified: new Date().toISOString(),
-    confidence: 75,
+    lastVerified: '2025-11-23T00:00:00.000Z',
+    confidence: 95,
     discoveredBy: 'manual',
-    notes: 'Houston City Council Districts - 11 districts, ArcGIS Hub (houston-mycity.opendata.arcgis.com)',
+    notes: 'Houston City Council Districts - 11 districts (A-K), official City of Houston MapServer (mycity2.houstontx.gov). Fixed: old hub.arcgis.com URL redirected to temp Azure blob.',
   },
 
   // TOP 50 TIER 1 EXPANSION (2025-11-19)
@@ -534,6 +534,34 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     confidence: 100,
     discoveredBy: 'manual',
     notes: 'City and County of Honolulu Council Districts (I-IX). Hawaii Statewide GIS Program (authoritative state source). Census name "Urban Honolulu" differs from governance name. City name alias scanner will find this pattern in future.',
+  },
+
+  // AGENTIC DISCOVERY - 2025-11-23 (Gemini + ArcGIS API search)
+
+  '4804000': {
+    cityFips: '4804000',
+    cityName: 'Arlington',
+    state: 'TX',
+    portalType: 'arcgis',
+    downloadUrl: 'https://services.arcgis.com/jXi5GuMZwfCYtZP9/arcgis/rest/services/CouncilDistricts_2025/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 8,
+    lastVerified: '2025-11-23T00:00:00.000Z',
+    confidence: 90,
+    discoveredBy: 'automated',
+    notes: 'Arlington City Council Districts 2025 - 8 districts, ArcGIS Hub (opendatamanager_arlingtontx). Discovered via ArcGIS API search.',
+  },
+
+  '4824000': {
+    cityFips: '4824000',
+    cityName: 'El Paso',
+    state: 'TX',
+    portalType: 'arcgis',
+    downloadUrl: 'https://gis.elpasotexas.gov/arcgis/rest/services/RepDistricts/MapServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 8, // El Paso has 8 city representative districts
+    lastVerified: '2025-11-23T00:00:00.000Z',
+    confidence: 75, // Lower confidence - server had 503 errors during testing
+    discoveredBy: 'automated',
+    notes: 'El Paso Representative Districts - 8 districts, City GIS MapServer. Discovered via Gemini grounded search. NOTE: Server intermittently returns 503.',
   },
 
 };

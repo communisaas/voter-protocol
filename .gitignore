@@ -160,3 +160,35 @@ packages/crypto/data/discovery-state/
 !packages/crypto/data/discovery-state/WORKER-USAGE.md
 .playwright-mcp/
 .trae/
+
+# Shadow Atlas generated datasets (keep code/docs, drop bulk artifacts)
+packages/crypto/services/shadow-atlas/agents/data/
+packages/crypto/discovery-staging/
+packages/crypto/test-integration-data/discovery-attempts/
+packages/crypto/data/boundaries/
+packages/crypto/data/checkpoints/
+packages/crypto/data/city-council-discovery-state/
+packages/crypto/data/city-council-districts/
+!packages/crypto/data/city-council-districts/README.md
+packages/crypto/data/discovery-state/
+packages/crypto/data/regional-consortiums/
+packages/crypto/data/tiger-cache/
+packages/crypto/data/montana-ground-truth-2025-11-23.json
+workers/shadow-atlas/data/discovery/
+workers/shadow-atlas/data/special-districts/
+packages/crypto/services/shadow-atlas/agents/**/.venv/
+packages/crypto/services/shadow-atlas/agents/**/venv/
+
+# Shadow Atlas experimental outputs (do not commit models/training dumps)
+packages/crypto/services/shadow-atlas/agents/experiments/
+packages/crypto/services/shadow-atlas/agents/langgraph/*.json*
+packages/crypto/services/shadow-atlas/agents/langgraph/*.txt
+packages/crypto/services/shadow-atlas/agents/langgraph/*REPORT*.md
+packages/crypto/services/shadow-atlas/agents/langgraph/*SUMMARY*.md
+packages/crypto/services/shadow-atlas/agents/langgraph/*.md
+!packages/crypto/services/shadow-atlas/agents/langgraph/README.md
+packages/crypto/services/shadow-atlas/agents/langgraph/forensic_analysis/
+packages/crypto/services/shadow-atlas/agents/langgraph/**/*.json*
+packages/crypto/services/shadow-atlas/agents/langgraph/**/*.txt
+packages/crypto/services/shadow-atlas/agents/models_final/
+packages/crypto/services/shadow-atlas/data/census-tiger-2023-counties.geojson

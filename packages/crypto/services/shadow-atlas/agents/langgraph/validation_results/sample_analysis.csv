@@ -1,0 +1,433 @@
+dataset_id,title,llm_label,consensus_label,agreement_score,risk,action,outlier
+4e751f18db5c424ca32f999a7c04541e,Homeless Count by Council District - 2018,False,,0.5,HIGH,MANUAL_REVIEW,True
+4feebaffa3744b298515c9f76de73b5f,City Council Speakers 1_form,False,,0.5,HIGH,MANUAL_REVIEW,True
+2b7f60f6e8644fb0a4e4369bd5cb7d89,Ward Boundaries (County GIS Link),False,,0.5,HIGH,MANUAL_REVIEW,True
+5390d786bf014656a8bc5948d6790597,22 1207 Los Angeles City Council District 11 Suitable Sites,False,False,0.5000000000000001,HIGH,MANUAL_REVIEW,True
+42c9def004e04c9682a30987460af262,Fires_in_City_Council_Wards,False,False,0.5079365079365079,HIGH,MANUAL_REVIEW,True
+6bf47c62f9cc4231a766dc4d041b210b,Early Childhood Services MoE Apr20,False,True,0.5103092783505154,HIGH,MANUAL_REVIEW,True
+9473dc92dda348c5bb0335dea26d86ec,Five-Minute Drive-Time from Stations (Tim Alderman),False,False,0.5142857142857143,HIGH,MANUAL_REVIEW,False
+92a3998782a1458bbcb7b506bce93aa2,Penrith City Council Project Submission Form,False,True,0.5151515151515151,HIGH,MANUAL_REVIEW,True
+b663cbcedfcb463e8be63fe21d119013,Thomas Wong Council District,False,False,0.5156249999999999,HIGH,MANUAL_REVIEW,True
+d120d457730a4195a1fea95a5b57ecd3,PARKS_TRAILS,False,False,0.5303030303030303,HIGH,MANUAL_REVIEW,True
+e656e797f82b40e89df7d74dc0113725,Galesburg Precincts,False,False,0.5303030303030303,HIGH,MANUAL_REVIEW,True
+b62d240e04fb4447bca9d7b4b1a479ed,ASMP Amended Roadway Capacity Projects Final Draft,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+e1d5b3b5d32c4353a29d30aac0639c5f,Updated crime heat map 2_WFL1,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+b80ac85b88a0493283a0d2008947a0d7,SAMPLE Points,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+dc133a31d68844c58020a04bc62471ce,City of Jersey City Tree_WFL1,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+33497b079dd14f6bb754c0d7bd6642b3,COA Active Employees Residency_WFL1,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+a9d34a24be3644a2aed7edc3a00b038b,City of Jersey City Tree Inventory Dashboard_2023_WFL1,False,False,0.53125,HIGH,MANUAL_REVIEW,False
+2c2bdc72fec640abb7998adecd6b33ff,ElectoralDistricts,False,False,0.5333333333333333,HIGH,MANUAL_REVIEW,True
+c3bb27dfc5ac4321821155165a988e7c,Baltimore_City_Council_District__3862303412247825191,False,False,0.5333333333333333,HIGH,MANUAL_REVIEW,True
+c4b84dc5506b42b6b2322b050296a421,Electoral Districts,False,False,0.5333333333333333,HIGH,MANUAL_REVIEW,True
+8152f03defcb4fcfa2252704103e35f1,StreetTrees_Heat_NYC_WFL1,False,True,0.5380434782608696,HIGH,MANUAL_REVIEW,True
+2a5a645b2a10413285ff564bf8331b32,Parcels,False,True,0.5380434782608696,HIGH,MANUAL_REVIEW,True
+bb2d7e3aaf274e15b0ef3785a41c7157,Urban Forestry Maintenance Management Units,False,False,0.5428571428571428,HIGH,MANUAL_REVIEW,False
+9654c7e2fc114f6c93efb72b94468f0e,CD_LandUseDecisions,False,False,0.5454545454545455,HIGH,MANUAL_REVIEW,False
+56616b87ffac4018922d2f246f8b4cc4,CCL_DIST5_WFL,False,False,0.5454545454545455,HIGH,MANUAL_REVIEW,False
+0ed2c05cb1ef402a96a6a4cc6baf49be,Signalized_Intersection_Council_District,False,False,0.5483870967741936,HIGH,MANUAL_REVIEW,False
+ea20e363b0ee4d15a417b205a5053882,Active Frontages - 2024 Operative District Plan,False,False,0.5483870967741936,HIGH,MANUAL_REVIEW,False
+54e480b61e704e07bfd428c35d90e773,Verandah Coverage Requirement - 2024 District Plan,False,False,0.5483870967741936,HIGH,MANUAL_REVIEW,False
+1bae261c2c6b4f2ebc45177792e8885a,Verandah Coverage Requirement - 2024 Operative District Plan,False,False,0.5483870967741936,HIGH,MANUAL_REVIEW,False
+acb36220a1d4460a887d04e8959928ed,NTA x School District x City Council x State Senate x State Assembly x Community x Congress 3,False,False,0.5558739255014327,HIGH,MANUAL_REVIEW,True
+feba0c23468344b3b8f7030984d4be56,Population_Change_2010_2020_density_withoutLake,False,False,0.5588235294117647,HIGH,MANUAL_REVIEW,False
+524c885c21274486972428a864bc66f7,Glasgow_City_Council_Boundary,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+76dc22e704c74d11b9ada9324458bf03,CouncilDistricts,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+a525c816f55e419e98b571df40ee0663,2021_Council_District_Apportionment,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+d612a094f6c94d97932a700a1ad6e3ff,CouncilDistricts_CityLimits,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+8bc0a37c64de4e5dbd1d220ab6cb8ab1,Curtis Street Building Setback Controls - 2024 Operative District Plan,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+461bbfaf8244490ca9eaaa46674c8c77,Rail Vibration Advisory Overlay - 2024 Operative District Plan,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+3fd3e5344007486f9a25ec76ffd43ab8,Find Locations in city_council_11,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+e2bac7f480084a9eaa31c72caf68d13a,Designation Setbacks (Moderate Noise Areas) - 2024 Operative District Plan,False,False,0.5625,HIGH,MANUAL_REVIEW,False
+93781781a61a4e56aea4db24d5aa620b,CurrentCouncilDistricts,False,False,0.5757575757575758,HIGH,MANUAL_REVIEW,False
+756a224a2e4a4882bb643232b0dcfc63,CurrentCouncil_4Labels,False,False,0.5757575757575758,HIGH,MANUAL_REVIEW,False
+8d8c565159a84346ab038298b31b2d49,CouncilDistricts layers,False,False,0.5757575757575758,HIGH,MANUAL_REVIEW,False
+25711ce9ec41429fbc371af28d22d0eb,Council_Districts_HCD_Data,False,False,0.5757575757575758,HIGH,MANUAL_REVIEW,False
+5f4ba64c08fc4da2a7953d2eaccc5ecd,Household Income by Electoral Division (2022),False,False,0.5862068965517241,HIGH,MANUAL_REVIEW,False
+02ba947064e3473b88c9cf12488a2da7,2023 QCT and Redv_ Areas_WFL1,False,False,0.5862068965517241,HIGH,MANUAL_REVIEW,False
+a8434d14157c4316a731309d55d7e1ed,September 2021 Flood Event_WFL1,False,False,0.6,HIGH,MANUAL_REVIEW,False
+856e808ac8764ac1bbbc33405b0372ae,Current King County Council Districts conflated to 2020 Census Blocks,False,True,0.6199999999999999,HIGH,MANUAL_REVIEW,False
+9ce20e930230470d9dc8aaa79534c9d8,Council Districts 2017,False,True,0.6199999999999999,HIGH,MANUAL_REVIEW,False
+1c212f36b341408eb620d78ebd52bd47,Childcare centres in Penrith City Council,False,True,0.6199999999999999,HIGH,MANUAL_REVIEW,False
+32ce6d3eb6884f1a871cc76b40f4156a,Council District 2012,False,True,0.6199999999999999,HIGH,MANUAL_REVIEW,False
+6db6f016e03b4625822816f63375c73a,City Council District_Contact_3,False,True,0.6199999999999999,HIGH,MANUAL_REVIEW,False
+e1e131426bcd4afda4649f9de7957487,Council_Districts_Pre,False,True,0.6304347826086957,HIGH,MANUAL_REVIEW,False
+11f6957d61b64c9695ff83dd6833e398,Petersburg Green Space CORRECT Wards_WFL1,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+53f926c6fde143e79b3fc87efa2c8e3f,Council District 7_WFL1,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+3808f247daf84377935baf99da96fec7,City Council Post 1,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+79cac0d14d6f4c10a5a6073a1d3480ae,Dissolve_Burlington_City_Wards,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+d62ca8e37ae74762a9675ad53a50c0ed,Seligman Wards Boundary,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+642c3fe50c304f4ba38d7dd452967f8d,Wards Precincts Places Zones,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+daace99756ae4ae1a1a692abb435a096,2023 Council District 6_WFL1,False,True,0.6326530612244897,HIGH,MANUAL_REVIEW,False
+5cfd064dc24d4cc5b6e2ed75372c9820,Council District 8 2023 Crime YTD,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+5c9b00f4ccd2431281c0e502bd40e646,Governor's Council Districts (2021),False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+ea97c3f9f55b4e128fcb9d77eca63095,Wastewater Dataset - Hamilton City Council,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+dd8492543aae47e79b16c7b1e171c097,Belfast City Council site,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+f0a85ed1d34e474681ec3a7478ab9d6a,2012 to 2020 Election Data with 2020 Wards,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+112bf032cf414a51a5f4749f49bff75e,Ward Map_WFL1,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+c7e4c79592734b1aac62f8d7257a4494,Homeless Count Council District 19,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+a31c027591df49499d6b66d6587eb84a,Lowest Turnout Wards_WFL1,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+514eb780e5b84360a6044d8c72c71846,Community Council Districts,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+420783bf0f5c481581aee1957268c641,Establishments and Persons by Industry and District Council District in Hong Kong,False,True,0.6458333333333333,HIGH,MANUAL_REVIEW,False
+61b8270f29544a999483766189d18b03,GEO104 Lab 5 Survey Ryan Alderman_form,False,False,0.6458333333333334,HIGH,MANUAL_REVIEW,False
+c128451b45d949ecbeff2e35a568592d,Slidell - Proposed Zoning Comments (City Council),False,False,0.6530612244897959,MEDIUM,VERIFY,False
+40d93f670bff4af2b41165503070102b,AR Municipal Wards,False,True,0.6530612244897959,MEDIUM,MANUAL_REVIEW,False
+3b1de011d5bf403b8930376529873d36,Final Manhattan Partners/Total Families Council District,False,True,0.6530612244897959,MEDIUM,MANUAL_REVIEW,False
+d01ead21a7944f358d7f6f4914356a23,Baltimore City Council Districts 2021,False,True,0.6595744680851064,MEDIUM,MANUAL_REVIEW,True
+dd62ac8832b04cab9008aa485a4ad766,STP 2024 Council Districts_WFL1,False,True,0.6595744680851064,MEDIUM,MANUAL_REVIEW,True
+5c77a42999e04eb0ad4ca720eca50a92,Conflict of Interest City Council,False,True,0.6595744680851064,MEDIUM,MANUAL_REVIEW,True
+63060192daba4f21856093a4b4df3dfa,Final WFH - Ipswich City Council Travel Survey_fieldworker,False,False,0.6666666666666667,MEDIUM,VERIFY,True
+805e8b126d274a10bd90b980e1f162bd,Election_23_WFL1,True,True,0.6734693877551019,MEDIUM,VERIFY,False
+77845a95cc6e4c13806876cd5f17d2f8,Voter Precincts 2023_WFL1,True,True,0.6734693877551019,MEDIUM,VERIFY,False
+f62423e667244ef4b825eebc3b18c953,Vehicle Availability (by Atlanta City Council District) 2019,False,False,0.678030303030303,MEDIUM,VERIFY,False
+b3c3793caf54430c91585ea2e9f7a871,Housing Tenure (by Atlanta City Council District) 2019,False,False,0.678030303030303,MEDIUM,VERIFY,False
+2504bf7e9c4d49699446ca3d7d3e9c9c,Change 2010 - 2019 (by Atlanta City Council District) 2019,False,False,0.678030303030303,MEDIUM,VERIFY,False
+9c380371ac764772b1706cefc439014d,Marital Status (by Atlanta City Council District) 2019,False,False,0.678030303030303,MEDIUM,VERIFY,False
+8f9bd7db3b944538b2d2b977fb1812df,TOC Eligible Zone Districts_WFL1,False,False,0.6888888888888889,MEDIUM,VERIFY,False
+9a6f88735f8d4297915b7c75764e99ba,Antioch_Layers,True,True,0.6938775510204082,MEDIUM,VERIFY,True
+177def57731b4a61a959e9baed2aac7a,COSF District 3_WFL1,False,False,0.6956521739130436,MEDIUM,VERIFY,False
+61ebd91e55404bfca406460db976a9cc,Wheat Ridge Zoning Districts,False,False,0.6956521739130436,MEDIUM,VERIFY,False
+41c4124f3bc848ea99ba5816709c9fdb,City Park Locations,False,False,0.7021276595744681,MEDIUM,VERIFY,False
+9af5a364474c4543878c7a8e40448d3f,2010_Census_Tracts_by_Council_District_Copy,False,False,0.7021276595744681,MEDIUM,VERIFY,False
+78da8dfaddf24297baac6402ff2b964a,HBAP_Homebuyer Assistance Program by Council District,False,True,0.7076923076923076,MEDIUM,MANUAL_REVIEW,True
+6e99b683334b409083dd9c7c603c40e4,Kiwipoint Quarry Precinct - 2024 District Plan,False,False,0.7083333333333333,MEDIUM,VERIFY,True
+ae882ebdc81a4631aa8486f1e9d281fa,Mt Victoria North Townscape Precinct - 2024 Operative District Plan,False,False,0.7083333333333333,MEDIUM,VERIFY,True
+7ca02bb9c7ff444a9fc3d019c5c22b06,council_surveyed_businesses,False,False,0.7083333333333334,MEDIUM,VERIFY,True
+bd257807207647d2abb8f86cdf79b52a,New Hampshire Executive Council District Boundaries - 2022,False,True,0.712121212121212,MEDIUM,MANUAL_REVIEW,True
+632036b8ebd34f6181b0c60a7cb9198c,Address Points By Council Districts,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+ac724cfa34a74c56a891a1a5d33d681f,Aurora Wards System,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+b6df174950f54128bea05f8c01bd061f,MATURE SUPPORT - Ward Boundaries for New Jersey,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+a519c97ce6c044ad9a7d62b72e534e0a,Intersect_of_Missed_Collection_Locations_and_Ward_Boundaries_NT,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+25692cfb40494cbbb1e8ff164c071803,Intersect_of_Missed_Collection_Locations_and_Ward_Boundaries_Bishnu_Sharma,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+aa3099390ce64f0f9fa1a38bc82bfd9b,Katsina_operational_ward_boundaries,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+fa1701a1d4b94aa7b5d687688a1e64d4,MedfordWardUpdate3,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+8198e3d49384495f93e0ff9c935d2660,Streets within Council Districts,False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+6d4ae7efad4f4c77907db7cbfb012e64,Wards and Precincts (2022) (Feature Service),False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+c1b9a93eaa054144a10b39d954b6c6d1,NZ Ward boundaries 2018 (Mature Support),False,True,0.73015873015873,MEDIUM,MANUAL_REVIEW,False
+79df3d4aa2124e549f719f4e4fb21d7b,Language Spoke at Home Council District 11,False,False,0.7301587301587301,MEDIUM,VERIFY,True
+bcd401875ef640e09cf29bcb01828475,FS_Housing_LettingAreas_Wards,False,True,0.7343749999999999,MEDIUM,MANUAL_REVIEW,False
+fa1be12e357341d490cd7d91c59c3f13,King County Find My Districts Layer (2024),True,True,0.7377049180327869,MEDIUM,VERIFY,True
+89acb71fa29f4a8a8e2b0244550b1cf0,STLCO 2050 _ Single Family_WFL1,False,False,0.7391304347826088,MEDIUM,VERIFY,True
+cc13200ad8b04664af0fbb7a4ea90777,Summarize_Join_Features_to_NYC_Census_Tracts_for_2010_US_Census_within_NYC_City_Council_Districts,True,True,0.7538461538461539,MEDIUM,VERIFY,False
+48f6c07d3bd842b18ee0d3be817a78b0,2024_General_Election_Turnout_by_City_Council_District,True,True,0.7538461538461539,MEDIUM,VERIFY,False
+4cb7fed1e4774c868a0d7e3737385d43,Intersect_of_Zip_Codes_and_San_Diego_Council_District_8,True,True,0.7538461538461539,MEDIUM,VERIFY,False
+4ddd56f8060e45e392d76bfec5e7d758,Summarize_Homicides_in_Indy___2021_within_Indy_City_County_Council_Districts,True,True,0.7538461538461539,MEDIUM,VERIFY,False
+6ef5e4d781d8433894d48d77188fceee,Maricopa County Cities and Towns - Symbology,False,False,0.7619047619047618,MEDIUM,VERIFY,True
+fa8be170fd8a4cebbb8ff0c651cd3b01,Census_Tracts_Council_District_35_Population_Under_5,False,False,0.7666666666666666,MEDIUM,VERIFY,True
+7f99ee42ff9949ceacad47c1cd3382c3,Cache County Council Districts,True,True,0.7727272727272727,MEDIUM,VERIFY,True
+f162f025b7ce4677baa69801e120cda4,Intersect_of_ACS_Poverty_Status_Variables___Boundaries___Tract_and_Council_Districts,False,False,0.7741935483870968,MEDIUM,VERIFY,True
+1969352723794d079df7edb62d560df0,1992 Metropolitan King County Council Districts / kccdst_area_1992,True,True,0.7794117647058824,MEDIUM,VERIFY,True
+e015228c44d64e128a3f8cfb8b0bf915,WI County Supervisory Districts (July 2025),False,False,0.78125,MEDIUM,VERIFY,False
+16c541b015834511abb81067badb2274,Index Map w CD Borders_WFL1,True,True,1.0,LOW,ACCEPT,False
+10afa16794494075b74e2b70016c6944,WI Supervisory Districts - Direct BAS service,False,False,1.0,LOW,ACCEPT,False
+72ba0e28ddb04e0eb238a600a548d958,Aldermanic_District,True,True,1.0,LOW,ACCEPT,False
+0942016755d74c7fbeb985cc913e8b94,Join_Council Districts,True,True,1.0,LOW,ACCEPT,False
+d0d3d809afa342f79673946617eb199c,Mapfeeder Layers Survey,False,False,1.0,LOW,ACCEPT,False
+62fac737b8de4142a1d62e0ea1df1f6c,Table 15.1 - Number of households with cars by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+82b5e7f1386d46b7b7a8d3dcedebd461,Council District 2022-2030,True,True,1.0,LOW,ACCEPT,False
+ccb7154eac6241e0bd9e0c97f2de6841,Prattville City Council Districts 2025,True,True,1.0,LOW,ACCEPT,False
+fec922c3e32941cdac3c611d46662e74,CARES_4_10_2023_alladdress_MasterMap_view,True,True,1.0,LOW,ACCEPT,True
+313f258d24504a32a02264427e5b9354,Current Parish Ward Boundary,True,True,1.0,LOW,ACCEPT,False
+25ec8da2fb6144e68511fb4407d80b05,Ward Boundaries 2002 (Archived),True,True,1.0,LOW,ACCEPT,False
+789cae194db345eea5c44973ef19c032,Ft Worth Council Districts,True,True,1.0,LOW,ACCEPT,False
+d87687cf02b5416f812a6d14e19a0a2e,Detroit_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+ec70748ff0f6408096aeca99c9e26920,Enriched Ward Boundaries TG,True,True,1.0,LOW,ACCEPT,False
+d4b497f6ef374add9661a61f919c3de4,Illegal Dumping Sites Locations_WFL1,False,False,1.0,LOW,ACCEPT,False
+d78fe9bc93674008975eacff9cb737de,NIGID,False,False,1.0,LOW,ACCEPT,False
+1aff612b26b845c2aa7beed485284f54,Enriched ward boundaries Maria Ordonez,True,True,1.0,LOW,ACCEPT,False
+09789ea3a7cf466baa6a84bb4458a153,Salt Lake City Council Boundaries 2011 and 2001_WFL1,True,True,1.0,LOW,ACCEPT,False
+9d9f24f00dae4a049710c5929b6295f0,Administrative Boundaries,False,False,1.0,LOW,ACCEPT,False
+7b036cb6f92c4f93b381e0a4c8620890,Council Districts N-NW 3-4-8,True,True,1.0,LOW,ACCEPT,False
+013568a9c5a54256bda1d9c876b17c21,Homicides and Patrol Zones _with Stations__WFL1,False,False,1.0,LOW,ACCEPT,False
+888a58b410534353878aebcb1c883d58,City_of_Circleville_Voting_Map,False,False,1.0,LOW,ACCEPT,True
+d652bd3dac7b44e3accec0389ac39871,City of Hemet Council District Map,True,True,1.0,LOW,ACCEPT,False
+ca20aa5dceb94508ad89933365554a81,laord_WFL1,True,True,1.0,LOW,ACCEPT,False
+ce8a257a892d46e1b1e7dddeb4d20605,County Council Districts 2021 effective 2022-2032,True,True,1.0,LOW,ACCEPT,False
+7cb922aa274047b4b6046401aa33fa8f,Neighborhoods,False,False,1.0,LOW,ACCEPT,True
+a4e3224b2d964d43b31cc02d410b931f,CouncilWards_WebMerc,True,True,1.0,LOW,ACCEPT,False
+36365c1e340d46e790a839ed9410f021,[Superseded] City Plan 2014 — v24.00–2022 — Property boundaries — Parcel,False,False,1.0,LOW,ACCEPT,False
+899157e1b56f4d2cab5d47ab9038ccc2,Aldermanic_Districts_8,True,True,1.0,LOW,ACCEPT,False
+5d97a34fee224a56a1b357e444d1d7c2,_5 BG with high calls_WFL1,False,False,1.0,LOW,ACCEPT,True
+db05988810f443a1ab7a365134dd51b1,City Council Districts Effective for the 2023 Municipal Election_SW2023,True,True,1.0,LOW,ACCEPT,False
+4e7400111f6249cc9f02ef666292835d,Council Districts 20_24,True,True,1.0,LOW,ACCEPT,False
+8fd3686890494302b91412a3a1d053e2,Enriched Ward BoundariesDamien,True,True,1.0,LOW,ACCEPT,False
+be745708031548bcba0d67db643509b1,CD1 BiVe_WFL1,True,True,1.0,LOW,ACCEPT,False
+44869afe9a5d467189dbcaf79350fb37,CD9 Homeless Update_WFL1,False,False,1.0,LOW,ACCEPT,False
+9d8bfa42d2a445ef998aa2e5cb15f739,City_Council_Wards_ONeil,True,True,1.0,LOW,ACCEPT,False
+a4676b6c398649449c6112beff6b85cd,Political_Impact_F22b_WFL1,False,False,1.0,LOW,ACCEPT,False
+9707e85f07614194a9bb6aaea400fe89,LINC_by_Council_District,True,True,1.0,LOW,ACCEPT,False
+7124e66f3de94b4caacef85ade2adbef,Enriched Ward BoundariesMIB,True,True,1.0,LOW,ACCEPT,False
+6d6d27b95a5d43e1826f071869704f62,Council Districts (4),True,True,1.0,LOW,ACCEPT,False
+ef0158cb18a24ea2a5934584dc9dc692,USCR Analysis _ questions_web_WFL1,False,False,1.0,LOW,ACCEPT,True
+35acb6926e934d95b548b112cb9e553b,Council Districts Round 1 and 2,True,True,1.0,LOW,ACCEPT,False
+536bfdef3f5c42d09c1129b9b3eb4175,Indigenous ADA online map_boundares_WFL1,False,False,1.0,LOW,ACCEPT,False
+4a469c5282ac4e20adabc56d486e1011,City_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+65c45a7a9a0748d2ac2ebb33b81562de,Los Angeles City Council Districts 2021,True,True,1.0,LOW,ACCEPT,False
+cd2767e1fd804e1ca43027c079d0ccc2,Council Districts_Public,True,True,1.0,LOW,ACCEPT,False
+c691fd45b6ba46be9e69c24d77bf610d,Wards Feature Layer,True,True,1.0,LOW,ACCEPT,False
+218ee649aa1e48f295096b27b95a2fc6,cot_geospatial10 - City Ward,True,True,1.0,LOW,ACCEPT,True
+7518e3e608284baf844cc898c9d66444,Location_Map_1_WFL1,False,False,1.0,LOW,ACCEPT,False
+664fbb94cda740d189dca76831a8d36d,Aldermanic_Tree_Summary,True,True,1.0,LOW,ACCEPT,False
+732f9a80dd1f42259021272104891d75,[Superseded] City Plan 2014 — v25.00–2022 — Property boundaries — Parcel,False,False,1.0,LOW,ACCEPT,False
+e548c7af3bb74fe28907ca60fd2f1877,Race_City_WFL1,False,False,1.0,LOW,ACCEPT,False
+4aa968a89e29409c873fed8117e3809f,Volume_ND_WFL1,False,False,1.0,LOW,ACCEPT,False
+b523e05b0e5244c09a9e49813705d1c0,Aldermanic Scooter Trips 2024_WFL1,True,True,1.0,LOW,ACCEPT,True
+1940bb41790e4d6f8d708e82bcf2ef10,Service Delivery_WFL1,False,False,1.0,LOW,ACCEPT,False
+3b3c641af58e4acfbee5603a34297ccf,Neighbourhoods / Quartiers,True,True,1.0,LOW,ACCEPT,True
+3087ab445f7244e5aa087c0a0ea987d4,City Council Districts,True,True,1.0,LOW,ACCEPT,False
+7ad5dbfbd3614a828c9a983014da240d,Minneapolis Neighborhoods,False,False,1.0,LOW,ACCEPT,False
+199e659636a64456920205c784ab30b1,Forest Interactive Maps,False,False,1.0,LOW,ACCEPT,False
+722712e1c73540128c413ccecdb24879,Carson Basemap V1_WFL1,False,False,1.0,LOW,ACCEPT,False
+80d82f659b4d4ef6a4258cdcc713734a,Anna_2012_Ward8,True,True,1.0,LOW,ACCEPT,False
+90d4c203eb6b4fd1a2e1fbe58c2a99c0,Maui County Council Districts,True,True,1.0,LOW,ACCEPT,False
+3c50774f8d504fba89f26296426f5c15,PermitAddressesParcels,False,False,1.0,LOW,ACCEPT,False
+6dc15b3473454ef19a00b2e9887ebb98,CD14 update_WFL1,False,False,1.0,LOW,ACCEPT,False
+329e5eb68c93423a81cf901f6c4ec675,City of Victoria Council Districts,True,True,1.0,LOW,ACCEPT,False
+b77e4356060c4a2d8444cbdfea70d8d8,Business Licenses Pending Renewal_WFL1,False,False,1.0,LOW,ACCEPT,False
+6803da950af144a0937456a1a4750a65,Program Advertisement Sites_WFL1,False,False,1.0,LOW,ACCEPT,False
+597497b373434a8caa22dec212b695e1,City of Brockton Parks_WFL1,False,False,1.0,LOW,ACCEPT,True
+8536a4c477d2443b92ebd7cea00a70bd,Ozark_Road_Ownership,False,False,1.0,LOW,ACCEPT,False
+22f439e3deed440391e0be891cab532f,City Wards Data Andrew,True,True,1.0,LOW,ACCEPT,False
+d79dba38064e454eba04f0212d52b4c7,CD14 Boundaries_WFL1,True,True,1.0,LOW,ACCEPT,False
+40d5e3f0ea7c40639cb76f7c59967ea6,Bridge_Condition_All_Data_WFL1,False,False,1.0,LOW,ACCEPT,False
+198fb9e77ff3459089f4f262637b7bcd,Enriched_Ward_Boundaries,True,True,1.0,LOW,ACCEPT,False
+eee33a87898f482a83e2d3a842542ff2,Louisville KY Metro Council Districts,True,True,1.0,LOW,ACCEPT,True
+278caf5db3cb46d584edc60f1a5d3aec,City Council Members,True,True,1.0,LOW,ACCEPT,False
+c7cd0342e8f1489fac43bcafd7bf8883,austinCrime2018_Yarter_,False,False,1.0,LOW,ACCEPT,False
+aa5ba77f54e04aa9848fd7ee37748c7d,Proposed Councilor District Boundary - Alternative B,True,True,1.0,LOW,ACCEPT,False
+03adc7e9446544a0958571d43b67d970,Hemet Council Districts,True,True,1.0,LOW,ACCEPT,False
+f4e7fa26add048e98c61909fb2572943,Wards,True,True,1.0,LOW,ACCEPT,False
+6548a6798abc4a4097d083ee8632ffc0,CAMV DATA COLLECTION FORM V3,False,False,1.0,LOW,ACCEPT,False
+2c044e182c464b7b96fbcb91db724732,Noise_Complaints_2023_January,False,False,1.0,LOW,ACCEPT,False
+4d99f042ac8444d79e682468169b86fe,FEMA Special Flood Hazard Areas_WFL1,False,False,1.0,LOW,ACCEPT,False
+893a811aabc74239b137d00b653b942c,CityServices - Council Districts,True,True,1.0,LOW,ACCEPT,True
+7a4b0e5a32834244a1b8e5c3eba7328f,G441 Final Project _ 1920_1929 map_WFL1,True,True,1.0,LOW,ACCEPT,False
+13060dda229b49539b81d37595859ca9,HCPH School Overview_WFL1,False,False,1.0,LOW,ACCEPT,False
+af3bbe0e1bf04c8db68788e32bc9d619,Table 2.5 - Speakers of foreign languages by language spoken by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+8a7babdfe66f4eff92a8b0713af3e046,Proposed Councilor District Boundary - Alternative C,True,True,1.0,LOW,ACCEPT,False
+b6adbad327844a82869c8f54408b59b7,Austin Crime 2023_WFL1,False,False,1.0,LOW,ACCEPT,False
+7464d1d5c33e4f2ab65f9aeb4283d7b6,Wards23,True,True,1.0,LOW,ACCEPT,False
+c750d27682c047d480e8d66a9632285c,20231221_Phase_I_II_Analysis,False,False,1.0,LOW,ACCEPT,False
+668dba70b1e54bae92af1f5a4b714f56,Chattanooga City Council Districts,True,True,1.0,LOW,ACCEPT,False
+612d6617069e416dafb556211fdafeb6,Council Districts,True,True,1.0,LOW,ACCEPT,False
+90d705b1b94447d4ba0a27ac19f88cdb,Christian County Political Boundary Map_WFL1,False,False,1.0,LOW,ACCEPT,False
+144a62ad8d8c4a55845d57bcf61af468,HomelessSupDist,False,False,1.0,LOW,ACCEPT,False
+adc16ee2a5824b0bb36f5690a7456a0f,[Superseded] City Plan 2014 — v18.00–2020 — Property boundaries — Parcel,False,False,1.0,LOW,ACCEPT,False
+972b9a8cf1ec4b87b3e8e6915e887511,LST_2023_WFL1,False,False,1.0,LOW,ACCEPT,False
+1749f4460b7749d58cd7805861cae833,Background Layers,True,True,1.0,LOW,ACCEPT,False
+e4ef2fbb8d044d9a8c767808aeb1702e,Energov Map_WFL1,False,False,1.0,LOW,ACCEPT,False
+b07b1db5e64e456e9ae090f6b31918b1,Bessemer_City_Council,True,True,1.0,LOW,ACCEPT,True
+782b9bfd099f4cc6803491213b08faed,City Council District Official,True,True,1.0,LOW,ACCEPT,False
+1273f088527e4e4f830c210a24581ad0,Aggregation_of_ABH_Data_to_LA_City_Council_Districts_(Adopted_2021),True,True,1.0,LOW,ACCEPT,False
+cc64d5eb26db4b928ccd1273a14d2ab4,District City of Downey by Council Districts 1,True,True,1.0,LOW,ACCEPT,False
+488536d97d044af39f0142d7f029662d,city council districts_2012,True,True,1.0,LOW,ACCEPT,False
+eb41b5f282984076853ce124852be1ad,Assets Nov2019_WFL1,False,False,1.0,LOW,ACCEPT,False
+aa0f693494f34cd8b3c3747db5e42dff,Projects_2021,False,False,1.0,LOW,ACCEPT,True
+0c3b3d94cc3b4fd0812485d78599e091,3D Buildings in Council District 10,True,True,1.0,LOW,ACCEPT,False
+aa769471ceaf4576ba9bf79ec595d3dc,City Council,True,True,1.0,LOW,ACCEPT,False
+c26f0cb8c3724177a7306e651719a36c,Philadelphia Council Districts,True,True,1.0,LOW,ACCEPT,False
+e360c28b755545758a118c6b33871dbb,TOR Council Districts,True,True,1.0,LOW,ACCEPT,False
+fb69d7a04ba54ffc9b4e7f3449743abe,City of Santa Maria City Council Districts (post-2010 Census),True,True,1.0,LOW,ACCEPT,False
+fd5cde7f37c942e3bd287db2c93c38b1,Council Districts Round 2,True,True,1.0,LOW,ACCEPT,False
+881e71dbbea84de28b3fb0b840bc2067,Syracuse Common Council Districts (Historical - From 2000 Census),True,True,1.0,LOW,ACCEPT,False
+cc762a06be744a51a0abdc501d49b9af,Aldermanic Districts_ViewLayer,True,True,1.0,LOW,ACCEPT,False
+098815e4aef84361bec32805b7d32506,Aurora_Ward_Boundaries,True,True,1.0,LOW,ACCEPT,False
+92bef6c5a19b4fc9b5642e44764ae8bf,Older Adults 65 years and Over,False,False,1.0,LOW,ACCEPT,False
+1a9d7458c8fa4e5293337b22faf7c850,Council District Assets - Hospitals,True,True,1.0,LOW,ACCEPT,False
+104056b9b73e4bea86068abc7a27b55b,Enriched Ward Boundaries_Shuochen,True,True,1.0,LOW,ACCEPT,False
+21c898c6a3e643c1bb52e8c3ffa3d26f,OnlineCouncilDistricts,True,True,1.0,LOW,ACCEPT,False
+d50b4fe989284afba9c09d4f0b55caf3,City Council Districts (2023),True,True,1.0,LOW,ACCEPT,False
+475fa5898bde497caa81b5f56b640a8c,PIDsTIDDs,True,True,1.0,LOW,ACCEPT,False
+e5c399938d264c5bb073f5f5916e51b9,Aggregation_of_SF_CS_2_27_to_City_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+de7f137ad42c49f49cc9b267fe3f9a77,MyBMCOnMap_web,True,True,1.0,LOW,ACCEPT,False
+d43ab5f94da74e84a856bb2100230f7b,City Council Member,True,True,1.0,LOW,ACCEPT,False
+e41569bb66fc4efdacaa534a78b46431,Outreach Districts_WFL1,True,True,1.0,LOW,ACCEPT,False
+2aa78fbffd91441e80bcac54b0428b9e,VistaGrove_ProposedCouncilDistricts,True,True,1.0,LOW,ACCEPT,False
+144c3c6b1ae14947b5cd95e1e0cbd31e,SWV_Overall_Overlay_20240313,True,True,1.0,LOW,ACCEPT,True
+49ad73a91bc04dcaba36ca88647b511d,City of Dallas - 2019 Senior Demographic Data Infographic by Council District,True,True,1.0,LOW,ACCEPT,False
+bbe3efe253eb48079bc541b19cb8a04f,black_eating,False,False,1.0,LOW,ACCEPT,False
+a06f7ae624b3449099a807d38e1828af,18th_VineProjects,True,True,1.0,LOW,ACCEPT,False
+f3c118b084f143039ba27d56e174978d,DBO_Memphis_Council_Districts_2023,True,True,1.0,LOW,ACCEPT,True
+2e2b60771c704630aef91c0c3e017e51,Philadelphia City Council Districts,True,True,1.0,LOW,ACCEPT,False
+faa267c811c049aabe2f8acd660354ae,City_Boundary_2024,False,False,1.0,LOW,ACCEPT,False
+464fdb41445a43e8ba742cdf5375bd47,Canton City Wards 2025,True,True,1.0,LOW,ACCEPT,False
+d11d7c52b8094d8c8e025536fd55b57d,LP_FLUM_forPublishing_WFL1,False,False,1.0,LOW,ACCEPT,False
+46dd1198f7724e7596b1ecc48494fc44,Evictions by Year (Council Districts),True,True,1.0,LOW,ACCEPT,False
+d804be2b6af64cdfb223667b3d25e0b2,Recreation and Parks for Homeless,False,False,1.0,LOW,ACCEPT,False
+2d0fa30209224f3d81c24eab2556c28a,City Council Tour Spring 2016,True,True,1.0,LOW,ACCEPT,False
+be0621cf90ca49099c01b76d269faccb,2022Council Districts,True,True,1.0,LOW,ACCEPT,False
+7a0dd238f05b4ddd833b3695b7b935e1,Median Age,False,False,1.0,LOW,ACCEPT,False
+86866ff6b7d24d67a507e96587d5ccdf,3D Buildings in Council District 1,True,True,1.0,LOW,ACCEPT,False
+280a9e219f884c95af2d5706d660734e,Municipal Elections 2022 Voting Locations and Lots,False,False,1.0,LOW,ACCEPT,False
+619fc99a5ccb4f1d82602ff8e6ec9a6d,VacantLand,False,False,1.0,LOW,ACCEPT,True
+346d0e3d8f1c4c37a6cd4b608a1f4b0a,1993 City Council Districts,True,True,1.0,LOW,ACCEPT,False
+b7e06c587b544d8187fe7a0d508f2078,CouncilDistrict_2022_Revised,True,True,1.0,LOW,ACCEPT,False
+0f23682c4dd6486cbb76c25bb1dc4548,Current Council Districts,True,True,1.0,LOW,ACCEPT,False
+36d93e29537d41aa94ac8891aef0b87a,Enriched ward boundaries JE,True,True,1.0,LOW,ACCEPT,False
+dee75dcc493a465d8f21f6b50db1d34b,City of Reno Boundaries,False,False,1.0,LOW,ACCEPT,False
+d2bb1cc8eec74febbcbdf12404a94e91,Parcels 2024_WFL1,False,False,1.0,LOW,ACCEPT,False
+9df8fce8bf214b4ea26e4a4fe61c26d3,Chamblee Council Districts,True,True,1.0,LOW,ACCEPT,False
+12acdc7cff5c4d049539d9c17ca0a29b,PH_Placements_by_LA_City_Council_Districts_2019_2022,True,True,1.0,LOW,ACCEPT,False
+ac6856b59ff145e1b3eade7bee12b0d2,Enriched Ward Boundaries Alana,True,True,1.0,LOW,ACCEPT,False
+a44294fc110b48f1b65732de82385f89,Brooklyn_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+50b73c9b8dd8495dae4117d08ff7d583,Council_Districts_New,True,True,1.0,LOW,ACCEPT,False
+7d62237a40084dd3aee2436ea50f75da,Los Angeles City Council Districts,True,True,1.0,LOW,ACCEPT,False
+584ab0e152904dbbb732cc06cd873dc1,City_Council_Districts_FY_2024,True,True,1.0,LOW,ACCEPT,False
+1145b84caa31457f998ffecc35cacfcf,City Wards 2023 Redistricting,True,True,1.0,LOW,ACCEPT,False
+dc931291eff7445297f72c30fa954833,Aldermanic Districts,True,True,1.0,LOW,ACCEPT,True
+a429ef92ae0947e7ac64eb52e248627e,2 GWR White Significance People_WFL1,True,True,1.0,LOW,ACCEPT,False
+313c470b1a3045fbb27c6e71df04e535,whereamI_1,False,False,1.0,LOW,ACCEPT,False
+511fb87630c44b578a64c7c9a9a8e48d,Aldermanic Districts and Wards view,True,True,1.0,LOW,ACCEPT,True
+c05ac8fa2e054b079bac03d05e0d6de1,Les_ecureuils_qui_s’approchent_des_gens,False,False,1.0,LOW,ACCEPT,False
+dd47cc2a1c51462eaddf6ca709be2385,Council_Districts,True,True,1.0,LOW,ACCEPT,False
+ae0aaac1963f49829705c5c0580905a6,Baltimore City Council District,True,True,1.0,LOW,ACCEPT,False
+e62c6ce9ede7419ea1c48878acb45dbd,Enriched Ward Boundaries TS,True,True,1.0,LOW,ACCEPT,False
+a438ad42de7a4070b1001a96de14f63f,Palmerston North City Council_WFL1,True,True,1.0,LOW,ACCEPT,True
+df44eb439e964f28a65b1d810ff642ca,Group Quarters Population,False,False,1.0,LOW,ACCEPT,False
+4fcd9e42fdf843f4ba203288c9de4dd4,Detroit City Council Districts,True,True,1.0,LOW,ACCEPT,False
+83c0508f52f94a3e89136fa4111dd861,Norwood Ward Boundaries New view,True,True,1.0,LOW,ACCEPT,False
+174842f8d30f4809a938befb4f468abb,WARDS_1992,True,True,1.0,LOW,ACCEPT,False
+d73c70124b6b457e83360f6e84ad05aa,NYC Council Districts 23,True,True,1.0,LOW,ACCEPT,False
+35fcbe4ef65144b99646026e446a346c,Nottingham City Council,True,True,1.0,LOW,ACCEPT,False
+7be0d55954ee4db1b1a6cc94e078e9c9,Adopted Council Districts,True,True,1.0,LOW,ACCEPT,False
+a698724faa494338808f20460f509fb8,City Council Districts 2001 (Archive),True,True,1.0,LOW,ACCEPT,False
+50b918488b5f4827a0d454b839eee0c0,Council Draft Find,True,True,1.0,LOW,ACCEPT,False
+509cb0a0caa244e68b50e0f7a642d483,Council District #3,True,True,1.0,LOW,ACCEPT,False
+36e7d69b69844244b8cbe331cd351db0,Labor Force Participation,False,False,1.0,LOW,ACCEPT,False
+ede1320749914abbbf51f94e934ebdff,Enriched Ward Boundaries KR,True,True,1.0,LOW,ACCEPT,False
+a628930b21734aa0b5b5ab53a2ad0049,2020_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+f7a71d639fa84a4e85b87847a052ec80,City of Hanford_WFL1,False,False,1.0,LOW,ACCEPT,False
+11a130fa374845158bf7d0c5ab2b5dc9,Map_PZFL1,False,False,1.0,LOW,ACCEPT,False
+aca71697b39a4ee1abc3c79e2c65f6d8,City Council Wards w/ Contact Info,True,True,1.0,LOW,ACCEPT,False
+0f65cdc1b5b5478581cb1f03f123efc3,Voter_Turnout_2024,False,False,1.0,LOW,ACCEPT,False
+b0d7005e2b624cc68aee46f411b06255,Projects by City Council District,True,True,1.0,LOW,ACCEPT,False
+a9257f99b2d941a3bff928f4a19d6f9d,Oshawa 2018 Ward Boundaries,True,True,1.0,LOW,ACCEPT,False
+4d186ad1f4f24ef58b71d8c77aaee52f,Wyandotte Test_WFL1,False,False,1.0,LOW,ACCEPT,False
+df0a10f56b5141088fd726bc356162f6,PublicNonconformingParcels_Proposed,False,False,1.0,LOW,ACCEPT,False
+8f9da3fe2db74f7a89397786320b5643,Enriched Ward Boundaries,True,True,1.0,LOW,ACCEPT,False
+00c0713cc4474efdaab5831823fe8d27,Imagery Swipe map_WFL1,False,False,1.0,LOW,ACCEPT,False
+52b0158295fd4efd8c9de3e09681f725,EMVchange2,False,False,1.0,LOW,ACCEPT,False
+f69216b5b0c249d7bf14f9bed6f743d0,Council Districts view,True,True,1.0,LOW,ACCEPT,False
+c32e2772120545f4819116ef1870e46a,Table 9.2 - Persons in private households by socio-economic group of reference person by Electoral D,False,False,1.0,LOW,ACCEPT,False
+f3a5d4177990460d983aae5a7cd0fc81,Enriched Ward Boundaries CW,True,True,1.0,LOW,ACCEPT,False
+7f0afcf47ea84642afb73e291ab2c579,Chatham_Kent_Ward_Boundaries,True,True,1.0,LOW,ACCEPT,False
+3c0100a7979840dda852bcc9c0d2d231,Polling Location,False,False,1.0,LOW,ACCEPT,True
+3a2956335aca4ae48d802dc84691a1bc,Border Borough,False,False,1.0,LOW,ACCEPT,False
+83134e2af973438e9d2c3d3429164d7c,Food accessibility by bike path_WFL1,False,False,1.0,LOW,ACCEPT,False
+e0a071be9c0b474281e5356a15636406,2021 Federal Census Languages by Ward,True,True,1.0,LOW,ACCEPT,False
+80ea8705d6364d6a96e01f84b6f2cb83,TkPk Ward Boundaries_2022,True,True,1.0,LOW,ACCEPT,False
+fb769ebea26e41edbecb2084349cbe82,juvenile_and_adult_eating,False,False,1.0,LOW,ACCEPT,False
+b45cee40d6d64731a85f69849647903e,Les_jeunes_ecureuils,False,False,1.0,LOW,ACCEPT,False
+d145d7980e7042b29c548d0ce984bc9b,IberiaLAGISFlags,False,False,1.0,LOW,ACCEPT,False
+157c1956cf244834b954bbc7d6a5caca,GEHP_philly_new_WFL1,False,False,1.0,LOW,ACCEPT,False
+2a3090ab8eed490a93d71f3fe4e6fb61,LA Council District 2021,True,True,1.0,LOW,ACCEPT,False
+0657741d9e4a4289912330077707ad39,City of Tucson Ward Boundaries,True,True,1.0,LOW,ACCEPT,True
+bae2e1d0738847b0862adf7cb21ec17e,Sedgwick_WFL1,False,False,1.0,LOW,ACCEPT,False
+c239b250a8054775b8fa7d88830b7b6f,Aggregation_of_TreeAzin_Treated_Trees_to_Ward_Boundaries_AL,True,True,1.0,LOW,ACCEPT,False
+8d47862a950746e4910da26c043687cb,Enriched Ward Boundaries HW,True,True,1.0,LOW,ACCEPT,False
+23068cf5c3e24f92b2881a4acb52ce57,G441 Final Project _ 1950_1959 map_WFL1,True,True,1.0,LOW,ACCEPT,False
+92690a7e23fa4d0c8be78ae44dcc4bf9,City Ward,True,True,1.0,LOW,ACCEPT,True
+9df1c0a13aed41bea25467526825d811,Disrict Boundaries,True,True,1.0,LOW,ACCEPT,False
+00142bcb0c2c469fa62a1611a21cf09e,Iberville_Council_Districts_VOTER,True,True,1.0,LOW,ACCEPT,False
+a54924a5e7f4465988f22d4991c0caf9,Ward Boundaries 2023,True,True,1.0,LOW,ACCEPT,False
+21466fdd6a794745b01ef3e801f792e0,2 STC Confidence Trend People_WFL1,True,True,1.0,LOW,ACCEPT,False
+794a2c7ab74c4d2c836ba9f95edcefa6,City Wards Data,True,True,1.0,LOW,ACCEPT,False
+d13d5ef37fbd4e16aa92dc685e3f2e0a,Ratio of Family to Nonfamily Households (inc. living alone),False,False,1.0,LOW,ACCEPT,False
+2d9ecdaa4cd64dc0b27d6e0d1f76d564,Table 5.2 - Private households by size by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+39d391a56d7f490b80a2108f92173c86,[Superseded] City Plan 2014 — v15.00–2019 — Property boundaries — Parcel,False,False,1.0,LOW,ACCEPT,False
+5590fdfc186d4429898500ce6c9c32ba,Enriched_Ward_Boundaries_(2022),True,True,1.0,LOW,ACCEPT,False
+be17765a00e74a7e84e8003eba509b53,REFERENCE LAYERS 2025,False,False,1.0,LOW,ACCEPT,False
+8fbb002c9bf34cf8a4e7184358417050,Wards Pea Ridge,True,True,1.0,LOW,ACCEPT,False
+3eb0292e9ac3417cb9b4d4dc1d7ced11,APD_Incident_Extract_YTD_austin_texas_2018_csv,False,False,1.0,LOW,ACCEPT,False
+429aaa92ee144ab4a345817834df7d61,CandidatesforOffice_Official,False,False,1.0,LOW,ACCEPT,False
+381b2073830a4dce821d22cb7d27e0e6,MBMC Ward Boundary,True,True,1.0,LOW,ACCEPT,False
+a15e0c783de24da7b7d639f5041cfd29,Wards and Sub-Precincts,True,True,1.0,LOW,ACCEPT,False
+ea9f9508b9e34d69a3bdfb51a22449ea,Les_jeunes_écureuils_qui_chassent,False,False,1.0,LOW,ACCEPT,False
+d15f88d7aae44031a6ae4658bab939f0,Enriched Ward Boundaries JM,True,True,1.0,LOW,ACCEPT,False
+b39b01aba83544e0b212bb6f83417289,Table 12.3 - Population by general health and sex by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+555ebbac929b4cfbbf8d807a7025b391,Enriched Ward Boundaries AK,True,True,1.0,LOW,ACCEPT,False
+be6d50f4bdcf478c9a9cf700bf77fe27,Round3_Catholic_Aug31,False,False,1.0,LOW,ACCEPT,False
+dd913a7eddd148919c4db5e8b7c96564,Syracuse Common Council Districts,True,True,1.0,LOW,ACCEPT,False
+c0e50847fad942f18824a7fbca57c64b,Enriched Ward Boundaries AV,True,True,1.0,LOW,ACCEPT,False
+8f06129ef37e4a97adcef44de1a79f19,Table 4.4 - Families by age of youngest child by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+93e9942a09cd47f78e6954745eccc9b1,Social_Work_GCHSP_Boundary,False,False,1.0,LOW,ACCEPT,True
+84c4bca011754c609650195826f2fce1,NYC Affordable Housings_WFL1,False,False,1.0,LOW,ACCEPT,False
+e356068eb35e47a09f7a27d7f11289fb,LA_City_Council_Districts_(Adopted_2021) ,True,True,1.0,LOW,ACCEPT,False
+ce3d1dae63fa4d10a4702603e01d55cb,Boundaries_Dataset,False,False,1.0,LOW,ACCEPT,False
+58345a5577b0470fa6577abff0074143,Voting Wards,True,True,1.0,LOW,ACCEPT,False
+eb9ecfe68fef444c8fb4371da7f7bbf7,Enriched Ward Boundaries SD,True,True,1.0,LOW,ACCEPT,False
+6d7bd8dba40f4fd3a7e90cc95dc6d09f,Population,False,False,1.0,LOW,ACCEPT,False
+bf71171b83e4435d8d3e2b5123811fa1,Anna_2012_Ward1,True,True,1.0,LOW,ACCEPT,False
+27c50d148c6b4f2ea828bef62a6dc08c,WARDS_17,True,True,1.0,LOW,ACCEPT,False
+f68f7ac4732d47a2ade812e34fed9b77,City Wards Updated,True,True,1.0,LOW,ACCEPT,True
+7a3f2b4e6c27403d85177c9d9266b9df,GEHP_Philly_storymap_WFL1,False,False,1.0,LOW,ACCEPT,False
+ae2e004826024dbb9475502cda8e00f8,Ward_Boundaries,True,True,1.0,LOW,ACCEPT,False
+652a97398cf14e128eb8df5be84f443a,Tucson City Council Wards (Pima County 2019),True,True,1.0,LOW,ACCEPT,True
+29ce1c7dd6994a5da7501cc138517f29,Geographic boundaries (StatsNZ),False,False,1.0,LOW,ACCEPT,True
+63de2a3e1afe4f58b1b0430d30fae716,Peel_Wards_ArcPro,True,True,1.0,LOW,ACCEPT,False
+6221d40328a747ac95daa36e79a89bdd,Council_Districts_2000,True,True,1.0,LOW,ACCEPT,False
+75eba41c28dd4997b30c538fae4d1cb8,Welland_Poll_Boundaries,True,True,1.0,LOW,ACCEPT,False
+a28049e631a046429e64606b33e26f0a,LA City Council Districts (Adopted 2021),True,True,1.0,LOW,ACCEPT,False
+2ea3b09be6b44d81a4e2b25f4dbef8b1,SeasideBLIData,False,False,1.0,LOW,ACCEPT,False
+dd4142b12867430a927b3339ffa2fe01,Council Districts (2010),True,True,1.0,LOW,ACCEPT,False
+131d80ad86154f46b3b51dad7355c271,BasemapFeatureService_PublicView,False,False,1.0,LOW,ACCEPT,False
+4c9ffd8a6eb3466d90ea435fd134ce04,Voting Precincts,False,False,1.0,LOW,ACCEPT,False
+3616d2f0eaae4648bd4ea4bcf571501e,Enriched Ward Boundaries_ap,True,True,1.0,LOW,ACCEPT,False
+641738bbf5594ecca730932049e04659,carte_electoral_2017_WFL1,True,True,1.0,LOW,ACCEPT,True
+cd618b81ca5741cc8401bd073a3fed52,Enriched Ward Boundaries 1,True,True,1.0,LOW,ACCEPT,False
+6b51b7edd335444bb555c0309c5f1083,ASE_Data Public,False,False,1.0,LOW,ACCEPT,False
+2510c75f82164d1ea81e7642e41cf5ca,PoliticalBoundaries_mso,True,True,1.0,LOW,ACCEPT,False
+33a5ebb19ae14b7e9f1a8bb0f360ddad,Queens_City_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+333499a5852c4469a8f0bbff4c3b152a,2020 Preliminary NYC Council Districts,True,True,1.0,LOW,ACCEPT,False
+9b1d8842e74341e3a7c24d75e59dabf0,boundaries,False,False,1.0,LOW,ACCEPT,False
+0deda90b802e44eab8fb980e841dbcb6,San Diego City Ranked Potential Surplus Property_WFL1,False,False,1.0,LOW,ACCEPT,False
+73075c4c90de45debc26f7d791e909b3,City Council Wards,True,True,1.0,LOW,ACCEPT,False
+047981de56f0439d9d2867806092224c,Wards Map_WFL1,True,True,1.0,LOW,ACCEPT,False
+624892890746446c825011b03de6b88c,multi-member ward boundaries (stirling council) democracy - open data,True,True,1.0,LOW,ACCEPT,False
+db6ca9e513f744f9aa0b670715e45bb0,Visit Galveston_WFL1,False,False,1.0,LOW,ACCEPT,False
+ade4819da4dd415cabe0d6e94a37285e,Child and elders population under District Council Districts_WFL1,True,True,1.0,LOW,ACCEPT,False
+5f762022418f4aafbd07043089edf9cc,Potential Draft City Council Districts,True,True,1.0,LOW,ACCEPT,False
+b1d6c3962d044c7aa3d9ccbee24a9769,CityCouncil_Districts,True,True,1.0,LOW,ACCEPT,False
+8c7dd8064b6848c2be750a8ad5cf6803,nycc_06aav,False,False,1.0,LOW,ACCEPT,False
+18e908e731ec415b86dbf310f133ec0a,SFFD Overdoses 2021 _ 2024_WFL1,True,True,1.0,LOW,ACCEPT,False
+0e4ac41a2b7546e795ab1c664e38e4e9,G441 Final Project _ 2010_2019 map_WFL1,True,True,1.0,LOW,ACCEPT,False
+8d4a3bc8c32849a2b82d1603f29e87d2,Addressing Homelessness in Carlsbad - Map B _ County Regional3_WFL1,False,False,1.0,LOW,ACCEPT,True
+17f63dd9345b45bcb4f44e269d7d34c3,Ward_Boundaries_Nancy,True,True,1.0,LOW,ACCEPT,False
+abdaf25c976743c69109a03ef917fd9b,Pomona_Collision_Dashboard_WFL1,False,False,1.0,LOW,ACCEPT,False
+7faa6804dd994e4fa4c83c9ca121231b,Council District Dashboard Try 2,True,True,1.0,LOW,ACCEPT,False
+44714a10a9594d95a57b86edaeb8fc08,City Wards ,True,True,1.0,LOW,ACCEPT,False
+96c5d2ede0b94a1899094e3b8d12cdca,NYC map,False,False,1.0,LOW,ACCEPT,False
+e28517f446e94ff698f91b8c83ceb585,Ward Boundaries,True,True,1.0,LOW,ACCEPT,False
+688e728dd1b54ddcbbcc4e9c808508dd,Denver City Council Districts - JC_Project,True,True,1.0,LOW,ACCEPT,False
+6c0f78b84fe84d9fbea3833ecfc09c84,Table 4.5 - Families by family cycle by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+34579809476e46a4925445116c5c4f8a,Fayetteville NC Block Groups_ QCTs_ and Redevelopment Areas_WFL1,False,False,1.0,LOW,ACCEPT,True
+952280b0f072461d84f1404d98af9218,NYC_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+6e1e478b56f846628d599c292912db38,YSW Wellness Spaces_WFL1,False,False,1.0,LOW,ACCEPT,False
+3f2a6307bd6c4538a45bf09e69a4f90d,Reidsville Current City Council Districts,True,True,1.0,LOW,ACCEPT,False
+1e53effe757349c8b1ce084286cdb59d,nyccwi_24b,False,False,1.0,LOW,ACCEPT,False
+de598cb46dcf427da2595fa537af3239,NYC City Council Districts 23,True,True,1.0,LOW,ACCEPT,False
+b1ca1cc7190f4467a0701ed7c0b12b51,Amended Commissioners Draft Plan _ 10_18_22,True,True,1.0,LOW,ACCEPT,False
+7b83e26a109144f1bab140a23f943649,Projected Population by District Council District of Hong Kong 2021 to 2029,True,True,1.0,LOW,ACCEPT,False
+d6abbc2e582e45b79996ca9b89ce06d9,Raleigh_City_Council_Districts,True,True,1.0,LOW,ACCEPT,False
+54ad866aab234a0081413c9097e8c152,Two or More Races (non-Hispanic),False,False,1.0,LOW,ACCEPT,False
+296829d76a67430b9c107079aabae80e,CouncilDistrict,True,True,1.0,LOW,ACCEPT,False
+6036691c78c041d98dcf4a6e6ef01ee2,City_Boundary__2025,False,False,1.0,LOW,ACCEPT,False
+a7623b33a70f47e7bca6c01dae21031e,CityWardsViewLayer,True,True,1.0,LOW,ACCEPT,False
+015b5a52f7ce488ca92856853e5011e6,City Council Ward,True,True,1.0,LOW,ACCEPT,False
+a3e1566cc4b2497e85a68be5224fb1d2,Enriched Ward Boundaries cp1,True,True,1.0,LOW,ACCEPT,False
+3835d95e55014e8085bbd4483392c8fb,Table 6.9 - Permanent private households by number of bedrooms by Electoral Divisions (Census 2022),False,False,1.0,LOW,ACCEPT,False
+c7a6cafce17b42bda3641c5ff97256e0,ParkingZonesSomerville,False,False,1.0,LOW,ACCEPT,False
+63f9d9ee4ae6499ca36e212d7ed949ea,3D Buildings in Council District 6,True,True,1.0,LOW,ACCEPT,False
+ab295553ca514fa58e759776a7cbf58d,Voting_View Layers,False,False,1.0,LOW,ACCEPT,True
+a7fb5cc660d749d0b3e3c0b786fd9878,CHC_Maps_2019_v02_WFL1,True,True,1.0,LOW,ACCEPT,False
+d323d1ffad96433d91597fbf43502a19,Number of Hotels by District Council District in Hong Kong,True,True,1.0,LOW,ACCEPT,False
+af35e12a29234b9fbff08b6a29ff98f2,OD Council Districts Engineering,True,True,1.0,LOW,ACCEPT,False
+6bed2c5b8c73402ab1a9bfffdab12469,SaltingRoutes,False,False,1.0,LOW,ACCEPT,False
+e9fd631dd1e04fd6a2643dbc553d7142,Council District Four II_WFL1,True,True,1.0,LOW,ACCEPT,False
+21bf96ccf09a4b08b8ac645ccb2239a7,Boise City Council Districts,True,True,1.0,LOW,ACCEPT,False
+5fbe5246959a4dca83d0305d692e55c4,Intersect_of_Temple_City_Council_Districts_2020_and_Temple_City_Council_Districts_2022_final,True,True,1.0,LOW,ACCEPT,False
+f14e934ee09441b6b7acc72667a9ebb9,Administrative Boundaries and Elections,False,False,1.0,LOW,ACCEPT,False
+e2b83680f7a44b64b95a612cfbd49ad8,Heatmap_WFL1,False,False,1.0,LOW,ACCEPT,False
+2c3efdc34b0249eabba30ca1fd9c6fdc,Supply and Demand Test_WFL1,False,False,1.0,LOW,ACCEPT,False
+7c389f4c1eeb4d24a68e460010751707,Austin burglaries time3,False,False,1.0,LOW,ACCEPT,False
+ca10a72cf194417e93d38f9734d5f0af,Calgary Traffic Incidents 2018_WFL1,False,False,1.0,LOW,ACCEPT,False
+e0bc9d4b3bcb4d2abd6c9fd1c37a2988,AC_FY14_CapitalBudget_Dev,True,True,1.0,LOW,ACCEPT,True

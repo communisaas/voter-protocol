@@ -1,0 +1,4 @@
+shapely>=2.0.0
+pyproj>=3.4.0
+aiohttp>=3.9.0
+tqdm>=4.66.0

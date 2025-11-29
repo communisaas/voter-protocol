@@ -18,12 +18,47 @@ import type { ProvenanceRecord } from '../provenance-writer.js';
  *
  * Ordered by precision rank (finest → coarsest).
  * Used for hierarchical resolution fallback.
+ *
+ * US COVERAGE STRATEGY:
+ * - Tier 0: City council districts (finest civic representation)
+ * - Tier 1: City limits (incorporated places - Census PLACE)
+ * - Tier 2: CDP (Census Designated Places - unincorporated communities)
+ * - Tier 3: County (universal fallback)
+ * - Tier 4: Congressional district (federal representation)
+ * - Tier 5: State (coarsest)
+ *
+ * Data sources:
+ * - Council districts: Municipal portals, state GIS clearinghouses
+ * - City limits: Census TIGER/Line PLACE files (FREE, 19,495 places)
+ * - CDPs: Census TIGER/Line PLACE files (FREE, ~9,000 CDPs)
+ * - Counties: Census TIGER/Line COUNTY files (FREE, 3,143 counties)
+ * - Congressional: Census TIGER/Line CD files (FREE, 435 districts)
  */
 export enum BoundaryType {
+  // Finest grain: Local civic representation
   CITY_COUNCIL_DISTRICT = 'city_council_district',
   CITY_COUNCIL_WARD = 'city_council_ward',
+
+  // Incorporated places (Census PLACE with LSAD = city/town/village)
   CITY_LIMITS = 'city_limits',
+
+  // Unincorporated communities (Census PLACE with LSAD = CDP)
+  CDP = 'cdp',
+
+  // County subdivision (townships, boroughs in some states)
+  COUNTY_SUBDIVISION = 'county_subdivision',
+
+  // County (universal US fallback)
   COUNTY = 'county',
+
+  // Federal representation
+  CONGRESSIONAL_DISTRICT = 'congressional_district',
+
+  // State legislative (optional enhancement)
+  STATE_LEGISLATIVE_UPPER = 'state_legislative_upper',
+  STATE_LEGISLATIVE_LOWER = 'state_legislative_lower',
+
+  // Coarsest grain
   STATE_PROVINCE = 'state_province',
   COUNTRY = 'country',
 }
@@ -33,14 +68,34 @@ export enum BoundaryType {
  *
  * Lower rank = higher precision (preferred in resolution).
  * Used to sort boundaries when multiple matches exist.
+ *
+ * RESOLUTION STRATEGY:
+ * 1. Attempt finest available (council district)
+ * 2. Fall back to city limits or CDP
+ * 3. Fall back to county (guaranteed)
+ * 4. Congressional district available in parallel (federal representation)
  */
 export const PRECISION_RANK: Record<BoundaryType, number> = {
+  // Tier 0: Finest civic representation
   [BoundaryType.CITY_COUNCIL_DISTRICT]: 0,
   [BoundaryType.CITY_COUNCIL_WARD]: 1,
+
+  // Tier 1: Incorporated/unincorporated place boundaries
   [BoundaryType.CITY_LIMITS]: 2,
-  [BoundaryType.COUNTY]: 3,
-  [BoundaryType.STATE_PROVINCE]: 4,
-  [BoundaryType.COUNTRY]: 5,
+  [BoundaryType.CDP]: 3,
+  [BoundaryType.COUNTY_SUBDIVISION]: 4,
+
+  // Tier 2: County (universal US fallback)
+  [BoundaryType.COUNTY]: 5,
+
+  // Federal/State representation (parallel track, not fallback)
+  [BoundaryType.CONGRESSIONAL_DISTRICT]: 6,
+  [BoundaryType.STATE_LEGISLATIVE_UPPER]: 7,
+  [BoundaryType.STATE_LEGISLATIVE_LOWER]: 8,
+
+  // Tier 3: Coarsest
+  [BoundaryType.STATE_PROVINCE]: 9,
+  [BoundaryType.COUNTRY]: 10,
 };
 
 /**
