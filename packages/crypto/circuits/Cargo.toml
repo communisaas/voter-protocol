@@ -58,6 +58,7 @@ required-features = []  # Always available
 [features]
 default = ["halo2-base/halo2-axiom"]
 wasm = ["wasm-bindgen", "serde-wasm-bindgen", "getrandom", "console_error_panic_hook", "wasm-bindgen-rayon"]
+wasm-threads = ["wasm", "wasm-bindgen-rayon"]
 
 [profile.release]
 opt-level = 3
@@ -74,3 +75,5 @@ opt-level = 0
 #     "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
 #     "-C", "link-arg=--max-memory=4294967296",
 # ]
+
+# Workspace tooling

@@ -86,6 +86,8 @@ bower_components/
 
 # Optional npm cache directory
 .npm
+.npm-cache/
+tmp-home/
 
 # Optional eslint cache
 .eslintcache
@@ -147,6 +149,9 @@ packages/crypto/circuits/target/
 packages/crypto/circuits/.cargo/
 packages/crypto/circuits/.bin/
 packages/crypto/circuits/Cargo.lock
+packages/crypto/circuits/.rustup/
+packages/crypto/circuits/.cargo-home/
+packages/crypto/circuits/.target/
 
 # Large binary KZG params (use Git LFS or exclude)
 packages/crypto/circuits/kzg_params/*.bin

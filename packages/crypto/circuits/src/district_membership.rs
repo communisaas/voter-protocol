@@ -13,7 +13,7 @@ use halo2_base::{
     halo2_proofs::halo2curves::bn256::Fr,
 };
 use crate::poseidon_hash::{
-    hash_pair_with_hasher, hash_single_with_hasher, hash_triple_with_hasher, create_poseidon_hasher
+    hash_single_with_hasher, hash_triple_with_hasher, create_poseidon_hasher
 };
 use crate::merkle::verify_merkle_path_with_hasher;
 
@@ -187,6 +187,8 @@ mod tests {
         },
         halo2_proofs::halo2curves::ff::Field,
     };
+    use crate::poseidon_hash::hash_pair_with_hasher;
+    use crate::poseidon_hash::hash_pair_with_hasher;
 
     const K: usize = 14; // Large enough for 12+8 level trees
 

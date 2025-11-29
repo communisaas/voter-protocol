@@ -29,7 +29,7 @@ pub const R_P: usize = 57;   // Partial rounds (Axiom standard, vs PSE's 56)
 /// - Savings: ~56,000 advice cells per two-tier proof (40 hashes × 1400 cells)
 ///
 /// # Usage
-/// ```rust
+/// ```ignore
 /// let mut hasher = create_poseidon_hasher(ctx, gate);
 /// let hash1 = hash_pair_with_hasher(&mut hasher, ctx, gate, left1, right1);
 /// let hash2 = hash_pair_with_hasher(&mut hasher, ctx, gate, left2, right2);

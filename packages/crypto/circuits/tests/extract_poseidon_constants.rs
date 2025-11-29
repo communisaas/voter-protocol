@@ -7,7 +7,6 @@
 
 use halo2_base::{
     poseidon::hasher::spec::OptimizedPoseidonSpec,
-    utils::BigPrimeField,
 };
 use halo2_proofs::halo2curves::bn256::Fr;
 
@@ -19,7 +18,7 @@ const R_P: usize = 57;   // Partial rounds
 #[test]
 fn extract_poseidon_constants() {
     // Create the spec Axiom uses
-    let spec: OptimizedPoseidonSpec<Fr, T, RATE> = OptimizedPoseidonSpec::new::<R_F, R_P, 0>();
+    let _spec: OptimizedPoseidonSpec<Fr, T, RATE> = OptimizedPoseidonSpec::new::<R_F, R_P, 0>();
 
     println!("\n=== AXIOM POSEIDON CONSTANTS (T=3, RATE=2, R_F=8, R_P=57) ===\n");
 

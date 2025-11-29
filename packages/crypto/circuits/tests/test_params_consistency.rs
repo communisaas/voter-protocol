@@ -5,6 +5,7 @@ use halo2_base::halo2_proofs::{
         kzg::commitment::ParamsKZG,
     },
 };
+use halo2_base::halo2_proofs::poly::commitment::ParamsProver;
 use std::fs;
 use std::path::Path;
 

@@ -33,7 +33,7 @@ use halo2_base::{
     },
     halo2_proofs::{
         halo2curves::bn256::{Bn256, Fr, G1Affine},
-        plonk::{keygen_vk, keygen_pk, ProvingKey, Circuit},
+        plonk::{keygen_vk, keygen_pk, Circuit},
         poly::{
             commitment::Params,
             kzg::commitment::ParamsKZG,
@@ -162,6 +162,7 @@ fn load_ceremony_params_for_verifier(k: u32) -> Result<ParamsKZG<Bn256>, String>
 
     // 🔐 CANONICAL HASHES: Axiom challenge_0085 ceremony (snark-verifier compatible)
     // These hashes are IMMUTABLE. Any mismatch = potential attack vector.
+    #[allow(dead_code)]
     const CANONICAL_HASH_K12: &str = "PLACEHOLDER_K12"; // TODO: Record actual K=12 hash
     const CANONICAL_HASH_K14: &str = "PLACEHOLDER_WILL_BE_COMPUTED"; // Will be computed on first run
 
@@ -250,7 +251,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         action_id_out,
     ]);
 
-    let public_outputs = vec![
+    let _public_outputs = vec![
         district_root,
         nullifier,
         action_id_out,

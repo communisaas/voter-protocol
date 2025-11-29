@@ -39,8 +39,12 @@ use halo2_base::halo2_proofs::{
     arithmetic::Field, // For ZERO
     halo2curves::bn256::Fr,
     halo2curves::ff::PrimeField, // For from_str_vartime
+    poly::commitment::Params,
+    SerdeFormat,
 };
+use blake2::{Blake2b512, Digest};
 use crate::district_membership_single_tier::DistrictMembershipCircuit;
+use crate::prover::DistrictCircuitForKeygen;
 
 /// Enable console.error() for panic messages in browser
 #[wasm_bindgen(start)]
@@ -55,22 +59,40 @@ use halo2_base::{
         halo2curves::bn256::{Bn256, G1Affine},
         plonk::{keygen_pk, keygen_vk, ProvingKey, VerifyingKey},
         poly::{
-            commitment::{Params, ParamsProver},
+            commitment::ParamsProver,
             kzg::commitment::ParamsKZG,
         },
     },
 };
 use rand::rngs::OsRng;
 
+// Force TLS section emission so wasm-threads builds expose __wasm_init_tls et al.
+// This is required for wasm-bindgen's threading transform (used by wasm-bindgen-rayon).
+#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+#[thread_local]
+#[used]
+#[link_section = ".tdata"]
+pub static TLS_DUMMY: u8 = 0;
+
 // ============================================================================
 // EMBEDDED KZG PARAMETERS (Browser-Compatible)
 // ============================================================================
 
-/// Embedded K=14 test parameters (2MB) for browser compatibility
+/// Embedded K=14 ceremony parameters (2MB) for browser compatibility
 ///
 /// These params are embedded at compile time to avoid filesystem operations
-/// which don't work in browser WASM environments.
-const KZG_PARAMS_K14: &[u8] = include_bytes!("../kzg_params/test_params_k14.bin");
+/// which don't work in browser WASM environments. Hash is verified at runtime
+/// to detect supply-chain tampering.
+const KZG_PARAMS_K14: &[u8] = include_bytes!("../kzg_params/axiom_params_k14.srs");
+
+/// Compile-time flag (set with ALLOW_TEST_PARAMS=1) to enable non-canonical params.
+/// Defaults to false in production builds.
+const ALLOW_TEST_PARAMS: bool = option_env!("ALLOW_TEST_PARAMS").is_some();
+
+/// Canonical Blake2b-512 hash of the embedded Axiom challenge_0085 k=14 params.
+/// Source: https://axiom-crypto.s3.amazonaws.com/challenge_0085/kzg_bn254_14.srs
+/// Verified: 2025-11-04 (computed from kzg_params/axiom_params_k14.srs)
+const CANONICAL_HASH_K14: &str = "5d56001304a118d53e48bb5b512c125497d58f16af5c115ac6b2360fe515f77f9c897d824b8824c0f2aff0a65b6f12c1cd7725c5a3631aade5731acf3f869ed8";
 
 /// Load KZG ceremony parameters (browser-compatible)
 ///
@@ -86,17 +108,39 @@ const KZG_PARAMS_K14: &[u8] = include_bytes!("../kzg_params/test_params_k14.bin"
 /// - K=14 (embedded): ~100-200ms deserialization
 /// - Other k values: 5-10s on-the-fly generation
 fn load_ceremony_params_wasm(k: usize) -> Result<ParamsKZG<Bn256>, String> {
-    match k {
-        14 => {
-            // Use embedded K=14 parameters
-            ParamsKZG::<Bn256>::read(&mut KZG_PARAMS_K14)
-                .map_err(|e| format!("Failed to deserialize embedded K=14 params: {}", e))
+    if k == 14 {
+        // Verify integrity of embedded ceremony params before deserializing
+        let hash = Blake2b512::digest(KZG_PARAMS_K14);
+        let hash_hex = format!("{:x}", hash);
+
+        if hash_hex != CANONICAL_HASH_K14 {
+            return Err(format!(
+                "🚨 SECURITY ERROR: Embedded K=14 params hash mismatch\n\
+                 Expected: {}\n\
+                 Got:      {}\n\
+                 The embedded params may be corrupted or tampered with.",
+                CANONICAL_HASH_K14, hash_hex
+            ));
         }
-        _ => {
-            // Generate on-the-fly for non-standard k values
-            Ok(ParamsKZG::<Bn256>::setup(k as u32, OsRng))
-        }
+
+        // Create a temporary cursor; const slice gets copied so this is safe.
+    let params_buf = KZG_PARAMS_K14.to_vec();
+        return ParamsKZG::<Bn256>::read_custom(
+            &mut params_buf.as_slice(),
+            SerdeFormat::RawBytesUnchecked,
+        )
+        .map_err(|e| format!("Failed to deserialize embedded K=14 params: {}", e));
     }
+
+    if ALLOW_TEST_PARAMS {
+        // Development/testing only: allow ad-hoc params generation
+        return Ok(ParamsKZG::<Bn256>::setup(k as u32, OsRng));
+    }
+
+    Err(format!(
+        "Unsupported k={} in production build. Recompile with ALLOW_TEST_PARAMS=1 for testing.",
+        k
+    ))
 }
 
 /// WASM-compatible prover wrapper
@@ -176,6 +220,60 @@ impl Prover {
 
         // Save break points for future proving
         let break_points = builder.break_points();
+
+        Ok(Prover {
+            k,
+            params,
+            pk,
+            vk,
+            config_params,
+            break_points,
+        })
+    }
+
+    /// Rehydrate prover from serialized cache (params, pk, vk, config, breakpoints)
+    ///
+    /// This avoids rerunning keygen in the browser when cached artifacts are available.
+    #[wasm_bindgen(js_name = "fromCache")]
+    pub fn from_cache(
+        k: usize,
+        params_bytes: Vec<u8>,
+        pk_bytes: Vec<u8>,
+        vk_bytes: Vec<u8>,
+        config_json: String,
+        breakpoints_json: String,
+    ) -> Result<Prover, JsValue> {
+        if k != 14 && !ALLOW_TEST_PARAMS {
+            return Err(JsValue::from_str("Unsupported k in production cache load"));
+        }
+
+        // Deserialize config params and breakpoints first (needed for VK/PK)
+        let config_params: BaseCircuitParams = serde_json::from_str(&config_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse config params: {}", e)))?;
+        let break_points: Vec<Vec<usize>> = serde_json::from_str(&breakpoints_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse breakpoints: {}", e)))?;
+
+        // Deserialize params
+        let params = ParamsKZG::<Bn256>::read_custom(
+            &mut params_bytes.as_slice(),
+            SerdeFormat::RawBytesUnchecked,
+        )
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize params: {}", e)))?;
+
+        // Deserialize VK/PK (requires circuit params)
+        let vk: VerifyingKey<G1Affine> = VerifyingKey::read::<_, DistrictCircuitForKeygen>(
+            &mut vk_bytes.as_slice(),
+            SerdeFormat::RawBytesUnchecked,
+            config_params.clone(),
+        )
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize vk: {}", e)))?;
+
+        let pk = ProvingKey::read::<_, DistrictCircuitForKeygen>(
+            &mut pk_bytes.as_slice(),
+            SerdeFormat::RawBytesUnchecked,
+            config_params.clone(),
+        )
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize pk: {}", e)))?;
 
         Ok(Prover {
             k,
@@ -384,6 +482,54 @@ impl Prover {
     pub fn circuit_size(&self) -> usize {
         self.k
     }
+
+    /// Export serialized proving artifacts for caching (browser IndexedDB)
+    #[wasm_bindgen(js_name = "exportCache")]
+    pub fn export_cache(&self) -> Result<JsValue, JsValue> {
+        use halo2_base::halo2_proofs::SerdeFormat;
+        use wasm_bindgen::JsValue;
+
+        let mut params_bytes = vec![];
+        self.params
+            .write(&mut params_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize params: {}", e)))?;
+
+        let mut vk_bytes = vec![];
+        self.vk
+            .write(&mut vk_bytes, SerdeFormat::RawBytesUnchecked)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize vk: {}", e)))?;
+
+        let mut pk_bytes = vec![];
+        self.pk
+            .write(&mut pk_bytes, SerdeFormat::RawBytesUnchecked)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize pk: {}", e)))?;
+
+        let config_json = serde_json::to_string(&self.config_params)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize config params: {}", e)))?;
+        let breakpoints_json = serde_json::to_string(&self.break_points)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize breakpoints: {}", e)))?;
+
+        #[derive(serde::Serialize)]
+        struct CacheExport {
+            params: Vec<u8>,
+            vk: Vec<u8>,
+            pk: Vec<u8>,
+            config: String,
+            breakpoints: String,
+        }
+
+        let exported = CacheExport {
+            params: params_bytes,
+            vk: vk_bytes,
+            pk: pk_bytes,
+            config: config_json,
+            breakpoints: breakpoints_json,
+        };
+
+        let json = serde_json::to_string(&exported)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize cache export: {}", e)))?;
+        Ok(JsValue::from_str(&json))
+    }
 }
 
 /// Standalone proof generation (convenience function)
@@ -454,7 +600,7 @@ fn parse_fr_hex(hex: &str) -> Result<Fr, JsValue> {
 /// Convert Fr to hex string with "0x" prefix
 fn fr_to_hex(fr: &Fr) -> String {
     // Fr::to_bytes() returns LITTLE-ENDIAN
-    let mut bytes_le = fr.to_bytes();
+    let bytes_le = fr.to_bytes();
 
     // Convert to BIG-ENDIAN for hex display
     let mut bytes_be: [u8; 32] = bytes_le.clone();
@@ -463,6 +609,30 @@ fn fr_to_hex(fr: &Fr) -> String {
     format!("0x{}", hex::encode(bytes_be))
 }
 
+// ============================================================================
+// TESTS (hosted, not WASM) - ensure integrity constants stay in sync
+// ============================================================================
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_k14_hash_matches_canonical() {
+        let hash = Blake2b512::digest(KZG_PARAMS_K14);
+        let hash_hex = format!("{:x}", hash);
+        assert_eq!(hash_hex, CANONICAL_HASH_K14);
+    }
+
+    #[test]
+    fn production_rejects_non_14_without_flag() {
+        if ALLOW_TEST_PARAMS {
+            // Skip if explicitly allowing test params during dev builds
+            return;
+        }
+        let err = load_ceremony_params_wasm(12).unwrap_err();
+        assert!(err.contains("Unsupported k=12"));
+    }
+}
 // ============================================================================
 // POSEIDON HASH EXPORTS (For Shadow Atlas building)
 // ============================================================================
@@ -493,14 +663,7 @@ fn fr_to_hex(fr: &Fr) -> String {
 #[wasm_bindgen]
 pub fn hash_pair(left_hex: &str, right_hex: &str) -> Result<String, JsValue> {
     use crate::poseidon_hash::{create_poseidon_hasher, hash_pair_with_hasher};
-    use halo2_base::{
-        gates::{
-            circuit::{BaseCircuitParams, CircuitBuilderStage, builder::RangeCircuitBuilder},
-            GateInstructions,
-        },
-        AssignedValue,
-        Context,
-    };
+    use halo2_base::gates::circuit::{builder::RangeCircuitBuilder, CircuitBuilderStage};
 
     // Parse inputs from hex
     let left = parse_fr_hex(left_hex)?;
@@ -542,13 +705,7 @@ pub fn hash_pair(left_hex: &str, right_hex: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn hash_single(value_hex: &str) -> Result<String, JsValue> {
     use crate::poseidon_hash::create_poseidon_hasher;
-    use halo2_base::{
-        gates::{
-            circuit::{BaseCircuitParams, CircuitBuilderStage, builder::RangeCircuitBuilder},
-            GateInstructions,
-        },
-        Context,
-    };
+    use halo2_base::gates::circuit::{builder::RangeCircuitBuilder, CircuitBuilderStage};
 
     // Parse input
     let value = parse_fr_hex(value_hex)?;
@@ -565,7 +722,7 @@ pub fn hash_single(value_hex: &str) -> Result<String, JsValue> {
     let value_assigned = ctx.load_witness(value);
 
     // Create Poseidon hasher
-    let mut poseidon = create_poseidon_hasher(ctx, gate);
+    let poseidon = create_poseidon_hasher(ctx, gate);
 
     // Hash single element (Poseidon([value]))
     let hash = poseidon.hash_fix_len_array(ctx, gate, &[value_assigned]);

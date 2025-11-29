@@ -31,7 +31,7 @@ use crate::poseidon_hash::{hash_pair, hash_pair_with_hasher, T, RATE};
 ///
 /// # Usage
 /// Call this BEFORE `verify_merkle_path()` or `verify_merkle_path_with_hasher()`:
-/// ```rust
+/// ```ignore
 /// validate_merkle_inputs(path.len(), tree_depth)?;
 /// let root = verify_merkle_path(...);
 /// ```

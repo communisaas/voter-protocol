@@ -1,5 +1,4 @@
 use halo2_proofs::halo2curves::bn256::Fr;
-use halo2_proofs::halo2curves::ff::PrimeField;
 
 #[test]
 fn test_fr_from_bytes_encoding() {

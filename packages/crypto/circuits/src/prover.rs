@@ -39,15 +39,15 @@
 
 use halo2_base::{
     gates::{
-        circuit::{BaseCircuitParams, CircuitBuilderStage, builder::RangeCircuitBuilder},
+        circuit::{builder::RangeCircuitBuilder, BaseCircuitParams, CircuitBuilderStage},
         RangeInstructions,
     },
     halo2_proofs::{
         arithmetic::Field,
         halo2curves::bn256::{Bn256, Fr, G1Affine},
-        plonk::{keygen_pk, keygen_vk, ProvingKey, VerifyingKey, Circuit},
+        plonk::{Circuit, ProvingKey, VerifyingKey},
         poly::{
-            commitment::{Params, ParamsProver},
+            commitment::ParamsProver,
             kzg::commitment::ParamsKZG,
         },
     },
@@ -70,7 +70,7 @@ use snark_verifier_sdk::CircuitExt;
 /// - Same wrapper type used for gen_evm_verifier_shplonk() and gen_evm_proof_shplonk()
 /// - Implements CircuitExt trait required by snark-verifier-sdk
 #[derive(Clone)]
-struct DistrictCircuitForKeygen {
+pub(crate) struct DistrictCircuitForKeygen {
     builder: RangeCircuitBuilder<Fr>,
     public_outputs: Vec<AssignedValue<Fr>>,
 }
@@ -196,9 +196,6 @@ fn load_ceremony_params(k: usize, allow_test_params: bool) -> Result<ParamsKZG<B
     // CRITICAL: Axiom's snark-verifier v0.1.7 requires challenge_0085 format, not raw perpetual-powers-of-tau
     let ceremony_path = params_dir.join(format!("axiom_params_k{}.srs", k));
 
-    // 🧪 TEST PATH: Generated parameters (ONLY for development)
-    let test_path = params_dir.join(format!("test_params_k{}.bin", k));
-
     // Try loading ceremony params first (production path)
     if ceremony_path.exists() {
         eprintln!("🔍 Loading Ethereum ceremony parameters from {}...", ceremony_path.display());
@@ -227,12 +224,7 @@ fn load_ceremony_params(k: usize, allow_test_params: bool) -> Result<ParamsKZG<B
 
         // 🚨 SECURITY CHECK: Verify hash matches canonical ceremony parameters
         if k == 14 {
-            if CANONICAL_HASH_K14 == "PLACEHOLDER_WILL_BE_COMPUTED" {
-                eprintln!("⚠️  FIRST RUN: Recording Blake2b-512 hash for Axiom challenge_0085 k=14 params");
-                eprintln!("   Computed hash: {}", hash_hex);
-                eprintln!("   📋 ACTION REQUIRED: Update CANONICAL_HASH_K14 in prover.rs with this hash");
-                eprintln!("   ⚠️  This bypasses hash verification on first run ONLY");
-            } else if hash_hex != CANONICAL_HASH_K14 {
+            if hash_hex != CANONICAL_HASH_K14 {
                 return Err(format!(
                     "🚨 SECURITY ERROR: KZG parameter hash mismatch!\n\
                      \n\

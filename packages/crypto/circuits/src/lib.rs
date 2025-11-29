@@ -1,3 +1,5 @@
+#![cfg_attr(target_arch = "wasm32", feature(thread_local))]
+
 // VOTER Protocol - District Membership Circuit
 // Browser-native Halo2 + KZG zero-knowledge proofs
 // Migrated from PSE to Axiom halo2_base (Mainnet V2, Trail of Bits audited)

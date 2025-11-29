@@ -17,9 +17,15 @@
     "atlas:verify": "tsx scripts/verify-atlas.ts",
     "atlas:bootstrap-country": "tsx packages/crypto/services/shadow-atlas/workers/bootstrap-country.ts",
     "atlas:bootstrap-discovery": "tsx packages/crypto/services/shadow-atlas/workers/bootstrap-discovery-state.ts",
-    "atlas:discover-councils": "tsx packages/crypto/services/shadow-atlas/workers/discover-council-districts.ts"
+    "atlas:discover-councils": "tsx packages/crypto/services/shadow-atlas/workers/discover-council-districts.ts",
+    "bbjs:validate-manifest": "node scripts/internal/validate-bbjs-manifest.js --manifest dist/bbjs/manifest.json"
   },
   "devDependencies": {
+    "@aztec/bb.js": "2.1.8",
+    "@noir-lang/noir_js": "1.0.0-beta.11",
+    "@noir-lang/noir_wasm": "1.0.0-beta.11",
+    "ajv": "^8.17.1",
+    "yargs": "^17.7.2",
     "turbo": "^2.3.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
