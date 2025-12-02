@@ -4,3 +4,6 @@
 [submodule "contracts/lib/forge-std"]
 	path = contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "vendor/aztec-packages"]
+	path = vendor/aztec-packages
+	url = https://github.com/AztecProtocol/aztec-packages.git
