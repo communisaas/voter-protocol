@@ -57,12 +57,3 @@ ssh $REMOTE_HOST "cat ~/remote-builds/voter-protocol/vendor/aztec-packages/barre
 
 
 
-# Copy the built WASM binary back to the remote directory for the TS test
-# echo "Copying built WASM binary..."
-# docker run --rm -v $REMOTE_BUILD_DIR:/usr/src/aztec-packages/barretenberg/cpp \
-#   aztec-package-build-wasm-threads \
-#   /bin/bash -c "cp /usr/src/aztec-packages/barretenberg/cpp/build/bin/barretenberg.wasm /usr/src/aztec-packages/barretenberg/cpp/build-wasm-threads/barretenberg-threads.wasm.gz"
-
-# Run the TS test on the remote machine
-# echo "Running TS test on remote..."
-# ssh $REMOTE_HOST "cd $REMOTE_DIR/vendor/aztec-packages/barretenberg/ts && npm install && npm run test:stateful-keygen"
