@@ -1,0 +1,68 @@
+#!/bin/bash
+set -e
+
+REMOTE_HOST="100.82.94.106"
+REMOTE_DIR="~/remote-builds/voter-protocol"
+
+echo "📁 Preparing remote directory..."
+ssh $REMOTE_HOST "mkdir -p $REMOTE_DIR"
+
+echo "🔄 Syncing voter-protocol to $REMOTE_HOST..."
+# Sync the main repo, excluding heavy stuff but INCLUDING vendor/aztec-packages
+# We need to be careful not to exclude the submodule content if it's not ignored by git
+# Since it's a submodule, rsync might skip it if we are not careful or if it's a directory.
+# We will use -L (copy links) or just sync the directory explicitly.
+# Better approach: Sync the main repo first, then sync the submodule directory specifically to ensure it's up to date.
+
+rsync -avz --delete \
+  --exclude 'node_modules' \
+  --exclude '.git' \
+  --exclude 'dist' \
+  --exclude 'target' \
+  --exclude 'packages/*/target' \
+  --exclude 'packages/crypto/data' \
+  --exclude 'packages/crypto/services/shadow-atlas/agents/data' \
+  --exclude '.venv' \
+  --exclude 'venv' \
+  --exclude 'workers/shadow-atlas/data' \
+  --exclude 'vendor/aztec-packages/barretenberg/cpp/build' \
+  --exclude 'vendor/aztec-packages/barretenberg/cpp/build-wasm' \
+  --exclude 'vendor/aztec-packages/barretenberg/cpp/build-wasm-threads' \
+  ./ $REMOTE_HOST:$REMOTE_DIR/
+
+# Clean up remote build artifacts (owned by root) before syncing
+echo "Cleaning up remote artifacts..."
+# ssh $REMOTE_HOST "docker run --rm -v /home/noot/remote-builds/voter-protocol/vendor/aztec-packages:/usr/src/aztec-packages -w /usr/src/aztec-packages/barretenberg/cpp aztec-build rm -rf build-wasm-threads build || true"
+
+echo "🔄 Syncing aztec-packages submodule..."
+# Sync submodule (including C++ source for building)
+rsync -avz \
+  --exclude 'node_modules' \
+  --exclude '.git' \
+  --exclude 'barretenberg/cpp/build*' \
+  vendor/aztec-packages/ $REMOTE_HOST:$REMOTE_DIR/vendor/aztec-packages/
+
+# Sync the new docker build script
+rsync -avz -e ssh ./scripts/remote-docker-build.sh $REMOTE_HOST:~/remote-builds/voter-protocol/scripts/
+
+# Execute the docker build script on the remote
+echo "Executing remote docker build..."
+ssh $REMOTE_HOST "chmod +x ~/remote-builds/voter-protocol/scripts/remote-docker-build.sh && ~/remote-builds/voter-protocol/scripts/remote-docker-build.sh"
+
+# Run the TS test on the remote host (using the WASM binary built in Docker)
+echo "Running TS test on remote..."
+ssh $REMOTE_HOST "source ~/.zshrc && cd ~/remote-builds/voter-protocol/vendor/aztec-packages/barretenberg/ts && npm install && npm run build:esm && docker run --rm -v ~/remote-builds/voter-protocol/vendor/aztec-packages/barretenberg/cpp:/usr/src/barretenberg/cpp -v ~/remote-builds/voter-protocol/vendor/aztec-packages/barretenberg/ts:/usr/src/barretenberg/ts aztec-build /bin/bash -c \"cp /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz && cp /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/ts/src/barretenberg_wasm/barretenberg-threads.wasm.gz\" && npx ts-node scripts/test-stateful-keygen.ts > test_output.log 2>&1" || true
+ssh $REMOTE_HOST "cat ~/remote-builds/voter-protocol/vendor/aztec-packages/barretenberg/ts/test_output.log"
+
+
+
+
+# Copy the built WASM binary back to the remote directory for the TS test
+# echo "Copying built WASM binary..."
+# docker run --rm -v $REMOTE_BUILD_DIR:/usr/src/aztec-packages/barretenberg/cpp \
+#   aztec-package-build-wasm-threads \
+#   /bin/bash -c "cp /usr/src/aztec-packages/barretenberg/cpp/build/bin/barretenberg.wasm /usr/src/aztec-packages/barretenberg/cpp/build-wasm-threads/barretenberg-threads.wasm.gz"
+
+# Run the TS test on the remote machine
+# echo "Running TS test on remote..."
+# ssh $REMOTE_HOST "cd $REMOTE_DIR/vendor/aztec-packages/barretenberg/ts && npm install && npm run test:stateful-keygen"
