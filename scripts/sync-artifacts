@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+# Configuration
+REMOTE_HOST="100.82.94.106"
+REMOTE_BASE="~/remote-builds/voter-protocol/vendor/aztec-packages/barretenberg/cpp"
+LOCAL_BASE="vendor/aztec-packages/barretenberg/cpp"
+
+# Ensure local directories exist
+mkdir -p "$LOCAL_BASE/build-wasm-threads/bin"
+mkdir -p "packages/noir-prover/wasm"
+
+echo "🔄 Syncing WASM artifacts from Build Farm ($REMOTE_HOST)..."
+
+# Sync barretenberg.wasm.gz (Threads)
+scp "$REMOTE_HOST:$REMOTE_BASE/build-wasm-threads/bin/barretenberg.wasm.gz" \
+    "$LOCAL_BASE/build-wasm-threads/bin/barretenberg.wasm.gz"
+
+# Also copy to noir-prover package
+cp "$LOCAL_BASE/build-wasm-threads/bin/barretenberg.wasm.gz" \
+   "packages/noir-prover/wasm/barretenberg.wasm.gz"
+
+echo "✅ Artifacts synced successfully."
+echo "   - $LOCAL_BASE/build-wasm-threads/bin/barretenberg.wasm.gz"
+echo "   - packages/noir-prover/wasm/barretenberg.wasm.gz"

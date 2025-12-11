@@ -1,0 +1,57 @@
+{
+    "name": "@voter-protocol/noir-prover",
+    "version": "0.1.0",
+    "description": "Browser-native ZK prover for VOTER Protocol using Barretenberg/Noir",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "wasm",
+        "circuits"
+    ],
+    "scripts": {
+        "dev": "vite build --watch",
+        "build": "tsc && vite build",
+        "test": "vitest",
+        "typecheck": "tsc --noEmit",
+        "sync-wasm": "../scripts/sync-artifacts"
+    },
+    "peerDependencies": {
+        "@aztec/bb.js": ">=0.1.0",
+        "@noir-lang/noir_js": "^1.0.0-beta.11",
+        "pako": "^2.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.3.2",
+        "@types/pako": "^2.0.4",
+        "typescript": "^5.7.2",
+        "vite": "^5.4.10",
+        "vite-plugin-dts": "^4.3.0",
+        "vite-plugin-wasm": "^3.3.0",
+        "vitest": "^2.1.8"
+    },
+    "keywords": [
+        "voter-protocol",
+        "zk",
+        "noir",
+        "barretenberg",
+        "zero-knowledge",
+        "browser"
+    ],
+    "author": "VOTER Protocol",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/communisaas/voter-protocol.git",
+        "directory": "packages/noir-prover"
+    }
+}

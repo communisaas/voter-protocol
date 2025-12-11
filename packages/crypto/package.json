@@ -42,14 +42,16 @@
     "@turf/helpers": "^7.2.0",
     "@turf/turf": "^7.2.0",
     "better-sqlite3": "^11.10.0",
-    "circomlibjs": "^0.1.7"
+    "circomlibjs": "^0.1.7",
+    "pako": "^2.1.0"
   },
   "devDependencies": {
+    "@aztec/bb.js": "file:../../vendor/aztec-packages/barretenberg/ts",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^24.3.2",
+    "@types/pako": "^2.0.4",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8",
-    "@aztec/bb.js": "file:../../vendor/aztec-packages/barretenberg/ts"
+    "vitest": "^2.1.8"
   },
   "keywords": [
     "voter-protocol",

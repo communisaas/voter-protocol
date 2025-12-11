@@ -159,6 +159,34 @@ export class ProofService {
   getLeafCount(): number {
     return this.merkleTree.getLeaves().length;
   }
+
+  /**
+   * Generate ZK proof for district membership
+   * 
+   * Uses the barretenberg stateful keygen backend.
+   * 
+   * @param districtId - District ID to prove
+   */
+  async generateZKProof(districtId: string): Promise<Uint8Array> {
+    // 1. Get Merkle inclusions proof
+    const merkleProof = this.generateProof(districtId);
+
+    // 2. Initialize Circuit Driver
+    // Note: In a real app, you should cache the driver/prover instance
+    const { CircuitDriver } = await import('../proving/circuit_driver');
+    const driver = await CircuitDriver.new();
+
+    // 3. Generate Witness
+    // TODO: Use Noir WASM to generate witness from inputs
+    // const inputs = this.mapToCircuitInputs(merkleProof);
+    // const witness = await generate_witness(inputs);
+
+    console.warn("Using placeholder witness - proof generation will fail until Noir Witness generation is hooked up");
+    const witness = new Uint8Array(100); // Placeholder
+
+    // 4. Generate Proof
+    return driver.prove(witness);
+  }
 }
 
 /**
