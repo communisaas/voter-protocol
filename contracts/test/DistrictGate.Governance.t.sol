@@ -4,6 +4,7 @@ pragma solidity =0.8.19;
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
+import "../src/NullifierRegistry.sol";
 
 /// @title DistrictGate Governance Tests
 /// @notice Tests the governance timelock mechanism for DistrictGate
@@ -11,6 +12,7 @@ import "../src/DistrictRegistry.sol";
 contract DistrictGateGovernanceTest is Test {
     DistrictGate public gate;
     DistrictRegistry public registry;
+    NullifierRegistry public nullifierRegistry;
     address public verifier;
 
     address public governance = address(0x1);
@@ -25,11 +27,21 @@ contract DistrictGateGovernanceTest is Test {
         // Deploy mock verifier
         verifier = address(new MockVerifier());
 
-        // Deploy registry
+        // Deploy registries
         registry = new DistrictRegistry(governance);
+        nullifierRegistry = new NullifierRegistry(governance);
+
+        // Create guardian array (min 2 required)
+        address[] memory guardians = new address[](2);
+        guardians[0] = address(0x100);
+        guardians[1] = address(0x101);
 
         // Deploy gate
-        gate = new DistrictGate(verifier, address(registry), governance);
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+
+        // Authorize gate as caller
+        vm.prank(governance);
+        nullifierRegistry.authorizeCaller(address(gate));
     }
 
     // ============ Constructor Tests ============
@@ -40,8 +52,11 @@ contract DistrictGateGovernanceTest is Test {
     }
 
     function test_RevertWhen_ConstructorZeroGovernance() public {
+        address[] memory guardians = new address[](2);
+        guardians[0] = address(0x100);
+        guardians[1] = address(0x101);
         vm.expectRevert(DistrictGate.ZeroAddress.selector);
-        new DistrictGate(verifier, address(registry), address(0));
+        new DistrictGate(verifier, address(registry), address(nullifierRegistry), address(0), guardians);
     }
 
     // ============ Governance Timelock Tests ============

@@ -1,59 +1,46 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
-import "../src/DistrictRegistry.sol";
 import "../src/NullifierRegistry.sol";
 import "../src/DistrictGate.sol";
+import "../src/DistrictRegistry.sol";
 
-/// @title Deploy to Scroll Sepolia Testnet
-/// @notice Complete deployment script for VOTER Protocol on Scroll Sepolia
-/// @dev Deploys DistrictRegistry, NullifierRegistry, and DistrictGate with guardians
-contract DeployToScrollSepolia is Script {
+/// @title DeployScrollSepolia
+/// @notice Deployment script for Scroll Sepolia testnet
+/// @dev Run with: forge script script/DeployScrollSepolia.s.sol --rpc-url scroll_sepolia --broadcast
+contract DeployScrollSepolia is Script {
     function run() external {
-        // Get deployer and governance from environment
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        // Configuration
         address governance = vm.envAddress("GOVERNANCE_ADDRESS");
         address verifier = vm.envAddress("VERIFIER_ADDRESS");
-
+        
         // Guardian addresses (must be at least 2, different jurisdictions)
+        // TODO: Replace with real guardian addresses before mainnet
         address guardian1 = vm.envOr("GUARDIAN_1", address(0x100));
         address guardian2 = vm.envOr("GUARDIAN_2", address(0x101));
         
         address[] memory guardians = new address[](2);
         guardians[0] = guardian1;
         guardians[1] = guardian2;
+        
+        // If no verifier deployed yet, use a placeholder
+        if (verifier == address(0)) {
+            console.log("WARNING: Using placeholder verifier address");
+            verifier = address(0xdead);
+        }
 
-        address deployer = vm.addr(deployerPrivateKey);
-
-        console.log("==========================================");
-        console.log("Deploying to Scroll Sepolia Testnet");
-        console.log("==========================================");
-        console.log("Deployer:", deployer);
-        console.log("Governance:", governance);
-        console.log("Verifier:", verifier);
-        console.log("Guardian 1:", guardian1);
-        console.log("Guardian 2:", guardian2);
-        console.log("");
-
-        // Validate addresses
-        require(governance != address(0), "Governance address not set");
-        require(verifier != address(0), "Verifier address not set");
-
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // 1. Deploy DistrictRegistry
-        console.log("Deploying DistrictRegistry...");
         DistrictRegistry districtRegistry = new DistrictRegistry(governance);
         console.log("DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
-        console.log("Deploying NullifierRegistry...");
         NullifierRegistry nullifierRegistry = new NullifierRegistry(governance);
         console.log("NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy DistrictGate with guardians
-        console.log("Deploying DistrictGate...");
         DistrictGate gate = new DistrictGate(
             verifier,
             address(districtRegistry),
@@ -69,13 +56,14 @@ contract DeployToScrollSepolia is Script {
 
         vm.stopBroadcast();
 
-        console.log("==========================================");
-        console.log("DEPLOYMENT COMPLETE");
-        console.log("==========================================");
+        // Output deployment summary
+        console.log("\n=== Deployment Summary ===");
+        console.log("Network: Scroll Sepolia");
         console.log("DistrictRegistry:", address(districtRegistry));
         console.log("NullifierRegistry:", address(nullifierRegistry));
         console.log("DistrictGate:", address(gate));
         console.log("Governance:", governance);
-        console.log("==========================================");
+        console.log("Guardian 1:", guardian1);
+        console.log("Guardian 2:", guardian2);
     }
 }

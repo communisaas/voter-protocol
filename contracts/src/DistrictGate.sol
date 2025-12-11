@@ -2,67 +2,45 @@
 pragma solidity 0.8.19;
 
 import "./DistrictRegistry.sol";
+import "./NullifierRegistry.sol";
+import "./GuardianShield.sol";
 import "openzeppelin/utils/cryptography/ECDSA.sol";
 import "openzeppelin/security/Pausable.sol";
 
 /// @title DistrictGate
 /// @notice Master verification contract for district membership proofs
-/// @dev Orchestrates two-step verification:
+/// @dev Orchestrates three-step verification:
 ///      Step 1: ZK proof verification (district membership)
 ///      Step 2: On-chain registry lookup (district→country mapping)
-///
-/// ARCHITECTURAL EVOLUTION:
-/// Previous approach: Monolithic two-tier circuit (K=14, 26KB verifier, unusable on mobile)
-/// New approach: Simplified circuit (K=12, ~15KB verifier) + on-chain registry
+///      Step 3: Nullifier recording (double-action prevention + rate limiting)
 ///
 /// SECURITY MODEL:
-/// This architecture achieves the security of a monolithic two-tier circuit
-/// with the performance and deployability of a simple single-tier circuit.
+/// - GuardianShield: Multi-jurisdiction veto power against legal coercion
+/// - Timelocked upgrades: 7 days for governance, 14 days for verifier
+/// - Combined with pause mechanism for emergency response
 ///
-/// Step 1 (Cryptographic): User proves "I am member of district X"
-///   - Halo2 proof with K=12 (4,096 rows)
-///   - Public inputs: [district_root, nullifier, action_id]
-///   - Verifier contract: ~15KB (fits EIP-170)
-///   - Proving time: 2-8 seconds on mid-range Android
-///   - Cannot be faked: Merkle proof enforced by ZK circuit
-///
-/// Step 2 (On-Chain Lookup): Contract checks "District X is in country Y"
-///   - Single SLOAD from DistrictRegistry (~2.1k gas)
-///   - Public data (congressional districts are not secrets)
-///   - Append-only registry (multi-sig governance)
-///   - All changes auditable via events
-///
-/// WHY THIS IS SECURE:
-/// - Step 1 prevents identity spoofing (cryptographically enforced)
-/// - Step 2 prevents fake districts (governance enforced, publicly auditable)
-/// - Combined: User cannot fake membership OR claim membership in unauthorized district
-/// - Attack requires compromising BOTH crypto AND multi-sig governance
-///
-/// COMPARISON TO ALTERNATIVES:
-/// - Monolithic K=14 circuit: Provably secure but unusable (26KB verifier, 30+s mobile)
-/// - Pure governance (no ZK): Insecure (no cryptographic identity protection)
-/// - This approach: Secure AND usable (right tool for each job)
-///
-/// GAS COSTS:
-/// - K=12 proof verification: ~200-300k gas (vs 300-500k for K=14)
-/// - Registry lookup: ~2.1k gas (single SLOAD)
-/// - Total: ~202-302k gas per verification
-/// - On Scroll L2: ~$0.001-$0.002 per verification
-///
-/// PAUSABLE MECHANISM:
-/// - Emergency circuit breaker for critical vulnerabilities
-/// - Only governance can pause/unpause
-/// - All proof verification functions respect pause state
-/// - Governance operations (authorize actions, etc.) remain available when paused
-contract DistrictGate is Pausable {
-    /// @notice Address of the Halo2 verifier contract (K=12 single-tier circuit)
-    address public immutable verifier;
+/// NATION-STATE RESISTANCE:
+/// - Guardians in different legal jurisdictions can veto malicious transfers
+/// - 14-day verifier upgrade timelock allows community response to bugs
+/// - Single guardian veto blocks any pending transfer/upgrade
+contract DistrictGate is Pausable, GuardianShield {
+    /// @notice Address of the ZK verifier contract (upgradeable with timelock)
+    address public verifier;
+    
+    /// @notice Pending verifier upgrade
+    address public pendingVerifier;
+    
+    /// @notice Execution timestamp for verifier upgrade
+    uint256 public verifierUpgradeTime;
+    
+    /// @notice Timelock for verifier upgrades (14 days - more critical than governance)
+    uint256 public constant VERIFIER_UPGRADE_TIMELOCK = 14 days;
 
     /// @notice Address of the district registry
-    DistrictRegistry public immutable registry;
+    DistrictRegistry public immutable districtRegistry;
 
-    /// @notice Tracks used nullifiers to prevent double-voting
-    mapping(bytes32 => bool) public nullifierUsed;
+    /// @notice Address of the nullifier registry
+    NullifierRegistry public immutable nullifierRegistry;
 
     /// @notice Authorized action IDs (only these can be proven)
     mapping(bytes32 => bool) public authorizedActions;
@@ -87,15 +65,7 @@ contract DistrictGate is Pausable {
     /// @notice Nonces for replay protection (per-address)
     mapping(address => uint256) public nonces;
 
-    /// @notice Emitted when a valid action is verified
-    /// @param user Address that generated and signed the proof (reward recipient)
-    /// @param submitter Address that submitted the transaction (may differ from user in MEV scenarios)
-    /// @param districtRoot Verified district Merkle root
-    /// @param country Country the district belongs to
-    /// @param nullifier Unique nullifier (prevents double-actions)
-    /// @param actionId Action identifier
-    /// @dev CRITICAL: Rewards MUST go to 'user' (signer), NOT 'submitter' (msg.sender)
-    ///      This prevents MEV front-running where bots steal user rewards
+    // Events
     event ActionVerified(
         address indexed user,
         address indexed submitter,
@@ -104,27 +74,18 @@ contract DistrictGate is Pausable {
         bytes32 nullifier,
         bytes32 actionId
     );
-
-    /// @notice Emitted when an action is authorized/deauthorized
     event ActionAuthorized(bytes32 indexed actionId, bool authorized);
-
-    /// @notice Emitted when governance transfer is initiated (7-day timelock starts)
     event GovernanceTransferInitiated(address indexed newGovernance, uint256 executeTime);
-
-    /// @notice Emitted when governance transfer is executed (after timelock)
     event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
-
-    /// @notice Emitted when governance transfer is cancelled
     event GovernanceTransferCancelled(address indexed newGovernance);
-
-    /// @notice Emitted when contract is paused (emergency circuit breaker)
+    event VerifierUpgradeInitiated(address indexed newVerifier, uint256 executeTime);
+    event VerifierUpgraded(address indexed previousVerifier, address indexed newVerifier);
+    event VerifierUpgradeCancelled(address indexed target);
     event ContractPaused(address indexed governance);
-
-    /// @notice Emitted when contract is unpaused (normal operation restored)
     event ContractUnpaused(address indexed governance);
 
+    // Errors
     error VerificationFailed();
-    error NullifierAlreadyUsed();
     error UnauthorizedDistrict();
     error DistrictNotRegistered();
     error ActionNotAuthorized();
@@ -134,66 +95,59 @@ contract DistrictGate is Pausable {
     error SignatureExpired();
     error TransferNotInitiated();
     error TimelockNotExpired();
+    error UpgradeNotInitiated();
 
     modifier onlyGovernance() {
         if (msg.sender != governance) revert UnauthorizedCaller();
         _;
     }
 
-    /// @notice Deploy gate with verifier and registry addresses
-    /// @param _verifier Address of deployed Halo2Verifier contract (K=12)
-    /// @param _registry Address of deployed DistrictRegistry contract
+    /// @notice Deploy gate with verifier, registries, governance, and initial guardians
+    /// @param _verifier Address of deployed ZK verifier contract
+    /// @param _districtRegistry Address of deployed DistrictRegistry contract
+    /// @param _nullifierRegistry Address of deployed NullifierRegistry contract
     /// @param _governance Multi-sig governance address
-    constructor(address _verifier, address _registry, address _governance) {
+    /// @param _guardians Initial guardian addresses (min 2, different jurisdictions)
+    constructor(
+        address _verifier,
+        address _districtRegistry,
+        address _nullifierRegistry,
+        address _governance,
+        address[] memory _guardians
+    ) {
         if (_verifier == address(0)) revert ZeroAddress();
-        if (_registry == address(0)) revert ZeroAddress();
+        if (_districtRegistry == address(0)) revert ZeroAddress();
+        if (_nullifierRegistry == address(0)) revert ZeroAddress();
         if (_governance == address(0)) revert ZeroAddress();
+        if (_guardians.length < MIN_GUARDIANS) revert InsufficientGuardians();
 
         verifier = _verifier;
-        registry = DistrictRegistry(_registry);
+        districtRegistry = DistrictRegistry(_districtRegistry);
+        nullifierRegistry = NullifierRegistry(_nullifierRegistry);
         governance = _governance;
 
-        // Initialize EIP-712 domain separator
+        // Initialize guardians
+        for (uint256 i = 0; i < _guardians.length; i++) {
+            if (_guardians[i] == address(0)) revert ZeroAddress();
+            _addGuardian(_guardians[i]);
+        }
+
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("DistrictGate")),
-                keccak256(bytes("1")),
+                keccak256(bytes("3")), // Version 3 with GuardianShield
                 block.chainid,
                 address(this)
             )
         );
     }
 
-    /// @notice DEPRECATED: This function was removed due to MEV vulnerability
-    /// @dev Use verifyAndAuthorizeWithSignature instead for MEV-resistant proof submission
-    /// @dev This function emitted msg.sender as reward recipient, allowing MEV front-running
-    /// @dev Migration deadline: All frontends must use signature-based submission by 2025-12-01
-    function verifyAndAuthorize(
-        bytes calldata, // proof
-        bytes32,        // districtRoot
-        bytes32,        // nullifier
-        bytes32,        // actionId
-        bytes3          // expectedCountry
-    ) external pure {
-        revert("DEPRECATED: Use verifyAndAuthorizeWithSignature");
-    }
+    // ============================================================================
+    // Proof Verification
+    // ============================================================================
 
     /// @notice Verify district membership proof with EIP-712 signature (MEV-resistant)
-    /// @param signer Expected signer address (reward recipient, must match signature)
-    /// @param proof Halo2 proof bytes (SHPLONK proof, ~384-512 bytes)
-    /// @param districtRoot District Merkle root (public input)
-    /// @param nullifier Unique nullifier to prevent double-actions (public input)
-    /// @param actionId Action identifier (public input)
-    /// @param expectedCountry Expected ISO 3166-1 alpha-3 country code
-    /// @param deadline Signature expiration timestamp
-    /// @param signature EIP-712 signature from signer
-    /// @dev MEV-RESISTANT: Rewards bound to signer (not msg.sender/submitter)
-    ///      Even if MEV bot front-runs, signer address in event determines reward recipient
-    /// @dev CRITICAL SECURITY FIX: Addresses CRITICAL #5 from adversarial analysis
-    ///      - MEV bots can front-run, but rewards always go to original signer
-    ///      - Off-chain indexers MUST read 'user' field (not 'submitter') for rewards
-    /// @dev PAUSABLE: Respects circuit breaker for emergency response
     function verifyAndAuthorizeWithSignature(
         address signer,
         bytes calldata proof,
@@ -204,19 +158,11 @@ contract DistrictGate is Pausable {
         uint256 deadline,
         bytes calldata signature
     ) external whenNotPaused {
-        // Check: Signer not zero address
         if (signer == address(0)) revert ZeroAddress();
-        // Check: Signature not expired
         if (block.timestamp > deadline) revert SignatureExpired();
-
-        // Check: Action is authorized
         if (!authorizedActions[actionId]) revert ActionNotAuthorized();
 
-        // Check: Prevent nullifier reuse (double-voting protection)
-        if (nullifierUsed[nullifier]) revert NullifierAlreadyUsed();
-
         // Compute EIP-712 digest
-        // The signer parameter tells us who signed, and we verify the signature matches
         bytes32 proofHash = keccak256(proof);
         bytes32 structHash = keccak256(
             abi.encode(
@@ -226,7 +172,7 @@ contract DistrictGate is Pausable {
                 nullifier,
                 actionId,
                 expectedCountry,
-                nonces[signer],  // Use the signer's current nonce
+                nonces[signer],
                 deadline
             )
         );
@@ -234,22 +180,18 @@ contract DistrictGate is Pausable {
             abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
         );
 
-        // Verify signature matches the claimed signer
         address recoveredSigner = ECDSA.recover(digest, signature);
         if (recoveredSigner != signer) revert InvalidSignature();
 
-        // Increment nonce for replay protection
         nonces[signer]++;
 
         // Step 1: Verify ZK proof
-        // Public inputs: [districtRoot, nullifier, actionId]
         uint256[3] memory publicInputs = [
             uint256(districtRoot),
             uint256(nullifier),
             uint256(actionId)
         ];
 
-        // Call Halo2Verifier contract
         (bool success, bytes memory result) = verifier.call(
             abi.encodeWithSignature(
                 "verifyProof(bytes,uint256[3])",
@@ -262,21 +204,17 @@ contract DistrictGate is Pausable {
             revert VerificationFailed();
         }
 
-        // Step 2: Verify district is registered for expected country
-        bytes3 actualCountry = registry.getCountry(districtRoot);
+        // Step 2: Verify district is registered
+        bytes3 actualCountry = districtRegistry.getCountry(districtRoot);
         if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
-        if (actualCountry != expectedCountry) {
-            revert UnauthorizedDistrict();
-        }
+        if (actualCountry != expectedCountry) revert UnauthorizedDistrict();
 
-        // Effects: Mark nullifier as used
-        nullifierUsed[nullifier] = true;
+        // Step 3: Record nullifier
+        nullifierRegistry.recordNullifier(actionId, nullifier, districtRoot);
 
-        // Emit event with SIGNER as user (reward recipient), msg.sender as submitter
-        // CRITICAL: Off-chain indexers MUST send rewards to 'signer', not 'msg.sender'
         emit ActionVerified(
-            signer,      // user (reward recipient - the one who generated the proof)
-            msg.sender,  // submitter (the one who paid gas - may be MEV bot)
+            signer,
+            msg.sender,
             districtRoot,
             actualCountry,
             nullifier,
@@ -284,37 +222,37 @@ contract DistrictGate is Pausable {
         );
     }
 
-    /// @notice DEPRECATED: This function was removed due to MEV vulnerability
-    /// @dev Use individual verifyAndAuthorizeWithSignature calls instead
-    /// @dev Batch functions are vulnerable to partial failures and MEV front-running
-    /// @dev Migration deadline: All frontends must use signature-based submission by 2025-12-01
-    function verifyBatch(
-        bytes[] calldata, // proofs
-        bytes32[] calldata, // districtRoots
-        bytes32[] calldata, // nullifiers
-        bytes32[] calldata, // actionIds
-        bytes3              // expectedCountry
-    ) external pure {
-        revert("DEPRECATED: Use verifyAndAuthorizeWithSignature");
+    // ============================================================================
+    // View Functions
+    // ============================================================================
+
+    function isNullifierUsed(bytes32 actionId, bytes32 nullifier) external view returns (bool) {
+        return nullifierRegistry.isNullifierUsed(actionId, nullifier);
     }
 
-    /// @notice Authorize an action ID
-    /// @param actionId Action identifier to authorize
+    function getParticipantCount(bytes32 actionId) external view returns (uint256) {
+        return nullifierRegistry.getParticipantCount(actionId);
+    }
+
+    function isActionAuthorized(bytes32 actionId) external view returns (bool) {
+        return authorizedActions[actionId];
+    }
+
+    // ============================================================================
+    // Action Authorization
+    // ============================================================================
+
     function authorizeAction(bytes32 actionId) external onlyGovernance {
         require(actionId != bytes32(0), "Invalid action ID");
         authorizedActions[actionId] = true;
         emit ActionAuthorized(actionId, true);
     }
 
-    /// @notice Deauthorize an action ID
-    /// @param actionId Action identifier to deauthorize
     function deauthorizeAction(bytes32 actionId) external onlyGovernance {
         authorizedActions[actionId] = false;
         emit ActionAuthorized(actionId, false);
     }
 
-    /// @notice Batch authorize multiple actions
-    /// @param actionIds Array of action identifiers
     function batchAuthorizeActions(bytes32[] calldata actionIds) external onlyGovernance {
         for (uint256 i = 0; i < actionIds.length; ) {
             bytes32 actionId = actionIds[i];
@@ -325,14 +263,13 @@ contract DistrictGate is Pausable {
         }
     }
 
-    /// @notice Initiate governance transfer (starts 7-day timelock)
-    /// @param newGovernance New governance address
-    /// @dev Only current governance can initiate
-    ///      Timelock prevents instant takeover if multi-sig compromised
-    ///      Community has 7 days to detect and respond to malicious transfer
+    // ============================================================================
+    // Governance Transfer (7-day timelock + Guardian veto)
+    // ============================================================================
+
     function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
         if (newGovernance == address(0)) revert ZeroAddress();
-        if (newGovernance == governance) revert ZeroAddress(); // Cannot transfer to self
+        if (newGovernance == governance) revert ZeroAddress();
 
         uint256 executeTime = block.timestamp + GOVERNANCE_TIMELOCK;
         pendingGovernance[newGovernance] = executeTime;
@@ -340,14 +277,11 @@ contract DistrictGate is Pausable {
         emit GovernanceTransferInitiated(newGovernance, executeTime);
     }
 
-    /// @notice Execute pending governance transfer (after 7-day timelock)
-    /// @param newGovernance New governance address
-    /// @dev Anyone can execute after timelock expires
-    ///      This ensures transfer completes even if current governance is compromised
     function executeGovernanceTransfer(address newGovernance) external {
         uint256 executeTime = pendingGovernance[newGovernance];
         if (executeTime == 0) revert TransferNotInitiated();
         if (block.timestamp < executeTime) revert TimelockNotExpired();
+        if (isVetoed(newGovernance)) revert TransferVetoed();
 
         address previousGovernance = governance;
         governance = newGovernance;
@@ -356,45 +290,80 @@ contract DistrictGate is Pausable {
         emit GovernanceTransferred(previousGovernance, newGovernance);
     }
 
-    /// @notice Cancel pending governance transfer
-    /// @param newGovernance Target governance address to cancel
-    /// @dev Only current governance can cancel
-    ///      Use this if transfer was initiated in error or compromise detected
     function cancelGovernanceTransfer(address newGovernance) external onlyGovernance {
         if (pendingGovernance[newGovernance] == 0) revert TransferNotInitiated();
 
         delete pendingGovernance[newGovernance];
+        _clearVeto(newGovernance);
         emit GovernanceTransferCancelled(newGovernance);
     }
 
-    /// @notice Check if a nullifier has been used
-    /// @param _nullifier Nullifier to check
-    /// @return True if nullifier has been used
-    function isNullifierUsed(bytes32 _nullifier) external view returns (bool) {
-        return nullifierUsed[_nullifier];
+    // ============================================================================
+    // Verifier Upgrade (14-day timelock + Guardian veto)
+    // ============================================================================
+
+    /// @notice Initiate verifier upgrade (starts 14-day timelock)
+    /// @param newVerifier New verifier contract address
+    function initiateVerifierUpgrade(address newVerifier) external onlyGovernance {
+        if (newVerifier == address(0)) revert ZeroAddress();
+        if (newVerifier == verifier) revert ZeroAddress();
+
+        pendingVerifier = newVerifier;
+        verifierUpgradeTime = block.timestamp + VERIFIER_UPGRADE_TIMELOCK;
+
+        emit VerifierUpgradeInitiated(newVerifier, verifierUpgradeTime);
     }
 
-    /// @notice Check if an action is authorized
-    /// @param actionId Action identifier to check
-    /// @return True if action is authorized
-    function isActionAuthorized(bytes32 actionId) external view returns (bool) {
-        return authorizedActions[actionId];
+    /// @notice Execute verifier upgrade (after 14-day timelock, if not vetoed)
+    function executeVerifierUpgrade() external {
+        if (pendingVerifier == address(0)) revert UpgradeNotInitiated();
+        if (block.timestamp < verifierUpgradeTime) revert TimelockNotExpired();
+        if (isVetoed(pendingVerifier)) revert TransferVetoed();
+
+        address previousVerifier = verifier;
+        verifier = pendingVerifier;
+        delete pendingVerifier;
+        delete verifierUpgradeTime;
+
+        emit VerifierUpgraded(previousVerifier, verifier);
     }
 
-    /// @notice Pause contract (emergency circuit breaker)
-    /// @dev Only governance can pause
-    ///      Pausing stops all proof verification functions
-    ///      Governance operations (authorize actions, etc.) remain available
-    ///      Use this when critical vulnerability discovered or circuit compromise suspected
+    /// @notice Cancel pending verifier upgrade
+    function cancelVerifierUpgrade() external onlyGovernance {
+        if (pendingVerifier == address(0)) revert UpgradeNotInitiated();
+
+        address target = pendingVerifier;
+        delete pendingVerifier;
+        delete verifierUpgradeTime;
+        _clearVeto(target);
+
+        emit VerifierUpgradeCancelled(target);
+    }
+
+    // ============================================================================
+    // Guardian Management
+    // ============================================================================
+
+    /// @notice Add a guardian (governance only)
+    function addGuardian(address guardian) external onlyGovernance {
+        if (guardian == address(0)) revert ZeroAddress();
+        _addGuardian(guardian);
+    }
+
+    /// @notice Remove a guardian (governance only)
+    function removeGuardian(address guardian) external onlyGovernance {
+        _removeGuardian(guardian);
+    }
+
+    // ============================================================================
+    // Pause Controls
+    // ============================================================================
+
     function pause() external onlyGovernance {
         _pause();
         emit ContractPaused(msg.sender);
     }
 
-    /// @notice Unpause contract (restore normal operation)
-    /// @dev Only governance can unpause
-    ///      Unpausing re-enables all proof verification functions
-    ///      Only unpause after vulnerability patched and verified
     function unpause() external onlyGovernance {
         _unpause();
         emit ContractUnpaused(msg.sender);

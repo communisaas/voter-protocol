@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
+import "../src/NullifierRegistry.sol";
 
 /// @title EIP-712 MEV Protection Tests
 /// @notice Tests the MEV-resistant signature-based proof submission
@@ -11,6 +12,7 @@ import "../src/DistrictRegistry.sol";
 contract EIP712MEVTest is Test {
     DistrictGate gate;
     DistrictRegistry registry;
+    NullifierRegistry nullifierRegistry;
     address verifier;
     address governance;
     address user;
@@ -35,11 +37,21 @@ contract EIP712MEVTest is Test {
         // Deploy mock verifier (always returns true)
         verifier = address(new MockVerifier());
 
-        // Deploy registry
+        // Deploy registries
         registry = new DistrictRegistry(governance);
+        nullifierRegistry = new NullifierRegistry(governance);
+
+        // Create guardian array (min 2 required)
+        address[] memory guardians = new address[](2);
+        guardians[0] = address(0x100);
+        guardians[1] = address(0x101);
 
         // Deploy gate
-        gate = new DistrictGate(verifier, address(registry), governance);
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+
+        // Authorize gate as caller
+        vm.prank(governance);
+        nullifierRegistry.authorizeCaller(address(gate));
 
         // Register district
         vm.startPrank(governance);
@@ -90,21 +102,21 @@ contract EIP712MEVTest is Test {
             signature
         );
 
-        // Check event was emitted with correct addresses
+        // Check events were emitted (NullifierRegistry emits ActionCreated + ActionSubmitted, then DistrictGate emits ActionVerified)
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        assertEq(entries.length, 1, "Should emit one event");
+        assertEq(entries.length, 3, "Should emit three events");
 
-        // Decode ActionVerified event
+        // Decode ActionVerified event (last event, index 2)
         // event ActionVerified(address indexed user, address indexed submitter, ...)
-        assertEq(entries[0].topics.length, 4, "Should have 4 indexed topics");
+        assertEq(entries[2].topics.length, 4, "Should have 4 indexed topics");
 
         // topics[0] = event signature
         // topics[1] = user (indexed)
         // topics[2] = submitter (indexed)
         // topics[3] = districtRoot (indexed)
 
-        address eventUser = address(uint160(uint256(entries[0].topics[1])));
-        address eventSubmitter = address(uint160(uint256(entries[0].topics[2])));
+        address eventUser = address(uint160(uint256(entries[2].topics[1])));
+        address eventSubmitter = address(uint160(uint256(entries[2].topics[2])));
 
         // CRITICAL: Reward must go to 'user' (signer), not 'submitter' (MEV bot)
         assertEq(eventUser, user, "Event user must be original signer");

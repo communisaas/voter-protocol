@@ -4,6 +4,7 @@ pragma solidity =0.8.19;
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
+import "../src/NullifierRegistry.sol";
 
 /// @title DistrictGate Core Tests
 /// @notice Tests the core verification functions of DistrictGate
@@ -11,6 +12,7 @@ import "../src/DistrictRegistry.sol";
 contract DistrictGateCoreTest is Test {
     DistrictGate public gate;
     DistrictRegistry public registry;
+    NullifierRegistry public nullifierRegistry;
     address public verifier;
 
     address public governance = address(0x1);
@@ -34,11 +36,21 @@ contract DistrictGateCoreTest is Test {
         // Deploy mock verifier
         verifier = address(new MockVerifier());
 
-        // Deploy registry
+        // Deploy registries
         registry = new DistrictRegistry(governance);
+        nullifierRegistry = new NullifierRegistry(governance);
 
-        // Deploy gate
-        gate = new DistrictGate(verifier, address(registry), governance);
+        // Create guardian array (min 2 required)
+        address[] memory guardians = new address[](2);
+        guardians[0] = address(0x100);
+        guardians[1] = address(0x101);
+
+        // Deploy gate with all 5 params including guardians
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+
+        // Authorize gate as caller on NullifierRegistry
+        vm.prank(governance);
+        nullifierRegistry.authorizeCaller(address(gate));
     }
 
     // ============ CRITICAL #2: Unregistered District Bypass Tests ============
@@ -308,7 +320,7 @@ contract DistrictGateCoreTest is Test {
         );
 
         // Verify nullifier was marked as used
-        assertTrue(gate.isNullifierUsed(NULLIFIER));
+        assertTrue(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
     }
 
     function test_RevertWhen_ActionNotAuthorized() public {
@@ -394,7 +406,7 @@ contract DistrictGateCoreTest is Test {
             USA
         );
 
-        vm.expectRevert(DistrictGate.NullifierAlreadyUsed.selector);
+        vm.expectRevert(NullifierRegistry.NullifierAlreadyUsed.selector);
         gate.verifyAndAuthorizeWithSignature(
             signer,
             proof,
@@ -457,7 +469,7 @@ contract DistrictGateCoreTest is Test {
         bytes memory proof = hex"deadbeef";
 
         // Nullifier not used before
-        assertFalse(gate.isNullifierUsed(NULLIFIER));
+        assertFalse(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
 
         uint256 userPrivateKey = 0x2222;
         address signer = vm.addr(userPrivateKey);
@@ -485,7 +497,7 @@ contract DistrictGateCoreTest is Test {
         );
 
         // Nullifier marked as used
-        assertTrue(gate.isNullifierUsed(NULLIFIER));
+        assertTrue(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
     }
 
     function test_MultipleUsersCanVerifyWithDifferentNullifiers() public {
@@ -552,8 +564,8 @@ contract DistrictGateCoreTest is Test {
         );
 
         // Both nullifiers marked as used
-        assertTrue(gate.isNullifierUsed(nullifier1));
-        assertTrue(gate.isNullifierUsed(nullifier2));
+        assertTrue(gate.isNullifierUsed(ACTION_ID, nullifier1));
+        assertTrue(gate.isNullifierUsed(ACTION_ID, nullifier2));
     }
 
     function test_IsActionAuthorized() public view {
@@ -563,7 +575,7 @@ contract DistrictGateCoreTest is Test {
 
     function test_IsNullifierUsed() public view {
         // Initially not used
-        assertFalse(gate.isNullifierUsed(NULLIFIER));
+        assertFalse(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
     }
 
     // ============ Action Authorization Tests ============
