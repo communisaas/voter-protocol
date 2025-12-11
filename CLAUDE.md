@@ -80,10 +80,10 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 **Cryptographic research and technical decisions:**
 - **[RESEARCH_SUMMARY.md](docs/RESEARCH_SUMMARY.md)** - Complete research findings (200+ pages consolidated)
   - Security analysis (P0 fixes complete)
-  - ZK proof system decision (Halo2 chosen)
+  - ZK proof system decision (Noir/bb.js chosen)
   - STARK research (four-phase analysis)
   - Phase 1.5 optimization triggers
-- **[STARK_CAPACITY_CONJECTURE.md](docs/STARK_CAPACITY_CONJECTURE.md)** - Why Halo2 immune to STARK security issues
+- **[STARK_CAPACITY_CONJECTURE.md](docs/STARK_CAPACITY_CONJECTURE.md)** - Why Noir immune to STARK security issues
 - **[STARK_MOBILE_BENCHMARKS.md](docs/STARK_MOBILE_BENCHMARKS.md)** - Why no STARK migration (zero mobile benchmarks exist)
 
 **Key principle**: Zero repetition. User docs in root, research references in `/docs/`. Git history is the audit trail.
@@ -106,7 +106,7 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 **Identity & Privacy**: Dual-Layer Architecture with Clear AWS Boundaries
 - **On-chain identity (NO AWS dependency):**
   - Poseidon hash commitments on Scroll L2 (district membership)
-  - Halo2 ZK proofs generated 100% in browser (address never leaves device)
+  - Noir ZK proofs generated 100% in browser (address never leaves device)
   - Zero server trust for identity verification
 - **Message delivery (AWS Nitro Enclaves dependency):**
   - PII encrypted at rest, decrypted ONLY inside AWS Nitro Enclave
@@ -119,9 +119,9 @@ The VOTER Protocol is democracy infrastructure that competes in the attention ec
 
 ### Core Cryptographic Primitives
 
-**Zero-Knowledge Proofs**: Halo2 recursive proofs with KZG commitments for district residency verification
-- Browser-native WASM proving (8-15 seconds on mid-range mobile)
-- 384-512 byte proof size (K=14 circuit, 117,473 cells, 8 columns, 16,384 rows)
+**Zero-Knowledge Proofs**: Noir/Barretenberg proofs with UltraPlonk for district residency verification
+- Browser-native WASM proving via `@aztec/bb.js` (<10 seconds on mid-range mobile)
+- Compact proof size (circuit depth 14-20 depending on authority type)
 - Verifies congressional district membership without revealing address
 - Shadow Atlas Merkle tree (190+ countries, quarterly IPFS updates)
 - KZG ceremony via Ethereum's 141K-participant setup (no custom trusted setup)
@@ -389,11 +389,10 @@ forge test            # Contract tests must pass
 forge coverage        # Verify >95% coverage
 slither .             # Static analysis (no high/medium issues)
 
-# ZK Circuits (Halo2/Rust):
-cd packages/crypto/circuits
-cargo test --lib      # All circuit tests must pass (includes golden vectors + adversarial tests)
-cargo clippy          # Zero warnings allowed
-cargo build --release # Production build must succeed
+# ZK Circuits (Noir):
+cd packages/crypto/noir
+nargo test            # All circuit tests must pass
+nargo compile         # Circuit compilation must succeed
 ```
 
 **Remember: We're building financial infrastructure AND cryptographic proofs that handle real money. Type safety and circuit soundness are non-negotiable.**
