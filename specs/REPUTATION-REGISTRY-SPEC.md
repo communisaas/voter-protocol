@@ -1,9 +1,17 @@
 # VOTER Protocol: Reputation Registry Specification
 
+**⚠️ PHASE 1 + PHASE 2 SPECIFICATION ⚠️**
+
+**Phase 1 (3 months)**: Reputation-only signals (template adoption, bill tracking, professional credentials, civic velocity, peer endorsements).
+
+**Phase 2 (12-18 months)**: Challenge markets + impact verification add economic validation and legislative outcome tracking.
+
+---
+
 **Status**: Phase 1 (reputation-only), Phase 2 (challenge markets + impact verification)
 **Standard**: ERC-8004 (three-registry system: identity, reputation, validation)
 **Research Basis**: McDonald 2018 congressional staffer needs, Gitcoin quadratic funding
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 **Principle**: **Concrete, verifiable signals only. No abstract AI-determined quality scores.**
 
 ---

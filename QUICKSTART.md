@@ -1,6 +1,6 @@
 # Quickstart: Your First Action in 4 Minutes
 
-**No blockchain knowledge needed. No wallet setup. No seed phrases.**
+**No wallet setup. No seed phrases. Cryptography happens invisibly.**
 
 **Phase 1 Launch** (3 months): Build reputation, send cryptographically verified messages, prove civic utility. No tokens yet—just better constituent-representative communication.
 
@@ -33,9 +33,9 @@ If your device doesn't have biometrics, you can use a PIN. The point: no frictio
 
 -----
 
-## Step 2: Verify Identity (2 minutes)
+## Step 2: Verify Address (2 minutes)
 
-**Phase 1 requires verification** - Your messages must cryptographically prove district membership to reach congressional offices. This eliminates spam and gives staffers quality signals they're asking for.
+**Phase 1 requires address verification** - Your messages must cryptographically prove district membership to reach congressional offices through zero-knowledge proofs. Your address never leaves your browser.
 
 ### Method 1: Passport NFC Scan (Recommended - 70% of users)
 - Tap "Verify with [self.xyz](https://www.self.xyz)"
@@ -113,7 +113,7 @@ Tap "Send to My Representative"
 **What happens behind the scenes (Phase 1):**
 1. Your browser generates zero-knowledge proof (8-15 seconds)
    - Proves you live in your district without revealing your address
-   - Address verified in secure enclave, then destroyed
+   - Address stays in browser, ZK proof verified on-chain (Scroll L2)
    - Address never leaves browser, never stored anywhere
 2. Message passes 3-layer content moderation (AI consensus + human review)
 3. Your proof settles on-chain; your district is confirmed without exposing you
@@ -213,7 +213,7 @@ Tap "Send to My Representative"
 ## Privacy: What Staffers See vs. What's Private
 
 **Congressional office sees (Phase 1):**
-- "Verified constituent in TX-18" (Halo2 K=14 zero-knowledge proof, browser-native generation)
+- "Verified constituent in TX-18" (cryptographic district proof, browser-native generation)
 - "Reputation score: 8,500 in healthcare policy" (domain expertise from on-chain actions)
 - "Content moderation: Passed 3-layer review" (OpenAI + Gemini/Claude + human)
 - "Previous templates correlated with 2 legislative outcomes" (impact tracking verified)
@@ -265,8 +265,8 @@ A: **Phase 1**: Report it for human review (moderation team investigates). **Pha
 **Q: How do I know my message actually got delivered?**
 A: Cryptographic receipt with timestamp. If office uses our dashboard, you can see which staffer's queue it entered.
 
-**Q: Do I have to verify identity?**
-A: **Phase 1**: Yes, for messages to reach congressional offices. Congressional staff can't tell community coordination from bot farms without verification. They dismiss 66% of digital contact as spam because they have no way to verify district membership. Verification solves their filtering problem—your message reaches policy staff instead of spam folder. Verify via [self.xyz](https://www.self.xyz) passport NFC or [Didit.me](https://www.didit.me) government ID. **Phase 2**: Unverified users can participate with reduced token rewards but verified users get full economic benefits.
+**Q: Do I have to verify my identity?**
+A: **Phase 1**: Address verification only (zero-knowledge proof). Your browser proves you live in a congressional district without revealing your address—no identity verification required. **Phase 2**: Identity verification (self.xyz/Didit.me) adds Sybil resistance for token rewards. Verified users earn full token rewards; unverified users can still participate but with reduced economic benefits.
 
 **Q: What if I don't care about earning tokens?**
 A: **Phase 1**: You're building reputation that proves civic expertise. Staffers prioritize your messages over spam. Your impact gets tracked and verified. Phase 1 is about proving democracy can work better. **Phase 2**: When economic layer launches, your Phase 1 reputation converts to token reward multipliers. Early participants positioned for significant Phase 2 earnings. Privacy protection and congressional access matter regardless of economic incentives.
@@ -285,7 +285,7 @@ A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](
 
 **Go deeper:**
 - [README.md](README.md) - Why this exists and what changes
-- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Halo2 K=14 zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
+- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Noir/Barretenberg zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
 - [CONGRESSIONAL.md](CONGRESSIONAL.md) - Congressional office integration and quality signals
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Phase 1 + Phase 2 evolution)
 - [SECURITY.md](SECURITY.md) - Living threat model and incident response

@@ -1,9 +1,9 @@
 # VOTER Protocol: Technical Architecture
 
-**Status**: Active development - Phase 1 implementation (single-tier Halo2 (SHPLONK/KZG), reputation-only)
-**Last Updated**: October 2025
+**Status**: Active development - Phase 1 implementation (Noir/Barretenberg UltraPlonk, reputation-only)
+**Last Updated**: December 2025
 **Implementation**: Smart contracts in this repo, frontend in Communique repo
-**Core Decisions**: Scroll settlement, Halo2 zero-knowledge proofs, Scroll identity registry (on-chain Sybil resistance), no database PII storage, no NEAR dependency
+**Core Decisions**: Scroll settlement, Noir/Barretenberg zero-knowledge proofs, Scroll identity registry (on-chain Sybil resistance), no database PII storage, no NEAR dependency
 
 ---
 
@@ -13,7 +13,7 @@ Democratic infrastructure should not ask for permission to protect its citizens.
 
 **Settlement**: Scroll zkEVM (Ethereum L2)
 **Identity**: self.xyz (primary) + Didit.me (fallback)
-**Privacy**: Browser‑native Halo2 proofs; addresses never leave the device
+**Privacy**: Browser‑native Noir/Barretenberg proofs; addresses never leave the device
 **Storage**: Minimal metadata only; encrypted where needed
 **Delivery**: CWC API with enclave‑protected processing
 **Moderation**: 3‑layer stack (automation + consensus + human)
@@ -23,12 +23,12 @@ Democratic infrastructure should not ask for permission to protect its citizens.
 
 ## Phase Architecture Overview
 
-VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations and proves civic utility **with full privacy from day one** (browser-native Halo2 proofs, selective disclosure). Phase 2 adds token economics. Phase 3+ (speculative, only if community demands) would explore **enhanced** privacy through nested ZK proofs.
+VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations and proves civic utility **with full privacy from day one** (browser-native Noir/Barretenberg proofs, selective disclosure). Phase 2 adds token economics. Phase 3+ (speculative, only if community demands) would explore **enhanced** privacy through nested ZK proofs.
 
 ### Phase 1: Cryptographic Infrastructure (Current - 3 Months to Launch)
 
 **What Ships:**
-- Halo2 zero-knowledge district proofs (browser-native WASM, single-tier Halo2 (SHPLONK/KZG), 300–500k gas; no trusted setup; battle-tested since 2022)
+- Noir/Barretenberg zero-knowledge district proofs (browser-native WASM, UltraPlonk + KZG, 300–500k gas; Aztec ceremony; production-grade since 2024)
 - Addresses never leave browser, never stored in any database
 - Message content encryption from platform operators (XChaCha20-Poly1305, delivered as plaintext to congressional offices via CWC API)
 - Browser-native proving (zero cloud dependency, $0/month infrastructure cost)
@@ -59,7 +59,7 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 
 ### Phase 3+: Enhanced Privacy (Speculative - 2+ Years, Only If Community Demands)
 
-**Context:** Phase 1 already provides **full privacy** through browser-native Halo2 proofs that never transmit addresses. Users have selective disclosure from day one (prove district membership without revealing address, prove reputation range without exact score). Phase 3+ would explore **optional, stronger privacy** features that come with architectural tradeoffs.
+**Context:** Phase 1 already provides **full privacy** through browser-native Noir/Barretenberg proofs that never transmit addresses. Users have selective disclosure from day one (prove district membership without revealing address, prove reputation range without exact score). Phase 3+ would explore **optional, stronger privacy** features that come with architectural tradeoffs.
 
 **Only if community demands AND congressional offices accept:**
 - Nested ZK proofs (prove "reputation > 5000" without revealing exact score, vs current exact scoring visible to congressional offices)
@@ -90,7 +90,7 @@ flowchart TB
 
     subgraph Privacy["ZK Privacy Layer"]
         Atlas[Shadow Atlas District Merkle Tree]
-        Circuit[Halo2 Circuit Browser-based]
+        Circuit[Noir Circuit Browser-based]
         Proof[ZK Proof 4-6 sec generation]
     end
 
@@ -194,20 +194,24 @@ flowchart LR
 
 ### Layer 2: Identity Verification
 
+**NOTE:** Identity verification is Phase 2 only (for economic incentives). Phase 1 uses permissionless address verification via browser-native ZK proofs.
+
 **Primary: Self.xyz (Instant Passport Verification)**
 - NFC passport scan (30 seconds)
-- Instant on-chain verification
-- Zero-knowledge proof of identity attributes
-- Extracts congressional district from passport address
+- Instant verification of identity (NOT address for ZK proof)
+- Provider reads address to determine congressional district
+- Address NOT stored by provider (used only for district determination)
+- User's browser generates ZK proof separately (address stays in browser)
 - Cost: $0.50 per verification
-- Privacy: On-chain attestation without revealing PII
+- Privacy: Verifiable Credential issued, no PII storage
 
 **Fallback: Didit.me (Non-Passport KYC)**
 - Government ID + face scan + liveness (for users without NFC-enabled passports)
-- Address verification via utility bill
-- Congressional district mapping via geocoding
+- Provider reads address to determine congressional district
+- Address NOT stored by provider (used only for district determination)
+- User's browser generates ZK proof separately (address stays in browser)
 - Cost: $0 (free core KYC) + $0.50 (proof of address)
-- Privacy: Issues Verifiable Credential (VC), no on-chain PII storage
+- Privacy: Issues Verifiable Credential (VC), no PII storage
 
 **Output (Both Providers)**: Verifiable Credential (VC)
 ```json
@@ -330,7 +334,7 @@ function generateIdentityCommitment(
     const nationalityField = stringToFieldElement(normalizedNationality);
     const birthYearField = BigInt(birthYear);
 
-    // Poseidon hash (ZK-friendly, compatible with Halo2 circuits)
+    // Poseidon hash (ZK-friendly, compatible with Noir circuits)
     const hash = poseidon2([passportField, nationalityField, birthYearField]);
 
     // Convert to bytes32 for Solidity
@@ -589,26 +593,26 @@ GET /api/shadow-atlas/proof/:district_id
 
 ---
 
-### District Membership Proof (Halo2 Single-Tier + On-Chain Registry)
+### District Membership Proof (Noir/Barretenberg + On-Chain Registry)
 
-**Updated October 2025:** Production architecture using Halo2 single-tier circuit with on-chain district registry.
+**Updated October 2025:** Production architecture using Noir/Barretenberg circuit with on-chain district registry.
 
 **Architecture**: Single-tier Merkle circuit with on-chain district registry. K=14 verifier (20KB) fits EIP-170 with 18% margin. Production-ready for deployment.
 
 **Key Insight**: District→country mappings are PUBLIC data (congressional districts are not secrets), so we use governance + transparency (on-chain registry) instead of cryptography for this layer. This avoids "ZK-maximalism"—forcing everything into cryptographic proofs when simpler solutions exist.
 
 **Two-Step Verification Model**:
-1. **Step 1 (Cryptographic)**: Halo2 ZK proof proves "I am a member of district X"
+1. **Step 1 (Cryptographic)**: UltraPlonk proof proves "I am a member of district X"
 2. **Step 2 (On-Chain Registry)**: DistrictRegistry.sol checks "district X belongs to country Y"
 
 **Security**: Attack requires compromising BOTH cryptography (breaking ZK proof) AND governance (compromising multi-sig). Each layer independently provides security.
 
 ```rust
-// Halo2 Single-Tier Circuit using Axiom halo2_base (Trail of Bits audited)
-use halo2_base::{
+// Noir District Membership Circuit (Barretenberg backend)
+use Noir stdlib::{
     gates::GateInstructions,
     AssignedValue, Context,
-    halo2_proofs::halo2curves::bn256::Fr,
+    // Uses BN254 curve (Ethereum-compatible)
 };
 use crate::poseidon_hash::{hash_pair_with_hasher, hash_single_with_hasher, create_poseidon_hasher};
 use crate::merkle::verify_merkle_path_with_hasher;
@@ -685,7 +689,7 @@ impl DistrictMembershipCircuit {
 }
 ```
 
-**Why Halo2 Single-Tier + Registry:**
+**Why Noir/Barretenberg + Registry:**
 
 **Current Implementation (K=14 Single-Tier)**:
 
@@ -722,17 +726,18 @@ impl DistrictMembershipCircuit {
   - Verifier bytecode: **20,142 bytes** (fits EIP-170 24KB limit with 18% margin)
 
 - **Resource usage**:
-  - WASM size: ~8-12MB (Halo2 prover, cached after first load)
+  - WASM size: ~8-12MB (Noir/Barretenberg prover, cached after first load)
   - Memory peak: <600MB during proving
   - Battery: <2% on mobile (acceptable for verification flow)
   - Network: ~50KB district tree download from IPFS
 
-**Client-Side Proof Generation (Halo2 K=14)**:
+**Client-Side Proof Generation (Noir/Barretenberg)**:
 
 ```javascript
-// Load Halo2 prover WASM (8-12MB, cached after first load)
-const halo2Prover = await import("@voter-protocol/zk-circuits/wasm");
-await halo2Prover.default(); // Initialize WASM
+// Load Noir/Barretenberg prover WASM (8-12MB, cached after first load)
+import { Barretenberg } from '@voter-protocol/bb.js';
+import { Noir } from '@noir-lang/noir_js';
+const api = await Barretenberg.new(); // Initialize WASM
 
 // Fetch district tree from IPFS (~50KB per district)
 const districtTree = await fetch(`https://ipfs.io/ipfs/${DISTRICT_CID}/${district_id}`);
@@ -749,8 +754,8 @@ const witnesses = {
   action_id: hash("contact_rep"),            // Public context
 };
 
-// Generate Halo2 proof (2-8 seconds on mobile, 600ms-2s on desktop)
-const { proof, publicOutputs } = await halo2Prover.generateProof(
+// Generate UltraPlonk proof (2-8 seconds on mobile, 600ms-2s on desktop)
+const { proof, publicOutputs } = await noirProver.prove(
   witnesses,
   {
     k: 12,  // 4,096 rows
@@ -764,13 +769,28 @@ const { proof, publicOutputs } = await halo2Prover.generateProof(
 // - action_id: Action identifier
 const { district_root, nullifier, action_id } = publicOutputs;
 
-// Submit to DistrictGate.sol for two-step verification
-const tx = await districtGate.verifyAndAuthorize(
-  proof,                    // 384-512 byte Halo2 proof
+// Submit to DistrictGate.sol for verification (permissionless - any actionId works)
+// EIP-712 signature ensures signer gets credit, not MEV bots
+const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+const signature = await signer.signTypedData(domain, types, {
+  proofHash: keccak256(proof),
+  districtRoot: district_root,
+  nullifier,
+  actionId: action_id,
+  country: "USA",
+  nonce: await districtGate.nonces(signer.address),
+  deadline
+});
+
+const tx = await districtGate.verifyAndAuthorizeWithSignature(
+  signer.address,           // Original signer (gets credit)
+  proof,                    // 384-512 byte UltraPlonk proof
   district_root,            // District Merkle root (checked against registry)
   nullifier,                // Prevents double-voting
-  action_id,                // Action identifier
-  "USA"                     // Expected country (verified via registry lookup)
+  action_id,                // Action identifier (ANY bytes32 is valid)
+  "USA",                    // Expected country (verified via registry lookup)
+  deadline,
+  signature
 );
 
 // Result: Proof verified, action authorized
@@ -799,18 +819,28 @@ contract DistrictRegistry {
 }
 
 // Step 2: DistrictGate.sol - Master verification orchestration
+// PERMISSIONLESS ACTIONS: Any bytes32 actionId is valid (no authorization required)
+// Spam mitigated by: rate limits (60s), gas costs, ZK proof generation time (8-15s)
 contract DistrictGate {
-    address public immutable verifier;  // Halo2Verifier (K=14 single-tier circuit, 20,142 bytes)
+    address public immutable verifier;  // UltraPlonkVerifier (K=14 single-tier circuit, 20,142 bytes)
     DistrictRegistry public immutable registry;
-    mapping(bytes32 => bool) public nullifierUsed;
+    NullifierRegistry public immutable nullifierRegistry;
 
-    function verifyAndAuthorize(
+    function verifyAndAuthorizeWithSignature(
+        address signer,             // ← Original signer (gets credit, MEV resistant)
         bytes calldata proof,
         bytes32 districtRoot,       // ← District Merkle root (not global)
         bytes32 nullifier,          // ← Prevents double-voting
-        bytes32 actionId,           // ← Action identifier
-        bytes3 expectedCountry      // ← ISO 3166-1 alpha-3 code (e.g., "USA")
+        bytes32 actionId,           // ← Action identifier (ANY bytes32 is valid)
+        bytes3 expectedCountry,     // ← ISO 3166-1 alpha-3 code (e.g., "USA")
+        uint256 deadline,
+        bytes calldata signature
     ) external {
+        // Verify EIP-712 signature (prevents MEV theft)
+        require(block.timestamp <= deadline, "Signature expired");
+        bytes32 digest = _getEIP712Digest(proof, districtRoot, nullifier, actionId, expectedCountry, deadline);
+        require(ECDSA.recover(digest, signature) == signer, "Invalid signature");
+
         // Step 1: Verify ZK proof (cryptographic layer)
         uint256[3] memory publicInputs = [
             uint256(districtRoot),
@@ -824,21 +854,34 @@ contract DistrictGate {
 
         // Step 2: Check district→country mapping (governance layer)
         bytes3 actualCountry = registry.getCountry(districtRoot);
+        require(actualCountry != bytes3(0), "District not registered");
         require(actualCountry == expectedCountry, "Unauthorized district");
 
-        // Step 3: Prevent double-voting
-        require(!nullifierUsed[nullifier], "Nullifier already used");
-        nullifierUsed[nullifier] = true;
+        // Step 3: Record nullifier (prevents double-voting, includes rate limiting)
+        nullifierRegistry.recordNullifier(actionId, nullifier, districtRoot);
 
-        emit ActionVerified(msg.sender, districtRoot, actualCountry, nullifier, actionId);
+        emit ActionVerified(signer, msg.sender, districtRoot, actualCountry, nullifier, actionId);
     }
 }
 ```
 
+**Permissionless Action Model**:
+Actions are **permissionless** - any `bytes32` can be used as an actionId:
+- `keccak256("contact_representative")` - Standard civic action
+- `Poseidon(templateId)` - Template-specific namespace (Communique integration)
+- `bytes32(campaignId)` - Campaign identifier
+
+Spam resistance without authorization:
+- **Rate limits**: 60-second cooldown between actions per user
+- **Gas costs**: ~$0.003-0.05 per transaction on Scroll L2
+- **Proof generation**: 8-15 seconds per proof prevents mass generation
+- **Nullifier uniqueness**: Same person can't act twice on same action
+
 **Security Model**:
-- **Layer 1 (Cryptographic)**: Halo2 ZK proof prevents identity spoofing and address fabrication
+- **Layer 1 (Cryptographic)**: UltraPlonk proof prevents identity spoofing and address fabrication
 - **Layer 2 (Governance)**: On-chain registry prevents fake districts and unauthorized mappings
-- **Attack Scenario**: Adversary must compromise BOTH cryptography (break ZK proof) AND governance (compromise multi-sig)
+- **Layer 3 (Economic)**: Gas costs + rate limits + proof generation time prevent spam
+- **Attack Scenario**: Adversary must compromise cryptography (break ZK proof) AND governance (compromise multi-sig) AND economics (subsidize spam)
 - **Defense in Depth**: Each layer independently provides security, combined provides strong assurance
 
 ---
@@ -859,7 +902,7 @@ FREE tier, no API keys required. Supports 120+ countries with NFC-enabled passpo
 3. Cryptographic verification of passport authenticity
 4. Address extraction from MRZ (Machine Readable Zone)
 5. District lookup via Shadow Atlas
-6. User generates Halo2 proof (8-15 seconds, K=14 single-tier)
+6. User generates UltraPlonk proof (8-15 seconds, K=14 single-tier)
 7. Proof verified on-chain via DistrictGate.sol (Scroll L2)
 8. Verified status recorded (one passport = one account)
 
@@ -882,7 +925,7 @@ FREE Core KYC tier for non-passport users (estimated 30% of US population doesn'
 4. AI verification of ID authenticity
 5. Address extraction from ID
 6. District lookup via Shadow Atlas
-7. User generates Halo2 proof (8-15 seconds, production K=14)
+7. User generates UltraPlonk proof (8-15 seconds, production K=14)
 8. Proof verified on-chain via DistrictGate.sol (Scroll L2)
 9. Verified status recorded (one ID = one account)
 
@@ -1280,9 +1323,9 @@ const data = await archived.json();
 **Contracts Deployed**:
 
 **Phase 1 Contracts** (launching in 3 months):
-- `DistrictGate.sol` - Master verification (two-step: Halo2 ZK proof + registry lookup)
+- `DistrictGate.sol` - Master verification (two-step: UltraPlonk proof + registry lookup)
 - `DistrictRegistry.sol` - District root → country mapping (multi-sig governed)
-- `Halo2Verifier.sol` - K=14 single-tier circuit verifier (20,142 bytes, 18% under EIP-170)
+- `UltraPlonkVerifier.sol` - K=14 single-tier circuit verifier (20,142 bytes, 18% under EIP-170)
 - `CommuniqueCoreV2.sol` - Civic action orchestration
 - `UnifiedRegistry.sol` - Action/reputation registry
 - `ReputationRegistry.sol` - ERC-8004 portable credibility
@@ -3236,7 +3279,7 @@ sequenceDiagram
     Browser->>Browser: Generate Merkle witness via Web Workers 200ms-1.5s
     Browser->>ZK: WASM prove district membership 600ms-10s device-dependent
     Note over ZK: K=14 circuit KZG commitment in browser
-    ZK-->>Browser: Halo2 proof ready 384-512 bytes
+    ZK-->>Browser: UltraPlonk proof ready 384-512 bytes
 
     Note over Browser,Backend: Phase 5: E2E Encrypted Message Delivery
     Browser->>Browser: Fetch congressional office public key from CWC
@@ -3257,7 +3300,7 @@ sequenceDiagram
     Note over Chain: MPC network 2-3 sec Threshold signature
     Chain-->>Browser: Signed transaction
     Browser->>Scroll: Submit ZK proof + receipt hashes
-    Scroll->>Scroll: Verify Halo2 proof on-chain 300-500K gas
+    Scroll->>Scroll: Verify UltraPlonk proof on-chain 300-500K gas
     Scroll->>Scroll: Record action with receipt hashes
     Scroll-->>Agents: ActionSubmitted event
 
@@ -3275,7 +3318,7 @@ sequenceDiagram
 ### End-to-End Encryption via AWS Nitro Enclaves
 
 **AWS Dependency Boundary:**
-- **On-chain identity** (NO AWS): Halo2 ZK proofs generated 100% in browser, addresses never leave device
+- **On-chain identity** (NO AWS): UltraPlonk proofs generated 100% in browser, addresses never leave device
 - **Message delivery** (AWS Nitro REQUIRED): E2E encryption maintained, moderation inside isolated enclave
 
 **Plaintext Message Content Visible Only In:**
@@ -3330,7 +3373,7 @@ sequenceDiagram
 
 ### Client-Side Encryption & Privacy Model
 
-All zero-knowledge proof generation and message encryption happens entirely in the browser using WASM and Web Crypto API. User addresses never leave their devices—Shadow Atlas Merkle trees are downloaded from IPFS and cached in IndexedDB, witness generation occurs in Web Workers, and Halo2 proving runs in browser WASM with no server dependency.
+All zero-knowledge proof generation and message encryption happens entirely in the browser using WASM and Web Crypto API. User addresses never leave their devices—Shadow Atlas Merkle trees are downloaded from IPFS and cached in IndexedDB, witness generation occurs in Web Workers, and Noir/Barretenberg proving runs in browser WASM with no server dependency.
 
 Browser-native proving eliminates cloud infrastructure costs ($0/month vs $150/month for server-side TEEs) while providing stronger privacy guarantees. Addresses literally cannot be uploaded because the proving code runs locally with no network access during witness generation. This is cypherpunk-aligned: peer-reviewed mathematics, zero AWS proving dependency.
 
@@ -3393,12 +3436,12 @@ async function generateWitness(
 }
 ```
 
-**WASM Halo2 Proving (K=14 Circuit):**
+**WASM Noir/Barretenberg Proving:**
 ```javascript
 // Browser-native proof generation with KZG commitment
 async function generateDistrictProof(
   witness: MerkleWitness
-): Promise<Halo2Proof> {
+): Promise<ProofResult> {
   // Load KZG parameters from CDN (cached after first load)
   const kzgParams = await loadKZGParams();
 
@@ -3523,17 +3566,17 @@ async function submitMessageForDelivery(
 
 **Smart Contract Proof Verification:**
 ```solidity
-// DistrictGate.sol - Verifies Halo2 proofs on-chain
+// DistrictGate.sol - Verifies UltraPlonk proofs on-chain
 contract DistrictGate {
     // KZG verifier with Ethereum's 141K-participant ceremony parameters
-    IHalo2Verifier public verifier;
+    IUltraPlonkVerifier public verifier;
 
     function submitAction(
         bytes calldata proof,
         uint256 districtId,
         bytes32 receiptHash
     ) external returns (uint256 actionId) {
-        // Verify Halo2 proof with KZG commitment (300-500K gas)
+        // Verify UltraPlonk proof with KZG commitment (300-500K gas)
         bool valid = verifier.verify(
             proof,
             [getShadowAtlasRoot(), districtId] // Public inputs
@@ -3798,7 +3841,7 @@ await ReputationRegistry.methods.updateScore(
 > **This roadmap represents the original full-vision architecture before Phase 1 prioritization.**
 >
 > **Phase 1 Reality (3 months)**:
-> - Halo2 single-tier circuit + on-chain registry (K=14, 8-15s mobile proving, 20,142 byte verifier)
+> - Noir/Barretenberg circuit + on-chain registry (K=14, 8-15s mobile proving, 20,142 byte verifier)
 > - self.xyz + Didit.me verification (FREE, not NEAR CipherVault)
 > - 3-layer moderation ($65.49/month, not challenge markets)
 > - Reputation-only ($326/month total budget)
@@ -3822,17 +3865,17 @@ await ReputationRegistry.methods.updateScore(
 
 ### Month 2: ZK Infrastructure
 - [ ] Shadow Atlas compiler (district trees, 12 levels each)
-- [ ] ~~ResidencyCircuit.circom (circuit definition)~~ **→ Phase 1 uses Halo2 via Axiom halo2_base**
+- [ ] ~~ResidencyCircuit.circom (circuit definition)~~ **→ Phase 1 uses Noir/Barretenberg**
 - [ ] ~~Groth16 trusted setup ceremony~~ **→ Phase 1: KZG (Ethereum's universal ceremony)**
-- [ ] ~~WASM prover compilation~~ **→ Phase 1: Halo2 WASM prover (2-8 seconds mobile)**
-- [ ] ~~ResidencyVerifier.sol generation~~ **→ Phase 1: Halo2Verifier.sol (K=14, 20,142 bytes)**
-- [ ] Client-side proof generation library **→ Phase 1: Halo2 browser proving**
+- [ ] ~~WASM prover compilation~~ **→ Phase 1: Noir/Barretenberg WASM prover (2-8 seconds mobile)**
+- [ ] ~~ResidencyVerifier.sol generation~~ **→ Phase 1: UltraPlonkVerifier.sol (K=14, 20,142 bytes)**
+- [ ] Client-side proof generation library **→ Phase 1: Noir/Barretenberg browser proving**
 
 ### Month 3: Multi-Chain Settlement
 - [ ] Deploy contracts to Scroll testnet
 - [ ] DistrictGate.sol deployment **→ Phase 1: Two-step verification (ZK + registry)**
 - [ ] DistrictRegistry.sol deployment **→ Phase 1: Multi-sig governed mapping**
-- [ ] Halo2Verifier.sol deployment **→ Phase 1: K=14 single-tier verifier (20,142 bytes)**
+- [ ] UltraPlonkVerifier.sol deployment **→ Phase 1: K=14 single-tier verifier (20,142 bytes)**
 - [ ] CommuniqueCoreV2.sol deployment **→ Phase 1**
 - [ ] UnifiedRegistry.sol deployment **→ Phase 1**
 - [ ] ~~VOTERToken.sol deployment~~ **→ Phase 2 ONLY (12-18 months)**
@@ -3870,7 +3913,7 @@ await ReputationRegistry.methods.updateScore(
 - [ ] ~~NEAR wallet connector~~ **→ Phase 1: Optional via NEAR Chain Signatures (not primary)**
 - [ ] ~~Passkey enrollment flow~~ **→ Phase 1: self.xyz NFC + Didit.me (not passkeys)**
 - [ ] Template browser & search **→ Phase 1**
-- [ ] Proof generation progress UI **→ Phase 1 (Halo2 proving, 2-8 seconds mobile)**
+- [ ] Proof generation progress UI **→ Phase 1 (Noir/Barretenberg proving, 2-8 seconds mobile)**
 - [ ] Multi-chain selector **→ Phase 1 (Scroll L2 only initially)**
 - [ ] ~~Reward dashboard~~ **→ Phase 1: Reputation dashboard (no token rewards)**
 - [ ] ~~**Challenge Markets UI**: Submit/review challenges with stake calculator~~ **→ Phase 2 ONLY**
@@ -3888,7 +3931,7 @@ await ReputationRegistry.methods.updateScore(
 - [ ] ~~Chainlink Functions security review (OpenRouter multi-model consensus)~~ **→ Phase 2 ONLY**
 - [ ] ~~UMA integration audit (Optimistic Oracle dispute resolution)~~ **→ Phase 2 ONLY**
 - [ ] ~~ZK circuit audit (ResidencyCircuit trusted setup verification)~~ **→ Phase 1: KZG uses Ethereum's ceremony**
-- [ ] Halo2 circuit audit (single-tier K=14, Axiom halo2_base integration (20,142 byte verifier)) **→ Phase 1**
+- [ ] Noir circuit audit (single-tier K=14, Axiom Noir stdlib integration (20,142 byte verifier)) **→ Phase 1**
 - [ ] Smart contract audit (DistrictRegistry.sol, DistrictGate.sol) **→ Phase 1**
 - [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity) **→ Phase 1**
 - [ ] Frontend security review (XSS, CSRF, NFC implementation) **→ Phase 1**
@@ -3906,7 +3949,7 @@ await ReputationRegistry.methods.updateScore(
 > **This section shows the original full-vision cost structure including NEAR CipherVault, challenge markets, outcome markets, and token infrastructure.**
 >
 > **Phase 1 Reality ($176/month total)**:
-> - Halo2 + KZG verification on Scroll: ~$0.015-$0.025/action (300-500k gas)
+> - UltraPlonk + KZG verification on Scroll: ~$0.015-$0.025/action (300-500k gas)
 > - self.xyz + Didit.me: FREE identity verification
 > - Content moderation: $65.49/month (OpenAI API free + Gemini/Claude consensus)
 > - PostgreSQL (Supabase): $25/month
@@ -3933,7 +3976,7 @@ await ReputationRegistry.methods.updateScore(
 ### Per Civic Action — HISTORICAL VISION
 - Decrypt PII: $0 (view call) **→ Phase 1: Browser-native encryption, no decryption server-side**
 - CWC API submission: $0 **→ Phase 1: Same**
-- Submit to Scroll: $0.135 gas **→ Phase 1: ~$0.01 (Halo2 K=14 verification + registry lookup)**
+- Submit to Scroll: $0.135 gas **→ Phase 1: ~$0.01 (UltraPlonk verification + registry lookup)**
 - ~~Token minting: $0.05 gas~~ **→ Phase 2 ONLY**
 - **Total**: ~$0.185/action on Scroll **→ Phase 1: ~$0.01/action**
 
@@ -3963,7 +4006,7 @@ await ReputationRegistry.methods.updateScore(
 
 ### Development (7 Months Extended) — HISTORICAL VISION
 - ~~2 senior Solidity devs: $210K (extended for challenge markets, outcome markets, retroactive funding)~~ **→ Phase 1: $120K (3 months, core contracts only)**
-- ~~1 ZK specialist: $90K (ResidencyCircuit, trusted setup)~~ **→ Phase 1: $45K (Halo2 single-tier K=14, no trusted setup)**
+- ~~1 ZK specialist: $90K (ResidencyCircuit, trusted setup)~~ **→ Phase 1: $45K (Noir/Barretenberg K=14, no trusted setup)**
 - ~~1 Rust dev (NEAR): $70K (CipherVault, Chain Signatures integration)~~ **→ Phase 1: Not needed (no NEAR)**
 - ~~1 backend dev: $100K (Congress.gov API, ChromaDB, LangGraph agents)~~ **→ Phase 1: $50K (Congress.gov API, basic agents)**
 - ~~1 frontend dev: $90K (challenge UI, outcome markets UI, impact tracking)~~ **→ Phase 1: $45K (template browser, reputation dashboard)**
@@ -3980,7 +4023,7 @@ await ReputationRegistry.methods.updateScore(
 > **PHASED DEPLOYMENT**
 >
 > **Phase 1 Agents (Launching in 3 months)**:
-> - **VerificationAgent**: Validates civic actions, Halo2 ZK proofs, identity verification
+> - **VerificationAgent**: Validates civic actions, UltraPlonk proofs, identity verification
 > - **ReputationAgent**: Multi-dimensional credibility scoring (reputation-only, no tokens)
 > - **ImpactAgent**: Tracks template adoption and legislative correlation (reputation rewards)
 >
@@ -4169,7 +4212,7 @@ interface IReputationRegistry {
 **Purpose**: Validate civic actions before consensus
 
 **Validation Checks**:
-1. ZK proof validity (Halo2 district membership verification on-chain)
+1. ZK proof validity (UltraPlonk district membership verification on-chain)
 2. Identity verification status (self.xyz/Didit.me confirmation)
 3. CWC delivery receipt confirmation
 4. Duplicate detection (same user, same template, <24 hours)
@@ -4349,7 +4392,7 @@ function getTokenPrice(): number {
   - Full-text search for 10,000+ templates
   - Encrypted PII storage (only Nitro Enclave can decrypt)
 - Browser-Native ZK Proving: $0/month
-  - Client-side WASM proof generation (Halo2 + KZG)
+  - Client-side WASM proof generation (UltraPlonk + KZG)
   - Zero cloud infrastructure for proving
   - Scales infinitely with user devices
 - Shadow Atlas IPFS Pinning: $5/month
@@ -4384,14 +4427,14 @@ function getTokenPrice(): number {
 - Didit.me Core KYC fallback: $0 (FREE tier, unlimited)
 - User acquisition: 70% self.xyz, 30% Didit.me = **$0/user**
 
-**Halo2 Proof Generation (K=14)**:
+**Noir/Barretenberg Proof Generation:**
 - Browser-side proving: $0 (client-side computation, 2-8 seconds mobile)
-- On-chain verification: < $0.01 typical (Scroll L2; Halo2Verifier + registry lookup; conservative $0.0001–$0.005 as of 2025‑11‑15)
+- On-chain verification: < $0.01 typical (Scroll L2; UltraPlonkVerifier + registry lookup; conservative $0.0001–$0.005 as of 2025‑11‑15)
 - Nullifier storage: < $0.01 (state update)
 - **Total**: **< $0.02/user one-time** (conservative)
 
 **Civic Action Costs**:
-- Halo2 proof verification: < $0.01/action (Scroll gas; two-step: ZK + registry)
+- UltraPlonk proof verification: < $0.01/action (Scroll gas; two-step: ZK + registry)
 - CWC API congressional delivery: $0 (federal government API)
 - Action registry update: < $0.01 (state update)
 - **Total**: **< $0.02/action** (conservative)
@@ -4439,14 +4482,14 @@ function getTokenPrice(): number {
 - 2 senior Solidity developers: $120,000
   - DistrictGate.sol (two-step verification orchestration)
   - DistrictRegistry.sol (district root → country mapping, multi-sig governed)
-  - Halo2Verifier.sol (K=14 single-tier circuit verifier, 20,142 bytes)
+  - UltraPlonkVerifier.sol (K=14 single-tier circuit verifier, 20,142 bytes)
   - CommuniqueCoreV2.sol (action orchestration)
   - UnifiedRegistry.sol (action/reputation tracking)
   - ReputationRegistry.sol (ERC-8004 implementation)
   - AgentConsensus.sol (VerificationAgent, ReputationAgent, ImpactAgent)
 - 1 ZK cryptography specialist: $45,000
-  - Halo2 single-tier circuit (K=14, 12 levels, 117,473 advice cells, 8 columns)
-  - Axiom halo2_base integration (Trail of Bits audited)
+  - Noir/Barretenberg circuit (K=14, 12 levels, 117,473 advice cells, 8 columns)
+  - Axiom Noir stdlib integration (Trail of Bits audited)
   - KZG commitment using Ethereum's universal ceremony
   - Browser WASM proving library
   - Performance optimization (target: 2-8s mobile, 600ms-2s desktop)
@@ -4459,17 +4502,17 @@ function getTokenPrice(): number {
 - 1 frontend developer: $45,000
   - Template browser & search
   - Reputation dashboard
-  - Halo2 WASM proof generation UI
+  - Noir/Barretenberg WASM proof generation UI
   - self.xyz + Didit.me integration
   - Congressional district lookup
 
 **Security & Audits**:
 - Smart contract audit (Trail of Bits / OpenZeppelin): $30,000
   - Core contracts: DistrictGate, CommuniqueCoreV2, UnifiedRegistry
-  - Halo2 + KZG verifier security review
+  - UltraPlonk + KZG verifier security review
   - Agent consensus logic audit
 - Browser WASM security review: $10,000
-  - Halo2 circuit formal verification
+  - Noir circuit formal verification
   - Subresource Integrity implementation
   - COOP/COEP headers audit
   - KZG parameters integrity verification
@@ -4482,7 +4525,7 @@ function getTokenPrice(): number {
 |----------|------------------|-----------------|---------|
 | **Monthly Infrastructure** | $7,038/month | $3,600/month | **49% reduction** |
 | **Identity Verification** | $0.50/user (self.xyz paid) | $0/user (FREE) | **100% reduction** |
-| **ZK Proof Cost** | $0.135/proof (Groth16) | $0.020/proof (Halo2+KZG) | **85% reduction** |
+| **ZK Proof Cost** | $0.135/proof (Groth16) | $0.020/proof (UltraPlonk+KZG) | **85% reduction** |
 | **E2E Encryption** | HSM theater (false claims) | AWS Nitro Enclaves (architectural enforcement) | **Honest architecture** |
 | **Content Moderation** | Challenge markets ($5/dispute) | Inside Nitro Enclave (included) | **Phase 2 deferred** |
 | **NEAR Storage** | $11,000/year (100K users) | $0 (no NEAR) | **100% reduction** |
@@ -4508,7 +4551,7 @@ function getTokenPrice(): number {
 
 **FREE Identity Verification**: self.xyz + Didit.me both offer FREE tiers with unlimited verifications. Phase 1 prioritized partnerships over paid APIs.
 
-**Browser-Native Halo2 Efficiency**: No trusted setup ceremony ($20K cost eliminated). Client-side WASM proving replaces all server infrastructure ($0/month vs $150/month TEE). On-chain verification 85% cheaper than Groth16 (300-500k gas vs 80-120k, but acceptable for zero infrastructure cost).
+**Browser-Native Noir/Barretenberg Efficiency**: Uses Aztec's 100K+ participant ceremony (no custom trusted setup). Client-side WASM proving replaces all server infrastructure ($0/month vs $150/month TEE). On-chain verification via UltraPlonk (300-500k gas, acceptable for zero infrastructure cost).
 
 **Reputation-Only Rewards**: No token minting gas, no staking contracts, no DEX liquidity pools. ReputationAgent updates ERC-8004 registry ($0.005/update). Phase 2 adds VOTER token with all associated infrastructure.
 
@@ -4527,11 +4570,11 @@ function getTokenPrice(): number {
 ## Critical Integration Points
 
 **Phase 1 Integration Points** (launching in 3 months):
-1. **Halo2 + KZG (Browser-Native WASM)** → Zero-knowledge district verification, no trusted setup, client-side proving
+1. **UltraPlonk + KZG (Browser-Native WASM)** → Zero-knowledge district verification, no trusted setup, client-side proving
 2. **self.xyz + Didit.me** → FREE identity verification (NFC passport + Core KYC fallback)
 3. **AWS Nitro Enclaves** → E2E encryption with moderation (architectural enforcement, platform cannot decrypt)
 4. **PostgreSQL (Supabase)** → Template storage, encrypted PII (only Nitro Enclave can decrypt)
-5. **Scroll L2** → zkEVM settlement (~$0.020/action gas cost with Halo2+KZG verification + hourly batch logging)
+5. **Scroll L2** → zkEVM settlement (~$0.020/action gas cost with UltraPlonk+KZG verification + hourly batch logging)
 6. **Congressional CWC API** → Federal delivery to Senate + House offices (from Nitro Enclave whitelisted IP)
 
 **Phase 2 Integration Points** (12-18 months):
@@ -4542,7 +4585,7 @@ function getTokenPrice(): number {
 5. **Chainlink Functions DON** → Multi-model AI consensus for challenge markets
 6. **Filecoin** → Permanent audit trail for challenged templates
 
-**Key Insight**: Phase 1 eliminates NEAR dependency entirely. Browser-native Halo2 proving handles ZK proofs at zero infrastructure cost. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
+**Key Insight**: Phase 1 eliminates NEAR dependency entirely. Browser-native Noir/Barretenberg proving handles ZK proofs at zero infrastructure cost. Scroll L2 is only blockchain required. Phase 2 adds NEAR Chain Signatures for optional multi-chain expansion.
 
 ---
 
@@ -4563,19 +4606,19 @@ function getTokenPrice(): number {
 - Two-step verification: ZK proof (cryptographic) + registry lookup (governance)
 
 **Changes Made**:
-- **ZK Privacy Infrastructure** (lines 592-841): Complete replacement of GKR/SNARK hybrid with Halo2 single-tier
+- **ZK Privacy Infrastructure** (lines 592-841): Complete replacement of GKR/SNARK hybrid with Noir/Barretenberg
   - New circuit structure: `DistrictMembershipCircuit` with 3 public outputs (district_root, nullifier, action_id)
   - Performance comparison table: K=14 single-tier vs K=14 two-tier metrics
   - Smart contract code: DistrictRegistry.sol + DistrictGate.sol
   - Security model explanation: Two-step verification (ZK + registry)
 - **Shadow Atlas** (line 578): Updated to per-district trees (~50KB each vs ~50MB global)
 - **Identity Verification** (lines 861, 884): Updated proof generation time (8-10s → 2-8s)
-- **Settlement Layer** (lines 1282-1288): Added DistrictRegistry.sol + Halo2Verifier.sol contracts
+- **Settlement Layer** (lines 1282-1288): Added DistrictRegistry.sol + UltraPlonkVerifier.sol contracts
 - **Roadmap** (lines 3772-3786): Updated ZK Infrastructure and Settlement milestones
 - **Frontend UX** (line 3822): Updated proof generation UI (2-8s mobile)
-- **Security Audits** (lines 3839-3842): Added Halo2 circuit + registry contract audits
+- **Security Audits** (lines 3839-3842): Added Noir circuit + registry contract audits
 - **Cost Breakdown** (lines 3885, 4334-4341, 4382-4394): Updated verification costs and development scope
-- **Documentation Status** (lines 4495, 4504-4509): Updated to reflect Halo2 single-tier architecture
+- **Documentation Status** (lines 4495, 4504-4509): Updated to reflect Noir/Barretenberg architecture
 
 **Complete Rationale**: See [ARCHITECTURE_EVOLUTION.md](packages/crypto/circuits/ARCHITECTURE_EVOLUTION.md) for:
 - Full problem analysis (EIP-170 violation, mobile performance, optimization attempts)
@@ -4590,7 +4633,7 @@ function getTokenPrice(): number {
 **Changes Made**:
 
 **Executive Summary Updated**:
-- Halo2 single-tier circuit + on-chain registry (K=14, production-ready, 20,142 bytes / 18% under EIP-170)
+- Noir/Barretenberg circuit + on-chain registry (K=14, production-ready, 20,142 bytes / 18% under EIP-170)
 - self.xyz + Didit.me FREE verification (not NEAR CipherVault)
 - 3-layer moderation stack ($65.49/month)
 - Phase 1/2/3 timeline and dependencies
@@ -4600,8 +4643,8 @@ function getTokenPrice(): number {
 - Milestones: 10K users → token launch, 100K users → challenge markets, congressional adoption → outcome markets
 
 **Privacy Layer Revised** (lines 592-841):
-- Two-tier Merkle circuit → Halo2 single-tier circuit + on-chain registry
-- Rust code examples for Halo2 circuit structure (Axiom halo2_base)
+- Two-tier Merkle circuit → Noir/Barretenberg circuit + on-chain registry
+- Rust code examples for Noir circuit structure (Axiom Noir stdlib)
 - Performance specs: 8-15s mobile proving (K=14, 16,384 rows), ~300-400k gas verification
 - Security model: ZK proof (cryptographic) + DistrictRegistry (governance)
 - See [ARCHITECTURE_EVOLUTION.md](packages/crypto/circuits/ARCHITECTURE_EVOLUTION.md) for architectural rationale
@@ -4621,12 +4664,12 @@ function getTokenPrice(): number {
 **Implementation Roadmap Updated** (lines 3463-3564):
 - Added "HISTORICAL ROADMAP — NOT PHASE 1 REALITY" header
 - Labeled every milestone with Phase 1/2 status
-- Updated Month 2 (ZK Infrastructure): Two-tier → Halo2 single-tier (K=14), KZG via Ethereum ceremony
+- Updated Month 2 (ZK Infrastructure): Two-tier → Noir/Barretenberg (K=14), KZG via Ethereum ceremony
 - Updated Month 3 (Settlement): Added DistrictRegistry.sol + DistrictGate.sol, VOTERToken.sol → Phase 2 only
 - Updated Month 4 (Information Quality): Challenge markets → Phase 2 only
 - Updated Month 5 (Treasury): ALL Phase 2 only
 - Updated Month 6 (Frontend): Passkeys → self.xyz/Didit.me, Reward dashboard → Reputation dashboard, proof time 2-8s mobile
-- Updated Month 7 (Security): Added Halo2 circuit audit, DistrictRegistry/DistrictGate audit, content moderation audit
+- Updated Month 7 (Security): Added Noir circuit audit, DistrictRegistry/DistrictGate audit, content moderation audit
 
 **Cost Breakdown Revised** (lines 3568-3640):
 - Added "HISTORICAL COSTS — NOT PHASE 1 REALITY" header
@@ -4637,7 +4680,7 @@ function getTokenPrice(): number {
 **Critical Integration Points Updated** (lines 4177-4195):
 - Separated Phase 1 integration points (6) vs Phase 2 (6)
 - Removed NEAR CipherVault from Phase 1 (replaced with browser-native encryption)
-- Added Halo2 + KZG browser-native proving, self.xyz, E2E encryption as Phase 1 integrations
+- Added UltraPlonk + KZG browser-native proving, self.xyz, E2E encryption as Phase 1 integrations
 
 **Revision-First Policy**: Updated outdated content to reflect current architecture instead of deleting. Preserved historical context with update notes. Phase 2 features labeled clearly, not removed.
 

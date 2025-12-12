@@ -61,11 +61,11 @@ VOTER Protocol gives you the filtering infrastructure you're asking for.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERIFIED CONSTITUENT MESSAGE (Phase 1)
 
-District: TX-18 ✓ (Halo2 zero-knowledge proof - no PII revealed, no database storage)
+District: TX-18 ✓ (cryptographic proof - no PII revealed, no database storage)
 Reputation Score: 8,740 in Healthcare Policy
 Content Moderation: ✓ Passed 3-layer security review (CSAM, threats, spam)
-Identity Verification: ✓ self.xyz passport NFC scan (not bot, unique human)
-Sybil Check: ✓ One verified identity = one account (cryptographically enforced)
+Address Verified: ✓ Zero-knowledge proof (district membership, address never stored)
+Rate Limited: ✓ 10 messages/day per address (prevents spam)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Subject: Medicare Drug Price Negotiation - Section 4(b) Impact Analysis
@@ -159,7 +159,7 @@ Phase 2 additions (12-18 months):
 ### Spam Elimination
 
 **Automated filtering removes:**
-- ❌ Non-constituents (Halo2 zero-knowledge proof verification fails)
+- ❌ Non-constituents (cryptographic proof verification fails)
 - ❌ Bot-generated messages (no verified identity via self.xyz/Didit.me)
 - ❌ Duplicate spam (rate limits prevent mass flooding: 10 messages/day)
 - ❌ Low-quality templates (3-layer moderation catches illegal/harmful content)
@@ -197,8 +197,8 @@ Phase 2 additions (12-18 months):
 ### What Gets Verified
 
 **Cryptographic proof confirms (Phase 1):**
-- Constituent is registered voter in your district (Halo2 zero-knowledge proof, no PII revealed, no database storage)
-- Identity verified via [self.xyz](https://www.self.xyz) NFC passport or [Didit.me](https://www.didit.me) government ID (not bot, not duplicate)
+- Constituent is in your district (cryptographic proof, no PII revealed, no database storage)
+- Address verified via browser-native zero-knowledge proof (not bot, address never stored)
 - Reputation score earned through on-chain actions (Scroll L2 blockchain)
 - Content moderation passed (OpenAI + Gemini/Claude consensus + human review)
 - Impact history (previous template correlations with bills)
@@ -353,7 +353,7 @@ A: No. VOTER integrates with Fireside, IQ, and Quorum as a credibility layer. Me
 A: Traditional email/phone/mail still works exactly as it does today. VOTER provides additional signal for constituents who choose to participate. You're not losing anything, just gaining better filtering for messages sent through the protocol.
 
 **Q: How do we know zero-knowledge proofs actually work?**
-A: Cryptography is peer‑reviewed and battle‑tested (Halo2 proofs used in production by Zcash since 2022, no trusted setup required). Congressional IT can verify proofs on‑chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
+A: Cryptography is peer‑reviewed and production‑grade (UltraPlonk proofs, same system used by Aztec Protocol since 2024). Congressional IT can verify proofs on‑chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
 
 **Q: What about constituents without smartphones?**
 A: Traditional contact methods unchanged. VOTER is additive infrastructure for constituents who want cryptographic privacy and credibility signaling. Not a replacement for existing channels.
@@ -362,7 +362,7 @@ A: Traditional contact methods unchanged. VOTER is additive infrastructure for c
 A: Wallet addresses and reputation scores are public on-chain (anyone can verify). The connection between wallet addresses and human identities doesn't exist in any database—ours, yours, or third parties. Nothing to subpoena. Constituents control that linkage locally on their devices.
 
 **Q: What prevents coordinated spam through VOTER?**
-A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](https://www.self.xyz)/[Didit.me](https://www.didit.me) identity verification (Sybil resistance via cryptographic binding), 3-layer content moderation (OpenAI + Gemini/Claude consensus + human review), reputation requirements (low-rep wallets flagged for review). **Phase 2**: Challenge markets add economic penalties for false claims.
+A: **Phase 1**: Rate limits (10 messages/day per verified address), address-based Sybil resistance (zero-knowledge proofs), 3-layer content moderation (OpenAI + Gemini/Claude consensus + human review), reputation requirements (low-rep accounts flagged for review). **Phase 2**: Identity verification (self.xyz/Didit.me) adds stronger Sybil resistance for token rewards. Challenge markets add economic penalties for false claims.
 
 **Q: What if someone challenges a constituent's claim unfairly?**
 A: **Phase 2 Feature** (12-18 months): Challenge markets use diverse AI model consensus (67% agreement required across 6+ models). Only objective, verifiable facts can be challenged—not personal experiences or opinions. If challenge fails, challenger loses stake and reputation. Economic consequences prevent frivolous challenges. **Phase 1**: Content moderation focuses on illegal/harmful content detection, not fact-checking claims.

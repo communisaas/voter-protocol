@@ -469,11 +469,18 @@ Challenge markets create economic incentives for information accuracy:
 
 ### Contract Primitives
 
-- **Token Economics**: ERC-20 governance with staking and voting extensions
+**Phase 1 (Implemented):**
+- **District Verification**: DistrictGate orchestrates ZK proof verification
+- **Reputation Registry**: Domain-specific, time-weighted credibility (ERC-8004)
+- **Multi-sig Governance**: Emergency controls (GuardianShield)
+
+**Phase 1.5 (Deferred):**
+- **Campaign Coordination**: On-chain campaign registry (CampaignRegistry). Phase 1 uses off-chain coordination via Communique—actionIds are permissionless, campaigns discoverable through frontend.
+
+**Phase 2 (12-18 months):**
+- **Token Economics**: ERC-20 governance with staking extensions
 - **Challenge Markets**: Multi-model consensus orchestration
 - **Outcome Markets**: Binary prediction with retroactive funding
-- **Reputation Registry**: Domain-specific, time-weighted credibility
-- **Multi-sig Governance**: Emergency controls and parameter boundaries
 
 ### Multi-Chain Strategy
 

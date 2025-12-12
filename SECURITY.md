@@ -31,7 +31,7 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 **Phase 1:**
 - **Catastrophic**: CSAM on platform (federal crime), identity deanonymization at scale, message database breach
 - **Critical**: Single-user identity exposure, reputation manipulation affecting congressional filtering, browser WASM proof bypass, Section 230 liability
-- **High**: Spam bypassing 3-layer moderation, Halo2 proof forgery, protocol treasury drain
+- **High**: Spam bypassing 3-layer moderation, ZK proof forgery, protocol treasury drain
 - **Medium**: DoS attacks, gas griefing, rate limit evasion
 
 **Phase 2 Additions:**
@@ -148,21 +148,24 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 
 ## Cryptographic Guarantees & Attack Surfaces
 
-### Zero-Knowledge District Verification (Phase 1: Halo2)
+### Zero-Knowledge District Verification (Phase 1: Noir/UltraPlonk)
 
 **Security claim:** Address → district proof reveals only district hash, mathematically impossible to reverse-engineer address. Address never leaves browser, never stored in any database.
 
-**Attack vectors:**
-1. **Halo2 circuit vulnerability** - Prove membership without valid address
-   - *Mitigation*: Formal verification of circuit logic (battle-tested Halo2 library since 2022 in Zcash Orchard)
-   - *Status*: Halo2 is production-grade cryptography with extensive security audits
-   - *Advantage over Groth16*: No trusted setup ceremony = no toxic waste risk
-   - *Audit timeline*: Trail of Bits audit scheduled Q1 2026 for our Merkle circuit implementation
+**Implementation**: See [ZK-PRODUCTION-ARCHITECTURE.md](/docs/ZK-PRODUCTION-ARCHITECTURE.md) for complete technical details on Noir circuit design, browser proving, and on-chain verification.
 
-2. **~~Trusted setup compromise~~** - **ELIMINATED**
-   - *Halo2 has no trusted setup*: Polynomial commitment scheme via inner product arguments
-   - *Security*: Based on discrete log assumptions (no ceremony needed)
-   - *No contingency needed*: Halo2 provides 4-6s proving, 60-100k gas (production-ready)
+**Attack vectors:**
+1. **Noir circuit vulnerability** - Prove membership without valid address
+   - *Mitigation*: Formal verification of circuit logic (production-grade Noir compiler + Barretenberg backend)
+   - *Status*: Noir used in production by Aztec Network, extensive security audits
+   - *Circuit constraints*: MockProver adversarial testing ensures invalid witnesses rejected
+   - *Audit timeline*: Trail of Bits audit scheduled Q1 2026 for Merkle circuit implementation
+
+2. **Trusted setup compromise** - Malicious Aztec ceremony participant extracts trapdoor
+   - *Mitigation*: Aztec powers-of-tau ceremony (100K+ participants, 1-of-N security)
+   - *Security*: Only ONE honest participant needed; requires ALL 100K+ to collude
+   - *Ceremony verification*: Publicly verifiable transcript, community-audited
+   - *KZG commitments*: Standard polynomial commitment scheme, computational hardness of discrete log
 
 3. **Shadow Atlas poisoning** - Inject false district boundaries, misdirect proofs
    - *Mitigation*: Multi-source verification (Census Bureau + OpenStreetMap + govinfo.gov), quarterly audits
@@ -173,12 +176,12 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 4. **Client-side proof grinding** - Generate proofs until collision with target district
    - *Mitigation*: Poseidon hash function (collision-resistant), ~2^128 security
    - *Status*: No practical attack exists, would require breaking discrete log assumptions
-   - *Halo2 advantage*: Proof verification on-chain provides additional tamper-evidence
+   - *On-chain verification*: Mandatory proof verification prevents invalid proof acceptance
 
-5. **Polynomial commitment soundness break** - Forge proofs via IPA weakness
-   - *Mitigation*: Inner product arguments (IPA) extensively studied, no known breaks
-   - *Status*: Used in production by Zcash since 2022, no attacks demonstrated
-   - *Monitoring*: Weekly cryptography paper reviews for new attacks
+5. **Polynomial commitment soundness break** - Forge proofs via KZG weakness
+   - *Mitigation*: KZG commitments based on computational hardness of discrete log
+   - *Status*: Standard scheme used across Ethereum ecosystem, extensively studied
+   - *Monitoring*: Weekly cryptography paper reviews for new attacks on KZG/pairing-based schemes
 
 **Circuit Soundness Testing (Critical):**
 
@@ -208,18 +211,19 @@ fn test_reject_wrong_merkle_path() {
 
 **Dependency Security Monitoring:**
 
-Pinned dependencies prevent supply-chain attacks via `cargo update`, but create **vulnerability lag** when CVEs published:
+Pinned dependencies prevent supply-chain attacks, but create **vulnerability lag** when CVEs published:
 
 ```toml
-# ✅ Pinned to audited Trail of Bits commit
-halo2-base = { git = "https://github.com/axiom-crypto/halo2-lib",
-               rev = "4dc5c4833f16b3f3686697856fd8e285dc47d14f" }
+# ✅ Pinned to audited Aztec commit
+# Noir compiler + Barretenberg backend
+noirc_driver = { git = "https://github.com/noir-lang/noir",
+                 rev = "specific-audited-commit-hash" }
 ```
 
 **Monitoring setup:**
-- [ ] Weekly RustSec advisory database checks
+- [ ] Weekly security advisory checks for Noir/Barretenberg
 - [ ] Quarterly dependency review (check for new releases/CVEs)
-- [ ] GitHub Actions workflow: `cargo audit` on every PR
+- [ ] GitHub Actions workflow: Noir security checks on every PR
 
 **If CVE discovered:**
 1. Assess impact on our circuit usage
@@ -269,15 +273,20 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 ```
 
 **Incident response:**
-- **If Halo2 circuit vulnerability**: Emergency pause district verification, deploy patched circuit
+- **If Noir circuit vulnerability**: Emergency pause district verification, deploy patched circuit
 - **If Poseidon hash broken**: Immediate protocol upgrade to alternative hash (Rescue, Anemoi)
 - **If Atlas poisoned**: Rollback to previous root, publish discrepancy report, community verification
-- **If IPA broken**: This would be a fundamental cryptographic break affecting all Halo2 systems globally (unlikely, but would require protocol-wide migration)
+- **If KZG commitment broken**: Fundamental cryptographic break affecting Ethereum + Aztec ecosystems (unlikely, would require protocol-wide migration to alternative proving system)
+- **If trusted setup compromised**: Requires ALL 100K+ participants colluding (computationally infeasible); contingency: migrate to STARK-based system
 - **If KZG params compromised**: Emergency npm package unpublish, security advisory, re-publish with correct params
 
-### Identity Verification Security (Phase 1: self.xyz + Didit.me)
+### Identity Verification Security (Phase 2: self.xyz + Didit.me for Economic Incentives)
 
 **Security claim:** Cryptographic proof of government-issued identity verification without platform storing PII. Sybil-resistant via one verified identity = one account binding.
+
+**Phase 1:** Identity verification NOT required for participation. Address verification via browser-native ZK proofs is permissionless.
+
+**Phase 2:** Identity verification required ONLY for earning token rewards and participating in economic mechanisms (challenge markets, outcome markets). Without identity verification: can participate, NO economic incentives.
 
 **Attack vectors:**
 1. **Fake passport/ID forgery** - Submit forged documents to verification providers
@@ -308,7 +317,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 5. **Provider API key compromise** - Attacker forges verification proofs via stolen API keys
    - *Mitigation*: Cryptographic signatures (verification proofs signed by provider private key)
-   - *On-chain verification*: DistrictGate.sol verifies EIP‑712 signatures and Halo2 proofs via Halo2Verifier.sol before accepting proofs
+   - *On-chain verification*: DistrictGate.sol verifies EIP‑712 signatures and UltraPlonk proofs via UltraVerifier.sol before accepting proofs
    - *Key rotation*: self.xyz + Didit.me rotate signing keys quarterly
    - *Incident response**: If API key compromised, emergency key rotation + invalidate all proofs from compromised period
 
@@ -437,25 +446,30 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 **Attack scenario:** Create multiple fake identities, farm rewards across wallets.
 
-**Phase 1 Mitigations (Reputation-only):**
-1. **Identity verification** - self.xyz NFC passport scan or Didit.me government ID
-   - Cost to attacker: $50-100 per fake passport (black market), high risk
-   - Detection: Biometric liveness checks prevent photo/video spoofing
+**Phase 1 Mitigations (Permissionless Address Verification):**
+1. **No identity verification required** - Address verification via browser-native ZK proofs is permissionless
+   - Anyone can prove district membership without identity verification
+   - Reputation system is permissionless (no Sybil resistance in Phase 1)
 
-2. **Rate limits** - 10 messages/day, 3 templates/day per verified identity
-   - Even with 100 fake IDs: Max 1,000 messages/day (detectable via clustering analysis)
+2. **Rate limits** - 10 messages/day, 3 templates/day per address
+   - Even with 100 wallets: Max 1,000 messages/day (detectable via clustering analysis)
 
 3. **Reputation rewards only** - No token rewards in Phase 1, only reputation points
    - Makes farming uneconomical (no immediate financial gain)
 
-4. **On-chain binding** - One identity = one wallet (cryptographic enforcement)
-   - Can't create multiple wallets with same identity
+4. **No economic attack surface** - Phase 1 has no tokens, no financial incentives
+   - Sybil attacks don't matter without economic rewards to farm
 
-**Phase 2 Additional Mitigations (Token rewards):**
-5. **Token reward reduction** - Unverified wallets earn 50% less
+**Phase 2 Additional Mitigations (Token rewards require identity verification):**
+5. **Identity verification required for rewards** - self.xyz NFC passport scan or Didit.me government ID
+   - Cost to attacker: $50-100 per fake passport (black market), high risk
+   - Detection: Biometric liveness checks prevent photo/video spoofing
+   - One identity = one verified account (cryptographic enforcement)
+
+6. **Token reward reduction** - Unverified wallets earn 50% less
    - Makes farming uneconomical (reward < ID acquisition cost)
 
-6. **Challenge market participation** - Low-rep wallets have reduced influence
+7. **Challenge market participation** - Low-rep wallets have reduced influence
    - New wallets can't immediately manipulate markets
 
 **Detection signals:**
@@ -755,7 +769,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 ### Phase 1 Launch (Q4 2025 - Q1 2026)
 
 **Critical Path (Must complete before mainnet launch):**
-- [ ] Halo2 circuit formal verification (Trail of Bits audit for Merkle membership circuit)
+- [ ] Noir circuit formal verification (Trail of Bits audit for Merkle membership circuit)
 - [ ] DistrictGate.sol smart contract audit (OpenZeppelin/Trail of Bits)
 - [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity)
 - [ ] Shadow Atlas Merkle tree generation and IPFS deployment
@@ -765,14 +779,14 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 **Phase 1 Operational Security:**
 - [ ] Security council multisig setup (3-of-5 threshold, hardware wallets)
-- [ ] Incident response runbooks (Halo2 circuit vulnerability, browser WASM compromise, CSAM detection, moderation bypass)
+- [ ] Incident response runbooks (Noir circuit vulnerability, browser WASM compromise, CSAM detection, moderation bypass)
 - [ ] Monitoring infrastructure (Datadog for browser proving times, Sentry for errors, gas cost tracking)
 - [ ] Congressional IT compliance review (CWC integration, data protection, Section 230)
 
 **Phase 1 Contingency Planning:**
 - [ ] Emergency moderation escalation procedures (if Layer 1/2 compromised)
 - [ ] Provider redundancy testing (OpenAI API outage → alternative moderation)
-- [ ] Halo2 circuit update procedures (if vulnerability discovered)
+- [ ] Noir circuit update procedures (if vulnerability discovered)
 
 ### Phase 2 Preparation (Q2-Q3 2026)
 
@@ -790,13 +804,13 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 **Cross-Chain Expansion:**
 - [ ] NEAR Chain Signatures security review (threshold ECDSA, MPC protocol)
 - [ ] Cross-chain reputation bridge audits (Ethereum, Polygon, Arbitrum via ERC-8004)
-- [ ] Multi-chain Halo2 verification gas benchmarks
+- [ ] Multi-chain UltraPlonk verification gas benchmarks
 
 ### Phase 3+ Long-Term (2027+)
 
 **Advanced Cryptography:**
 - [ ] Post-quantum ZK-STARK migration (quantum resistance)
-- [ ] Nested Halo2 proofs for reputation ranges (only if community demands + congressional offices accept)
+- [ ] Nested UltraPlonk proofs for reputation ranges (only if community demands + congressional offices accept)
 - [ ] Zero-knowledge machine learning (private reputation scoring)
 
 **Decentralization:**
@@ -840,12 +854,12 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 ## Appendix: Security Assumptions
 
 **We assume the following are secure (if broken, system security fails):**
-1. **Elliptic curve discrete log** (ECDSA, Halo2 proofs, BN254 curve)
+1. **Elliptic curve discrete log** (ECDSA, UltraPlonk proofs, BN254 curve)
 2. **XChaCha20-Poly1305** (AEAD encryption for congressional messages)
 3. **RSA-OAEP** (Key encapsulation for congressional office public keys)
 4. **NEAR MPC protocol** (threshold ECDSA, Phase 2+ if adopted)
 5. **Poseidon hash function** (collision resistance, SNARK-friendly)
-6. **KZG commitment scheme** (Polynomial commitments via Ethereum's 141K-participant ceremony)
+6. **KZG commitment scheme** (Polynomial commitments via Aztec's powers-of-tau ceremony, 100K+ participants)
 7. **Browser sandbox security** (WASM isolation, COOP/COEP headers enforced)
 
 **We do NOT assume:**
