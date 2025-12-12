@@ -13,7 +13,8 @@
 | Component | Status | Package/Contract |
 |-----------|--------|------------------|
 | NullifierRegistry | ✅ Implemented | `contracts/src/NullifierRegistry.sol` |
-| GuardianShield | ✅ Implemented | `contracts/src/GuardianShield.sol` |
+| TimelockGovernance (Phase 1) | ✅ Implemented | `contracts/src/TimelockGovernance.sol` |
+| GuardianShield (Phase 2) | ⏳ Planned | `contracts/src/GuardianShield.sol` |
 | DistrictGate (with timelocked verifier) | ✅ Implemented | `contracts/src/DistrictGate.sol` |
 | Noir Circuit | ✅ Implemented | `packages/crypto/noir/district_membership/` |
 | Browser Prover | ✅ Published | `@voter-protocol/noir-prover@0.1.0` |
@@ -69,37 +70,41 @@ uint256 public constant RATE_LIMIT_SECONDS = 60;
 
 ---
 
-## C-2: Guardian Shield ✅ IMPLEMENTED
+## C-2: Governance Timelock ✅ IMPLEMENTED
 
 ### Problem
 Single governance address is a nation-state target. NSL + gag order can coerce a single entity.
 
-### Implemented Solution
+### Phase 1 Solution (Implemented)
 
-The `GuardianShield` abstract contract at `contracts/src/GuardianShield.sol` provides:
+`DistrictGate` extends `TimelockGovernance` at `contracts/src/TimelockGovernance.sol`:
+
+- **7-day governance transfer timelock**: `GOVERNANCE_TIMELOCK = 7 days`
+- **14-day verifier upgrade timelock**: `VERIFIER_UPGRADE_TIMELOCK = 14 days`
+- **Community detection window**: Malicious governance transfers visible on-chain for 7 days before execution
+
+```solidity
+// TimelockGovernance core mechanism
+mapping(address => uint256) public pendingGovernance;
+
+function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
+    pendingGovernance[newGovernance] = block.timestamp + GOVERNANCE_TIMELOCK;
+    emit GovernanceTransferInitiated(newGovernance, block.timestamp + GOVERNANCE_TIMELOCK);
+}
+```
+
+**Honest Acknowledgment**: Founder key compromise = governance compromise during bootstrap. This is acceptable for Phase 1 with honest communication to users.
+
+### Phase 2 Solution (Planned)
+
+`GuardianShield` at `contracts/src/GuardianShield.sol` will add:
 
 - **Multi-jurisdiction guardians**: 2+ guardians required
 - **Single veto blocks**: Any guardian can veto pending governance transfers or verifier upgrades
 - **Plausible deniability**: Guardians veto without explanation
 - **Fail-safe default**: If no guardians act, timelock proceeds; if any veto, action blocked
 
-```solidity
-// Core veto mechanism
-mapping(address => bool) public vetoed;
-
-function veto(address target) external onlyGuardian {
-    vetoed[target] = true;
-    emit TargetVetoed(target, msg.sender);
-}
-```
-
-### DistrictGate Integration
-
-`DistrictGate` extends `GuardianShield` and implements:
-
-- **14-day verifier upgrade timelock**: `VERIFIER_UPGRADE_TIMELOCK = 14 days`
-- **Governance transfer timelock**: `GOVERNANCE_TIMELOCK = 14 days`
-- **Veto check on execution**: Both upgrades and transfers check `vetoed[target]`
+This requires recruiting real multi-jurisdiction human guardians, which is not feasible for solo founder bootstrap.
 
 ---
 
@@ -438,8 +443,8 @@ Both `@voter-protocol/bb.js` and `@voter-protocol/noir-prover` are:
 
 ### Phase 1: Foundation ✅ COMPLETE
 - [x] NullifierRegistry with rate limiting
-- [x] GuardianShield multi-jurisdiction veto
-- [x] DistrictGate with 14-day verifier timelock
+- [x] TimelockGovernance (7-day governance, 14-day verifier timelock)
+- [x] DistrictGate with timelocked verifier upgrades
 - [x] Noir circuit (district_membership)
 - [x] Published @voter-protocol/bb.js fork
 - [x] Published @voter-protocol/noir-prover
@@ -467,10 +472,10 @@ Both `@voter-protocol/bb.js` and `@voter-protocol/noir-prover` are:
 ## What Makes This "Distinguished"
 
 1. **Semaphore-style external nullifiers**: Action-scoped domain separation
-2. **Guardian Shield veto**: Multi-jurisdiction protection against NSL coercion
-3. **14-day verifier timelock**: Community response window for malicious upgrades
+2. **TimelockGovernance**: 7-day governance transfer + 14-day verifier upgrade timelocks
+3. **Guardian Shield (Phase 2)**: Multi-jurisdiction protection against NSL coercion
 4. **Crypto agility**: Upgradeable verifier for post-quantum migration
 5. **Published npm packages**: Vendored bb.js fork with stateful keygen API
-6. **Defense in depth**: NullifierRegistry + GuardianShield + Timelock + Rate Limiting
+6. **Defense in depth**: NullifierRegistry + TimelockGovernance + Rate Limiting (Phase 1), adds GuardianShield (Phase 2)
 
-This is infrastructure designed to last 20 years and withstand nation-state adversaries.
+Phase 1 infrastructure with honest threat modeling. Phase 2 adds nation-state resistance via multi-jurisdiction guardians.

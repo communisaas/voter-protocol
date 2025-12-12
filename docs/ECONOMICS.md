@@ -1,6 +1,12 @@
 # VOTER Protocol Economics
 
-**Mathematical frameworks for reputation scores, reward distribution, and token economics.**
+**⚠️ PHASE 2 SPECIFICATION - NOT IMPLEMENTED IN PHASE 1 ⚠️**
+
+**Phase 1 (3 months)**: Reputation-only system. No tokens, no challenge markets, no outcome markets.
+
+**Phase 2 (12-18 months post-launch)**: Token economics, challenge markets, outcome markets launch after proving civic utility.
+
+---
 
 This document defines the algorithms and formulas that govern the VOTER Protocol's cryptoeconomic system. These calculations determine how civic actions translate into reputation scores and token rewards.
 

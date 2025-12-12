@@ -48,7 +48,9 @@ graph TD
 
 Single `governance` address controls registry updates, circuit breaker, verifier upgrades.
 
-**Mitigation (Implemented)**: GuardianShield with multi-jurisdiction veto, 14-day verifier upgrade timelock.
+**Mitigation**:
+- **Phase 1 (Implemented)**: TimelockGovernance with 7-day governance transfer timelock, 14-day verifier upgrade timelock. Honest acknowledgment: founder key compromise = governance compromise during bootstrap.
+- **Phase 2 (Planned)**: GuardianShield with multi-jurisdiction human guardians and 2-of-N veto capability.
 
 ---
 
@@ -58,7 +60,7 @@ Single `governance` address controls registry updates, circuit breaker, verifier
 
 No recovery path for ZK circuit bugs after deployment.
 
-**Mitigation (Implemented)**: Timelocked verifier upgrade with guardian veto capability.
+**Mitigation (Implemented)**: 14-day verifier upgrade timelock via TimelockGovernance. Phase 2 adds guardian veto capability.
 
 ---
 
@@ -201,7 +203,8 @@ Dependencies: `@aztec/bb.js`, `@noir-lang/noir_js`, `pako`
 | Category | Item | Status |
 |----------|------|--------|
 | Key Management | Private keys never leave device | ✅ OK |
-| Smart Contracts | GuardianShield multi-sig | ✅ Implemented |
+| Smart Contracts | TimelockGovernance (Phase 1) | ✅ Implemented |
+| Smart Contracts | GuardianShield multi-sig (Phase 2) | ⏳ Planned |
 | Smart Contracts | Verifier upgrade timelock | ✅ 14-day |
 | Dependencies | Version pinning | ⚠️ Needs review |
 | Circuit Security | Under-constrained check | ✅ Constraints present |
