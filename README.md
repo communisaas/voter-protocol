@@ -22,9 +22,10 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 **Zero-knowledge cryptography** proves you're a constituent without revealing where you live. Your browser generates proof that congressional offices verify on-chain. Your address never leaves your device, never touches any database. Data brokers monitoring advocacy platforms see cryptographic proofs scroll by. They can't reverse-engineer your location from zero-knowledge proofs any more than they can factor 2048-bit RSA keys. Employers can't subpoena databases that don't contain identity mappings. The surveillance surface doesn't exist by design.
 
-**Challenge markets** make false claims expensive. Anyone can stake tokens challenging questionable facts—not opinions, only verifiable claims like voting records or policy impacts. Diverse AI models across major providers (OpenAI, Anthropic, xAI, Gemini) evaluate evidence independently. 67% consensus required. Quadratic weighting means one person staking $1,000 loses to a hundred citizens staking $10 each. Rich people can't buy truth. Bad faith actors literally fund quality discourse through forfeited stakes.
+**Challenge markets** (Phase 2) make false claims expensive. Anyone can stake tokens challenging questionable facts—not opinions, only verifiable claims like voting records or policy impacts. Diverse AI models across major providers (OpenAI, Anthropic, xAI, Gemini) evaluate evidence independently. 67% consensus required. Quadratic weighting means one person staking $1,000 loses to a hundred citizens staking $10 each. Rich people can't buy truth. Bad faith actors literally fund quality discourse through forfeited stakes.
 
-**Outcome markets** let citizens financially compete with corporate lobbying. Stake on "Will Austin pass 4-day work week ordinance by Q4 2025?" Corporate lobbying kills it → you lose stake but win politically. Lobbying fails and ordinance passes → policy victory plus market payout offsets any business harm. Environmental groups stake on regulation passage: win politically and earn retroactive funding for civic infrastructure that made it happen, lose politically and earn market payout funding the next campaign. Political risk was previously un-hedgeable for most participants. VOTER creates transparent derivatives for political outcomes—trade the risk, fund the infrastructure, earn when your position resolves.
+**Outcome markets** (Phase 2) let citizens financially compete with corporate lobbying. Stake on "Will Austin pass 4-day work week ordinance by Q4 2025?" Corporate lobbying kills it → you lose stake but win politically. Lobbying fails and ordinance passes → policy victory plus market payout offsets any business harm.
+
 
 **Network-effect economics** reward authentic participation. Templates earn nothing until verified citizens use them. When hundreds adopt a template that articulates their position perfectly, the creator earns tokens proportional to genuine adoption. Templates that provably change legislative positions earn creators 10x multipliers. Congressional staffers can finally distinguish quality: cryptographic proof of district membership + reputation score showing domain expertise + challenge market results proving accuracy + Sybil-resistant verification eliminating bot spam + impact correlation showing this person's previous work correlated with legislative outcomes.
 
@@ -44,9 +45,9 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 ### If You Create Value
 
-**Policy expert** spending uncompensated time debunking misinformation: Build portable on-chain reputation proving domain expertise. Staffers see verified constituent with expertise score, not anonymous spam. Phase 2 adds challenge markets—stake on false claims, win when you're right.
+**Policy expert** spending uncompensated time debunking misinformation: Build portable on-chain reputation proving domain expertise. Staffers see verified constituent with expertise score, not anonymous spam. **Phase 2** adds challenge markets—stake on false claims, win when you're right.
 
-**Template creator** whose work articulates what thousands feel but can't express: See genuine adoption as constituents use your templates. Build reputation through quality civic labor. Phase 2 adds token economics—earn rewards proportional to adoption, 10x multipliers when templates influence legislation.
+**Template creator** whose work articulates what thousands feel but can't express: See genuine adoption as constituents use your templates. Build reputation through quality civic labor. **Phase 2** adds token economics—earn rewards proportional to adoption, 10x multipliers when templates influence legislation.
 
 ### If You're Not Technical
 
@@ -55,16 +56,16 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 ### If You're Technical
 
 **Privacy advocate** who knows surveillance capitalism is the enemy: Privacy through architecture, not promises.
-- **On-chain identity**: Truly private—Halo2 ZK proofs with no trusted setup, browser-native WASM proving. Address never leaves your device. Zero AWS dependency. Zcash Orchard battle-tested since 2022.
-- **Message delivery**: Address verified in AWS Nitro Enclaves then destroyed. Message content plaintext for congressional offices to read—privacy protects your identity, not your voice. Enclave attestation proves correct code.
-- **Honest dependencies**: Congressional SOAP API requires centralized delivery and plaintext messages. Nitro Enclaves verify identity without storing it. No HSM theater.
+- **On-chain identity (zero AWS dependency)**: Browser-native Noir/Barretenberg ZK proofs with UltraPlonk. Address never leaves your device. Proof verified on-chain by smart contracts. Aztec ceremony (100K+ participants), production-grade since 2024.
+- **Message delivery (AWS Nitro Enclaves)**: Separate system for congressional CWC API delivery. Address verified in enclave then destroyed. Message content plaintext for congressional offices—privacy protects your identity, not your voice. Enclave attestation proves correct code.
+- **Clear separation**: ZK proof verification = 100% on-chain (zero AWS). Message delivery = Nitro Enclaves (congressional SOAP API requirement). Two different systems with different privacy properties.
 
-**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments). Optional NEAR chain signatures for cross-chain UX. Halo2 single-tier proofs for district verification (8–15s mobile browser WASM, 300–500k gas, no trusted setup). Phase 1: Reputation-only. Phase 2: Token economics. See the canonical document carrying the detail.
+**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments). Optional NEAR chain signatures for cross-chain UX. Noir/Barretenberg proofs with UltraPlonk for district verification (8–15s mobile browser WASM, 300–400k gas, KZG ceremony via Ethereum's 141K-participant setup). Phase 1: Reputation-only. Phase 2: Token economics. See the canonical document carrying the detail.
 
 
 ## Why Now
 
-The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Halo2 proofs battle-tested in Zcash Orchard since 2022—production-grade zero-knowledge cryptography with no trusted setup. Every piece we need exists and is battle-tested.
+The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Noir/Barretenberg proofs battle-tested in Aztec Protocol since 2024—production-grade zero-knowledge cryptography leveraging Ethereum's 141K-participant KZG ceremony. Every piece we need exists and is battle-tested.
 
 [Prediction markets on electoral outcomes reached $3.2 billion daily volume on Polymarket](https://www.theblock.co/data/decentralized-finance/prediction-markets/total-trading-volume-on-polymarket-daily) during 2024 elections. That proved people stake massive capital on political predictions. But electoral predictions don't *influence* outcomes—you're just betting. VOTER creates markets for *legislative outcomes* where staking funds the civic infrastructure attempting to influence the result (Phase 2 feature, 12-18 months post-launch). You're not just predicting Medicare drug pricing reform—you're funding the template campaigns, rewarding constituent messaging, financially backing the advocacy that makes it happen.
 
@@ -76,9 +77,9 @@ Congressional staffers desperately need ["small surprising things like bills the
 
 VOTER gives staffers what they're asking for: cryptographic quality signals. This constituent is verified district resident (zero-knowledge proof, no PII revealed, no database storage) + domain expertise score (portable reputation) + not bot spam (Sybil-resistant verification).
 
-**Phase 1 (launching 3 months):** Reputation-only system. Cryptographic verification, encrypted delivery, quality signals for congressional offices. No token. Proves civic utility before adding financial layer.
+**Phase 1 (launching 3 months):** Reputation-only system. Cryptographic verification, encrypted delivery, quality signals for congressional offices. No tokens. Proves civic utility before adding financial layer.
 
-**Phase 2 (12-18 months):** Challenge markets (economic stakes on verifiable claims) + outcome markets (financially compete with corporate lobbying) + VOTER token rewards + privacy pools for financial privacy.
+**Phase 2 (12-18 months):** VOTER token rewards + challenge markets (economic stakes on verifiable claims) + outcome markets (financially compete with corporate lobbying) + privacy pools for financial privacy.
 
 The agricultural worker advocates without employment consequences. The policy expert earns reputation (Phase 1) then rewards (Phase 2) instead of being dismissed as spam. The teacher participates without risking her job. The citizen takes market positions funding civic infrastructure (Phase 2). The staffer finally distinguishes valuable expertise from the 50th identical email.
 
