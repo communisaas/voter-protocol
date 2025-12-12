@@ -24,7 +24,7 @@ export type {
 } from './account/types';
 
 // Zero-knowledge proofs
-export { Halo2Prover } from './zk/halo2-prover';
+export { NoirProverAdapter } from './zk/noir-prover';
 export { ShadowAtlas } from './zk/shadow-atlas';
 export type {
   DistrictProof,
@@ -32,6 +32,10 @@ export type {
   MerkleProof,
   ShadowAtlasConfig
 } from './zk/types';
+
+// Re-export Halo2Prover as deprecated alias for backward compatibility
+/** @deprecated Use NoirProverAdapter instead. Halo2 has been replaced with Noir/Barretenberg. */
+export { NoirProverAdapter as Halo2Prover } from './zk/noir-prover';
 
 // Smart contracts
 export { DistrictGateContract } from './contracts/district-gate';

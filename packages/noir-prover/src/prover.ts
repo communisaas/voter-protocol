@@ -36,6 +36,7 @@ export class NoirProver {
         const start = Date.now();
 
         // Initialize Barretenberg backend
+        // Use default threading (navigator.hardwareConcurrency if headers permit)
         this.api = await Barretenberg.new();
 
         // Initialize Noir for witness generation
@@ -78,7 +79,11 @@ export class NoirProver {
         });
 
         this.provingKey = result.provingKey;
-        console.log(`[NoirProver] Warmup complete in ${Date.now() - start}ms`);
+        if (result.verificationKey) {
+            this.config.verificationKey = result.verificationKey;
+        }
+        const vkSize = result.verificationKey ? result.verificationKey.length : 'N/A';
+        console.log(`[NoirProver] Warmup complete in ${Date.now() - start}ms. Pk Size: ${this.provingKey.length}, Vk Size: ${vkSize}`);
     }
 
     /**
@@ -104,7 +109,14 @@ export class NoirProver {
             user_secret: inputs.userSecret,
         };
 
-        const { witness } = await this.noir!.execute(noirInputs);
+        let { witness } = await this.noir!.execute(noirInputs);
+
+        // Decompress witness if gzipped (detected by magic bytes 1f 8b)
+        // Noir 1.0+ returns compressed witness, but bb.js expects raw bincode
+        if (witness.length > 2 && witness[0] === 0x1f && witness[1] === 0x8b) {
+            witness = inflate(witness);
+        }
+
         console.log(`[NoirProver] Witness generated in ${Date.now() - witnessStart}ms`);
 
         console.log('[NoirProver] Generating proof...');

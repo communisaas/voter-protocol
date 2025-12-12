@@ -6,7 +6,7 @@ TypeScript SDK for the VOTER Protocol - democracy infrastructure that competes i
 
 - **🆓 FREE Account Creation** - NEAR implicit accounts via Face ID/Touch ID (no gas, no on-chain tx)
 - **🔐 Multi-Chain Control** - One passkey controls Scroll, Ethereum, Bitcoin via NEAR Chain Signatures
-- **🕵️ Zero-Knowledge Proofs** - Prove congressional district without revealing address (Halo2 SNARKs)
+- **🕵️ Zero-Knowledge Proofs** - Prove congressional district without revealing address (Noir/Barretenberg UltraPlonk)
 - **⚡ Fast Settlement** - Scroll L2 (~$0.0047-$0.0511/tx, ~2 sec finality)
 - **📊 Reputation System** - ERC-8004 portable reputation with time decay
 
@@ -29,7 +29,8 @@ import { VOTERClient } from '@voter-protocol/client';
 const client = new VOTERClient({
   network: 'scroll-sepolia',
   districtGateAddress: '0x...',
-  reputationRegistryAddress: '0x...'
+  nullifierRegistryAddress: '0x...',
+  districtRegistryAddress: '0x...'
 });
 
 // Create account (FREE - no gas required)
@@ -42,15 +43,34 @@ console.log('NEAR Account:', account.nearAccount);
 
 // Generate zero-knowledge proof of congressional district
 const proof = await client.zk.proveDistrict({
-  address: '1600 Pennsylvania Avenue NW, Washington, DC 20500'
+  address: '1600 Pennsylvania Avenue NW, Washington, DC 20500',
+  actionId: '0x...',  // Hash of template/campaign ID (any bytes32 is valid)
   // Address never leaves browser, never goes on-chain
 });
 
+// Sign EIP-712 message (MEV-resistant - rewards go to signer, not submitter)
+const { signature, deadline, nonce } = await client.signProofSubmission({
+  proof: proof.proofBytes,
+  districtRoot: proof.districtRoot,
+  nullifier: proof.nullifier,
+  actionId: proof.actionId,
+  country: proof.country
+});
+
 // Submit proof on-chain (Scroll L2)
-const tx = await client.contracts.districtGate.verifyDistrict(proof);
+const tx = await client.contracts.districtGate.verifyAndAuthorizeWithSignature(
+  account.scrollAddress,  // signer (receives credit)
+  proof.proofBytes,
+  proof.districtRoot,
+  proof.nullifier,
+  proof.actionId,
+  proof.country,
+  deadline,
+  signature
+);
 await tx.wait();
 
-console.log('District verified!');
+console.log('Action verified!');
 ```
 
 ## Architecture
@@ -82,12 +102,12 @@ const signature = await chainSigs.signTransaction({
 - Sub-second signature latency
 - Byzantine fault tolerance (2/3 validators must collude to compromise)
 
-### Zero-Knowledge Proofs: Halo2 SNARKs
+### Zero-Knowledge Proofs: Noir/Barretenberg UltraPlonk
 
 Prove congressional district membership without revealing address:
 
 ```typescript
-// Generate proof (8-12 seconds in browser WASM)
+// Generate proof (8-15 seconds in browser WASM)
 const proof = await client.zk.proveDistrict({
   address: fullStreetAddress  // Never leaves browser
 });
@@ -103,10 +123,10 @@ const proof = await client.zk.proveDistrict({
 ```
 
 **Technical details:**
-- Proving time: 8-12 seconds (browser WASM)
+- Proving time: 8-15 seconds (browser WASM)
 - Proof size: 384-512 bytes
-- Verification gas: ~200-250k on Scroll L2
-- Security: Trusted setup-free (Halo2), quantum-resistant roadmap
+- Verification gas: ~300-400k on Scroll L2
+- Security: KZG trusted setup (Ethereum's 141K-participant ceremony), production-grade
 
 ### Shadow Atlas: Congressional District Merkle Tree
 
@@ -133,20 +153,25 @@ console.log('Country:', merkleProof.leaf.countryCode);
 
 ### Smart Contracts: Scroll L2 Settlement
 
-**DistrictGate.sol** - Halo2 proof verification:
+**DistrictGate.sol** - UltraPlonk proof verification (permissionless actions):
 
 ```typescript
-// Check verification status
-const isVerified = await client.contracts.districtGate.isVerified(address);
+// Check if nullifier was used for an action
+const used = await client.contracts.districtGate.isNullifierUsed(actionId, nullifier);
 
-// Get verified district
-const districtHash = await client.contracts.districtGate.getUserDistrict(address);
+// Get participant count for an action
+const count = await client.contracts.districtGate.getParticipantCount(actionId);
 
-// Listen for verifications
-client.contracts.districtGate.onDistrictVerified((user, districtHash) => {
-  console.log(`New verification: ${user}`);
+// Listen for verified actions
+client.contracts.districtGate.onActionVerified((user, submitter, districtRoot, country, nullifier, actionId) => {
+  console.log(`Action verified: ${user} for action ${actionId}`);
 });
 ```
+
+**Important**: Actions are permissionless - any `bytes32` actionId is valid without pre-authorization. Spam is mitigated by:
+- Rate limits (60s between actions per user)
+- Gas costs (~$0.003-0.05 per tx)
+- ZK proof generation time (8-15s in browser)
 
 **ReputationRegistry.sol** - ERC-8004 reputation:
 
@@ -178,7 +203,9 @@ interface VOTERClientConfig {
   network: 'scroll-mainnet' | 'scroll-sepolia';
   nearNetwork?: 'mainnet' | 'testnet';
   districtGateAddress: string;
-  reputationRegistryAddress: string;
+  districtRegistryAddress: string;
+  nullifierRegistryAddress: string;
+  reputationRegistryAddress?: string;  // Phase 2
   ipfsGateway?: string;
   cacheStrategy?: 'aggressive' | 'minimal';
 }
@@ -204,8 +231,11 @@ client.account.signTransaction({ payload, path, keyVersion })
 ### Zero-Knowledge Proofs
 
 ```typescript
-// Generate district proof
-client.zk.proveDistrict({ address: string })
+// Generate district proof (address never leaves browser)
+client.zk.proveDistrict({
+  address: string,
+  actionId: bytes32  // Any bytes32 is valid (permissionless)
+})
 
 // Load Shadow Atlas
 client.zk.shadowAtlas.load(cid: string)
@@ -214,20 +244,36 @@ client.zk.shadowAtlas.load(cid: string)
 client.zk.shadowAtlas.generateProof(address: string)
 
 // Estimate proving time
-client.zk.halo2Prover.estimateProvingTime()
+client.zk.noirProver.estimateProvingTime()
+
+// Sign EIP-712 proof submission (MEV-resistant)
+client.signProofSubmission({
+  proof: bytes,
+  districtRoot: bytes32,
+  nullifier: bytes32,
+  actionId: bytes32,
+  country: bytes3
+})
 ```
 
 ### Contract Interactions
 
 ```typescript
-// DistrictGate
-client.contracts.districtGate.verifyDistrict(proof)
-client.contracts.districtGate.isVerified(address)
-client.contracts.districtGate.getUserDistrict(address)
-client.contracts.districtGate.getShadowAtlasCID()
-client.contracts.districtGate.onDistrictVerified(callback)
+// DistrictGate - EIP-712 signature-based (MEV-resistant)
+client.contracts.districtGate.verifyAndAuthorizeWithSignature(
+  signer, proof, districtRoot, nullifier, actionId, country, deadline, signature
+)
+client.contracts.districtGate.isNullifierUsed(actionId, nullifier)
+client.contracts.districtGate.getParticipantCount(actionId)
+client.contracts.districtGate.nonces(address)  // For signature construction
+client.contracts.districtGate.DOMAIN_SEPARATOR()  // EIP-712 domain
+client.contracts.districtGate.SUBMIT_PROOF_TYPEHASH()  // EIP-712 typehash
+client.contracts.districtGate.onActionVerified(callback)
 
-// ReputationRegistry
+// Helper for EIP-712 signature
+client.signProofSubmission({ proof, districtRoot, nullifier, actionId, country })
+
+// ReputationRegistry (Phase 2)
 client.contracts.reputationRegistry.getReputation(address, domain)
 client.contracts.reputationRegistry.getReputationTier(address, domain)
 client.contracts.reputationRegistry.hasReputation(address, domain, minScore)

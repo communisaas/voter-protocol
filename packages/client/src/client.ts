@@ -8,7 +8,7 @@ import { ethers } from 'ethers';
 import { NEARAccountManager } from './account/near-account';
 import { ChainSignatureManager } from './account/chain-signatures';
 import { ChainSignaturesSigner } from './account/chain-signatures-signer';
-import { Halo2Prover } from './zk/halo2-prover';
+import { NoirProverAdapter } from './zk/noir-prover';
 import { ShadowAtlas } from './zk/shadow-atlas';
 import { DistrictGateContract } from './contracts/district-gate';
 import { ReputationRegistryContract } from './contracts/reputation-registry';
@@ -73,7 +73,7 @@ export class VOTERClient {
   private chainSignatures: ChainSignatureManager | null = null;
 
   // ZK proof generation
-  private halo2Prover: Halo2Prover | null = null;
+  private noirProver: NoirProverAdapter | null = null;
   private shadowAtlas: ShadowAtlas | null = null;
 
   // Blockchain interaction
@@ -133,9 +133,9 @@ export class VOTERClient {
    * Initialize ZK components (async)
    */
   private async initZKComponents(): Promise<void> {
-    // Initialize Halo2 prover
-    this.halo2Prover = new Halo2Prover();
-    await this.halo2Prover.init();
+    // Initialize Noir prover
+    this.noirProver = new NoirProverAdapter();
+    await this.noirProver.init();
 
     // Initialize Shadow Atlas
     this.shadowAtlas = new ShadowAtlas(
@@ -226,7 +226,7 @@ export class VOTERClient {
         // Auto-wait for initialization
         await this.ready();
 
-        if (!this.halo2Prover || !this.shadowAtlas || !this.districtGateContract) {
+        if (!this.noirProver || !this.shadowAtlas || !this.districtGateContract) {
           throw new Error('Client components failed to initialize');
         }
 
@@ -236,7 +236,8 @@ export class VOTERClient {
           : params.address;
 
         // 1. Get current on-chain Merkle root
-        const onChainRoot = await this.districtGateContract.getCurrentMerkleRoot();
+        const onChainRootHex = await this.districtGateContract.getCurrentMerkleRoot();
+        const onChainRoot = BigInt(onChainRootHex);
 
         // 2. Get current Shadow Atlas CID from contract
         const cid = await this.districtGateContract.getShadowAtlasCID();
@@ -248,8 +249,8 @@ export class VOTERClient {
         // 4. Generate Merkle proof from Shadow Atlas
         const merkleProof = await this.shadowAtlas.generateProof(streetAddress);
 
-        // 5. Generate Halo2 zero-knowledge proof
-        const proof = await this.halo2Prover.prove({
+        // 5. Generate Noir zero-knowledge proof
+        const proof = await this.noirProver.prove({
           address: streetAddress,
           merkleProof
         });
@@ -263,11 +264,11 @@ export class VOTERClient {
       verifyProof: async (proof: DistrictProof): Promise<boolean> => {
         await this.ready();
 
-        if (!this.halo2Prover) {
+        if (!this.noirProver) {
           throw new Error('Client components failed to initialize');
         }
 
-        return this.halo2Prover.verify(proof);
+        return this.noirProver.verify(proof);
       },
 
       /**
@@ -276,9 +277,18 @@ export class VOTERClient {
       shadowAtlas: this.shadowAtlas,
 
       /**
-       * Halo2 prover access
+       * Noir prover access
        */
-      halo2Prover: this.halo2Prover
+      noirProver: this.noirProver,
+
+      /**
+       * @deprecated Use noirProver instead. Halo2 has been replaced with Noir/Barretenberg.
+       * This alias will be removed in v1.0.0.
+       */
+      get halo2Prover(): NoirProverAdapter | null {
+        console.warn('[VOTERClient] halo2Prover is deprecated. Use noirProver instead.');
+        return this.noirProver;
+      }
     };
   }
 

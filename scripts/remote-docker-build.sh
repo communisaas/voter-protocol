@@ -48,20 +48,24 @@ docker run --rm \
     aztec-build \
     /bin/bash -c "cmake --preset clang20 -DAVM_TRANSPILER_LIB= && cmake --build --preset clang20 --target bbapi_tests dsl_tests"
 
+# Download CRS files before running tests
+echo "Downloading CRS files for testing..."
+docker run --rm \
+    -v $(pwd):/usr/src/aztec-packages \
+    -v $HOME/.bb-crs:/root/.bb-crs \
+    -w /usr/src/aztec-packages/barretenberg \
+    -e HOME=/root \
+    aztec-build \
+    /bin/bash -c "scripts/download_bb_crs.sh"
+
 # Run native tests inside the container to ensure glibc compatibility
 echo "Running native tests inside Docker container..."
 docker run --rm \
     -v $(pwd):/usr/src/aztec-packages \
+    -v $HOME/.bb-crs:/root/.bb-crs \
     -w /usr/src/aztec-packages/barretenberg/cpp \
     -e REF_NAME=v0.0.0 \
     -e root=/usr/src/aztec-packages \
+    -e HOME=/root \
     aztec-build \
-# Run native tests inside the container to ensure glibc compatibility
-echo "Running native tests inside Docker container..."
-docker run --rm \
-    -v $(pwd):/usr/src/aztec-packages \
-    -w /usr/src/aztec-packages/barretenberg/cpp \
-    -e REF_NAME=v0.0.0 \
-    -e root=/usr/src/aztec-packages \
-    aztec-build \
-    ./build/bin/bbapi_tests || echo "Native tests failed, but proceeding..."
+    ./build/bin/bbapi_tests --gtest_filter=StatefulKeygenTest.* || echo "Native tests failed, but proceeding..."

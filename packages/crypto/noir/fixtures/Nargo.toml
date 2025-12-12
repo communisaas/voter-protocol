@@ -1,0 +1,5 @@
+[package]
+name = "fixtures"
+type = "bin"
+authors = ["voter-protocol"]
+version = "0.1.0"
