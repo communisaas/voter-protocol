@@ -2,8 +2,26 @@
 
 **Production-grade infrastructure for zero-knowledge proof system deployment.**
 
-**Classification**: Production Architecture
-**Threat Model**: Nation-state adversaries, 20-year cryptographic horizon
+**Classification**: Production Architecture  
+**Threat Model**: Nation-state adversaries, 20-year cryptographic horizon  
+**Last Updated**: 2025-12-11
+
+---
+
+## Implementation Status
+
+| Component | Status | Package/Contract |
+|-----------|--------|------------------|
+| NullifierRegistry | ✅ Implemented | `contracts/src/NullifierRegistry.sol` |
+| GuardianShield | ✅ Implemented | `contracts/src/GuardianShield.sol` |
+| DistrictGate (with timelocked verifier) | ✅ Implemented | `contracts/src/DistrictGate.sol` |
+| Noir Circuit | ✅ Implemented | `packages/crypto/noir/district_membership/` |
+| Browser Prover | ✅ Published | `@voter-protocol/noir-prover@0.1.0` |
+| BB.js Fork (stateful keygen) | ✅ Published | `@voter-protocol/bb.js@0.87.0-fork.1` |
+| DistrictRegistry | ✅ Implemented | `contracts/src/DistrictRegistry.sol` |
+| Chainlink Oracle Integration | ⏳ Planned | — |
+| Formal Verification CI | ⏳ Planned | — |
+| Professional Audit | ⏳ Planned | — |
 
 ---
 
@@ -16,160 +34,129 @@
 
 ---
 
-## C-1: Nullifier Registry
+## C-1: Nullifier Registry ✅ IMPLEMENTED
 
 ### Problem
 Proofs can be replayed infinitely. No mechanism prevents double-voting.
 
-### Distinguished Solution: Semaphore-Style External Nullifier Architecture
+### Implemented Solution
+
+The `NullifierRegistry` contract at `contracts/src/NullifierRegistry.sol` implements:
+
+- **External nullifier pattern**: `actionId` serves as domain separator
+- **Nested mapping**: `nullifierUsed[actionId][userNullifier] = true`
+- **Rate limiting**: 60-second minimum between actions per user
+- **Participant tracking**: Per-action submission counts
+- **Authorization layer**: Only authorized callers (DistrictGate) can record nullifiers
 
 ```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+// Key mapping structure
+mapping(bytes32 => mapping(bytes32 => bool)) public nullifierUsed;
+// nullifierUsed[actionId][userNullifier] = true
 
-contract NullifierRegistry {
-    // External nullifier = H(campaign_id, epoch_id)
-    // This allows same user to participate in different campaigns
-    // But prevents double-action within same campaign/epoch
-    
-    mapping(bytes32 => mapping(bytes32 => bool)) public nullifierUsed;
-    // nullifierUsed[externalNullifier][userNullifier] = true
-    
-    event ActionRecorded(
-        bytes32 indexed externalNullifier,
-        bytes32 indexed userNullifier,
-        bytes32 merkleRoot,
-        uint256 timestamp
-    );
-
-    function submitAction(
-        bytes calldata proof,
-        bytes32 merkleRoot,
-        bytes32 userNullifier,
-        bytes32 campaignId,
-        bytes32 epochId,
-        bytes32 authorityHash
-    ) external {
-        bytes32 externalNullifier = keccak256(abi.encodePacked(campaignId, epochId));
-        
-        // CRITICAL: Check nullifier hasn't been used for this context
-        require(!nullifierUsed[externalNullifier][userNullifier], "Already submitted");
-        
-        // Verify ZK proof
-        require(verifyProof(proof, merkleRoot, userNullifier, authorityHash, epochId, campaignId), "Invalid proof");
-        
-        // Mark nullifier as used (prevents replay)
-        nullifierUsed[externalNullifier][userNullifier] = true;
-        
-        emit ActionRecorded(externalNullifier, userNullifier, merkleRoot, block.timestamp);
-    }
-}
+// Rate limiting
+mapping(bytes32 => uint256) public lastActionTime;
+uint256 public constant RATE_LIMIT_SECONDS = 60;
 ```
 
-### Gas Optimization
+### Gas Optimization (Scroll L2)
 
-| Operation | Gas Cost | Optimization |
-|-----------|----------|--------------|
-| SSTORE (first write) | ~20,000 | Inevitable |
-| SLOAD (check) | ~2,100 | Cold storage |
-| Proof verification | ~200,000 | KZG pairing |
-
-**Total**: ~222,000 gas per action on L1
-
-**L2 Strategy**: Deploy on Scroll L2 for ~100x gas reduction (~2,220 equivalent gas).
+| Operation | L1 Gas | L2 Equivalent |
+|-----------|--------|---------------|
+| SSTORE (first write) | ~20,000 | ~200 |
+| SLOAD (check) | ~2,100 | ~21 |
+| Total submission | ~222,000 | ~2,220 |
 
 ---
 
-## C-2: Root Validation Oracle
+## C-2: Guardian Shield ✅ IMPLEMENTED
 
 ### Problem
-Proofs can use fake Merkle roots, claiming membership in non-existent districts.
+Single governance address is a nation-state target. NSL + gag order can coerce a single entity.
 
-### Distinguished Solution: Chainlink-Secured Root Registry
+### Implemented Solution
+
+The `GuardianShield` abstract contract at `contracts/src/GuardianShield.sol` provides:
+
+- **Multi-jurisdiction guardians**: 2+ guardians required
+- **Single veto blocks**: Any guardian can veto pending governance transfers or verifier upgrades
+- **Plausible deniability**: Guardians veto without explanation
+- **Fail-safe default**: If no guardians act, timelock proceeds; if any veto, action blocked
 
 ```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+// Core veto mechanism
+mapping(address => bool) public vetoed;
 
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
-contract DistrictRootRegistry {
-    struct DistrictInfo {
-        string districtCode;      // "CA-12", "TX-18"
-        uint256 population;       // Census population
-        uint256 lastUpdated;      // Block timestamp
-        bool isActive;            // Can be deprecated
-        bytes32 merkleRoot;       // Current Shadow Atlas root
-    }
-    
-    mapping(bytes32 => DistrictInfo) public districts;
-    mapping(address => bool) public authorizedOracles;
-    
-    uint256 public constant ROOT_VALIDITY_PERIOD = 90 days;
-    uint256 public constant MIN_UPDATE_INTERVAL = 7 days;
-    
-    modifier onlyOracle() {
-        require(authorizedOracles[msg.sender], "Not authorized oracle");
-        _;
-    }
-    
-    function updateRoot(
-        bytes32 districtHash,
-        bytes32 newRoot,
-        uint256 population,
-        bytes calldata chainlinkSignature
-    ) external onlyOracle {
-        DistrictInfo storage district = districts[districtHash];
-        
-        // Prevent rapid root updates (protects against oracle compromise)
-        require(
-            block.timestamp >= district.lastUpdated + MIN_UPDATE_INTERVAL,
-            "Update too soon"
-        );
-        
-        // Verify Chainlink attestation (optional redundancy)
-        // verifyChainlinkAttestation(chainlinkSignature, districtHash, newRoot);
-        
-        district.merkleRoot = newRoot;
-        district.population = population;
-        district.lastUpdated = block.timestamp;
-        district.isActive = true;
-    }
-    
-    function validateRoot(bytes32 merkleRoot) external view returns (bool, string memory) {
-        // O(1) lookup by root → district
-        // Implementation: maintain reverse mapping of root → districtHash
-        // ...
-    }
+function veto(address target) external onlyGuardian {
+    vetoed[target] = true;
+    emit TargetVetoed(target, msg.sender);
 }
 ```
 
-### Multi-Sig Oracle Quorum
+### DistrictGate Integration
 
-For nation-state resistance:
+`DistrictGate` extends `GuardianShield` and implements:
 
-```
-Root Update Requirement:
-  - 3-of-5 oracle signatures (geographically distributed)
-  - Timelock: 48-hour delay before activation
-  - Veto: Any 2 oracles can cancel pending update
-```
-
-### IPFS Commitment Layer
-
-```
-Shadow Atlas Update Flow:
-1. Protocol builds new Shadow Atlas from Census + voter rolls
-2. Compute Merkle root R
-3. Publish full tree to IPFS → CID
-4. Post (R, CID, timestamp) to Chainlink DON
-5. 3-of-5 oracles verify independently
-6. After 48h timelock, R becomes active on-chain
-```
+- **14-day verifier upgrade timelock**: `VERIFIER_UPGRADE_TIMELOCK = 14 days`
+- **Governance transfer timelock**: `GOVERNANCE_TIMELOCK = 14 days`
+- **Veto check on execution**: Both upgrades and transfers check `vetoed[target]`
 
 ---
 
-## Formal Verification Strategy
+## C-3: Root Validation ✅ IMPLEMENTED (Basic)
+
+### Current Implementation
+
+`DistrictRegistry` at `contracts/src/DistrictRegistry.sol` provides:
+
+- **Known root registration**: Only governance can register roots
+- **Country code binding**: Each root associated with country
+- **Active/inactive status**: Roots can be deprecated
+
+### Future Enhancement: Oracle Quorum
+
+Not yet implemented:
+- Chainlink DON attestation
+- 3-of-5 multi-sig oracle
+- 48-hour timelock on root updates
+- IPFS commitment layer
+
+---
+
+## Noir Prover Infrastructure ✅ PUBLISHED
+
+### Published Packages
+
+```bash
+# Install
+npm install @voter-protocol/noir-prover @voter-protocol/bb.js @noir-lang/noir_js pako
+```
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| `@voter-protocol/bb.js` | 0.87.0-fork.1 | Barretenberg fork with stateful keygen API |
+| `@voter-protocol/noir-prover` | 0.1.0 | Browser-native ZK prover |
+
+### Circuit Specification
+
+The Noir circuit at `packages/crypto/noir/district_membership/src/main.nr`:
+
+```
+Public Inputs: [merkle_root, nullifier, authority_hash, epoch_id, campaign_id]
+Private Inputs: [leaf, merkle_path[14], leaf_index, user_secret]
+Hash Function: Poseidon2 (T=4)
+Constraints: ~4,000 (well under 2^19 gate limit)
+```
+
+### Browser Requirements
+
+- `crossOriginIsolated === true` (COOP + COEP headers)
+- SharedArrayBuffer support
+- ~14MB WASM download (gzipped: 3.1MB)
+
+---
+
+## Formal Verification Strategy ⏳ PLANNED
 
 ### Tooling Selection
 
@@ -177,201 +164,70 @@ Shadow Atlas Update Flow:
 |------|---------|--------|
 | **Veridise Picus** | Under-constrained detection | Noir circuit |
 | **Ecne** | R1CS uniqueness verification | ACIR output |
-| **Lean4 (cLean)** | Full circuit specification | main.nr |
-| **Coq** | Contract invariants | Solidity |
+| **Halmos** | Symbolic execution | Solidity contracts |
 
-### Verification Scope
-
-```lean
--- Lean4 specification for district membership
-
-theorem nullifier_uniqueness 
-  (inputs1 inputs2 : CircuitInputs)
-  (h_same_nullifier : compute_nullifier inputs1 = compute_nullifier inputs2)
-  (h_same_campaign : inputs1.campaign_id = inputs2.campaign_id)
-  (h_same_epoch : inputs1.epoch_id = inputs2.epoch_id) :
-  inputs1.user_secret = inputs2.user_secret ∧ 
-  inputs1.authority_hash = inputs2.authority_hash :=
-by
-  -- Poseidon collision resistance implies this
-  sorry -- Formalized proof pending
-
-theorem merkle_membership_soundness
-  (root : Field)
-  (leaf : Field)
-  (path : Array Field)
-  (index : Nat)
-  (h_valid : verify_membership root leaf path index = true) :
-  ∃ tree : MerkleTree, tree.root = root ∧ tree.contains leaf index :=
-by
-  -- Merkle tree construction from path
-  sorry
-```
-
-### Continuous Verification Pipeline
+### CI Integration
 
 ```yaml
-# .github/workflows/circuit-verify.yml
+# .github/workflows/circuit-verify.yml (to be created)
 name: Circuit Formal Verification
-
 on:
   push:
-    paths:
-      - 'packages/crypto/noir/**'
-
+    paths: ['packages/crypto/noir/**']
 jobs:
   picus-underconstraint:
     runs-on: ubuntu-latest
     steps:
       - uses: veridise/picus-action@v1
-        with:
-          circuit: packages/crypto/noir/district_membership
-          
-  ecne-soundness:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: 0xparc/ecne-action@v1
-        with:
-          r1cs: packages/noir-prover/circuits/district_membership.r1cs
 ```
 
 ---
 
-## Post-Quantum Migration Path
+## Post-Quantum Migration Path ⏳ FUTURE
 
 ### Timeline
 
 | Phase | Years | Action |
 |-------|-------|--------|
-| **Monitoring** | 0-2 | Track NIST PQC standardization, Greyhound maturity |
-| **Research** | 2-4 | Prototype lattice-based PCS integration |
-| **Hybrid** | 4-6 | Deploy hybrid classical + PQ proofs |
+| **Monitoring** | 0-2 | Track NIST PQC, Greyhound maturity |
+| **Research** | 2-4 | Prototype lattice-based PCS |
+| **Hybrid** | 4-6 | Deploy classical + PQ proofs |
 | **Full Migration** | 6-10 | Deprecate classical proofs |
 
-### Greyhound PCS Integration
+### Current Crypto Agility
 
-```typescript
-// Future: Lattice-based polynomial commitment scheme
-interface QuantumSafeProver {
-  // Greyhound provides transparent, lattice-based commitments
-  // ~16KB proof size (vs ~500 bytes classical)
-  // Higher prover time, but quantum-safe
-  
-  prove(circuit: Circuit, witness: Witness): Promise<QuantumSafeProof>;
-  verify(proof: QuantumSafeProof, publicInputs: Field[]): Promise<boolean>;
-}
-```
-
-### Crypto Agility Architecture
-
-```solidity
-contract VerifierRegistry {
-    enum ProofSystem {
-        ULTRA_HONK,           // Current: KZG-based (vulnerable to quantum)
-        ULTRA_HONK_HYBRID,    // Transition: KZG + lattice redundancy
-        GREYHOUND             // Future: Pure lattice-based
-    }
-    
-    mapping(ProofSystem => address) public verifiers;
-    
-    function verify(
-        ProofSystem system,
-        bytes calldata proof,
-        bytes32[] calldata publicInputs
-    ) external view returns (bool) {
-        return IVerifier(verifiers[system]).verify(proof, publicInputs);
-    }
-}
-```
+`DistrictGate.initiateVerifierUpgrade()` with 14-day timelock allows:
+- Swap proof systems without redeployment
+- Guardian veto on compromised upgrades
+- Emergency pause by governance
 
 ---
 
-## Supply Chain Security
+## Supply Chain Security ✅ ADDRESSED
 
-### Dependency Pinning
+### Published Packages
+
+Both `@voter-protocol/bb.js` and `@voter-protocol/noir-prover` are:
+- Published to npm with provenance
+- Exact version pinning (not ranges)
+- Vendored WASM included in package
+
+### Dependencies
 
 ```json
 {
   "dependencies": {
-    "@aztec/bb.js": "0.1.0",
+    "@voter-protocol/bb.js": "0.87.0-fork.1",
+    "@voter-protocol/noir-prover": "0.1.0",
     "@noir-lang/noir_js": "1.0.0-beta.11",
     "pako": "2.1.0"
-  },
-  "overrides": {
-    "@aztec/bb.js": "0.1.0"
   }
 }
 ```
 
-### Subresource Integrity
-
-```html
-<!-- Browser bundle with SRI -->
-<script 
-  src="https://cdn.example.com/noir-prover.js"
-  integrity="sha384-[hash]"
-  crossorigin="anonymous">
-</script>
-```
-
-### Vendoring Strategy
-
-```bash
-# For maximum security: vendor bb.js WASM locally
-packages/noir-prover/
-├── vendor/
-│   ├── barretenberg.wasm.gz    # From trusted build
-│   └── barretenberg.wasm.sha256
-├── scripts/
-│   └── verify-wasm-integrity.sh
-```
-
 ---
 
-## Economic Security
-
-### Proof-of-Stake Bond
-
-```solidity
-contract StakedActionSubmitter {
-    uint256 public constant STAKE_AMOUNT = 0.01 ether;
-    uint256 public constant SLASH_PENALTY = 0.005 ether;
-    
-    mapping(address => uint256) public stakes;
-    
-    function submitAction(bytes calldata proof, ...) external {
-        require(stakes[msg.sender] >= STAKE_AMOUNT, "Insufficient stake");
-        
-        // Submit action...
-        
-        // Stake at risk for challenge period
-    }
-    
-    function challenge(bytes32 nullifier, bytes calldata fraudProof) external {
-        // If fraud proven, slash submitter and reward challenger
-    }
-}
-```
-
-### Rate Limiting
-
-```solidity
-mapping(bytes32 => uint256) public lastSubmissionTime;
-uint256 public constant MIN_INTERVAL = 1 hours;
-
-function submitAction(..., bytes32 userNullifier) external {
-    require(
-        block.timestamp >= lastSubmissionTime[userNullifier] + MIN_INTERVAL,
-        "Rate limited"
-    );
-    lastSubmissionTime[userNullifier] = block.timestamp;
-    // ...
-}
-```
-
----
-
-## Audit Requirements
+## Audit Requirements ⏳ PLANNED
 
 ### Scope
 
@@ -380,9 +236,8 @@ function submitAction(..., bytes32 userNullifier) external {
 | Noir circuit | Veridise | 4 weeks | $60-80k |
 | Solidity contracts | Trail of Bits | 4 weeks | $80-100k |
 | bb.js integration | Zellic | 2 weeks | $40-60k |
-| Full protocol | Least Authority | 6 weeks | $100-150k |
 
-### Bug Bounty
+### Bug Bounty (Post-Audit)
 
 | Severity | Reward |
 |----------|--------|
@@ -395,26 +250,29 @@ function submitAction(..., bytes32 userNullifier) external {
 
 ## Implementation Checklist
 
-### Phase 1: Foundation (Weeks 1-4)
-- [ ] Deploy NullifierRegistry on Scroll testnet
-- [ ] Deploy DistrictRootRegistry on Scroll testnet
-- [ ] Integrate Veridise Picus in CI
-- [ ] Pin all dependency versions exactly
+### Phase 1: Foundation ✅ COMPLETE
+- [x] NullifierRegistry with rate limiting
+- [x] GuardianShield multi-jurisdiction veto
+- [x] DistrictGate with 14-day verifier timelock
+- [x] Noir circuit (district_membership)
+- [x] Published @voter-protocol/bb.js fork
+- [x] Published @voter-protocol/noir-prover
 
-### Phase 2: Hardening (Weeks 5-8)
-- [ ] Multi-sig oracle quorum for root updates
+### Phase 2: Hardening ⏳ IN PROGRESS
+- [ ] Chainlink oracle quorum for root updates
 - [ ] 48-hour timelock on root changes
-- [ ] Lean4 specification for nullifier uniqueness
-- [ ] Economic stake/slash mechanism
+- [ ] Integration tests for NoirProver
+- [ ] Browser COOP/COEP header verification
 
-### Phase 3: Audit (Weeks 9-16)
+### Phase 3: Audit ⏳ PLANNED
 - [ ] Veridise circuit audit
 - [ ] Trail of Bits contract audit
-- [ ] Fix all findings
+- [ ] Halmos symbolic execution
 - [ ] Launch bug bounty
 
-### Phase 4: Production (Weeks 17-20)
-- [ ] Mainnet deployment with 2-week monitoring
+### Phase 4: Production ⏳ PLANNED
+- [ ] Scroll testnet deployment
+- [ ] Scroll mainnet deployment
 - [ ] Gradual rollout (10% → 50% → 100%)
 - [ ] Post-mortem documentation
 
@@ -422,11 +280,11 @@ function submitAction(..., bytes32 userNullifier) external {
 
 ## What Makes This "Distinguished"
 
-1. **Semaphore-style external nullifiers**: Not just "check if used" but domain-separated per campaign/epoch
-2. **Chainlink + timelock oracle**: No single point of trust for root updates
-3. **Veridise + Ecne in CI**: Continuous formal verification, not one-time audit
-4. **Crypto agility**: Architecture designed for post-quantum migration
-5. **Economic security**: Stake/slash creates real cost for attackers
-6. **Defense in depth**: Six independent layers must all be defeated
+1. **Semaphore-style external nullifiers**: Action-scoped domain separation
+2. **Guardian Shield veto**: Multi-jurisdiction protection against NSL coercion
+3. **14-day verifier timelock**: Community response window for malicious upgrades
+4. **Crypto agility**: Upgradeable verifier for post-quantum migration
+5. **Published npm packages**: Vendored bb.js fork with stateful keygen API
+6. **Defense in depth**: NullifierRegistry + GuardianShield + Timelock + Rate Limiting
 
 This is infrastructure designed to last 20 years and withstand nation-state adversaries.
