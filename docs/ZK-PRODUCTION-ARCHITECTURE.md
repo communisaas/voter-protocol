@@ -103,9 +103,18 @@ function veto(address target) external onlyGuardian {
 
 ---
 
-## C-3: Root Validation ✅ IMPLEMENTED (Basic)
+## C-3: District Poisoning (Root Validation) ⚠️ PARTIAL
 
-### Current Implementation
+### Threat Model
+
+**Attack Vector**: Compromised governance registers a malicious Merkle root containing attacker-controlled leaves. This allows:
+1. **Fake citizens**: Attacker generates arbitrary identity commitments
+2. **Ballot stuffing**: Submit unlimited valid proofs from fake identities
+3. **Privacy breach**: Roots could encode trackable patterns
+
+**Attacker Profile**: Compromised governance key, bribed oracle, or nation-state coercion of single entity.
+
+### Current Implementation (Basic)
 
 `DistrictRegistry` at `contracts/src/DistrictRegistry.sol` provides:
 
@@ -113,13 +122,190 @@ function veto(address target) external onlyGuardian {
 - **Country code binding**: Each root associated with country
 - **Active/inactive status**: Roots can be deprecated
 
-### Future Enhancement: Oracle Quorum
+```solidity
+// Current: Single governance can update roots
+function registerRoot(bytes32 root, bytes3 countryCode) external onlyGovernance {
+    districts[root] = DistrictInfo({country: countryCode, isActive: true, ...});
+}
+```
 
-Not yet implemented:
-- Chainlink DON attestation
-- 3-of-5 multi-sig oracle
-- 48-hour timelock on root updates
-- IPFS commitment layer
+### Required Mitigation: Oracle Quorum ⏳ TODO
+
+```solidity
+// Phase 2: Multi-oracle attestation
+contract DistrictRegistryV2 {
+    uint256 public constant ORACLE_QUORUM = 3;      // 3-of-5 required
+    uint256 public constant ROOT_TIMELOCK = 48 hours;
+    
+    mapping(bytes32 => OracleAttestation[]) public pendingAttestations;
+    
+    struct OracleAttestation {
+        address oracle;
+        bytes32 ipfsCid;      // Full tree published to IPFS
+        uint256 timestamp;
+        bytes signature;
+    }
+    
+    function proposeRoot(
+        bytes32 root, 
+        bytes3 countryCode,
+        bytes32 ipfsCid,
+        bytes calldata oracleSignature
+    ) external onlyAuthorizedOracle {
+        // Record attestation
+        pendingAttestations[root].push(...);
+        
+        // Check if quorum reached
+        if (pendingAttestations[root].length >= ORACLE_QUORUM) {
+            // Start 48-hour timelock
+            timelockExpiry[root] = block.timestamp + ROOT_TIMELOCK;
+        }
+    }
+    
+    function activateRoot(bytes32 root) external {
+        require(timelockExpiry[root] != 0 && block.timestamp > timelockExpiry[root]);
+        require(!vetoed[root], "Vetoed by guardian");
+        districts[root].isActive = true;
+    }
+}
+```
+
+### Defense Layers
+
+| Layer | Protection Against |
+|-------|-------------------|
+| 3-of-5 oracle quorum | Single oracle compromise |
+| 48-hour timelock | Rush attacks, allows community review |
+| Guardian veto | Nation-state coercion of all oracles |
+| IPFS commitment | Enables public audit of tree contents |
+
+---
+
+## C-4: Nullifier Binding ✅ IMPLEMENTED
+
+### Threat Model
+
+**Attack Vector**: Weak nullifier construction allows:
+1. **Cross-campaign replay**: Same proof valid in multiple campaigns
+2. **Nullifier collision**: Different users produce same nullifier
+3. **Nullifier prediction**: Attacker pre-computes nullifiers to deanonymize
+
+**Security Property**: Nullifier must be:
+- **Unique per user**: Derived from user secret
+- **Unique per campaign**: Domain-separated by campaign_id
+- **Unpredictable**: Cannot be computed without user secret
+
+### Implemented Solution
+
+The circuit at `packages/crypto/noir/district_membership/src/main.nr`:
+
+```noir
+fn compute_nullifier(
+    user_secret: Field, 
+    campaign_id: Field, 
+    authority_hash: Field, 
+    epoch_id: Field
+) -> Field {
+    poseidon2_hash4(user_secret, campaign_id, authority_hash, epoch_id)
+}
+```
+
+**Security Analysis**:
+
+| Property | Guarantee | Mechanism |
+|----------|-----------|-----------|
+| Uniqueness | ✅ | Poseidon2 collision resistance (~128-bit) |
+| Domain separation | ✅ | `campaign_id`, `epoch_id`, `authority_hash` in preimage |
+| Unpredictability | ✅ | `user_secret` is private witness |
+| Binding | ✅ | Circuit asserts `nullifier == compute_nullifier(...)` |
+
+### On-Chain Verification
+
+`NullifierRegistry` enforces domain separation:
+
+```solidity
+// Double-indexed by actionId (external nullifier) and userNullifier
+mapping(bytes32 => mapping(bytes32 => bool)) public nullifierUsed;
+
+// Same user CAN participate in different actions
+// Same user CANNOT participate twice in same action
+```
+
+**Result**: User with secret `S` participating in campaigns `A` and `B` produces:
+- `nullifier_A = H(S, A, authority, epoch)` → unique to campaign A
+- `nullifier_B = H(S, B, authority, epoch)` → unique to campaign B
+- No linkability between nullifier_A and nullifier_B
+
+---
+
+## C-5: Sybil Resistance ⏳ PLANNED
+
+### Threat Model
+
+**Attack Vector**: Single human registers multiple identity commitments across different districts:
+1. Registers in CA-12 with commitment `C1`
+2. Registers in TX-18 with commitment `C2` 
+3. Votes in both districts with valid proofs
+
+**Impact**: Undermines one-person-one-vote. Attacker can:
+- Vote in N districts with N separate identities
+- Amplify political influence proportional to registrations
+
+### Current State
+
+**No on-chain sybil resistance**. Rely on:
+- Off-chain identity verification during Shadow Atlas enrollment
+- Social/municipal verification of residence
+
+### Planned Mitigations
+
+#### Option A: Cross-District Nullifier Binding (Preferred)
+
+```noir
+// Modified circuit: Nullifier derived from national identifier
+fn compute_global_nullifier(
+    national_id_hash: Field,  // H(SSN) or H(passport)
+    campaign_id: Field
+) -> Field {
+    poseidon2_hash2(national_id_hash, campaign_id)
+}
+```
+
+**Tradeoff**: Requires trusted identity issuance, but prevents cross-district sybil.
+
+#### Option B: Proof of Humanity Integration
+
+```solidity
+interface IProofOfHumanity {
+    function isRegistered(address addr) external view returns (bool);
+}
+
+function submitAction(...) external {
+    require(proofOfHumanity.isRegistered(msg.sender), "Not verified human");
+    // ... existing proof verification
+}
+```
+
+**Tradeoff**: Requires on-chain identity, reduces privacy.
+
+#### Option C: ZK-Passport Integration
+
+Integrate with Self/zkPassport to prove:
+- `country_of_citizenship == USA`
+- `document_type == passport`
+- `not_expired == true`
+
+Without revealing identity. Nullifier derived from `H(passport_signature)`.
+
+**Tradeoff**: Highest privacy, requires passport scanning infrastructure.
+
+### Recommendation
+
+| Phase | Approach | Privacy | Sybil Resistance |
+|-------|----------|---------|------------------|
+| MVP | Off-chain verification | High | Low |
+| Phase 2 | Option A (national ID hash) | Medium | High |
+| Phase 3 | Option C (ZK-Passport) | High | High |
 
 ---
 
