@@ -26,7 +26,7 @@
         "sync-wasm": "../scripts/sync-artifacts"
     },
     "peerDependencies": {
-        "@aztec/bb.js": ">=0.1.0",
+        "@voter-protocol/bb.js": "^0.87.0-fork.1",
         "@noir-lang/noir_js": "^1.0.0-beta.11",
         "pako": "^2.1.0"
     },

@@ -1,0 +1,54 @@
+name: Publish noir-prover
+
+on:
+  push:
+    tags:
+      - 'noir-prover@*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install package dependencies
+        run: npm ci
+        working-directory: packages/noir-prover
+
+      - name: Install peer dependencies for build
+        run: npm install @voter-protocol/bb.js @noir-lang/noir_js pako
+        working-directory: packages/noir-prover
+
+      - name: Build package
+        run: npm run build
+        working-directory: packages/noir-prover
+
+      - name: Verify package contents
+        run: npm pack --dry-run
+        working-directory: packages/noir-prover
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        working-directory: packages/noir-prover
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

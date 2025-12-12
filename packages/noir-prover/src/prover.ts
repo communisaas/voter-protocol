@@ -4,7 +4,7 @@
  * Uses @noir-lang/noir_js for witness generation and @aztec/bb.js for proving.
  */
 
-import { Barretenberg } from '@aztec/bb.js';
+import { Barretenberg } from '@voter-protocol/bb.js';
 import { Noir } from '@noir-lang/noir_js';
 import { inflate } from 'pako';
 import type { ProverConfig, CircuitInputs, ProofResult } from './types';
