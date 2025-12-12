@@ -9,6 +9,7 @@ import "../src/NullifierRegistry.sol";
 /// @title DistrictGate Core Tests
 /// @notice Tests the core verification functions of DistrictGate
 /// @dev Validates CRITICAL #2 and #3 fixes from adversarial security analysis
+///      Actions are permissionless - any bytes32 actionId is valid
 contract DistrictGateCoreTest is Test {
     DistrictGate public gate;
     DistrictRegistry public registry;
@@ -40,13 +41,8 @@ contract DistrictGateCoreTest is Test {
         registry = new DistrictRegistry(governance);
         nullifierRegistry = new NullifierRegistry(governance);
 
-        // Create guardian array (min 2 required)
-        address[] memory guardians = new address[](2);
-        guardians[0] = address(0x100);
-        guardians[1] = address(0x101);
-
-        // Deploy gate with all 5 params including guardians
-        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+        // Deploy gate (Phase 1: no guardians)
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance);
 
         // Authorize gate as caller on NullifierRegistry
         vm.prank(governance);
@@ -62,10 +58,6 @@ contract DistrictGateCoreTest is Test {
         // After fix: Explicit check rejects unregistered districts
 
         bytes32 fakeDistrict = bytes32(uint256(0xDEADBEEF));
-
-        // Authorize the action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
 
         // Generate mock proof
         bytes memory proof = hex"deadbeef";
@@ -101,9 +93,6 @@ contract DistrictGateCoreTest is Test {
         // Even if attacker passes valid country code, unregistered district should fail
         bytes32 fakeDistrict = bytes32(uint256(0xBADDCAFE));
 
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
-
         bytes memory proof = hex"deadbeef";
 
         // Generate signature
@@ -137,9 +126,6 @@ contract DistrictGateCoreTest is Test {
     function test_RevertWhen_DistrictNotRegisteredWithSignature() public {
         // Test the signature-based function also rejects unregistered districts
         bytes32 fakeDistrict = bytes32(uint256(0xC0FFEE));
-
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
 
         bytes memory proof = hex"deadbeef";
         uint256 deadline = block.timestamp + 1 hours;
@@ -240,10 +226,8 @@ contract DistrictGateCoreTest is Test {
         bytes32 badDistrict = bytes32(uint256(0xBADBEEF));
 
         // Register only the good district
-        vm.startPrank(governance);
+        vm.prank(governance);
         registry.registerDistrict(goodDistrict, USA);
-        gate.authorizeAction(ACTION_ID);
-        vm.stopPrank();
 
         // Try to submit proof for unregistered district
         bytes memory proof = hex"cafebabe";
@@ -283,11 +267,7 @@ contract DistrictGateCoreTest is Test {
         vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, USA);
 
-        // Authorize action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
-
-        // Generate proof
+        // Generate proof (actions are permissionless - no authorization needed)
         bytes memory proof = hex"deadbeef";
 
         // Generate signature
@@ -323,50 +303,10 @@ contract DistrictGateCoreTest is Test {
         assertTrue(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
     }
 
-    function test_RevertWhen_ActionNotAuthorized() public {
-        // Register district
-        vm.prank(governance);
-        registry.registerDistrict(DISTRICT_ROOT, USA);
-
-        // DON'T authorize action
-        bytes32 unauthorizedAction = bytes32(uint256(0xBAD));
-
-        bytes memory proof = hex"deadbeef";
-
-        uint256 userPrivateKey = 0x2222;
-        address signer = vm.addr(userPrivateKey);
-
-        (bytes memory signature, uint256 deadline) = _generateSignature(
-            userPrivateKey,
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER,
-            unauthorizedAction,
-            USA
-        );
-
-        vm.expectRevert(DistrictGate.ActionNotAuthorized.selector);
-        gate.verifyAndAuthorizeWithSignature(
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER,
-            unauthorizedAction,
-            USA,
-            deadline,
-            signature
-        );
-    }
-
     function test_RevertWhen_NullifierAlreadyUsed() public {
         // Register district
         vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, USA);
-
-        // Authorize action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
 
         bytes memory proof = hex"deadbeef";
 
@@ -424,10 +364,6 @@ contract DistrictGateCoreTest is Test {
         vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, USA);
 
-        // Authorize action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
-
         bytes memory proof = hex"deadbeef";
 
         uint256 userPrivateKey = 0x2222;
@@ -461,10 +397,6 @@ contract DistrictGateCoreTest is Test {
         // Register district
         vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, USA);
-
-        // Authorize action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
 
         bytes memory proof = hex"deadbeef";
 
@@ -504,10 +436,6 @@ contract DistrictGateCoreTest is Test {
         // Register district
         vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, USA);
-
-        // Authorize action
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
 
         bytes memory proof = hex"deadbeef";
 
@@ -568,64 +496,9 @@ contract DistrictGateCoreTest is Test {
         assertTrue(gate.isNullifierUsed(ACTION_ID, nullifier2));
     }
 
-    function test_IsActionAuthorized() public view {
-        // Initially not authorized
-        assertFalse(gate.isActionAuthorized(ACTION_ID));
-    }
-
     function test_IsNullifierUsed() public view {
         // Initially not used
         assertFalse(gate.isNullifierUsed(ACTION_ID, NULLIFIER));
-    }
-
-    // ============ Action Authorization Tests ============
-
-    function test_AuthorizeAction() public {
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
-
-        assertTrue(gate.isActionAuthorized(ACTION_ID));
-    }
-
-    function test_RevertWhen_AuthorizeActionUnauthorized() public {
-        vm.prank(user);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
-        gate.authorizeAction(ACTION_ID);
-    }
-
-    function test_DeauthorizeAction() public {
-        // First authorize
-        vm.startPrank(governance);
-        gate.authorizeAction(ACTION_ID);
-        assertTrue(gate.isActionAuthorized(ACTION_ID));
-
-        // Then deauthorize
-        gate.deauthorizeAction(ACTION_ID);
-        assertFalse(gate.isActionAuthorized(ACTION_ID));
-        vm.stopPrank();
-    }
-
-    function test_RevertWhen_DeauthorizeActionUnauthorized() public {
-        vm.prank(governance);
-        gate.authorizeAction(ACTION_ID);
-
-        vm.prank(user);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
-        gate.deauthorizeAction(ACTION_ID);
-    }
-
-    function test_BatchAuthorizeActions() public {
-        bytes32[] memory actionIds = new bytes32[](3);
-        actionIds[0] = bytes32(uint256(0x1));
-        actionIds[1] = bytes32(uint256(0x2));
-        actionIds[2] = bytes32(uint256(0x3));
-
-        vm.prank(governance);
-        gate.batchAuthorizeActions(actionIds);
-
-        assertTrue(gate.isActionAuthorized(actionIds[0]));
-        assertTrue(gate.isActionAuthorized(actionIds[1]));
-        assertTrue(gate.isActionAuthorized(actionIds[2]));
     }
 }
 

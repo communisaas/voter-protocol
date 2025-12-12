@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
 import "../src/NullifierRegistry.sol";
+import "../src/TimelockGovernance.sol";
 
 /// @title DistrictGate Governance Tests
 /// @notice Tests the governance timelock mechanism for DistrictGate
@@ -31,13 +32,8 @@ contract DistrictGateGovernanceTest is Test {
         registry = new DistrictRegistry(governance);
         nullifierRegistry = new NullifierRegistry(governance);
 
-        // Create guardian array (min 2 required)
-        address[] memory guardians = new address[](2);
-        guardians[0] = address(0x100);
-        guardians[1] = address(0x101);
-
-        // Deploy gate
-        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+        // Deploy gate (Phase 1: no guardians)
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance);
 
         // Authorize gate as caller
         vm.prank(governance);
@@ -52,11 +48,8 @@ contract DistrictGateGovernanceTest is Test {
     }
 
     function test_RevertWhen_ConstructorZeroGovernance() public {
-        address[] memory guardians = new address[](2);
-        guardians[0] = address(0x100);
-        guardians[1] = address(0x101);
-        vm.expectRevert(DistrictGate.ZeroAddress.selector);
-        new DistrictGate(verifier, address(registry), address(nullifierRegistry), address(0), guardians);
+        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
+        new DistrictGate(verifier, address(registry), address(nullifierRegistry), address(0));
     }
 
     // ============ Governance Timelock Tests ============
@@ -75,19 +68,19 @@ contract DistrictGateGovernanceTest is Test {
 
     function test_RevertWhen_InitiateGovernanceTransferUnauthorized() public {
         vm.prank(attacker);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         gate.initiateGovernanceTransfer(newGovernance);
     }
 
     function test_RevertWhen_InitiateGovernanceTransferZeroAddress() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictGate.ZeroAddress.selector);
+        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
         gate.initiateGovernanceTransfer(address(0));
     }
 
     function test_RevertWhen_InitiateGovernanceTransferToSelf() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictGate.ZeroAddress.selector);
+        vm.expectRevert(TimelockGovernance.SameAddress.selector);
         gate.initiateGovernanceTransfer(governance);
     }
 
@@ -125,7 +118,7 @@ contract DistrictGateGovernanceTest is Test {
     }
 
     function test_RevertWhen_ExecuteGovernanceTransferNotInitiated() public {
-        vm.expectRevert(DistrictGate.TransferNotInitiated.selector);
+        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
         gate.executeGovernanceTransfer(newGovernance);
     }
 
@@ -135,7 +128,7 @@ contract DistrictGateGovernanceTest is Test {
         gate.initiateGovernanceTransfer(newGovernance);
 
         // Try to execute immediately (should fail)
-        vm.expectRevert(DistrictGate.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         gate.executeGovernanceTransfer(newGovernance);
     }
 
@@ -148,7 +141,7 @@ contract DistrictGateGovernanceTest is Test {
         vm.warp(block.timestamp + 6 days);
 
         // Try to execute (should fail)
-        vm.expectRevert(DistrictGate.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         gate.executeGovernanceTransfer(newGovernance);
     }
 
@@ -176,13 +169,13 @@ contract DistrictGateGovernanceTest is Test {
 
         // Attacker tries to cancel (should fail)
         vm.prank(attacker);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         gate.cancelGovernanceTransfer(newGovernance);
     }
 
     function test_RevertWhen_CancelGovernanceTransferNotInitiated() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictGate.TransferNotInitiated.selector);
+        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
         gate.cancelGovernanceTransfer(newGovernance);
     }
 
@@ -206,12 +199,12 @@ contract DistrictGateGovernanceTest is Test {
 
         // Fast forward only 1 day - still can't execute
         vm.warp(initiateTime + 1 days);
-        vm.expectRevert(DistrictGate.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         gate.executeGovernanceTransfer(attacker);
 
         // Even 1 second before timelock expires - still can't execute
         vm.warp(executeTime - 1);
-        vm.expectRevert(DistrictGate.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         gate.executeGovernanceTransfer(attacker);
 
         // Community has full 7 days to respond
@@ -237,11 +230,11 @@ contract DistrictGateGovernanceTest is Test {
 
         // Cannot execute cancelled transfer
         vm.warp(block.timestamp + 7 days);
-        vm.expectRevert(DistrictGate.TransferNotInitiated.selector);
+        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
         gate.executeGovernanceTransfer(attacker);
     }
 
-    function test_NewGovernanceCanAuthorizeActions() public {
+    function test_NewGovernanceHasAuthority() public {
         // Transfer governance successfully
         vm.prank(governance);
         gate.initiateGovernanceTransfer(newGovernance);
@@ -249,42 +242,38 @@ contract DistrictGateGovernanceTest is Test {
         vm.warp(block.timestamp + 7 days);
         gate.executeGovernanceTransfer(newGovernance);
 
-        // New governance can authorize actions
-        bytes32 actionId = bytes32(uint256(0x123));
+        // New governance can pause/unpause (actions are permissionless, no authorization needed)
         vm.prank(newGovernance);
-        gate.authorizeAction(actionId);
-
-        assertTrue(gate.isActionAuthorized(actionId));
+        gate.pause();
+        assertTrue(gate.paused());
 
         // Old governance cannot
-        bytes32 actionId2 = bytes32(uint256(0x456));
         vm.prank(governance);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
-        gate.authorizeAction(actionId2);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.unpause();
     }
 
     function test_NewGovernanceInheritsAllAuthority() public {
-        // Setup: Authorize an action with old governance
-        bytes32 actionId = bytes32(uint256(0x789));
-        vm.prank(governance);
-        gate.authorizeAction(actionId);
-
         // Transfer governance
         vm.prank(governance);
         gate.initiateGovernanceTransfer(newGovernance);
         vm.warp(block.timestamp + 7 days);
         gate.executeGovernanceTransfer(newGovernance);
 
-        // New governance can deauthorize old actions
+        // New governance can pause
         vm.prank(newGovernance);
-        gate.deauthorizeAction(actionId);
+        gate.pause();
+        assertTrue(gate.paused());
 
-        assertFalse(gate.isActionAuthorized(actionId));
+        // New governance can unpause
+        vm.prank(newGovernance);
+        gate.unpause();
+        assertFalse(gate.paused());
 
-        // Old governance cannot reauthorize
+        // Old governance cannot pause
         vm.prank(governance);
-        vm.expectRevert(DistrictGate.UnauthorizedCaller.selector);
-        gate.authorizeAction(actionId);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.pause();
     }
 
     // ============ Fuzz Tests ============
@@ -298,7 +287,7 @@ contract DistrictGateGovernanceTest is Test {
         vm.warp(block.timestamp + timeElapsed);
 
         // Should fail if less than 7 days
-        vm.expectRevert(DistrictGate.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         gate.executeGovernanceTransfer(newGovernance);
     }
 

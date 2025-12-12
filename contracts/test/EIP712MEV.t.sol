@@ -41,23 +41,16 @@ contract EIP712MEVTest is Test {
         registry = new DistrictRegistry(governance);
         nullifierRegistry = new NullifierRegistry(governance);
 
-        // Create guardian array (min 2 required)
-        address[] memory guardians = new address[](2);
-        guardians[0] = address(0x100);
-        guardians[1] = address(0x101);
-
-        // Deploy gate
-        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance, guardians);
+        // Deploy gate (Phase 1: no guardians)
+        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance);
 
         // Authorize gate as caller
         vm.prank(governance);
         nullifierRegistry.authorizeCaller(address(gate));
 
-        // Register district
-        vm.startPrank(governance);
+        // Register district (actions are permissionless - no authorization needed)
+        vm.prank(governance);
         registry.registerDistrict(DISTRICT_ROOT, COUNTRY);
-        gate.authorizeAction(ACTION_ID);
-        vm.stopPrank();
     }
 
     /// @notice Test that signature-based submission binds rewards to signer, not submitter
