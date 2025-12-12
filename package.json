@@ -22,8 +22,8 @@
   },
   "devDependencies": {
     "@aztec/bb.js": "2.1.8",
-    "@noir-lang/noir_js": "1.0.0-beta.11",
-    "@noir-lang/noir_wasm": "1.0.0-beta.11",
+    "@noir-lang/noir_js": "1.0.0-beta.16",
+    "@noir-lang/noir_wasm": "1.0.0-beta.16",
     "ajv": "^8.17.1",
     "yargs": "^17.7.2",
     "turbo": "^2.3.0",
