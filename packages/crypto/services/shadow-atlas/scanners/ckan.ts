@@ -25,7 +25,7 @@
 
 import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
 import { validateCityBoundary } from '../validators/enhanced-geographic-validator.js';
 import type { FeatureCollection } from 'geojson';
 
@@ -51,10 +51,10 @@ const CKAN_PORTALS: Record<string, string> = {
  * CKAN Open Data Portal Scanner
  */
 export class CKANScanner {
-  private semanticValidator: SemanticLayerValidator;
+  private semanticValidator: SemanticValidator;
 
   constructor() {
-    this.semanticValidator = new SemanticLayerValidator();
+    this.semanticValidator = new SemanticValidator();
   }
 
   /**
@@ -174,7 +174,7 @@ export class CKANScanner {
    */
   private scoreTitle(title: string, city: CityTarget, tags: readonly string[] = []): number {
     // Step 1: Semantic validation (catches negative keywords)
-    const semanticResult = this.semanticValidator.scoreTitleOnly(title, tags);
+    const semanticResult = this.semanticValidator.scoreTitle(title);
 
     // If semantic validator rejected it (negative keyword, wrong granularity), skip
     if (semanticResult.score === 0) {

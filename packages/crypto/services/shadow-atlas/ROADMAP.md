@@ -5,11 +5,12 @@
 | Metric | Current | Target | Gap |
 |--------|---------|--------|-----|
 | Cities with council district data | 6 validated | 200+ | 97% gap |
-| Registry entries | 33 | 250+ | 87% gap |
-| Population covered | ~35M | 100M+ | 65% gap |
+| Registry entries | 35 | 250+ | 86% gap |
+| Population covered | ~40M | 100M+ | 60% gap |
 | At-large classifications | 574 (unverified) | 0 unverified | Governance registry needed |
+| Provenance test coverage | 261+ passing | N/A | Infrastructure stable |
 
-**The agent system works.** But it's orchestrating a nearly-empty registry.
+**The agent system works.** Infrastructure hardening complete. Data curation is the bottleneck.
 
 ## The Core Problem
 
@@ -22,11 +23,11 @@ Current Flow:
             THIS IS THE GAP
 ```
 
-## Phase 1: Registry Expansion (Weeks 1-3)
+## Phase 1: Registry Expansion & Freshness (Weeks 1-3) ✅
 
-### 1A: Fix Broken Registry Entries (Day 1)
+### 1A: Fix Broken Registry Entries ✅
 
-Houston and San Antonio use ArcGIS Hub download URLs that redirect to temporary Azure blobs. Fix with direct FeatureServer URLs.
+Houston and San Antonio URLs fixed. ArcGIS Hub redirects replaced with direct FeatureServer queries. URL stability validator added to prevent future regressions.
 
 ```typescript
 // BROKEN: Redirects to temporary blob
@@ -38,12 +39,12 @@ downloadUrl: 'https://services.arcgis.com/.../FeatureServer/0/query?where=1%3D1&
 
 ### 1B: Complete Top 50 US Cities (Week 1-2)
 
-We have 33 entries. Top 50 by population that need council district data:
+We have 35 entries. Top 50 by population that need council district data:
 
 | City | Pop | Status | Action |
 |------|-----|--------|--------|
-| Houston | 2.3M | Registry broken | Fix URL |
-| San Antonio | 1.4M | Registry broken | Fix URL |
+| Houston | 2.3M | ✅ Fixed | URL stability validated |
+| San Antonio | 1.4M | ✅ Fixed | URL stability validated |
 | El Paso | 678k | Missing | Manual research |
 | Arlington | 394k | Missing | Manual research |
 | ... | | | |
@@ -54,14 +55,99 @@ We have 33 entries. Top 50 by population that need council district data:
 
 Four states have statewide ward data that can auto-populate 200+ cities:
 
-| State | Portal | Coverage | Effort |
-|-------|--------|----------|--------|
-| Montana | Montana MSDI | 8 cities (done) | 0 |
-| Wisconsin | WI DNR | 50+ cities | 2 days |
-| Massachusetts | MassGIS | 40+ cities | 2 days |
-| DC | DC Open Data | 1 city (done) | 0 |
+| State | Portal | Coverage | Effort | Status |
+|-------|--------|----------|--------|--------|
+| Montana | Montana MSDI | 8 cities | 0 | ✅ Done |
+| Wisconsin | WI DNR | 50+ cities | 2 days | Script ready |
+| Massachusetts | MassGIS | 40+ cities | 2 days | Script ready |
+| DC | DC Open Data | 1 city | 0 | ✅ Done |
 
 **Deliverable**: 100+ additional cities from batch extraction.
+**Documentation**: See `docs/STATEWIDE-WARD-EXTRACTION.md` for extraction scripts.
+
+### 1D: Freshness System Infrastructure ✅
+
+Six work packages implement continuous data quality monitoring:
+
+**WP-FRESHNESS-1: Authority Registry** ✅ (103 tests)
+- Registry of authoritative sources by boundary type
+- TIGER Line, state redistricting commissions, municipal GIS portals
+- Source prioritization rules (state > federal for legislative, municipal > state for council)
+
+**WP-FRESHNESS-2: Validity Window** ✅ (29 tests)
+- 12-month TIGER Line validity (Sept N → Aug N+1)
+- Redistricting gap detection (Jan-Jun of years ending in 2)
+- Expiration calculation accounting for Census publication delays
+
+**WP-FRESHNESS-3: Primary Comparator** ✅ (18 tests)
+- HTTP HEAD freshness checks via `Last-Modified` headers
+- State redistricting commission comparison (primary sources beat TIGER)
+- Conditional GET support for bandwidth efficiency
+
+**WP-FRESHNESS-4: Event Subscription** ✅ (38 tests)
+- RSS feed monitoring for Census releases
+- Webhook registration for state redistricting commissions
+- HTTP HEAD polling fallback for sources without notifications
+
+**WP-FRESHNESS-5: Gap Detector** ✅ (50 tests)
+- Redistricting gap period detection (Jan-Jun of years ending in 2)
+- State finalization tracking (when states publish post-Census maps)
+- Grace period logic (18 months after Census before expiration)
+
+**WP-FRESHNESS-6: Enhanced Change Detector** ✅ (23 tests)
+- Freshness-aware change detection
+- Priority-based refresh queue (expired sources first)
+- Integration with existing provenance system
+
+**Total Test Coverage**: 261+ passing tests in provenance infrastructure.
+
+## Freshness System Architecture
+
+The freshness system ensures Shadow Atlas data remains current without manual intervention:
+
+```
+┌─────────────────┐
+│ Authority       │  WP-1: Source registry by boundary type
+│ Registry        │        (TIGER, state commissions, municipal GIS)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Validity        │  WP-2: 12-month windows + redistricting gaps
+│ Window          │        (Sept-to-Sept for TIGER, gap Jan-Jun)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Primary         │  WP-3: HTTP HEAD checks + state comparison
+│ Comparator      │        (state sources beat TIGER when current)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Event           │  WP-4: RSS + webhooks + polling fallback
+│ Subscription    │        (proactive updates beat reactive checks)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Gap             │  WP-5: Redistricting period detection
+│ Detector        │        (grace period prevents false expiration)
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│ Enhanced        │  WP-6: Freshness-aware change detection
+│ Change Detector │        (priority queue: expired sources first)
+└─────────────────┘
+```
+
+**Key Integration Points**:
+- Authority Registry feeds Validity Window (source type → expiration rules)
+- Validity Window feeds Gap Detector (redistricting years → grace periods)
+- Event Subscription feeds Enhanced Change Detector (notifications → priority bumps)
+- Enhanced Change Detector feeds Merkle Tree rebuild (stale data → refresh trigger)
+
+**Operational Model**:
+- **Passive monitoring**: HTTP HEAD checks (daily for TIGER, weekly for municipal)
+- **Active notifications**: RSS feeds (Census releases), webhooks (state commissions)
+- **Priority refresh**: Expired sources jump queue, high-population cities prioritized
+- **Deterministic expiration**: Mathematical rules, zero manual judgement calls
 
 ## Phase 2: Governance Classification (Weeks 3-5)
 
@@ -163,17 +249,19 @@ Shadow Atlas Registry
 
 ## Success Metrics
 
-### Week 4 Checkpoint
-- [ ] 100+ validated cities in registry
-- [ ] Houston, San Antonio URLs fixed
-- [ ] Statewide extraction for WI + MA
+### Week 4 Checkpoint (Current Sprint)
+- [x] Houston, San Antonio URLs fixed
+- [x] Freshness system infrastructure (6 work packages, 261+ tests)
+- [x] URL stability validator
+- [x] Statewide extraction scripts (WI + MA ready)
+- [ ] 100+ validated cities in registry (35/100)
 - [ ] Governance registry schema defined
 
 ### Week 8 Checkpoint
 - [ ] 200+ validated cities
 - [ ] 500+ governance classifications
 - [ ] Agent using governance-aware workflow
-- [ ] Nightly validation running
+- [ ] Nightly validation running with freshness monitoring
 
 ### Week 12 Checkpoint
 - [ ] 250+ validated cities covering 100M+ population

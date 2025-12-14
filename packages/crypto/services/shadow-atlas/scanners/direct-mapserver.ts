@@ -28,7 +28,7 @@
 
 import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
 
 /**
  * Layer metadata from ArcGIS REST API
@@ -115,7 +115,7 @@ export type DataAvailability = 'found' | 'not-indexed' | 'no-public-portal' | 't
  * Discovers municipal GIS endpoints NOT indexed in ArcGIS Hub/Portal APIs.
  */
 export class DirectMapServerScanner {
-  private readonly semanticValidator: SemanticLayerValidator;
+  private readonly semanticValidator: SemanticValidator;
   private readonly timeout: number;
   private readonly maxDomainsPerCity: number;
 
@@ -123,7 +123,7 @@ export class DirectMapServerScanner {
     readonly timeout?: number;
     readonly maxDomainsPerCity?: number;
   }) {
-    this.semanticValidator = new SemanticLayerValidator();
+    this.semanticValidator = new SemanticValidator();
     this.timeout = options?.timeout ?? 5000;
     this.maxDomainsPerCity = options?.maxDomainsPerCity ?? 20;
   }
@@ -163,7 +163,7 @@ export class DirectMapServerScanner {
 
           // 4. Score each layer
           for (const layer of layers) {
-            const result = this.semanticValidator.scoreTitleOnly(layer.name);
+            const result = this.semanticValidator.scoreTitle(layer.name);
 
             // Accept high-confidence (40) and medium-confidence (30) patterns
             if (result.score >= 30) {

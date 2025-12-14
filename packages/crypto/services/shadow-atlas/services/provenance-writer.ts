@@ -330,7 +330,10 @@ export async function appendProvenance(
   // STAGING MODE: Zero lock contention (requires merge worker)
   if (options?.staging) {
     const agentId = options.agentId || entry.aid;
-    const stagingDir = path.join(path.dirname(baseDir), 'discovery-staging');
+    // Staging must be sibling to baseDir (e.g., ./test-dir-staging)
+    const baseName = path.basename(baseDir);
+    const parentDir = path.dirname(baseDir);
+    const stagingDir = path.join(parentDir, `${baseName}-staging`);
 
     // Import staging writer dynamically to avoid circular deps
     const { appendToStaging } = await import('./provenance-staging-writer.js');
@@ -339,7 +342,9 @@ export async function appendProvenance(
   }
 
   // STANDARD MODE: FIPS sharding with file locks
-  const logPath = getShardedLogPath(baseDir, entry.f);
+  // CRITICAL: Use entry timestamp to determine month directory (not current date)
+  const entryDate = new Date(entry.ts);
+  const logPath = getShardedLogPath(baseDir, entry.f, entryDate);
 
   // Ensure directory exists BEFORE creating lock file
   // This is safe because mkdir is idempotent
@@ -458,8 +463,14 @@ export async function queryProvenance(
   }
 
   // 2. ALSO scan staging area for recent unmerged entries
+  // CRITICAL FIX: Only scan staging if it's in the SAME directory tree as baseDir
+  // This prevents test isolation issues where shared staging pollutes results
   try {
-    const stagingDir = path.join(path.dirname(baseDir), 'discovery-staging');
+    // Staging must be sibling to baseDir (e.g., ./test-dir-staging)
+    const baseName = path.basename(baseDir);
+    const parentDir = path.dirname(baseDir);
+    const stagingDir = path.join(parentDir, `${baseName}-staging`);
+
     const { readStagingEntries } = await import('./provenance-staging-writer.js');
     const stagingEntries = await readStagingEntries(stagingDir);
 
@@ -568,9 +579,15 @@ async function getMonthlyLogsToScan(
     for (const dir of monthDirs) {
       const monthPath = path.join(baseDir, dir.name);
 
-      // Filter by date range
-      if (startDate && dir.name < startDate.substring(0, 7)) continue;
-      if (endDate && dir.name > endDate.substring(0, 7)) continue;
+      // Filter by date range (month-level filtering)
+      // CRITICAL: Use inclusive comparisons to catch all possible matches
+      // Month "2025-11" contains dates from 2025-11-01 through 2025-11-30
+      const monthStart = `${dir.name}-01T00:00:00.000Z`;
+      const monthEnd = `${dir.name}-31T23:59:59.999Z`;
+
+      // Skip if month ends before startDate OR month starts after endDate
+      if (startDate && monthEnd < startDate) continue;
+      if (endDate && monthStart > endDate) continue;
 
       // Scan for shard files (discovery-log-XX.ndjson.gz)
       const shardFiles = await fs.readdir(monthPath);

@@ -172,12 +172,15 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     cityName: 'San Antonio',
     state: 'TX',
     portalType: 'arcgis',
-    downloadUrl: 'https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    // STABLE URL: Direct FeatureServer query (NOT hub.arcgis.com download API)
+    // Hub download URLs redirect to temporary Azure blobs that expire
+    // FeatureServer URLs are stable, always return current data
+    downloadUrl: 'https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/RedistrictedCouncilDistricts2022/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
     featureCount: 10,
-    lastVerified: '2025-11-23T00:00:00.000Z',
+    lastVerified: '2025-12-13T00:00:00.000Z',
     confidence: 95,
     discoveredBy: 'manual',
-    notes: 'San Antonio City Council Districts - 10 districts, official CoSAGIS FeatureServer. Fixed: old hub.arcgis.com URL redirected to temp Azure blob.',
+    notes: 'San Antonio City Council Districts - 10 districts (2022 redistricting), official CoSAGIS FeatureServer. FIXED 2025-12-13: Updated to RedistrictedCouncilDistricts2022 service (most current boundaries). Uses direct FeatureServer URL instead of hub.arcgis.com download API which redirects to temporary Azure blobs.',
   },
 
   '4819000': {
@@ -224,12 +227,15 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     cityName: 'Houston',
     state: 'TX',
     portalType: 'arcgis',
+    // STABLE URL: Direct MapServer query (NOT hub.arcgis.com download API)
+    // Hub download URLs redirect to temporary Azure blobs that expire
+    // MapServer/FeatureServer URLs are stable, always return current data
     downloadUrl: 'https://mycity2.houstontx.gov/pubgis02/rest/services/HoustonMap/Administrative_Boundary/MapServer/2/query?where=1%3D1&outFields=*&f=geojson',
     featureCount: 11,
-    lastVerified: '2025-11-23T00:00:00.000Z',
+    lastVerified: '2025-12-13T00:00:00.000Z',
     confidence: 95,
     discoveredBy: 'manual',
-    notes: 'Houston City Council Districts - 11 districts (A-K), official City of Houston MapServer (mycity2.houstontx.gov). Fixed: old hub.arcgis.com URL redirected to temp Azure blob.',
+    notes: 'Houston City Council Districts - 11 districts (A-K), official City of Houston MapServer (mycity2.houstontx.gov). VERIFIED 2025-12-13: Uses direct MapServer URL instead of hub.arcgis.com download API which redirects to temporary Azure blobs.',
   },
 
   // TOP 50 TIER 1 EXPANSION (2025-11-19)

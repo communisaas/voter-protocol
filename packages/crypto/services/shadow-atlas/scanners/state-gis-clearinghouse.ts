@@ -24,7 +24,7 @@
 import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
 import { getStatePortal, type StateGISPortal } from '../registry/state-gis-portals.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
 
 /**
  * State GIS Clearinghouse Scanner
@@ -32,11 +32,11 @@ import { SemanticLayerValidator } from '../validators/semantic-layer-validator.j
  * Queries state-level authoritative GIS portals for municipal boundary data.
  */
 export class StateGISClearinghouseScanner {
-  private readonly semanticValidator: SemanticLayerValidator;
+  private readonly semanticValidator: SemanticValidator;
   private readonly HUB_API_BASE = 'https://hub.arcgis.com/api/v3';
 
   constructor() {
-    this.semanticValidator = new SemanticLayerValidator();
+    this.semanticValidator = new SemanticValidator();
   }
 
   /**
@@ -126,7 +126,7 @@ export class StateGISClearinghouseScanner {
         }
 
         // Score the layer title
-        const score = this.semanticValidator.scoreTitleOnly(layerInfo.name);
+        const score = this.semanticValidator.scoreTitle(layerInfo.name);
 
         if (score.score >= 30) {
           // Medium confidence or higher
@@ -200,7 +200,7 @@ export class StateGISClearinghouseScanner {
 
       for (const dataset of data.data) {
         const title = dataset.attributes.name;
-        const score = this.semanticValidator.scoreTitleOnly(title);
+        const score = this.semanticValidator.scoreTitle(title);
 
         if (score.score < 30) {
           // Reject low-confidence matches
@@ -303,7 +303,7 @@ export class StateGISClearinghouseScanner {
       const candidates: PortalCandidate[] = [];
 
       for (const pkg of packages) {
-        const score = this.semanticValidator.scoreTitleOnly(pkg.title);
+        const score = this.semanticValidator.scoreTitle(pkg.title);
 
         if (score.score < 30) {
           continue;
@@ -377,7 +377,7 @@ export class StateGISClearinghouseScanner {
       const candidates: PortalCandidate[] = [];
 
       for (const result of results) {
-        const score = this.semanticValidator.scoreTitleOnly(result.resource.name);
+        const score = this.semanticValidator.scoreTitle(result.resource.name);
 
         if (score.score < 30) {
           continue;

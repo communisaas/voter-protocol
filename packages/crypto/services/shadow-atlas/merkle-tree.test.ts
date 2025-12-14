@@ -269,13 +269,14 @@ describe('ShadowAtlasMerkleTree', () => {
       expect(tree.verifyProof(proof, longAddress)).toBe(true);
     });
 
-    it('should handle duplicate addresses', () => {
+    it('should reject duplicate addresses', () => {
       const addresses = ['123 Main St', '123 Main St', '456 Oak Ave'];
-      const tree = createShadowAtlasMerkleTree(addresses);
 
-      // Should only find first occurrence
-      const proof = tree.generateProof('123 Main St');
-      expect(tree.verifyProof(proof, '123 Main St')).toBe(true);
+      // SECURITY: Duplicates must be rejected to prevent unprovable addresses
+      // (indexOf() only returns first occurrence, making subsequent duplicates unprovable)
+      expect(() => {
+        createShadowAtlasMerkleTree(addresses);
+      }).toThrow('Duplicate addresses detected: 123 Main St');
     });
 
     it('should handle max capacity (4,096 addresses)', () => {

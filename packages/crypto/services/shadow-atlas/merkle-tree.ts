@@ -54,13 +54,28 @@ export class ShadowAtlasMerkleTree {
    * All Poseidon hashing goes through circuit's WASM exports (hash_pair, hash_single).
    *
    * @param addresses - Array of address strings (sorted lexicographically)
-   * @throws Error if capacity exceeded
+   * @throws Error if capacity exceeded or duplicate addresses detected
    */
   constructor(addresses: readonly string[]) {
     // Validation: Check capacity
     if (addresses.length > ShadowAtlasMerkleTree.MAX_CAPACITY) {
       throw new Error(
         `District capacity exceeded: ${addresses.length} > ${ShadowAtlasMerkleTree.MAX_CAPACITY}`
+      );
+    }
+
+    // SECURITY CRITICAL: Reject duplicate addresses
+    // If duplicates exist, indexOf() only returns the first occurrence,
+    // making subsequent duplicates unprovable (proof generation fails silently).
+    // We detect this early with a Set to prevent cryptographic integrity issues.
+    const uniqueAddresses = new Set(addresses);
+    if (uniqueAddresses.size !== addresses.length) {
+      const duplicates = addresses.filter((addr, index) =>
+        addresses.indexOf(addr) !== index
+      );
+      throw new Error(
+        `Duplicate addresses detected: ${duplicates.join(', ')}. ` +
+        `Each address must be unique within a district tree.`
       );
     }
 

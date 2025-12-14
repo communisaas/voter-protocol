@@ -18,7 +18,7 @@
  */
 
 import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
 import { getSearchNames } from '../registry/city-name-aliases.js';
 import { generateSearchQueries } from '../utils/search-term-generator.js';
 
@@ -116,10 +116,10 @@ export interface PortalCandidate {
 export class ArcGISHubScanner {
   private readonly HUB_API_BASE = 'https://hub.arcgis.com/api/v3';
   private readonly PORTAL_API_BASE = 'https://www.arcgis.com/sharing/rest';
-  private readonly semanticValidator: SemanticLayerValidator;
+  private readonly semanticValidator: SemanticValidator;
 
   constructor() {
-    this.semanticValidator = new SemanticLayerValidator();
+    this.semanticValidator = new SemanticValidator();
   }
 
   /**
@@ -482,7 +482,7 @@ export class ArcGISHubScanner {
     const title = dataset.attributes.name;
 
     // Use semantic validator for comprehensive filtering
-    const result = this.semanticValidator.scoreTitleOnly(title);
+    const result = this.semanticValidator.scoreTitle(title);
 
     // Accept if score is above minimal threshold (≥20)
     // Note: Geographic validation and final scoring happens later
@@ -532,7 +532,7 @@ export class ArcGISHubScanner {
    * - Anaheim, CA: Tree canopy cover (wrong domain)
    */
   private scoreTitle(title: string, _city: CityTarget): number {
-    const result = this.semanticValidator.scoreTitleOnly(title);
+    const result = this.semanticValidator.scoreTitle(title);
 
     // Log rejections for debugging
     if (result.score === 0 && result.reasons.length > 0) {

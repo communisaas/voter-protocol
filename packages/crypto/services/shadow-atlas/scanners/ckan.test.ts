@@ -203,9 +203,10 @@ describe('CKANScanner with SemanticValidator Integration', () => {
       );
 
       // No negative keywords
-      // "representation" matches low-confidence pattern (20 pts) + city (15) + state (10) = 45
-      expect(score).toBeGreaterThanOrEqual(40);
-      expect(score).toBeLessThanOrEqual(50);
+      // "council" OR "representation" matches low-confidence pattern (20 pts) + city (15) = 35
+      // Note: "City Council" does NOT match high-confidence "council\s*district" pattern
+      expect(score).toBeGreaterThanOrEqual(35);
+      expect(score).toBeLessThanOrEqual(45);
     });
   });
 

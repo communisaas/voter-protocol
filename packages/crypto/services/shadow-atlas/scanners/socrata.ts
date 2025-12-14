@@ -24,7 +24,7 @@
 
 import type { CityTarget } from '../providers/us-council-district-discovery.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
 
 /**
  * City-specific Socrata portal patterns
@@ -51,10 +51,10 @@ const CITY_PORTAL_PATTERNS: Record<string, string[]> = {
  */
 export class SocrataScanner {
   private readonly DISCOVERY_API_BASE = 'https://api.us.socrata.com/api/catalog/v1';
-  private readonly semanticValidator: SemanticLayerValidator;
+  private readonly semanticValidator: SemanticValidator;
 
   constructor() {
-    this.semanticValidator = new SemanticLayerValidator();
+    this.semanticValidator = new SemanticValidator();
   }
 
   /**
@@ -221,7 +221,7 @@ export class SocrataScanner {
    */
   private scoreTitle(title: string, city: CityTarget, tags: readonly string[] = [], description = ''): number {
     // Step 1: Semantic validation (catches negative keywords)
-    const semanticResult = this.semanticValidator.scoreTitleOnly(title, tags);
+    const semanticResult = this.semanticValidator.scoreTitle(title);
 
     // If semantic validator rejected it (negative keyword, wrong granularity), skip
     if (semanticResult.score === 0) {

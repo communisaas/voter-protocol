@@ -252,8 +252,10 @@ describe('Provenance Writer', () => {
       await appendProvenance(entry, TEST_DIR);
 
       // Verify directory structure with sharded file
-      const year = new Date().getUTCFullYear();
-      const month = String(new Date().getUTCMonth() + 1).padStart(2, '0');
+      // CRITICAL: Use entry timestamp to determine expected directory (not current date)
+      const entryDate = new Date(entry.ts);
+      const year = entryDate.getUTCFullYear();
+      const month = String(entryDate.getUTCMonth() + 1).padStart(2, '0');
       const monthDir = path.join(TEST_DIR, `${year}-${month}`);
       const logFile = path.join(monthDir, 'discovery-log-06.ndjson.gz'); // FIPS 0666000 → shard 06
 

@@ -1,137 +1,55 @@
 /**
- * Provenance Writer
+ * @deprecated Import from './provenance/provenance-writer.js' instead
+ * This file is a backward-compatibility shim and will be removed in v2.0
  *
- * Compact, append-only logging of discovery attempts with reasoning chains.
- * Logs EVERY attempt (success AND failure) to gzipped NDJSON.
+ * MIGRATION PATH:
+ * - appendProvenance() → ProvenanceWriter.append() (class-based API)
+ * - CompactDiscoveryEntry interface → same in new location
+ * - ProvenanceRecord type → same in new location
+ * - BlockerCode enum → blocker codes are now strings (enum removed)
+ * - AuthorityLevel enum → authority levels are now numbers 0-5 (enum removed)
+ * - GranularityTier enum → granularity tiers are now numbers 0-4 (enum removed)
  *
- * Storage: ~150-250 bytes per entry → 1.5MB gzipped for 19,495 US cities
+ * NEW FEATURES in ./provenance/:
+ * - Staging buffer for zero-contention writes
+ * - Query interface with filters
+ * - FIPS-based sharding (50-state parallelism)
+ * - Statistics and analytics
  */
 
-import { writeFile, readFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { createGzip } from 'node:zlib';
-import { pipeline } from 'node:stream/promises';
-import { Readable } from 'node:stream';
+// Re-export types from new location
+export type {
+  ProvenanceRecord,
+  CompactDiscoveryEntry,
+  ProvenanceFilter,
+} from './provenance/provenance-writer.js';
+
+// Re-export the new class and singleton
+export { ProvenanceWriter, provenanceWriter } from './provenance/provenance-writer.js';
 
 /**
- * Compact discovery entry (matches PROVENANCE-SPEC.md)
+ * Legacy function wrapper for backward compatibility
+ * Maps old appendProvenance() to new ProvenanceWriter.append()
  */
-export interface CompactDiscoveryEntry {
-  // Identity
-  f: string;              // FIPS code
-  n?: string;             // City name (optional for compact format)
-  s?: string;             // State code (optional)
-  p?: number;             // Population (optional)
-
-  // Granularity assessment
-  g: number;              // Tier: 0-4
-  fc?: number | null;     // Feature count
-  conf: number;           // Confidence 0-100
-  auth: number;           // Authority 0-5
-
-  // Data source
-  src?: string;           // arcgis|socrata|muni-gis|tiger|osm
-  url?: string | null;    // Download URL
-
-  // Quality metrics (optional)
-  q?: {
-    v: boolean;           // GeoJSON valid
-    t: number;            // Topology: 0=gaps, 1=clean, 2=overlaps
-    r: number;            // Response time ms
-    d: string | null;     // Data vintage YYYY-MM-DD
-  };
-
-  // Reasoning chain (ESSENTIAL for audit)
-  why: string[];          // Why this tier chosen
-  tried: number[];        // Tiers attempted: [0,1,2]
-  blocked: string | null; // Blocker code preventing higher tier
-
-  // Metadata
-  ts: string;             // ISO timestamp
-  aid: string;            // Agent ID
-  sup?: string | null;    // Supersedes attemptId (retry chain)
-}
+import { provenanceWriter } from './provenance/provenance-writer.js';
+import type { CompactDiscoveryEntry } from './provenance/provenance-writer.js';
 
 /**
- * Append provenance entry to monthly log file
- *
- * File structure: discovery-attempts/YYYY-MM/discovery-log.ndjson.gz
+ * @deprecated Use ProvenanceWriter.append() instead
+ * This function is maintained for backward compatibility only.
  */
 export async function appendProvenance(entry: CompactDiscoveryEntry): Promise<void> {
-  try {
-    // Determine output path: discovery-attempts/YYYY-MM/
-    const baseDir = process.env.DISCOVERY_ATTEMPTS_DIR ||
-      join(process.cwd(), 'packages/crypto/data/discovery-attempts');
-
-    const now = new Date(entry.ts);
-    const monthDir = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-    const outputDir = join(baseDir, monthDir);
-
-    // Ensure directory exists
-    await mkdir(outputDir, { recursive: true });
-
-    // File path: discovery-log.ndjson.gz
-    const logPath = join(outputDir, 'discovery-log.ndjson.gz');
-
-    // Serialize entry as single-line JSON
-    const line = JSON.stringify(entry) + '\n';
-
-    // Append to gzipped file
-    // NOTE: For true append-only, we'd need to read existing file, decompress, append, recompress
-    // For now, we'll use a simpler approach: append to uncompressed staging file, compress periodically
-    // This is a production-ready pattern for high-throughput logging
-    const stagingPath = join(outputDir, 'discovery-log.ndjson');
-
-    // Append to staging file (uncompressed for efficient appends)
-    await writeFile(stagingPath, line, { flag: 'a' });
-
-    // Compress staging file to .gz (manual trigger or periodic cron)
-    // For now, compress on each write (simple but less efficient for high throughput)
-    await compressStagingFile(stagingPath, logPath);
-
-  } catch (error) {
-    // CRITICAL: Never break discovery if provenance write fails
-    console.warn('⚠️  Provenance write failed (non-fatal):', (error as Error).message);
-  }
+  // Use new class-based API with staging disabled for backward compatibility
+  await provenanceWriter.append(entry, { staging: false });
 }
 
 /**
- * Compress staging file to .gz
- * Replaces staging file with compressed version
+ * Legacy enums (deprecated - use string/number literals instead)
  */
-async function compressStagingFile(stagingPath: string, gzPath: string): Promise<void> {
-  try {
-    // Read staging file
-    const content = await readFile(stagingPath, 'utf-8');
-
-    // Compress to .gz
-    const gzip = createGzip();
-    const input = Readable.from([content]);
-
-    // Write compressed stream
-    await pipeline(
-      input,
-      gzip,
-      async function* (source) {
-        const chunks: Buffer[] = [];
-        for await (const chunk of source) {
-          chunks.push(chunk);
-        }
-        await writeFile(gzPath, Buffer.concat(chunks));
-      }
-    );
-
-    // Clear staging file (keep it for next append)
-    // NOTE: In production, you'd implement proper log rotation
-    // For now, we keep staging file to avoid re-reading .gz on every append
-
-  } catch (error) {
-    console.warn('⚠️  Compression failed (non-fatal):', (error as Error).message);
-  }
-}
 
 /**
- * Blocker codes (from PROVENANCE-SPEC.md)
+ * @deprecated Use string literals instead (e.g., 'no-council-layer')
+ * Blocker codes from PROVENANCE-SPEC.md
  */
 export enum BlockerCode {
   // Tier 0 specific
@@ -165,7 +83,8 @@ export enum BlockerCode {
 }
 
 /**
- * Authority levels (from PROVENANCE-SPEC.md)
+ * @deprecated Use number literals 0-5 instead
+ * Authority levels from PROVENANCE-SPEC.md
  */
 export enum AuthorityLevel {
   UNKNOWN = 0,
@@ -177,7 +96,8 @@ export enum AuthorityLevel {
 }
 
 /**
- * Granularity tiers (from PROVENANCE-SPEC.md)
+ * @deprecated Use number literals 0-4 instead
+ * Granularity tiers from PROVENANCE-SPEC.md
  */
 export enum GranularityTier {
   PRECINCT = 0,

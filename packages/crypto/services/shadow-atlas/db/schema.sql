@@ -1,6 +1,10 @@
 -- Municipal Boundaries: Event-Sourced, Content-Addressed Database Schema
--- Version: 1.0.0
+-- Version: 1.1.0
 -- Philosophy: Zero git bloat, event sourcing, content-addressed storage
+-- Changelog: v1.1.0 - Added CASCADE/RESTRICT constraints, confidence bounds, source_id index
+
+-- CRITICAL: Enable foreign key enforcement (SQLite default is OFF)
+PRAGMA foreign_keys = ON;
 
 -- municipalities: finite universe (19k US incorporated places)
 CREATE TABLE municipalities (
@@ -19,7 +23,7 @@ CREATE INDEX idx_muni_pop ON municipalities(population DESC);
 -- sources: discovered portal endpoints per municipality
 CREATE TABLE sources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  muni_id TEXT NOT NULL REFERENCES municipalities(id),
+  muni_id TEXT NOT NULL REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: source is meaningless without its municipality
   kind TEXT NOT NULL CHECK (kind IN ('arcgis','socrata','ckan','geojson')),
   url TEXT NOT NULL,
   layer_hint TEXT,                  -- layer index or name
@@ -34,12 +38,12 @@ CREATE INDEX idx_sources_muni ON sources(muni_id);
 
 -- selections: chosen source per municipality (LLM or heuristic decision)
 CREATE TABLE selections (
-  muni_id TEXT PRIMARY KEY REFERENCES municipalities(id),
-  source_id INTEGER NOT NULL REFERENCES sources(id),
+  muni_id TEXT PRIMARY KEY REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: selection is meaningless without its municipality
+  source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,  -- CASCADE: if source is deleted, selection must be re-evaluated
   district_field TEXT,              -- e.g., "DISTRICT", "WARD"
   member_field TEXT,                -- e.g., "COUNCILMEM", "MEMBER"
   at_large INTEGER NOT NULL DEFAULT 0,  -- 0/1 boolean
-  confidence REAL,                  -- 0.0-1.0
+  confidence REAL CHECK (confidence >= 0 AND confidence <= 100),  -- BOUNDED: confidence scores must be 0-100
   decided_by TEXT NOT NULL,         -- 'heuristic' | 'llm' | 'manual'
   decided_at TEXT NOT NULL,
   model TEXT                        -- e.g., "gemini-2.5-flash" if llm
@@ -47,11 +51,12 @@ CREATE TABLE selections (
 
 CREATE INDEX idx_selections_confidence ON selections(confidence);
 CREATE INDEX idx_selections_decided_by ON selections(decided_by);
+CREATE INDEX idx_selections_source_id ON selections(source_id);  -- PERFORMANCE: fast lookup of which selections use a given source
 
 -- artifacts: normalized GeoJSON blobs (content-addressed)
 CREATE TABLE artifacts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  muni_id TEXT NOT NULL REFERENCES municipalities(id),
+  muni_id TEXT NOT NULL REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: artifact is meaningless without its municipality
   content_sha256 TEXT NOT NULL,     -- key into R2/S3
   record_count INTEGER NOT NULL,
   bbox TEXT,                        -- JSON array [minLon, minLat, maxLon, maxLat]
@@ -67,8 +72,8 @@ CREATE INDEX idx_artifacts_sha ON artifacts(content_sha256);
 
 -- heads: pointers to current artifact per municipality
 CREATE TABLE heads (
-  muni_id TEXT PRIMARY KEY REFERENCES municipalities(id),
-  artifact_id INTEGER NOT NULL REFERENCES artifacts(id),
+  muni_id TEXT PRIMARY KEY REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: head pointer is meaningless without its municipality
+  artifact_id INTEGER NOT NULL REFERENCES artifacts(id) ON DELETE RESTRICT,  -- RESTRICT: cannot delete an artifact that is the current head (delete head first)
   updated_at TEXT NOT NULL
 );
 
