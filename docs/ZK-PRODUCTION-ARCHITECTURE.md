@@ -16,10 +16,12 @@
 | TimelockGovernance (Phase 1) | ✅ Implemented | `contracts/src/TimelockGovernance.sol` |
 | GuardianShield (Phase 2) | ⏳ Planned | `contracts/src/GuardianShield.sol` |
 | DistrictGate (with timelocked verifier) | ✅ Implemented | `contracts/src/DistrictGate.sol` |
-| Noir Circuit | ✅ Implemented | `packages/crypto/noir/district_membership/` |
+| DistrictRegistry (Phase 1) | ✅ Implemented | `contracts/src/DistrictRegistry.sol` |
+| ShadowAtlasRegistry (Phase 2) | ⏳ Planned | See MERKLE-FOREST-SPEC.md Section 5 |
+| Noir Circuit (district_membership) | ✅ Implemented | `packages/crypto/noir/district_membership/` |
+| Noir Circuit (composite_membership) | ⏳ Planned | See MERKLE-FOREST-SPEC.md Section 4 |
 | Browser Prover | ✅ Published | `@voter-protocol/noir-prover@0.1.0` |
 | BB.js Fork (stateful keygen) | ✅ Published | `@voter-protocol/bb.js@0.87.0-fork.1` |
-| DistrictRegistry | ✅ Implemented | `contracts/src/DistrictRegistry.sol` |
 | Chainlink Oracle Integration | ⏳ Planned | — |
 | Formal Verification CI | ⏳ Planned | — |
 | Professional Audit | ⏳ Planned | — |
@@ -108,31 +110,29 @@ This requires recruiting real multi-jurisdiction human guardians, which is not f
 
 ---
 
-## C-3: District Poisoning (Root Validation) ⚠️ PARTIAL
+## C-3: Root Poisoning (Registry Validation) ⚠️ PARTIAL
 
 ### Threat Model
 
-**Attack Vector**: Compromised governance registers a malicious Merkle root containing attacker-controlled leaves. This allows:
-1. **Fake citizens**: Attacker generates arbitrary identity commitments
-2. **Ballot stuffing**: Submit unlimited valid proofs from fake identities
-3. **Privacy breach**: Roots could encode trackable patterns
+**Attack Vector**: Compromised governance registers malicious Merkle roots containing
+attacker-controlled leaves, enabling fake citizens and ballot stuffing.
 
-**Attacker Profile**: Compromised governance key, bribed oracle, or nation-state coercion of single entity.
-
-### Current Implementation (Basic)
+### Phase 1 Implementation (Current)
 
 `DistrictRegistry` at `contracts/src/DistrictRegistry.sol` provides:
+- Known root registration (governance-controlled)
+- Country code binding
+- Active/inactive status
 
-- **Known root registration**: Only governance can register roots
-- **Country code binding**: Each root associated with country
-- **Active/inactive status**: Roots can be deprecated
+### Phase 2 Implementation (Planned)
 
-```solidity
-// Current: Single governance can update roots
-function registerRoot(bytes32 root, bytes3 countryCode) external onlyGovernance {
-    districts[root] = DistrictInfo({country: countryCode, isActive: true, ...});
-}
-```
+`ShadowAtlasRegistry` extends protection for ~2 million boundary trees:
+- **Epoch-based updates**: Quarterly root transitions with governance timelocks
+- **Per-boundary storage**: `boundaryRoots[boundaryId] => merkleRoot`
+- **Global commitment**: Single hash binding all roots per epoch
+- **IPFS addressing**: Full forest published, enabling public audit
+
+See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5 for contract specification.
 
 ### Required Mitigation: Oracle Quorum ⏳ TODO
 
@@ -206,14 +206,32 @@ The circuit at `packages/crypto/noir/district_membership/src/main.nr`:
 
 ```noir
 fn compute_nullifier(
-    user_secret: Field, 
-    campaign_id: Field, 
-    authority_hash: Field, 
+    user_secret: Field,
+    campaign_id: Field,
+    authority_hash: Field,
     epoch_id: Field
 ) -> Field {
     poseidon2_hash4(user_secret, campaign_id, authority_hash, epoch_id)
 }
 ```
+
+**Composite Nullifier (Phase 2):**
+
+For multi-boundary proofs, nullifier binds to ALL proven boundaries:
+
+```noir
+fn compute_composite_nullifier(
+    user_secret: Field,
+    campaign_id: Field,
+    authority_hashes: [Field; 4],  // Sorted, null-padded
+    epoch_id: Field
+) -> Field {
+    // Domain separation across all boundaries
+    poseidon2_hash_n([user_secret, campaign_id, ...authority_hashes, epoch_id])
+}
+```
+
+Single nullifier prevents replay across any subset of proven boundaries.
 
 **Security Analysis**:
 
@@ -330,14 +348,28 @@ npm install @voter-protocol/noir-prover @voter-protocol/bb.js @noir-lang/noir_js
 
 ### Circuit Specification
 
-The Noir circuit at `packages/crypto/noir/district_membership/src/main.nr`:
+### Single-Boundary Circuit (Current)
 
 ```
-Public Inputs: [merkle_root, nullifier, authority_hash, epoch_id, campaign_id]
-Private Inputs: [leaf, merkle_path[14], leaf_index, user_secret]
-Hash Function: Poseidon2 (T=4)
-Constraints: ~4,000 (well under 2^19 gate limit)
+Public Inputs:  [merkle_root, nullifier, authority_hash, epoch_id, campaign_id]
+Private Inputs: [leaf, merkle_path[N], leaf_index, user_secret]
+                where N ∈ {14, 20, 22} per boundary classification
+Constraints:    ~4,000-8,000 (varies by depth: 14→4k, 20→6k, 22→8k)
+Proof Size:     ~2 KB
+Verify Gas:     ~300k
 ```
+
+### Composite Circuit (Phase 2)
+
+```
+Public Inputs:  [merkle_roots[4], nullifier, authority_hash, epoch_id, campaign_id, boundary_mask]
+Private Inputs: [leaves[4], merkle_paths[4][22], leaf_indices[4], user_secret]
+Constraints:    ~12,000-16,000
+Proof Size:     ~2.5 KB
+Verify Gas:     ~400k (4 boundaries)
+```
+
+See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4 for composite circuit architecture.
 
 ### Browser Requirements
 

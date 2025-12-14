@@ -12,9 +12,10 @@ Solidity contracts for on-chain verification of browser-generated Noir/Barretenb
 - EIP-712 signatures for MEV protection
 - TimelockGovernance (Phase 1): 7-day governance transfer, 14-day verifier upgrade timelocks
 
-**DistrictRegistry.sol** - District management
-- Maps district roots to countries
+**DistrictRegistry.sol** - District management (Phase 1)
+- Maps single district roots to countries
 - Governance-controlled with 7-day timelock
+- **Phase 2 evolution**: Replaced by ShadowAtlasRegistry for ~2M multi-boundary support
 
 **NullifierRegistry.sol** - Double-action prevention
 - Records nullifiers per action namespace
@@ -44,6 +45,26 @@ Solidity contracts for on-chain verification of browser-generated Noir/Barretenb
 - Message content (separate system via AWS Nitro Enclaves)
 
 Smart contracts are the trustless verification layer. Identity and message delivery happen off-chain.
+
+### Shadow Atlas Evolution
+
+**Phase 1 (Current)**
+- **Registry**: DistrictRegistry.sol (single boundary per proof)
+- **Root Management**: Simple 1:1 mapping (districtRoot → country)
+- **Update Strategy**: Ad-hoc governance updates
+
+**Phase 2 (Planned)**
+- **Registry**: ShadowAtlasRegistry (see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5)
+- **Scope**: ~2 million governance boundary trees worldwide
+- **Root Management**: Epoch-based versioning with global commitment
+- **Composite Proofs**: Single circuit proves up to 4 boundaries (400k gas vs 4×300k batched)
+
+**Proof Cost Comparison:**
+| Strategy | Boundaries | Gas Cost |
+|----------|------------|----------|
+| Single | 1 | ~300-500k |
+| Composite | Up to 4 | ~400k |
+| Batched | N | N × 300k |
 
 ## Setup
 
@@ -205,13 +226,36 @@ bool used = districtGate.isNullifierUsed(actionId, nullifier);
 uint256 count = districtGate.getParticipantCount(actionId);
 ```
 
+### Multi-Boundary Verification (Phase 2)
+
+```solidity
+// Phase 2: Composite proof verification (up to 4 boundaries)
+bytes memory compositeProof = <noir_composite_proof>;
+bytes32[4] memory merkleRoots = [congressRoot, stateRoot, countyRoot, cityRoot];
+bytes32 boundaryMask = 0x0F;  // All 4 boundaries active
+
+// Single verification call for 4 boundaries (~400k gas)
+shadowAtlasRegistry.verifyCompositeProof(
+    compositeProof,
+    merkleRoots,
+    boundaryMask,
+    nullifier,
+    actionId
+);
+```
+
+See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4 for composite circuit specification.
+
 ## Security Considerations
 
 ### Threat Model
 
 1. **Forged Proofs**: Mitigated by UltraPlonk cryptographic soundness
 2. **Nullifier Replay**: Mitigated by on-chain nullifier tracking
-3. **Shadow Atlas Poisoning**: Mitigated by governance multisig + quarterly review
+3. **Shadow Atlas Poisoning**:
+   - Phase 1: Mitigated by governance multisig + quarterly review
+   - Phase 2: Mitigated by epoch-based versioning + oracle quorum + 7-day timelock
+   (see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 10)
 4. **MEV Attacks**: Mitigated by EIP-712 signatures binding rewards to signer
 5. **Nation-State Coercion**: Phase 1 uses TimelockGovernance (7-day detection window). Phase 2 adds GuardianShield (multi-jurisdiction veto)
 6. **Spam Actions**: Mitigated by rate limits + gas costs + proof generation time
@@ -238,7 +282,9 @@ Before production deployment:
 - [ ] **100+ test cases passing** (valid + invalid proofs)
 - [ ] **Governance multisig configured** (3/5 or 4/7 signature threshold)
 - [ ] **Guardians configured** (Phase 2: min 2, different legal jurisdictions)
-- [ ] **Shadow Atlas root verified** (matches production IPFS CID)
+- [ ] **Shadow Atlas roots verified**
+  - Phase 1: Root matches deployed DistrictRegistry
+  - Phase 2: Epoch roots match ShadowAtlasRegistry + IPFS CID
 - [ ] **Verifier auto-generated** (NOT using MockVerifier)
 - [ ] **Contract ownership transferred** to governance multisig
 

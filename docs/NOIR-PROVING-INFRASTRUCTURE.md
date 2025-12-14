@@ -60,7 +60,75 @@ Private inputs: [leaf, merkle_path, leaf_index, user_secret]
 
 ---
 
-## 3. Keygen Strategy
+## 3. Multi-Boundary Composite Proofs
+
+### 3.1 Architecture Overview
+
+Users belong to 12-25 governance boundaries simultaneously. Two proof strategies:
+
+| Strategy | Boundaries | Gas Cost | Latency |
+|----------|------------|----------|---------|
+| Single | 1 | ~300k | 8-15s |
+| Composite | Up to 4 | ~400k | 12-20s |
+| Batched | N | N × 300k | Parallelizable |
+
+### 3.2 Composite Circuit Specification
+
+```noir
+// composite_membership/src/main.nr
+
+global MAX_BOUNDARIES: u32 = 4;
+global MAX_DEPTH: u32 = 22;  // Supports all depth tiers
+
+fn main(
+    // Public inputs
+    merkle_roots: [Field; MAX_BOUNDARIES],
+    nullifier: Field,
+    authority_hash: Field,
+    epoch_id: Field,
+    campaign_id: Field,
+    boundary_mask: Field,  // Bitmask: which boundaries are active
+
+    // Private inputs
+    leaves: [Field; MAX_BOUNDARIES],
+    merkle_paths: [[Field; MAX_DEPTH]; MAX_BOUNDARIES],
+    leaf_indices: [u32; MAX_BOUNDARIES],
+    user_secret: Field,
+) -> pub ([Field; MAX_BOUNDARIES], Field, Field, Field, Field, Field)
+```
+
+### 3.3 Proof Strategy Selection
+
+```typescript
+function selectProofStrategy(boundaryCount: number): 'single' | 'composite' | 'batched' {
+  if (boundaryCount === 1) return 'single';
+  if (boundaryCount <= 4) return 'composite';  // 400k gas for 4 boundaries
+  return 'batched';  // N × 300k, parallelizable
+}
+```
+
+### 3.4 ShadowAtlasRegistry Integration
+
+Proofs validate against on-chain registry:
+
+```typescript
+// Verify roots before proof generation
+const validRoots = await registry.isValidRootBatch(boundaryIds, merkleRoots);
+if (!validRoots) throw new Error('Stale or invalid boundary roots');
+
+// Generate composite proof
+const proof = await prover.generateCompositeProof({
+  boundaries: boundaryIds.slice(0, 4),
+  userSecret,
+  campaignId,
+});
+```
+
+See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5 for registry contract specification.
+
+---
+
+## 4. Keygen Strategy
 
 ### Current Situation
 `@aztec/bb.js` (npm) only exposes `BarretenbergSync` with curve ops—no `setupGenericProverAndVerifier` or SRS/keygen helpers.
@@ -97,7 +165,7 @@ bb verify -k dist/bbjs/<depth>/vk -p proof
 
 ---
 
-## 4. Vendor Integration Strategy
+## 5. Vendor Integration Strategy
 
 ### In-Tree Vendor Pattern
 ```text
@@ -125,7 +193,7 @@ graph TD
 
 ---
 
-## 5. Upstream Contribution Plan
+## 6. Upstream Contribution Plan
 
 ### Target API
 ```typescript
@@ -160,20 +228,25 @@ interface Verifier {
 
 ---
 
-## 6. Multi-Depth Deployment
+## 7. Multi-Depth Deployment
 
 ### Artifact Layout
 ```text
 dist/bbjs/
-├── 14/
-│   ├── acir.bin
-│   ├── pk
-│   ├── vk
-│   └── sri.json
-├── 20/
-│   └── ...
-└── 22/
-    └── ...
+├── single/                    # Single-boundary circuits
+│   ├── 14/                    # City council depth
+│   │   ├── circuit.json
+│   │   ├── pk.bin
+│   │   └── vk.bin
+│   ├── 20/                    # Congressional depth
+│   │   └── ...
+│   └── 22/                    # State mega depth
+│       └── ...
+├── composite/                 # Multi-boundary circuit (MAX_DEPTH=22)
+│   ├── circuit.json
+│   ├── pk.bin
+│   └── vk.bin
+└── sri.json                   # Subresource integrity hashes
 ```
 
 ### Depth Classes
@@ -183,12 +256,26 @@ dist/bbjs/
 | Congressional | 20 | ~1M |
 | State (mega) | 22 | ~4M |
 
+**Circuit Families:**
+
+The build pipeline generates artifacts for two circuit families:
+
+1. **Single-boundary** (`district_membership`): Proves membership in one boundary
+   - Artifacts: `dist/bbjs/{14,20,22}/` (depth-specific)
+   - Use case: Simple actions requiring one boundary proof
+
+2. **Composite** (`composite_membership`): Proves membership in up to 4 boundaries simultaneously
+   - Artifacts: `dist/bbjs/composite/` (unified MAX_DEPTH=22)
+   - Use case: Cross-boundary actions (contact state senator AND congressional rep)
+
+For architecture details, see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4.
+
 ### Manifest
 Maps `authority_id → depth_class`; loader picks artifacts by depth; no user choice.
 
 ---
 
-## 7. Implementation Status
+## 8. Implementation Status
 
 - [x] Dependencies: `@aztec/bb.js`, `@noir-lang/noir_wasm`, Noir compiler
 - [x] Noir circuit: `packages/crypto/noir/district_membership/`

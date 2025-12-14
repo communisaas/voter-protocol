@@ -55,6 +55,10 @@ const boundaries = await provider.resolve(address, coords);
 
 ## Architecture Overview
 
+**Architectural Relationship:** This document specifies boundary data sourcing—how we acquire and normalize governance boundary data from public sources worldwide. For cryptographic tree architecture (Merkle Forest, epoch-based root management, ZK proofs), see MERKLE-FOREST-SPEC.md.
+
+**Design Principle:** Public data only. Zero commercial API dependency. We build the replacement for Google Civic/Mapbox/Cicero, not a consumer of them.
+
 ### Four-Layer Architecture
 
 ```
@@ -68,7 +72,7 @@ const boundaries = await provider.resolve(address, coords);
 ┌────────────────────────▼────────────────────────────────────┐
 │ Layer 2: Boundary Registry (Provider Router)                │
 │ - Country → Provider mapping                                 │
-│ - Strategy selection (cost vs accuracy vs coverage)         │
+│ - Strategy selection (granularity vs coverage)              │
 │ - Multi-source fallback chains                              │
 └────────────────────────┬────────────────────────────────────┘
                          │
@@ -80,8 +84,8 @@ const boundaries = await provider.resolve(address, coords);
 │ Providers    │  │ Providers   │  │ Providers  │
 │              │  │             │  │            │
 │ • US Census  │  │ • EuroGeo   │  │ • OSM      │
-│ • StatCan    │  │ • AfriGIS   │  │ • Google   │
-│ • UK OS      │  │ • ASEAN     │  │ • Mapbox   │
+│ • StatCan    │  │ • AfriGIS   │  │            │
+│ • UK OS      │  │ • ASEAN     │  │            │
 └───────┬──────┘  └──────┬──────┘  └─────┬──────┘
         │                │                │
         └────────────────┼────────────────┘
@@ -383,7 +387,7 @@ export class {Country}BoundaryProvider implements BoundaryProvider {
 1. **National electoral commissions** (most authoritative, binding boundaries)
 2. **National mapping agencies** (cadastral data, official surveys)
 3. **Municipal open data portals** (city council districts, wards)
-4. **Commercial providers** (Google Civic API, Mapbox, HERE) - validation only
+4. **OpenStreetMap** (community-maintained, quality varies)
 
 **Validation Requirements:**
 - ✅ Manual spot-checks for top 100 cities per country
@@ -572,25 +576,7 @@ export class {Country}BoundaryProvider implements BoundaryProvider {
 
 ---
 
-### Level 6: Commercial Providers (Validation Fence)
-
-**Examples:**
-- **Google Civic API:** US electoral boundaries ($0.007/lookup)
-- **Mapbox Boundaries:** Global administrative boundaries (expensive at scale)
-- **HERE Boundaries:** Global geocoding + boundaries
-- **Cicero API:** US local officials lookup ($0.03/lookup)
-
-**Characteristics:**
-- ✅ High accuracy (commercial data teams)
-- ✅ Global coverage (190+ countries)
-- ❌ Expensive at scale ($0.005-$0.03 per lookup)
-- ❌ Proprietary (cannot redistribute)
-
-**Use Case:** Validation fence ONLY (defer to user consent, per VOTER cost model)
-
----
-
-### Level 7: OpenStreetMap (Universal Fallback)
+### Level 6: OpenStreetMap (Universal Fallback)
 
 **Examples:**
 - **OSM admin_level=4-10:** State → county → city → ward boundaries
@@ -616,13 +602,17 @@ export class {Country}BoundaryProvider implements BoundaryProvider {
 /**
  * Select boundary provider based on country + strategy
  *
+ * NOTE: Provider selection determines data sourcing priority, not runtime API calls.
+ * All boundary data is pre-processed into Merkle trees during epoch generation.
+ * See MERKLE-FOREST-SPEC.md for epoch-based tree management.
+ *
  * Parallel to GeocodingService provider selection
  */
 export class BoundaryRegistry {
   private providers = new Map<string, BoundaryProvider>();
 
   constructor(private config: {
-    strategy: 'cost-optimized' | 'accuracy-first' | 'coverage-first';
+    strategy: 'granularity-first' | 'coverage-first';
     tier1Countries: Set<string>;  // Manual curation countries
     tier2Countries: Set<string>;  // OECD countries
   }) {
@@ -675,22 +665,17 @@ export class BoundaryRegistry {
 ### Strategy Toggle (Runtime Configuration)
 
 ```typescript
-// Cost-optimized (default): Free sources only
-const registry = new BoundaryRegistry({
-  strategy: 'cost-optimized',
-  tier1Countries: new Set(['US', 'CA', 'GB', 'DE', 'FR']),
-  tier2Countries: OECD_COUNTRIES,
-});
+// Public data sources only - no commercial API keys required
+const SOURCING_STRATEGY: SourcingConfig = {
+  priority: ['government', 'census', 'electoral-commission', 'osm'],
+  // No commercial providers - public data model
+};
 
-// Accuracy-first: Paid commercial APIs allowed
+// Granularity-first (default): Finest available boundaries
 const registry = new BoundaryRegistry({
-  strategy: 'accuracy-first',
+  strategy: 'granularity-first',
   tier1Countries: new Set(['US', 'CA', 'GB', 'DE', 'FR']),
   tier2Countries: OECD_COUNTRIES,
-  commercialProviders: {
-    google: { apiKey: process.env.GOOGLE_CIVIC_API_KEY },
-    mapbox: { apiKey: process.env.MAPBOX_API_KEY },
-  },
 });
 
 // Coverage-first: OpenStreetMap for all (maximize global reach)
@@ -987,10 +972,16 @@ const registry = new BoundaryRegistry({
 
 **Total Annual Cost:** ~$87k/year
 
-**Comparison to Commercial APIs:**
-- Google Civic API: $0.007/lookup × 1M lookups/day = $2.5M/year
-- Mapbox Boundaries: $0.005/lookup × 1M lookups/day = $1.8M/year
-- **Savings:** 95-97% cost reduction
+### Cost Advantage: Public Data Model
+
+| Approach | 1M Lookups/month | Annual Cost |
+|----------|------------------|-------------|
+| Google Civic API | $7,000/month | $84,000/year |
+| Mapbox Boundaries | $5,000/month | $60,000/year |
+| Cicero | $30,000/month | $360,000/year |
+| **Shadow Atlas (public data)** | **$0** | **~$87,000/year infra** |
+
+Shadow Atlas eliminates per-lookup costs entirely. Infrastructure: ~$7,250/month global (~$440/month data + ~$6,800/month labor amortized). Break-even at ~14,000 lookups/month vs lowest commercial option.
 
 ---
 
@@ -1346,31 +1337,29 @@ interface BoundaryProof {
 
 ### 5. Cost-Aware Architecture
 
-**PRINCIPLE:** Free data first, paid APIs only with user consent.
+**PRINCIPLE:** Public data only. Zero per-lookup costs.
 
-**EXAMPLE:** Cicero fence (defer to user approval)
+**EXAMPLE:** Graceful degradation to coarser boundaries
 
 ```typescript
 async resolve(address: Address, coords: Coordinates): Promise<LayeredBoundaryResult[]> {
-  // Free layers (Census, portals)
-  const freeBoundaries = await this.resolveFreeSources(coords);
-  if (freeBoundaries.length > 0) {
-    return freeBoundaries;  // ✅ Found free data, no need for paid API
+  const results: LayeredBoundaryResult[] = [];
+
+  // Try Layer 1: Finest available boundaries (council districts, wards)
+  const finestBoundaries = await this.resolveFinestLayer(coords);
+  if (finestBoundaries.length > 0) {
+    results.push(...finestBoundaries);
   }
 
-  // Paid layer (requires user consent)
-  const userConsent = await this.requestUserConsent({
-    provider: 'Cicero API',
-    cost: 0.03,  // USD
-    reason: 'No free council district data available',
-  });
+  // Layer 2: Municipality boundaries (always available from census/OSM)
+  const municipalityBoundaries = await this.resolveMunicipalityLayer(coords);
+  results.push(...municipalityBoundaries);
 
-  if (!userConsent) {
-    return [];  // ❌ User declined, return empty (not an error)
-  }
+  // Layer 3: Regional boundaries (state/province, always available)
+  const regionalBoundaries = await this.resolveRegionalLayer(coords);
+  results.push(...regionalBoundaries);
 
-  // User approved paid lookup
-  return await this.resolveCicero(address);
+  return results;  // Always returns something, finest to coarsest
 }
 ```
 
@@ -1422,16 +1411,16 @@ const district = response.body.features[0];
 
 **Migration to Shadow Atlas:**
 ```typescript
-// Replace with BoundaryRegistry (same interface, different provider)
+// Replace with BoundaryRegistry (public data sources)
 const boundaries = await boundaryRegistry.resolve({
   street: address.street,
   city: address.city,
   country: address.country,
 });
 
-// Mapbox still available as validation fence (optional)
-const validationFence = await mapboxProvider.resolve(address, coords);
-const validated = crossValidator.validate(boundaries[0], validationFence);
+// Cross-validate against OpenStreetMap (optional quality check)
+const osmBoundaries = await osmProvider.resolve(address, coords);
+const validated = crossValidator.validate(boundaries[0], osmBoundaries[0]);
 
 // Result: $0.005/lookup → $0 (100% cost reduction)
 ```
@@ -1440,90 +1429,18 @@ const validated = crossValidator.validate(boundaries[0], validationFence);
 
 ## Open Questions
 
-### 1. IPFS Pinning Strategy
+### Resolved Questions (See MERKLE-FOREST-SPEC.md)
 
-**Question:** Who pins Shadow Atlas data globally?
+1. **IPFS Pinning Strategy** → Resolved: Section 6.1
+2. **Versioning Protocol** → Resolved: Epoch-based, Section 5.1
+3. **Data Freshness** → Resolved: Quarterly epochs, not continuous polling
+4. **Commercial API Integration** → Resolved: Public-data-only model, no commercial APIs
 
-**Proposed Answer:**
-- **Primary:** Pinata free tier (1 GB = 5M users at 200 bytes/blob)
-- **Redundancy:** NFT.storage (Filecoin permanence, one-time fee)
-- **Community:** Incentivize self-pinning with Phase 2 VOTER tokens
-- **Cost:** Near-zero (Pinata free tier covers millions of users)
+### Open Questions (Phase 2+)
 
-**Status:** Resolved (see `/docs/PORTABLE-ENCRYPTED-IDENTITY-ARCHITECTURE.md`)
+### Community Contribution Governance
 
----
-
-### 2. Versioning Protocol
-
-**Question:** How do we handle boundary changes mid-year (redistricting)?
-
-**Proposed Answer:**
-- **Epoch-based versioning:** Each redistricting = new epoch
-- **Grace period:** 60 days to migrate users to new boundaries
-- **On-chain registry:** Map epochs to IPFS CIDs (immutable history)
-- **Smart contract:**
-  ```solidity
-  mapping(bytes32 => bytes32) public shadowAtlasRoots;
-  // districtHash => merkleRoot
-
-  mapping(uint256 => bytes32) public epochRoots;
-  // epoch => globalMerkleRoot
-  ```
-
-**Status:** Needs specification (create `VERSIONING-PROTOCOL.md`)
-
----
-
-### 3. Data Freshness Monitoring
-
-**Question:** How do we detect stale municipal GIS data?
-
-**Proposed Answer:**
-- **Automated quarterly checks:** Compare metadata timestamps
-- **Diff detection:** Hash current data, compare to cached hash
-- **Update triggers:**
-  - Metadata lastModified changed → Re-download
-  - Annual calendar (Census releases September)
-  - Election events (redistricting, annexations)
-- **Monitoring:**
-  ```typescript
-  interface FreshnessCheck {
-    provider: string;
-    lastCheck: string;  // ISO 8601
-    currentVersion: string;
-    latestVersion: string;
-    updateAvailable: boolean;
-    updateScheduled: string;  // Next auto-update
-  }
-  ```
-
-**Status:** Needs implementation (create `UPDATE-MONITORING.md`)
-
----
-
-### 4. Commercial API Integration
-
-**Question:** Should we integrate Google/Mapbox as validation fences?
-
-**Proposed Answer:**
-- **Not for Phase 1:** Free sources (Census, OSM) sufficient for US launch
-- **Phase 2 (optional):** Add as **validation-only** layer
-  - Use case: Cross-check high-stakes boundaries (electoral challenges)
-  - Requires user consent (paid lookups)
-  - Never replace free sources, only validate
-- **Cost controls:**
-  - Cache all commercial API responses (single lookup per boundary)
-  - User approval required ($0.007 Google, $0.005 Mapbox)
-  - Budget limits (max $X per month, then disable)
-
-**Status:** Deferred to Phase 2
-
----
-
-### 5. Community Contribution Governance
-
-**Question:** How do we prevent malicious boundary submissions?
+**Question:** How do community-submitted boundary improvements trigger new epoch generation? Requires governance process definition.
 
 **Proposed Answer:**
 - **Multi-stakeholder validation:**

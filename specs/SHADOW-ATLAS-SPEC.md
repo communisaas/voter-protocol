@@ -1,8 +1,8 @@
 # Shadow Atlas Technical Specification
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Date:** 2025-12-12
-**Status:** Partial Implementation - Foundation Layer Complete
+**Status:** Aligned with Merkle Forest Architecture
 **Standards Compliance:** IEEE 1471-2000 (Architecture Description), RFC 8949 (CBOR), GeoJSON RFC 7946
 
 ---
@@ -27,6 +27,8 @@ This specification defines the Shadow Atlas data structure, acquisition protocol
 - Smart contract verification logic (see ZK-PROOF-SPEC-REVISED.md)
 - Congressional message delivery (see TECHNICAL.md)
 
+**Scope Boundary:** This specification covers individual tree construction within the Shadow Atlas Merkle Forest. For forest-level architecture (2M boundary coordination, epoch management, composite proofs), see MERKLE-FOREST-SPEC.md.
+
 ### 1.3 References
 
 **Standards:**
@@ -45,6 +47,7 @@ This specification defines the Shadow Atlas data structure, acquisition protocol
 - **[ZK-SPEC]** ZK-PROOF-SPEC-REVISED.md - Zero-knowledge proof implementation
 - **[GEO-ARCH]** GEOCODING-ARCHITECTURE.md - Provider-agnostic geocoding design
 - **[DATA-STRAT]** SHADOW-ATLAS-DATA-STRATEGY.md - Data acquisition strategy
+- **[FOREST-SPEC]** MERKLE-FOREST-SPEC.md - Multi-boundary Merkle Forest architecture
 
 ---
 
@@ -121,29 +124,36 @@ ZK Proof Generation (see [ZK-SPEC])
 
 ### 3.1 Merkle Tree Specification
 
-**Structure:** Single-tier balanced binary Merkle tree per legislative district
+**Structure:** Individual trees within the Shadow Atlas Merkle Forest.
+Each tree services one governance boundary. A single address belongs to 12-25 boundaries simultaneously (congressional district, state legislature, county, city council, school board, etc.).
 
 **Parameters:**
-- **Depth:** 12 levels (fixed)
-- **Capacity:** 2^12 = 4,096 addresses per tree
 - **Hash Function:** Poseidon hash (SNARK-friendly, BN254 field)
 - **Leaf Node:** `Poseidon(address_string)`
 - **Internal Node:** `Poseidon(left_child_hash || right_child_hash)`
 
+**Depth Tiers** (selected by boundary classification):
+- **Tier 1 (Depth 14):** ~16,000 leaves (municipal councils, voting precincts)
+- **Tier 2 (Depth 20):** ~1,000,000 leaves (congressional, state legislature, counties)
+- **Tier 3 (Depth 22):** ~4,000,000 leaves (mega-states like CA/TX/FL, national boundaries)
+
 **Rationale:**
-- 4,096 capacity exceeds max district population density
-- 12 levels = 12 Poseidon hashes per proof (150 gates, see [ZK-SPEC])
+- Tree depth determined by governance boundary population, not fixed globally
+- Depth 14-22 range = 14-22 Poseidon hashes per proof (circuit depth scales with boundary size)
 - Balanced tree ensures O(log n) proof size
+
+For forest-scale architecture managing ~2 million boundary trees, see MERKLE-FOREST-SPEC.md.
 
 ### 3.2 Tree Construction Algorithm
 
 ```
 ALGORITHM: ConstructMerkleTree
-INPUT: addresses[] (sorted lexicographically)
+INPUT: addresses[] (sorted lexicographically), max_depth (14, 20, or 22)
 OUTPUT: root_hash, tree_structure
 
-1. IF len(addresses) > 4096 THEN
-     ERROR "District capacity exceeded"
+1. max_capacity := 2^max_depth
+   IF len(addresses) > max_capacity THEN
+     ERROR "District capacity exceeded for depth tier"
 
 2. leaves := []
    FOR EACH address IN addresses DO
@@ -151,14 +161,14 @@ OUTPUT: root_hash, tree_structure
      leaves.APPEND(leaf_hash)
    END FOR
 
-3. WHILE len(leaves) < 4096 DO
+3. WHILE len(leaves) < max_capacity DO
      leaves.APPEND(Poseidon("PADDING"))  # Deterministic padding
    END WHILE
 
 4. current_layer := leaves
    tree_structure := [current_layer]
 
-5. FOR level := 0 TO 11 DO  # 12 levels total
+5. FOR level := 0 TO (max_depth - 1) DO
      next_layer := []
      FOR i := 0 TO len(current_layer)-1 STEP 2 DO
        left := current_layer[i]
@@ -172,13 +182,15 @@ OUTPUT: root_hash, tree_structure
 
 6. root_hash := current_layer[0]
 7. RETURN root_hash, tree_structure
+
+NOTE: For tier-specific depth values (14/20/22), see MERKLE-FOREST-SPEC.md Section 3.3.
 ```
 
 ### 3.3 Proof Generation Algorithm
 
 ```
 ALGORITHM: GenerateMerkleProof
-INPUT: address, tree_structure
+INPUT: address, tree_structure, max_depth
 OUTPUT: proof_siblings[], proof_indices[]
 
 1. leaf_hash := Poseidon(address)
@@ -191,7 +203,7 @@ OUTPUT: proof_siblings[], proof_indices[]
    proof_indices := []
    current_index := leaf_index
 
-5. FOR level := 0 TO 11 DO
+5. FOR level := 0 TO (max_depth - 1) DO
      IF current_index % 2 == 0 THEN  # Left child
        sibling_index := current_index + 1
        proof_indices.APPEND(0)
@@ -206,13 +218,16 @@ OUTPUT: proof_siblings[], proof_indices[]
    END FOR
 
 6. RETURN proof_siblings, proof_indices
+
+NOTE: Tree depth varies by boundary tier. For forest-level composite proof
+generation across multiple boundaries, see MERKLE-FOREST-SPEC.md Section 4.
 ```
 
 ### 3.4 On-Chain Storage
 
 **Smart Contract State:**
 ```solidity
-// Shadow Atlas root registry
+// Shadow Atlas root registry (Phase 1: single-boundary verification)
 mapping(bytes32 => bool) public shadowAtlasRoots;  // district_hash => valid
 bytes32 public currentEpoch;  // Current Shadow Atlas version
 ```
@@ -229,6 +244,8 @@ function updateShadowAtlasRoot(
     emit ShadowAtlasUpdated(districtHash, newRoot, block.timestamp);
 }
 ```
+
+**Note:** This pattern serves Phase 1 (single-boundary verification). For production Merkle Forest with ~2 million boundaries and epoch-based updates, see MERKLE-FOREST-SPEC.md Section 5 (ShadowAtlasRegistry contract specification).
 
 ---
 
@@ -453,6 +470,8 @@ interface GISValidationRules {
 7. Generate checksum (SHA-256)
 8. Commit with metadata: source URL, download date, authority
 ```
+
+**Note:** This data acquisition protocol covers individual boundary collection. For forest-scale data management (~2M boundaries across 9+ governance layers, bulk processing pipelines, IPFS distribution), see MERKLE-FOREST-SPEC.md Section 7.
 
 ---
 
@@ -805,6 +824,8 @@ OUTPUT: districts[]
 7. RETURN districts
 ```
 
+**Note:** This district resolution algorithm resolves boundaries at a single point in time. For production multi-boundary resolution (resolving 12-25 simultaneous governance boundaries per address, handling boundary changes across epochs), see MERKLE-FOREST-SPEC.md Section 8.
+
 ---
 
 ## 7. Data Validation Specification
@@ -907,6 +928,8 @@ OUTPUT: ValidationResult
 4. RETURN ValidationResult(success=true)
 ```
 
+**Note:** This validation protocol applies to individual tree construction. For forest-level validation (cross-tree consistency, epoch boundary conditions, composite root verification), see MERKLE-FOREST-SPEC.md Section 6.
+
 ---
 
 ## 8. Implementation Status
@@ -957,17 +980,18 @@ OUTPUT: ValidationResult
 - [ ] Test on 100 cities to measure quality improvement
 - [ ] Scale to all 32,041 cities
 
-**Phase 3: Merkle Tree Generation (⏳ PLANNED)**
+**Phase 3: Merkle Forest Architecture (⏳ PLANNED)**
 - [ ] Implement Merkle tree construction for discovered boundaries
-- [ ] Generate trees for Layer 1 (council districts) + Layer 2 (PLACE)
-- [ ] Deploy to IPFS
-- [ ] Create proof generation API
+- [ ] Generate trees for all 9+ US governance layers (congressional, state legislature, county, city council, school board, etc.)
+- [ ] Deploy forest structure to IPFS with epoch-based versioning
+- [ ] Create composite proof generation API
+- [ ] See MERKLE-FOREST-SPEC.md for multi-boundary coordination architecture
 
 **Phase 4: End-to-End Integration (⏳ PLANNED)**
-- [ ] Address → geocoding → district resolution
-- [ ] District → Merkle proof generation
-- [ ] Browser-native ZK proof generation
-- [ ] On-chain verification
+- [ ] Address → geocoding → multi-boundary district resolution
+- [ ] Generate composite proofs across 12-25 simultaneous boundaries
+- [ ] Browser-native ZK proof generation for forest verification
+- [ ] On-chain verification via ShadowAtlasRegistry contract
 
 ### 8.3 Missing Specifications
 
@@ -1048,8 +1072,9 @@ See `packages/crypto/services/geocoding/types.ts` for complete TypeScript interf
 ---
 
 **Version History:**
+- 1.2.0 (2025-12-12): Aligned with Merkle Forest architecture (variable depth tiers, multi-boundary coordination)
+- 1.1.0 (2025-11-18): Multi-layer boundary resolution implementation complete
 - 1.0.0 (2025-11-08): Initial specification
-- Status: DRAFT - Awaiting implementation and validation
 
 **Authors:** Claude Code
 **License:** MIT

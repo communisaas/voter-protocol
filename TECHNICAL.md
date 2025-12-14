@@ -66,21 +66,26 @@ VOTER Protocol ships in two phases. Phase 1 establishes cryptographic foundation
 **Implementation:**
 - **Circuit:** Noir circuit for Merkle tree membership (`packages/crypto/noir/district_membership/`)
   - **UltraPlonk proving system** with KZG commitments (Aztec ceremony, 100K+ participants)
-  - Shadow Atlas single-tier Merkle tree (14 levels per district, ~16K addresses)
-  - On-chain DistrictRegistry mapping district roots → country codes (public data, governance-controlled)
+  - Shadow Atlas: Merkle forest of ~2 million boundary trees (one per governance boundary globally)
+  - Users prove membership in multiple simultaneous boundaries (12-25 per user)
+  - Tree depth varies by boundary type: 14 (municipal), 20 (congressional), 22 (mega-state)
+  - On-chain DistrictRegistry mapping boundary roots → country codes (public data, governance-controlled)
   - BN254 curve (Ethereum-compatible)
   - **Poseidon2 hash** (T=4, optimized for UltraPlonk constraints)
-- **Shadow Atlas:** Global electoral district mapping (Congressional districts, Parliamentary constituencies, city councils for 190+ countries)
-  - Single-tier structure: One balanced tree per district (14 levels, ~16K addresses)
-  - District→country mapping: On-chain registry (DistrictRegistry.sol, multi-sig governed)
-  - Quarterly IPFS updates with new district roots published on-chain
-  - **Progressive loading:** District trees downloaded on-demand, cached in IndexedDB
+- **Shadow Atlas:** Global governance boundary mapping (Congressional districts, Parliamentary constituencies, city councils, state/provincial assemblies for 190+ countries)
+  - **Merkle forest architecture:** ~2 million boundary trees (one per governance boundary)
+  - Users belong to 12-25 boundaries simultaneously (city council, state senate, congressional district, etc.)
+  - **Variable depth:** 14 (municipal/local), 20 (congressional/parliamentary), 22 (mega-state assemblies)
+  - Boundary→country mapping: On-chain registry (DistrictRegistry.sol, multi-sig governed)
+  - Quarterly IPFS updates with new boundary roots published on-chain
+  - **Progressive loading:** Boundary trees downloaded on-demand (3-4 trees per typical session), cached in IndexedDB
   - Poseidon2 hash function for Merkle tree (SNARK-friendly, T=4 configuration)
   - **Parallel witness generation:** Web Workers distribute Poseidon2 hashing
 - **Proving Flow (Browser-Native WASM via @aztec/bb.js):**
-  1. **Shadow Atlas loading:** Browser downloads user's district tree from IPFS (50MB, cached in IndexedDB after first use)
+  1. **Shadow Atlas loading:** Browser downloads user's boundary trees from IPFS (15-30MB per boundary, cached in IndexedDB after first use)
      - Progressive loading: Streaming download with early start to witness generation
-     - Compression: Zstd reduces IPFS transfer to ~15MB
+     - Typical session: 3-4 boundary trees (~45-120MB total, cached after first session)
+     - Compression: Zstd reduces IPFS transfer size
      - Cache hit: <10ms IndexedDB retrieval (subsequent proofs instant)
   2. **Witness generation:** `@noir-lang/noir_js` computes witness from circuit inputs
      - Poseidon2 hashing for 14-level Merkle path
@@ -95,17 +100,20 @@ VOTER Protocol ships in two phases. Phase 1 establishes cryptographic foundation
 
   **Total end-to-end UX: 8-15s on mobile (after first district tree download), works on 95%+ of devices**
 
-- **Verification:** On-chain smart contract verifies UltraPlonk proof against current Shadow Atlas root
-  - Gas cost: 300-400k gas on Scroll L2
+- **Verification:** On-chain smart contract verifies UltraPlonk proof against boundary roots in ShadowAtlasRegistry
+  - Single-boundary proofs verify 1 root; composite proofs (Phase 2) verify up to 4 roots
+  - Gas cost: 300-400k gas (single boundary), ~400k gas (composite, 4 boundaries)
   - Typical verification on Scroll: < $0.01; defer specifics to the canonical costs section
 - **Privacy guarantee (CURRENT, Phase 1):**
   - **Address NEVER leaves browser** (zero server transmission, true privacy from day one)
-  - Shadow Atlas district tree is public data (IPFS, no privacy concerns)
+  - Shadow Atlas boundary trees are public data (IPFS, no privacy concerns)
   - Witness generation happens client-side in Web Workers (isolated JavaScript execution)
-  - **Proof reveals only district hash, never address** (selective disclosure of location without revealing exact address)
+  - **Proof reveals only boundary hash(es), never address** (selective disclosure of location without revealing exact address)
   - **Zero AWS dependency for on-chain identity** (browser-native ZK proofs, Scroll L2, IPFS)
-  - **This is peak privacy for district verification** - address stays local, only membership proof goes on-chain
+  - **This is peak privacy for boundary verification** - address stays local, only membership proof goes on-chain
   - **AWS Nitro dependency** applies ONLY to message delivery (separate system, see below)
+
+For complete Merkle Forest architecture (2M boundaries, epoch management, composite proofs), see [MERKLE-FOREST-SPEC.md](specs/MERKLE-FOREST-SPEC.md).
 
 **Smart Contract Implementation (Two-Step Verification):**
 
@@ -187,42 +195,43 @@ contract DistrictGate {
 
 **Client-Side: Shadow Atlas Loading and Caching**
 ```typescript
-// Download district tree from IPFS, cache in IndexedDB
-async function loadDistrictTree(district: string): Promise<DistrictTree> {
+// Load boundary trees for user's location
+// Users belong to 12-25 boundaries; load relevant subset
+async function loadBoundaryTree(boundaryId: string): Promise<BoundaryTree> {
   // 1. Check IndexedDB cache first
-  const cached = await indexedDB.get(`district_tree_${district}`);
+  const cached = await indexedDB.get(`boundary_tree_${boundaryId}`);
   if (cached && !isStale(cached)) {
     return cached; // Cache hit: <10ms
   }
 
   // 2. Download from IPFS (first time only)
-  const ipfsHash = await getShadowAtlasIPFSHash(district);
+  const ipfsHash = await getShadowAtlasIPFSHash(boundaryId);
   const compressed = await fetch(`https://ipfs.io/ipfs/${ipfsHash}`);
 
-  // 3. Decompress (Zstd: 50MB → 15MB transfer)
+  // 3. Decompress (Zstd reduces transfer size, 15-30MB per boundary)
   const treeData = await decompressZstd(await compressed.arrayBuffer());
 
   // 4. Cache in IndexedDB for future use
-  await indexedDB.put(`district_tree_${district}`, {
+  await indexedDB.put(`boundary_tree_${boundaryId}`, {
     data: treeData,
     timestamp: Date.now(),
-    district
+    boundaryId
   });
 
-  return parseDistrictTree(treeData);
+  return parseBoundaryTree(treeData);
 }
 
 // Witness generation with Web Workers (parallel Poseidon hashing)
 async function generateWitness(
   address: string,
-  districtTree: DistrictTree
+  boundaryTree: BoundaryTree
 ): Promise<MerkleWitness> {
-  // 1. Find address in district tree (binary search: ~log2(4K) = 12 lookups)
-  const leafIndex = districtTree.findAddress(address);
-  if (leafIndex === -1) throw new Error("Address not found in district");
+  // 1. Find address in boundary tree (binary search)
+  const leafIndex = boundaryTree.findAddress(address);
+  if (leafIndex === -1) throw new Error("Address not found in boundary");
 
-  // 2. Compute Merkle path (12 levels: single-tier district tree)
-  const merklePath = districtTree.computePath(leafIndex);
+  // 2. Compute Merkle path (depth varies: 14/20/22 depending on boundary type)
+  const merklePath = boundaryTree.computePath(leafIndex);
 
   // 3. Distribute Poseidon hashing across 4 Web Workers
   const workers = createWorkerPool(4);
@@ -234,9 +243,9 @@ async function generateWitness(
 
   return {
     identityCommitment: address,  // Private witness
-    leafIndex,                     // Position in district tree (0-4095)
-    merklePath: pathHashes,        // 12 sibling hashes
-    districtRoot: districtTree.root, // District tree root (verified against registry)
+    leafIndex,                     // Position in boundary tree
+    merklePath: pathHashes,        // Sibling hashes (14/20/22 depending on depth)
+    boundaryRoot: boundaryTree.root, // Boundary tree root (verified against registry)
     actionId: hash("contact_rep")    // Action identifier
   };
 }
@@ -311,24 +320,31 @@ class NoirProver {
 **TypeScript Integration:**
 ```typescript
 // Main proving flow (called from user-facing UI)
-async function generateDistrictProof(address: string, district: string): Promise<ProofResult> {
-  // 1. Load district tree (IPFS + IndexedDB cache)
-  const districtTree = await loadDistrictTree(district); // 50MB first time, <10ms cached
+async function generateDistrictProof(address: string, boundaryIds: string[]): Promise<ProofResult> {
+  // 1. Load boundary trees (IPFS + IndexedDB cache)
+  // Typical session loads 3-4 trees (~45-120MB total, cached after first session)
+  const congressTree = await loadBoundaryTree('US-congress-119-ca-12');
+  const stateTree = await loadBoundaryTree('US-state-senate-ca-11');
+  const cityTree = await loadBoundaryTree('US-council-sf-5');
 
   // 2. Generate witness with Web Workers (200-400ms modern, 800ms-1.5s mobile)
-  const witness = await generateWitness(address, districtTree);
+  const witness = await generateWitness(address, congressTree);
 
-  // 3. Prove in WASM (8-15s on mid-range mobile, ~4K constraints)
+  // 3. Prove in WASM (8-15s on mid-range mobile, ~4K constraints for single boundary)
+  // Phase 2: Composite proofs attest to up to 4 boundaries simultaneously (12-20s)
   const prover = new NoirProver();
   const proof = await prover.prove(witness);
 
   return {
     proof,
-    districtRoot: witness.districtRoot,  // Per-district root (verified against registry)
+    boundaryRoot: witness.boundaryRoot,  // Per-boundary root (verified against registry)
     nullifier: witness.nullifier,         // Prevents double-voting
     actionId: witness.actionId            // Action identifier
   };
 }
+
+// Phase 2: Composite proofs attest to up to 4 boundaries simultaneously
+// See MERKLE-FOREST-SPEC.md Section 4 for composite circuit architecture
 ```
 
 **Why Browser-Native Noir/Barretenberg Wins:**
@@ -369,6 +385,16 @@ async function generateDistrictProof(address: string, district: string): Promise
   - Platform subsidizes all gas costs (users pay nothing)
 
 - **Proof size:** 384-512 bytes (same as before, KZG commitment slightly larger)
+
+**Shadow Atlas Performance Comparison:**
+
+| Operation | Single Boundary | Composite (4) |
+|-----------|-----------------|---------------|
+| Tree load (first time) | 15-30MB, 2-5s | 45-120MB, 5-10s |
+| Tree load (cached) | <10ms IndexedDB | <10ms IndexedDB |
+| Proof generation | 8-15s | 12-20s |
+| On-chain verification | ~300-400k gas | ~400k gas |
+| Boundaries attested | 1 | 4 |
 
 **Why Browser-Native Noir/Barretenberg Wins:**
 
@@ -451,8 +477,8 @@ async function generateDistrictProof(address: string, district: string): Promise
 - Rows: 16,384 (K=14 two-tier) → 16,384 (K=14 single-tier) - same
 - Advice cells: ~189,780 (two-tier) → 117,473 (single-tier) - 38% fewer
 - Advice columns: 12 (two-tier) → 8 (single-tier) - 33% fewer
-- Merkle levels: ~20 (two-tier) → 12 (single-tier) - 40% reduction
-- Hash operations: ~40 (two-tier) → ~14 (single-tier) - 65% fewer
+- Merkle levels: ~20 (two-tier) → 14/20/22 (single-tier, variable depth by boundary type)
+- Hash operations: ~40 (two-tier) → ~14-22 (single-tier, depth-dependent) - up to 65% fewer
 
 **On-Chain Costs**:
 - Verifier bytecode: 26KB (two-tier) → 20,142 bytes (single-tier) - 18% under EIP-170 limit
@@ -1567,8 +1593,9 @@ Phase 1 infrastructure costs are viable for bootstrapped launch. Revenue options
 
 **Browser-Native Proof Generation (Noir/Barretenberg WASM + UltraPlonk):**
 - **Shadow Atlas loading:** (first time only)
-  - IPFS download: 15MB compressed (Zstd, 50MB uncompressed)
-  - IndexedDB caching: 3-5s download, <10ms subsequent retrieval
+  - IPFS download: 15-30MB per boundary tree (Zstd compressed)
+  - Typical session: 3-4 boundary trees (~45-120MB total, cached in IndexedDB)
+  - IndexedDB caching: 2-5s per tree download, <10ms subsequent retrieval
   - Progressive loading: Start witness generation before full download completes
 - **Witness generation:** (every proof)
   - Web Workers: 4 parallel workers for Poseidon hashing
@@ -1581,18 +1608,18 @@ Phase 1 infrastructure costs are viable for bootstrapped launch. Revenue options
 
 **End-to-End User Experience:**
 - **First time (Shadow Atlas download):**
-  1. Shadow Atlas download: 3-5s (15MB IPFS, cached afterward)
+  1. Shadow Atlas download: 5-10s (3-4 boundary trees, 45-120MB total, cached afterward)
   2. Witness generation: 200ms-1.5s (Web Workers, device-dependent)
-  3. WASM proof generation: 8-15s (mobile)
+  3. WASM proof generation: 8-15s (single boundary), 12-20s (composite, 4 boundaries)
   4. Submit to Scroll L2: 2-5s (block confirmation)
-  - **Total: 11-24s** (mobile + good network)
+  - **Total: 15-30s** (mobile + good network, first session with multi-boundary setup)
 
 - **Subsequent proofs (cached):**
-  1. IndexedDB cache hit: <10ms (Shadow Atlas already downloaded)
+  1. IndexedDB cache hit: <10ms (boundary trees already downloaded)
   2. Witness generation: 200ms-1.5s
-  3. WASM proof generation: 8-15s (mobile)
+  3. WASM proof generation: 8-15s (single boundary), 12-20s (composite)
   4. Submit to Scroll L2: 2-5s
-  - **Total: 10-22s** (district tree cached, only proving overhead)
+  - **Total: 10-22s** (single boundary cached), 14-26s (composite cached)
 
 **Device Compatibility:**
 - **Supported:** 95%+ of devices (requires SharedArrayBuffer support)
