@@ -41,6 +41,43 @@ export interface HealthCheckSummary {
 }
 
 /**
+ * Check if URL uses stable API pattern (FeatureServer/MapServer, not Hub download)
+ *
+ * Hub download URLs redirect to temporary Azure blobs that expire.
+ * FeatureServer/MapServer URLs are stable and always return current data.
+ */
+function isStableUrlPattern(url: string): { stable: boolean; warning?: string } {
+  // UNSTABLE: hub.arcgis.com/api/download URLs redirect to temp Azure blobs
+  if (url.includes('hub.arcgis.com/api/download')) {
+    return {
+      stable: false,
+      warning: 'URL uses hub.arcgis.com download API which redirects to temporary Azure blobs. Use direct FeatureServer/MapServer query instead.',
+    };
+  }
+
+  // STABLE: Direct FeatureServer or MapServer queries
+  if (url.includes('/FeatureServer/') || url.includes('/MapServer/')) {
+    return { stable: true };
+  }
+
+  // STABLE: Socrata and other direct APIs
+  if (url.includes('api/geospatial') || url.includes('data.') || url.includes('/resource/')) {
+    return { stable: true };
+  }
+
+  // STABLE: hub.arcgis.com/api/v3 (newer stable API)
+  if (url.includes('hub.arcgis.com/api/v3')) {
+    return { stable: true };
+  }
+
+  // UNKNOWN: Not recognized, but don't fail
+  return {
+    stable: true,
+    warning: 'URL pattern not recognized. Verify this is a stable, non-expiring endpoint.',
+  };
+}
+
+/**
  * Validate a single registry entry
  *
  * @param fips - City FIPS code
@@ -58,6 +95,14 @@ export async function validatePortal(
   let dataFresh = false;
 
   const startTime = Date.now();
+
+  // Check URL pattern BEFORE making HTTP request
+  const urlCheck = isStableUrlPattern(portal.downloadUrl);
+  if (!urlCheck.stable) {
+    issues.push(urlCheck.warning || 'Unstable URL pattern detected');
+  } else if (urlCheck.warning) {
+    issues.push(urlCheck.warning);
+  }
 
   try {
     // Always use GET to fetch actual data (HEAD isn't reliable across portals)

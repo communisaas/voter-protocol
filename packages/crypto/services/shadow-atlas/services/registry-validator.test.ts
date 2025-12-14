@@ -18,6 +18,106 @@ describe('Registry Validator', () => {
   });
 
   describe('validatePortal', () => {
+    it('detects unstable hub.arcgis.com download URLs', async () => {
+      const mockPortal: KnownPortal = {
+        cityFips: '4865000',
+        cityName: 'San Antonio',
+        state: 'TX',
+        portalType: 'arcgis',
+        downloadUrl: 'https://hub.arcgis.com/api/download/v1/items/abc123/geojson',
+        featureCount: 10,
+        lastVerified: new Date().toISOString(),
+        confidence: 80,
+        discoveredBy: 'automated',
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          type: 'FeatureCollection',
+          features: Array(10).fill({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [] },
+            properties: { DISTRICT: 1 },
+          }),
+        }),
+      } as Response);
+
+      const result = await validatePortal('4865000', mockPortal);
+
+      expect(result.status).toBe('warning');
+      expect(result.issues.some(i => i.includes('hub.arcgis.com download API'))).toBe(true);
+      expect(result.issues.some(i => i.includes('temporary Azure blobs'))).toBe(true);
+    });
+
+    it('accepts stable FeatureServer URLs', async () => {
+      const mockPortal: KnownPortal = {
+        cityFips: '4865000',
+        cityName: 'San Antonio',
+        state: 'TX',
+        portalType: 'arcgis',
+        downloadUrl: 'https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/RedistrictedCouncilDistricts2022/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+        featureCount: 10,
+        lastVerified: new Date().toISOString(),
+        confidence: 95,
+        discoveredBy: 'manual',
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          type: 'FeatureCollection',
+          features: Array(10).fill({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [] },
+            properties: { DISTRICT: 1 },
+          }),
+        }),
+      } as Response);
+
+      const result = await validatePortal('4865000', mockPortal);
+
+      expect(result.status).toBe('healthy');
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('accepts stable MapServer URLs', async () => {
+      const mockPortal: KnownPortal = {
+        cityFips: '4835000',
+        cityName: 'Houston',
+        state: 'TX',
+        portalType: 'arcgis',
+        downloadUrl: 'https://mycity2.houstontx.gov/pubgis02/rest/services/HoustonMap/Administrative_Boundary/MapServer/2/query?where=1%3D1&outFields=*&f=geojson',
+        featureCount: 11,
+        lastVerified: new Date().toISOString(),
+        confidence: 95,
+        discoveredBy: 'manual',
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          type: 'FeatureCollection',
+          features: Array(11).fill({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [] },
+            properties: { DISTRICT: 'A' },
+          }),
+        }),
+      } as Response);
+
+      const result = await validatePortal('4835000', mockPortal);
+
+      expect(result.status).toBe('healthy');
+      expect(result.issues).toHaveLength(0);
+    });
+
     it('validates healthy portal (200 OK, correct feature count)', async () => {
       const mockPortal: KnownPortal = {
         cityFips: '4805000',
@@ -260,7 +360,7 @@ describe('Registry Validator', () => {
           cityName: 'City1',
           state: 'TX',
           portalType: 'arcgis',
-          downloadUrl: 'https://example.com/1.geojson',
+          downloadUrl: 'https://services.arcgis.com/abc/FeatureServer/0/query?f=geojson',
           featureCount: 10,
           lastVerified: new Date().toISOString(),
           confidence: 80,
@@ -271,7 +371,7 @@ describe('Registry Validator', () => {
           cityName: 'City2',
           state: 'WA',
           portalType: 'arcgis',
-          downloadUrl: 'https://example.com/2.geojson',
+          downloadUrl: 'https://services.arcgis.com/def/FeatureServer/1/query?f=geojson',
           featureCount: 7,
           lastVerified: new Date().toISOString(),
           confidence: 90,
@@ -282,7 +382,7 @@ describe('Registry Validator', () => {
           cityName: 'City3',
           state: 'CA',
           portalType: 'arcgis',
-          downloadUrl: 'https://example.com/3.geojson',
+          downloadUrl: 'https://services.arcgis.com/ghi/MapServer/2/query?f=geojson',
           featureCount: 5,
           lastVerified: new Date().toISOString(),
           confidence: 70,

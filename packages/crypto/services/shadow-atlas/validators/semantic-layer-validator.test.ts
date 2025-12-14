@@ -1,713 +1,538 @@
 /**
- * Semantic Layer Validator Tests
+ * Semantic Validator Tests
  *
- * Validates semantic filtering of GIS layers to identify council districts.
+ * Validates semantic analysis of GIS layer titles to identify council districts.
  *
  * Test Strategy:
- * 1. High-confidence matches: "Council Districts" → 85%+
- * 2. Medium-confidence matches: "Ward Boundaries" → 60-80%
- * 3. Low-confidence matches: Ambiguous names → 40-60%
- * 4. False positives: "Parks", "Schools" → <30%
- * 5. Integration: Filter Portland layers to find voting districts
+ * 1. High-confidence title patterns: "Council Districts" → score 40
+ * 2. Medium-confidence patterns: "Ward Boundaries" → score 30
+ * 3. Low-confidence patterns: "Districts" → score 20
+ * 4. Negative keywords: "Voting Precincts" → score 0 (rejected)
+ * 5. City name matching with aliases
+ * 6. Governance structure validation
  *
  * TYPE SAFETY: Nuclear-level strictness - no `any`, no loose casts.
  */
 
 import { describe, it, expect } from 'vitest';
-import { SemanticLayerValidator } from './semantic-layer-validator.js';
-import type { GISLayer } from '../services/gis-server-discovery.js';
-import type { CityTarget } from '../providers/us-council-district-discovery.js';
+import { SemanticValidator } from '../validation/semantic-validator.js';
+import type { SemanticScore } from '../validation/semantic-validator.js';
 
-/**
- * Test city context
- */
-const TEST_CITY: CityTarget = {
-  fips: '2938000',
-  name: 'Kansas City',
-  state: 'MO',
-};
+describe('SemanticValidator', () => {
+  describe('scoreTitle() - High-Confidence Patterns (40 points)', () => {
+    it('should score "City Council Districts" highly (40 points)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('City Council Districts');
 
-/**
- * Helper to create mock GIS layer
- */
-function createMockLayer(overrides: Partial<GISLayer>): GISLayer {
-  return {
-    id: 0,
-    name: 'Test Layer',
-    type: 'Feature Layer',
-    geometryType: 'esriGeometryPolygon',
-    fields: [],
-    featureCount: null,
-    extent: null,
-    url: 'https://example.com/layer/0',
-    ...overrides,
-  };
-}
-
-describe('SemanticLayerValidator', () => {
-  describe('High-Confidence Matches', () => {
-    it('should score "City Council Districts" highly (85%+)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'City Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-          { name: 'COUNCIL_MEMBER', type: 'esriFieldTypeString', alias: null },
-        ],
-        featureCount: 6,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(85);
-      // Implementation generates: 'Name matches high-confidence pattern: "..."'
-      expect(matches[0].reasons.some(r => r.startsWith('Name matches high-confidence pattern:'))).toBe(true);
-      // Implementation generates: 'Polygon geometry (expected for districts)'
-      expect(matches[0].reasons).toContain('Polygon geometry (expected for districts)');
-      // Implementation generates: 'Fields contain: DISTRICT, COUNCIL'
-      expect(matches[0].reasons.some(r => r.includes('DISTRICT'))).toBe(true);
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+      expect(result.reasons[0]).toContain('Name matches high-confidence pattern');
+      expect(result.negativeMatches).toHaveLength(0);
     });
 
-    it('should score "District Council Boundaries" highly', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'District Council Boundaries',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT_NUM', type: 'esriFieldTypeInteger', alias: null },
-          { name: 'MEMBER_NAME', type: 'esriFieldTypeString', alias: null },
-        ],
-        featureCount: 8,
-      });
+    it('should score "District Council Boundaries" highly (40 points)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('District Council Boundaries');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(80);
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+      expect(result.reasons[0]).toContain('Name matches high-confidence pattern');
     });
 
-    it('should score "Municipal Districts" highly', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Municipal Districts',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 5,
-      });
+    it('should score "Municipal Districts" highly (40 points)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Municipal Districts');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+      expect(result.reasons[0]).toContain('Name matches high-confidence pattern');
+    });
 
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(75);
+    it('should score "Citizens Council Districts" (Helena pattern) highly', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Citizens Council Districts');
+
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+    });
+
+    it('should score "Billings Wards" highly (city + ward pattern)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Billings Wards');
+
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
     });
   });
 
-  describe('Medium-Confidence Matches', () => {
-    it('should score "Ward Boundaries" with medium confidence', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Ward Boundaries',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'WARD', type: 'esriFieldTypeInteger', alias: null },
-          { name: 'WARD_NAME', type: 'esriFieldTypeString', alias: null },
-        ],
-        featureCount: 10,
-      });
+  describe('scoreTitle() - Medium-Confidence Patterns (30 points)', () => {
+    it('should score "Ward Boundaries" with medium confidence (30 points)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Ward Boundaries');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
+      expect(result.score).toBe(30);
+      expect(result.passed).toBe(true);
+      expect(result.reasons[0]).toContain('Name matches medium-confidence pattern');
+    });
 
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(60);
-      expect(matches[0].confidence).toBeLessThan(85);
-      // Implementation generates: 'Name matches medium-confidence pattern: "..."'
-      expect(matches[0].reasons.some(r => r.startsWith('Name matches medium-confidence pattern:'))).toBe(true);
+    it('should score "Wards" with medium confidence', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Wards');
+
+      expect(result.score).toBe(30);
+      expect(result.passed).toBe(true);
     });
 
     it('should score "Civic Districts" with medium confidence', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Civic Districts',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT_ID', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 7,
-      });
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Civic Districts');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
+      expect(result.score).toBe(30);
+      expect(result.passed).toBe(true);
+    });
 
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(50);
+    it('should score "City Boundaries" with medium confidence', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('City Boundaries');
+
+      expect(result.score).toBe(30);
+      expect(result.passed).toBe(true);
+    });
+
+    it('should score "Commission Districts" with medium confidence', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Commission Districts');
+
+      expect(result.score).toBe(30);
+      expect(result.passed).toBe(true);
     });
   });
 
-  describe('Negative Keyword Filtering', () => {
-    it('should reject "Voting Precincts 2024"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Voting Precincts 2024',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'PRECINCT_ID', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 150,
-      });
+  describe('scoreTitle() - Low-Confidence Patterns (20 points)', () => {
+    it('should score "Council" with low confidence (20 points)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Council');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      // Should be filtered out (confidence = 0 due to negative keyword)
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(20);
+      expect(result.passed).toBe(false); // Below 30 threshold
+      expect(result.reasons[0]).toContain('Name matches low-confidence pattern');
     });
 
-    it('should reject "Election Precincts"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Election Precincts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 200,
-      });
+    it('should score "District" (singular) with low confidence', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('District');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(20);
+      expect(result.passed).toBe(false);
     });
 
-    it('should reject "Tree Canopy Cover"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Tree Canopy Cover',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 50,
-      });
+    it('should score "Representation" with low confidence', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Representation');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
-    });
-
-    it('should reject "Zoning Overlay Districts"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Zoning Overlay Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 15,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
-    });
-
-    it('should reject "Polling Locations"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Polling Locations',
-        geometryType: 'esriGeometryPoint',
-        featureCount: 100,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
-    });
-
-    it('should reject "Parcel Boundaries"', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Parcel Boundaries',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 5000,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
-    });
-
-    it('should accept legitimate "City Council Districts" (not rejected by negative keywords)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'City Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 8,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(70);
-    });
-
-    it('should accept "Ward Boundaries" (not rejected by negative keywords)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Ward Boundaries',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'WARD', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 6,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      expect(matches[0].confidence).toBeGreaterThan(60);
+      expect(result.score).toBe(20);
+      expect(result.passed).toBe(false);
     });
   });
 
-  describe('False Positive Filtering', () => {
-    it('should score "Parks and Recreation" low', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Parks and Recreation',
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'PARK_NAME', type: 'esriFieldTypeString', alias: null },
-        ],
-        featureCount: 150,
-      });
+  describe('scoreTitle() - Negative Keyword Filtering', () => {
+    it('should reject "Voting Precincts 2024" (contains negative keywords)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Voting Precincts 2024');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      // Should be filtered out (confidence < 50)
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      // Should match either "voting" or "precinct" (whichever comes first in the check)
+      expect(result.negativeMatches.length).toBeGreaterThan(0);
+      expect(result.reasons[0]).toContain('negative keyword');
     });
 
-    it('should score "School Districts" low', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'School Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 45,
-      });
+    it('should reject "Election Precincts" (contains "election" and "precincts")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Election Precincts');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0); // Filtered out by false-positive penalty
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches.length).toBeGreaterThan(0);
     });
 
-    it('should score "Fire Districts" low', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Fire Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 8,
-      });
+    it('should reject "Tree Canopy Cover" (contains "canopy")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Tree Canopy Cover');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('canopy');
     });
 
-    it('should score "Congressional Districts" low', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Congressional Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 5,
-      });
+    it('should reject "Zoning Overlay Districts" (contains "zoning")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Zoning Overlay Districts');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('zoning');
     });
 
-    it('should score "State Senate Districts" low', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'State Senate Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 12,
-      });
+    it('should reject "Polling Locations" (contains "polling")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Polling Locations');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(0);
-    });
-  });
-
-  describe('Geometry Type Validation', () => {
-    it('should penalize non-polygon geometry', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council District Points',
-        geometryType: 'esriGeometryPoint', // Point data, not polygons
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 6,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      // Should have lower confidence due to point geometry
-      if (matches.length > 0) {
-        expect(matches[0].confidence).toBeLessThan(60);
-        expect(matches[0].reasons).toContain(expect.stringContaining('Non-polygon'));
-      }
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('polling');
     });
 
-    it('should reward polygon geometry', () => {
-      const validator = new SemanticLayerValidator();
-      const polygonLayer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: 'esriGeometryPolygon',
-      });
+    it('should reject "Parcel Boundaries" (contains "parcel")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Parcel Boundaries');
 
-      const matches = validator.filterCouncilDistrictLayers([polygonLayer], TEST_CITY);
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('parcel');
+    });
 
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Polygon geometry (expected for districts)'
-      expect(matches[0].reasons).toContain('Polygon geometry (expected for districts)');
+    it('should reject "School Districts" (contains "school")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('School Districts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('school');
+    });
+
+    it('should reject "Fire Districts" (contains "fire")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Fire Districts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('fire');
+    });
+
+    it('should reject "Congressional Districts" (contains "congressional")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Congressional Districts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('congressional');
+    });
+
+    it('should reject "State Senate Districts" (contains "state senate")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('State Senate Districts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('state senate');
+    });
+
+    it('should reject "Police Districts" (contains "police")', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Police Districts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('police');
     });
   });
 
-  describe('Feature Count Validation', () => {
-    it('should reward typical district count (3-25)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 8, // Typical council size
-      });
+  describe('scoreTitle() - Non-matches', () => {
+    it('should score "Parks and Recreation" as 0 (no patterns)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Parks and Recreation');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Feature count 8 in expected range (3-25)'
-      expect(matches[0].reasons).toContain('Feature count 8 in expected range (3-25)');
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches).toContain('park');
     });
 
-    it('should penalize very high feature count (>100)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 250, // Too many for council districts
-      });
+    it('should score "Random Layer" as 0 (no patterns)', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Random Layer');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      if (matches.length > 0) {
-        expect(matches[0].reasons).toContain(expect.stringContaining('too high'));
-      }
-    });
-
-    it('should penalize very low feature count (<3)', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: 1, // Too few for districts
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      if (matches.length > 0) {
-        expect(matches[0].reasons).toContain(expect.stringContaining('too low'));
-      }
-    });
-
-    it('should handle null feature count gracefully', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        featureCount: null,
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Feature count unknown (neutral)'
-      expect(matches[0].reasons).toContain('Feature count unknown (neutral)');
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.reasons).toContain('Name does not match known patterns');
     });
   });
 
-  describe('Field Schema Validation', () => {
-    it('should reward DISTRICT field', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts', // High-confidence name to ensure match passes threshold
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-        ],
-      });
+  describe('hasNegativeKeywords()', () => {
+    it('should detect negative keywords', () => {
+      const validator = new SemanticValidator();
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Fields contain: DISTRICT'
-      expect(matches[0].reasons.some(r => r.includes('DISTRICT'))).toBe(true);
+      expect(validator.hasNegativeKeywords('Voting Precincts')).toBe(true);
+      expect(validator.hasNegativeKeywords('Election Data')).toBe(true);
+      expect(validator.hasNegativeKeywords('Tree Canopy')).toBe(true);
+      expect(validator.hasNegativeKeywords('Zoning Map')).toBe(true);
     });
 
-    it('should reward COUNCIL field', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts', // High-confidence name to ensure match passes threshold
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'COUNCIL_ID', type: 'esriFieldTypeInteger', alias: null },
-        ],
-      });
+    it('should not flag legitimate council district titles', () => {
+      const validator = new SemanticValidator();
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Fields contain: COUNCIL'
-      expect(matches[0].reasons.some(r => r.includes('COUNCIL'))).toBe(true);
-    });
-
-    it('should reward WARD field', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Ward Boundaries', // Medium-confidence name to ensure match passes threshold
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'WARD_NUM', type: 'esriFieldTypeInteger', alias: null },
-        ],
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Fields contain: WARD'
-      expect(matches[0].reasons.some(r => r.includes('WARD'))).toBe(true);
-    });
-
-    it('should accumulate points for multiple relevant fields', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts', // High-confidence name to ensure match passes threshold
-        geometryType: 'esriGeometryPolygon',
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-          { name: 'COUNCIL_MEMBER', type: 'esriFieldTypeString', alias: null },
-          { name: 'WARD_NAME', type: 'esriFieldTypeString', alias: null },
-        ],
-      });
-
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Fields contain: DISTRICT, COUNCIL, WARD'
-      const fieldReason = matches[0].reasons.find(r => r.startsWith('Fields contain:'));
-      expect(fieldReason).toBeDefined();
-      expect(fieldReason).toContain('DISTRICT');
-      expect(fieldReason).toContain('COUNCIL');
-      expect(fieldReason).toContain('WARD');
+      expect(validator.hasNegativeKeywords('City Council Districts')).toBe(false);
+      expect(validator.hasNegativeKeywords('Ward Boundaries')).toBe(false);
+      expect(validator.hasNegativeKeywords('Municipal Districts')).toBe(false);
     });
   });
 
-  describe('Geographic Extent Validation', () => {
-    it('should reward city-scale extent', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        extent: {
-          xmin: -94.7,
-          ymin: 39.0,
-          xmax: -94.3,
-          ymax: 39.3,
-          spatialReference: { wkid: 4326 },
-        },
-      });
+  describe('matchCityName()', () => {
+    it('should match exact city name (100% confidence)', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('Kansas City', 'Kansas City', 'MO');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBe(1);
-      // Implementation generates: 'Geographic extent reasonable for city (bonus)'
-      expect(matches[0].reasons).toContain('Geographic extent reasonable for city (bonus)');
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBe(100);
+      expect(result.matchedAlias).toBeNull();
     });
 
-    it('should penalize state-scale extent', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Districts',
-        geometryType: 'esriGeometryPolygon',
-        extent: {
-          xmin: -95.8,
-          ymin: 36.0,
-          xmax: -89.1,
-          ymax: 40.6, // Entire state of Missouri
-          spatialReference: { wkid: 4326 },
-        },
-      });
+    it('should match case-insensitively', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('kansas city', 'Kansas City', 'MO');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      if (matches.length > 0) {
-        expect(matches[0].reasons).toContain(expect.stringContaining('too large'));
-      }
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBe(100);
     });
 
-    it('should penalize point-scale extent', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Districts',
-        geometryType: 'esriGeometryPolygon',
-        extent: {
-          xmin: -94.5,
-          ymin: 39.1,
-          xmax: -94.49,
-          ymax: 39.11, // Very small
-          spatialReference: { wkid: 4326 },
-        },
-      });
+    it('should match partial substring (70% confidence)', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('City of Portland', 'Portland', 'OR');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBe(70);
+      expect(result.matchedAlias).toBeNull();
+    });
 
-      if (matches.length > 0) {
-        expect(matches[0].reasons).toContain(expect.stringContaining('too small'));
-      }
+    it('should match Honolulu alias (90% confidence)', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('City and County of Honolulu', 'Urban Honolulu', 'HI');
+
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBe(90);
+      expect(result.matchedAlias).not.toBeNull();
+    });
+
+    it('should match Indianapolis alias', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('Indianapolis Marion County', 'Indianapolis city (balance)', 'IN');
+
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(70);
+    });
+
+    it('should match Nashville alias', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('Metro Nashville', 'Nashville-Davidson metropolitan government (balance)', 'TN');
+
+      expect(result.matched).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(70);
+    });
+
+    it('should not match unrelated city names', () => {
+      const validator = new SemanticValidator();
+      const result = validator.matchCityName('Seattle', 'Portland', 'OR');
+
+      expect(result.matched).toBe(false);
+      expect(result.confidence).toBe(0);
+      expect(result.matchedAlias).toBeNull();
     });
   });
 
-  describe('Ranking and Filtering', () => {
-    it('should rank candidates by confidence', () => {
-      const validator = new SemanticLayerValidator();
+  describe('validateGovernanceStructure()', () => {
+    it('should validate district number field', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        DISTRICT: 1,
+        NAME: 'District 1',
+      };
 
-      const layers: GISLayer[] = [
-        createMockLayer({
-          name: 'Parks',
-          geometryType: 'esriGeometryPolygon',
-          featureCount: 100,
-        }),
-        createMockLayer({
-          name: 'Council Districts',
-          geometryType: 'esriGeometryPolygon',
-          fields: [{ name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null }],
-          featureCount: 6,
-        }),
-        createMockLayer({
-          name: 'Ward Boundaries',
-          geometryType: 'esriGeometryPolygon',
-          fields: [{ name: 'WARD', type: 'esriFieldTypeInteger', alias: null }],
-          featureCount: 8,
-        }),
-      ];
-
-      const matches = validator.filterCouncilDistrictLayers(layers, TEST_CITY);
-
-      // Should be sorted by confidence (highest first)
-      expect(matches.length).toBeGreaterThan(0);
-      for (let i = 1; i < matches.length; i++) {
-        expect(matches[i - 1].confidence).toBeGreaterThanOrEqual(matches[i].confidence);
-      }
-
-      // Top match should be "Council Districts"
-      expect(matches[0].layer.name).toBe('Council Districts');
+      expect(validator.validateGovernanceStructure(properties, 6)).toBe(true);
     });
 
-    it('should filter out low-confidence matches (<50%)', () => {
-      const validator = new SemanticLayerValidator();
+    it('should validate council member field', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        COUNCIL: 2,
+        MEMBER: 'John Smith',
+      };
 
-      const layers: GISLayer[] = [
-        createMockLayer({
-          name: 'Random Layer',
-          geometryType: 'esriGeometryPoint',
-          featureCount: 500,
-        }),
-      ];
-
-      const matches = validator.filterCouncilDistrictLayers(layers, TEST_CITY);
-
-      expect(matches.length).toBe(0); // Should be filtered out
+      expect(validator.validateGovernanceStructure(properties, 8)).toBe(true);
     });
 
-    it('should get top N candidates', () => {
-      const validator = new SemanticLayerValidator();
+    it('should validate ward field', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        WARD: 'A',
+        ward_name: 'Ward A',
+      };
 
-      const layers: GISLayer[] = [
-        createMockLayer({ id: 1, name: 'Council Districts', geometryType: 'esriGeometryPolygon', featureCount: 6 }),
-        createMockLayer({ id: 2, name: 'Ward Boundaries', geometryType: 'esriGeometryPolygon', featureCount: 8 }),
-        createMockLayer({ id: 3, name: 'Civic Districts', geometryType: 'esriGeometryPolygon', featureCount: 5 }),
-        createMockLayer({ id: 4, name: 'Municipal Districts', geometryType: 'esriGeometryPolygon', featureCount: 7 }),
-      ];
-
-      const matches = validator.filterCouncilDistrictLayers(layers, TEST_CITY);
-      const topTwo = validator.getTopCandidates(matches, 2);
-
-      expect(topTwo.length).toBeLessThanOrEqual(2);
+      expect(validator.validateGovernanceStructure(properties, 5)).toBe(true);
     });
 
-    it('should filter to high-confidence matches only (≥70%)', () => {
-      const validator = new SemanticLayerValidator();
+    it('should validate lowercase field names', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        district: 3,
+        council: 'Council District 3',
+      };
 
-      const layers: GISLayer[] = [
-        createMockLayer({
-          name: 'City Council Districts',
-          geometryType: 'esriGeometryPolygon',
-          fields: [{ name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null }],
-          featureCount: 6,
-        }),
-        createMockLayer({
-          name: 'Districts',
-          geometryType: 'esriGeometryPolygon',
-          featureCount: 10,
-        }),
-      ];
+      expect(validator.validateGovernanceStructure(properties, 10)).toBe(true);
+    });
 
-      const matches = validator.filterCouncilDistrictLayers(layers, TEST_CITY);
-      const highConfidence = validator.getHighConfidenceMatches(matches);
+    it('should validate numeric string values', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        DISTRICT: '5',
+      };
 
-      for (const match of highConfidence) {
-        expect(match.confidence).toBeGreaterThanOrEqual(70);
-      }
+      expect(validator.validateGovernanceStructure(properties, 8)).toBe(true);
+    });
+
+    it('should validate letter district identifiers', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        DISTRICT: 'C',
+      };
+
+      expect(validator.validateGovernanceStructure(properties, 5)).toBe(true);
+    });
+
+    it('should reject properties with no district fields', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        NAME: 'Some Feature',
+        TYPE: 'Polygon',
+      };
+
+      expect(validator.validateGovernanceStructure(properties, 6)).toBe(false);
+    });
+
+    it('should reject properties with invalid district values', () => {
+      const validator = new SemanticValidator();
+      const properties = {
+        DISTRICT: 'Not a valid district identifier',
+      };
+
+      expect(validator.validateGovernanceStructure(properties, 6)).toBe(false);
+    });
+  });
+
+  describe('getSearchNames()', () => {
+    it('should return default name for cities without aliases', () => {
+      const validator = new SemanticValidator();
+      const searchNames = validator.getSearchNames('2938000', 'Kansas City');
+
+      expect(searchNames).toEqual(['Kansas City']);
+    });
+
+    it('should return alias search names for Honolulu', () => {
+      const validator = new SemanticValidator();
+      const searchNames = validator.getSearchNames('1571550', 'Urban Honolulu');
+
+      expect(searchNames).toContain('Honolulu');
+      expect(searchNames).toContain('City and County of Honolulu');
+    });
+
+    it('should return alias search names for Indianapolis', () => {
+      const validator = new SemanticValidator();
+      const searchNames = validator.getSearchNames('1836003', 'Indianapolis city (balance)');
+
+      expect(searchNames).toContain('Indianapolis');
+      expect(searchNames).toContain('Indianapolis Marion County');
+    });
+
+    it('should return alias search names for Nashville', () => {
+      const validator = new SemanticValidator();
+      const searchNames = validator.getSearchNames('4752006', 'Nashville-Davidson metropolitan government (balance)');
+
+      expect(searchNames).toContain('Nashville');
+      expect(searchNames).toContain('Nashville Davidson');
+      expect(searchNames).toContain('Metro Nashville');
+    });
+  });
+
+  describe('needsAlias()', () => {
+    it('should return false for cities without aliases', () => {
+      const validator = new SemanticValidator();
+
+      expect(validator.needsAlias('2938000')).toBe(false); // Kansas City
+      expect(validator.needsAlias('4159000')).toBe(false); // Portland
+    });
+
+    it('should return true for cities with aliases', () => {
+      const validator = new SemanticValidator();
+
+      expect(validator.needsAlias('1571550')).toBe(true); // Honolulu
+      expect(validator.needsAlias('1836003')).toBe(true); // Indianapolis
+      expect(validator.needsAlias('4752006')).toBe(true); // Nashville
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty layer list', () => {
-      const validator = new SemanticLayerValidator();
-      const matches = validator.filterCouncilDistrictLayers([], TEST_CITY);
+    it('should handle empty string title', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('');
 
-      expect(matches).toBeDefined();
-      expect(matches.length).toBe(0);
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.reasons).toContain('Name does not match known patterns');
     });
 
-    it('should handle layer with no fields', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: 'esriGeometryPolygon',
-        fields: [],
-      });
+    it('should handle whitespace-only title', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('   ');
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
-
-      expect(matches.length).toBeGreaterThan(0);
-      // Implementation generates: 'No district-related fields found'
-      expect(matches[0].reasons).toContain('No district-related fields found');
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
     });
 
-    it('should handle layer with null geometry type', () => {
-      const validator = new SemanticLayerValidator();
-      const layer = createMockLayer({
-        name: 'Council Districts',
-        geometryType: null,
-        fields: [
-          { name: 'DISTRICT', type: 'esriFieldTypeInteger', alias: null },
-        ],
-        featureCount: 8, // Add feature count to boost confidence over 50% threshold
-      });
+    it('should handle very long title', () => {
+      const validator = new SemanticValidator();
+      const longTitle = 'City Council Districts for the Municipality of Kansas City in the State of Missouri';
+      const result: SemanticScore = validator.scoreTitle(longTitle);
 
-      const matches = validator.filterCouncilDistrictLayers([layer], TEST_CITY);
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+    });
 
-      expect(matches.length).toBeGreaterThan(0);
-      // Implementation generates: 'Geometry type unknown (neutral)'
-      expect(matches[0].reasons).toContain('Geometry type unknown (neutral)');
+    it('should handle mixed case patterns', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('COUNCIL DISTRICTS');
+
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+    });
+
+    it('should prioritize negative keywords over positive patterns', () => {
+      const validator = new SemanticValidator();
+      const result: SemanticScore = validator.scoreTitle('Council District Voting Precincts');
+
+      expect(result.score).toBe(0);
+      expect(result.passed).toBe(false);
+      expect(result.negativeMatches.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Pattern Priority', () => {
+    it('should prefer high-confidence pattern over medium-confidence', () => {
+      const validator = new SemanticValidator();
+
+      // "Council Districts" should match high-confidence (40) not medium-confidence ward pattern (30)
+      const result: SemanticScore = validator.scoreTitle('Council Districts Ward');
+
+      expect(result.score).toBe(40);
+      expect(result.passed).toBe(true);
+    });
+
+    it('should prefer medium-confidence pattern over low-confidence', () => {
+      const validator = new SemanticValidator();
+
+      // "Ward" should match medium-confidence (30) not low-confidence "district" pattern (20)
+      const result: SemanticScore = validator.scoreTitle('Ward District');
+
+      expect(result.score).toBeGreaterThanOrEqual(30);
+      expect(result.passed).toBe(true);
     });
   });
 });
