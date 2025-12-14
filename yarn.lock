@@ -21,7 +21,7 @@
     tslib "^2.4.0"
 
 "@aztec/bb.js@file:../../vendor/aztec-packages/barretenberg/ts":
-  version "0.1.0"
+  version "0.87.0-fork.1"
   resolved "file:vendor/aztec-packages/barretenberg/ts"
   dependencies:
     comlink "^4.4.1"
@@ -1290,40 +1290,40 @@
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.3.2.tgz"
   integrity sha512-MVC8EAQp7MvEcm30KWENFjgR+Mkmf+D189XJTkFIlwohU5hcBbn1ZkKq7KVTi2Hme3PMGF390DaL52beVrIihQ==
 
-"@noir-lang/acvm_js@1.0.0-beta.11":
-  version "1.0.0-beta.11"
-  resolved "https://registry.npmjs.org/@noir-lang/acvm_js/-/acvm_js-1.0.0-beta.11.tgz"
-  integrity sha512-g1CeqJlWNyJx1j+1t9sm3MxnDChbWSHa9UOOIQYBskxczhUHuUVfYve3xbe0DwSEiIBQ3gmTIKDmRPs+QboPvA==
+"@noir-lang/acvm_js@1.0.0-beta.16":
+  version "1.0.0-beta.16"
+  resolved "https://registry.npmjs.org/@noir-lang/acvm_js/-/acvm_js-1.0.0-beta.16.tgz"
+  integrity sha512-2xcEE0mCFaZEvVoKVVsG5DTUgj68duFosIvV0Z19Gn5YM1Ay5pHQnFBX4xfhJPA/0Ex8yMRZA/QDE4jpMz96KQ==
 
-"@noir-lang/noir_js@1.0.0-beta.11":
-  version "1.0.0-beta.11"
-  resolved "https://registry.npmjs.org/@noir-lang/noir_js/-/noir_js-1.0.0-beta.11.tgz"
-  integrity sha512-pZlz5/mGooHBUnucUULmbdU3gicxbaCg7t+wNoBN45JuFMU4vV32As4C1aTNNJDpDFaGupV7yXKVRcsJNTZ49w==
+"@noir-lang/noir_js@^1.0.0-beta.16", "@noir-lang/noir_js@1.0.0-beta.16":
+  version "1.0.0-beta.16"
+  resolved "https://registry.npmjs.org/@noir-lang/noir_js/-/noir_js-1.0.0-beta.16.tgz"
+  integrity sha512-DHgD73WVR6ly6c+5ocrLWLooppYwTsvx4pyndloXlXm8LcJ4ouySg4dNgN8hqNLrTixqxjWu8wBy7eYiAS1iHQ==
   dependencies:
-    "@noir-lang/acvm_js" "1.0.0-beta.11"
-    "@noir-lang/noirc_abi" "1.0.0-beta.11"
-    "@noir-lang/types" "1.0.0-beta.11"
+    "@noir-lang/acvm_js" "1.0.0-beta.16"
+    "@noir-lang/noirc_abi" "1.0.0-beta.16"
+    "@noir-lang/types" "1.0.0-beta.16"
     pako "^2.1.0"
 
-"@noir-lang/noir_wasm@1.0.0-beta.11":
-  version "1.0.0-beta.11"
-  resolved "https://registry.npmjs.org/@noir-lang/noir_wasm/-/noir_wasm-1.0.0-beta.11.tgz"
-  integrity sha512-3qf2vHsGUsNevuxrwURjpOTIUj4iyFoa3UzvFyOXk5m426kyhNv9MDEVeUpzZ2FIOHZFGq/7b5tTd/BOU1gyGw==
+"@noir-lang/noir_wasm@1.0.0-beta.16":
+  version "1.0.0-beta.16"
+  resolved "https://registry.npmjs.org/@noir-lang/noir_wasm/-/noir_wasm-1.0.0-beta.16.tgz"
+  integrity sha512-hDZZaN+eNqoVpTuOM8f5AwZRjzmyqSMHgizVeRJeE9Y6WOSzX3+K8Q5cJqLYcswtPzPs/vWPYadRrackwRAS2A==
   dependencies:
-    "@noir-lang/types" "1.0.0-beta.11"
+    "@noir-lang/types" "1.0.0-beta.16"
     pako "^2.1.0"
 
-"@noir-lang/noirc_abi@1.0.0-beta.11":
-  version "1.0.0-beta.11"
-  resolved "https://registry.npmjs.org/@noir-lang/noirc_abi/-/noirc_abi-1.0.0-beta.11.tgz"
-  integrity sha512-D8nBgDGYe8uu4meu9ctGo52KIa0NeE/u2GBQi4DHJzE7/q5dVEqSyVVPImOyZWpvjPvb6thySxcDWbqY6JxOiw==
+"@noir-lang/noirc_abi@1.0.0-beta.16":
+  version "1.0.0-beta.16"
+  resolved "https://registry.npmjs.org/@noir-lang/noirc_abi/-/noirc_abi-1.0.0-beta.16.tgz"
+  integrity sha512-4RpTEyw34ap65B7gQQLTeXoRtFACsATd+o4fgjLgvoIBiwwftcp2+MOFGJA3icRUJyBXknmlNu+HXCOI7Vl+Xg==
   dependencies:
-    "@noir-lang/types" "1.0.0-beta.11"
+    "@noir-lang/types" "1.0.0-beta.16"
 
-"@noir-lang/types@1.0.0-beta.11":
-  version "1.0.0-beta.11"
-  resolved "https://registry.npmjs.org/@noir-lang/types/-/types-1.0.0-beta.11.tgz"
-  integrity sha512-b9zeK/uxecsOKxsgqRszNYtj7Z3A9k//GF4uQIzvYbDWyrPGgnfi297ysXZ8lqKV4xBSQ93qNp+VzW4XaTBGjQ==
+"@noir-lang/types@1.0.0-beta.16":
+  version "1.0.0-beta.16"
+  resolved "https://registry.npmjs.org/@noir-lang/types/-/types-1.0.0-beta.16.tgz"
+  integrity sha512-QDZRdvC3NZ1USCOkmcgONoerQl5eWpl2uPreE/BN+bidgz+Q3cANW/KO9tt0ZeWWVMfLrYV2n7o6l0y8pJUV1g==
 
 "@peculiar/asn1-schema@^2.3.13", "@peculiar/asn1-schema@^2.3.8":
   version "2.5.0"
@@ -3338,6 +3338,18 @@
     path-browserify "^1.0.1"
     vscode-uri "^3.0.8"
 
+"@voter-protocol/bb.js@^0.87.0-fork.1":
+  version "0.87.0-fork.1"
+  resolved "https://registry.npmjs.org/@voter-protocol/bb.js/-/bb.js-0.87.0-fork.1.tgz"
+  integrity sha512-11rguAzgugvdKazuO2LVkDh6lO2P3Hl94MYkIupSERbbvmqNhef3XRCxCNoz7lTdHz0PFq2Is0GRJy5naGgXFQ==
+  dependencies:
+    comlink "^4.4.1"
+    commander "^12.1.0"
+    idb-keyval "^6.2.1"
+    msgpackr "^1.11.2"
+    pako "^2.1.0"
+    tslib "^2.4.0"
+
 "@voter-protocol/client@file:/Users/noot/Documents/voter-protocol/packages/client":
   version "0.1.0"
   resolved "file:packages/client"
@@ -3368,9 +3380,6 @@
 "@voter-protocol/noir-prover@file:/Users/noot/Documents/voter-protocol/packages/noir-prover":
   version "0.1.0"
   resolved "file:packages/noir-prover"
-  dependencies:
-    "@aztec/bb.js" "file:../../vendor/aztec-packages/barretenberg/ts"
-    pako "^2.1.0"
 
 "@voter-protocol/types@file:/Users/noot/Documents/voter-protocol/packages/types":
   version "0.1.0"
