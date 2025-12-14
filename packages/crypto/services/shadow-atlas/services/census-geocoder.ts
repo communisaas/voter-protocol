@@ -229,8 +229,14 @@ export class CensusGeocoder {
    */
   private generateCSV(addresses: Address[]): string {
     const header = 'Unique ID,Street address,City,State,ZIP\n';
+
+    // Escape CSV field: double any embedded quotes per RFC 4180
+    const escapeCSVField = (value: string): string => {
+      return value.replace(/"/g, '""');
+    };
+
     const rows = addresses.map((addr) =>
-      `"${addr.id}","${addr.street}","${addr.city}","${addr.state}","${addr.zip}"`
+      `"${escapeCSVField(addr.id)}","${escapeCSVField(addr.street)}","${escapeCSVField(addr.city)}","${escapeCSVField(addr.state)}","${escapeCSVField(addr.zip)}"`
     );
 
     return header + rows.join('\n');

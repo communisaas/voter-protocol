@@ -77,7 +77,7 @@ export interface GISService {
  * ArcGIS REST API response types (external API contracts)
  */
 interface ArcGISRootResponse {
-  readonly currentVersion?: string;
+  readonly currentVersion?: number | string; // ArcGIS returns number (e.g., 11.1)
   readonly folders?: readonly string[];
   readonly services?: readonly ArcGISServiceReference[];
 }
@@ -267,6 +267,9 @@ export class GISServerDiscovery {
       `https://www.${cityNameLower}.gov/`,
       `https://data.${cityNameLower}.gov/`,
       `https://${cityNameLower}.${stateLower}.gov/`,
+      // Special patterns (city-specific naming conventions)
+      `https://www.${cityNameLower}maps.com/`, // Portland, etc.
+      `https://${cityNameLower}maps.com/`,
 
       // GeoServer patterns
       `https://geoserver.${cityNameLower}.gov/`,
@@ -321,10 +324,14 @@ export class GISServerDiscovery {
         const data: unknown = await arcgisResponse.json();
 
         if (isArcGISRootResponse(data)) {
+          // Convert version to string (ArcGIS returns number like 11.1)
+          const version = data.currentVersion !== undefined
+            ? String(data.currentVersion)
+            : null;
           return {
             url: `${baseUrl}arcgis/rest/services`,
             serverType: 'ArcGIS',
-            version: data.currentVersion ?? null,
+            version,
             isHealthy: true,
           };
         }
@@ -413,8 +420,9 @@ export class GISServerDiscovery {
       // Process services in current folder
       if (data.services) {
         for (const service of data.services) {
-          const servicePath = folder ? `${folder}/${service.name}` : service.name;
-          const serviceUrl = `${serverUrl}/${servicePath}/${service.type}`;
+          // NOTE: service.name already contains full path from root (e.g., "Public/Boundaries")
+          // Do NOT prepend folder - the API returns fully-qualified service names
+          const serviceUrl = `${serverUrl}/${service.name}/${service.type}`;
           const serviceDetails = await this.exploreService(serviceUrl);
           if (serviceDetails !== null) {
             services.push(serviceDetails);

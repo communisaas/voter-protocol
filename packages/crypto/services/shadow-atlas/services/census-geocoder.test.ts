@@ -54,7 +54,8 @@ describe('CensusGeocoder', () => {
 
       const csv = (geocoder as any).generateCSV(addresses);
 
-      expect(csv).toContain('"123 \\"Main\\" Street"');
+      // RFC 4180: Embedded quotes are escaped by doubling them ("" not \")
+      expect(csv).toContain('"123 ""Main"" Street"');
       expect(csv).toContain("\"O'Fallon\"");
     });
   });

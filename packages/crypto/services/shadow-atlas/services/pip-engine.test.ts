@@ -416,7 +416,7 @@ describe('PointInPolygonEngine', () => {
       expect(results[0].precisionRank).toBe(0);
 
       expect(results[1].boundaryType).toBe('county');
-      expect(results[1].precisionRank).toBe(3);
+      expect(results[1].precisionRank).toBe(5); // county is rank 5 per PRECISION_RANK
     });
 
     it('should filter out boundaries via bounding box pre-filter', () => {
