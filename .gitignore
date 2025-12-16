@@ -197,3 +197,14 @@ packages/crypto/services/shadow-atlas/agents/langgraph/**/*.json*
 packages/crypto/services/shadow-atlas/agents/langgraph/**/*.txt
 packages/crypto/services/shadow-atlas/agents/models_final/
 packages/crypto/services/shadow-atlas/data/census-tiger-2023-counties.geojson
+
+# Build artifacts
+*.tar.gz
+
+# Yarn berry
+.yarn/
+.yarnrc.yml
+
+# TIGER cache data
+packages/crypto/packages/
+packages/crypto/data/tiger-cache/
