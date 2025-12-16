@@ -16,9 +16,45 @@
  * - WASM bindings call Axiom halo2_base (Trail of Bits audited, Mainnet V2)
  * - Rust Poseidon has golden test vectors from PSE (cross-validated)
  * - TypeScript cannot diverge from circuit (uses same binary code)
+ *
+ * MULTI-LAYER SUPPORT (2025-12-14 Extension):
+ * - Supports TIGER boundaries (CD, SLDU, SLDL, County) alongside city council districts
+ * - Boundary type included in leaf hash to prevent collisions (CD-01 vs SLDU-01)
+ * - Deterministic leaf ordering across boundary types (alphabetical by type, then ID)
  */
 
 import { hash_pair, hash_single } from '../../circuits/pkg';
+
+/**
+ * Boundary types for multi-layer tree support
+ */
+export type BoundaryType =
+  | 'congressional-district'
+  | 'state-legislative-upper'
+  | 'state-legislative-lower'
+  | 'county'
+  | 'city-council-district';
+
+/**
+ * Authority levels for provenance tracking
+ */
+export const AUTHORITY_LEVELS = {
+  FEDERAL_MANDATE: 5,      // US Census TIGER (Congressional, State, County)
+  STATE_OFFICIAL: 4,       // State GIS clearinghouse
+  MUNICIPAL_OFFICIAL: 3,   // Official city/county GIS
+  COMMUNITY_VERIFIED: 2,   // Community sources with validation
+  UNVERIFIED: 1,           // Unverified sources
+} as const;
+
+/**
+ * Merkle leaf input for multi-layer tree
+ */
+export interface MerkleLeafInput {
+  readonly id: string;                    // Unique identifier (GEOID for TIGER, custom for municipal)
+  readonly boundaryType: BoundaryType;    // Boundary type for disambiguation
+  readonly geometryHash: bigint;          // Poseidon hash of geometry
+  readonly authority: number;             // Authority level (1-5)
+}
 
 /**
  * Merkle proof for ZK circuit verification
@@ -297,4 +333,198 @@ export function createShadowAtlasMerkleTree(
   addresses: readonly string[]
 ): ShadowAtlasMerkleTree {
   return new ShadowAtlasMerkleTree(addresses);
+}
+
+/**
+ * Compute leaf hash for multi-layer tree
+ *
+ * SECURITY CRITICAL: Includes boundary type to prevent collisions.
+ * Example: CD-01 (Alabama Congressional District 1) vs SLDU-01 (Alabama State Senate District 1)
+ * have same ID "01" but different boundary types, producing different leaf hashes.
+ *
+ * @param input - Merkle leaf input with ID, type, geometry hash, authority
+ * @returns Poseidon hash as bigint (BN254 field element)
+ */
+export function computeLeafHash(input: MerkleLeafInput): bigint {
+  // Convert boundary type to numeric constant for hashing
+  const typeHash = hashString(input.boundaryType);
+  const idHash = hashString(input.id);
+
+  // Hash: Poseidon([typeHash, idHash, geometryHash, authority])
+  // Using hash_pair iteratively for 4 elements
+  const leftHex = '0x' + typeHash.toString(16).padStart(64, '0');
+  const rightHex = '0x' + idHash.toString(16).padStart(64, '0');
+  let hash = BigInt(hash_pair(leftHex, rightHex));
+
+  const geomHex = '0x' + input.geometryHash.toString(16).padStart(64, '0');
+  const hashHex = '0x' + hash.toString(16).padStart(64, '0');
+  hash = BigInt(hash_pair(hashHex, geomHex));
+
+  const authHex = '0x' + BigInt(input.authority).toString(16).padStart(64, '0');
+  const finalHashHex = '0x' + hash.toString(16).padStart(64, '0');
+  hash = BigInt(hash_pair(finalHashHex, authHex));
+
+  return hash;
+}
+
+/**
+ * Hash a string to BN254 field element
+ *
+ * @param str - String to hash
+ * @returns bigint hash value
+ */
+function hashString(str: string): bigint {
+  const bytes = Buffer.from(str, 'utf-8');
+  const chunks: bigint[] = [];
+
+  // Split into 31-byte chunks (31 * 8 = 248 bits < 254-bit BN254 field)
+  for (let i = 0; i < bytes.length; i += 31) {
+    const chunk = bytes.slice(i, i + 31);
+    chunks.push(BigInt('0x' + chunk.toString('hex')));
+  }
+
+  // Hash chunks with Poseidon
+  if (chunks.length === 0) {
+    const hashHex = hash_single('0x00');
+    return BigInt(hashHex);
+  } else if (chunks.length === 1) {
+    const valueHex = '0x' + chunks[0].toString(16).padStart(64, '0');
+    const hashHex = hash_single(valueHex);
+    return BigInt(hashHex);
+  } else {
+    // Multiple chunks → iterative hashing
+    let hash = chunks[0];
+    for (let i = 1; i < chunks.length; i++) {
+      const leftHex = '0x' + hash.toString(16).padStart(64, '0');
+      const rightHex = '0x' + chunks[i].toString(16).padStart(64, '0');
+      const hashHex = hash_pair(leftHex, rightHex);
+      hash = BigInt(hashHex);
+    }
+    return hash;
+  }
+}
+
+/**
+ * IPFS Export Result
+ */
+export interface IPFSExportResult {
+  readonly cid: string;           // IPFS CID (Content Identifier)
+  readonly size: number;          // Size in bytes
+  readonly url: string;           // IPFS gateway URL
+  readonly pinned: boolean;       // Whether pinned to remote service
+}
+
+/**
+ * Export Merkle tree to IPFS
+ *
+ * Serializes tree to JSON and uploads to IPFS via Web3.Storage or Pinata.
+ * Returns CID for on-chain commitment.
+ *
+ * ARCHITECTURE:
+ * - JSON format: {version, root, leaves[], metadata}
+ * - IPFS pinning: Web3.Storage (free 5GB/month) or Pinata (free 1GB)
+ * - On-chain reference: Store CID in smart contract
+ *
+ * @param tree - Shadow Atlas Merkle tree
+ * @param apiToken - IPFS service API token (Web3.Storage or Pinata)
+ * @param service - IPFS service ('web3storage' | 'pinata')
+ * @returns IPFS CID and metadata
+ */
+export async function exportToIPFS(
+  tree: ShadowAtlasMerkleTree,
+  apiToken: string,
+  service: 'web3storage' | 'pinata' = 'web3storage'
+): Promise<IPFSExportResult> {
+  // Serialize tree to JSON
+  const treeData = {
+    version: '1.0.0',
+    root: '0x' + tree.getRoot().toString(16),
+    leaves: tree.getLeaves().map((leaf, index) => ({
+      index,
+      hash: '0x' + leaf.toString(16),
+    })),
+    metadata: {
+      depth: 12,
+      capacity: 4096,
+      generatedAt: new Date().toISOString(),
+      hashFunction: 'poseidon',
+    },
+  };
+
+  const jsonString = JSON.stringify(treeData, null, 2);
+  const jsonBytes = Buffer.from(jsonString, 'utf-8');
+
+  if (service === 'web3storage') {
+    return await uploadToWeb3Storage(jsonBytes, apiToken);
+  } else {
+    return await uploadToPinata(jsonBytes, apiToken);
+  }
+}
+
+/**
+ * Upload to Web3.Storage
+ */
+async function uploadToWeb3Storage(
+  data: Buffer,
+  apiToken: string
+): Promise<IPFSExportResult> {
+  const formData = new FormData();
+  const blob = new Blob([data], { type: 'application/json' });
+  formData.append('file', blob, 'shadow-atlas-tree.json');
+
+  const response = await fetch('https://api.web3.storage/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Web3.Storage upload failed: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  const cid = result.cid;
+
+  return {
+    cid,
+    size: data.length,
+    url: `https://w3s.link/ipfs/${cid}`,
+    pinned: true,
+  };
+}
+
+/**
+ * Upload to Pinata
+ */
+async function uploadToPinata(
+  data: Buffer,
+  apiToken: string
+): Promise<IPFSExportResult> {
+  const formData = new FormData();
+  const blob = new Blob([data], { type: 'application/json' });
+  formData.append('file', blob, 'shadow-atlas-tree.json');
+
+  const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pinata upload failed: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  const cid = result.IpfsHash;
+
+  return {
+    cid,
+    size: data.length,
+    url: `https://gateway.pinata.cloud/ipfs/${cid}`,
+    pinned: true,
+  };
 }
