@@ -46,7 +46,7 @@
     "pako": "^2.1.0"
   },
   "devDependencies": {
-    "@aztec/bb.js": "file:../../vendor/aztec-packages/barretenberg/ts",
+    "@aztec/bb.js": "^2.1.8",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^24.3.2",
     "@types/pako": "^2.0.4",
