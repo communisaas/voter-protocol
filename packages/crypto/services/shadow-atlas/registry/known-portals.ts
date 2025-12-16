@@ -340,12 +340,15 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     cityName: 'Nashville',
     state: 'TN',
     portalType: 'arcgis',
-    downloadUrl: 'https://hub.arcgis.com/api/download/v1/items/76563eb036964dbab90ba7449ebba8c9/geojson?redirect=true&layers=0',
+    // STABLE URL: Direct FeatureServer query (NOT hub.arcgis.com download API)
+    // Hub download URLs redirect to temporary URLs that require following redirects
+    // FeatureServer URLs are stable, always return current data
+    downloadUrl: 'https://services2.arcgis.com/HdTo6HJqh92wn4D8/arcgis/rest/services/2022_Council_Districts_(Future)_view/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
     featureCount: 35,
-    lastVerified: new Date().toISOString(),
-    confidence: 80,
+    lastVerified: '2025-12-14T00:00:00.000Z',
+    confidence: 95,
     discoveredBy: 'manual',
-    notes: 'Nashville Metropolitan Council Districts - 35 districts (metro government), ArcGIS Hub',
+    notes: 'Nashville Metropolitan Council Districts - 35 districts (metro government). FIXED 2025-12-14: Uses direct FeatureServer URL instead of hub.arcgis.com download API which requires redirect following.',
   },
 
   '2148006': {
@@ -568,6 +571,48 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     confidence: 75, // Lower confidence - server had 503 errors during testing
     discoveredBy: 'automated',
     notes: 'El Paso Representative Districts - 8 districts, City GIS MapServer. Discovered via Gemini grounded search. NOTE: Server intermittently returns 503.',
+  },
+
+  // TOP 25 GAP FILL - EXPERT SUBAGENT DISCOVERY (2025-12-14)
+  // Added Denver (#19), Oklahoma City (#20), Boston (#25) to close top-25 coverage gaps
+
+  '0820000': {
+    cityFips: '0820000',
+    cityName: 'Denver',
+    state: 'CO',
+    portalType: 'arcgis',
+    downloadUrl: 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/ODC_ADMN_COUNCILDIST_A/FeatureServer/3/query?where=1%3D1&outFields=*&outSR=4326&f=geojson',
+    featureCount: 13, // 11 district seats + 2 at-large
+    lastVerified: '2025-12-14T00:00:00.000Z',
+    confidence: 95,
+    discoveredBy: 'automated',
+    notes: 'Denver City Council Districts - 13 seats (11 district + 2 at-large), official Denver Open Data Catalog (denvergov.org). Has councilmember metadata (DIST_REP field). Effective from May 7, 2019 onwards.',
+  },
+
+  '4055000': {
+    cityFips: '4055000',
+    cityName: 'Oklahoma City',
+    state: 'OK',
+    portalType: 'arcgis',
+    downloadUrl: 'https://services.arcgis.com/F3fwU7bP9u9L7CRX/arcgis/rest/services/City_Council_Wards/FeatureServer/0/query?where=City%3D%27OKC%27&outFields=*&outSR=4326&f=geojson',
+    featureCount: 8,
+    lastVerified: '2025-12-14T00:00:00.000Z',
+    confidence: 95,
+    discoveredBy: 'automated',
+    notes: 'Oklahoma City Council Wards - 8 wards, ACOG (Association of Central Oklahoma Governments) official source. Uses WHERE clause to filter by city since dataset includes multiple Oklahoma cities.',
+  },
+
+  '2507000': {
+    cityFips: '2507000',
+    cityName: 'Boston',
+    state: 'MA',
+    portalType: 'arcgis',
+    downloadUrl: 'https://services.arcgis.com/sFnw0xNflSi8J0uh/arcgis/rest/services/CityCouncilDistricts_2023_5_25/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 9,
+    lastVerified: '2025-12-14T00:00:00.000Z',
+    confidence: 100,
+    discoveredBy: 'automated',
+    notes: 'Boston City Council Districts - 9 districts (4 at-large councilors elected separately). Official 2023-2032 boundaries passed by City Council May 24, 2023. Has councilmember metadata (Councilor field).',
   },
 
 };
