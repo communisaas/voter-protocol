@@ -4,19 +4,17 @@
  * Uses @noir-lang/noir_js for witness generation and @aztec/bb.js for proving.
  */
 
-import { Barretenberg } from '@voter-protocol/bb.js';
+import { UltraHonkBackend } from '@aztec/bb.js';
 import { Noir } from '@noir-lang/noir_js';
-import { inflate } from 'pako';
+import type { CompiledCircuit } from '@noir-lang/noir_js';
 import type { ProverConfig, CircuitInputs, ProofResult } from './types';
 
 // Import circuit JSON (contains bytecode + ABI)
 import circuitJson from '../circuits/district_membership.json';
 
 export class NoirProver {
-    private api: Barretenberg | null = null;
+    private backend: UltraHonkBackend | null = null;
     private noir: Noir | null = null;
-    private bytecode: Uint8Array | null = null;
-    private provingKey: Uint8Array | null = null;
     private config: ProverConfig;
 
     constructor(config: ProverConfig = {}) {
@@ -30,67 +28,38 @@ export class NoirProver {
      * Initialize the prover (must be called before generating proofs)
      */
     async init(): Promise<void> {
-        if (this.api && this.noir) return; // Already initialized
+        if (this.backend && this.noir) return; // Already initialized
 
         console.log('[NoirProver] Initializing...');
         const start = Date.now();
 
-        // Initialize Barretenberg backend
-        // Use default threading (navigator.hardwareConcurrency if headers permit)
-        this.api = await Barretenberg.new();
+        // Cast circuit JSON to CompiledCircuit type
+        const circuit = circuitJson as unknown as CompiledCircuit;
 
         // Initialize Noir for witness generation
-        this.noir = new Noir(circuitJson as any);
+        this.noir = new Noir(circuit);
 
-        // Load and decompress bytecode for proving
-        if (this.config.bytecode) {
-            this.bytecode = this.config.bytecode;
-        } else {
-            const bytecodeBuffer = Uint8Array.from(atob(circuitJson.bytecode), c => c.charCodeAt(0));
-            this.bytecode = inflate(bytecodeBuffer);
-        }
+        // Initialize UltraHonk backend for proving
+        // The backend handles circuit compilation internally
+        this.backend = new UltraHonkBackend(circuit.bytecode);
 
         console.log(`[NoirProver] Initialized in ${Date.now() - start}ms`);
     }
 
     /**
-     * Pre-warm the prover by generating the proving key
+     * Pre-warm the prover by initializing backend
      * Call this on app load to hide latency from user
      */
     async warmup(): Promise<void> {
         await this.init();
-        if (this.provingKey) return; // Already warmed up
-
-        console.log('[NoirProver] Warming up (generating proving key)...');
-        const start = Date.now();
-
-        const result = await this.api!.acirGetProvingKey({
-            circuit: {
-                name: this.config.circuitName!,
-                bytecode: this.bytecode!,
-                verificationKey: new Uint8Array(0),
-            },
-            settings: {
-                ipaAccumulation: false,
-                oracleHashType: 'poseidon',
-                disableZk: false,
-                optimizedSolidityVerifier: false,
-            },
-        });
-
-        this.provingKey = result.provingKey;
-        if (result.verificationKey) {
-            this.config.verificationKey = result.verificationKey;
-        }
-        const vkSize = result.verificationKey ? result.verificationKey.length : 'N/A';
-        console.log(`[NoirProver] Warmup complete in ${Date.now() - start}ms. Pk Size: ${this.provingKey.length}, Vk Size: ${vkSize}`);
+        console.log('[NoirProver] Warmup complete (backend initialized)');
     }
 
     /**
      * Generate a ZK proof for district membership
      */
     async prove(inputs: CircuitInputs): Promise<ProofResult> {
-        await this.warmup(); // Ensure we have proving key
+        await this.init();
 
         console.log('[NoirProver] Generating witness...');
         const witnessStart = Date.now();
@@ -109,59 +78,48 @@ export class NoirProver {
             user_secret: inputs.userSecret,
         };
 
-        let { witness } = await this.noir!.execute(noirInputs);
-
-        // Decompress witness if gzipped (detected by magic bytes 1f 8b)
-        // Noir 1.0+ returns compressed witness, but bb.js expects raw bincode
-        if (witness.length > 2 && witness[0] === 0x1f && witness[1] === 0x8b) {
-            witness = inflate(witness);
-        }
-
+        const { witness } = await this.noir!.execute(noirInputs);
         console.log(`[NoirProver] Witness generated in ${Date.now() - witnessStart}ms`);
 
         console.log('[NoirProver] Generating proof...');
         const proofStart = Date.now();
 
-        const result = await this.api!.acirProveWithPk({
-            circuit: {
-                name: this.config.circuitName!,
-                bytecode: this.bytecode!,
-                verificationKey: new Uint8Array(0),
-            },
-            witness,
-            provingKey: this.provingKey!,
-            settings: {
-                ipaAccumulation: false,
-                oracleHashType: 'poseidon',
-                disableZk: false,
-                optimizedSolidityVerifier: false,
-            },
-        });
+        // Generate proof using UltraHonk backend
+        const { proof, publicInputs } = await this.backend!.generateProof(witness);
 
         console.log(`[NoirProver] Proof generated in ${Date.now() - proofStart}ms`);
 
+        // Extract public inputs from proof result
+        // The order matches the circuit's return statement:
+        // (merkle_root, nullifier, authority_hash, epoch_id, campaign_id)
         return {
-            proof: result.proof,
+            proof,
             publicInputs: {
-                merkleRoot: inputs.merkleRoot,
-                nullifier: inputs.nullifier,
-                authorityHash: inputs.authorityHash,
-                epochId: inputs.epochId,
-                campaignId: inputs.campaignId,
+                merkleRoot: publicInputs[0] ?? inputs.merkleRoot,
+                nullifier: publicInputs[1] ?? inputs.nullifier,
+                authorityHash: publicInputs[2] ?? inputs.authorityHash,
+                epochId: publicInputs[3] ?? inputs.epochId,
+                campaignId: publicInputs[4] ?? inputs.campaignId,
             },
         };
+    }
+
+    /**
+     * Verify a proof
+     */
+    async verify(proof: Uint8Array, publicInputs: string[]): Promise<boolean> {
+        await this.init();
+        return this.backend!.verifyProof({ proof, publicInputs });
     }
 
     /**
      * Clean up resources
      */
     async destroy(): Promise<void> {
-        if (this.api) {
-            await this.api.destroy();
-            this.api = null;
+        if (this.backend) {
+            await this.backend.destroy();
+            this.backend = null;
             this.noir = null;
-            this.bytecode = null;
-            this.provingKey = null;
         }
     }
 }

@@ -1,7 +1,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NoirProver } from './prover';
-import { Barretenberg } from '@voter-protocol/bb.js';
+// bb.js is now used internally by NoirProver via UltraHonkBackend
 import { inflate } from 'pako';
 import { Noir } from '@noir-lang/noir_js';
 import fixtureJson from '../../crypto/noir/fixtures/target/fixtures.json';
@@ -33,7 +33,7 @@ describe('NoirProver E2E', () => {
     beforeAll(async () => {
         // Initialize independent BB instance for main prover if needed, 
         // but NoirProver inits its own. We just need Noir for fixture.
-        fixtureNoir = new Noir(fixtureJson);
+        fixtureNoir = new Noir(fixtureJson as unknown as import('@noir-lang/noir_js').CompiledCircuit);
     }, 60000);
 
     afterAll(async () => {
@@ -128,7 +128,7 @@ describe('NoirProver E2E', () => {
         const result = await prover.prove(inputs);
 
         expect(result.proof).toBeDefined();
-        expect(result.proof.length).toBeGreaterThan(0);
+        expect((result.proof as Uint8Array).length).toBeGreaterThan(0);
 
         // 3. Verify Proof (using bb.js verifier if available, or just asserting successful generation)
         // Since we don't have verify() on NoirProver yet, successful generation implies 
@@ -139,38 +139,34 @@ describe('NoirProver E2E', () => {
         console.log('Public Inputs:', result.publicInputs);
     }, 240000); // 4 minutes
 
-    it('should generate proving key with consistent bytecode hash', async () => {
+    it('should warmup without error and backend is initialized', async () => {
         // This test verifies that:
-        // 1. Proving key generation is deterministic (same bytecode = same key)
-        // 2. The proving key contains a bytecode hash for cache validation
+        // 1. Warmup completes successfully
+        // 2. Multiple provers can be initialized independently
+        // 3. Backend is properly set up for proving
 
         const prover1 = new NoirProver();
         await prover1.init();
-        await prover1.warmup(); // Generate proving key
+        await prover1.warmup();
 
         const prover2 = new NoirProver();
         await prover2.init();
-        await prover2.warmup(); // Generate proving key
+        await prover2.warmup();
 
-        // Both provers should generate the same proving key size
-        // (We can't directly compare keys as they may have non-deterministic metadata)
-        const pk1Size = (prover1 as any).provingKey?.length || 0;
-        const pk2Size = (prover2 as any).provingKey?.length || 0;
-
-        expect(pk1Size).toBeGreaterThan(0);
-        expect(pk2Size).toBeGreaterThan(0);
-        // Proving keys for same circuit should have same size
-        expect(pk1Size).toBe(pk2Size);
-
-        // The proving key should be large enough to contain:
-        // - Polynomials (~6MB compressed)
-        // - Metadata (dyadic_size, num_public_inputs, etc.)
-        // - Bytecode hash (32 bytes Blake3)
-        expect(pk1Size).toBeGreaterThan(1000000); // At least 1MB
+        // Both provers should have initialized backends
+        // UltraHonkBackend doesn't expose provingKey - it manages this internally
+        expect((prover1 as any).backend).toBeDefined();
+        expect((prover2 as any).backend).toBeDefined();
+        expect((prover1 as any).noir).toBeDefined();
+        expect((prover2 as any).noir).toBeDefined();
 
         await prover1.destroy();
         await prover2.destroy();
 
-        console.log(`Proving key size: ${pk1Size} bytes`);
+        // After destroy, backend should be null
+        expect((prover1 as any).backend).toBeNull();
+        expect((prover2 as any).backend).toBeNull();
+
+        console.log('Warmup and lifecycle test passed');
     }, 120000);
 });

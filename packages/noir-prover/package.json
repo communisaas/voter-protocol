@@ -1,6 +1,6 @@
 {
     "name": "@voter-protocol/noir-prover",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Browser-native ZK prover for VOTER Protocol using Barretenberg/Noir",
     "type": "module",
     "main": "./dist/index.cjs",
@@ -26,8 +26,8 @@
         "sync-wasm": "../scripts/sync-artifacts"
     },
     "peerDependencies": {
+        "@aztec/bb.js": "^2.1.8",
         "@noir-lang/noir_js": "^1.0.0-beta.16",
-        "@voter-protocol/bb.js": "^0.87.0-fork.1",
         "pako": "^2.1.0"
     },
     "devDependencies": {

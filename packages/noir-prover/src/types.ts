@@ -31,8 +31,8 @@ export interface CircuitInputs {
 }
 
 export interface ProofResult {
-    /** Serialized proof (format depends on backend) */
-    proof: unknown;
+    /** Serialized proof bytes */
+    proof: Uint8Array;
     /** Public inputs */
     publicInputs: {
         merkleRoot: string;
