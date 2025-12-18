@@ -1,0 +1,203 @@
+name: Shadow Atlas Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/crypto/services/shadow-atlas/**'
+      - 'packages/crypto/__tests__/**'
+      - 'packages/crypto/vitest.shadow-atlas.config.ts'
+      - '.github/workflows/shadow-atlas-tests.yml'
+  pull_request:
+    paths:
+      - 'packages/crypto/services/shadow-atlas/**'
+      - 'packages/crypto/__tests__/**'
+      - 'packages/crypto/vitest.shadow-atlas.config.ts'
+      - '.github/workflows/shadow-atlas-tests.yml'
+  schedule:
+    # Nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: 'Run E2E tests'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/crypto
+          npm ci
+
+      - name: Run unit tests
+        run: |
+          cd packages/crypto
+          npm run test:atlas:unit
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: packages/crypto/coverage/
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/crypto
+          npm ci
+
+      - name: Run integration tests
+        run: |
+          cd packages/crypto
+          npm run test:atlas:integration
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: packages/crypto/coverage/
+
+  e2e:
+    name: E2E Tests (Nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Only run E2E on schedule (nightly) or manual trigger
+    if: github.event_name == 'schedule' || github.event.inputs.run_e2e == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/crypto
+          npm ci
+
+      - name: Run E2E tests
+        run: |
+          cd packages/crypto
+          npm run test:atlas:e2e
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            packages/crypto/multi-state-validation-report.json
+            packages/crypto/coverage/
+
+      - name: Comment PR with E2E results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'packages/crypto/multi-state-validation-report.json';
+
+            if (fs.existsSync(reportPath)) {
+              const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+
+              const comment = `## E2E Test Results
+
+              **Total States:** ${report.totalStates}
+              **Total Tests:** ${report.totalTests}
+              **Passed:** ${report.summary.passed}
+              **Failed:** ${report.totalTests - report.summary.passed}
+
+              **Details:**
+              - Count Matches: ${report.summary.countMatches}/${report.totalTests}
+              - GEOID Valid: ${report.summary.geoidValid}/${report.totalTests}
+              - Geometry Valid: ${report.summary.geometryValid}/${report.totalTests}
+              - Coverage Valid: ${report.summary.coverageValid}/${report.totalTests}
+              - Errors: ${report.summary.errors}
+
+              Full results available in artifacts.
+              `;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  nightly-summary:
+    name: Nightly Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit, integration, e2e]
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Create summary issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Shadow Atlas Nightly Test Summary - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            # Nightly Test Results
+
+            **Date:** ${new Date().toISOString()}
+
+            ## Test Results
+            - Unit Tests: ${{ needs.unit.result }}
+            - Integration Tests: ${{ needs.integration.result }}
+            - E2E Tests: ${{ needs.e2e.result }}
+
+            ## Artifacts
+            Check the workflow run for detailed test results and coverage reports.
+
+            ---
+            *This issue was automatically created by the nightly test workflow.*
+            `;
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['automated', 'testing', 'shadow-atlas']
+            });
