@@ -19,6 +19,7 @@ import type {
   ScraperResult,
   GeoJSONFeatureCollection,
   ProvenanceMetadata,
+  AcquisitionProvenanceMetadata,
   PortalType,
 } from '../types.js';
 import { STATE_GIS_PORTALS, type StateGISPortal } from '../../registry/state-gis-portals.js';
@@ -294,7 +295,7 @@ export class StateGISPortalScraper {
 
       const lastModified = parseLastModified(response.headers.get('Last-Modified'));
 
-      const provenance: ProvenanceMetadata = {
+      const provenance: AcquisitionProvenanceMetadata = {
         source: layerUrl,
         authority: 'state-gis',
         jurisdiction: `USA/${portal.stateName}`,

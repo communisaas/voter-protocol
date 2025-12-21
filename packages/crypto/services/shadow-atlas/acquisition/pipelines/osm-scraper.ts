@@ -20,6 +20,7 @@ import type {
   GeoJSONFeature,
   GeoJSONGeometry,
   ProvenanceMetadata,
+  AcquisitionProvenanceMetadata,
   OverpassResponse,
   OverpassElement,
 } from '../types.js';
@@ -188,7 +189,7 @@ export class OSMScraper {
       }
 
       // Build provenance with validation metadata
-      const provenance: ProvenanceMetadata = {
+      const provenance: AcquisitionProvenanceMetadata = {
         source: this.overpassApiUrl,
         authority: 'community',
         jurisdiction: country.name,

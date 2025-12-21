@@ -18,6 +18,7 @@ import type {
   ArcGISFeatureServiceMetadata,
   GeoJSONFeatureCollection,
   ProvenanceMetadata,
+  AcquisitionProvenanceMetadata,
 } from '../types.js';
 import { retryWithBackoff, sha256, parseLastModified, BatchProcessor } from '../utils.js';
 import { PostDownloadValidator } from '../post-download-validator.js';
@@ -212,7 +213,7 @@ export class ArcGISPortalScraper {
       const lastModified = parseLastModified(response.headers.get('Last-Modified'));
 
       // 5. Build provenance with validation metadata
-      const provenance: ProvenanceMetadata = {
+      const provenance: AcquisitionProvenanceMetadata = {
         source: layerUrl,
         authority: 'municipal',
         jurisdiction: 'USA',
