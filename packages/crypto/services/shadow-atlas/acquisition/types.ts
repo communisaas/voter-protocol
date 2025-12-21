@@ -5,8 +5,26 @@
  * geographic data acquisition. Type errors here compromise data provenance.
  */
 
+// ============================================================================
+// Re-export Provenance Types from Core (Single Source of Truth)
+// ============================================================================
+
+import type {
+  BaseProvenanceMetadata as CoreBaseProvenanceMetadata,
+  ProvenanceMetadata as CoreProvenanceMetadata,
+  AcquisitionProvenanceMetadata as CoreAcquisitionProvenanceMetadata,
+  LayerType as CoreLayerType
+} from '../core/types.js';
+
+export type BaseProvenanceMetadata = CoreBaseProvenanceMetadata;
+export type ProvenanceMetadata = CoreProvenanceMetadata;
+export type AcquisitionProvenanceMetadata = CoreAcquisitionProvenanceMetadata;
+export type LayerType = CoreLayerType;
+
+
 /**
  * Authority level of data source
+ * Re-exported type for convenience (actual definition in core/types.ts)
  */
 export type AuthorityLevel = 'state-gis' | 'federal' | 'municipal' | 'community';
 
@@ -27,62 +45,6 @@ export type AcquisitionMethod =
   | 'Direct HTTP';
 
 /**
- * Provenance metadata for acquired data
- * Cryptographically verifiable data lineage
- */
-export interface ProvenanceMetadata {
-  /** Source URL or identifier */
-  readonly source: string;
-
-  /** Authority level */
-  readonly authority: AuthorityLevel;
-
-  /** Jurisdiction (e.g., "Hawaii", "USA", "France") */
-  readonly jurisdiction: string;
-
-  /** Acquisition timestamp (Unix milliseconds) */
-  readonly timestamp: number;
-
-  /** Source last modified (from HTTP Last-Modified header) */
-  readonly sourceLastModified?: number;
-
-  /** Effective date when boundaries became official (ISO 8601) */
-  readonly effectiveDate?: string;
-
-  /** Acquisition method */
-  readonly method: AcquisitionMethod;
-
-  /** SHA-256 hash of raw HTTP response */
-  readonly responseHash: string;
-
-  /** HTTP status code */
-  readonly httpStatus: number;
-
-  /** Legal basis for boundaries (e.g., "Hawaii Revised Statutes §3-1") */
-  readonly legalBasis?: string;
-
-  /** License (e.g., "Public Domain", "CC-BY-4.0") */
-  readonly license?: string;
-
-  /** Number of features in dataset */
-  readonly featureCount: number;
-
-  /** Geometry type */
-  readonly geometryType: 'Polygon' | 'MultiPolygon';
-
-  /** Coordinate system (e.g., "EPSG:4326" for WGS84) */
-  readonly coordinateSystem: string;
-
-  /** Stage 1 validation metadata (optional, added by orchestrator) */
-  readonly validation?: {
-    readonly confidence: number;
-    readonly issues: readonly string[];
-    readonly warnings: readonly string[];
-    readonly timestamp: string;
-  };
-}
-
-/**
  * GeoJSON Feature (strict typing)
  */
 export interface GeoJSONFeature {
@@ -97,13 +59,13 @@ export interface GeoJSONFeature {
  */
 export type GeoJSONGeometry =
   | {
-      readonly type: 'Polygon';
-      readonly coordinates: readonly (readonly [number, number][])[];
-    }
+    readonly type: 'Polygon';
+    readonly coordinates: readonly (readonly [number, number][])[];
+  }
   | {
-      readonly type: 'MultiPolygon';
-      readonly coordinates: readonly (readonly (readonly [number, number][])[])[];
-    };
+    readonly type: 'MultiPolygon';
+    readonly coordinates: readonly (readonly (readonly [number, number][])[])[];
+  };
 
 /**
  * GeoJSON FeatureCollection
@@ -116,13 +78,14 @@ export interface GeoJSONFeatureCollection {
 
 /**
  * Raw dataset from acquisition
+ * Uses AcquisitionProvenanceMetadata (includes validation field)
  */
 export interface RawDataset {
   /** GeoJSON data */
   readonly geojson: GeoJSONFeatureCollection;
 
-  /** Provenance metadata */
-  readonly provenance: ProvenanceMetadata;
+  /** Provenance metadata with optional validation */
+  readonly provenance: AcquisitionProvenanceMetadata;
 }
 
 /**
