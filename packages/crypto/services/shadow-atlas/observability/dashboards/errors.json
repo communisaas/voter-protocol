@@ -1,0 +1,406 @@
+{
+  "dashboard": {
+    "title": "Shadow Atlas - Error Tracking & Debugging",
+    "tags": ["shadow-atlas", "errors"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-3h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Error Rate Over Time",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_request_error_total[5m]) * 100",
+            "legendFormat": "{{status}} - {{path}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Error Rate %" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "Error Rate Spike",
+          "conditions": [
+            {
+              "evaluator": { "type": "gt", "params": [1.0] },
+              "query": { "params": ["A", "5m", "now"] }
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "title": "Errors by Type (24h)",
+        "type": "piechart",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(shadow_atlas_request_error_total[24h])) by (status)",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Errors by Endpoint (24h)",
+        "type": "bargauge",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(shadow_atlas_request_error_total[24h])) by (path))",
+            "legendFormat": "{{path}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Extraction Failures",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_extraction_failure_total[5m]) by (state, layer)",
+            "legendFormat": "{{state}} - {{layer}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Failures/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Provider Errors",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_provider_error_total[5m]) by (provider)",
+            "legendFormat": "{{provider}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Validation Failures",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_validation_fail_total[5m]) by (state, layer)",
+            "legendFormat": "{{state}} - {{layer}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Validation Failures/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Recent Error Log (Last 20)",
+        "type": "table",
+        "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "topk(20, shadow_atlas_request_error_total)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "includeByName": {
+                "Time": true,
+                "path": true,
+                "method": true,
+                "status": true,
+                "Value": true
+              },
+              "renameByName": {
+                "Time": "Timestamp",
+                "path": "Endpoint",
+                "method": "Method",
+                "status": "Status Code",
+                "Value": "Count"
+              }
+            }
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "displayName": "Timestamp",
+              "desc": true
+            }
+          ]
+        }
+      },
+      {
+        "id": 8,
+        "title": "4xx Error Rate",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(rate(shadow_atlas_request_error_total{status=~\"4..\"}[5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 3,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.1, "color": "yellow" },
+                { "value": 1, "color": "orange" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "5xx Error Rate",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(rate(shadow_atlas_request_error_total{status=~\"5..\"}[5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 3,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.01, "color": "yellow" },
+                { "value": 0.1, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Total Errors (Last Hour)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(increase(shadow_atlas_request_error_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Error Budget Remaining",
+        "type": "gauge",
+        "gridPos": { "x": 18, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "(1 - sum(increase(shadow_atlas_request_error_total[30d])) / sum(increase(shadow_atlas_requests_total[30d]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 99, "color": "red" },
+                { "value": 99.5, "color": "yellow" },
+                { "value": 99.9, "color": "green" }
+              ]
+            }
+          }
+        },
+        "description": "SLO target: 99.9% availability (30-day window)"
+      },
+      {
+        "id": 12,
+        "title": "Failed Extractions by State",
+        "type": "table",
+        "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "topk(20, sum(increase(shadow_atlas_extraction_failure_total[24h])) by (state, layer))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "includeByName": {
+                "state": true,
+                "layer": true,
+                "Value": true
+              },
+              "renameByName": {
+                "state": "State",
+                "layer": "Layer",
+                "Value": "Failures (24h)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Provider Availability",
+        "type": "table",
+        "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "avg_over_time(shadow_atlas_provider_health[1h]) by (provider)",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "includeByName": {
+                "provider": true,
+                "Value": true
+              },
+              "renameByName": {
+                "provider": "Provider",
+                "Value": "Availability %"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Availability %" },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "percentunit"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "value": 0, "color": "red" },
+                      { "value": 0.95, "color": "yellow" },
+                      { "value": 0.99, "color": "green" }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "iconColor": "rgba(255, 96, 96, 1)",
+          "name": "Error Spikes",
+          "type": "alert"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus"
+        },
+        {
+          "name": "time_range",
+          "type": "interval",
+          "query": "5m,15m,1h,6h,24h",
+          "current": {
+            "text": "5m",
+            "value": "5m"
+          }
+        }
+      ]
+    }
+  }
+}

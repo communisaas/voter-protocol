@@ -1,0 +1,299 @@
+{
+  "dashboard": {
+    "title": "Shadow Atlas - System Overview",
+    "tags": ["shadow-atlas", "overview"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate (req/s)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_requests_total[5m])",
+            "legendFormat": "{{method}} {{path}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Requests/sec" },
+          { "format": "short" }
+        ],
+        "tooltip": { "shared": true }
+      },
+      {
+        "id": 2,
+        "title": "Request Latency (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(shadow_atlas_request_latency_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(shadow_atlas_request_latency_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(shadow_atlas_request_latency_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "High P99 Latency",
+          "conditions": [
+            {
+              "evaluator": { "type": "gt", "params": [100] },
+              "query": { "params": ["C", "5m", "now"] }
+            }
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "title": "Error Rate (%)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_request_error_total[5m]) / rate(shadow_atlas_requests_total[5m]) * 100",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Error %" },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          { "value": 0.1, "color": "green" },
+          { "value": 1.0, "color": "yellow" },
+          { "value": 5.0, "color": "red" }
+        ],
+        "alert": {
+          "name": "High Error Rate",
+          "conditions": [
+            {
+              "evaluator": { "type": "gt", "params": [1.0] },
+              "query": { "params": ["A", "5m", "now"] }
+            }
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "title": "Cache Hit Rate (%)",
+        "type": "gauge",
+        "gridPos": { "x": 8, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(shadow_atlas_cache_hits_total[5m]) / (rate(shadow_atlas_cache_hits_total[5m]) + rate(shadow_atlas_cache_miss_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 50, "color": "yellow" },
+                { "value": 80, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Active Connections",
+        "type": "graph",
+        "gridPos": { "x": 16, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "shadow_atlas_active_connections",
+            "legendFormat": "Active",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Connections" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "System Health Score",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "shadow_atlas_health",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "value": 0, "text": "Unhealthy", "color": "red" },
+              { "value": 1, "text": "Degraded", "color": "yellow" },
+              { "value": 2, "text": "Healthy", "color": "green" }
+            ]
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Uptime",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "time() - process_start_time_seconds",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "dtdurations",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Total Requests (24h)",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(increase(shadow_atlas_requests_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Extraction Success Rate (24h)",
+        "type": "gauge",
+        "gridPos": { "x": 18, "y": 14, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(increase(shadow_atlas_extraction_success_total[24h])) / (sum(increase(shadow_atlas_extraction_success_total[24h])) + sum(increase(shadow_atlas_extraction_failure_total[24h]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 80, "color": "yellow" },
+                { "value": 90, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes",
+            "legendFormat": "RSS",
+            "refId": "A"
+          },
+          {
+            "expr": "process_heap_bytes",
+            "legendFormat": "Heap",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "bytes", "label": "Memory" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Provider Health",
+        "type": "table",
+        "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "shadow_atlas_provider_health{provider=~\".+\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "includeByName": {
+                "provider": true,
+                "Value": true
+              },
+              "renameByName": {
+                "provider": "Provider",
+                "Value": "Status"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "iconColor": "rgba(255, 96, 96, 1)",
+          "name": "Alerts",
+          "type": "alert"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus"
+        }
+      ]
+    }
+  }
+}
