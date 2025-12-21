@@ -23,35 +23,39 @@ export function sleep(ms: number): Promise<void> {
 
 /**
  * Retry with exponential backoff
+ *
+ * CONSOLIDATED: This is now a thin wrapper around resilience/retry.ts
+ * Maps acquisition's RetryConfig to resilience's RetryConfig
  */
+import { retry as resilienceRetry } from '../resilience/retry.js';
+
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   config: RetryConfig,
   onRetry?: (attempt: number, error: Error) => void
 ): Promise<T> {
-  let lastError: Error | undefined;
-  let delay = config.initialDelay;
-
-  for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      if (attempt === config.maxAttempts) {
-        break;
-      }
-
-      if (onRetry) {
-        onRetry(attempt, lastError);
-      }
-
-      await sleep(delay);
-      delay = Math.min(delay * config.backoffMultiplier, config.maxDelay);
+  // Map acquisition RetryConfig to resilience RetryConfig
+  return resilienceRetry(fn, {
+    maxAttempts: config.maxAttempts,
+    initialDelayMs: config.initialDelay,  // Map field names
+    maxDelayMs: config.maxDelay,
+    backoffMultiplier: config.backoffMultiplier,
+    jitterFactor: 0.1,  // Add jitter for better resilience
+    retryableErrors: [
+      'network_timeout',
+      'network_error',
+      'rate_limit',
+      'service_unavailable',
+      'gateway_timeout',
+      'temporary_failure',
+    ],
+  }).catch(error => {
+    // Call onRetry callback for compatibility (note: called once at failure)
+    if (onRetry && error.attempts) {
+      onRetry(error.attempts.length, error.lastError);
     }
-  }
-
-  throw lastError || new Error('Retry failed with unknown error');
+    throw error.lastError || error;
+  });
 }
 
 /**
@@ -151,8 +155,8 @@ export class ProgressTracker {
 
       console.log(
         `Progress: ${processed}/${this.total} (${((processed / this.total) * 100).toFixed(1)}%) | ` +
-          `Completed: ${this.completed} | Failed: ${this.failed} | ` +
-          `Rate: ${rate.toFixed(1)} items/sec | ETA: ${(eta / 60).toFixed(1)} min`
+        `Completed: ${this.completed} | Failed: ${this.failed} | ` +
+        `Rate: ${rate.toFixed(1)} items/sec | ETA: ${(eta / 60).toFixed(1)} min`
       );
 
       if (this.onProgress) {

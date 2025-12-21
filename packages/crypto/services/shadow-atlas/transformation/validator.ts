@@ -14,8 +14,11 @@
  */
 
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
-import { EnhancedGeographicValidator } from '../validators/enhanced-geographic-validator.js';
+import { SemanticValidator, GeographicValidator } from '../validators/index.js';
+
+// Backward compatibility aliases
+const SemanticLayerValidator = SemanticValidator;
+const EnhancedGeographicValidator = GeographicValidator;
 import type {
   RawDataset,
   ValidationResult,
@@ -23,6 +26,8 @@ import type {
   ValidationStats,
   ProvenanceMetadata,
 } from './types.js';
+// extractCoordinates imported from centralized geo-utils (eliminated duplicate)
+import { extractCoordinatesFromFeature } from '../core/geo-utils.js';
 
 /**
  * Known district counts for validation
@@ -48,8 +53,8 @@ const KNOWN_DISTRICT_COUNTS: Record<string, { count: number; source: string }> =
  * Coordinates semantic, geographic, geometry, and district count validation
  */
 export class TransformationValidator {
-  private semanticValidator: SemanticLayerValidator;
-  private geographicValidator: EnhancedGeographicValidator;
+  private semanticValidator: SemanticValidator;
+  private geographicValidator: GeographicValidator;
 
   constructor() {
     this.semanticValidator = new SemanticLayerValidator();
@@ -173,7 +178,7 @@ export class TransformationValidator {
     const layerName = this.extractLayerName(dataset.provenance.source);
 
     // Score layer name
-    const scoreResult = this.semanticValidator.scoreTitleOnly(layerName);
+    const scoreResult = this.semanticValidator.scoreTitle(layerName);
 
     if (scoreResult.score === 0) {
       // Rejected by negative keywords
@@ -245,7 +250,32 @@ export class TransformationValidator {
       cityTarget
     );
 
-    return result;
+    // Map CombinedValidationResult to ValidationResult
+    const issues: string[] = [];
+    const warnings: string[] = [];
+
+    if (!result.bounds.valid) {
+      issues.push(result.bounds.reason);
+    }
+
+    if (!result.topology.valid) {
+      result.topology.errors.forEach(e => issues.push(e));
+    }
+
+    if (result.topology.warnings) {
+      result.topology.warnings.forEach(w => warnings.push(w));
+    }
+
+    if (result.count.isWarning) {
+      warnings.push(result.count.reason);
+    }
+
+    return {
+      valid: result.overall,
+      confidence: result.bounds.confidence,
+      issues,
+      warnings
+    };
   }
 
   /**
@@ -270,7 +300,7 @@ export class TransformationValidator {
       }
 
       // Validate coordinate count
-      const coords = this.extractCoordinates(feature);
+      const coords = extractCoordinatesFromFeature(feature) as Array<[number, number]>;
       if (coords.length < 4) {
         issues.push(`Feature ${i}: Degenerate polygon (< 4 vertices)`);
         invalidFeatures.push(i);
@@ -433,28 +463,7 @@ export class TransformationValidator {
     return null;
   }
 
-  /**
-   * Extract coordinates from feature
-   */
-  private extractCoordinates(feature: Feature): Array<[number, number]> {
-    const coords: Array<[number, number]> = [];
-
-    if (feature.geometry.type === 'Polygon') {
-      const polygon = feature.geometry as Polygon;
-      for (const ring of polygon.coordinates) {
-        coords.push(...ring);
-      }
-    } else if (feature.geometry.type === 'MultiPolygon') {
-      const multiPolygon = feature.geometry as MultiPolygon;
-      for (const polygon of multiPolygon.coordinates) {
-        for (const ring of polygon) {
-          coords.push(...ring);
-        }
-      }
-    }
-
-    return coords;
-  }
+  // extractCoordinates moved to core/geo-utils.ts - use extractCoordinatesFromFeature()
 
   /**
    * Extract rejection reason from issue string

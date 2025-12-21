@@ -166,16 +166,16 @@ export class TransformationNormalizer {
       geometry,
     };
 
-    feature = cleanCoords(feature);
+    feature = cleanCoords(feature) as Feature;
 
     // STEP 2: Rewind (ensure right-hand rule for exterior rings)
-    feature = rewind(feature, { reverse: false });
+    feature = rewind(feature, { reverse: false }) as Feature;
 
     // STEP 3: Simplify (reduce vertex count while preserving shape)
     feature = simplify(feature, {
       tolerance: this.options.tolerance,
       highQuality: this.options.highQuality,
-    });
+    }) as Feature;
 
     // STEP 4: Round coordinates to precision
     const roundedGeometry = this.roundCoordinates(

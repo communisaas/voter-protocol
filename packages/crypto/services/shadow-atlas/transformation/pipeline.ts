@@ -28,15 +28,36 @@ import { TransformationValidator } from './validator.js';
 import { TransformationNormalizer } from './normalizer.js';
 import { RTreeBuilder } from './rtree-builder.js';
 import { MerkleTreeBuilder } from './merkle-builder.js';
-import { SemanticLayerValidator } from '../validators/semantic-layer-validator.js';
-import { EnhancedGeographicValidator, validateCityBoundary } from '../validators/enhanced-geographic-validator.js';
-import { validateDistrictCount } from '../validators/district-count-validator.js';
+import { SemanticValidator, GeographicValidator } from '../validators/index.js';
+
+// Backward compatibility aliases
+const SemanticLayerValidator = SemanticValidator;
+const EnhancedGeographicValidator = GeographicValidator;
+
+// Helper function to maintain backward compatibility with validateCityBoundary
+function validateCityBoundary(geojson: FeatureCollection, city: { name: string; state: string; fips: string }): { valid: boolean; confidence: number; reason: string; centroid?: { lat: number; lon: number } } {
+  const validator = new GeographicValidator();
+  const result = validator.validateBounds(geojson, city);
+  return {
+    valid: result.valid,
+    confidence: result.confidence,
+    reason: result.reason,
+    centroid: result.centroid,
+  };
+}
+
+// Helper function for validateDistrictCount
+function validateDistrictCount(geojson: FeatureCollection, fips: string): { valid: boolean; isWarning: boolean; reason: string; expected: number | null; actual: number } {
+  const validator = new GeographicValidator();
+  return validator.validateDistrictCount(geojson, fips);
+}
 import type {
   RawDataset,
   ValidationContext,
   TransformationResult,
   TransformationMetadata,
   StageResult,
+  ProvenanceMetadata,
 } from './types.js';
 
 /**
@@ -70,8 +91,8 @@ export class TransformationPipeline {
   private normalizer: TransformationNormalizer;
   private rtreeBuilder: RTreeBuilder;
   private merkleBuilder: MerkleTreeBuilder;
-  private semanticValidator: SemanticLayerValidator;
-  private geographicValidator: EnhancedGeographicValidator;
+  private semanticValidator: SemanticValidator;
+  private geographicValidator: GeographicValidator;
 
   constructor(config: Partial<PipelineConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -274,7 +295,7 @@ export class TransformationPipeline {
         // STAGE 2: Semantic Layer Validation
         // Check if title/properties match council district semantics
         const datasetTitle = this.extractTitle(dataset);
-        const semanticResult = this.semanticValidator.scoreTitleOnly(datasetTitle);
+        const semanticResult = this.semanticValidator.scoreTitle(datasetTitle);
 
         if (semanticResult.score < 30) {
           console.log(`  ✗ Stage 2 REJECTED (Semantic): ${source}`);
@@ -284,7 +305,7 @@ export class TransformationPipeline {
         }
 
         console.log(`  ✓ Stage 2 PASSED (Semantic): Score ${semanticResult.score}/100`);
-        semanticResult.reasons.forEach(reason => console.log(`    - ${reason}`));
+        semanticResult.reasons.forEach((reason: string) => console.log(`    - ${reason}`));
 
         // STAGE 3: Geographic Validation
         // Validate bounding box is within expected state/city bounds
@@ -316,18 +337,18 @@ export class TransformationPipeline {
         // STAGE 5: District Count Validation (informational only)
         if (cityInfo?.fips) {
           const countValidation = validateDistrictCount(
-            cityInfo.fips,
-            dataset.geojson.features.length
+            dataset.geojson,
+            cityInfo.fips
           );
 
           if (!countValidation.valid) {
             console.log(`  ⚠ Stage 5 WARNING (District Count): ${source}`);
             console.log(`    ${countValidation.reason}`);
-            console.log(`    Expected: ${countValidation.countInfo.expected}, Got: ${countValidation.countInfo.discovered}`);
+            console.log(`    Expected: ${countValidation.expected}, Got: ${countValidation.actual}`);
             // NOTE: This does NOT reject - it's informational only
           } else {
             console.log(`  ✓ Stage 5 PASSED (District Count): ${countValidation.reason}`);
-            console.log(`    Expected: ${countValidation.countInfo.expected}, Got: ${countValidation.countInfo.discovered}`);
+            console.log(`    Expected: ${countValidation.expected}, Got: ${countValidation.actual}`);
           }
         } else {
           console.log(`  ⚠ Stage 5 SKIPPED (District Count): No FIPS code available`);

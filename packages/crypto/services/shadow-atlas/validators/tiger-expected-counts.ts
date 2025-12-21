@@ -25,6 +25,20 @@
  */
 
 /**
+ * Import canonical state FIPS mappings from core/types.ts
+ * SINGLE SOURCE OF TRUTH for all FIPS code conversions
+ */
+import {
+  STATE_FIPS_TO_NAME,
+  STATE_ABBR_TO_FIPS,
+  getStateNameFromFips,
+  getFipsFromStateAbbr,
+} from '../core/types.js';
+
+// Re-export for convenience
+export { STATE_ABBR_TO_FIPS } from '../core/types.js';
+
+/**
  * Total expected counts (national level)
  *
  * NOTE: Census TIGER CD files contain 440-445 features including:
@@ -47,6 +61,47 @@ export const EXPECTED_COUNTS = {
 
   /** State Legislative Districts Lower (varies, null = unicameral) */
   sldl: null as number | null,
+
+  /** Unified School Districts (K-12, varies by state) */
+  unsd: null as number | null,
+
+  /** Elementary School Districts (K-8, varies by state) */
+  elsd: null as number | null,
+
+  /** Secondary School Districts (9-12, varies by state) */
+  scsd: null as number | null,
+
+  /**
+   * Incorporated Places - cities, towns, villages (~19,500)
+   * Source: Census Bureau TIGER/Line
+   */
+  place: 19495,
+
+  /**
+   * Census Designated Places - unincorporated communities (~9,500)
+   * Source: Census Bureau TIGER/Line
+   * NOTE: CDPs are statistically defined, not legally incorporated
+   */
+  cdp: 9500,
+
+  /**
+   * County Subdivisions - townships, boroughs, MCDs (~34,000)
+   * Source: Census Bureau TIGER/Line
+   */
+  cousub: 34000,
+
+  /**
+   * Voting Districts - precincts, VTDs (~200,000)
+   * Source: Census Bureau 2020 TIGER/Line (redistricting vintage)
+   */
+  vtd: 200000,
+
+  /**
+   * ZIP Code Tabulation Areas (~33,000)
+   * Source: Census Bureau TIGER/Line
+   * NOTE: ZCTAs approximate USPS ZIP codes but don't match exactly
+   */
+  zcta: 33144,
 } as const;
 
 /**
@@ -308,6 +363,189 @@ export const EXPECTED_COUNTIES_BY_STATE: Record<string, number> = {
 };
 
 /**
+ * Unified School District (UNSD) counts by state
+ * Source: US Census Bureau TIGER/Line 2024
+ *
+ * NOTE: School district structure varies significantly by state.
+ * Some states use primarily unified districts (K-12), others use
+ * separate elementary/secondary systems. Counts are approximate
+ * and should be validated against actual TIGER data.
+ */
+export const EXPECTED_UNSD_BY_STATE: Record<string, number> = {
+  '01': 0,    // Alabama (uses separate elem/sec)
+  '02': 54,   // Alaska
+  '04': 270,  // Arizona
+  '05': 244,  // Arkansas
+  '06': 1037, // California
+  '08': 178,  // Colorado
+  '09': 0,    // Connecticut (uses separate elem/sec)
+  '10': 19,   // Delaware
+  '11': 1,    // District of Columbia
+  '12': 67,   // Florida (county-based)
+  '13': 180,  // Georgia
+  '15': 1,    // Hawaii (statewide)
+  '16': 115,  // Idaho
+  '17': 0,    // Illinois (uses separate elem/sec)
+  '18': 0,    // Indiana (uses separate elem/sec)
+  '19': 333,  // Iowa
+  '20': 286,  // Kansas
+  '21': 173,  // Kentucky
+  '22': 69,   // Louisiana (parish-based)
+  '23': 0,    // Maine (uses separate elem/sec)
+  '24': 24,   // Maryland (county-based)
+  '25': 0,    // Massachusetts (uses separate elem/sec)
+  '26': 551,  // Michigan
+  '27': 333,  // Minnesota
+  '28': 0,    // Mississippi (uses separate elem/sec)
+  '29': 518,  // Missouri
+  '30': 0,    // Montana (uses separate elem/sec)
+  '31': 244,  // Nebraska
+  '32': 17,   // Nevada (county-based)
+  '33': 0,    // New Hampshire (uses separate elem/sec)
+  '34': 0,    // New Jersey (uses separate elem/sec)
+  '35': 89,   // New Mexico
+  '36': 0,    // New York (uses separate elem/sec)
+  '37': 115,  // North Carolina (county-based)
+  '38': 0,    // North Dakota (uses separate elem/sec)
+  '39': 614,  // Ohio
+  '40': 516,  // Oklahoma
+  '41': 197,  // Oregon
+  '42': 500,  // Pennsylvania
+  '44': 0,    // Rhode Island (uses separate elem/sec)
+  '45': 85,   // South Carolina
+  '46': 149,  // South Dakota
+  '47': 141,  // Tennessee
+  '48': 1023, // Texas
+  '49': 41,   // Utah
+  '50': 0,    // Vermont (uses separate elem/sec)
+  '51': 132,  // Virginia (county/city-based)
+  '53': 295,  // Washington
+  '54': 55,   // West Virginia (county-based)
+  '55': 421,  // Wisconsin
+  '56': 48,   // Wyoming
+};
+
+/**
+ * Elementary School District (ELSD) counts by state
+ * Source: US Census Bureau TIGER/Line 2024
+ *
+ * NOTE: Only exists in states with separate elementary/secondary systems.
+ */
+export const EXPECTED_ELSD_BY_STATE: Record<string, number> = {
+  '01': 0,    // Alabama
+  '02': 0,    // Alaska
+  '04': 0,    // Arizona
+  '05': 0,    // Arkansas
+  '06': 0,    // California
+  '08': 0,    // Colorado
+  '09': 166,  // Connecticut
+  '10': 0,    // Delaware
+  '11': 0,    // District of Columbia
+  '12': 0,    // Florida
+  '13': 0,    // Georgia
+  '15': 0,    // Hawaii
+  '16': 0,    // Idaho
+  '17': 859,  // Illinois
+  '18': 0,    // Indiana
+  '19': 0,    // Iowa
+  '20': 0,    // Kansas
+  '21': 0,    // Kentucky
+  '22': 0,    // Louisiana
+  '23': 260,  // Maine
+  '24': 0,    // Maryland
+  '25': 328,  // Massachusetts
+  '26': 0,    // Michigan
+  '27': 0,    // Minnesota
+  '28': 0,    // Mississippi
+  '29': 0,    // Missouri
+  '30': 449,  // Montana
+  '31': 0,    // Nebraska
+  '32': 0,    // Nevada
+  '33': 165,  // New Hampshire
+  '34': 524,  // New Jersey
+  '35': 0,    // New Mexico
+  '36': 0,    // New York
+  '37': 0,    // North Carolina
+  '38': 0,    // North Dakota
+  '39': 0,    // Ohio
+  '40': 0,    // Oklahoma
+  '41': 0,    // Oregon
+  '42': 0,    // Pennsylvania
+  '44': 36,   // Rhode Island
+  '45': 0,    // South Carolina
+  '46': 0,    // South Dakota
+  '47': 0,    // Tennessee
+  '48': 0,    // Texas
+  '49': 0,    // Utah
+  '50': 277,  // Vermont
+  '51': 0,    // Virginia
+  '53': 0,    // Washington
+  '54': 0,    // West Virginia
+  '55': 0,    // Wisconsin
+  '56': 0,    // Wyoming
+};
+
+/**
+ * Secondary School District (SCSD) counts by state
+ * Source: US Census Bureau TIGER/Line 2024
+ *
+ * NOTE: Rare - only a few states use separate secondary school districts.
+ */
+export const EXPECTED_SCSD_BY_STATE: Record<string, number> = {
+  '01': 0,    // Alabama
+  '02': 0,    // Alaska
+  '04': 94,   // Arizona
+  '05': 0,    // Arkansas
+  '06': 77,   // California
+  '08': 0,    // Colorado
+  '09': 0,    // Connecticut
+  '10': 0,    // Delaware
+  '11': 0,    // District of Columbia
+  '12': 0,    // Florida
+  '13': 0,    // Georgia
+  '15': 0,    // Hawaii
+  '16': 0,    // Idaho
+  '17': 102,  // Illinois
+  '18': 0,    // Indiana
+  '19': 0,    // Iowa
+  '20': 0,    // Kansas
+  '21': 0,    // Kentucky
+  '22': 0,    // Louisiana
+  '23': 0,    // Maine
+  '24': 0,    // Maryland
+  '25': 0,    // Massachusetts
+  '26': 0,    // Michigan
+  '27': 0,    // Minnesota
+  '28': 0,    // Mississippi
+  '29': 0,    // Missouri
+  '30': 0,    // Montana
+  '31': 0,    // Nebraska
+  '32': 0,    // Nevada
+  '33': 0,    // New Hampshire
+  '34': 0,    // New Jersey
+  '35': 0,    // New Mexico
+  '36': 0,    // New York
+  '37': 0,    // North Carolina
+  '38': 0,    // North Dakota
+  '39': 0,    // Ohio
+  '40': 0,    // Oklahoma
+  '41': 0,    // Oregon
+  '42': 0,    // Pennsylvania
+  '44': 0,    // Rhode Island
+  '45': 0,    // South Carolina
+  '46': 0,    // South Dakota
+  '47': 0,    // Tennessee
+  '48': 0,    // Texas
+  '49': 0,    // Utah
+  '50': 0,    // Vermont
+  '51': 0,    // Virginia
+  '53': 0,    // Washington
+  '54': 0,    // West Virginia
+  '55': 0,    // Wisconsin
+  '56': 0,    // Wyoming
+};
+
+/**
  * Validate that reference counts are internally consistent
  */
 export function validateReferenceCounts(): {
@@ -351,10 +589,33 @@ export function validateReferenceCounts(): {
 }
 
 /**
+ * TIGER layer types for expected count lookups
+ *
+ * Matches TIGERLayerType from core/types.ts
+ */
+export type TigerCountLayer =
+  | 'cd'
+  | 'sldu'
+  | 'sldl'
+  | 'county'
+  | 'unsd'
+  | 'elsd'
+  | 'scsd'
+  | 'place'
+  | 'cdp'     // Census Designated Places (unincorporated)
+  | 'cousub'
+  | 'vtd'
+  | 'zcta';
+
+/**
  * Get expected count for specific TIGER layer and state
+ *
+ * @param layer - TIGER layer type
+ * @param stateFips - Optional state FIPS for state-level counts
+ * @returns Expected feature count or null if unknown
  */
 export function getExpectedCount(
-  layer: 'cd' | 'sldu' | 'sldl' | 'county',
+  layer: TigerCountLayer,
   stateFips?: string
 ): number | null {
   if (layer === 'cd') {
@@ -373,30 +634,114 @@ export function getExpectedCount(
     return stateFips ? EXPECTED_COUNTIES_BY_STATE[stateFips] ?? null : EXPECTED_COUNTS.county;
   }
 
+  if (layer === 'unsd') {
+    return stateFips ? EXPECTED_UNSD_BY_STATE[stateFips] ?? null : null;
+  }
+
+  if (layer === 'elsd') {
+    return stateFips ? EXPECTED_ELSD_BY_STATE[stateFips] ?? null : null;
+  }
+
+  if (layer === 'scsd') {
+    return stateFips ? EXPECTED_SCSD_BY_STATE[stateFips] ?? null : null;
+  }
+
+  // New layers (national-only counts for now, state-level can be added later)
+  if (layer === 'place') {
+    return stateFips ? null : EXPECTED_COUNTS.place;
+  }
+
+  if (layer === 'cdp') {
+    return stateFips ? null : EXPECTED_COUNTS.cdp;
+  }
+
+  if (layer === 'cousub') {
+    return stateFips ? null : EXPECTED_COUNTS.cousub;
+  }
+
+  if (layer === 'vtd') {
+    return stateFips ? null : EXPECTED_COUNTS.vtd;
+  }
+
+  if (layer === 'zcta') {
+    return stateFips ? null : EXPECTED_COUNTS.zcta;
+  }
+
   return null;
 }
 
 /**
+ * National totals computed from state-level data
+ *
+ * These are computed at module load time to ensure consistency
+ * with state-level data. Use these for national-level validation.
+ */
+export const NATIONAL_TOTALS = {
+  /** Total Congressional Districts (voting seats) */
+  cd: 435,
+
+  /** Total State Legislative Upper chambers */
+  sldu: Object.values(EXPECTED_SLDU_BY_STATE).reduce((a, b) => a + b, 0),
+
+  /** Total State Legislative Lower chambers */
+  sldl: Object.values(EXPECTED_SLDL_BY_STATE).reduce((a, b) => a + b, 0),
+
+  /** Total Counties (includes county equivalents) */
+  county: 3143,
+
+  /** Total Unified School Districts */
+  unsd: Object.values(EXPECTED_UNSD_BY_STATE).reduce((a, b) => a + b, 0),
+
+  /** Total Elementary School Districts */
+  elsd: Object.values(EXPECTED_ELSD_BY_STATE).reduce((a, b) => a + b, 0),
+
+  /** Total Secondary School Districts */
+  scsd: Object.values(EXPECTED_SCSD_BY_STATE).reduce((a, b) => a + b, 0),
+
+  /** Total Incorporated Places (cities, towns, villages) */
+  place: EXPECTED_COUNTS.place,
+
+  /** Total Census Designated Places (unincorporated) */
+  cdp: EXPECTED_COUNTS.cdp,
+
+  /** Total County Subdivisions (townships, boroughs, MCDs) */
+  cousub: EXPECTED_COUNTS.cousub,
+
+  /** Total Voting Districts (precincts) */
+  vtd: EXPECTED_COUNTS.vtd,
+
+  /** Total ZIP Code Tabulation Areas */
+  zcta: EXPECTED_COUNTS.zcta,
+} as const;
+
+/**
+ * FIPS to State Abbreviation mapping (inverse of STATE_ABBR_TO_FIPS)
+ */
+export const FIPS_TO_STATE_ABBR: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_ABBR_TO_FIPS).map(([abbr, fips]) => [fips, abbr])
+);
+
+/**
  * Get state name from FIPS code
+ *
+ * @deprecated Use getStateNameFromFips from core/types.ts directly
  */
 export function getStateName(fips: string): string | null {
-  const stateNames: Record<string, string> = {
-    '01': 'Alabama', '02': 'Alaska', '04': 'Arizona', '05': 'Arkansas',
-    '06': 'California', '08': 'Colorado', '09': 'Connecticut', '10': 'Delaware',
-    '11': 'District of Columbia', '12': 'Florida', '13': 'Georgia', '15': 'Hawaii',
-    '16': 'Idaho', '17': 'Illinois', '18': 'Indiana', '19': 'Iowa',
-    '20': 'Kansas', '21': 'Kentucky', '22': 'Louisiana', '23': 'Maine',
-    '24': 'Maryland', '25': 'Massachusetts', '26': 'Michigan', '27': 'Minnesota',
-    '28': 'Mississippi', '29': 'Missouri', '30': 'Montana', '31': 'Nebraska',
-    '32': 'Nevada', '33': 'New Hampshire', '34': 'New Jersey', '35': 'New Mexico',
-    '36': 'New York', '37': 'North Carolina', '38': 'North Dakota', '39': 'Ohio',
-    '40': 'Oklahoma', '41': 'Oregon', '42': 'Pennsylvania', '44': 'Rhode Island',
-    '45': 'South Carolina', '46': 'South Dakota', '47': 'Tennessee', '48': 'Texas',
-    '49': 'Utah', '50': 'Vermont', '51': 'Virginia', '53': 'Washington',
-    '54': 'West Virginia', '55': 'Wisconsin', '56': 'Wyoming',
-    '60': 'American Samoa', '66': 'Guam', '69': 'Northern Mariana Islands',
-    '72': 'Puerto Rico', '78': 'US Virgin Islands',
-  };
+  return getStateNameFromFips(fips);
+}
 
-  return stateNames[fips] ?? null;
+/**
+ * Get state abbreviation from FIPS code
+ */
+export function getStateAbbr(fips: string): string | null {
+  return FIPS_TO_STATE_ABBR[fips] ?? null;
+}
+
+/**
+ * Get FIPS code from state abbreviation
+ *
+ * @deprecated Use getFipsFromStateAbbr from core/types.ts directly
+ */
+export function getStateFips(abbr: string): string | null {
+  return getFipsFromStateAbbr(abbr.toUpperCase());
 }

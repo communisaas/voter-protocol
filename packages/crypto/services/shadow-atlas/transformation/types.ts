@@ -9,34 +9,15 @@
 
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
 
-/**
- * Provenance metadata from acquisition layer
- */
-export interface ProvenanceMetadata {
-  // Source identification
-  readonly source: string;              // URL or identifier
-  readonly authority: 'state-gis' | 'federal' | 'municipal' | 'community';
-  readonly jurisdiction: string;        // e.g., "Hawaii", "USA", "France"
+// ============================================================================
+// Re-export Provenance Types from Core (Single Source of Truth)
+// ============================================================================
 
-  // Temporal metadata
-  readonly timestamp: number;           // Unix timestamp of scrape
-  readonly sourceLastModified?: number; // From HTTP Last-Modified header
-  readonly effectiveDate?: string;      // When boundaries became official
-
-  // Verification metadata
-  readonly method: string;              // "ArcGIS REST API", "Overpass API", etc.
-  readonly responseHash: string;        // sha256(raw HTTP response)
-  readonly httpStatus: number;          // 200, etc.
-
-  // Legal metadata
-  readonly legalBasis?: string;         // "Hawaii Revised Statutes §3-1"
-  readonly license?: string;            // "Public Domain", "CC-BY-4.0", etc.
-
-  // Quality metadata
-  readonly featureCount: number;
-  readonly geometryType: 'Polygon' | 'MultiPolygon';
-  readonly coordinateSystem: string;    // "EPSG:4326" (WGS84)
-}
+import type { ProvenanceMetadata } from '../core/types.js';
+export type { ProvenanceMetadata };
+// Canonical ValidationResult imported from core/city-target.ts
+import type { ValidationResult } from '../core/city-target.js';
+export type { ValidationResult };
 
 /**
  * Raw dataset from acquisition layer
@@ -44,16 +25,6 @@ export interface ProvenanceMetadata {
 export interface RawDataset {
   readonly geojson: FeatureCollection;
   readonly provenance: ProvenanceMetadata;
-}
-
-/**
- * Validation result with reasons
- */
-export interface ValidationResult {
-  readonly valid: boolean;
-  readonly confidence: number;  // 0-100
-  readonly issues: readonly string[];
-  readonly warnings: readonly string[];
 }
 
 /**
