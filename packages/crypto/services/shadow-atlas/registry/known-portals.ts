@@ -433,7 +433,7 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     featureCount: 7,
     lastVerified: '2025-11-20T00:34:21.921Z',
     confidence: 60,
-    discoveredBy: 'collect-city-council-gis.ts',
+    discoveredBy: 'automated',
     notes: 'Oakland CA City Council Districts',
   },
   '2743000': {
@@ -445,7 +445,7 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     featureCount: 13,
     lastVerified: '2025-11-20T00:34:21.921Z',
     confidence: 50,
-    discoveredBy: 'collect-city-council-gis.ts',
+    discoveredBy: 'automated',
     notes: 'Minneapolis MN City Council Districts',
   },
   '3137000': {
@@ -457,7 +457,7 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     featureCount: 7,
     lastVerified: '2025-11-20T00:34:21.921Z',
     confidence: 60,
-    discoveredBy: 'collect-city-council-gis.ts',
+    discoveredBy: 'automated',
     notes: 'Omaha NE City Council Districts',
   },
 

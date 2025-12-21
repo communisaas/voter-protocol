@@ -408,12 +408,52 @@ export class BulkDistrictDiscovery {
   }
 
   /**
+   * Export results with full metadata
+   */
+  exportResultsWithMetadata(tier: string, startedAt: Date): string {
+    const results = Array.from(this.results.values());
+    return JSON.stringify({
+      timestamp: new Date().toISOString(),
+      tier,
+      startedAt: startedAt.toISOString(),
+      summary: {
+        total: results.length,
+        found: results.filter(r => r.status === 'found').length,
+        notFound: results.filter(r => r.status === 'not_found').length,
+        atLarge: results.filter(r => r.status === 'at_large').length,
+        errors: results.filter(r => r.status === 'error').length,
+        pending: results.filter(r => r.status === 'pending').length,
+      },
+      results,
+    }, null, 2);
+  }
+
+  /**
    * Import previous results (for incremental discovery)
    */
   importResults(json: string): void {
     const results = JSON.parse(json) as DiscoveryResult[];
     for (const result of results) {
       this.results.set(result.geoid, result);
+    }
+  }
+
+  /**
+   * Resume from previous state
+   *
+   * Loads previously discovered results to enable incremental discovery.
+   * Cities already processed will be skipped.
+   */
+  resumeFromState(stateJson: string): void {
+    interface SavedState {
+      results?: DiscoveryResult[];
+    }
+
+    const state = JSON.parse(stateJson) as SavedState;
+    if (state.results) {
+      for (const result of state.results) {
+        this.results.set(result.geoid, result);
+      }
     }
   }
 

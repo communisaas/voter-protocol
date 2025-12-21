@@ -11,9 +11,12 @@ import type {
   SourceKind,
   NormalizedGeoJSON,
   GeoJSONFeature,
-  SourceMetadata,
   FetchResult,
+  FetcherSourceMetadata,
 } from '../types';
+
+// Use FetcherSourceMetadata as the implementation of SourceMetadata for fetcher
+type SourceMetadata = FetcherSourceMetadata;
 
 /**
  * Fetch and normalize GeoJSON from any source type
@@ -256,9 +259,9 @@ function extractCoordinates(
 ): [number, number][] {
   if (geometry.type === 'Polygon') {
     // Polygon: first ring only (exterior)
-    return geometry.coordinates[0];
+    return geometry.coordinates[0] as unknown as [number, number][];
   } else {
     // MultiPolygon: all exterior rings
-    return geometry.coordinates.flatMap(polygon => polygon[0]);
+    return geometry.coordinates.flatMap(polygon => polygon[0]) as unknown as [number, number][];
   }
 }

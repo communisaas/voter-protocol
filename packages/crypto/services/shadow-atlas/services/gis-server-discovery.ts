@@ -16,7 +16,7 @@
  * Zero tolerance for type bypasses.
  */
 
-import type { CityTarget } from '../providers/us-council-district-discovery.js';
+import type { CityTarget } from '../validators/deterministic-validators.js';
 
 /**
  * GIS server endpoint metadata
@@ -129,7 +129,7 @@ interface ArcGISCountResponse {
 
 interface GeoServerVersionResponse {
   readonly about?: {
-    readonly resource?: readonly Array<{ readonly Version?: string }>;
+    readonly resource?: ReadonlyArray<{ readonly Version?: string }>;
   };
 }
 
@@ -589,6 +589,41 @@ export class GISServerDiscovery {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Discover state legislative boundary endpoints
+   *
+   * Searches state GIS portals for legislative boundary service URLs.
+   * Used to populate state-gis-portals.ts registry with discovered endpoints.
+   */
+  async discoverStateEndpoints(
+    portalUrl: string,
+    portalType: 'arcgis' | 'socrata'
+  ): Promise<readonly GISLayer[]> {
+    const allLayers: GISLayer[] = [];
+
+    if (portalType === 'arcgis') {
+      // Try Hub API first
+      const servers = await this.probeServer(portalUrl);
+      if (servers !== null && servers.serverType === 'ArcGIS') {
+        const services = await this.exploreArcGISFolders(servers.url);
+        for (const service of services) {
+          allLayers.push(...service.layers);
+        }
+      }
+    }
+
+    // Filter for legislative layers based on naming patterns
+    const legislativeKeywords = [
+      'congress', 'senate', 'house', 'assembly', 'legislative',
+      'district', 'ward', 'county', 'cd', 'sldust', 'sldlst'
+    ];
+
+    return allLayers.filter(layer => {
+      const nameLower = layer.name.toLowerCase();
+      return legislativeKeywords.some(keyword => nameLower.includes(keyword));
+    });
   }
 }
 

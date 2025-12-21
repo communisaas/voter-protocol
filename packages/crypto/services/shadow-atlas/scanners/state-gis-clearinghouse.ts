@@ -21,10 +21,10 @@
  * 4. rest-api: Enumerate ArcGIS REST services (Massachusetts model)
  */
 
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
 import { getStatePortal, type StateGISPortal } from '../registry/state-gis-portals.js';
-import { SemanticValidator } from '../validation/semantic-validator.js';
+import { SemanticValidator } from '../validators/semantic-validator.js';
 
 /**
  * State GIS Clearinghouse Scanner

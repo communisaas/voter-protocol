@@ -56,8 +56,10 @@
  * See: packages/crypto/services/shadow-atlas/specs/AT-LARGE-DETECTION-SPEC.md
  */
 
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
+// KNOWN_CITY_PORTALS imported from centralized registry (eliminated duplicate)
+import { KNOWN_CITY_PORTALS } from '../registry/known-city-portals.js';
 
 /**
  * Authoritative path types (in priority order)
@@ -87,41 +89,7 @@ export interface AuthoritativeSource {
  * prioritizing direct city sources but with intelligent fallbacks.
  */
 export class AuthoritativeMultiPathScanner {
-  /**
-   * Known city portal patterns
-   *
-   * These are manually curated official city data portals.
-   * Priority: HIGHEST (direct from city government)
-   */
-  private readonly KNOWN_CITY_PORTALS: Record<string, {
-    readonly socrata?: string; // Socrata domain (data.{city}.gov)
-    readonly arcgis?: string;   // ArcGIS Hub domain
-    readonly datasetId?: string; // Known dataset ID
-  }> = {
-    '5363000': {  // Seattle, WA
-      socrata: 'data.seattle.gov',
-      arcgis: 'data-seattlecitygis.opendata.arcgis.com',
-      datasetId: 'd814188c70264f4a8359d9b28944eb33_1',
-    },
-    '3651000': {  // New York, NY
-      socrata: 'data.cityofnewyork.us',
-      arcgis: 'data.cityofnewyork.us',
-    },
-    '1714000': {  // Chicago, IL
-      socrata: 'data.cityofchicago.org',
-    },
-    '4805000': {  // Austin, TX
-      socrata: 'data.austintexas.gov',
-      arcgis: 'data.austintexas.gov',
-    },
-    '0667000': {  // San Francisco, CA
-      socrata: 'data.sfgov.org',
-    },
-    '0644000': {  // Los Angeles, CA
-      arcgis: 'geohub.lacity.org',
-    },
-    // Add more as we validate them
-  };
+  // KNOWN_CITY_PORTALS now imported from registry/known-city-portals.ts
 
   /**
    * Search for council districts using multi-path strategy
@@ -163,7 +131,7 @@ export class AuthoritativeMultiPathScanner {
    * Path 1: Direct city portal (Socrata/ArcGIS Hub)
    */
   private async tryDirectCityPortal(city: CityTarget): Promise<PortalCandidate | null> {
-    const known = this.KNOWN_CITY_PORTALS[city.fips];
+    const known = KNOWN_CITY_PORTALS[city.fips];
     if (!known) {
       return null; // No known portal for this city
     }
@@ -201,7 +169,7 @@ export class AuthoritativeMultiPathScanner {
    * Path 2: Hub download API (stable, curated downloads)
    */
   private async tryHubDownloadAPI(city: CityTarget): Promise<PortalCandidate | null> {
-    const known = this.KNOWN_CITY_PORTALS[city.fips];
+    const known = KNOWN_CITY_PORTALS[city.fips];
     if (!known?.datasetId) {
       return null;
     }

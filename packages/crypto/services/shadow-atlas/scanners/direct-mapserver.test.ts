@@ -12,7 +12,7 @@
 
 import { describe, test, expect } from 'vitest';
 import { DirectMapServerScanner } from './direct-mapserver.js';
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 
 /**
  * Soft-fail wrapper for network tests in CI
@@ -50,7 +50,7 @@ describe('DirectMapServerScanner', () => {
     test('generates comprehensive domain patterns', () => {
       const scanner = new DirectMapServerScanner();
 
-      const city: CityTarget = {
+      const city: CityInfo as CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',
@@ -74,7 +74,7 @@ describe('DirectMapServerScanner', () => {
     test('handles multi-word city names', () => {
       const scanner = new DirectMapServerScanner();
 
-      const city: CityTarget = {
+      const city: CityInfo as CityTarget = {
         name: 'Colorado Springs',
         state: 'CO',
         fips: '0816000',
@@ -92,7 +92,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('discovers Aurora CO GIS server (Type A failure resolution)', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 10000 });
 
-      const city: CityTarget = {
+      const city: CityInfo as CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',
@@ -119,7 +119,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('returns empty array for non-existent GIS server', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 2000 });
 
-      const city: CityTarget = {
+      const city: CityInfo as CityTarget = {
         name: 'Nonexistent City',
         state: 'XX',
         fips: '9999999',
@@ -238,7 +238,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('scores council district layers highly', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 10000 });
 
-      const city: CityTarget = {
+      const city: CityInfo as CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',

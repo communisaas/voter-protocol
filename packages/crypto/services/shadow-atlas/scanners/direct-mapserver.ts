@@ -26,9 +26,9 @@
  * TYPE SAFETY: Nuclear-level strictness - no `any`, no loose casts.
  */
 
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticValidator } from '../validation/semantic-validator.js';
+import { SemanticValidator } from '../validators/semantic-validator.js';
 
 /**
  * Layer metadata from ArcGIS REST API
@@ -63,12 +63,12 @@ interface ArcGISFolderResponse {
  * ArcGIS service response
  */
 interface ArcGISServiceResponse {
-  readonly layers?: readonly Array<{
+  readonly layers?: readonly {
     readonly id: number;
     readonly name: string;
     readonly type?: string;
     readonly geometryType?: string;
-  }>;
+  }[];
 }
 
 /**

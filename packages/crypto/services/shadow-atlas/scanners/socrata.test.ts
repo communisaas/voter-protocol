@@ -11,11 +11,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { SocrataScanner } from './socrata.js';
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 
 describe('SocrataScanner with SemanticLayerValidator', () => {
   const scanner = new SocrataScanner();
-  const seattleCity: CityTarget = {
+  const seattleCity: CityInfo as CityTarget = {
     name: 'Seattle',
     state: 'WA',
     fipsCode: '5363000',

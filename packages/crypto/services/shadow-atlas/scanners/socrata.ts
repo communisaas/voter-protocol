@@ -22,9 +22,9 @@
  * Coverage: Major US cities + international (Socrata used globally)
  */
 
-import type { CityTarget } from '../providers/us-council-district-discovery.js';
+import type { CityTarget } from '../core/city-target.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticValidator } from '../validation/semantic-validator.js';
+import { SemanticValidator } from '../validators/semantic-validator.js';
 
 /**
  * City-specific Socrata portal patterns

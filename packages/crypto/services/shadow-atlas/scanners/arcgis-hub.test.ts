@@ -7,11 +7,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { ArcGISHubScanner } from './arcgis-hub.js';
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 
 describe('ArcGISHubScanner with SemanticValidator', () => {
   const scanner = new ArcGISHubScanner();
-  const mockCity: CityTarget = {
+  const mockCity: CityInfo as CityTarget = {
     name: 'Seattle',
     state: 'WA',
     fipsCode: '5363000',

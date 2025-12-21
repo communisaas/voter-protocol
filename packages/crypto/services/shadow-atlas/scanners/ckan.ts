@@ -23,11 +23,21 @@
  * Coverage: International (190+ countries), academic datasets, research institutions
  */
 
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 import type { PortalCandidate } from './arcgis-hub.js';
-import { SemanticValidator } from '../validation/semantic-validator.js';
-import { validateCityBoundary } from '../validators/enhanced-geographic-validator.js';
+import { SemanticValidator, GeographicValidator } from '../validators/index.js';
 import type { FeatureCollection } from 'geojson';
+
+// Helper function to maintain backward compatibility with validateCityBoundary
+function validateCityBoundary(geojson: FeatureCollection, city: CityTarget): { valid: boolean; confidence: number; reason: string } {
+  const validator = new GeographicValidator();
+  const result = validator.validateBounds(geojson, city);
+  return {
+    valid: result.valid,
+    confidence: result.confidence,
+    reason: result.reason,
+  };
+}
 
 /**
  * Known CKAN portal instances

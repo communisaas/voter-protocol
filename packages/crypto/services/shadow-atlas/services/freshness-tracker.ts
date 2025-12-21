@@ -227,7 +227,8 @@ export async function getFreshnessStats(
   readonly stale: number;
   readonly critical: number;
   readonly needsRevalidation: number;
-  readonly byState: Record<string, { fresh: number; aging: number; stale: number; critical: number }>;
+  readonly unknown: number;
+  readonly byState: Record<string, { fresh: number; aging: number; stale: number; critical: number; unknown: number }>;
 }> {
   const allEntries = await queryProvenance({}, baseDir);
 
@@ -247,7 +248,8 @@ export async function getFreshnessStats(
     stale: 0,
     critical: 0,
     needsRevalidation: 0,
-    byState: {} as Record<string, { fresh: number; aging: number; stale: number; critical: number }>,
+    byState: {} as Record<string, { fresh: number; aging: number; stale: number; critical: number; unknown: number }>,
+    unknown: 0,
   };
 
   const now = new Date();
@@ -271,7 +273,7 @@ export async function getFreshnessStats(
     // State breakdown
     if (info.state) {
       if (!stats.byState[info.state]) {
-        stats.byState[info.state] = { fresh: 0, aging: 0, stale: 0, critical: 0 };
+        stats.byState[info.state] = { fresh: 0, aging: 0, stale: 0, critical: 0, unknown: 0 };
       }
       stats.byState[info.state][info.status]++;
     }

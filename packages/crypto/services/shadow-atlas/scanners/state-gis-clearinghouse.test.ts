@@ -18,14 +18,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { StateGISClearinghouseScanner } from './state-gis-clearinghouse.js';
-import type { CityTarget } from '../validators/enhanced-geographic-validator.js';
+import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
 
 describe('StateGISClearinghouseScanner', () => {
   const scanner = new StateGISClearinghouseScanner();
 
   describe('Hawaii Statewide GIS (direct-layer strategy)', () => {
     it('should discover Honolulu County Council Districts', async () => {
-      const honolulu: CityTarget = {
+      const honolulu: CityInfo as CityTarget = {
         fips: '1571550', // Urban Honolulu CDP
         name: 'Urban Honolulu',
         state: 'HI',
@@ -62,7 +62,7 @@ describe('StateGISClearinghouseScanner', () => {
     });
 
     it('should discover all Hawaii county council districts', async () => {
-      const hawaiiCities: CityTarget[] = [
+      const hawaiiCities: CityInfo as CityTarget[] = [
         { fips: '1571550', name: 'Urban Honolulu', state: 'HI', population: 345510 },
         { fips: '1523150', name: 'Hilo', state: 'HI', population: 45703 },
         { fips: '1534750', name: 'Kailua', state: 'HI', population: 39635 },
@@ -89,7 +89,7 @@ describe('StateGISClearinghouseScanner', () => {
 
   describe('Colorado Socrata (catalog-api strategy)', () => {
     it('should discover Colorado Springs council districts', async () => {
-      const coloradoSprings: CityTarget = {
+      const coloradoSprings: CityInfo as CityTarget = {
         fips: '0816000',
         name: 'Colorado Springs',
         state: 'CO',
@@ -117,7 +117,7 @@ describe('StateGISClearinghouseScanner', () => {
 
   describe('Washington ArcGIS Hub (hub-api strategy)', () => {
     it('should discover Tacoma council districts', async () => {
-      const tacoma: CityTarget = {
+      const tacoma: CityInfo as CityTarget = {
         fips: '5370000',
         name: 'Tacoma',
         state: 'WA',
@@ -144,7 +144,7 @@ describe('StateGISClearinghouseScanner', () => {
 
   describe('No state portal registered', () => {
     it('should gracefully handle states without portals', async () => {
-      const wyomingCity: CityTarget = {
+      const wyomingCity: CityInfo as CityTarget = {
         fips: '5613150',
         name: 'Cheyenne',
         state: 'WY',
@@ -163,7 +163,7 @@ describe('StateGISClearinghouseScanner', () => {
 
   describe('Authority level mapping', () => {
     it('should assign higher scores to state-level sources', async () => {
-      const honolulu: CityTarget = {
+      const honolulu: CityInfo as CityTarget = {
         fips: '1571550',
         name: 'Urban Honolulu',
         state: 'HI',
@@ -189,7 +189,7 @@ describe('StateGISClearinghouseScanner', () => {
 
   describe('Geographic coverage validation', () => {
     it('should only return results for cities within state boundaries', async () => {
-      const seattle: CityTarget = {
+      const seattle: CityInfo as CityTarget = {
         fips: '5363000',
         name: 'Seattle',
         state: 'WA',
@@ -223,7 +223,7 @@ describe('Performance (manual)', () => {
   it.skip('should scan state portal within 5 seconds', async () => {
     const scanner = new StateGISClearinghouseScanner();
 
-    const honolulu: CityTarget = {
+    const honolulu: CityInfo as CityTarget = {
       fips: '1571550',
       name: 'Urban Honolulu',
       state: 'HI',
