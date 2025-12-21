@@ -210,19 +210,25 @@ async function convertShapefileToGeoJSON(stateFips: string, stateName: string): 
     const geoJson = JSON.parse(geoJsonData);
 
     // Transform to our schema
-    const places: CensusPlace[] = geoJson.features.map((feature: any) => {
-      const props = feature.properties;
+    const places: CensusPlace[] = geoJson.features.map((feature: GeoJSON.Feature) => {
+      const props = feature.properties as Record<string, unknown>;
+
+      // Type guard helper for string properties
+      const getString = (key: string): string => {
+        const value = props[key];
+        return typeof value === 'string' ? value : '';
+      };
 
       return {
         type: 'Feature',
         properties: {
-          place_fips: props.GEOID,
-          place_name: props.NAME,
-          place_type: normalizePlaceType(props.CLASSFP),
-          lsad: props.LSAD,
-          lsad_name: getLSADName(props.LSAD),
-          classfp: props.CLASSFP,
-          state_fips: props.STATEFP,
+          place_fips: getString('GEOID'),
+          place_name: getString('NAME'),
+          place_type: normalizePlaceType(getString('CLASSFP')),
+          lsad: getString('LSAD'),
+          lsad_name: getLSADName(getString('LSAD')),
+          classfp: getString('CLASSFP'),
+          state_fips: getString('STATEFP'),
           state_name: stateName,
         },
         geometry: feature.geometry,

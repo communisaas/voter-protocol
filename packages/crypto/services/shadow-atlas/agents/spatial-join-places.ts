@@ -72,22 +72,43 @@ interface BBox {
 function getBBox(geometry: GeoJSON.Geometry): BBox {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  function processCoords(coords: any) {
-    if (typeof coords[0] === 'number') {
+  /**
+   * Recursively processes GeoJSON coordinate arrays which can be:
+   * - [lon, lat] for Point
+   * - [[lon, lat], ...] for LineString
+   * - [[[lon, lat], ...], ...] for Polygon
+   * - [[[[lon, lat], ...], ...], ...] for MultiPolygon
+   */
+  function processCoords(coords: unknown): void {
+    if (!Array.isArray(coords)) return;
+
+    if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
       // Single coordinate pair [lon, lat]
       minX = Math.min(minX, coords[0]);
       maxX = Math.max(maxX, coords[0]);
       minY = Math.min(minY, coords[1]);
       maxY = Math.max(maxY, coords[1]);
     } else {
-      // Nested array
+      // Nested array - recursively process each element
       for (const coord of coords) {
         processCoords(coord);
       }
     }
   }
 
-  processCoords(geometry.coordinates);
+  // GeometryCollection doesn't have coordinates, handle all geometry types
+  if (geometry.type === 'GeometryCollection') {
+    for (const geom of geometry.geometries) {
+      const subBBox = getBBox(geom);
+      minX = Math.min(minX, subBBox.minX);
+      minY = Math.min(minY, subBBox.minY);
+      maxX = Math.max(maxX, subBBox.maxX);
+      maxY = Math.max(maxY, subBBox.maxY);
+    }
+  } else {
+    // All other geometry types have coordinates property
+    processCoords((geometry as GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon | GeoJSON.MultiPoint | GeoJSON.MultiLineString | GeoJSON.MultiPolygon).coordinates);
+  }
 
   return { minX, minY, maxX, maxY };
 }

@@ -1,0 +1,723 @@
+openapi: 3.1.0
+info:
+  title: Shadow Atlas API
+  version: 1.0.0
+  description: |
+    Free, cryptographically verifiable district lookup API for VOTER Protocol.
+
+    Shadow Atlas disrupts paid incumbents (Cicero, Google Civic API) with:
+    - Free tier: 1000 lookups/day per IP (no API key required)
+    - Cryptographic verification: Every response includes Merkle proof
+    - <50ms p95 latency: Cloudflare global CDN
+    - Zero lock-in: Quarterly IPFS snapshots
+
+    ## Authentication
+
+    Free tier requires no authentication. Premium tier uses Bearer tokens.
+
+    ## Rate Limiting
+
+    - Free tier: 1000 requests/day per IP
+    - Premium tier: 100,000 requests/day per API key
+
+    Rate limit headers included in all responses:
+    - `X-RateLimit-Limit`: Total requests allowed per window
+    - `X-RateLimit-Remaining`: Requests remaining in current window
+    - `X-RateLimit-Reset`: Unix timestamp when rate limit resets
+
+    ## Versioning
+
+    API uses path-based versioning (e.g., `/v1/lookup`). Deprecated versions include:
+    - `Deprecation: true` header
+    - `Sunset: <date>` header (if scheduled)
+    - `Link: <migration-guide>; rel="deprecation"` header
+
+    ## Error Handling
+
+    All errors follow standardized format:
+
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "DISTRICT_NOT_FOUND",
+        "message": "No district found at coordinates",
+        "details": { "lat": 39.7392, "lng": -104.9903 }
+      },
+      "meta": {
+        "requestId": "req_abc123...",
+        "latencyMs": 23.4,
+        "cached": false,
+        "version": "v1"
+      }
+    }
+    ```
+
+  contact:
+    name: VOTER Protocol
+    url: https://github.com/voter-protocol
+    email: api@voter-protocol.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.shadow-atlas.org/v1
+    description: Production API
+  - url: https://testnet.shadow-atlas.org/v1
+    description: Testnet API
+  - url: http://localhost:3000/v1
+    description: Local development
+
+tags:
+  - name: Lookup
+    description: District lookup endpoints
+  - name: Snapshots
+    description: IPFS snapshot metadata
+  - name: Health
+    description: Health check and monitoring
+
+paths:
+  /lookup:
+    get:
+      summary: Lookup district by coordinates
+      description: |
+        Perform point-in-polygon lookup to find congressional district at coordinates.
+
+        Returns district metadata with cryptographic Merkle proof for verification.
+        Clients can verify response authenticity against published IPFS CID.
+
+        ## Performance
+
+        - Latency: <50ms p95 (global CDN)
+        - Caching: Responses cached for 1 hour
+        - Rate limit: 1000/day (free tier)
+
+      operationId: lookupDistrict
+      tags:
+        - Lookup
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: Latitude coordinate (WGS84, EPSG:4326)
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+          example: 39.7392
+        - name: lng
+          in: query
+          required: true
+          description: Longitude coordinate (WGS84, EPSG:4326)
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+          example: -104.9903
+        - name: layers
+          in: query
+          required: false
+          description: District layers to include in response
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [congressional, state_senate, state_house, county, municipal]
+          example: [congressional, state_senate]
+      responses:
+        '200':
+          description: District found successfully
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+              description: Unique request identifier for debugging
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Total requests allowed per window
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining in current window
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Unix timestamp when rate limit resets
+            X-Cache:
+              schema:
+                type: string
+                enum: [HIT, MISS]
+              description: Cache status
+            Cache-Control:
+              schema:
+                type: string
+              description: Cache control directives
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+              example:
+                success: true
+                data:
+                  district:
+                    id: "0809"
+                    name: "Congressional District 9"
+                    jurisdiction: "USA/Colorado/Congressional District 9"
+                    districtType: "congressional"
+                    geometry:
+                      type: "Polygon"
+                      coordinates: [[[-105.0, 39.7], [-104.9, 39.7]]]
+                  merkleProof:
+                    root: "0x4f855996bf88ffdacabbdd8ac4b56dde9ff5ef48e80ff91c149b0ae560af8f54"
+                    leaf: "0x50fa016cf737a511e83d8f8f99420aa1234567890abcdef"
+                    siblings: ["0x7e25e38a34daf68780556839d53cfdc5"]
+                    pathIndices: [0, 1, 0, 1]
+                  latencyMs: 23.4
+                  cacheHit: false
+                meta:
+                  requestId: "req_abc123def456"
+                  latencyMs: 23.4
+                  cached: false
+                  version: "v1"
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "INVALID_PARAMETERS"
+                  message: "Invalid request parameters"
+                  details:
+                    fieldErrors:
+                      lat: ["Latitude must be >= -90"]
+                meta:
+                  requestId: "req_abc123def456"
+                  latencyMs: 2.1
+                  cached: false
+                  version: "v1"
+        '404':
+          description: District not found at coordinates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "DISTRICT_NOT_FOUND"
+                  message: "No district found at coordinates"
+                  details:
+                    lat: 39.7392
+                    lng: -104.9903
+                meta:
+                  requestId: "req_abc123def456"
+                  latencyMs: 18.7
+                  cached: false
+                  version: "v1"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "RATE_LIMIT_EXCEEDED"
+                  message: "Rate limit exceeded. Please try again later."
+                  details:
+                    limit: 1000
+                    remaining: 0
+                    resetAt: "2025-12-19T00:00:00Z"
+                meta:
+                  requestId: "req_abc123def456"
+                  latencyMs: 1.2
+                  cached: false
+                  version: "v1"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /districts/{id}:
+    get:
+      summary: Get district by ID
+      description: |
+        Direct district lookup by ID with Merkle proof.
+
+        Faster than coordinate lookup (no geocoding or point-in-polygon).
+        Use when district ID is already known.
+
+      operationId: getDistrictById
+      tags:
+        - Lookup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: District ID (e.g., "5501" for Wisconsin CD-1)
+          schema:
+            type: string
+            minLength: 1
+          example: "5501"
+      responses:
+        '200':
+          description: District found successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistrictByIdResponse'
+        '404':
+          description: District not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Health check with comprehensive metrics
+      description: |
+        Returns API health status with detailed metrics:
+        - Query performance (latency percentiles, throughput)
+        - Cache performance (hit rate, evictions)
+        - Snapshot status (age, next sync)
+        - Error rates (5m, 1h, 24h windows)
+
+        Use for monitoring and alerting.
+
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Health metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /snapshot:
+    get:
+      summary: Get current snapshot metadata
+      description: |
+        Returns metadata for current IPFS snapshot:
+        - IPFS CID (for verification)
+        - Merkle root (cryptographic commitment)
+        - District count
+        - Timestamp
+        - Coverage (countries, states)
+
+        Clients use this to verify Merkle proofs against published IPFS snapshot.
+
+      operationId: getCurrentSnapshot
+      tags:
+        - Snapshots
+      responses:
+        '200':
+          description: Current snapshot metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotResponse'
+
+  /snapshots:
+    get:
+      summary: List all available snapshots
+      description: |
+        Returns list of all quarterly snapshots:
+        - Historical snapshots (immutable IPFS archive)
+        - Current snapshot
+        - Upcoming snapshot schedule
+
+        Use for audit trail and time-travel queries.
+
+      operationId: listSnapshots
+      tags:
+        - Snapshots
+      responses:
+        '200':
+          description: List of snapshots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotsListResponse'
+
+components:
+  schemas:
+    LookupResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [district, merkleProof, latencyMs, cacheHit]
+          properties:
+            district:
+              $ref: '#/components/schemas/District'
+            merkleProof:
+              $ref: '#/components/schemas/MerkleProof'
+            latencyMs:
+              type: number
+              format: double
+              description: Lookup latency in milliseconds
+            cacheHit:
+              type: boolean
+              description: Whether result was served from cache
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    DistrictByIdResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [districtId, merkleProof]
+          properties:
+            districtId:
+              type: string
+            merkleProof:
+              $ref: '#/components/schemas/MerkleProof'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    HealthResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [status, uptime, queries, cache, snapshot, errors, timestamp]
+          properties:
+            status:
+              type: string
+              enum: [healthy, degraded, unhealthy]
+            uptime:
+              type: number
+              description: Server uptime in seconds
+            queries:
+              $ref: '#/components/schemas/QueryMetrics'
+            cache:
+              $ref: '#/components/schemas/CacheMetrics'
+            snapshot:
+              $ref: '#/components/schemas/SnapshotMetrics'
+            errors:
+              $ref: '#/components/schemas/ErrorMetrics'
+            timestamp:
+              type: number
+              description: Unix timestamp
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    SnapshotResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [snapshotId, ipfsCID, merkleRoot, timestamp, districtCount, version, coverage]
+          properties:
+            snapshotId:
+              type: string
+              example: "shadow-atlas-2025-Q1"
+            ipfsCID:
+              type: string
+              example: "QmXyz789..."
+            merkleRoot:
+              type: string
+              example: "0x4f855996bf88ffdacabbdd8ac4b56dde..."
+            timestamp:
+              type: string
+              format: date-time
+            districtCount:
+              type: integer
+            version:
+              type: string
+              example: "1.0.0"
+            coverage:
+              type: object
+              properties:
+                countries:
+                  type: array
+                  items:
+                    type: string
+                states:
+                  type: array
+                  items:
+                    type: string
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    SnapshotsListResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            type: object
+            required: [snapshotId, ipfsCID, merkleRoot, timestamp]
+            properties:
+              snapshotId:
+                type: string
+              ipfsCID:
+                type: string
+              merkleRoot:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ErrorResponse:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - INVALID_PARAMETERS
+                - INVALID_COORDINATES
+                - DISTRICT_NOT_FOUND
+                - RATE_LIMIT_EXCEEDED
+                - SNAPSHOT_UNAVAILABLE
+                - UNSUPPORTED_VERSION
+                - NOT_FOUND
+                - INTERNAL_ERROR
+            message:
+              type: string
+            details:
+              type: object
+              description: Additional error context (varies by error type)
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    District:
+      type: object
+      required: [id, name, jurisdiction, districtType, geometry]
+      properties:
+        id:
+          type: string
+          description: Unique district identifier
+          example: "0809"
+        name:
+          type: string
+          description: Human-readable district name
+          example: "Congressional District 9"
+        jurisdiction:
+          type: string
+          description: Full jurisdiction path
+          example: "USA/Colorado/Congressional District 9"
+        districtType:
+          type: string
+          enum: [congressional, state_senate, state_house, county, municipal, council, ward]
+          description: Type of district
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+
+    Geometry:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [Polygon, MultiPolygon]
+        coordinates:
+          oneOf:
+            - type: array
+              items:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: number
+            - type: array
+              items:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+
+    MerkleProof:
+      type: object
+      required: [root, leaf, siblings, pathIndices]
+      properties:
+        root:
+          type: string
+          description: Merkle root (hex string)
+          example: "0x4f855996bf88ffdacabbdd8ac4b56dde9ff5ef48e80ff91c149b0ae560af8f54"
+        leaf:
+          type: string
+          description: Leaf hash (hex string)
+          example: "0x50fa016cf737a511e83d8f8f99420aa1234567890abcdef"
+        siblings:
+          type: array
+          items:
+            type: string
+          description: Sibling hashes for proof path
+        pathIndices:
+          type: array
+          items:
+            type: integer
+            enum: [0, 1]
+          description: Path indices (0 = left, 1 = right)
+
+    ResponseMeta:
+      type: object
+      required: [requestId, latencyMs, cached, version]
+      properties:
+        requestId:
+          type: string
+          description: Unique request identifier
+          example: "req_abc123def456"
+        latencyMs:
+          type: number
+          format: double
+          description: Request latency in milliseconds
+        cached:
+          type: boolean
+          description: Whether response was served from cache
+        version:
+          type: string
+          description: API version
+          example: "v1"
+
+    QueryMetrics:
+      type: object
+      required: [total, successful, failed, latencyP50, latencyP95, latencyP99, throughput]
+      properties:
+        total:
+          type: integer
+          description: Total queries processed
+        successful:
+          type: integer
+          description: Successful queries
+        failed:
+          type: integer
+          description: Failed queries
+        latencyP50:
+          type: number
+          description: 50th percentile latency (ms)
+        latencyP95:
+          type: number
+          description: 95th percentile latency (ms)
+        latencyP99:
+          type: number
+          description: 99th percentile latency (ms)
+        throughput:
+          type: number
+          description: Queries per second
+
+    CacheMetrics:
+      type: object
+      required: [size, hits, misses, hitRate, evictions]
+      properties:
+        size:
+          type: integer
+          description: Current cache size
+        hits:
+          type: integer
+          description: Cache hits
+        misses:
+          type: integer
+          description: Cache misses
+        hitRate:
+          type: number
+          description: Hit rate (0-1)
+        evictions:
+          type: integer
+          description: Cache evictions
+
+    SnapshotMetrics:
+      type: object
+      required: [currentCid, merkleRoot, districtCount, ageSeconds, nextCheckSeconds]
+      properties:
+        currentCid:
+          type: string
+          description: Current IPFS CID
+        merkleRoot:
+          type: string
+          description: Current Merkle root
+        districtCount:
+          type: integer
+          description: Total districts in snapshot
+        ageSeconds:
+          type: number
+          description: Snapshot age in seconds
+        nextCheckSeconds:
+          type: number
+          description: Seconds until next sync check
+
+    ErrorMetrics:
+      type: object
+      required: [last5m, last1h, last24h, recentErrors]
+      properties:
+        last5m:
+          type: integer
+          description: Errors in last 5 minutes
+        last1h:
+          type: integer
+          description: Errors in last hour
+        last24h:
+          type: integer
+          description: Errors in last 24 hours
+        recentErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: number
+              error:
+                type: string
+              lat:
+                type: number
+              lon:
+                type: number
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Premium tier API key authentication.
+
+        Contact api@voter-protocol.org for premium API keys.
+
+security: []

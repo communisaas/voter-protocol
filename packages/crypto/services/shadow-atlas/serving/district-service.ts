@@ -12,10 +12,11 @@
  * PERFORMANCE CRITICAL: This is the user-facing API. Zero tolerance for bugs.
  */
 
-import * as Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import * as turf from '@turf/turf';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
-import type { DistrictBoundary, GeoJSONPolygon, ProvenanceMetadata } from './types';
+import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from './types';
+import type { ProvenanceMetadata } from '../core/types.js';
 
 /**
  * Cache entry with TTL
@@ -178,13 +179,23 @@ export class DistrictLookupService {
         const polygon = this.turfPolygon(geometry);
 
         if (turf.booleanPointInPolygon(point, polygon)) {
+          const fullProvenance = JSON.parse(row.provenance) as ProvenanceMetadata;
+          // Extract only serving-level provenance fields (minimal subset for API responses)
+          const servingProvenance: ServingProvenanceMetadata = {
+            source: fullProvenance.source,
+            authority: fullProvenance.authority,
+            timestamp: fullProvenance.timestamp,
+            method: fullProvenance.method,
+            responseHash: fullProvenance.responseHash,
+            legalBasis: fullProvenance.legalBasis,
+          };
           return {
             id: row.id,
             name: row.name,
             jurisdiction: row.jurisdiction,
             districtType: this.normalizeDistrictType(row.district_type),
             geometry: geometry,
-            provenance: JSON.parse(row.provenance) as ProvenanceMetadata,
+            provenance: servingProvenance,
           };
         }
       } catch (error) {

@@ -47,6 +47,63 @@ describe('TIGERValidator', () => {
       expect(result.summary).toContain('✅ Complete');
     });
 
+    it('should validate unified school district GEOID format', () => {
+      // California unified school districts (CA has 1037 unified districts)
+      // Create a subset for testing
+      const boundaries: NormalizedBoundary[] = [
+        {
+          geoid: '0600001', // Valid 7-digit GEOID (SSLLLLL)
+          name: 'Test Unified School District',
+          geometry: createValidPolygon(),
+          properties: {},
+        },
+      ];
+
+      const result = validator.validateCompleteness('unsd', boundaries, '06');
+
+      // Will fail completeness count (1 vs 1037) but GEOID format should be valid
+      expect(result.valid).toBe(false); // Incomplete count
+      expect(result.summary).toContain('Incomplete'); // Wrong count, not GEOID format
+      expect(result.actual).toBe(1);
+      expect(result.expected).toBe(1037);
+    });
+
+    it('should reject invalid school district GEOID format', () => {
+      // Invalid GEOID (too short)
+      const boundaries: NormalizedBoundary[] = [
+        {
+          geoid: '06001', // Invalid - only 5 digits instead of 7
+          name: 'Invalid School District',
+          geometry: createValidPolygon(),
+          properties: {},
+        },
+      ];
+
+      const result = validator.validateCompleteness('elsd', boundaries, '06');
+
+      expect(result.valid).toBe(false);
+      expect(result.summary).toContain('❌');
+      expect(result.summary).toContain('invalid GEOID'); // Note: lowercase "invalid"
+    });
+
+    it('should reject school district GEOID with invalid state FIPS', () => {
+      // Invalid state FIPS (99 doesn't exist)
+      const boundaries: NormalizedBoundary[] = [
+        {
+          geoid: '9900001', // Invalid state FIPS
+          name: 'Invalid State School District',
+          geometry: createValidPolygon(),
+          properties: {},
+        },
+      ];
+
+      const result = validator.validateCompleteness('scsd', boundaries, '06');
+
+      expect(result.valid).toBe(false);
+      expect(result.summary).toContain('❌');
+      expect(result.summary).toContain('invalid GEOID'); // Note: lowercase "invalid"
+    });
+
     it('should detect when 1 CD is missing', () => {
       // California has 52 CDs, provide only 51
       const boundaries: NormalizedBoundary[] = Array.from({ length: 51 }, (_, i) => ({
@@ -584,6 +641,29 @@ describe('TIGERValidator', () => {
       expect(result.topology.valid).toBe(true);
       expect(result.coordinates.valid).toBe(true);
       expect(result.summary).toContain('Quality Score 100');
+    });
+
+    it('should validate school district data with correct GEOID format', () => {
+      // Test unified school district
+      const boundaries: NormalizedBoundary[] = [
+        {
+          geoid: '0600001',
+          name: 'California Test Unified School District',
+          geometry: createValidPolygon(),
+          properties: {
+            GEOID: '0600001',
+            NAME: 'California Test Unified School District',
+            STATEFP: '06',
+            UNSDLEA: '00001',
+          },
+        },
+      ];
+
+      const result = validator.validate('unsd', boundaries);
+
+      expect(result.topology.valid).toBe(true);
+      expect(result.coordinates.valid).toBe(true);
+      expect(result.layer).toBe('unsd');
     });
 
     it('should provide detailed summary for validation failures', () => {

@@ -331,4 +331,43 @@ describe('GISServerDiscovery', () => {
       expect(Array.isArray(services)).toBe(true);
     }, 30000);
   });
+
+  describe('State Endpoint Discovery', () => {
+    networkTest('should discover state legislative endpoints', async () => {
+      const discovery = new GISServerDiscovery();
+
+      // Test with a known state portal
+      const portalUrl = 'https://www.portlandmaps.com';
+      const layers = await discovery.discoverStateEndpoints(portalUrl, 'arcgis');
+
+      expect(Array.isArray(layers)).toBe(true);
+
+      // If layers found, verify they have legislative keywords
+      if (layers.length > 0) {
+        const hasLegislativeKeyword = layers.some(layer => {
+          const nameLower = layer.name.toLowerCase();
+          return (
+            nameLower.includes('congress') ||
+            nameLower.includes('senate') ||
+            nameLower.includes('house') ||
+            nameLower.includes('legislative') ||
+            nameLower.includes('district')
+          );
+        });
+
+        expect(hasLegislativeKeyword).toBe(true);
+      }
+    }, 30000);
+
+    networkTest('should return empty array for invalid portal', async () => {
+      const discovery = new GISServerDiscovery();
+
+      const layers = await discovery.discoverStateEndpoints(
+        'https://invalid-portal-url.com',
+        'arcgis'
+      );
+
+      expect(layers).toEqual([]);
+    }, 10000);
+  });
 });

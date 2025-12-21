@@ -7,8 +7,21 @@
 
 import type { MerkleProof } from '../merkle-tree';
 
+// ============================================================================
+// Re-export Provenance Types from Core (Single Source of Truth)
+// ============================================================================
+
+export type {
+  BaseProvenanceMetadata,
+  ServingProvenanceMetadata,
+  ServingProvenanceMetadata as ProvenanceMetadata,
+} from '../core/types.js';
+
+import type { ServingProvenanceMetadata } from '../core/types.js';
+
 /**
  * District boundary result from lookup
+ * Uses ServingProvenanceMetadata (minimal subset for API responses)
  */
 export interface DistrictBoundary {
   readonly id: string;
@@ -16,7 +29,7 @@ export interface DistrictBoundary {
   readonly jurisdiction: string;
   readonly districtType: 'council' | 'ward' | 'municipal';
   readonly geometry: GeoJSONPolygon;
-  readonly provenance: ProvenanceMetadata;
+  readonly provenance: ServingProvenanceMetadata;
 }
 
 /**
@@ -25,18 +38,6 @@ export interface DistrictBoundary {
 export interface GeoJSONPolygon {
   readonly type: 'Polygon' | 'MultiPolygon';
   readonly coordinates: readonly number[][][] | readonly number[][][][];
-}
-
-/**
- * Provenance metadata for audit trail
- */
-export interface ProvenanceMetadata {
-  readonly source: string;
-  readonly authority: 'state-gis' | 'federal' | 'municipal' | 'community';
-  readonly timestamp: number;
-  readonly method: string;
-  readonly responseHash: string;
-  readonly legalBasis?: string;
 }
 
 /**

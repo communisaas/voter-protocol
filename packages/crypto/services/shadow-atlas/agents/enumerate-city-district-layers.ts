@@ -236,7 +236,7 @@ async function fetchLayerMetadata(
       layer_name: data.name || 'Unnamed',
       geometry_type: data.geometryType,
       feature_count: data.count || 0,
-      fields: (data.fields || []).map((f: any) => f.name)
+      fields: (data.fields || []).map((f: { name: string }) => f.name)
     };
   } catch {
     return null;

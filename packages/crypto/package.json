@@ -8,6 +8,14 @@
     "build": "tsc",
     "test": "vitest",
     "test:watch": "vitest watch",
+    "test:atlas": "vitest run --config vitest.shadow-atlas.config.ts",
+    "test:atlas:unit": "vitest run --config vitest.unit.config.ts",
+    "test:atlas:integration": "RUN_INTEGRATION=true vitest run --config vitest.integration.config.ts",
+    "test:atlas:e2e": "RUN_E2E=true vitest run --config vitest.e2e.config.ts",
+    "test:atlas:performance": "vitest run --config vitest.performance.config.ts",
+    "test:atlas:nightly": "RUN_E2E=true RUN_INTEGRATION=true vitest run --config vitest.shadow-atlas.config.ts",
+    "test:atlas:watch": "vitest watch --config vitest.shadow-atlas.config.ts",
+    "test:atlas:coverage": "vitest run --config vitest.unit.config.ts --coverage",
     "shadow-atlas:merge-worker": "tsx services/shadow-atlas/scripts/merge-staging-worker.ts",
     "shadow-atlas:merge-once": "tsx -e \"import {mergeStagingToShards} from './services/shadow-atlas/scripts/merge-staging-worker.js'; await mergeStagingToShards();\"",
     "atlas:discover-batch": "tsx services/shadow-atlas/scripts/batch-discover.ts",
@@ -43,10 +51,12 @@
     "@turf/turf": "^7.2.0",
     "better-sqlite3": "^11.10.0",
     "circomlibjs": "^0.1.7",
-    "pako": "^2.1.0"
+    "pako": "^2.1.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@aztec/bb.js": "^2.1.8",
+    "@noir-lang/noir_js": "^1.0.0-beta.16",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^24.3.2",
     "@types/pako": "^2.0.4",

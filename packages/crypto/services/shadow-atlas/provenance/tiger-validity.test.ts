@@ -21,6 +21,10 @@ import {
   getTIGERValidityStatus,
   getExpirationWarning,
   calculateConfidenceDecay,
+  validateGEOID,
+  validateStateExtractedSource,
+  isStateFresherThanTIGER,
+  getAuthorityPrecedence,
 } from './tiger-validity.js';
 
 describe('TIGERValidity', () => {
@@ -492,6 +496,401 @@ describe('TIGERValidity', () => {
 
       expect(gapStart).toBe(true);
       expect(gapEnd).toBe(false);
+    });
+  });
+});
+
+describe('State Extraction Validation', () => {
+  describe('validateGEOID', () => {
+    it('should validate congressional district GEOIDs', () => {
+      // Valid formats
+      expect(validateGEOID('5501', 'congressional').isValid).toBe(true);
+      expect(validateGEOID('5508', 'congressional').isValid).toBe(true);
+      expect(validateGEOID('55AL', 'congressional').isValid).toBe(true); // At-large
+
+      // Invalid formats
+      expect(validateGEOID('555', 'congressional').isValid).toBe(false);
+      expect(validateGEOID('XXXX', 'congressional').isValid).toBe(false);
+      expect(validateGEOID('5501X', 'congressional').isValid).toBe(false);
+    });
+
+    it('should validate state senate GEOIDs', () => {
+      // Valid format: SSSLLL (6 digits)
+      expect(validateGEOID('550101', 'state_senate').isValid).toBe(true);
+      expect(validateGEOID('550133', 'state_senate').isValid).toBe(true);
+
+      // Invalid formats
+      expect(validateGEOID('5501', 'state_senate').isValid).toBe(false);
+      expect(validateGEOID('55010A', 'state_senate').isValid).toBe(false);
+      expect(validateGEOID('5501011', 'state_senate').isValid).toBe(false);
+    });
+
+    it('should validate state house GEOIDs', () => {
+      // Valid format: SSSLLL (6 digits)
+      expect(validateGEOID('550201', 'state_house').isValid).toBe(true);
+      expect(validateGEOID('550299', 'state_house').isValid).toBe(true);
+
+      // Invalid formats
+      expect(validateGEOID('5502', 'state_house').isValid).toBe(false);
+      expect(validateGEOID('55020X', 'state_house').isValid).toBe(false);
+    });
+
+    it('should validate county GEOIDs', () => {
+      // Valid format: SSCCC (5 digits)
+      expect(validateGEOID('55025', 'county').isValid).toBe(true);
+      expect(validateGEOID('55079', 'county').isValid).toBe(true);
+
+      // Invalid formats
+      expect(validateGEOID('550', 'county').isValid).toBe(false);
+      expect(validateGEOID('5502A', 'county').isValid).toBe(false);
+      expect(validateGEOID('550255', 'county').isValid).toBe(false);
+    });
+
+    it('should return error message for invalid GEOIDs', () => {
+      const result = validateGEOID('XXX', 'congressional');
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('does not match expected pattern');
+      expect(result.format).toBe('XXX');
+    });
+
+    it('should handle unknown boundary types', () => {
+      const result = validateGEOID('5501', 'unknown_type' as any);
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('No GEOID pattern defined');
+    });
+  });
+
+  describe('validateStateExtractedSource', () => {
+    const validSource = {
+      state: 'WI',
+      portalName: 'Wisconsin LTSB',
+      endpoint: 'https://gis-ltsb.wi.gov/arcgis/rest/services',
+      authority: 'state-redistricting-commission' as const,
+      vintage: 2022,
+      retrievedAt: '2024-01-15T10:00:00Z',
+    };
+
+    it('should validate complete valid source', () => {
+      const result = validateStateExtractedSource(
+        validSource,
+        'congressional',
+        '5501',
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.confidence).toBe(1.0);
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.recommendation).toBe('accept');
+    });
+
+    it('should reject source with missing required fields', () => {
+      const incompleteSource = {
+        state: '',
+        portalName: 'Test Portal',
+        endpoint: 'https://example.com',
+        authority: 'state-gis' as const,
+        vintage: 2022,
+        retrievedAt: '2024-01-15T10:00:00Z',
+      };
+
+      const result = validateStateExtractedSource(
+        incompleteSource,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.confidence).toBe(0.0);
+      expect(result.errors.some(e => e.includes('Missing required field: state'))).toBe(true);
+      expect(result.recommendation).toBe('reject');
+    });
+
+    it('should reject source with invalid state code', () => {
+      const invalidState = {
+        ...validSource,
+        state: 'Wisconsin',
+      };
+
+      const result = validateStateExtractedSource(
+        invalidState,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('Invalid state code'))).toBe(true);
+    });
+
+    it('should reject source with invalid endpoint URL', () => {
+      const invalidEndpoint = {
+        ...validSource,
+        endpoint: 'not-a-url',
+      };
+
+      const result = validateStateExtractedSource(
+        invalidEndpoint,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('Invalid endpoint URL'))).toBe(true);
+    });
+
+    it('should reject source with invalid authority level', () => {
+      const invalidAuthority = {
+        ...validSource,
+        authority: 'invalid-authority' as any,
+      };
+
+      const result = validateStateExtractedSource(
+        invalidAuthority,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('Invalid authority level'))).toBe(true);
+    });
+
+    it('should reject source with invalid vintage', () => {
+      const invalidVintage = {
+        ...validSource,
+        vintage: 1999, // Too old
+      };
+
+      const result = validateStateExtractedSource(
+        invalidVintage,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('Vintage out of reasonable range'))).toBe(true);
+    });
+
+    it('should warn for pre-redistricting vintage on legislative boundaries', () => {
+      const oldVintage = {
+        ...validSource,
+        vintage: 2020, // Pre-redistricting
+      };
+
+      const result = validateStateExtractedSource(
+        oldVintage,
+        'congressional',
+        undefined,
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.confidence).toBe(0.7);
+      expect(result.warnings.some(w => w.includes('pre-redistricting'))).toBe(true);
+      expect(result.recommendation).toBe('review');
+    });
+
+    it('should warn for outdated vintage during redistricting gap', () => {
+      const oldVintage = {
+        ...validSource,
+        vintage: 2020,
+      };
+
+      const result = validateStateExtractedSource(
+        oldVintage,
+        'congressional',
+        undefined,
+        new Date('2032-03-15T10:00:00Z') // Future redistricting gap
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings.some(w => w.includes('may be outdated during redistricting gap'))).toBe(true);
+    });
+
+    it('should reject source with future retrievedAt timestamp', () => {
+      const futureRetrieval = {
+        ...validSource,
+        retrievedAt: '2025-12-31T10:00:00Z',
+      };
+
+      const result = validateStateExtractedSource(
+        futureRetrieval,
+        'congressional',
+        undefined,
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('retrievedAt is in the future'))).toBe(true);
+    });
+
+    it('should warn for stale data (>180 days old)', () => {
+      const staleData = {
+        ...validSource,
+        retrievedAt: '2023-01-01T10:00:00Z',
+      };
+
+      const result = validateStateExtractedSource(
+        staleData,
+        'congressional',
+        undefined,
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.confidence).toBe(0.7);
+      expect(result.warnings.some(w => w.includes('days old'))).toBe(true);
+      expect(result.recommendation).toBe('review');
+    });
+
+    it('should reject source with invalid retrievedAt format', () => {
+      const invalidTimestamp = {
+        ...validSource,
+        retrievedAt: 'not-a-date',
+      };
+
+      const result = validateStateExtractedSource(
+        invalidTimestamp,
+        'congressional'
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('Invalid retrievedAt timestamp'))).toBe(true);
+    });
+
+    it('should validate GEOID when provided', () => {
+      const result = validateStateExtractedSource(
+        validSource,
+        'congressional',
+        'INVALID',
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(e => e.includes('does not match expected pattern'))).toBe(true);
+    });
+
+    it('should not warn for county boundaries with old vintage', () => {
+      const oldVintage = {
+        ...validSource,
+        vintage: 2020,
+      };
+
+      const result = validateStateExtractedSource(
+        oldVintage,
+        'county',
+        undefined,
+        new Date('2024-01-20T10:00:00Z')
+      );
+
+      // Counties don't get redistricted, so no warning
+      expect(result.isValid).toBe(true);
+      expect(result.confidence).toBe(1.0);
+      expect(result.warnings).toHaveLength(0);
+    });
+  });
+
+  describe('isStateFresherThanTIGER', () => {
+    const stateSource = {
+      state: 'WI',
+      portalName: 'Wisconsin LTSB',
+      endpoint: 'https://gis-ltsb.wi.gov/arcgis/rest/services',
+      authority: 'state-redistricting-commission' as const,
+      vintage: 2022,
+      retrievedAt: '2022-03-15T10:00:00Z',
+    };
+
+    it('should prefer state redistricting commission during gap', () => {
+      const result = isStateFresherThanTIGER(
+        stateSource,
+        'congressional',
+        2021,
+        new Date('2022-03-15T10:00:00Z')
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should prefer state GIS with newer vintage during gap', () => {
+      const stateGIS = {
+        ...stateSource,
+        authority: 'state-gis' as const,
+      };
+
+      const result = isStateFresherThanTIGER(
+        stateGIS,
+        'congressional',
+        2021,
+        new Date('2022-03-15T10:00:00Z')
+      );
+
+      expect(result).toBe(true); // vintage 2022 > TIGER 2021
+    });
+
+    it('should not prefer state GIS with same vintage during gap', () => {
+      const stateGIS = {
+        ...stateSource,
+        authority: 'state-gis' as const,
+        vintage: 2021,
+      };
+
+      const result = isStateFresherThanTIGER(
+        stateGIS,
+        'congressional',
+        2021,
+        new Date('2022-03-15T10:00:00Z')
+      );
+
+      expect(result).toBe(false); // vintage 2021 = TIGER 2021
+    });
+
+    it('should prefer state source with significantly newer vintage outside gap', () => {
+      const result = isStateFresherThanTIGER(
+        { ...stateSource, vintage: 2024 },
+        'congressional',
+        2022,
+        new Date('2024-09-15T10:00:00Z')
+      );
+
+      expect(result).toBe(true); // vintage 2024 > TIGER 2022 + 1
+    });
+
+    it('should not prefer state for county boundaries', () => {
+      const result = isStateFresherThanTIGER(
+        stateSource,
+        'county',
+        2021,
+        new Date('2022-03-15T10:00:00Z')
+      );
+
+      expect(result).toBe(false); // Counties: TIGER is authoritative
+    });
+
+    it('should not prefer state outside gap with similar vintage', () => {
+      const result = isStateFresherThanTIGER(
+        { ...stateSource, vintage: 2023 },
+        'congressional',
+        2022,
+        new Date('2024-09-15T10:00:00Z')
+      );
+
+      expect(result).toBe(false); // vintage 2023 <= TIGER 2022 + 1
+    });
+  });
+
+  describe('getAuthorityPrecedence', () => {
+    it('should return correct precedence scores', () => {
+      expect(getAuthorityPrecedence('state-redistricting-commission')).toBe(5);
+      expect(getAuthorityPrecedence('census-tiger')).toBe(5);
+      expect(getAuthorityPrecedence('state-gis')).toBe(4);
+    });
+
+    it('should return 0 for unknown authority', () => {
+      expect(getAuthorityPrecedence('unknown' as any)).toBe(0);
+    });
+
+    it('should reflect equal authority for redistricting commissions and TIGER', () => {
+      const commissionScore = getAuthorityPrecedence('state-redistricting-commission');
+      const tigerScore = getAuthorityPrecedence('census-tiger');
+
+      expect(commissionScore).toBe(tigerScore);
     });
   });
 });

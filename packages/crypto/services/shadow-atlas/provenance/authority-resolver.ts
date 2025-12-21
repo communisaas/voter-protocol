@@ -424,3 +424,248 @@ export function compareSources(
   // Lower preference number = higher priority
   return prec1.preference - prec2.preference;
 }
+
+// ============================================================================
+// State Batch Extractor Integration
+// ============================================================================
+
+/**
+ * Boundary with state batch metadata (from state-batch-extractor.ts)
+ *
+ * This interface matches the ExtractedBoundary type from state batch extraction,
+ * allowing seamless integration with the authority resolver.
+ */
+export interface StateBatchBoundary {
+  /** Unique identifier (GEOID format) */
+  readonly id: string;
+
+  /** Human-readable name */
+  readonly name: string;
+
+  /** District/boundary type */
+  readonly layerType: 'congressional' | 'state_senate' | 'state_house' | 'county';
+
+  /** GeoJSON geometry */
+  readonly geometry: unknown;
+
+  /** Source metadata */
+  readonly source: {
+    readonly state: string;
+    readonly portalName: string;
+    readonly endpoint: string;
+    readonly authority: 'state-redistricting-commission' | 'state-gis';
+    readonly vintage: number;
+    readonly retrievedAt: string;
+  };
+
+  /** Original properties from source */
+  readonly properties: Record<string, unknown>;
+}
+
+/**
+ * Convert state batch boundary to authority resolver format
+ *
+ * Maps state batch extractor output to BoundaryWithSource for authority resolution.
+ * The key mapping is authority level -> source provider:
+ * - 'state-redistricting-commission' -> 'state-redistricting-commission'
+ * - 'state-gis' -> 'state-gis'
+ *
+ * @param boundary - Extracted boundary from state batch processing
+ * @returns Boundary formatted for authority resolution
+ *
+ * @example
+ * ```typescript
+ * const extracted = await extractor.extractLayer('WI', 'congressional');
+ * const boundaries = extracted.boundaries.map(convertStateBatchBoundary);
+ * const resolved = resolveAuthorityConflict(boundaries);
+ * ```
+ */
+export function convertStateBatchBoundary(
+  boundary: StateBatchBoundary
+): BoundaryWithSource {
+  // Map layerType to TIGERBoundaryType
+  const boundaryType: TIGERBoundaryType = boundary.layerType;
+
+  // Map authority level to source provider
+  // Both use the same string values, so direct mapping works
+  const provider: SourceProvider = boundary.source.authority;
+
+  // Parse vintage year to approximate release date
+  // State sources typically release in Jan-Jun of redistricting years
+  // For conservative freshness scoring, use January of vintage year
+  const releaseDate = new Date(`${boundary.source.vintage}-01-15`);
+
+  return {
+    boundaryType,
+    provider,
+    releaseDate,
+    geometry: boundary.geometry,
+    properties: {
+      ...boundary.properties,
+      id: boundary.id,
+      name: boundary.name,
+      state: boundary.source.state,
+      portalName: boundary.source.portalName,
+      endpoint: boundary.source.endpoint,
+      retrievedAt: boundary.source.retrievedAt,
+    },
+  };
+}
+
+/**
+ * Resolve authority conflict for state batch boundaries
+ *
+ * Convenience wrapper that converts state batch boundaries to resolver format,
+ * performs conflict resolution, and returns the winning source.
+ *
+ * This is the primary integration point for state batch extraction:
+ * 1. Extracts boundaries from state portals (state-batch-extractor.ts)
+ * 2. Converts to authority resolver format (this function)
+ * 3. Resolves conflicts using authority hierarchy (tiger-authority-rules.ts)
+ * 4. Returns the most authoritative source
+ *
+ * @param boundaries - Extracted boundaries from state batch processing
+ * @param asOf - Date for freshness evaluation (defaults to now)
+ * @returns Resolved source with reasoning
+ *
+ * @example
+ * ```typescript
+ * // Extract boundaries from multiple state sources
+ * const wiResults = await extractStateBoundaries('WI');
+ * const congressional = wiResults.layers.find(l => l.layerType === 'congressional');
+ *
+ * // Resolve conflicts (e.g., WI LTSB vs TIGERweb)
+ * const resolved = resolveStateBatchConflict(congressional.boundaries);
+ *
+ * // Use the winning source
+ * console.log(`Using ${resolved.boundary.provider} (authority=${resolved.authority})`);
+ * console.log(resolved.reasoning);
+ * ```
+ */
+export function resolveStateBatchConflict(
+  boundaries: ReadonlyArray<StateBatchBoundary>,
+  asOf: Date = new Date()
+): ResolvedBoundarySource {
+  // Convert state batch format to resolver format
+  const converted = boundaries.map(convertStateBatchBoundary);
+
+  // Use standard conflict resolution
+  return resolveAuthorityConflict(converted, asOf);
+}
+
+/**
+ * Resolve authority conflict between state batch and TIGER sources
+ *
+ * When both state batch extraction and TIGER provide the same boundary,
+ * this function determines which source is more authoritative based on:
+ * 1. Authority level (state-redistricting-commission = TIGER > state-gis)
+ * 2. Preference rank (commission preferred during gaps)
+ * 3. Freshness (newer data wins when authority/preference equal)
+ *
+ * CRITICAL REDISTRICTING SCENARIO:
+ * - Jan-Jun 2022: State commissions finalize new maps
+ * - TIGER still has 2021 data (stale)
+ * - State commission (pref=1, fresh) > TIGER (pref=3, stale)
+ * - Jul 2022+: TIGER updates to 2022
+ * - State commission (pref=1) still > TIGER (pref=3) for same vintage
+ *
+ * @param stateBoundary - Boundary from state batch extraction
+ * @param tigerBoundary - Boundary from TIGER/TIGERweb
+ * @param asOf - Date for freshness evaluation
+ * @returns Resolved source (either state or TIGER)
+ *
+ * @example
+ * ```typescript
+ * // Redistricting gap scenario (Feb 2022)
+ * const stateCommission = await extractLayer('WI', 'congressional'); // Jan 2022 data
+ * const tiger = await fetchTIGERLayer('55', 'congressional'); // Jul 2021 data
+ *
+ * const resolved = resolveStateBatchVsTIGER(
+ *   stateCommission.boundaries[0],
+ *   tiger,
+ *   new Date('2022-02-01')
+ * );
+ *
+ * // Result: State commission wins (higher preference + fresher)
+ * expect(resolved.boundary.provider).toBe('state-redistricting-commission');
+ * ```
+ */
+export function resolveStateBatchVsTIGER(
+  stateBoundary: StateBatchBoundary,
+  tigerBoundary: BoundaryWithSource,
+  asOf: Date = new Date()
+): ResolvedBoundarySource {
+  // Ensure TIGER boundary is actually from TIGER
+  if (tigerBoundary.provider !== 'census-tiger') {
+    throw new Error(
+      `Expected TIGER boundary, got ${tigerBoundary.provider}`
+    );
+  }
+
+  // Ensure boundary types match
+  const stateConverted = convertStateBatchBoundary(stateBoundary);
+  if (stateConverted.boundaryType !== tigerBoundary.boundaryType) {
+    throw new Error(
+      `Boundary type mismatch: state=${stateConverted.boundaryType}, TIGER=${tigerBoundary.boundaryType}`
+    );
+  }
+
+  // Resolve conflict between state and TIGER
+  return resolveAuthorityConflict([stateConverted, tigerBoundary], asOf);
+}
+
+/**
+ * Batch resolve conflicts for all boundaries in a state extraction result
+ *
+ * Processes all layers from a state extraction, resolving conflicts with TIGER
+ * where applicable. Returns a map of layer type -> resolved source.
+ *
+ * @param stateResult - Complete state extraction result
+ * @param tigerBoundaries - Optional TIGER boundaries to compare against
+ * @param asOf - Date for freshness evaluation
+ * @returns Map of layer type -> resolved source
+ *
+ * @example
+ * ```typescript
+ * const wiResults = await extractStateBoundaries('WI');
+ * const tigerResults = await fetchAllTIGERLayers('55');
+ *
+ * const resolved = batchResolveStateSources(wiResults, tigerResults);
+ *
+ * console.log(`Congressional: ${resolved.get('congressional')?.boundary.provider}`);
+ * console.log(`State Senate: ${resolved.get('state_senate')?.boundary.provider}`);
+ * ```
+ */
+export function batchResolveStateSources(
+  stateResult: {
+    readonly layers: ReadonlyArray<{
+      readonly layerType: 'congressional' | 'state_senate' | 'state_house' | 'county';
+      readonly boundaries: ReadonlyArray<StateBatchBoundary>;
+    }>;
+  },
+  tigerBoundaries?: Map<TIGERBoundaryType, ReadonlyArray<BoundaryWithSource>>,
+  asOf: Date = new Date()
+): Map<TIGERBoundaryType, ResolvedBoundarySource> {
+  const results = new Map<TIGERBoundaryType, ResolvedBoundarySource>();
+
+  for (const layer of stateResult.layers) {
+    if (layer.boundaries.length === 0) {
+      continue;
+    }
+
+    // Convert state boundaries to resolver format
+    const converted = layer.boundaries.map(convertStateBatchBoundary);
+
+    // If TIGER data available, include in resolution
+    const tigerForLayer = tigerBoundaries?.get(layer.layerType);
+    const allBoundaries = tigerForLayer
+      ? [...converted, ...tigerForLayer]
+      : converted;
+
+    // Resolve conflict (or use single source if no conflict)
+    const resolved = resolveAuthorityConflict(allBoundaries, asOf);
+    results.set(layer.layerType, resolved);
+  }
+
+  return results;
+}

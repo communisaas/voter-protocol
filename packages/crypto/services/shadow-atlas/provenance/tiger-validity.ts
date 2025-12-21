@@ -19,13 +19,22 @@
  * 3. Grace period: 18 months during redistricting for courts/challenges
  * 4. Expiration warnings: 30 days before validUntil
  *
+ * STATE-EXTRACTED BOUNDARIES:
+ * This module also validates boundaries extracted from state GIS portals.
+ * State-extracted data must include:
+ * - source.authority: Valid authority level (state-redistricting-commission | state-gis)
+ * - source.vintage: GEOID-compatible vintage (>= 2022 for post-redistricting)
+ * - source.retrievedAt: ISO timestamp of extraction
+ * - Proper GEOID format validation
+ *
  * Integration:
  * - Works with validity-window.ts for temporal calculations
  * - Works with gap-detector.ts for redistricting detection
  * - Works with tiger-authority-rules.ts for authority hierarchy
+ * - Validates state-batch-extractor.ts output
  */
 
-import type { TIGERBoundaryType } from './tiger-authority-rules.js';
+import type { TIGERBoundaryType, AuthorityLevel } from './tiger-authority-rules.js';
 
 // ============================================================================
 // Type Definitions
@@ -98,6 +107,53 @@ export interface TIGERValidityStatus {
   readonly showExpirationWarning: boolean;
 }
 
+/**
+ * State authority level types
+ */
+export type StateAuthorityLevel = 'state-redistricting-commission' | 'state-gis';
+
+/**
+ * Source metadata for state-extracted boundaries
+ */
+export interface StateExtractedSource {
+  readonly state: string;
+  readonly portalName: string;
+  readonly endpoint: string;
+  readonly authority: StateAuthorityLevel;
+  readonly vintage: number;
+  readonly retrievedAt: string;
+}
+
+/**
+ * Validation result for state-extracted boundaries
+ */
+export interface StateExtractionValidation {
+  /** Whether the extraction metadata is valid */
+  readonly isValid: boolean;
+
+  /** Confidence in the extraction (0.0-1.0) */
+  readonly confidence: number;
+
+  /** Validation errors (empty if valid) */
+  readonly errors: readonly string[];
+
+  /** Validation warnings (non-fatal issues) */
+  readonly warnings: readonly string[];
+
+  /** Recommended action */
+  readonly recommendation: 'accept' | 'review' | 'reject';
+}
+
+/**
+ * GEOID validation result
+ */
+export interface GEOIDValidation {
+  readonly isValid: boolean;
+  readonly format: string;
+  readonly expectedPattern: string;
+  readonly error?: string;
+}
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -143,6 +199,40 @@ const EXPIRATION_WARNING_DAYS = 30;
  * Grace period duration (months)
  */
 const GRACE_PERIOD_MONTHS = 18;
+
+/**
+ * Minimum vintage for post-redistricting data
+ * After 2020 census redistricting, data must be from 2022 or later
+ */
+const MIN_POST_REDISTRICTING_VINTAGE = 2022;
+
+/**
+ * Maximum age for state-extracted data (days)
+ * Data older than 180 days should trigger warning
+ */
+const MAX_EXTRACTION_AGE_DAYS = 180;
+
+/**
+ * Valid state authority levels
+ */
+const VALID_STATE_AUTHORITIES: ReadonlySet<StateAuthorityLevel> = new Set([
+  'state-redistricting-commission',
+  'state-gis',
+]);
+
+/**
+ * GEOID patterns by boundary type
+ * Congressional: SSCCC (state + 3-digit district)
+ * State Senate: SSSLLL (state + 3-digit chamber + district)
+ * State House: SSSLLL (state + 3-digit chamber + district)
+ * County: SSCCC (state + 3-digit county)
+ */
+const GEOID_PATTERNS: Record<string, RegExp> = {
+  congressional: /^\d{2}[0-9A-Z]{2}$/,  // e.g., 5501, 55AL
+  state_senate: /^\d{6}$/,                // e.g., 550101
+  state_house: /^\d{6}$/,                 // e.g., 550201
+  county: /^\d{5}$/,                      // e.g., 55025
+};
 
 // ============================================================================
 // Core Functions
@@ -513,4 +603,323 @@ export function calculateConfidenceDecay(
 
   const minConfidence = 0.4;
   return 1.0 - (decayProgress * (1.0 - minConfidence));
+}
+
+// ============================================================================
+// State Extraction Validation Functions
+// ============================================================================
+
+/**
+ * Validate GEOID format for a boundary type
+ *
+ * Ensures the GEOID matches expected patterns:
+ * - Congressional: SSCCC (2-digit state + 2-digit/letter district)
+ * - State Senate: SSSLLL (2-digit state + 3-digit chamber + 3-digit district)
+ * - State House: SSSLLL (2-digit state + 3-digit chamber + 3-digit district)
+ * - County: SSCCC (2-digit state + 3-digit county)
+ *
+ * @param geoid - GEOID to validate
+ * @param boundaryType - Type of boundary
+ * @returns Validation result
+ *
+ * @example
+ * ```typescript
+ * validateGEOID('5501', 'congressional'); // Valid
+ * validateGEOID('55AL', 'congressional'); // Valid (at-large)
+ * validateGEOID('550101', 'state_senate'); // Valid
+ * validateGEOID('55025', 'county'); // Valid
+ * validateGEOID('XXX', 'congressional'); // Invalid
+ * ```
+ */
+export function validateGEOID(
+  geoid: string,
+  boundaryType: TIGERBoundaryType
+): GEOIDValidation {
+  const pattern = GEOID_PATTERNS[boundaryType];
+
+  if (!pattern) {
+    return {
+      isValid: false,
+      format: geoid,
+      expectedPattern: 'Unknown pattern for boundary type',
+      error: `No GEOID pattern defined for boundary type: ${boundaryType}`,
+    };
+  }
+
+  const isValid = pattern.test(geoid);
+  const expectedPattern = pattern.source;
+
+  if (!isValid) {
+    return {
+      isValid: false,
+      format: geoid,
+      expectedPattern,
+      error: `GEOID "${geoid}" does not match expected pattern ${expectedPattern} for ${boundaryType}`,
+    };
+  }
+
+  return {
+    isValid: true,
+    format: geoid,
+    expectedPattern,
+  };
+}
+
+/**
+ * Validate state-extracted boundary source metadata
+ *
+ * Performs comprehensive validation on state-extracted boundaries:
+ * 1. Required fields present and non-empty
+ * 2. Authority level is valid
+ * 3. Vintage is appropriate for redistricting cycle
+ * 4. RetrievedAt timestamp is valid and not stale
+ * 5. State code is valid 2-letter uppercase
+ *
+ * @param source - Source metadata from state extraction
+ * @param boundaryType - Type of boundary
+ * @param geoid - GEOID of the boundary (optional, for enhanced validation)
+ * @param asOf - Date to check freshness (defaults to now)
+ * @returns Comprehensive validation result
+ *
+ * @example
+ * ```typescript
+ * const source = {
+ *   state: 'WI',
+ *   portalName: 'Wisconsin LTSB',
+ *   endpoint: 'https://...',
+ *   authority: 'state-redistricting-commission',
+ *   vintage: 2022,
+ *   retrievedAt: '2024-01-15T10:00:00Z',
+ * };
+ *
+ * const result = validateStateExtractedSource(source, 'congressional', '5501');
+ * if (result.isValid) {
+ *   // Use the boundary
+ * }
+ * ```
+ */
+export function validateStateExtractedSource(
+  source: StateExtractedSource,
+  boundaryType: TIGERBoundaryType,
+  geoid?: string,
+  asOf: Date = new Date()
+): StateExtractionValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // 1. Required fields validation
+  if (!source.state || source.state.trim().length === 0) {
+    errors.push('Missing required field: state');
+  } else if (!/^[A-Z]{2}$/.test(source.state)) {
+    errors.push(`Invalid state code: ${source.state} (must be 2-letter uppercase)`);
+  }
+
+  if (!source.portalName || source.portalName.trim().length === 0) {
+    errors.push('Missing required field: portalName');
+  }
+
+  if (!source.endpoint || source.endpoint.trim().length === 0) {
+    errors.push('Missing required field: endpoint');
+  } else {
+    try {
+      new URL(source.endpoint);
+    } catch {
+      errors.push(`Invalid endpoint URL: ${source.endpoint}`);
+    }
+  }
+
+  // 2. Authority level validation
+  if (!source.authority) {
+    errors.push('Missing required field: authority');
+  } else if (!VALID_STATE_AUTHORITIES.has(source.authority)) {
+    errors.push(
+      `Invalid authority level: ${source.authority} (must be one of: ${Array.from(VALID_STATE_AUTHORITIES).join(', ')})`
+    );
+  }
+
+  // 3. Vintage validation
+  if (!source.vintage) {
+    errors.push('Missing required field: vintage');
+  } else if (!Number.isInteger(source.vintage)) {
+    errors.push(`Invalid vintage: ${source.vintage} (must be an integer year)`);
+  } else if (source.vintage < 2000 || source.vintage > 2100) {
+    errors.push(`Vintage out of reasonable range: ${source.vintage} (expected 2000-2100)`);
+  } else {
+    // Check redistricting cycle appropriateness
+    const legislativeBoundaries: TIGERBoundaryType[] = [
+      'congressional',
+      'state_senate',
+      'state_house',
+    ];
+
+    if (legislativeBoundaries.includes(boundaryType)) {
+      if (source.vintage < MIN_POST_REDISTRICTING_VINTAGE) {
+        warnings.push(
+          `Vintage ${source.vintage} is pre-redistricting. Post-2020 census boundaries should be vintage ${MIN_POST_REDISTRICTING_VINTAGE}+`
+        );
+      }
+
+      // Check if we're in a redistricting gap and data might be outdated
+      if (isInRedistrictingGap(asOf)) {
+        const currentYear = asOf.getUTCFullYear();
+        if (source.vintage < currentYear - 1) {
+          warnings.push(
+            `Vintage ${source.vintage} may be outdated during redistricting gap (current: ${currentYear})`
+          );
+        }
+      }
+    }
+  }
+
+  // 4. RetrievedAt timestamp validation
+  if (!source.retrievedAt || source.retrievedAt.trim().length === 0) {
+    errors.push('Missing required field: retrievedAt');
+  } else {
+    try {
+      const retrievedDate = new Date(source.retrievedAt);
+      if (isNaN(retrievedDate.getTime())) {
+        errors.push(`Invalid retrievedAt timestamp: ${source.retrievedAt}`);
+      } else {
+        // Check if data is stale
+        const ageMs = asOf.getTime() - retrievedDate.getTime();
+        const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+        if (ageDays < 0) {
+          errors.push(
+            `retrievedAt is in the future: ${source.retrievedAt} (current: ${formatDate(asOf)})`
+          );
+        } else if (ageDays > MAX_EXTRACTION_AGE_DAYS) {
+          warnings.push(
+            `Data extraction is ${Math.floor(ageDays)} days old (retrieved: ${formatDate(retrievedDate)}). Consider re-extracting if boundary changes are expected.`
+          );
+        }
+      }
+    } catch {
+      errors.push(`Invalid retrievedAt timestamp format: ${source.retrievedAt}`);
+    }
+  }
+
+  // 5. GEOID validation (if provided)
+  if (geoid) {
+    const geoidValidation = validateGEOID(geoid, boundaryType);
+    if (!geoidValidation.isValid) {
+      errors.push(geoidValidation.error ?? 'Invalid GEOID format');
+    }
+  }
+
+  // Calculate confidence and recommendation
+  const hasErrors = errors.length > 0;
+  const hasWarnings = warnings.length > 0;
+
+  let confidence = 1.0;
+  let recommendation: 'accept' | 'review' | 'reject' = 'accept';
+
+  if (hasErrors) {
+    confidence = 0.0;
+    recommendation = 'reject';
+  } else if (hasWarnings) {
+    // Reduce confidence based on warning severity
+    confidence = 0.7;
+    recommendation = 'review';
+  }
+
+  return {
+    isValid: !hasErrors,
+    confidence,
+    errors,
+    warnings,
+    recommendation,
+  };
+}
+
+/**
+ * Check if state-extracted boundary is fresher than TIGER
+ *
+ * During redistricting gaps, state sources may have newer data than TIGER.
+ * This function determines whether to prefer state data over TIGER based on:
+ * 1. Redistricting gap period detection
+ * 2. Source authority level comparison
+ * 3. Vintage comparison
+ *
+ * @param source - State-extracted source metadata
+ * @param boundaryType - Type of boundary
+ * @param tigerYear - TIGER release year to compare against
+ * @param asOf - Date to check (defaults to now)
+ * @returns True if state source should be preferred over TIGER
+ *
+ * @example
+ * ```typescript
+ * // During redistricting gap (Jan-Jun 2022)
+ * const source = {
+ *   state: 'WI',
+ *   authority: 'state-redistricting-commission',
+ *   vintage: 2022,
+ *   retrievedAt: '2022-03-15T10:00:00Z',
+ *   // ... other fields
+ * };
+ *
+ * isStateFresherThanTIGER(source, 'congressional', 2021, new Date('2022-03-15'));
+ * // Returns true - state has 2022 redistricted data, TIGER 2021 is outdated
+ * ```
+ */
+export function isStateFresherThanTIGER(
+  source: StateExtractedSource,
+  boundaryType: TIGERBoundaryType,
+  tigerYear: number,
+  asOf: Date = new Date()
+): boolean {
+  // Only applies to legislative boundaries
+  const legislativeBoundaries: TIGERBoundaryType[] = [
+    'congressional',
+    'state_senate',
+    'state_house',
+  ];
+
+  if (!legislativeBoundaries.includes(boundaryType)) {
+    return false; // For non-legislative boundaries, TIGER is authoritative
+  }
+
+  // Check if we're in redistricting gap
+  const inGap = isInRedistrictingGap(asOf);
+
+  if (inGap) {
+    // During gap, prefer state redistricting commissions
+    if (source.authority === 'state-redistricting-commission') {
+      return true;
+    }
+
+    // State GIS preferred if vintage is newer than TIGER year
+    if (source.authority === 'state-gis' && source.vintage > tigerYear) {
+      return true;
+    }
+  }
+
+  // Outside gap, check if state source vintage is significantly newer
+  // (indicating TIGER hasn't incorporated latest changes)
+  if (source.vintage > tigerYear + 1) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get authority precedence score for comparison
+ *
+ * Maps authority levels to numeric scores for precedence comparison.
+ * Higher score = higher authority.
+ *
+ * @param authority - Authority level
+ * @returns Numeric precedence score (0-5)
+ */
+export function getAuthorityPrecedence(
+  authority: StateAuthorityLevel | 'census-tiger'
+): number {
+  const precedenceMap: Record<string, number> = {
+    'state-redistricting-commission': 5, // Federal mandate (draws official maps)
+    'census-tiger': 5,                   // Federal mandate
+    'state-gis': 4,                      // State mandate
+  };
+
+  return precedenceMap[authority] ?? 0;
 }

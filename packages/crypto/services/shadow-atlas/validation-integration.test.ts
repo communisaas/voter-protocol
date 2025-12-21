@@ -10,8 +10,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { PostDownloadValidator } from './acquisition/post-download-validator.js';
-import { SemanticLayerValidator } from './validators/semantic-layer-validator.js';
-import { EnhancedGeographicValidator } from './validators/enhanced-geographic-validator.js';
+import { SemanticValidator as SemanticLayerValidator, GeographicValidator as EnhancedGeographicValidator } from './validators/index.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { FeatureCollection } from 'geojson';

@@ -33,6 +33,7 @@ import type {
   BBox,
 } from '../types/boundary.js';
 import { BoundaryType as BT, extractBBox } from '../types/boundary.js';
+import { getStateNameFromFips } from '../core/types.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
 import type { ProvenanceRecord } from '../provenance-writer.js';
 
@@ -66,9 +67,14 @@ interface TigerLayerConfig {
 }
 
 /**
- * TIGER layer configurations
+ * TIGERweb REST API layer configurations
+ *
+ * Used for real-time point-in-polygon queries via Census TIGERweb REST API.
+ * These layer IDs correspond to MapServer endpoints for individual spatial queries.
+ *
+ * For bulk FTP downloads, see TIGER_FTP_LAYERS in tiger-boundary-provider.ts
  */
-const TIGER_LAYERS: Record<string, TigerLayerConfig> = {
+const TIGERWEB_LAYER_CONFIG: Record<string, TigerLayerConfig> = {
   // Places (incorporated + CDPs)
   places: {
     layerName: 'Census Places',
@@ -128,6 +134,36 @@ const TIGER_LAYERS: Record<string, TigerLayerConfig> = {
     fipsField: 'GEOID',
     nameField: 'NAMELSAD',
   },
+
+  // School Districts (Unified K-12)
+  unifiedSchool: {
+    layerName: 'Unified School Districts',
+    tigerwebService: 'tigerWMS_Current',
+    tigerwebLayer: 90, // Unified School Districts
+    boundaryType: BT.SCHOOL_DISTRICT_UNIFIED,
+    fipsField: 'GEOID',
+    nameField: 'NAME',
+  },
+
+  // School Districts (Elementary K-8)
+  elementarySchool: {
+    layerName: 'Elementary School Districts',
+    tigerwebService: 'tigerWMS_Current',
+    tigerwebLayer: 91, // Elementary School Districts
+    boundaryType: BT.SCHOOL_DISTRICT_ELEMENTARY,
+    fipsField: 'GEOID',
+    nameField: 'NAME',
+  },
+
+  // School Districts (Secondary 9-12)
+  secondarySchool: {
+    layerName: 'Secondary School Districts',
+    tigerwebService: 'tigerWMS_Current',
+    tigerwebLayer: 92, // Secondary School Districts
+    boundaryType: BT.SCHOOL_DISTRICT_SECONDARY,
+    fipsField: 'GEOID',
+    nameField: 'NAME',
+  },
 };
 
 /**
@@ -159,6 +195,9 @@ export class CensusTigerLoader implements BoundaryDataSource {
       this.queryTigerLayer('cdps', point),
       this.queryTigerLayer('counties', point),
       this.queryTigerLayer('congressional', point),
+      this.queryTigerLayer('unifiedSchool', point),
+      this.queryTigerLayer('elementarySchool', point),
+      this.queryTigerLayer('secondarySchool', point),
     ];
 
     const results = await Promise.allSettled(queries);
@@ -226,7 +265,7 @@ export class CensusTigerLoader implements BoundaryDataSource {
     layerKey: string,
     point: LatLng
   ): Promise<BoundaryGeometry[]> {
-    const config = TIGER_LAYERS[layerKey];
+    const config = TIGERWEB_LAYER_CONFIG[layerKey];
     if (!config) {
       return [];
     }
@@ -340,7 +379,7 @@ export class CensusTigerLoader implements BoundaryDataSource {
    * Fetch all places/counties in a state
    */
   private async fetchStateData(stateFips: string): Promise<BoundaryGeometry[]> {
-    const config = TIGER_LAYERS.places;
+    const config = TIGERWEB_LAYER_CONFIG.places;
     const baseUrl = `${CENSUS_GEOJSON_API}/${config.tigerwebService}/MapServer/${config.tigerwebLayer}/query`;
 
     const params = new URLSearchParams({
@@ -376,7 +415,7 @@ export class CensusTigerLoader implements BoundaryDataSource {
     layerKey: string,
     geoid: string
   ): Promise<BoundaryGeometry | null> {
-    const config = TIGER_LAYERS[layerKey];
+    const config = TIGERWEB_LAYER_CONFIG[layerKey];
     if (!config) {
       return null;
     }
@@ -415,23 +454,7 @@ export class CensusTigerLoader implements BoundaryDataSource {
    */
   private extractJurisdiction(geoid: string, config: TigerLayerConfig): string {
     const stateFips = geoid.substring(0, 2);
-    const stateNames: Record<string, string> = {
-      '01': 'Alabama', '02': 'Alaska', '04': 'Arizona', '05': 'Arkansas',
-      '06': 'California', '08': 'Colorado', '09': 'Connecticut', '10': 'Delaware',
-      '11': 'District of Columbia', '12': 'Florida', '13': 'Georgia', '15': 'Hawaii',
-      '16': 'Idaho', '17': 'Illinois', '18': 'Indiana', '19': 'Iowa',
-      '20': 'Kansas', '21': 'Kentucky', '22': 'Louisiana', '23': 'Maine',
-      '24': 'Maryland', '25': 'Massachusetts', '26': 'Michigan', '27': 'Minnesota',
-      '28': 'Mississippi', '29': 'Missouri', '30': 'Montana', '31': 'Nebraska',
-      '32': 'Nevada', '33': 'New Hampshire', '34': 'New Jersey', '35': 'New Mexico',
-      '36': 'New York', '37': 'North Carolina', '38': 'North Dakota', '39': 'Ohio',
-      '40': 'Oklahoma', '41': 'Oregon', '42': 'Pennsylvania', '44': 'Rhode Island',
-      '45': 'South Carolina', '46': 'South Dakota', '47': 'Tennessee', '48': 'Texas',
-      '49': 'Utah', '50': 'Vermont', '51': 'Virginia', '53': 'Washington',
-      '54': 'West Virginia', '55': 'Wisconsin', '56': 'Wyoming',
-    };
-
-    return stateNames[stateFips] || `State ${stateFips}`;
+    return getStateNameFromFips(stateFips) ?? `State ${stateFips}`;
   }
 
   /**
@@ -456,12 +479,22 @@ export class CensusTigerLoader implements BoundaryDataSource {
       [BT.CITY_LIMITS]: 2,
       [BT.CDP]: 3,
       [BT.COUNTY_SUBDIVISION]: 4,
-      [BT.COUNTY]: 5,
-      [BT.CONGRESSIONAL_DISTRICT]: 6,
-      [BT.STATE_LEGISLATIVE_UPPER]: 7,
-      [BT.STATE_LEGISLATIVE_LOWER]: 8,
-      [BT.STATE_PROVINCE]: 9,
-      [BT.COUNTRY]: 10,
+      [BT.SCHOOL_DISTRICT_UNIFIED]: 5,
+      [BT.SCHOOL_DISTRICT_ELEMENTARY]: 6,
+      [BT.SCHOOL_DISTRICT_SECONDARY]: 7,
+      [BT.FIRE_DISTRICT]: 8,
+      [BT.LIBRARY_DISTRICT]: 9,
+      [BT.HOSPITAL_DISTRICT]: 10,
+      [BT.WATER_DISTRICT]: 11,
+      [BT.UTILITY_DISTRICT]: 12,
+      [BT.TRANSIT_DISTRICT]: 13,
+      [BT.COUNTY]: 14,
+      [BT.CONGRESSIONAL_DISTRICT]: 15,
+      [BT.STATE_LEGISLATIVE_UPPER]: 16,
+      [BT.STATE_LEGISLATIVE_LOWER]: 17,
+      [BT.STATE_PROVINCE]: 18,
+      [BT.COUNTRY]: 19,
+      [BT.VOTING_DISTRICT]: 20,
     };
     return ranks[type] ?? 99;
   }
