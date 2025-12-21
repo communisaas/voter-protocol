@@ -26,7 +26,8 @@ import { readFileSync, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { GovernanceDistrict, QualityTier } from '../schemas/governance-district';
+import type { GovernanceDistrict } from '../schemas/governance-district.js';
+import { QualityTier } from '../schemas/governance-district.js';
 
 // ES module path handling
 const __filename = fileURLToPath(import.meta.url);
@@ -288,7 +289,7 @@ function loadDistricts(inputPath: string): GovernanceDistrict[] {
   // Filter to governance districts only (GOLD, SILVER, BRONZE tiers)
   // Exclude UTILITY (administrative) and REJECT (low confidence)
   const governanceDistricts = allDistricts.filter(d => {
-    const governanceTiers: QualityTier[] = ['GOLD', 'SILVER', 'BRONZE'];
+    const governanceTiers: QualityTier[] = [QualityTier.GOLD, QualityTier.SILVER, QualityTier.BRONZE];
     return governanceTiers.includes(d.tier as QualityTier);
   });
 

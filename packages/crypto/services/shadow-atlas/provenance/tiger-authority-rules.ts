@@ -61,6 +61,7 @@ export type LegalStatus = 'binding' | 'advisory' | 'unofficial';
  * Source provider types
  */
 export type SourceProvider =
+  | 'federal-mandate'
   | 'census-tiger'
   | 'state-redistricting-commission'
   | 'state-redistricting'
