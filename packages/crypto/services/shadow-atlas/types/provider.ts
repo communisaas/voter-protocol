@@ -88,33 +88,10 @@ export interface RawBoundaryFile {
 
 /**
  * Normalized boundary after transformation
- * All providers must transform to this schema
+ * Canonical definition in core/types.ts - imported and re-exported here
  */
-export interface NormalizedBoundary {
-  /** Unique identifier (FIPS code, NUTS code, ISO subdivision, etc.) */
-  id: string;
-
-  /** Human-readable name */
-  name: string;
-
-  /** Administrative level */
-  level: AdministrativeLevel;
-
-  /** Parent administrative unit ID (for hierarchical lookups) */
-  parentId?: string;
-
-  /** WGS84 GeoJSON geometry (EPSG:4326 only) */
-  geometry: Geometry;
-
-  /** Population (if available from source) */
-  population?: number;
-
-  /** Additional properties from source data */
-  properties: Record<string, unknown>;
-
-  /** Source attribution */
-  source: SourceMetadata;
-}
+import type { NormalizedBoundary as CoreNormalizedBoundary } from '../core/types.js';
+export type NormalizedBoundary = CoreNormalizedBoundary;
 
 /**
  * Source metadata for attribution and versioning
@@ -195,15 +172,10 @@ export interface UpdateMetadata {
 
 /**
  * Administrative hierarchy levels
- * Normalized across countries (mapped to local terminology)
+ * Canonical definition in core/types.ts
  */
-export type AdministrativeLevel =
-  | 'country'                               // National boundaries
-  | 'state' | 'province' | 'region'         // First-level subdivisions
-  | 'department' | 'prefecture' | 'canton'  // First-level (varies by country)
-  | 'county' | 'district' | 'arrondissement' // Second-level subdivisions
-  | 'city' | 'municipality' | 'commune'     // Municipal level
-  | 'ward' | 'council-district';            // Sub-municipal level
+import type { AdministrativeLevel as CoreAdministrativeLevel } from '../core/types.js';
+export type AdministrativeLevel = CoreAdministrativeLevel;
 
 /**
  * Update schedules for automated refresh
@@ -250,6 +222,7 @@ export type LegalStatus =
  */
 export type CollectionMethod =
   | 'census-tiger'           // US Census Bureau TIGER/Line
+  | 'census-bas'             // US Census Bureau Boundary and Annexation Survey
   | 'national-statistics'    // National statistical agency (StatCan, ONS, etc.)
   | 'portal-discovery'       // Automated portal discovery (ArcGIS, Socrata, CKAN)
   | 'manual-verification'    // Manual download + verification

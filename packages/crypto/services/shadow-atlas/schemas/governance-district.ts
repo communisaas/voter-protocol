@@ -9,7 +9,7 @@
  *
  * Formal data contract for governance districts consumed by:
  * - VOTER Protocol frontend (TypeScript type safety)
- * - Halo2 ZK proof circuits (deterministic Poseidon hashing)
+ * - Noir ZK proof circuits via Barretenberg (deterministic Poseidon2 hashing)
  * - IPFS publishing (versioned immutable snapshots)
  *
  * VERSIONING STRATEGY:

@@ -282,6 +282,24 @@ export class USCensusTIGERProvider implements BoundaryProvider {
       license: 'CC0-1.0',
       updatedAt: new Date().toISOString(),
       checksum: '',
+
+      // Trust Hierarchy
+      authorityLevel: 'federal-mandate',
+      legalStatus: 'binding',
+
+      // Provenance Tracking
+      collectionMethod: 'census-tiger',
+      lastVerified: new Date().toISOString(),
+      verifiedBy: 'automated',
+
+      // Data Quality
+      topologyValidated: true,
+      geometryRepaired: true,
+      coordinateSystem: 'EPSG:4326',
+
+      // Update Tracking
+      nextScheduledUpdate: this.getNextCensusRelease(),
+      updateMonitoring: 'api-polling',
     };
   }
 

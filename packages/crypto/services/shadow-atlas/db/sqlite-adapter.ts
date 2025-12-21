@@ -177,7 +177,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
   async getSelection(muni_id: string): Promise<Selection | null> {
     const stmt = this.db.prepare('SELECT * FROM selections WHERE muni_id = ?');
-    const row = stmt.get(muni_id) as (Selection & { at_large: number }) | undefined;
+    const row = stmt.get(muni_id) as (Omit<Selection, 'at_large'> & { at_large: number }) | undefined;
 
     if (!row) return null;
 

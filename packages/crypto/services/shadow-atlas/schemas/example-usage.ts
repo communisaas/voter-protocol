@@ -288,9 +288,9 @@ export interface JurisdictionGroup {
   readonly jurisdiction: string;
   readonly districts: GovernanceDistrict[];
   readonly coverage: {
-    readonly total: number;
+    total: number;
     readonly byTier: Record<QualityTier, number>;
-    readonly electedCount: number;
+    electedCount: number;
   };
 }
 

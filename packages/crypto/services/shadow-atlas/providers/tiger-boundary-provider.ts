@@ -35,11 +35,33 @@ import type {
   AdministrativeLevel,
 } from '../types/provider.js';
 import type { FeatureCollection } from 'geojson';
+import type { TIGERLayerType } from '../core/types.js';
+import { STATE_ABBR_TO_FIPS } from '../core/types.js';
+import { getExpectedCount, NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
 
 /**
- * TIGER layer types supported by this provider
+ * TIGER layer types supported by FTP bulk download
+ *
+ * Complete US civic boundary coverage from Census TIGER/Line:
+ * - Federal/State Legislative: cd, sldu, sldl
+ * - County: county, cousub
+ * - Municipal: place (includes CDP via LSAD filter)
+ * - School Districts: unsd, elsd, scsd
+ * - Electoral: vtd (voting precincts)
+ * - Reference: zcta (ZIP codes)
  */
-export type TIGERLayer = 'cd' | 'sldu' | 'sldl' | 'county';
+export type TIGERLayer =
+  | 'cd'      // Congressional Districts (435)
+  | 'sldu'    // State Legislative Upper (~2,000)
+  | 'sldl'    // State Legislative Lower (~5,400)
+  | 'county'  // Counties (3,143)
+  | 'cousub'  // County Subdivisions - townships, boroughs (~34,000)
+  | 'place'   // Incorporated Places + CDPs (19,495 + ~9,500)
+  | 'unsd'    // Unified School Districts (~9,135)
+  | 'elsd'    // Elementary School Districts (~3,064)
+  | 'scsd'    // Secondary School Districts (~273)
+  | 'vtd'     // Voting Districts - precincts (~200,000)
+  | 'zcta';   // ZIP Code Tabulation Areas (~33,000)
 
 /**
  * Download options for TIGER boundary files
@@ -60,6 +82,9 @@ export interface TIGERDownloadOptions {
 
 /**
  * Layer metadata for TIGER layers
+ *
+ * NOTE: expectedCount removed - use getExpectedCountForLayer() instead
+ * to query tiger-expected-counts.ts (single source of truth).
  */
 export interface TIGERLayerMetadata {
   /** Layer name */
@@ -70,9 +95,6 @@ export interface TIGERLayerMetadata {
 
   /** TIGERweb REST API layer ID */
   tigerWebLayerId: number;
-
-  /** Expected feature count (approximate) */
-  expectedCount: number;
 
   /** File naming pattern (national vs state-level) */
   filePattern: 'national' | 'state';
@@ -94,14 +116,21 @@ export interface TIGERLayerMetadata {
 }
 
 /**
- * Layer metadata configuration
+ * TIGER FTP bulk download layer metadata
+ *
+ * Used for quarterly Census FTP shapefile downloads (nationwide or state-level extractions).
+ * These configurations map to FTP directory structures and file naming patterns.
+ *
+ * For real-time point queries, see TIGERWEB_LAYER_CONFIG in census-tiger-loader.ts
+ *
+ * NOTE: Expected counts removed from metadata - use getExpectedCountForLayer()
+ * to query tiger-expected-counts.ts (single source of truth).
  */
-export const TIGER_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
+export const TIGER_FTP_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
   cd: {
     name: 'Congressional Districts',
     ftpDir: 'CD',
     tigerWebLayerId: 18,
-    expectedCount: 435,
     filePattern: 'state',
     fields: {
       stateFips: 'STATEFP',
@@ -115,7 +144,6 @@ export const TIGER_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
     name: 'State Legislative Upper',
     ftpDir: 'SLDU',
     tigerWebLayerId: 20,
-    expectedCount: 2000,
     filePattern: 'state',
     fields: {
       stateFips: 'STATEFP',
@@ -129,7 +157,6 @@ export const TIGER_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
     name: 'State Legislative Lower',
     ftpDir: 'SLDL',
     tigerWebLayerId: 22,
-    expectedCount: 5400,
     filePattern: 'state',
     fields: {
       stateFips: 'STATEFP',
@@ -143,7 +170,6 @@ export const TIGER_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
     name: 'Counties',
     ftpDir: 'COUNTY',
     tigerWebLayerId: 12,
-    expectedCount: 3143,
     filePattern: 'national',
     fields: {
       stateFips: 'STATEFP',
@@ -153,25 +179,114 @@ export const TIGER_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
     },
     adminLevel: 'county',
   },
+  cousub: {
+    name: 'County Subdivisions',
+    ftpDir: 'COUSUB',
+    tigerWebLayerId: 36,  // TIGERweb layer ID for county subdivisions
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'COUSUBFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // Townships/boroughs are city-equivalent
+  },
+  place: {
+    name: 'Incorporated Places',
+    ftpDir: 'PLACE',
+    tigerWebLayerId: 46,  // TIGERweb layer ID for places
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'PLACEFP',
+      geoid: 'GEOID',
+      name: 'NAME',
+      // LSAD field distinguishes: C1=city, T1=town, V1=village, B1=borough, C3=CDP
+    },
+    adminLevel: 'city',
+  },
+  unsd: {
+    name: 'Unified School Districts',
+    ftpDir: 'UNSD',
+    tigerWebLayerId: 90,
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'UNSDLEA',
+      geoid: 'GEOID',
+      name: 'NAME',
+    },
+    adminLevel: 'district',
+  },
+  elsd: {
+    name: 'Elementary School Districts',
+    ftpDir: 'ELSD',
+    tigerWebLayerId: 91,
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'ELSDLEA',
+      geoid: 'GEOID',
+      name: 'NAME',
+    },
+    adminLevel: 'district',
+  },
+  scsd: {
+    name: 'Secondary School Districts',
+    ftpDir: 'SCSD',
+    tigerWebLayerId: 92,
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'SCSDLEA',
+      geoid: 'GEOID',
+      name: 'NAME',
+    },
+    adminLevel: 'district',
+  },
+  vtd: {
+    name: 'Voting Districts',
+    ftpDir: 'VTD',
+    tigerWebLayerId: 52,  // TIGERweb layer ID for voting tabulation districts
+    filePattern: 'state',
+    fields: {
+      stateFips: 'STATEFP20',  // VTD uses 2020 Census vintage fields
+      entityFips: 'VTDST20',
+      geoid: 'GEOID20',
+      name: 'NAME20',
+    },
+    adminLevel: 'district',  // Finest electoral unit
+  },
+  zcta: {
+    name: 'ZIP Code Tabulation Areas',
+    ftpDir: 'ZCTA520',  // ZCTA5 for 5-digit ZIPs (2020 Census)
+    tigerWebLayerId: 54,  // TIGERweb layer ID for ZCTAs
+    filePattern: 'national',  // Single national file
+    fields: {
+      stateFips: 'STATEFP20',  // Cross-state ZCTAs use first state
+      entityFips: 'ZCTA5CE20',
+      geoid: 'GEOID20',
+      name: 'ZCTA5CE20',  // ZIP code IS the name
+    },
+    adminLevel: 'city',  // Reference layer for mail targeting
+  },
 };
+
+/**
+ * @deprecated Use TIGER_FTP_LAYERS instead. This alias exists for backward compatibility only.
+ */
+export const TIGER_LAYERS = TIGER_FTP_LAYERS;
 
 /**
  * State FIPS codes (for TIGER URL construction)
  */
-const STATE_FIPS: Record<string, string> = {
-  AL: '01', AK: '02', AZ: '04', AR: '05', CA: '06',
-  CO: '08', CT: '09', DE: '10', FL: '12', GA: '13',
-  HI: '15', ID: '16', IL: '17', IN: '18', IA: '19',
-  KS: '20', KY: '21', LA: '22', ME: '23', MD: '24',
-  MA: '25', MI: '26', MN: '27', MS: '28', MO: '29',
-  MT: '30', NE: '31', NV: '32', NH: '33', NJ: '34',
-  NM: '35', NY: '36', NC: '37', ND: '38', OH: '39',
-  OK: '40', OR: '41', PA: '42', RI: '44', SC: '45',
-  SD: '46', TN: '47', TX: '48', UT: '49', VT: '50',
-  VA: '51', WA: '53', WV: '54', WI: '55', WY: '56',
-  DC: '11', PR: '72', VI: '78', AS: '60', GU: '66',
-  MP: '69',
-};
+/**
+ * State abbreviation to FIPS mapping
+ * Re-exported from core/types.ts for convenience
+ * @deprecated Import STATE_ABBR_TO_FIPS from core/types.js directly
+ */
+const STATE_FIPS = STATE_ABBR_TO_FIPS;
 
 /**
  * Census TIGER Multi-Layer Boundary Provider
@@ -247,7 +362,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    * Download boundaries for a specific TIGER layer
    */
   async downloadLayer(options: TIGERDownloadOptions): Promise<RawBoundaryFile[]> {
-    const metadata = TIGER_LAYERS[options.layer];
+    const metadata = TIGER_FTP_LAYERS[options.layer];
     const year = options.year || this.year;
 
     console.log(`🗺️  Downloading ${metadata.name} from Census TIGER ${year}...`);
@@ -349,7 +464,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
         // Parse GeoJSON from Buffer
         const geojson = JSON.parse(file.data.toString('utf-8')) as FeatureCollection;
         const layer = file.metadata.layer as TIGERLayer;
-        const metadata = TIGER_LAYERS[layer];
+        const metadata = TIGER_FTP_LAYERS[layer];
 
         for (const feature of geojson.features) {
           const props = feature.properties || {};
@@ -475,7 +590,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     year: number,
     forceRefresh = false
   ): Promise<FeatureCollection> {
-    const metadata = TIGER_LAYERS[layer];
+    const metadata = TIGER_FTP_LAYERS[layer];
     const cacheFile = join(this.cacheDir, String(year), metadata.ftpDir, 'national.geojson');
 
     // Check cache
@@ -521,7 +636,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     year: number,
     forceRefresh = false
   ): Promise<FeatureCollection> {
-    const metadata = TIGER_LAYERS[layer];
+    const metadata = TIGER_FTP_LAYERS[layer];
     const cacheFile = join(this.cacheDir, String(year), metadata.ftpDir, `${stateFips}.geojson`);
 
     // Check cache
@@ -653,7 +768,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    * Get FTP URL for national file
    */
   private getNationalFileUrl(layer: TIGERLayer, year: number): string {
-    const metadata = TIGER_LAYERS[layer];
+    const metadata = TIGER_FTP_LAYERS[layer];
     return `https://www2.census.gov/geo/tiger/TIGER${year}/${metadata.ftpDir}/tl_${year}_us_${layer}.zip`;
   }
 
@@ -661,7 +776,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    * Get FTP URL for state file
    */
   private getStateFileUrl(layer: TIGERLayer, stateFips: string, year: number): string {
-    const metadata = TIGER_LAYERS[layer];
+    const metadata = TIGER_FTP_LAYERS[layer];
     // Congressional Districts use cd119 suffix (119th Congress)
     const layerSuffix = layer === 'cd' ? 'cd119' : layer;
     return `https://www2.census.gov/geo/tiger/TIGER${year}/${metadata.ftpDir}/tl_${year}_${stateFips}_${layerSuffix}.zip`;
@@ -689,5 +804,84 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Get expected count for a TIGER layer
+ *
+ * Queries tiger-expected-counts.ts for authoritative count data.
+ * Replaces hardcoded expectedCount fields in TIGER_FTP_LAYERS.
+ *
+ * @param layer - TIGER layer type (cd, sldu, sldl, county, unsd, elsd, scsd)
+ * @param stateFips - Optional state FIPS code for state-level layers
+ * @returns Expected count or null if unknown
+ *
+ * @example
+ * ```typescript
+ * // National count
+ * getExpectedCountForLayer('cd') // 435
+ *
+ * // State-level count
+ * getExpectedCountForLayer('cd', '06') // 52 (California)
+ * getExpectedCountForLayer('sldu', '31') // 49 (Nebraska unicameral)
+ * ```
+ */
+export function getExpectedCountForLayer(
+  layer: TIGERLayer,
+  stateFips?: string
+): number | null {
+  // Map layer to tiger-expected-counts.ts layer type
+  return getExpectedCount(layer, stateFips);
+}
+
+/**
+ * Get national total for a layer
+ *
+ * @param layer - TIGER layer type
+ * @returns National total or null if not applicable
+ */
+export function getNationalTotal(layer: TIGERLayer): number | null {
+  switch (layer) {
+    // Legislative layers
+    case 'cd':
+      return NATIONAL_TOTALS.cd;
+    case 'sldu':
+      return NATIONAL_TOTALS.sldu;
+    case 'sldl':
+      return NATIONAL_TOTALS.sldl;
+
+    // Administrative layers
+    case 'county':
+      return NATIONAL_TOTALS.county;
+    case 'cousub':
+      return NATIONAL_TOTALS.cousub;
+
+    // Municipal layers
+    case 'place':
+      return NATIONAL_TOTALS.place;
+
+    // School districts
+    case 'unsd':
+      return NATIONAL_TOTALS.unsd;
+    case 'elsd':
+      return NATIONAL_TOTALS.elsd;
+    case 'scsd':
+      return NATIONAL_TOTALS.scsd;
+
+    // Electoral infrastructure
+    case 'vtd':
+      return NATIONAL_TOTALS.vtd;
+
+    // Reference layers
+    case 'zcta':
+      return NATIONAL_TOTALS.zcta;
+
+    default:
+      return null;
   }
 }

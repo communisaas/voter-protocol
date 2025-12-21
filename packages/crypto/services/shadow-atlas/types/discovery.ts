@@ -107,6 +107,8 @@ export type DiscoveryStatus =
  */
 export type PortalType =
   | 'arcgis'           // ArcGIS Hub/FeatureServer/MapServer
+  | 'arcgis-hub'       // Specific ArcGIS Hub
+  | 'arcgis-online'    // ArcGIS Online
   | 'socrata'          // Socrata open data portal
   | 'ckan'             // CKAN portal
   | 'custom-api'       // Custom REST API

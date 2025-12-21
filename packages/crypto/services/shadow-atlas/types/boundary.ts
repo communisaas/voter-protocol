@@ -12,6 +12,7 @@
 
 import type { Polygon, MultiPolygon, Position } from 'geojson';
 import type { ProvenanceRecord } from '../provenance-writer.js';
+export type { ProvenanceRecord };
 
 /**
  * Boundary Type Enumeration
@@ -61,6 +62,28 @@ export enum BoundaryType {
   // Coarsest grain
   STATE_PROVINCE = 'state_province',
   COUNTRY = 'country',
+
+  // Special districts
+  VOTING_DISTRICT = 'voting_district',
+  SCHOOL_DISTRICT_UNIFIED = 'school_district_unified',
+  SCHOOL_DISTRICT_ELEMENTARY = 'school_district_elementary',
+  SCHOOL_DISTRICT_SECONDARY = 'school_district_secondary',
+
+  // Special Districts - Public Safety (often elected)
+  FIRE_DISTRICT = 'fire_district',
+
+  // Special Districts - Cultural/Educational (often elected)
+  LIBRARY_DISTRICT = 'library_district',
+
+  // Special Districts - Healthcare (sometimes elected)
+  HOSPITAL_DISTRICT = 'hospital_district',
+
+  // Special Districts - Utilities (usually appointed, lower priority)
+  WATER_DISTRICT = 'water_district',
+  UTILITY_DISTRICT = 'utility_district',
+
+  // Special Districts - Transportation (usually appointed)
+  TRANSIT_DISTRICT = 'transit_district',
 }
 
 /**
@@ -96,6 +119,22 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   // Tier 3: Coarsest
   [BoundaryType.STATE_PROVINCE]: 9,
   [BoundaryType.COUNTRY]: 10,
+
+  // Special districts (parallel tracks)
+  [BoundaryType.VOTING_DISTRICT]: 11,
+  [BoundaryType.SCHOOL_DISTRICT_UNIFIED]: 12,
+  [BoundaryType.SCHOOL_DISTRICT_ELEMENTARY]: 13,
+  [BoundaryType.SCHOOL_DISTRICT_SECONDARY]: 14,
+
+  // Special Districts - Public Safety/Cultural (Tier 3: Medium priority - often elected)
+  [BoundaryType.FIRE_DISTRICT]: 15,
+  [BoundaryType.LIBRARY_DISTRICT]: 16,
+  [BoundaryType.HOSPITAL_DISTRICT]: 17,
+
+  // Special Districts - Utilities/Infrastructure (Tier 4: Lower priority - usually appointed)
+  [BoundaryType.WATER_DISTRICT]: 18,
+  [BoundaryType.UTILITY_DISTRICT]: 19,
+  [BoundaryType.TRANSIT_DISTRICT]: 20,
 };
 
 /**

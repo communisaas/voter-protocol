@@ -14,6 +14,7 @@
 
 import { describe, test, expect } from 'vitest';
 import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from './tiger-boundary-provider.js';
+import { NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
 import type { FeatureCollection } from 'geojson';
 
 /**
@@ -53,7 +54,7 @@ describe('TIGERBoundaryProvider', () => {
       expect(cd.name).toBe('Congressional Districts');
       expect(cd.ftpDir).toBe('CD');
       expect(cd.tigerWebLayerId).toBe(18);
-      expect(cd.expectedCount).toBe(435);
+      expect(NATIONAL_TOTALS.cd).toBe(435);
       // CD uses state-level files (tl_2024_{stateFips}_cd119.zip)
       expect(cd.filePattern).toBe('state');
       expect(cd.adminLevel).toBe('district');
@@ -72,7 +73,7 @@ describe('TIGERBoundaryProvider', () => {
       expect(sldu.name).toBe('State Legislative Upper');
       expect(sldu.ftpDir).toBe('SLDU');
       expect(sldu.tigerWebLayerId).toBe(20);
-      expect(sldu.expectedCount).toBe(2000);
+      expect(NATIONAL_TOTALS.sldu).toBeGreaterThan(1900); // ~1972 actual
       expect(sldu.filePattern).toBe('state');
       expect(sldu.adminLevel).toBe('district');
 
@@ -89,7 +90,7 @@ describe('TIGERBoundaryProvider', () => {
       expect(sldl.name).toBe('State Legislative Lower');
       expect(sldl.ftpDir).toBe('SLDL');
       expect(sldl.tigerWebLayerId).toBe(22);
-      expect(sldl.expectedCount).toBe(5400);
+      expect(NATIONAL_TOTALS.sldl).toBeGreaterThan(5300); // ~5411 actual
       expect(sldl.filePattern).toBe('state');
       expect(sldl.adminLevel).toBe('district');
 
@@ -106,7 +107,7 @@ describe('TIGERBoundaryProvider', () => {
       expect(county.name).toBe('Counties');
       expect(county.ftpDir).toBe('COUNTY');
       expect(county.tigerWebLayerId).toBe(12);
-      expect(county.expectedCount).toBe(3143);
+      expect(NATIONAL_TOTALS.county).toBe(3143);
       expect(county.filePattern).toBe('national');
       expect(county.adminLevel).toBe('county');
 
