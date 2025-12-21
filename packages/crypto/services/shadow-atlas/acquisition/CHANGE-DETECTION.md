@@ -490,7 +490,7 @@ npx tsx change-detector-example.ts monitor
 - [HTTP HEAD Method (RFC 9110)](https://www.rfc-editor.org/rfc/rfc9110.html#HEAD)
 - [HTTP ETag Header (RFC 9110)](https://www.rfc-editor.org/rfc/rfc9110.html#field.etag)
 - [HTTP Last-Modified Header (RFC 9110)](https://www.rfc-editor.org/rfc/rfc9110.html#field.last-modified)
-- [Shadow Atlas Architecture](../ARCHITECTURE.md)
+- [Shadow Atlas Architecture](../ARCHITECTURE_ACTUAL.md)
 
 ---
 

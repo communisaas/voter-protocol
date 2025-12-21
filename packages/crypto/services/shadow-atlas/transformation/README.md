@@ -455,6 +455,6 @@ When adding new validators or normalizers:
 
 ## References
 
-- [SHADOW-ATLAS-PRODUCTION-ARCHITECTURE.md](../SHADOW-ATLAS-PRODUCTION-ARCHITECTURE.md) - Complete specification
-- [ZK-PROOF-SPEC-REVISED.md](../../../../specs/ZK-PROOF-SPEC-REVISED.md) - Merkle proof verification
+- [MERKLE-FOREST-SPEC.md](../../../../../specs/MERKLE-FOREST-SPEC.md) - Merkle proof verification
 - [CLAUDE.md](../../../../../CLAUDE.md) - Type safety standards
+- [Shadow Atlas Core Documentation](../core/README.md) - Core architecture and design

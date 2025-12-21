@@ -405,4 +405,4 @@ Immutable Snapshot Directory
 - **Event-driven updates**: Court-ordered redistricting, municipal mergers
 - **RSS monitoring**: Track state GIS portal updates
 
-See `../SHADOW-ATLAS-PRODUCTION-ARCHITECTURE.md` Section 6 for update strategy.
+See `../docs/` for detailed architecture documentation.

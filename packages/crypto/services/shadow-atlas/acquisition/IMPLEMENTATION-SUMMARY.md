@@ -310,7 +310,7 @@ After acquisition completes:
    - Build HTTP API
    - Benchmark performance
 
-See `SHADOW-ATLAS-PRODUCTION-ARCHITECTURE.md` Section 7 for complete migration path.
+See `../docs/` for detailed architecture documentation and migration guidance.
 
 ---
 

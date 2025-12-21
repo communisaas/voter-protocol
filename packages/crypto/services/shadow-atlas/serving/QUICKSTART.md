@@ -16,7 +16,7 @@ Get the production API running in **under 5 minutes**.
 
 ```bash
 # From packages/crypto directory
-cd /Users/noot/Documents/voter-protocol/packages/crypto
+cd packages/crypto
 
 # Dependencies already installed (better-sqlite3, @turf/turf)
 npm install
@@ -390,10 +390,9 @@ k6 run load-test.js
 
 **Documentation**: `/serving/README.md`
 **Examples**: `/serving/example.ts`
-**Implementation**: `/SERVING-LAYER-IMPLEMENTATION.md`
 
-**Questions?** Check the architecture spec:
-`/packages/crypto/services/shadow-atlas/SHADOW-ATLAS-PRODUCTION-ARCHITECTURE.md`
+**Questions?** Check the core documentation:
+`/packages/crypto/services/shadow-atlas/core/README.md`
 
 ---
 

@@ -1,6 +1,30 @@
 # Shadow Atlas Serving Layer
 
+> **Production Ready** | <50ms p95 latency | Cryptographic verification | **NEW: v2 API with comprehensive hardening**
+
 **Production-ready API for <50ms district lookups with cryptographic verification.**
+
+## 🎯 Quick Links
+
+- **[API Documentation](./API_DOCUMENTATION.md)** - Complete developer guide with code examples
+- **[OpenAPI Specification](./openapi.yaml)** - OpenAPI 3.1 spec for client generation
+- **[API Hardening Summary](./API_HARDENING_SUMMARY.md)** - Production hardening report
+- **[TypeScript SDK](../sdk/shadow-atlas-client.ts)** - Type-safe client library
+
+## ⚡ What's New in v2
+
+Shadow Atlas API v2 adds enterprise-grade hardening:
+
+- ✅ **Zod Request Validation**: Strict input validation with detailed error messages
+- ✅ **Standardized Responses**: Consistent `APIResponse<T>` wrapper across all endpoints
+- ✅ **API Versioning**: Path-based versioning (`/v1/`, `/v2/`) with deprecation strategy
+- ✅ **Security Headers**: Comprehensive CSP, CORS, XSS protection
+- ✅ **Rate Limit Tracking**: Detailed headers (`X-RateLimit-*`)
+- ✅ **TypeScript SDK**: Type-safe client with retry/caching
+- ✅ **OpenAPI 3.1 Spec**: Auto-generate clients, API testing tools
+- ✅ **Comprehensive Tests**: Unit, integration, and contract tests
+
+**Migration**: v1 remains supported. v2 is backward compatible for successful responses.
 
 ## Architecture
 

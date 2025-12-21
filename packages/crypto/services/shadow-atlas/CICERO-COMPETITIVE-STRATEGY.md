@@ -2,11 +2,13 @@
 
 ## Current State Assessment
 
+**Last Updated**: 2025-12-18
+
 | Metric | Current | Cicero | Gap |
 |--------|---------|--------|-----|
-| **Cities with council districts** | 35 validated | 19,000+ | 99% gap |
-| **Population covered** | ~50M | 330M+ | 85% gap |
-| **Update frequency** | Manual/quarterly | Real-time | Latency gap |
+| **Cities with council districts** | 35+ validated | 19,000+ | Significant gap |
+| **Population covered** | ~50M+ | 330M+ | 85% gap |
+| **Update frequency** | Quarterly + event-driven | Real-time | Latency gap |
 | **Source authority** | Direct municipal APIs | Proprietary + official | Parity achievable |
 | **Verification** | 5-layer pipeline | Unknown | We're stronger here |
 
@@ -49,7 +51,7 @@ TIER 4 (Tertiary): Community contributions (PR-gated)
 ### 1B. Municipal GIS Portal Harvesting
 
 **Current coverage gaps** (registry: `registry/known-portals.ts`):
-- 35 cities validated
+- 35+ cities validated (as of 2025-12-18)
 - Top 50 by population: 85% covered
 - Top 100: ~40% covered
 - Top 500: ~10% covered

@@ -263,6 +263,6 @@ npm test provenance
 
 ## References
 
-- [DATA-PROVENANCE-SPEC](../docs/DATA-PROVENANCE-SPEC.md) - Complete specification
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture
-- [SECURITY.md](../SECURITY.md) - Security considerations
+- [PROVENANCE-SPEC.md](../PROVENANCE-SPEC.md) - Complete specification
+- [ARCHITECTURE_ACTUAL.md](../ARCHITECTURE_ACTUAL.md) - System architecture
+- [SECURITY_AUDIT.md](../SECURITY_AUDIT.md) - Security considerations

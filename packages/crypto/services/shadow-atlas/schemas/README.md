@@ -464,7 +464,7 @@ if (errors.length > 0) {
 
 ### 1. Deterministic Field Order
 
-**Why:** Halo2 ZK circuits compute Poseidon hash over struct fields. Field order affects hash output.
+**Why:** Noir ZK circuits compute Poseidon2 hash over struct fields. Field order affects hash output.
 
 **Rule:** NEVER reorder existing fields. Add new fields at END only.
 
@@ -542,7 +542,7 @@ interface GovernanceDistrict {
 
 ### Q: Why is field order important?
 
-**A:** Halo2 ZK circuits compute Poseidon hash over struct fields. Changing field order produces different hash output, breaking proof verification.
+**A:** Noir ZK circuits compute Poseidon2 hash over struct fields. Changing field order produces different hash output, breaking proof verification.
 
 ### Q: Can I filter by bounding box?
 
