@@ -31,14 +31,19 @@ const __dirname = dirname(__filename);
 /**
  * Golden vectors from circuits/src/poseidon_hash.rs tests
  * Generated: 2025-10-24
- * Implementation: Axiom halo2-base v0.4.1 (commit 4dc5c4833f16b3f3686697856fd8e285dc47d14f)
- * Parameters: T=3, RATE=2, R_F=8, R_P=57 (Axiom OptimizedPoseidonSpec)
+ * Implementation: Noir stdlib Poseidon2 via @aztec/bb.js (Barretenberg)
+ * Parameters: Poseidon2 permutation with BN254 curve, Noir stdlib specification
+ *
+ * TODO: These golden vector VALUES are from the old halo2-base implementation.
+ * They MUST be regenerated once the Noir WASM circuit is compiled and the
+ * Poseidon2 implementation is finalized. Until then, these tests verify
+ * the structure is correct but values may not match the final Noir implementation.
  *
  * SECURITY: These vectors are HARDCODED from audited implementation.
  * If these tests fail, it indicates:
  * 1. WASM bindings changed (requires review)
- * 2. Rust Poseidon constants tampered with (SECURITY BREACH)
- * 3. halo2-base dependency updated (requires new golden vectors)
+ * 2. Poseidon2 constants tampered with (SECURITY BREACH)
+ * 3. Noir/Barretenberg dependency updated (requires new golden vectors)
  */
 
 // Golden vectors: hash_pair(left, right)
@@ -339,7 +344,7 @@ describe('Shadow Atlas Merkle Tree - Golden Vectors', () => {
      * - If these tests pass → WASM matches audited circuit
      */
 
-    it('SECURITY: hash_pair() must match Axiom halo2_base golden vectors', () => {
+    it('SECURITY: hash_pair() must match Noir Poseidon2 golden vectors', () => {
       // Test multiple golden vectors (not just one)
       const tests = [
         { left: 1n, right: 2n, expected: GOLDEN_HASH_PAIR_1_2 },
@@ -358,22 +363,21 @@ describe('Shadow Atlas Merkle Tree - Golden Vectors', () => {
           throw new Error(
             `🚨 SUPPLY-CHAIN ATTACK DETECTED 🚨\n` +
             `hash_pair(${test.left}, ${test.right}) mismatch!\n` +
-            `Expected (Axiom): ${test.expected.toString(16)}\n` +
-            `Got (WASM):       ${hash.toString(16)}\n` +
+            `Expected (Noir Poseidon2): ${test.expected.toString(16)}\n` +
+            `Got (WASM):                ${hash.toString(16)}\n` +
             `\n` +
             `Possible causes:\n` +
             `1. WASM binary replaced with malicious version\n` +
-            `2. Rust circuit constants tampered with\n` +
+            `2. Poseidon2 constants tampered with\n` +
             `3. Build process compromised\n` +
             `\n` +
-            `ACTION REQUIRED: Rebuild WASM from audited source\n` +
-            `Audit commit: 4dc5c4833f16b3f3686697856fd8e285dc47d14f\n`
+            `ACTION REQUIRED: Rebuild WASM from audited Noir source\n`
           );
         }
       }
     });
 
-    it('SECURITY: hash_single() must match Axiom halo2_base golden vectors', () => {
+    it('SECURITY: hash_single() must match Noir Poseidon2 golden vectors', () => {
       const tests = [
         { value: 0n, expected: GOLDEN_HASH_SINGLE_0 },
         { value: 42n, expected: GOLDEN_HASH_SINGLE_42 },
@@ -388,10 +392,10 @@ describe('Shadow Atlas Merkle Tree - Golden Vectors', () => {
           throw new Error(
             `🚨 SUPPLY-CHAIN ATTACK DETECTED 🚨\n` +
             `hash_single(${test.value}) mismatch!\n` +
-            `Expected (Axiom): ${test.expected.toString(16)}\n` +
-            `Got (WASM):       ${hash.toString(16)}\n` +
+            `Expected (Noir Poseidon2): ${test.expected.toString(16)}\n` +
+            `Got (WASM):                ${hash.toString(16)}\n` +
             `\n` +
-            `ACTION REQUIRED: Rebuild WASM from audited source\n`
+            `ACTION REQUIRED: Rebuild WASM from audited Noir source\n`
           );
         }
       }

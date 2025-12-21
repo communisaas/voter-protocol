@@ -6,15 +6,15 @@
  * Structure: Single-tier balanced binary Merkle tree per legislative district
  * Depth: 12 levels (fixed)
  * Capacity: 2^12 = 4,096 addresses per tree
- * Hash Function: Poseidon (Axiom halo2_base via WASM) - IDENTICAL to ZK circuit
+ * Hash Function: Poseidon2 (Noir stdlib via @aztec/bb.js) - IDENTICAL to ZK circuit
  *
  * SECURITY CRITICAL: This implementation uses the EXACT same Poseidon hash
- * from the Halo2 circuit via WASM bindings. This guarantees that TypeScript
+ * from the Noir circuit via WASM bindings. This guarantees that TypeScript
  * Merkle roots match circuit Merkle roots, preventing proof verification failures.
  *
  * Supply-chain attack mitigation:
- * - WASM bindings call Axiom halo2_base (Trail of Bits audited, Mainnet V2)
- * - Rust Poseidon has golden test vectors from PSE (cross-validated)
+ * - WASM bindings call Noir Poseidon2 via Barretenberg (@aztec/bb.js)
+ * - Barretenberg has extensive production usage (Aztec rollup, audited)
  * - TypeScript cannot diverge from circuit (uses same binary code)
  *
  * MULTI-LAYER SUPPORT (2025-12-14 Extension):
@@ -469,7 +469,7 @@ async function uploadToWeb3Storage(
   apiToken: string
 ): Promise<IPFSExportResult> {
   const formData = new FormData();
-  const blob = new Blob([data], { type: 'application/json' });
+  const blob = new Blob([data as unknown as BlobPart], { type: 'application/json' });
   formData.append('file', blob, 'shadow-atlas-tree.json');
 
   const response = await fetch('https://api.web3.storage/upload', {
@@ -503,7 +503,7 @@ async function uploadToPinata(
   apiToken: string
 ): Promise<IPFSExportResult> {
   const formData = new FormData();
-  const blob = new Blob([data], { type: 'application/json' });
+  const blob = new Blob([data as unknown as BlobPart], { type: 'application/json' });
   formData.append('file', blob, 'shadow-atlas-tree.json');
 
   const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {

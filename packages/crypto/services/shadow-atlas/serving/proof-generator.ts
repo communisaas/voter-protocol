@@ -173,7 +173,7 @@ export class ProofService {
 
     // 2. Initialize Circuit Driver
     // Note: In a real app, you should cache the driver/prover instance
-    const { CircuitDriver } = await import('../proving/circuit_driver');
+    const { CircuitDriver } = await import('../core/circuit_driver');
     const driver = await CircuitDriver.new();
 
     // 3. Generate Witness
