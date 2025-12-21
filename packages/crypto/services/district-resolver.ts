@@ -147,8 +147,8 @@ class USDistrictStrategy implements CountryStrategy {
       if (turf.booleanPointInPolygon(point, feature as any)) {
         return {
           type: DistrictType.CITY_COUNCIL,
-          id: `US-CityCouncil-${citySlug}-${feature.properties.district}`,
-          name: `${address.city} City Council District ${feature.properties.district}`,
+          id: `US-CityCouncil-${citySlug}-${feature.properties?.district ?? 'unknown'}`,
+          name: `${address.city} City Council District ${feature.properties?.district ?? 'unknown'}`,
           country: 'US',
           granularity: 'finest',
           source: 'gis'

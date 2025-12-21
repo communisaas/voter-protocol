@@ -685,7 +685,7 @@ export class IncrementalOrchestrator {
     let maxLat = -Infinity;
 
     for (const feature of geojson.features) {
-      if (!feature.geometry || !feature.geometry.coordinates) {
+      if (!feature.geometry || feature.geometry.type === 'GeometryCollection' || !feature.geometry.coordinates) {
         continue;
       }
 
