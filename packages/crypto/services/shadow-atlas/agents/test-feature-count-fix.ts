@@ -15,7 +15,7 @@ interface TestResult {
   improvement: string;
 }
 
-async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; count: number | null }> {
+async function fetchFixOld(layerUrl: string): Promise<{ name: string; count: number | null }> {
   try {
     const response = await fetch(`${layerUrl}?f=json`, {
       signal: AbortSignal.timeout(10000),
@@ -29,7 +29,7 @@ async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; cou
 
     // OLD BROKEN METHOD: Uses maxRecordCount as fallback
     const count = typeof data.count === 'number' ? data.count :
-                 typeof data.maxRecordCount === 'number' ? data.maxRecordCount : null;
+      typeof data.maxRecordCount === 'number' ? data.maxRecordCount : null;
 
     return {
       name: String(data.name ?? 'Unknown'),
@@ -40,7 +40,7 @@ async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; cou
   }
 }
 
-async function fetchWithNewMethod(layerUrl: string): Promise<number | null> {
+async function fetchFixNew(layerUrl: string): Promise<number | null> {
   try {
     // NEW CORRECT METHOD: Query actual feature count
     const queryUrl = `${layerUrl}/query?where=1=1&returnCountOnly=true&f=json`;
@@ -95,8 +95,8 @@ async function testFeatureCountFix(): Promise<void> {
   for (const layerUrl of testLayers) {
     console.log(`Testing: ${layerUrl}`);
 
-    const oldResult = await fetchWithOldMethod(layerUrl);
-    const newResult = await fetchWithNewMethod(layerUrl);
+    const oldResult = await fetchFixOld(layerUrl);
+    const newResult = await fetchFixNew(layerUrl);
 
     let improvement: string;
     if (oldResult.count === null && newResult === null) {

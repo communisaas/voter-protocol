@@ -3,7 +3,7 @@
  * Comprehensive test with more reliable ArcGIS services.
  */
 
-async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; count: number | null; maxRecordCount: number | null }> {
+async function fetchComprehensiveOld(layerUrl: string): Promise<{ name: string; count: number | null; maxRecordCount: number | null }> {
   try {
     const response = await fetch(`${layerUrl}?f=json`, {
       signal: AbortSignal.timeout(10000),
@@ -16,7 +16,7 @@ async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; cou
     const data = await response.json() as Record<string, unknown>;
 
     const count = typeof data.count === 'number' ? data.count :
-                 typeof data.maxRecordCount === 'number' ? data.maxRecordCount : null;
+      typeof data.maxRecordCount === 'number' ? data.maxRecordCount : null;
 
     const maxRecordCount = typeof data.maxRecordCount === 'number' ? data.maxRecordCount : null;
 
@@ -30,7 +30,7 @@ async function fetchWithOldMethod(layerUrl: string): Promise<{ name: string; cou
   }
 }
 
-async function fetchWithNewMethod(layerUrl: string): Promise<number | null> {
+async function fetchComprehensiveNew(layerUrl: string): Promise<number | null> {
   try {
     const queryUrl = `${layerUrl}/query?where=1=1&returnCountOnly=true&f=json`;
 
@@ -77,8 +77,8 @@ async function runTest(): Promise<void> {
   for (const layerUrl of testLayers) {
     console.log(`\nTesting: ${layerUrl.split('/').slice(-3).join('/')}`);
 
-    const oldResult = await fetchWithOldMethod(layerUrl);
-    const newResult = await fetchWithNewMethod(layerUrl);
+    const oldResult = await fetchComprehensiveOld(layerUrl);
+    const newResult = await fetchComprehensiveNew(layerUrl);
 
     console.log(`  Layer: ${oldResult.name}`);
     console.log(`  maxRecordCount: ${oldResult.maxRecordCount}`);
