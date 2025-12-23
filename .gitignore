@@ -208,3 +208,6 @@ packages/crypto/services/shadow-atlas/data/census-tiger-2023-counties.geojson
 # TIGER cache data
 packages/crypto/packages/
 packages/crypto/data/tiger-cache/
+
+# Archive - large data files
+.archive/
