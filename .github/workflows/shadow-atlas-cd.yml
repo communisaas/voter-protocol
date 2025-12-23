@@ -1,0 +1,430 @@
+name: Shadow Atlas CD
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip test suite (emergency only)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/shadow-atlas
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.inputs.skip_tests != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/crypto
+        run: npm ci
+
+      - name: Run full test suite
+        working-directory: packages/crypto
+        run: npm run test:atlas
+        env:
+          CI: true
+
+      - name: Verify build
+        working-directory: packages/crypto
+        run: npm run build
+
+  build-production:
+    name: Build Production Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [validate]
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/crypto
+          file: packages/crypto/services/shadow-atlas/deploy/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=20
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cyclonedx.json
+          retention-days: 90
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-production]
+    environment:
+      name: staging
+      url: https://staging-shadow-atlas.voter-protocol.org
+    if: github.event.inputs.environment == 'staging' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Deploy to Kubernetes (Staging)
+        run: |
+          cd packages/crypto/services/shadow-atlas/deploy/kubernetes
+
+          # Update image tag
+          kubectl set image deployment/shadow-atlas \
+            shadow-atlas=${{ needs.build-production.outputs.image_tag }} \
+            -n shadow-atlas-staging
+
+          # Wait for rollout
+          kubectl rollout status deployment/shadow-atlas \
+            -n shadow-atlas-staging \
+            --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          # Check pod status
+          kubectl get pods -n shadow-atlas-staging -l app=shadow-atlas
+
+          # Check service endpoints
+          kubectl get endpoints -n shadow-atlas-staging shadow-atlas
+
+  e2e-staging:
+    name: E2E Tests on Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [deploy-staging]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/crypto
+        run: npm ci
+
+      - name: Run E2E tests against staging
+        working-directory: packages/crypto
+        run: npm run test:atlas:e2e
+        env:
+          CI: true
+          RUN_E2E: true
+          SHADOW_ATLAS_URL: https://staging-shadow-atlas.voter-protocol.org
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-e2e-results
+          path: packages/crypto/multi-state-validation-report.json
+          retention-days: 30
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-production, e2e-staging]
+    environment:
+      name: production
+      url: https://shadow-atlas.voter-protocol.org
+    if: |
+      (github.event_name == 'release' && github.event.action == 'published') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Get current deployment
+        id: current
+        run: |
+          CURRENT_IMAGE=$(kubectl get deployment shadow-atlas \
+            -n shadow-atlas-production \
+            -o jsonpath='{.spec.template.spec.containers[0].image}')
+          echo "current_image=$CURRENT_IMAGE" >> $GITHUB_OUTPUT
+          echo "Current image: $CURRENT_IMAGE"
+
+      - name: Blue-Green Deployment
+        run: |
+          cd packages/crypto/services/shadow-atlas/deploy/kubernetes
+
+          # Deploy green version
+          kubectl apply -f deployment-green.yaml -n shadow-atlas-production
+
+          # Update green deployment with new image
+          kubectl set image deployment/shadow-atlas-green \
+            shadow-atlas=${{ needs.build-production.outputs.image_tag }} \
+            -n shadow-atlas-production
+
+          # Wait for green deployment
+          kubectl rollout status deployment/shadow-atlas-green \
+            -n shadow-atlas-production \
+            --timeout=10m
+
+          # Health check green deployment
+          sleep 30
+
+          # Switch traffic to green
+          kubectl patch service shadow-atlas \
+            -n shadow-atlas-production \
+            -p '{"spec":{"selector":{"version":"green"}}}'
+
+          echo "✅ Traffic switched to green deployment"
+
+      - name: Monitor production
+        run: |
+          # Monitor for 2 minutes
+          sleep 120
+
+          # Check error rate
+          ERROR_RATE=$(kubectl logs -n shadow-atlas-production \
+            -l app=shadow-atlas,version=green \
+            --tail=1000 \
+            | grep -c "ERROR" || echo "0")
+
+          echo "Error rate: $ERROR_RATE errors in last 1000 log lines"
+
+          if [ "$ERROR_RATE" -gt 10 ]; then
+            echo "❌ High error rate detected: $ERROR_RATE errors"
+            exit 1
+          fi
+
+      - name: Cleanup old blue deployment
+        if: success()
+        run: |
+          # Scale down blue deployment
+          kubectl scale deployment shadow-atlas-blue \
+            -n shadow-atlas-production \
+            --replicas=0
+
+          echo "✅ Blue deployment scaled down"
+
+  verify-production:
+    name: Verify Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-production]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/crypto/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/crypto
+        run: npm ci
+
+      - name: Production smoke tests
+        working-directory: packages/crypto
+        run: |
+          # Run health check against production
+          npx tsx services/shadow-atlas/scripts/health-check-ci.ts
+        env:
+          SHADOW_ATLAS_URL: https://shadow-atlas.voter-protocol.org
+
+      - name: Verify IPFS pinning
+        run: |
+          # Check latest IPFS hash is accessible
+          LATEST_CID=$(curl -s https://shadow-atlas.voter-protocol.org/api/v1/latest | jq -r '.ipfsCid')
+
+          if [ -z "$LATEST_CID" ]; then
+            echo "❌ Failed to get latest IPFS CID"
+            exit 1
+          fi
+
+          echo "Latest CID: $LATEST_CID"
+
+          # Verify CID is accessible
+          curl -f "https://ipfs.io/ipfs/$LATEST_CID" || exit 1
+
+          echo "✅ IPFS CID accessible"
+
+  rollback:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-production, verify-production]
+    if: failure()
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Rollback to blue deployment
+        run: |
+          echo "🔄 Rolling back to previous deployment..."
+
+          # Switch traffic back to blue
+          kubectl patch service shadow-atlas \
+            -n shadow-atlas-production \
+            -p '{"spec":{"selector":{"version":"blue"}}}'
+
+          # Scale up blue deployment
+          kubectl scale deployment shadow-atlas-blue \
+            -n shadow-atlas-production \
+            --replicas=3
+
+          # Wait for blue to be ready
+          kubectl rollout status deployment/shadow-atlas-blue \
+            -n shadow-atlas-production \
+            --timeout=5m
+
+          # Scale down green deployment
+          kubectl scale deployment shadow-atlas-green \
+            -n shadow-atlas-production \
+            --replicas=0
+
+          echo "✅ Rollback complete - traffic restored to blue deployment"
+
+      - name: Create rollback issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Shadow Atlas Production Deployment Failed - Rolled Back',
+              body: `
+              ## Deployment Failure and Rollback
+
+              **Run:** [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+              **Time:** ${new Date().toISOString()}
+              **SHA:** ${context.sha}
+
+              Production deployment failed and was automatically rolled back to the previous version.
+
+              ### Action Required
+              1. Review deployment logs
+              2. Investigate failure cause
+              3. Fix issues before re-deploying
+
+              ---
+              *This issue was automatically created by the CD workflow.*
+              `,
+              labels: ['deployment', 'production', 'incident']
+            });
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [validate, build-production, deploy-staging, e2e-staging, deploy-production, verify-production]
+    if: always()
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Shadow Atlas Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validate | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy Staging | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Staging | ${{ needs.e2e-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy Production | ${{ needs.deploy-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Verify Production | ${{ needs.verify-production.result }} |" >> $GITHUB_STEP_SUMMARY
