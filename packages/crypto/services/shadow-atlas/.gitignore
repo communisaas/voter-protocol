@@ -1,8 +1,0 @@
-# Shadow Atlas .gitignore
-
-# Provenance logs (ephemeral, only monthly archives committed)
-discovery-attempts/*.ndjson
-discovery-attempts/**/*.ndjson
-
-# Allow compressed monthly archives
-!discovery-attempts/**/*.ndjson.gz
