@@ -1,0 +1,79 @@
+# Cloudflare Workers configuration for Shadow Atlas API
+# Production-ready deployment to global edge network
+#
+# Deployment: wrangler deploy --env production
+# Local dev: wrangler dev
+
+name = "shadow-atlas-api"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# Account configuration (set via wrangler login)
+# account_id will be automatically populated
+
+# Production environment
+[env.production]
+name = "shadow-atlas-api-production"
+route = { pattern = "api.shadow-atlas.org/*", zone_name = "shadow-atlas.org" }
+vars = { ENVIRONMENT = "production", API_VERSION = "v1" }
+
+# Production R2 buckets
+[[env.production.r2_buckets]]
+binding = "DISTRICTS_BUCKET"
+bucket_name = "shadow-atlas-districts-prod"
+preview_bucket_name = "shadow-atlas-districts-dev"
+
+# Production KV namespaces
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_PRODUCTION_KV_ID"
+preview_id = "REPLACE_WITH_DEVELOPMENT_KV_ID"
+
+[[env.production.kv_namespaces]]
+binding = "CACHE_KV"
+id = "REPLACE_WITH_PRODUCTION_CACHE_KV_ID"
+preview_id = "REPLACE_WITH_DEVELOPMENT_CACHE_KV_ID"
+
+# Staging environment
+[env.staging]
+name = "shadow-atlas-api-staging"
+route = { pattern = "staging.shadow-atlas.org/*", zone_name = "shadow-atlas.org" }
+vars = { ENVIRONMENT = "staging", API_VERSION = "v1" }
+
+[[env.staging.r2_buckets]]
+binding = "DISTRICTS_BUCKET"
+bucket_name = "shadow-atlas-districts-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_STAGING_KV_ID"
+
+[[env.staging.kv_namespaces]]
+binding = "CACHE_KV"
+id = "REPLACE_WITH_STAGING_CACHE_KV_ID"
+
+# Development environment (default)
+[env.development]
+name = "shadow-atlas-api-dev"
+vars = { ENVIRONMENT = "development", API_VERSION = "v1" }
+
+[[env.development.r2_buckets]]
+binding = "DISTRICTS_BUCKET"
+bucket_name = "shadow-atlas-districts-dev"
+
+[[env.development.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_DEV_KV_ID"
+
+[[env.development.kv_namespaces]]
+binding = "CACHE_KV"
+id = "REPLACE_WITH_DEV_CACHE_KV_ID"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Observability (Logpush to S3/R2)
+[observability]
+enabled = true
