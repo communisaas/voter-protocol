@@ -8,11 +8,14 @@
     "sourceMap": true
   },
   "include": [
+    "*.ts",
     "services/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "*.config.ts",
+    "test/**/*"
   ]
 }
