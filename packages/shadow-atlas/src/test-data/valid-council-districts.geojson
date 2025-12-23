@@ -1,0 +1,109 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": 1,
+      "properties": {
+        "DISTRICT": "1",
+        "COUNCIL_MEMBER": "Jane Smith",
+        "POPULATION": 65432
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.4, 47.6],
+          [-122.3, 47.6],
+          [-122.3, 47.7],
+          [-122.4, 47.7],
+          [-122.4, 47.6]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 2,
+      "properties": {
+        "DISTRICT": "2",
+        "COUNCIL_MEMBER": "John Doe",
+        "POPULATION": 72341
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.3, 47.6],
+          [-122.2, 47.6],
+          [-122.2, 47.7],
+          [-122.3, 47.7],
+          [-122.3, 47.6]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 3,
+      "properties": {
+        "DISTRICT": "3",
+        "COUNCIL_MEMBER": "Alice Johnson",
+        "POPULATION": 68234
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.2, 47.6],
+          [-122.1, 47.6],
+          [-122.1, 47.7],
+          [-122.2, 47.7],
+          [-122.2, 47.6]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 4,
+      "properties": {
+        "DISTRICT": "4",
+        "COUNCIL_MEMBER": "Bob Williams",
+        "POPULATION": 71245
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[
+            [-122.4, 47.5],
+            [-122.3, 47.5],
+            [-122.3, 47.6],
+            [-122.4, 47.6],
+            [-122.4, 47.5]
+          ]],
+          [[
+            [-122.2, 47.5],
+            [-122.1, 47.5],
+            [-122.1, 47.6],
+            [-122.2, 47.6],
+            [-122.2, 47.5]
+          ]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 5,
+      "properties": {
+        "DISTRICT": "5",
+        "COUNCIL_MEMBER": "Carol Davis",
+        "POPULATION": 69872
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.3, 47.5],
+          [-122.2, 47.5],
+          [-122.2, 47.6],
+          [-122.3, 47.6],
+          [-122.3, 47.5]
+        ]]
+      }
+    }
+  ]
+}

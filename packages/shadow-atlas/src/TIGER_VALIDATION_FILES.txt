@@ -1,0 +1,236 @@
+TIGER Ground Truth Validation System - File Structure
+=====================================================
+
+Created: 2025-12-17
+Purpose: Establish ground truth for Census TIGER/Line legislative boundary data
+
+File Tree
+---------
+
+packages/crypto/services/shadow-atlas/
+│
+├── registry/
+│   └── official-district-counts.ts         [NEW] Canonical district counts
+│       ├── Congressional: 435 seats (2020 apportionment)
+│       ├── State Senate: 20-67 per state
+│       ├── State House: 40-400 per state (null for NE)
+│       ├── Counties: 3-254 per state
+│       └── Helper functions: getOfficialCount(), validateCount()
+│
+├── scripts/
+│   ├── tiger-ground-truth.ts               [NEW] Shapefile validation
+│   │   ├── Downloads TIGER 2024 congressional shapefile
+│   │   ├── Parses with ogr2ogr or shapefile package
+│   │   ├── Counts districts per state
+│   │   └── Compares against official apportionment
+│   │
+│   ├── compare-tiger-sources.ts            [NEW] API validation
+│   │   ├── Queries TIGERweb REST API for all states
+│   │   ├── Tests congressional, senate, house layers
+│   │   ├── Compares against official-district-counts.ts
+│   │   └── Generates comparison report
+│   │
+│   ├── TIGER_GROUND_TRUTH_VALIDATION.md    [NEW] Technical guide
+│   │   ├── Complete documentation
+│   │   ├── Data sources and authority hierarchy
+│   │   ├── Validation methodology
+│   │   ├── Redistricting cycle awareness
+│   │   └── Integration with Shadow Atlas
+│   │
+│   └── README-TIGER-VALIDATION.md          [NEW] Quick reference
+│       ├── Quick start guide
+│       ├── Usage examples
+│       └── Troubleshooting
+│
+├── TIGER_VALIDATION_SUMMARY.md             [NEW] Implementation summary
+│   ├── What was built
+│   ├── Validation methodology
+│   ├── Expected district counts
+│   ├── Known discrepancies
+│   └── Maintenance schedule
+│
+└── INTEGRATION_EXAMPLE.md                  [NEW] Code examples
+    ├── Quick integration patterns
+    ├── Authority resolution
+    ├── Batch validation
+    ├── Provenance tracking
+    └── Unit/integration tests
+
+
+Validation Flow
+---------------
+
+                    ┌─────────────────────────────────┐
+                    │  TIGER/Line Shapefiles (FTP)   │
+                    │  Ground Truth (Canonical)       │
+                    └───────────────┬─────────────────┘
+                                    │
+                                    ▼
+                    ┌─────────────────────────────────┐
+                    │  tiger-ground-truth.ts          │
+                    │  Parse shapefile → Count districts│
+                    └───────────────┬─────────────────┘
+                                    │
+                                    ▼
+                    ┌─────────────────────────────────┐
+                    │  official-district-counts.ts    │
+                    │  Canonical Registry             │
+                    └───────────────┬─────────────────┘
+                                    │
+                                    ▼
+                    ┌─────────────────────────────────┐
+                    │  compare-tiger-sources.ts       │
+                    │  Validate TIGERweb API          │
+                    └───────────────┬─────────────────┘
+                                    │
+                                    ▼
+                    ┌─────────────────────────────────┐
+                    │  TIGERweb REST API (Production) │
+                    │  Used by Shadow Atlas           │
+                    └─────────────────────────────────┘
+
+
+Expected Counts (119th Congress)
+---------------------------------
+
+Congressional Districts:
+  Total: 435 voting seats (fixed by law)
+
+  Post-2020 Reapportionment:
+    Gains:  TX +2, FL +1, NC +1, CO +1, OR +1, MT +1 = +6
+    Losses: CA -1, NY -1, IL -1, MI -1, OH -1, PA -1, WV -1 = -7
+    Net: +6 -7 = -1 (435 maintained via rounding)
+
+State Legislative:
+  Senate: 20-67 seats per state
+  House:  40-400 seats per state (null for NE unicameral)
+
+Special Cases:
+  DC: 0 congressional (non-voting delegate)
+  PR: 0 congressional (non-voting resident commissioner)
+  NE: 49 senate, null house (unicameral legislature)
+  NH: 400 house seats (largest in U.S.)
+
+
+Usage Examples
+--------------
+
+1. Run Ground Truth Validation:
+   $ tsx scripts/tiger-ground-truth.ts
+
+2. Run API Validation:
+   $ tsx scripts/compare-tiger-sources.ts
+
+3. Programmatic Validation:
+   import { validateCount } from './registry/official-district-counts.js';
+   const result = validateCount('WI', 'congressional', 8);
+   // { isValid: true, expected: 8, actual: 8, confidence: 1.0 }
+
+4. Authority Resolution:
+   import { getOfficialCount } from './registry/official-district-counts.js';
+   const expected = getOfficialCount('TX', 'congressional'); // 38
+
+
+Validation Confidence
+---------------------
+
+Difference | Confidence | Status   | Action
+-----------|------------|----------|---------------------------
+0          | 100%       | ✅ Match | Use data
+±1         | 70%        | ⚠️  Minor| Investigate (at-large codes?)
+±2+        | 0%         | ❌ Major | Manual review required
+
+
+Maintenance Schedule
+--------------------
+
+Annual (Required):
+  - July: TIGER releases new data
+  - Run validation scripts
+  - Update official-district-counts.ts if needed
+  - Update state-gis-portals.ts vintage dates
+
+Redistricting Years (Required):
+  - Years ending in 1-2 (e.g., 2031-2032)
+  - Monitor state redistricting commissions
+  - Track gap period (Jan-Jun)
+  - Validate state-extracted data
+
+Quarterly (Recommended):
+  - Run scripts to detect data drift
+  - Check for court-ordered redistricting
+  - Review state portal changes
+
+
+Integration Points
+------------------
+
+Authority Resolver (provenance/authority-resolver.ts):
+  - Uses official-district-counts.ts for validation
+  - Switches between TIGER and state sources based on temporal logic
+
+TIGER Validity (provenance/tiger-validity.ts):
+  - Validates state-extracted boundaries
+  - Uses official counts for confidence scoring
+
+State GIS Portals (registry/state-gis-portals.ts):
+  - Legislative district layers include expectedCount field
+  - Validated against official-district-counts.ts
+
+Shadow Atlas Merkle Trees:
+  - Only include boundaries with confidence >= 70%
+  - Provenance metadata includes validation results
+
+
+Output Files
+------------
+
+validation-results/
+├── tiger-ground-truth-report.md       # Shapefile validation
+└── tigerweb-comparison-report.md      # API validation
+
+
+Dependencies
+------------
+
+Required:
+  - Node.js 18+ (built-in fetch)
+  - TypeScript 5.7+
+  - tsx (for running TypeScript)
+
+Optional (for shapefile parsing):
+  - ogr2ogr (GDAL) - recommended
+  - shapefile npm package - fallback
+
+
+References
+----------
+
+Official Sources:
+  - TIGER/Line Files: https://www2.census.gov/geo/tiger/TIGER2024/
+  - TIGERweb API: https://tigerweb.geo.census.gov/
+  - 2020 Apportionment: https://www.census.gov/data/tables/2020/dec/2020-apportionment-data.html
+  - NCSL State Legislatures: https://www.ncsl.org/
+
+Technical Docs:
+  - TIGER/Line Tech Docs: https://www2.census.gov/geo/pdfs/maps-data/data/tiger/
+  - ArcGIS REST API: https://developers.arcgis.com/rest/
+  - GDAL/OGR Tools: https://gdal.org/programs/ogr2ogr.html
+
+
+Summary
+-------
+
+This validation system provides CRYPTOGRAPHIC-GRADE CONFIDENCE in legislative
+boundary data by establishing ground truth through:
+
+  1. ✅ Direct shapefile parsing (canonical geographic data)
+  2. ✅ TIGERweb API validation (production data source)
+  3. ✅ Official Census cross-reference (apportionment)
+  4. ✅ Temporal awareness (redistricting gaps/grace periods)
+  5. ✅ Provenance tracking (data lineage documentation)
+  6. ✅ Automated regression testing (detect drift)
+
+Result: Zero-knowledge proofs for congressional district residency backed
+by ground truth validation of Census TIGER/Line data.
+

@@ -1,0 +1,730 @@
+{
+  "metadata": {
+    "created": "2025-11-25",
+    "purpose": "State Governance District Discovery - Legislative, Congressional, County-Level",
+    "scope": "All 50 states + DC for state legislative, congressional, and county commission districts",
+    "sources": [
+      "Census Bureau TIGER/Line (authoritative congressional districts)",
+      "State GIS clearinghouses (from registry/state-gis-portals.ts)",
+      "State redistricting commission websites (where available)"
+    ],
+    "notes": "Focus on STATE-LEVEL governance, NOT city council (already have 3,413 city_council layers)"
+  },
+  "census_tiger_base": {
+    "congressional_districts": {
+      "source": "US Census Bureau TIGER/Line",
+      "url_pattern": "https://www2.census.gov/geo/tiger/TIGER2023/CD/",
+      "coverage": "All 50 states + DC",
+      "format": "Shapefile",
+      "notes": "Authoritative source, updated every 2 years after redistricting",
+      "phase": 3,
+      "reasoning": "Phase 3 dependency - requires shapefile processing pipeline"
+    },
+    "state_legislative_upper": {
+      "source": "US Census Bureau TIGER/Line",
+      "url_pattern": "https://www2.census.gov/geo/tiger/TIGER2023/SLDU/",
+      "coverage": "All 50 states (49 with upper chambers, NE unicameral)",
+      "format": "Shapefile",
+      "notes": "State senate districts",
+      "phase": 3
+    },
+    "state_legislative_lower": {
+      "source": "US Census Bureau TIGER/Line",
+      "url_pattern": "https://www2.census.gov/geo/tiger/TIGER2023/SLDL/",
+      "coverage": "All 50 states (49 with lower chambers, NE unicameral)",
+      "format": "Shapefile",
+      "notes": "State house/assembly districts",
+      "phase": 3
+    }
+  },
+  "state_portals": [
+    {
+      "state": "Alabama",
+      "state_code": "AL",
+      "gis_clearinghouse": {
+        "name": "Alabama Geographic Information System",
+        "url": "https://gsa.alabama.gov",
+        "platform": "custom",
+        "notes": "County boundaries available"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Alaska",
+      "state_code": "AK",
+      "gis_clearinghouse": {
+        "name": "Alaska State Geo-Spatial Data Clearinghouse",
+        "url": "https://www.asgdc.state.ak.us",
+        "platform": "custom",
+        "notes": "Borough (county-equivalent) boundaries"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Arizona",
+      "state_code": "AZ",
+      "gis_clearinghouse": {
+        "name": "Arizona Geographic Information Council",
+        "url": "https://azgeo-open-data-agic.hub.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://azgeo-open-data-agic.hub.arcgis.com/api/v3/datasets",
+        "notes": "State GIS portal with county + legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Arizona Independent Redistricting Commission",
+        "url": "https://irc.az.gov",
+        "notes": "Legislative + congressional districts (custom map portal)"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Arkansas",
+      "state_code": "AR",
+      "gis_clearinghouse": {
+        "name": "Arkansas GIS Office",
+        "url": "https://gis.arkansas.gov",
+        "platform": "arcgis",
+        "notes": "County boundaries"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "California",
+      "state_code": "CA",
+      "gis_clearinghouse": {
+        "name": "California Open Data Portal",
+        "url": "https://gis.data.ca.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://gis.data.ca.gov/api/v3/datasets",
+        "notes": "58 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "California Citizens Redistricting Commission",
+        "url": "https://redistricting.lao.ca.gov",
+        "notes": "State Senate, Assembly, Congressional - custom GIS portal"
+      },
+      "priority": "high"
+    },
+    {
+      "state": "Colorado",
+      "state_code": "CO",
+      "gis_clearinghouse": {
+        "name": "Colorado Information Marketplace",
+        "url": "https://data.colorado.gov",
+        "platform": "socrata",
+        "api_endpoint": "https://data.colorado.gov/api/catalog/v1",
+        "notes": "64 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Colorado Independent Redistricting Commissions",
+        "url": "https://redistricting.colorado.gov",
+        "notes": "Separate commissions for state legislative + congressional"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Connecticut",
+      "state_code": "CT",
+      "gis_clearinghouse": {
+        "name": "CT Open Data Portal",
+        "url": "https://data.ct.gov",
+        "platform": "socrata",
+        "notes": "8 counties (abolished 1960, geographic regions only)"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Delaware",
+      "state_code": "DE",
+      "gis_clearinghouse": {
+        "name": "Delaware FirstMap",
+        "url": "https://firstmap.delaware.gov",
+        "platform": "arcgis",
+        "notes": "3 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Florida",
+      "state_code": "FL",
+      "gis_clearinghouse": {
+        "name": "Florida Geographic Data Library",
+        "url": "https://geodata.floridagio.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+        "notes": "67 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Florida Senate Redistricting",
+        "url": "https://www.flsenate.gov/Redistricting",
+        "notes": "State Senate, House, Congressional maps"
+      },
+      "priority": "high"
+    },
+    {
+      "state": "Georgia",
+      "state_code": "GA",
+      "gis_clearinghouse": {
+        "name": "Georgia GIS Clearinghouse",
+        "url": "https://data.georgiaspatial.org",
+        "platform": "arcgis",
+        "api_endpoint": "https://data.georgiaspatial.org/api/v3/datasets",
+        "notes": "159 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "Hawaii",
+      "state_code": "HI",
+      "gis_clearinghouse": {
+        "name": "Hawaii Statewide GIS Program",
+        "url": "https://geodata.hawaii.gov",
+        "platform": "arcgis",
+        "notes": "4 counties (no incorporated cities, county council districts only)"
+      },
+      "redistricting_portal": {
+        "name": "Hawaii Reapportionment Commission",
+        "url": "https://elections.hawaii.gov/resource/reapportionment-commission/",
+        "notes": "State legislative + congressional districts"
+      },
+      "priority": "low"
+    },
+    {
+      "state": "Idaho",
+      "state_code": "ID",
+      "gis_clearinghouse": {
+        "name": "INSIDE Idaho",
+        "url": "https://inside.idaho.gov",
+        "platform": "arcgis",
+        "notes": "44 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Illinois",
+      "state_code": "IL",
+      "gis_clearinghouse": {
+        "name": "Illinois Geospatial Data Clearinghouse",
+        "url": "https://clearinghouse.isgs.illinois.edu",
+        "platform": "arcgis",
+        "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+        "notes": "102 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "Indiana",
+      "state_code": "IN",
+      "gis_clearinghouse": {
+        "name": "Indiana Geographic Information Office",
+        "url": "https://hub.mph.in.gov",
+        "platform": "arcgis",
+        "notes": "92 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Iowa",
+      "state_code": "IA",
+      "gis_clearinghouse": {
+        "name": "Iowa GIS Consortium",
+        "url": "https://geodata.iowa.gov",
+        "platform": "arcgis",
+        "notes": "99 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Kansas",
+      "state_code": "KS",
+      "gis_clearinghouse": {
+        "name": "Kansas Data Access and Support Center",
+        "url": "https://www.kansasgis.org",
+        "platform": "custom",
+        "notes": "105 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Kentucky",
+      "state_code": "KY",
+      "gis_clearinghouse": {
+        "name": "Kentucky Geography Network",
+        "url": "https://kygeonet.ky.gov",
+        "platform": "arcgis",
+        "notes": "120 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Louisiana",
+      "state_code": "LA",
+      "gis_clearinghouse": {
+        "name": "Louisiana Atlas",
+        "url": "https://atlas.ga.lsu.edu",
+        "platform": "custom",
+        "notes": "64 parishes (counties)"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Maine",
+      "state_code": "ME",
+      "gis_clearinghouse": {
+        "name": "Maine Office of GIS",
+        "url": "https://www.maine.gov/megis",
+        "platform": "arcgis",
+        "notes": "16 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Maryland",
+      "state_code": "MD",
+      "gis_clearinghouse": {
+        "name": "Maryland iMap",
+        "url": "https://data.imap.maryland.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://data.imap.maryland.gov/api/v3/datasets",
+        "notes": "23 counties + Baltimore City"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "Massachusetts",
+      "state_code": "MA",
+      "gis_clearinghouse": {
+        "name": "MassGIS",
+        "url": "https://www.mass.gov/info-details/massgis-data-layers",
+        "platform": "custom",
+        "notes": "14 counties (geographic only, no government) + 351 municipalities"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Michigan",
+      "state_code": "MI",
+      "gis_clearinghouse": {
+        "name": "Michigan Geographic Framework",
+        "url": "https://gis-michigan.opendata.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://gis-michigan.opendata.arcgis.com/api/v3/datasets",
+        "notes": "83 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Michigan Independent Citizens Redistricting Commission",
+        "url": "https://www.michigan.gov/micrc",
+        "notes": "State legislative + congressional districts"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Minnesota",
+      "state_code": "MN",
+      "gis_clearinghouse": {
+        "name": "Minnesota Geospatial Commons",
+        "url": "https://gisdata.mn.gov",
+        "platform": "arcgis",
+        "notes": "87 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "Mississippi",
+      "state_code": "MS",
+      "gis_clearinghouse": {
+        "name": "Mississippi Automated Resource Information System",
+        "url": "https://www.maris.state.ms.us",
+        "platform": "custom",
+        "notes": "82 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Missouri",
+      "state_code": "MO",
+      "gis_clearinghouse": {
+        "name": "Missouri Spatial Data Information Service",
+        "url": "https://msdis.missouri.edu",
+        "platform": "custom",
+        "notes": "114 counties + St. Louis City"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Montana",
+      "state_code": "MT",
+      "gis_clearinghouse": {
+        "name": "Montana State Library GIS",
+        "url": "https://geoinfo.msl.mt.gov",
+        "platform": "arcgis",
+        "notes": "56 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Montana Districting and Apportionment Commission",
+        "url": "https://redistricting.mt.gov",
+        "notes": "State legislative + congressional districts"
+      },
+      "priority": "low"
+    },
+    {
+      "state": "Nebraska",
+      "state_code": "NE",
+      "gis_clearinghouse": {
+        "name": "Nebraska GIS",
+        "url": "https://nogis.nebraska.gov",
+        "platform": "custom",
+        "notes": "93 counties, unicameral legislature (49 districts)"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Nevada",
+      "state_code": "NV",
+      "gis_clearinghouse": {
+        "name": "Nevada Natural Resources Information System",
+        "url": "https://www.nbmg.unr.edu/nris",
+        "platform": "custom",
+        "notes": "16 counties + 1 independent city (Carson City)"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "New Hampshire",
+      "state_code": "NH",
+      "gis_clearinghouse": {
+        "name": "NH GRANIT",
+        "url": "https://www.granit.unh.edu",
+        "platform": "custom",
+        "notes": "10 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "New Jersey",
+      "state_code": "NJ",
+      "gis_clearinghouse": {
+        "name": "NJ Office of GIS",
+        "url": "https://njogis-newjersey.opendata.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://njogis-newjersey.opendata.arcgis.com/api/v3/datasets",
+        "notes": "21 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "New Mexico",
+      "state_code": "NM",
+      "gis_clearinghouse": {
+        "name": "RGIS - Resource Geographic Information System",
+        "url": "https://rgis.unm.edu",
+        "platform": "arcgis",
+        "notes": "33 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "New York",
+      "state_code": "NY",
+      "gis_clearinghouse": {
+        "name": "NYS GIS Clearinghouse",
+        "url": "https://gis.ny.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+        "notes": "62 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "NY Independent Redistricting Commission",
+        "url": "https://redistricting.nyirc.gov",
+        "notes": "State Senate, Assembly, Congressional"
+      },
+      "priority": "high"
+    },
+    {
+      "state": "North Carolina",
+      "state_code": "NC",
+      "gis_clearinghouse": {
+        "name": "NC OneMap",
+        "url": "https://www.nconemap.gov",
+        "platform": "arcgis",
+        "notes": "100 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "North Dakota",
+      "state_code": "ND",
+      "gis_clearinghouse": {
+        "name": "North Dakota GIS Hub",
+        "url": "https://www.gis.nd.gov",
+        "platform": "arcgis",
+        "notes": "53 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Ohio",
+      "state_code": "OH",
+      "gis_clearinghouse": {
+        "name": "Ohio Geographically Referenced Information Program",
+        "url": "https://ogrip.oit.ohio.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+        "notes": "88 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Ohio Redistricting Commission",
+        "url": "https://redistricting.ohio.gov",
+        "notes": "State legislative districts (congressional maps subject to litigation)"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Oklahoma",
+      "state_code": "OK",
+      "gis_clearinghouse": {
+        "name": "Oklahoma GIS Council",
+        "url": "https://geo.ok.gov",
+        "platform": "custom",
+        "notes": "77 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Oregon",
+      "state_code": "OR",
+      "gis_clearinghouse": {
+        "name": "Oregon Spatial Data Library",
+        "url": "https://spatialdata.oregonexplorer.info",
+        "platform": "arcgis",
+        "notes": "36 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Pennsylvania",
+      "state_code": "PA",
+      "gis_clearinghouse": {
+        "name": "Pennsylvania Spatial Data Access (PASDA)",
+        "url": "https://www.pasda.psu.edu",
+        "platform": "ckan",
+        "api_endpoint": "https://www.pasda.psu.edu/api/3/action/package_search",
+        "notes": "67 counties + state legislative districts (shapefiles)"
+      },
+      "redistricting_portal": {
+        "name": "PA Legislative Reapportionment Commission",
+        "url": "https://www.redistricting.state.pa.us",
+        "notes": "State House, Senate districts"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Rhode Island",
+      "state_code": "RI",
+      "gis_clearinghouse": {
+        "name": "Rhode Island Geographic Information System",
+        "url": "https://www.rigis.org",
+        "platform": "arcgis",
+        "notes": "5 counties (no county government)"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "South Carolina",
+      "state_code": "SC",
+      "gis_clearinghouse": {
+        "name": "SC GIS Clearinghouse",
+        "url": "https://gis.sc.gov",
+        "platform": "custom",
+        "notes": "46 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "South Dakota",
+      "state_code": "SD",
+      "gis_clearinghouse": {
+        "name": "South Dakota GIS Portal",
+        "url": "https://sd.gov/gis",
+        "platform": "custom",
+        "notes": "66 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Tennessee",
+      "state_code": "TN",
+      "gis_clearinghouse": {
+        "name": "TN Map",
+        "url": "https://tn-tnmap.opendata.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://tn-tnmap.opendata.arcgis.com/api/v3/datasets",
+        "notes": "95 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Texas",
+      "state_code": "TX",
+      "gis_clearinghouse": {
+        "name": "Texas Natural Resources Information System (TNRIS)",
+        "url": "https://data.tnris.org",
+        "platform": "arcgis",
+        "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+        "notes": "254 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Texas Legislative Council",
+        "url": "https://data.tlc.texas.gov",
+        "platform": "socrata",
+        "api_endpoint": "https://data.tlc.texas.gov/api/catalog/v1",
+        "notes": "State House, Senate, Congressional districts"
+      },
+      "priority": "high"
+    },
+    {
+      "state": "Utah",
+      "state_code": "UT",
+      "gis_clearinghouse": {
+        "name": "Utah Automated Geographic Reference Center",
+        "url": "https://gis.utah.gov",
+        "platform": "arcgis",
+        "notes": "29 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Utah Independent Redistricting Commission",
+        "url": "https://redistricting.utah.gov",
+        "notes": "State legislative + congressional districts"
+      },
+      "priority": "low"
+    },
+    {
+      "state": "Vermont",
+      "state_code": "VT",
+      "gis_clearinghouse": {
+        "name": "Vermont Center for Geographic Information",
+        "url": "https://vcgi.vermont.gov",
+        "platform": "custom",
+        "notes": "14 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Virginia",
+      "state_code": "VA",
+      "gis_clearinghouse": {
+        "name": "Virginia Geographic Information Network",
+        "url": "https://vgin-vapublicsafety.opendata.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://vgin-vapublicsafety.opendata.arcgis.com/api/v3/datasets",
+        "notes": "95 counties + 38 independent cities"
+      },
+      "redistricting_portal": {
+        "name": "Virginia Redistricting Commission",
+        "url": "https://virginiaredistricting.org",
+        "notes": "State House, Senate, Congressional districts"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "Washington",
+      "state_code": "WA",
+      "gis_clearinghouse": {
+        "name": "Washington State Geospatial Data Archive",
+        "url": "https://geo.wa.gov",
+        "platform": "arcgis",
+        "api_endpoint": "https://geo.wa.gov/api/v3/datasets",
+        "notes": "39 counties + state legislative districts"
+      },
+      "redistricting_portal": {
+        "name": "Washington State Redistricting Commission",
+        "url": "https://www.redistricting.wa.gov",
+        "notes": "State legislative + congressional districts"
+      },
+      "priority": "medium"
+    },
+    {
+      "state": "West Virginia",
+      "state_code": "WV",
+      "gis_clearinghouse": {
+        "name": "WV GIS Technical Center",
+        "url": "https://wvgis.wvu.edu",
+        "platform": "custom",
+        "notes": "55 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "Wisconsin",
+      "state_code": "WI",
+      "gis_clearinghouse": {
+        "name": "Wisconsin State Cartographer Office",
+        "url": "https://data-wi-dnr.opendata.arcgis.com",
+        "platform": "arcgis",
+        "api_endpoint": "https://data-wi-dnr.opendata.arcgis.com/api/v3/datasets",
+        "notes": "72 counties + state legislative districts"
+      },
+      "redistricting_portal": null,
+      "priority": "medium"
+    },
+    {
+      "state": "Wyoming",
+      "state_code": "WY",
+      "gis_clearinghouse": {
+        "name": "Wyoming Geographic Information Science Center",
+        "url": "https://wygisc.uwyo.edu",
+        "platform": "arcgis",
+        "notes": "23 counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    },
+    {
+      "state": "District of Columbia",
+      "state_code": "DC",
+      "gis_clearinghouse": {
+        "name": "Open Data DC",
+        "url": "https://opendata.dc.gov",
+        "platform": "socrata",
+        "api_endpoint": "https://opendata.dc.gov/api/catalog/v1",
+        "notes": "8 wards (city council districts), no counties"
+      },
+      "redistricting_portal": null,
+      "priority": "low"
+    }
+  ]
+}

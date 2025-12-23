@@ -1,0 +1,44 @@
+{
+  "feature_names": [
+    "field_council",
+    "field_district",
+    "field_ward",
+    "field_member",
+    "field_representative",
+    "field_alderman",
+    "field_commissioner",
+    "field_supervisor",
+    "field_school",
+    "field_fire",
+    "field_police",
+    "field_parcel",
+    "url_city",
+    "url_county",
+    "url_state",
+    "url_council",
+    "title_district",
+    "title_ward",
+    "field_count",
+    "log_field_count",
+    "feature_count",
+    "log_feature_count",
+    "typical_range",
+    "too_many_features",
+    "heuristic_confidence",
+    "gov_type_district",
+    "gov_type_unknown"
+  ],
+  "n_features": 27,
+  "model_type": "VotingClassifier",
+  "estimators": [
+    "RandomForest",
+    "GradientBoosting",
+    "LogisticRegression"
+  ],
+  "voting": "soft",
+  "weights": [
+    2,
+    2,
+    1
+  ]
+}

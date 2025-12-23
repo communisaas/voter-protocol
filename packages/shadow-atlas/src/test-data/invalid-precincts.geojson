@@ -1,0 +1,45 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": 1,
+      "properties": {
+        "PRECINCT_ID": "12-A",
+        "POLLING_PLACE": "123 Main St",
+        "VOTING": "Active",
+        "REGISTERED_VOTERS": 543
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.4, 47.6],
+          [-122.39, 47.6],
+          [-122.39, 47.61],
+          [-122.4, 47.61],
+          [-122.4, 47.6]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 2,
+      "properties": {
+        "PRECINCT_ID": "12-B",
+        "POLLING_PLACE": "456 Oak Ave",
+        "VOTING": "Active",
+        "REGISTERED_VOTERS": 521
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.39, 47.6],
+          [-122.38, 47.6],
+          [-122.38, 47.61],
+          [-122.39, 47.61],
+          [-122.39, 47.6]
+        ]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+# Shadow Atlas Critical Alerts
+#
+# SLO Target: 99.9% availability, p99 < 100ms, error rate < 0.1%
+# These alerts fire when critical SLO violations occur.
+
+groups:
+  - name: shadow_atlas_critical
+    interval: 30s
+    rules:
+      # ========================================================================
+      # Availability SLO Violations
+      # ========================================================================
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(shadow_atlas_request_error_total[5m]))
+            /
+            sum(rate(shadow_atlas_requests_total[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+          slo: availability
+        annotations:
+          summary: "High error rate detected (> 1%)"
+          description: |
+            Error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+            SLO target: < 0.1% error rate.
+            Current threshold violation: > 1%.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/high-error-rate"
+          dashboard_url: "https://grafana.voter-protocol.org/d/shadow-atlas-errors"
+
+      - alert: ServiceDown
+        expr: up{job="shadow-atlas"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+          slo: availability
+        annotations:
+          summary: "Shadow Atlas service is down"
+          description: |
+            Service has been unreachable for 1 minute.
+            Immediate action required.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/service-down"
+
+      - alert: HighServerErrorRate
+        expr: |
+          (
+            sum(rate(shadow_atlas_request_error_total{status=~"5.."}[5m]))
+            /
+            sum(rate(shadow_atlas_requests_total[5m]))
+          ) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+          slo: availability
+        annotations:
+          summary: "High 5xx error rate (> 0.1%)"
+          description: |
+            Server error rate is {{ $value | humanizePercentage }}.
+            This indicates internal service failures.
+            SLO budget severely impacted.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/server-errors"
+
+      # ========================================================================
+      # Latency SLO Violations
+      # ========================================================================
+
+      - alert: HighP99Latency
+        expr: |
+          histogram_quantile(0.99,
+            rate(shadow_atlas_request_latency_bucket[5m])
+          ) > 100
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+          slo: latency
+        annotations:
+          summary: "p99 latency exceeds 100ms SLO"
+          description: |
+            p99 latency is {{ $value | humanizeDuration }}.
+            SLO target: < 100ms
+            Performance degradation affecting user experience.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/high-latency"
+          dashboard_url: "https://grafana.voter-protocol.org/d/shadow-atlas-performance"
+
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            rate(shadow_atlas_request_latency_bucket[5m])
+          ) > 50
+        for: 10m
+        labels:
+          severity: critical
+          component: api
+          slo: latency
+        annotations:
+          summary: "p95 latency exceeds 50ms target"
+          description: |
+            p95 latency is {{ $value | humanizeDuration }}.
+            Target: < 50ms
+            Sustained latency increase detected.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/latency-spike"
+
+      # ========================================================================
+      # Data Integrity & Extraction
+      # ========================================================================
+
+      - alert: ExtractionFailureRateHigh
+        expr: |
+          (
+            sum(rate(shadow_atlas_extraction_failure_total[15m]))
+            /
+            (sum(rate(shadow_atlas_extraction_success_total[15m])) +
+             sum(rate(shadow_atlas_extraction_failure_total[15m])))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: extraction
+          slo: data_quality
+        annotations:
+          summary: "Extraction failure rate > 20%"
+          description: |
+            {{ $value | humanizePercentage }} of extractions are failing.
+            Data freshness may be compromised.
+            Check provider health and network connectivity.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/extraction-failures"
+
+      - alert: ValidationFailureRateHigh
+        expr: |
+          (
+            sum(rate(shadow_atlas_validation_fail_total[15m]))
+            /
+            (sum(rate(shadow_atlas_validation_pass_total[15m])) +
+             sum(rate(shadow_atlas_validation_fail_total[15m])))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: validation
+          slo: data_quality
+        annotations:
+          summary: "Validation failure rate > 20%"
+          description: |
+            {{ $value | humanizePercentage }} of validations are failing.
+            Data quality compromised - potential upstream changes.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/validation-failures"
+
+      - alert: ProviderDown
+        expr: shadow_atlas_provider_health < 0.5
+        for: 5m
+        labels:
+          severity: critical
+          component: providers
+          slo: availability
+        annotations:
+          summary: "Provider {{ $labels.provider }} is down"
+          description: |
+            Provider availability: {{ $value | humanizePercentage }}
+            Multiple health checks failed.
+            Fallback mechanisms may be engaged.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/provider-down"
+
+      # ========================================================================
+      # Resource Exhaustion
+      # ========================================================================
+
+      - alert: MemoryUsageHigh
+        expr: |
+          (
+            process_resident_memory_bytes{job="shadow-atlas"}
+            /
+            (1024 * 1024 * 1024)
+          ) > 1.5
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          slo: availability
+        annotations:
+          summary: "Memory usage exceeds 1.5GB"
+          description: |
+            Current memory usage: {{ $value | humanize }}GB
+            Potential memory leak or high load.
+            Service may crash if OOM occurs.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/memory-exhaustion"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/data"}
+            /
+            node_filesystem_size_bytes{mountpoint="/data"}
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          slo: availability
+        annotations:
+          summary: "Disk space below 10%"
+          description: |
+            Available: {{ $value | humanizePercentage }}
+            Database writes may fail.
+            Immediate cleanup required.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/disk-full"
+
+      # ========================================================================
+      # Cache Performance
+      # ========================================================================
+
+      - alert: CacheHitRateLow
+        expr: |
+          (
+            rate(shadow_atlas_cache_hit_total[10m])
+            /
+            (rate(shadow_atlas_cache_hit_total[10m]) + rate(shadow_atlas_cache_miss_total[10m]))
+          ) < 0.5
+        for: 15m
+        labels:
+          severity: critical
+          component: cache
+          slo: performance
+        annotations:
+          summary: "Cache hit rate below 50%"
+          description: |
+            Hit rate: {{ $value | humanizePercentage }}
+            Severe performance degradation likely.
+            Check cache configuration and memory limits.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/cache-thrashing"
+
+      # ========================================================================
+      # Database Performance
+      # ========================================================================
+
+      - alert: DatabaseQueryLatencyHigh
+        expr: |
+          histogram_quantile(0.99,
+            rate(shadow_atlas_db_query_bucket[5m])
+          ) > 500
+        for: 10m
+        labels:
+          severity: critical
+          component: database
+          slo: performance
+        annotations:
+          summary: "Database p99 query latency > 500ms"
+          description: |
+            p99 latency: {{ $value | humanizeDuration }}
+            Database under stress or poorly optimized queries.
+            May impact overall service latency.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/db-slow-queries"
+
+      # ========================================================================
+      # SLO Budget Burn Rate
+      # ========================================================================
+
+      - alert: SLOBudgetBurnRateFast
+        expr: |
+          (
+            1 -
+            (
+              sum(increase(shadow_atlas_requests_total[1h])) -
+              sum(increase(shadow_atlas_request_error_total[1h]))
+            ) / sum(increase(shadow_atlas_requests_total[1h]))
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          component: slo
+          slo: availability
+        annotations:
+          summary: "SLO error budget burning too fast"
+          description: |
+            Current error rate: {{ $value | humanizePercentage }}
+            At this rate, monthly SLO budget will be exhausted in < 7 days.
+            Immediate investigation required.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/slo-budget-burn"
+
+      - alert: SLOBudgetNearExhaustion
+        expr: |
+          (
+            1 -
+            (
+              sum(increase(shadow_atlas_requests_total[30d])) -
+              sum(increase(shadow_atlas_request_error_total[30d]))
+            ) / sum(increase(shadow_atlas_requests_total[30d]))
+          ) < 0.999
+        for: 1h
+        labels:
+          severity: critical
+          component: slo
+          slo: availability
+        annotations:
+          summary: "Monthly SLO budget < 99.9%"
+          description: |
+            30-day availability: {{ $value | humanizePercentage }}
+            SLO target: 99.9%
+            Error budget exhausted or nearly exhausted.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/slo-violation"

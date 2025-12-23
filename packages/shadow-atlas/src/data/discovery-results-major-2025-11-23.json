@@ -1,0 +1,177 @@
+{
+  "timestamp": "2025-11-23T02:58:42.826Z",
+  "tier": "major",
+  "state": "MT",
+  "summary": {
+    "total": 20,
+    "found": 0,
+    "notFound": 20,
+    "skipped": 0,
+    "atLarge": 0,
+    "errors": 0,
+    "successRate": 0
+  },
+  "discoveries": [],
+  "failures": [
+    {
+      "geoid": "3026800",
+      "cityName": "Flaxville",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3062200",
+      "cityName": "Rexford",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3004300",
+      "cityName": "Bearcreek",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3032575",
+      "cityName": "Grass Range",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3036700",
+      "cityName": "Hobson",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3055525",
+      "cityName": "Opheim",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3038350",
+      "cityName": "Hysham",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3036400",
+      "cityName": "Hingham",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3021025",
+      "cityName": "Dodson",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3040000",
+      "cityName": "Judith Gap",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3058975",
+      "cityName": "Poplar",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3009775",
+      "cityName": "Broadview",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3039700",
+      "cityName": "Joliet",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3062275",
+      "cityName": "Richey",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3044275",
+      "cityName": "Lodge Grass",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3009700",
+      "cityName": "Broadus",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3051550",
+      "cityName": "Moore",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3005275",
+      "cityName": "Belt",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3039925",
+      "cityName": "Jordan",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    },
+    {
+      "geoid": "3025225",
+      "cityName": "Fairfield",
+      "state": "MT",
+      "population": 0,
+      "reason": "No candidates found by any scanner",
+      "candidatesAttempted": 0
+    }
+  ]
+}

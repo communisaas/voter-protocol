@@ -1,0 +1,230 @@
+{
+  "metadata": {
+    "created": "2025-11-25",
+    "purpose": "Phase 2 P3: State Portal Aggregators",
+    "total_portals": 20,
+    "total_population_covered": 250000000
+  },
+  "portals": [
+    {
+      "state": "California",
+      "state_code": "CA",
+      "portal_url": "https://data.ca.gov",
+      "platform": "Socrata",
+      "api_endpoint": "https://data.ca.gov/api/catalog/v1",
+      "population": 39500000,
+      "expected_yield": 350,
+      "priority": 1,
+      "notes": "Largest state portal, 482 incorporated cities"
+    },
+    {
+      "state": "Texas",
+      "state_code": "TX",
+      "portal_url": "https://data.texas.gov",
+      "platform": "Socrata",
+      "api_endpoint": "https://data.texas.gov/api/catalog/v1",
+      "population": 29900000,
+      "expected_yield": 450,
+      "priority": 2,
+      "notes": "1,200+ incorporated cities, rich municipal data"
+    },
+    {
+      "state": "Florida",
+      "state_code": "FL",
+      "portal_url": "https://floridagio.gov",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://hub.arcgis.com/api/v3/datasets",
+      "population": 22200000,
+      "expected_yield": 250,
+      "priority": 3,
+      "notes": "411 incorporated places, strong GIS infrastructure"
+    },
+    {
+      "state": "New York",
+      "state_code": "NY",
+      "portal_url": "https://data.ny.gov",
+      "platform": "Socrata",
+      "api_endpoint": "https://data.ny.gov/api/catalog/v1",
+      "population": 19800000,
+      "expected_yield": 250,
+      "priority": 4,
+      "notes": "62 counties + 1,000+ municipalities"
+    },
+    {
+      "state": "Pennsylvania",
+      "state_code": "PA",
+      "portal_url": "https://www.pasda.psu.edu",
+      "platform": "CKAN",
+      "api_endpoint": "https://www.pasda.psu.edu/api/3/action/package_search",
+      "population": 13000000,
+      "expected_yield": 250,
+      "priority": 5,
+      "notes": "PASDA - 67 counties, 2,500+ municipalities"
+    },
+    {
+      "state": "Illinois",
+      "state_code": "IL",
+      "portal_url": "https://data.illinois.gov",
+      "platform": "Socrata",
+      "api_endpoint": "https://data.illinois.gov/api/catalog/v1",
+      "population": 12600000,
+      "expected_yield": 175,
+      "priority": 6,
+      "notes": "1,300+ incorporated places"
+    },
+    {
+      "state": "Ohio",
+      "state_code": "OH",
+      "portal_url": "https://gis.ohio.gov",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://gis.ohio.gov/api/v3/datasets",
+      "population": 11800000,
+      "expected_yield": 175,
+      "priority": 7,
+      "notes": "88 counties, 900+ municipalities"
+    },
+    {
+      "state": "Georgia",
+      "state_code": "GA",
+      "portal_url": "https://data.georgiaspatial.org",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://data.georgiaspatial.org/api/v3/datasets",
+      "population": 10900000,
+      "expected_yield": 125,
+      "priority": 8,
+      "notes": "531 incorporated places"
+    },
+    {
+      "state": "North Carolina",
+      "state_code": "NC",
+      "portal_url": "https://nc.gov/gis",
+      "platform": "Custom",
+      "api_endpoint": "https://sdd.nc.gov/sdd/",
+      "population": 10700000,
+      "expected_yield": 125,
+      "priority": 9,
+      "notes": "100 counties, 550+ municipalities, custom portal"
+    },
+    {
+      "state": "Michigan",
+      "state_code": "MI",
+      "portal_url": "https://gis-michigan.opendata.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://gis-michigan.opendata.arcgis.com/api/v3/datasets",
+      "population": 10000000,
+      "expected_yield": 125,
+      "priority": 10,
+      "notes": "83 counties, 500+ municipalities"
+    },
+    {
+      "state": "New Jersey",
+      "state_code": "NJ",
+      "portal_url": "https://njogis-newjersey.opendata.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://njogis-newjersey.opendata.arcgis.com/api/v3/datasets",
+      "population": 9300000,
+      "expected_yield": 100,
+      "priority": 11,
+      "notes": "21 counties, 565 municipalities"
+    },
+    {
+      "state": "Virginia",
+      "state_code": "VA",
+      "portal_url": "https://vgin-vapublicsafety.opendata.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://vgin-vapublicsafety.opendata.arcgis.com/api/v3/datasets",
+      "population": 8700000,
+      "expected_yield": 75,
+      "priority": 12,
+      "notes": "95 counties, 38 independent cities"
+    },
+    {
+      "state": "Washington",
+      "state_code": "WA",
+      "portal_url": "https://geo.wa.gov",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://geo.wa.gov/api/v3/datasets",
+      "population": 7800000,
+      "expected_yield": 75,
+      "priority": 13,
+      "notes": "39 counties, 281 incorporated cities"
+    },
+    {
+      "state": "Arizona",
+      "state_code": "AZ",
+      "portal_url": "https://azgeo-open-data-agic.hub.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://azgeo-open-data-agic.hub.arcgis.com/api/v3/datasets",
+      "population": 7400000,
+      "expected_yield": 50,
+      "priority": 14,
+      "notes": "91 incorporated cities and towns"
+    },
+    {
+      "state": "Massachusetts",
+      "state_code": "MA",
+      "portal_url": "https://www.mass.gov/orgs/massgis-bureau-of-geographic-information",
+      "platform": "Custom",
+      "api_endpoint": "https://www.mass.gov/info-details/massgis-data-layers",
+      "population": 7000000,
+      "expected_yield": 50,
+      "priority": 15,
+      "notes": "351 municipalities, custom download portal"
+    },
+    {
+      "state": "Tennessee",
+      "state_code": "TN",
+      "portal_url": "https://tn-tnmap.opendata.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://tn-tnmap.opendata.arcgis.com/api/v3/datasets",
+      "population": 7000000,
+      "expected_yield": 50,
+      "priority": 16,
+      "notes": "95 counties, 340+ incorporated cities"
+    },
+    {
+      "state": "Indiana",
+      "state_code": "IN",
+      "portal_url": "https://hub.mph.in.gov",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://hub.mph.in.gov/api/v3/datasets",
+      "population": 6800000,
+      "expected_yield": 50,
+      "priority": 17,
+      "notes": "92 counties, 500+ incorporated cities"
+    },
+    {
+      "state": "Maryland",
+      "state_code": "MD",
+      "portal_url": "https://data.imap.maryland.gov",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://data.imap.maryland.gov/api/v3/datasets",
+      "population": 6200000,
+      "expected_yield": 40,
+      "priority": 18,
+      "notes": "23 counties, 157 incorporated cities"
+    },
+    {
+      "state": "Colorado",
+      "state_code": "CO",
+      "portal_url": "https://data-cdphe.opendata.arcgis.com",
+      "platform": "ArcGIS Hub",
+      "api_endpoint": "https://data-cdphe.opendata.arcgis.com/api/v3/datasets",
+      "population": 5800000,
+      "expected_yield": 40,
+      "priority": 19,
+      "notes": "64 counties, 271 incorporated municipalities"
+    },
+    {
+      "state": "Minnesota",
+      "state_code": "MN",
+      "portal_url": "https://gisdata.mn.gov",
+      "platform": "Custom",
+      "api_endpoint": "https://gisdata.mn.gov",
+      "population": 5700000,
+      "expected_yield": 40,
+      "priority": 20,
+      "notes": "87 counties, 850+ incorporated cities"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": 1,
+      "properties": {
+        "DISTRICT": "1",
+        "NAME": "Invalid District"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-200, 40],
+          [-199, 40],
+          [-199, 41],
+          [-200, 41],
+          [-200, 40]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": 2,
+      "properties": {
+        "DISTRICT": "2",
+        "NAME": "Invalid District 2"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-122.4, 95],
+          [-122.3, 95],
+          [-122.3, 96],
+          [-122.4, 96],
+          [-122.4, 95]
+        ]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "crawl_timestamp": "2025-11-24T10:45:17.568938+00:00",
+  "total_datasets": 7651,
+  "datasets": [
+    {
+      "id": "513cfef832df4b7489a2df499972401f",
+      "title": "Council Districts",
+      "owner": "CoSAGIS_Opendata",
+      "url": "https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/CouncilDistricts/FeatureServer",
+      "feature_count": null,

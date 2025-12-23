@@ -1,0 +1,72 @@
+[
+  {
+    "fips": "3651000",
+    "name": "New York",
+    "state": "NY",
+    "population": 8258035,
+    "rank": 1
+  },
+  {
+    "fips": "0644000",
+    "name": "Los Angeles",
+    "state": "CA",
+    "population": 3820914,
+    "rank": 2
+  },
+  {
+    "fips": "1714000",
+    "name": "Chicago",
+    "state": "IL",
+    "population": 2664452,
+    "rank": 3
+  },
+  {
+    "fips": "4835000",
+    "name": "Houston",
+    "state": "TX",
+    "population": 2314157,
+    "rank": 4
+  },
+  {
+    "fips": "0455000",
+    "name": "Phoenix",
+    "state": "AZ",
+    "population": 1650070,
+    "rank": 5
+  },
+  {
+    "fips": "4260000",
+    "name": "Philadelphia",
+    "state": "PA",
+    "population": 1550542,
+    "rank": 6
+  },
+  {
+    "fips": "4865000",
+    "name": "San Antonio",
+    "state": "TX",
+    "population": 1495295,
+    "rank": 7
+  },
+  {
+    "fips": "0666000",
+    "name": "San Diego",
+    "state": "CA",
+    "population": 1388320,
+    "rank": 8
+  },
+  {
+    "fips": "4819000",
+    "name": "Dallas",
+    "state": "TX",
+    "population": 1302868,
+    "rank": 9
+  },
+  {
+    "fips": "1235000",
+    "name": "Jacksonville",
+    "state": "FL",
+    "population": 985843,
+    "rank": 10
+  }
+]

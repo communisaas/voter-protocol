@@ -1,0 +1,32 @@
+{
+  "input_file": "data/test_sample_10.jsonl",
+  "output_file": "data/test_validated_10.jsonl",
+  "sample_size": 2,
+  "statistics": {
+    "total_layers": 10,
+    "polygon_layers": 3,
+    "non_polygon_layers": 7,
+    "quality_distribution": {
+      "HIGH_QUALITY": 0,
+      "MEDIUM_QUALITY": 1,
+      "LOW_QUALITY": 2,
+      "REJECTED": 7
+    },
+    "check_failures": {
+      "self_intersection": 1,
+      "area_bounds": 0,
+      "coordinate_validity": 0,
+      "degeneracy": 0,
+      "closed_rings": 0
+    },
+    "repairs_attempted": 1,
+    "repairs_successful": 1
+  },
+  "summary": {
+    "total_validated": 10,
+    "high_quality_pct": 0.0,
+    "medium_quality_pct": 10.0,
+    "low_quality_pct": 20.0,
+    "rejected_pct": 70.0
+  }
+}

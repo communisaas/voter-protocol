@@ -1,0 +1,32 @@
+{
+  "input_file": "data/comprehensive_classified_layers.jsonl",
+  "output_file": "data/geometric_validated_layers.jsonl",
+  "sample_size": 3,
+  "statistics": {
+    "total_layers": 31316,
+    "polygon_layers": 21518,
+    "non_polygon_layers": 9798,
+    "quality_distribution": {
+      "HIGH_QUALITY": 14472,
+      "MEDIUM_QUALITY": 4222,
+      "LOW_QUALITY": 551,
+      "REJECTED": 12071
+    },
+    "check_failures": {
+      "self_intersection": 2330,
+      "area_bounds": 4278,
+      "coordinate_validity": 0,
+      "degeneracy": 3,
+      "closed_rings": 0
+    },
+    "repairs_attempted": 2330,
+    "repairs_successful": 2330
+  },
+  "summary": {
+    "total_validated": 31316,
+    "high_quality_pct": 46.2,
+    "medium_quality_pct": 13.5,
+    "low_quality_pct": 1.8,
+    "rejected_pct": 38.5
+  }
+}

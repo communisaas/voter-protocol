@@ -1,0 +1,198 @@
+{
+  "build_timestamp": "2025-11-24T11:08:32.064851+00:00",
+  "total_raw": 99,
+  "total_curated": 17,
+  "city_index": {
+    "Austin, TX": {
+      "id": "8251869f87e24d3abff3d7a36fc7c4f4",
+      "url": "https://services.arcgis.com/0L95CJ0VTaxqcmED/arcgis/rest/services/BOUNDARIES_single_member_districts/FeatureServer",
+      "title": "BOUNDARIES_single_member_districts",
+      "confidence": 95,
+      "feature_count": null,
+      "governance_type": "district"
+    },
+    "La City S (adopted 2021), LA": {
+      "id": "76104f230e384f38871eb3c4782f903d",
+      "url": "https://maps.lacity.org/lahub/rest/services/Boundaries/MapServer/13",
+      "title": "LA City Council Districts (Adopted 2021)",
+      "confidence": 85,
+      "feature_count": 15,
+      "governance_type": "district"
+    },
+    "Denver, CO": {
+      "id": "1f9d2c1e2fdd4957b465257e25d55e54",
+      "url": "https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/ODC_ADMN_COUNCILDIST_A/FeatureServer",
+      "title": "Denver City Council Districts",
+      "confidence": 90,
+      "feature_count": null,
+      "governance_type": "district"
+    },
+    "Pittsburgh, PA": {
+      "id": "aae0e303e55e4afebfacf18916f0f8c0",
+      "url": "https://services1.arcgis.com/YZCmUqbcsUpOKfj7/arcgis/rest/services/CouncilDistricts2022/FeatureServer",
+      "title": "Pittsburgh Council Districts 2022 (Current)",
+      "confidence": 95,
+      "feature_count": 9,
+      "governance_type": "district"
+    },
+    "New York City, NY": {
+      "id": "a83df84f7da24592b5de2ce93f19250f",
+      "url": "https://services1.arcgis.com/8cuieNI8NbqQZQVJ/arcgis/rest/services/LION_Council_Districts/FeatureServer",
+      "title": "NYC City Council Districts (LION)",
+      "confidence": 100,
+      "feature_count": 51,
+      "governance_type": "district"
+    },
+    "San Jose, CA": {
+      "id": "001373893c8347d4b36cf15a6103f78c",
+      "url": "https://geo.sanjoseca.gov/server/rest/services/OPN/OPN_OpenDataService/MapServer/120",
+      "title": "Council District",
+      "confidence": 100,
+      "feature_count": 10,
+      "governance_type": "district"
+    },
+    "Maricopaunty City S, AZ": {
+      "id": "959475b65a4b4067bbc2d76698653519",
+      "url": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer",
+      "title": "Maricopa County City Council Districts",
+      "confidence": 85,
+      "feature_count": 38,
+      "governance_type": "ward"
+    },
+    "Metro S, OR": {
+      "id": "edc9feb9e41b47db99ac16f5228e3486",
+      "url": "https://services2.arcgis.com/McQ0OlIABe29rJJy/arcgis/rest/services/Metro_Council_Districts/FeatureServer",
+      "title": "Metro Council Districts",
+      "confidence": 85,
+      "feature_count": 6,
+      "governance_type": "district"
+    },
+    "Los Angeles, CA": {
+      "id": "c49e7c7589e94d799ce824bdf3f449f6",
+      "url": "https://public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Political_Boundaries/MapServer/6",
+      "title": "LA City Council Districts (2012)",
+      "confidence": 95,
+      "feature_count": 15,
+      "governance_type": "district"
+    },
+    "Milwaukee, WI": {
+      "id": "0a2a09943a2b4042ad79f732328cae5e",
+      "url": "https://services2.arcgis.com/s1wgJQKbKJihhhaT/arcgis/rest/services/City_Common_Council_District_or_Village_Board_of_Trustees/FeatureServer",
+      "title": "City Common Council District or Village Board of Trustees in Milwaukee County",
+      "confidence": 80,
+      "feature_count": null,
+      "governance_type": "district"
+    },
+    "2022 City S Featureyer, VA": {
+      "id": "138213976da64ad095effe9098649ca2",
+      "url": "https://services2.arcgis.com/CyVvlIiUfRBmMQuu/arcgis/rest/services/2022_City_Council_Districts_Map/FeatureServer",
+      "title": "2022 City Council Districts Feature Layer",
+      "confidence": 85,
+      "feature_count": 10,
+      "governance_type": "district"
+    },
+    "Louisville, KY": {
+      "id": "3fcc3da3573e4511a45c19a4e880b05b",
+      "url": "https://gis.lojic.org/maps/rest/services/LojicSolutions/OpenDataPolitical/MapServer/8",
+      "title": "Louisville KY Metro Council Districts",
+      "confidence": 100,
+      "feature_count": 26,
+      "governance_type": "district"
+    },
+    "Fairfield, CA": {
+      "id": "4eae77dd89ee4c8ca592fdd3012128f5",
+      "url": "https://services1.arcgis.com/A14KNJpxNyBTu19J/arcgis/rest/services/Fairfield_City_Council_Districts/FeatureServer",
+      "title": "Fairfield City Council Districts",
+      "confidence": 95,
+      "feature_count": 6,
+      "governance_type": "district"
+    },
+    "Fishers, IN": {
+      "id": "f745f5a7f0134678ac9dcec7618317ad",
+      "url": "https://gis1.hamiltoncounty.in.gov/arcgis/rest/services/HamCoPolitical/FeatureServer",
+      "title": "Fishers Council Districts",
+      "confidence": 95,
+      "feature_count": 8,
+      "governance_type": "district"
+    },
+    "Edgewater_councilvoting, FL": {
+      "id": "05883dfc0a9c4b34b5df52c8a3818dba",
+      "url": "https://services2.arcgis.com/xZwXnY96uEdldZnm/arcgis/rest/services/Edgewater_CouncilDistrictsVoting/FeatureServer",
+      "title": "Edgewater_CouncilDistrictsVoting",
+      "confidence": 85,
+      "feature_count": 4,
+      "governance_type": "district"
+    },
+    "Columbus City S, OH": {
+      "id": "0eb8d9d2e3a447829cebae7c0719eb71",
+      "url": "https://maps2.columbus.gov/arcgis/rest/services/Schemas/BaseLayers/MapServer/3",
+      "title": "Columbus City Council Districts",
+      "confidence": 85,
+      "feature_count": 9,
+      "governance_type": "district"
+    },
+    "Council, CA": {
+      "id": "618f023aa7d9497d94a7988473bf5f93",
+      "url": "https://services2.arcgis.com/zNjnZafDYCAJAbN0/arcgis/rest/services/CouncilDistricts/FeatureServer",
+      "title": "CouncilDistricts",
+      "confidence": 85,
+      "feature_count": 7,
+      "governance_type": "district"
+    }
+  },
+  "state_coverage": {
+    "TX": [
+      "Austin"
+    ],
+    "LA": [
+      "La City S (adopted 2021)"
+    ],
+    "CO": [
+      "Denver"
+    ],
+    "PA": [
+      "Pittsburgh"
+    ],
+    "NY": [
+      "New York City",
+      "New York City",
+      "New York City"
+    ],
+    "CA": [
+      "San Jose",
+      "Los Angeles",
+      "Los Angeles",
+      "Fairfield",
+      "Council"
+    ],
+    "AZ": [
+      "Maricopaunty City S"
+    ],
+    "OR": [
+      "Metro S"
+    ],
+    "WI": [
+      "Milwaukee"
+    ],
+    "VA": [
+      "2022 City S Featureyer"
+    ],
+    "KY": [
+      "Louisville"
+    ],
+    "IN": [
+      "Fishers"
+    ],
+    "FL": [
+      "Edgewater_councilvoting"
+    ],
+    "OH": [
+      "Columbus City S"
+    ]
+  },
+  "tiers": {
+    "tier1": 54,
+    "tier2": 7,
+    "tier3": 0
+  }
+}

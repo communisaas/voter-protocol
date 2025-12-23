@@ -1,0 +1,314 @@
+# Shadow Atlas Warning Alerts
+#
+# These alerts provide early warning signals before critical thresholds are reached.
+# Used for proactive intervention and capacity planning.
+
+groups:
+  - name: shadow_atlas_warning
+    interval: 1m
+    rules:
+      # ========================================================================
+      # Performance Degradation (Early Warning)
+      # ========================================================================
+
+      - alert: LatencyIncreasing
+        expr: |
+          histogram_quantile(0.99,
+            rate(shadow_atlas_request_latency_bucket[5m])
+          ) > 75
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+          slo: latency
+        annotations:
+          summary: "p99 latency approaching SLO limit (> 75ms)"
+          description: |
+            p99 latency: {{ $value | humanizeDuration }}
+            Approaching 100ms SLO threshold.
+            Monitor for further degradation.
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/latency-warning"
+
+      - alert: ErrorRateIncreasing
+        expr: |
+          (
+            sum(rate(shadow_atlas_request_error_total[10m]))
+            /
+            sum(rate(shadow_atlas_requests_total[10m]))
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+          slo: availability
+        annotations:
+          summary: "Error rate above 0.1%"
+          description: |
+            Error rate: {{ $value | humanizePercentage }}
+            Approaching critical threshold (1%).
+          runbook_url: "https://docs.voter-protocol.org/shadow-atlas/runbooks/error-rate-warning"
+
+      # ========================================================================
+      # Resource Utilization
+      # ========================================================================
+
+      - alert: MemoryUsageHigh
+        expr: |
+          (
+            process_resident_memory_bytes{job="shadow-atlas"}
+            /
+            (1024 * 1024 * 1024)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Memory usage > 1GB"
+          description: |
+            Current usage: {{ $value | humanize }}GB
+            Monitor for continued growth.
+
+      - alert: DiskSpaceWarning
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/data"}
+            /
+            node_filesystem_size_bytes{mountpoint="/data"}
+          ) < 0.2
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Disk space below 20%"
+          description: |
+            Available: {{ $value | humanizePercentage }}
+            Plan for cleanup or expansion.
+
+      - alert: ConnectionsHigh
+        expr: shadow_atlas_active_connections > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Active connections > 100"
+          description: |
+            Current connections: {{ $value }}
+            High load or potential connection leak.
+
+      # ========================================================================
+      # Data Quality Warnings
+      # ========================================================================
+
+      - alert: ExtractionFailureRateWarning
+        expr: |
+          (
+            sum(rate(shadow_atlas_extraction_failure_total[15m]))
+            /
+            (sum(rate(shadow_atlas_extraction_success_total[15m])) +
+             sum(rate(shadow_atlas_extraction_failure_total[15m])))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: extraction
+        annotations:
+          summary: "Extraction failure rate > 10%"
+          description: |
+            Failure rate: {{ $value | humanizePercentage }}
+            Approaching critical threshold (20%).
+
+      - alert: ValidationFailureRateWarning
+        expr: |
+          (
+            sum(rate(shadow_atlas_validation_fail_total[15m]))
+            /
+            (sum(rate(shadow_atlas_validation_pass_total[15m])) +
+             sum(rate(shadow_atlas_validation_fail_total[15m])))
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: validation
+        annotations:
+          summary: "Validation failure rate > 10%"
+          description: |
+            Failure rate: {{ $value | humanizePercentage }}
+            Check data quality and upstream sources.
+
+      - alert: ProviderLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(shadow_atlas_provider_latency_bucket[5m])
+          ) > 5000
+        for: 10m
+        labels:
+          severity: warning
+          component: providers
+        annotations:
+          summary: "Provider {{ $labels.provider }} latency > 5s"
+          description: |
+            p95 latency: {{ $value | humanizeDuration }}
+            Provider experiencing slowdowns.
+
+      # ========================================================================
+      # Cache Performance
+      # ========================================================================
+
+      - alert: CacheHitRateWarning
+        expr: |
+          (
+            rate(shadow_atlas_cache_hit_total[15m])
+            /
+            (rate(shadow_atlas_cache_hit_total[15m]) + rate(shadow_atlas_cache_miss_total[15m]))
+          ) < 0.7
+        for: 20m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Cache hit rate below 70%"
+          description: |
+            Hit rate: {{ $value | humanizePercentage }}
+            Performance may be impacted.
+            Target: > 80%
+
+      - alert: CacheEvictionRateHigh
+        expr: rate(shadow_atlas_cache_evictions_total[10m]) > 10
+        for: 15m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "High cache eviction rate"
+          description: |
+            Evictions/sec: {{ $value }}
+            Cache may be undersized for workload.
+
+      # ========================================================================
+      # Proof Generation Performance
+      # ========================================================================
+
+      - alert: MerkleProofLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(shadow_atlas_merkle_proof_bucket[5m])
+          ) > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: proofs
+        annotations:
+          summary: "Merkle proof generation p95 > 50ms"
+          description: |
+            p95 latency: {{ $value | humanizeDuration }}
+            May impact overall request latency.
+
+      - alert: ZKProofGenerationSlow
+        expr: |
+          histogram_quantile(0.95,
+            rate(shadow_atlas_proof_generation_bucket[5m])
+          ) > 8000
+        for: 15m
+        labels:
+          severity: warning
+          component: proofs
+        annotations:
+          summary: "ZK proof generation p95 > 8s"
+          description: |
+            p95 latency: {{ $value | humanizeDuration }}
+            Browser proving may timeout for users.
+
+      # ========================================================================
+      # SLO Budget Monitoring
+      # ========================================================================
+
+      - alert: SLOBudgetBurnRateModerate
+        expr: |
+          (
+            1 -
+            (
+              sum(increase(shadow_atlas_requests_total[6h])) -
+              sum(increase(shadow_atlas_request_error_total[6h]))
+            ) / sum(increase(shadow_atlas_requests_total[6h]))
+          ) > 0.0005
+        for: 30m
+        labels:
+          severity: warning
+          component: slo
+        annotations:
+          summary: "SLO budget burning faster than expected"
+          description: |
+            6-hour error rate: {{ $value | humanizePercentage }}
+            If sustained, monthly budget will be exhausted.
+
+      # ========================================================================
+      # Health Check Warnings
+      # ========================================================================
+
+      - alert: HealthCheckDegraded
+        expr: shadow_atlas_health == 1
+        for: 15m
+        labels:
+          severity: warning
+          component: health
+        annotations:
+          summary: "Service health status degraded"
+          description: |
+            Health check indicates degraded performance.
+            Review metrics for specific issues.
+
+      # ========================================================================
+      # Extraction Job Performance
+      # ========================================================================
+
+      - alert: JobDurationIncreasing
+        expr: |
+          histogram_quantile(0.95,
+            rate(shadow_atlas_job_duration_bucket[30m])
+          ) > 60000
+        for: 15m
+        labels:
+          severity: warning
+          component: extraction
+        annotations:
+          summary: "Extraction job p95 duration > 1 minute"
+          description: |
+            p95 duration: {{ $value | humanizeDuration }}
+            Jobs taking longer than expected.
+            Check for provider slowdowns.
+
+      # ========================================================================
+      # Snapshot Freshness
+      # ========================================================================
+
+      - alert: SnapshotStale
+        expr: |
+          (time() - shadow_atlas_snapshot_timestamp) > (30 * 24 * 60 * 60)
+        for: 1h
+        labels:
+          severity: warning
+          component: snapshots
+        annotations:
+          summary: "Snapshot data > 30 days old"
+          description: |
+            Age: {{ $value | humanizeDuration }}
+            Consider refreshing boundary data.
+
+      # ========================================================================
+      # Rate Limiting
+      # ========================================================================
+
+      - alert: RateLimitHitRateIncreasing
+        expr: rate(shadow_atlas_rate_limit_exceeded_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Rate limit hits increasing"
+          description: |
+            Rate limit hits/sec: {{ $value }}
+            May indicate abuse or misconfigured clients.
