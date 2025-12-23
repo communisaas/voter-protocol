@@ -31,8 +31,6 @@ import { SQLiteAdapter } from './sqlite-adapter.js';
  */
 function getModuleDir(): string {
   // In ESM, import.meta.url is available at runtime
-  // During TypeScript compilation, this will show an error but it's safe to ignore
-  // @ts-expect-error - import.meta.url is available at runtime in ESM
   const moduleUrl: string = import.meta.url;
   const modulePath = fileURLToPath(moduleUrl);
   return dirname(modulePath);
