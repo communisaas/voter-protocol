@@ -101,9 +101,9 @@ describe('District ID Creation', () => {
 });
 
 describe('Merkle Leaf Creation', () => {
-  it('should create valid leaf structure', () => {
+  it('should create valid leaf structure', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaf = createLeaf(district, 0);
+    const leaf = await createLeaf(district, 0);
 
     expect(leaf).toHaveProperty('index', 0);
     expect(leaf).toHaveProperty('district_id');
@@ -114,40 +114,40 @@ describe('Merkle Leaf Creation', () => {
     expect(leaf).toHaveProperty('leaf_hash');
   });
 
-  it('should produce valid hash format', () => {
+  it('should produce valid hash format', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaf = createLeaf(district, 0);
+    const leaf = await createLeaf(district, 0);
 
     expect(leaf.leaf_hash).toMatch(/^0x[a-f0-9]{64}$/);
     expect(leaf.geometry_hash).toMatch(/^0x[a-f0-9]{64}$/);
     expect(leaf.metadata_hash).toMatch(/^0x[a-f0-9]{64}$/);
   });
 
-  it('should be deterministic', () => {
+  it('should be deterministic', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaf1 = createLeaf(district, 0);
-    const leaf2 = createLeaf(district, 0);
+    const leaf1 = await createLeaf(district, 0);
+    const leaf2 = await createLeaf(district, 0);
 
     expect(leaf1.leaf_hash).toBe(leaf2.leaf_hash);
     expect(leaf1.geometry_hash).toBe(leaf2.geometry_hash);
     expect(leaf1.metadata_hash).toBe(leaf2.metadata_hash);
   });
 
-  it('should produce different hashes for different districts', () => {
+  it('should produce different hashes for different districts', async () => {
     const district1 = createMockDistrict('https://example.com/FeatureServer/1');
     const district2 = createMockDistrict('https://example.com/FeatureServer/2');
 
-    const leaf1 = createLeaf(district1, 0);
-    const leaf2 = createLeaf(district2, 1);
+    const leaf1 = await createLeaf(district1, 0);
+    const leaf2 = await createLeaf(district2, 1);
 
     expect(leaf1.leaf_hash).not.toBe(leaf2.leaf_hash);
   });
 });
 
 describe('Merkle Tree Construction', () => {
-  it('should build tree with single leaf', () => {
+  it('should build tree with single leaf', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
 
     const tree = buildMerkleTree(leaves);
 
@@ -156,13 +156,13 @@ describe('Merkle Tree Construction', () => {
     expect(tree.depth).toBe(0);
   });
 
-  it('should build tree with two leaves', () => {
+  it('should build tree with two leaves', async () => {
     const district1 = createMockDistrict('https://example.com/FeatureServer/1');
     const district2 = createMockDistrict('https://example.com/FeatureServer/2');
 
     const leaves = [
-      createLeaf(district1, 0),
-      createLeaf(district2, 1),
+      await createLeaf(district1, 0),
+      await createLeaf(district2, 1),
     ];
 
     const tree = buildMerkleTree(leaves);
@@ -173,14 +173,14 @@ describe('Merkle Tree Construction', () => {
     expect(tree.levels.length).toBe(2); // Leaf level + root level
   });
 
-  it('should build tree with odd number of leaves (3)', () => {
+  it('should build tree with odd number of leaves (3)', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
       createMockDistrict('https://example.com/FeatureServer/3'),
     ];
 
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     expect(tree.root).toMatch(/^0x[a-f0-9]{64}$/);
@@ -188,12 +188,12 @@ describe('Merkle Tree Construction', () => {
     expect(tree.depth).toBe(2); // 3 leaves → 2 parents → 1 root
   });
 
-  it('should build tree with power-of-2 leaves (8)', () => {
+  it('should build tree with power-of-2 leaves (8)', async () => {
     const districts = Array(8)
       .fill(null)
       .map((_, i) => createMockDistrict(`https://example.com/FeatureServer/${i}`));
 
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     expect(tree.leafCount).toBe(8);
@@ -206,13 +206,13 @@ describe('Merkle Tree Construction', () => {
     }).toThrow('Cannot build tree from empty leaf set');
   });
 
-  it('should be deterministic (same leaves → same root)', () => {
+  it('should be deterministic (same leaves → same root)', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
 
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
 
     const tree1 = buildMerkleTree(leaves);
     const tree2 = buildMerkleTree(leaves);
@@ -220,12 +220,12 @@ describe('Merkle Tree Construction', () => {
     expect(tree1.root).toBe(tree2.root);
   });
 
-  it('should produce different roots for different leaf order', () => {
+  it('should produce different roots for different leaf order', async () => {
     const district1 = createMockDistrict('https://example.com/FeatureServer/1');
     const district2 = createMockDistrict('https://example.com/FeatureServer/2');
 
-    const leavesAB = [createLeaf(district1, 0), createLeaf(district2, 1)];
-    const leavesBA = [createLeaf(district2, 0), createLeaf(district1, 1)];
+    const leavesAB = [await createLeaf(district1, 0), await createLeaf(district2, 1)];
+    const leavesBA = [await createLeaf(district2, 0), await createLeaf(district1, 1)];
 
     const treeAB = buildMerkleTree(leavesAB);
     const treeBA = buildMerkleTree(leavesBA);
@@ -235,9 +235,9 @@ describe('Merkle Tree Construction', () => {
 });
 
 describe('Merkle Proof Generation', () => {
-  it('should generate valid proof for single leaf', () => {
+  it('should generate valid proof for single leaf', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -249,12 +249,12 @@ describe('Merkle Proof Generation', () => {
     expect(proof.indices).toHaveLength(0);
   });
 
-  it('should generate valid proof for two leaves (left)', () => {
+  it('should generate valid proof for two leaves (left)', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -263,12 +263,12 @@ describe('Merkle Proof Generation', () => {
     expect(proof.indices).toEqual([0]); // Left child
   });
 
-  it('should generate valid proof for two leaves (right)', () => {
+  it('should generate valid proof for two leaves (right)', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 1);
@@ -277,11 +277,11 @@ describe('Merkle Proof Generation', () => {
     expect(proof.indices).toEqual([1]); // Right child
   });
 
-  it('should generate proofs of correct depth', () => {
+  it('should generate proofs of correct depth', async () => {
     const districts = Array(8)
       .fill(null)
       .map((_, i) => createMockDistrict(`https://example.com/FeatureServer/${i}`));
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     for (let i = 0; i < leaves.length; i++) {
@@ -291,9 +291,9 @@ describe('Merkle Proof Generation', () => {
     }
   });
 
-  it('should throw on invalid leaf index', () => {
+  it('should throw on invalid leaf index', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     expect(() => {
@@ -307,9 +307,9 @@ describe('Merkle Proof Generation', () => {
 });
 
 describe('Merkle Proof Verification', () => {
-  it('should verify valid proof for single leaf', () => {
+  it('should verify valid proof for single leaf', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -318,12 +318,12 @@ describe('Merkle Proof Verification', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should verify valid proof for two leaves', () => {
+  it('should verify valid proof for two leaves', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof0 = generateProof(tree, leaves, 0);
@@ -333,11 +333,11 @@ describe('Merkle Proof Verification', () => {
     expect(verifyProof(proof1)).toBe(true);
   });
 
-  it('should verify all proofs in 8-leaf tree', () => {
+  it('should verify all proofs in 8-leaf tree', async () => {
     const districts = Array(8)
       .fill(null)
       .map((_, i) => createMockDistrict(`https://example.com/FeatureServer/${i}`));
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     for (let i = 0; i < leaves.length; i++) {
@@ -346,9 +346,9 @@ describe('Merkle Proof Verification', () => {
     }
   });
 
-  it('should reject proof with tampered leaf_hash', () => {
+  it('should reject proof with tampered leaf_hash', async () => {
     const district = createMockDistrict('https://example.com/FeatureServer/1');
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -360,12 +360,12 @@ describe('Merkle Proof Verification', () => {
     expect(verifyProof(tamperedProof)).toBe(false);
   });
 
-  it('should reject proof with tampered sibling', () => {
+  it('should reject proof with tampered sibling', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -377,12 +377,12 @@ describe('Merkle Proof Verification', () => {
     expect(verifyProof(tamperedProof)).toBe(false);
   });
 
-  it('should reject proof with flipped path index', () => {
+  it('should reject proof with flipped path index', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -394,12 +394,12 @@ describe('Merkle Proof Verification', () => {
     expect(verifyProof(tamperedProof)).toBe(false);
   });
 
-  it('should reject proof with wrong root', () => {
+  it('should reject proof with wrong root', async () => {
     const districts = [
       createMockDistrict('https://example.com/FeatureServer/1'),
       createMockDistrict('https://example.com/FeatureServer/2'),
     ];
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
@@ -413,11 +413,11 @@ describe('Merkle Proof Verification', () => {
 });
 
 describe('Edge Cases', () => {
-  it('should handle large tree (1000 leaves)', () => {
+  it('should handle large tree (1000 leaves)', async () => {
     const districts = Array(1000)
       .fill(null)
       .map((_, i) => createMockDistrict(`https://example.com/FeatureServer/${i}`));
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
     const tree = buildMerkleTree(leaves);
 
     expect(tree.leafCount).toBe(1000);
@@ -431,29 +431,29 @@ describe('Edge Cases', () => {
     expect(verifyProof(proof999)).toBe(true);
   });
 
-  it('should handle district with unicode name', () => {
+  it('should handle district with unicode name', async () => {
     const district = createMockDistrict(
       'https://example.com/FeatureServer/1',
       { layer_name: '北京市朝阳区' }
     );
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
     expect(verifyProof(proof)).toBe(true);
   });
 
-  it('should handle district with very long URL', () => {
+  it('should handle district with very long URL', async () => {
     const longUrl = 'https://example.com/' + 'A'.repeat(500) + '/FeatureServer/1';
     const district = createMockDistrict(longUrl);
-    const leaves = [createLeaf(district, 0)];
+    const leaves = [await createLeaf(district, 0)];
     const tree = buildMerkleTree(leaves);
 
     const proof = generateProof(tree, leaves, 0);
     expect(verifyProof(proof)).toBe(true);
   });
 
-  it('should handle districts with identical metadata but different URLs', () => {
+  it('should handle districts with identical metadata but different URLs', async () => {
     const district1 = createMockDistrict(
       'https://example.com/FeatureServer/1',
       { layer_name: 'District' }
@@ -463,7 +463,7 @@ describe('Edge Cases', () => {
       { layer_name: 'District' }
     );
 
-    const leaves = [createLeaf(district1, 0), createLeaf(district2, 1)];
+    const leaves = [await createLeaf(district1, 0), await createLeaf(district2, 1)];
     const tree = buildMerkleTree(leaves);
 
     // Different URLs should produce different leaf hashes
@@ -479,11 +479,11 @@ describe('Edge Cases', () => {
 });
 
 describe('Production-Scale Tests', () => {
-  it('should handle realistic US dataset size (4000 districts)', () => {
+  it('should handle realistic US dataset size (4000 districts)', async () => {
     const districts = Array(4000)
       .fill(null)
       .map((_, i) => createMockDistrict(`https://example.com/FeatureServer/${i}`));
-    const leaves = districts.map((d, i) => createLeaf(d, i));
+    const leaves = await Promise.all(districts.map((d, i) => createLeaf(d, i)));
 
     const startTime = Date.now();
     const tree = buildMerkleTree(leaves);

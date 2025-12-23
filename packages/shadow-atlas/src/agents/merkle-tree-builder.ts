@@ -134,11 +134,79 @@ function createDistrictId(district: GovernanceDistrict): string {
 }
 
 /**
- * Hash district geometry (placeholder - actual geometry to be added in future)
+ * Fetch GeoJSON geometry from ArcGIS FeatureServer
+ *
+ * Constructs query URL from layer_url and fetches first feature's geometry.
+ * Uses standard ArcGIS REST API pattern: {layer_url}/query?where=1=1&f=geojson&resultRecordCount=1
+ *
+ * @param layerUrl - Full ArcGIS layer URL (e.g., "https://services.arcgis.com/.../FeatureServer/0")
+ * @returns GeoJSON geometry or null if fetch fails
  */
-function hashGeometry(district: GovernanceDistrict): string {
-  // TODO: In production, fetch actual GeoJSON geometry and hash it
-  // For now, use layer_url as proxy (deterministic placeholder)
+async function fetchGeometry(layerUrl: string): Promise<unknown | null> {
+  try {
+    const queryUrl = `${layerUrl}/query?where=1%3D1&outFields=*&f=geojson&resultRecordCount=1`;
+
+    const response = await fetch(queryUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/geo+json, application/json',
+        'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+      },
+      signal: AbortSignal.timeout(15000), // 15 second timeout
+    });
+
+    if (!response.ok) {
+      console.warn(`   ⚠️  Geometry fetch failed for ${layerUrl}: HTTP ${response.status}`);
+      return null;
+    }
+
+    const geojson = await response.json() as { features?: Array<{ geometry?: unknown }> };
+
+    // Extract first feature's geometry
+    if (geojson.features && geojson.features.length > 0) {
+      return geojson.features[0].geometry || null;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(`   ⚠️  Geometry fetch error for ${layerUrl}: ${(error as Error).message}`);
+    return null;
+  }
+}
+
+/**
+ * Hash district geometry
+ *
+ * PRODUCTION MODE: Fetches actual GeoJSON geometry from ArcGIS FeatureServer and hashes it.
+ * FALLBACK MODE: If geometry fetch fails, uses layer_url as deterministic placeholder.
+ *
+ * This ensures Merkle tree construction can proceed even if some layers are temporarily unavailable,
+ * while still producing deterministic hashes for available geometries.
+ *
+ * @param district - Governance district metadata
+ * @param useProductionGeometry - If true, fetch actual geometry; if false, use placeholder (default: false)
+ * @returns Keccak256 hash of geometry
+ */
+async function hashGeometry(
+  district: GovernanceDistrict,
+  useProductionGeometry = false
+): Promise<string> {
+  if (!useProductionGeometry) {
+    // Placeholder mode (backward compatible with existing tests)
+    return keccak256(district.layer_url + ':geometry');
+  }
+
+  // Production mode: Fetch actual geometry
+  const geometry = await fetchGeometry(district.layer_url);
+
+  if (geometry !== null) {
+    // Hash actual geometry (deterministic JSON serialization)
+    const geometryJson = JSON.stringify(geometry);
+    return keccak256(geometryJson);
+  }
+
+  // Fallback: Use layer_url if geometry unavailable
+  console.warn(`   ⚠️  Using placeholder geometry hash for ${district.layer_url}`);
   return keccak256(district.layer_url + ':geometry');
 }
 
@@ -162,10 +230,19 @@ function hashMetadata(district: GovernanceDistrict): string {
 
 /**
  * Create Merkle leaf from district
+ *
+ * @param district - Governance district
+ * @param index - Leaf position in tree (0-based)
+ * @param useProductionGeometry - If true, fetch actual geometry; if false, use placeholder
+ * @returns Merkle leaf with hashed fields
  */
-function createLeaf(district: GovernanceDistrict, index: number): MerkleLeaf {
+async function createLeaf(
+  district: GovernanceDistrict,
+  index: number,
+  useProductionGeometry = false
+): Promise<MerkleLeaf> {
   const district_id = createDistrictId(district);
-  const geometry_hash = hashGeometry(district);
+  const geometry_hash = await hashGeometry(district, useProductionGeometry);
   const metadata_hash = hashMetadata(district);
 
   // Leaf hash: keccak256(district_id || geometry_hash || metadata_hash)
@@ -309,6 +386,17 @@ async function main(): Promise<void> {
   const version = '2025-Q1';
   const startTime = Date.now();
 
+  // Parse CLI arguments
+  const useProductionGeometry = process.argv.includes('--production-geometry');
+
+  if (useProductionGeometry) {
+    console.log('🌐 PRODUCTION MODE: Fetching actual GeoJSON geometry from ArcGIS FeatureServers');
+    console.log('   (This will take significantly longer than placeholder mode)\n');
+  } else {
+    console.log('📝 PLACEHOLDER MODE: Using layer_url as geometry proxy (fast)');
+    console.log('   (Run with --production-geometry to fetch actual geometry)\n');
+  }
+
   // Step 1: Load districts from classified layers
   const inputPath = join(__dirname, 'data', 'comprehensive_classified_layers.jsonl');
   console.log(`Reading input: ${inputPath}`);
@@ -328,9 +416,16 @@ async function main(): Promise<void> {
     createDistrictId(a).localeCompare(createDistrictId(b))
   );
 
-  const leaves = sortedDistricts.map((district, index) =>
-    createLeaf(district, index)
-  );
+  // Create leaves (async if fetching production geometry)
+  const leaves: MerkleLeaf[] = [];
+  for (let i = 0; i < sortedDistricts.length; i++) {
+    const leaf = await createLeaf(sortedDistricts[i], i, useProductionGeometry);
+    leaves.push(leaf);
+
+    if ((i + 1) % 100 === 0) {
+      console.log(`  Created ${i + 1}/${sortedDistricts.length} leaves`);
+    }
+  }
 
   console.log(`Created ${leaves.length} leaves (deterministically sorted)`);
 
