@@ -828,31 +828,31 @@ export function createIncrementalOrchestrator(
 export async function main(): Promise<void> {
   const command = process.argv[2] || 'incremental';
 
-  // TODO: Initialize database adapter from environment
-  // const db = await createDatabaseAdapter();
+  // Initialize database adapter from environment
+  const { createDatabaseAdapter } = await import('../db/factory.js');
+  const db = await createDatabaseAdapter();
 
-  console.error('CLI not yet implemented - requires database adapter initialization');
-  process.exit(1);
+  const orchestrator = createIncrementalOrchestrator(db);
 
-  // const orchestrator = createIncrementalOrchestrator(db);
-
-  // switch (command) {
-  //   case 'incremental':
-  //     await orchestrator.runIncrementalRefresh();
-  //     break;
-  //   case 'full':
-  //     await orchestrator.runFullSnapshot();
-  //     break;
-  //   case 'force':
-  //     await orchestrator.forceCheckAll();
-  //     break;
-  //   default:
-  //     console.error(`Unknown command: ${command}`);
-  //     console.error('Usage: incremental-orchestrator [incremental|full|force]');
-  //     process.exit(1);
-  // }
-
-  // await db.close();
+  try {
+    switch (command) {
+      case 'incremental':
+        await orchestrator.runIncrementalRefresh();
+        break;
+      case 'full':
+        await orchestrator.runFullSnapshot();
+        break;
+      case 'force':
+        await orchestrator.forceCheckAll();
+        break;
+      default:
+        console.error(`Unknown command: ${command}`);
+        console.error('Usage: incremental-orchestrator [incremental|full|force]');
+        process.exit(1);
+    }
+  } finally {
+    await db.close();
+  }
 }
 
 // Run if called directly

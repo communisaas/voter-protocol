@@ -63,6 +63,19 @@ export { SQLiteAdapter, createSQLiteAdapter } from './adapters/sqlite.js';
 export { PostgreSQLAdapter, createPostgreSQLAdapter } from './adapters/postgresql.js';
 
 // ============================================================================
+// Adapter Factory
+// ============================================================================
+
+export {
+  createDatabaseAdapter,
+  createAdapterFromConfig,
+  createDefaultSQLiteAdapter,
+  parseDatabaseUrl,
+} from './adapters/factory.js';
+
+export type { AdapterConfig } from './adapters/factory.js';
+
+// ============================================================================
 // Type System
 // ============================================================================
 
