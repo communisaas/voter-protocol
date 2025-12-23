@@ -91,6 +91,21 @@ export const MULTI_COUNTY_REGISTRY: Record<string, MultiCountyRecord> = {
     lastVerified: '2025-11-18',
     notes: 'Primarily Cook County, small portion in DuPage',
   },
+
+  // Houston, TX - 3 counties
+  '4835000': {
+    cityFips: '4835000',
+    cityName: 'Houston',
+    state: 'TX',
+    primaryCounty: '48201', // Harris County
+    additionalCounties: [
+      '48157', // Fort Bend County
+      '48339', // Montgomery County
+    ],
+    source: 'https://www2.census.gov/geo/tiger/TIGER2023/PLACE/',
+    lastVerified: '2025-12-22',
+    notes: 'City limits span Harris, Fort Bend, and Montgomery counties',
+  },
 };
 
 /**

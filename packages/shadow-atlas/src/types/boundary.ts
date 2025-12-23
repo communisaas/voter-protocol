@@ -94,9 +94,10 @@ export enum BoundaryType {
  *
  * RESOLUTION STRATEGY:
  * 1. Attempt finest available (council district)
- * 2. Fall back to city limits or CDP
- * 3. Fall back to county (guaranteed)
- * 4. Congressional district available in parallel (federal representation)
+ * 2. Fall back to special districts (school, fire, water, etc.)
+ * 3. Fall back to city limits or CDP
+ * 4. Fall back to county (guaranteed)
+ * 5. Congressional district available in parallel (federal representation)
  */
 export const PRECISION_RANK: Record<BoundaryType, number> = {
   // Tier 0: Finest civic representation
@@ -106,7 +107,27 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   // Tier 1: Incorporated/unincorporated place boundaries
   [BoundaryType.CITY_LIMITS]: 2,
   [BoundaryType.CDP]: 3,
-  [BoundaryType.COUNTY_SUBDIVISION]: 4,
+
+  // Tier 1.5: Special districts (between CDP and COUNTY)
+  // School districts (highest priority special districts - elected)
+  [BoundaryType.SCHOOL_DISTRICT_UNIFIED]: 3.5,
+  [BoundaryType.SCHOOL_DISTRICT_ELEMENTARY]: 3.6,
+  [BoundaryType.SCHOOL_DISTRICT_SECONDARY]: 3.7,
+
+  // Special Districts - Public Safety/Cultural (often elected)
+  [BoundaryType.FIRE_DISTRICT]: 3.8,
+  [BoundaryType.LIBRARY_DISTRICT]: 3.9,
+  [BoundaryType.HOSPITAL_DISTRICT]: 4.0,
+
+  // Special Districts - Utilities/Infrastructure (usually appointed)
+  [BoundaryType.WATER_DISTRICT]: 4.1,
+  [BoundaryType.UTILITY_DISTRICT]: 4.2,
+  [BoundaryType.TRANSIT_DISTRICT]: 4.3,
+
+  // Voting districts (electoral infrastructure)
+  [BoundaryType.VOTING_DISTRICT]: 4.4,
+
+  [BoundaryType.COUNTY_SUBDIVISION]: 4.5,
 
   // Tier 2: County (universal US fallback)
   [BoundaryType.COUNTY]: 5,
@@ -119,22 +140,6 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   // Tier 3: Coarsest
   [BoundaryType.STATE_PROVINCE]: 9,
   [BoundaryType.COUNTRY]: 10,
-
-  // Special districts (parallel tracks)
-  [BoundaryType.VOTING_DISTRICT]: 11,
-  [BoundaryType.SCHOOL_DISTRICT_UNIFIED]: 12,
-  [BoundaryType.SCHOOL_DISTRICT_ELEMENTARY]: 13,
-  [BoundaryType.SCHOOL_DISTRICT_SECONDARY]: 14,
-
-  // Special Districts - Public Safety/Cultural (Tier 3: Medium priority - often elected)
-  [BoundaryType.FIRE_DISTRICT]: 15,
-  [BoundaryType.LIBRARY_DISTRICT]: 16,
-  [BoundaryType.HOSPITAL_DISTRICT]: 17,
-
-  // Special Districts - Utilities/Infrastructure (Tier 4: Lower priority - usually appointed)
-  [BoundaryType.WATER_DISTRICT]: 18,
-  [BoundaryType.UTILITY_DISTRICT]: 19,
-  [BoundaryType.TRANSIT_DISTRICT]: 20,
 };
 
 /**

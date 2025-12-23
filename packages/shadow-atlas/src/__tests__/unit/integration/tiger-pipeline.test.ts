@@ -20,8 +20,8 @@ import {
   MultiLayerMerkleTreeBuilder,
   type BoundaryLayers,
   type NormalizedBoundary,
-} from '../core/multi-layer-builder.js';
-import { computeLeafHash, AUTHORITY_LEVELS } from '../merkle-tree.js';
+} from '../../../core/multi-layer-builder.js';
+import { computeLeafHash, AUTHORITY_LEVELS } from '../../../merkle-tree.js';
 import init from '@voter-protocol/crypto/circuits/voter_district_circuit.js';
 
 // ES module path handling
