@@ -247,7 +247,7 @@ function verifyCoordinates(
  * - Rings are closed (first point === last point)
  * - Minimum 4 points per ring (closed triangle)
  * - No duplicate consecutive points
- * - Exterior ring clockwise, holes counter-clockwise (GeoJSON spec)
+ * - Exterior ring counter-clockwise, holes clockwise (RFC 7946 GeoJSON spec)
  */
 function verifyTopology(
   geometry: Polygon | MultiPolygon,
@@ -294,18 +294,21 @@ function verifyTopology(
       }
     }
 
-    // Check winding order (exterior clockwise, holes counter-clockwise)
+    // Check winding order (RFC 7946: exterior counter-clockwise, holes clockwise)
+    // NOTE: In GeoJSON (lon, lat) coordinates, the shoelace formula gives:
+    // Counter-clockwise (RFC 7946 exterior) = NEGATIVE area
+    // Clockwise (RFC 7946 holes) = POSITIVE area
     const area = calculateSignedArea(ring);
 
     if (isExterior && area > 0) {
-      // Exterior ring should be clockwise (negative area)
-      errors.push(`Ring ${ringIndex} has incorrect winding order (exterior should be clockwise)`);
+      // Exterior ring should be counter-clockwise (negative area in lon/lat coords)
+      errors.push(`Ring ${ringIndex} has incorrect winding order (exterior should be counter-clockwise per RFC 7946, got clockwise)`);
       valid = false;
     }
 
     if (!isExterior && area < 0) {
-      // Hole should be counter-clockwise (positive area)
-      errors.push(`Ring ${ringIndex} has incorrect winding order (hole should be counter-clockwise)`);
+      // Hole should be clockwise (positive area in lon/lat coords)
+      errors.push(`Ring ${ringIndex} has incorrect winding order (hole should be clockwise per RFC 7946, got counter-clockwise)`);
       valid = false;
     }
   };
@@ -334,8 +337,13 @@ function verifyTopology(
 /**
  * Calculate signed area of polygon ring
  *
- * Positive area = counter-clockwise
- * Negative area = clockwise
+ * NOTE: In GeoJSON (lon, lat) coordinates:
+ * - Counter-clockwise (RFC 7946 exterior) = NEGATIVE area
+ * - Clockwise (RFC 7946 holes) = POSITIVE area
+ *
+ * This is opposite from standard mathematical coordinates because:
+ * - In math (x, y): moving left-to-right along bottom = positive area (CCW)
+ * - In GeoJSON (lon, lat): same movement goes south-to-north = negative area
  *
  * Uses shoelace formula: A = 0.5 * Σ(x_i * y_{i+1} - x_{i+1} * y_i)
  */

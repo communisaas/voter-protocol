@@ -143,10 +143,10 @@ describe('Integrity Checker - Geometry Validation', () => {
       coordinates: [
         [
           [0, 0],
-          [1, 0],
-          [1, 1],
           [0, 1],
-          [0, 0], // Closed
+          [1, 1],
+          [1, 0],
+          [0, 0], // Closed, counter-clockwise (RFC 7946)
         ],
       ],
     };
@@ -163,18 +163,18 @@ describe('Integrity Checker - Geometry Validation', () => {
         [
           [
             [0, 0],
-            [1, 0],
-            [1, 1],
             [0, 1],
+            [1, 1],
+            [1, 0],
             [0, 0],
           ],
         ],
         [
           [
             [2, 2],
-            [3, 2],
-            [3, 3],
             [2, 3],
+            [3, 3],
+            [3, 2],
             [2, 2],
           ],
         ],
@@ -192,9 +192,9 @@ describe('Integrity Checker - Geometry Validation', () => {
       coordinates: [
         [
           [0, 0],
-          [200, 0], // Longitude out of range
-          [200, 1],
           [0, 1],
+          [200, 1], // Longitude out of range
+          [200, 0],
           [0, 0],
         ],
       ],
@@ -211,9 +211,9 @@ describe('Integrity Checker - Geometry Validation', () => {
       coordinates: [
         [
           [0, 0],
-          [NaN, 0], // Invalid coordinate
-          [1, 1],
           [0, 1],
+          [NaN, 1], // Invalid coordinate
+          [1, 0],
           [0, 0],
         ],
       ],
@@ -230,9 +230,9 @@ describe('Integrity Checker - Geometry Validation', () => {
       coordinates: [
         [
           [0, 0],
-          [1.123456789, 0], // 9 decimal places (max is 8)
-          [1, 1],
           [0, 1],
+          [1.123456789, 1], // 9 decimal places (max is 8)
+          [1, 0],
           [0, 0],
         ],
       ],
@@ -285,10 +285,10 @@ describe('Integrity Checker - Geometry Validation', () => {
       coordinates: [
         [
           [0, 0],
-          [1, 0],
-          [1, 0], // Duplicate
-          [1, 1],
           [0, 1],
+          [0, 1], // Duplicate
+          [1, 1],
+          [1, 0],
           [0, 0],
         ],
       ],
@@ -299,8 +299,8 @@ describe('Integrity Checker - Geometry Validation', () => {
     expect(result.errors.some((e) => e.includes('duplicate'))).toBe(true);
   });
 
-  test('validates winding order (exterior clockwise, holes counter-clockwise)', () => {
-    // Counter-clockwise exterior ring (incorrect)
+  test('validates winding order (RFC 7946: exterior counter-clockwise, holes clockwise)', () => {
+    // Counter-clockwise exterior ring (CORRECT per RFC 7946)
     const polygon: Polygon = {
       type: 'Polygon',
       coordinates: [
@@ -315,7 +315,29 @@ describe('Integrity Checker - Geometry Validation', () => {
     };
 
     const result = verifyGeometryIntegrity(polygon);
-    // Winding order check
+    // Should pass - counter-clockwise is correct for exterior rings
+    expect(result.geometryValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  test('rejects clockwise exterior ring', () => {
+    // Clockwise exterior ring (INCORRECT per RFC 7946)
+    const polygon: Polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+          [0, 0],
+        ],
+      ],
+    };
+
+    const result = verifyGeometryIntegrity(polygon);
+    // Should fail - clockwise is incorrect for exterior rings
+    expect(result.geometryValid).toBe(false);
     expect(result.errors.some((e) => e.includes('winding order'))).toBe(true);
   });
 });
@@ -536,7 +558,7 @@ describe('Integrity Checker - Snapshot Verification', () => {
 // ============================================================================
 
 /**
- * Create a simple square polygon for testing
+ * Create a simple square polygon for testing (RFC 7946 compliant: counter-clockwise)
  */
 function createSquarePolygon(x: number, y: number, size: number): Polygon {
   return {
@@ -544,9 +566,9 @@ function createSquarePolygon(x: number, y: number, size: number): Polygon {
     coordinates: [
       [
         [x, y],
-        [x + size, y],
-        [x + size, y + size],
         [x, y + size],
+        [x + size, y + size],
+        [x + size, y],
         [x, y],
       ],
     ],
