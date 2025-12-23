@@ -7,6 +7,12 @@ export interface ProverConfig {
     circuitName?: string;
     /** Custom circuit bytecode (optional) */
     bytecode?: Uint8Array;
+    /**
+     * Number of threads for proving (default: auto-detect via navigator.hardwareConcurrency)
+     * Set to 1 for single-threaded proving (useful when SharedArrayBuffer is unavailable)
+     * Requires COOP/COEP headers for multithreading in browsers
+     */
+    threads?: number;
 }
 
 export interface CircuitInputs {

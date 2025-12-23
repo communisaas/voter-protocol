@@ -1,6 +1,7 @@
 {
   "name": "voter-protocol",
   "version": "0.1.0",
+  "packageManager": "npm@10.8.2",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -8,16 +9,13 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:atlas": "tsx scripts/test-shadow-atlas.ts",
+    "test:atlas": "vitest run --project @voter-protocol/crypto",
     "lint": "turbo run lint",
     "dev": "turbo run dev",
-    "atlas:dev": "NODE_ENV=development ATLAS_MODE=mock tsx scripts/build-shadow-atlas.ts",
-    "atlas:prod": "NODE_ENV=production ATLAS_MODE=census tsx scripts/build-shadow-atlas.ts",
-    "atlas:serve": "tsx scripts/serve-atlas.ts",
-    "atlas:verify": "tsx scripts/verify-atlas.ts",
-    "atlas:bootstrap-country": "tsx packages/crypto/services/shadow-atlas/workers/bootstrap-country.ts",
-    "atlas:bootstrap-discovery": "tsx packages/crypto/services/shadow-atlas/workers/bootstrap-discovery-state.ts",
-    "atlas:discover-councils": "tsx packages/crypto/services/shadow-atlas/workers/discover-council-districts.ts",
+    "atlas:build": "tsx scripts/atlas/build-atlas.ts",
+    "atlas:validate": "tsx scripts/atlas/validate-tiger.ts",
+    "atlas:check-health": "tsx scripts/atlas/health-check-ci.ts",
+    "atlas:bootstrap": "tsx scripts/atlas/bootstrap.ts",
     "bbjs:validate-manifest": "node scripts/internal/validate-bbjs-manifest.js --manifest dist/bbjs/manifest.json"
   },
   "devDependencies": {

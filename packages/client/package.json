@@ -31,7 +31,7 @@
     "@near-js/crypto": "^2.3.3",
     "@near-js/keystores-browser": "^2.3.3",
     "@noir-lang/noir_js": "^1.0.0-beta.16",
-    "@voter-protocol/noir-prover": "workspace:*",
+    "@voter-protocol/noir-prover": "*",
     "ethers": "^6.15.0",
     "idb": "^8.0.3",
     "libsodium-wrappers": "^0.7.13",

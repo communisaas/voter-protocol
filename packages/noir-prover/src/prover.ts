@@ -1,7 +1,8 @@
 /**
  * NoirProver - Browser-native ZK prover using Barretenberg
- * 
+ *
  * Uses @noir-lang/noir_js for witness generation and @aztec/bb.js for proving.
+ * Supports multithreaded proving when SharedArrayBuffer is available.
  */
 
 import { UltraHonkBackend } from '@aztec/bb.js';
@@ -12,16 +13,41 @@ import type { ProverConfig, CircuitInputs, ProofResult } from './types';
 // Import circuit JSON (contains bytecode + ABI)
 import circuitJson from '../circuits/district_membership.json';
 
+/**
+ * Detect optimal thread count for proving
+ * Returns 1 if SharedArrayBuffer is unavailable (no multithreading support)
+ */
+function detectThreads(): number {
+    // Check for SharedArrayBuffer support (required for multithreading)
+    const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+
+    if (!hasSharedArrayBuffer) {
+        console.log('[NoirProver] SharedArrayBuffer unavailable - using single-threaded mode');
+        return 1;
+    }
+
+    // Use hardware concurrency, capped at reasonable limits
+    const cores = typeof navigator !== 'undefined'
+        ? navigator.hardwareConcurrency || 4
+        : 4;
+
+    // Cap at 8 threads - diminishing returns beyond this for ZK proving
+    return Math.min(cores, 8);
+}
+
 export class NoirProver {
     private backend: UltraHonkBackend | null = null;
     private noir: Noir | null = null;
     private config: ProverConfig;
+    private threads: number;
 
     constructor(config: ProverConfig = {}) {
         this.config = {
             circuitName: 'district_membership',
             ...config,
         };
+        // Determine thread count: explicit config > auto-detect
+        this.threads = config.threads ?? detectThreads();
     }
 
     /**
@@ -30,7 +56,7 @@ export class NoirProver {
     async init(): Promise<void> {
         if (this.backend && this.noir) return; // Already initialized
 
-        console.log('[NoirProver] Initializing...');
+        console.log(`[NoirProver] Initializing with ${this.threads} thread(s)...`);
         const start = Date.now();
 
         // Cast circuit JSON to CompiledCircuit type
@@ -39,11 +65,11 @@ export class NoirProver {
         // Initialize Noir for witness generation
         this.noir = new Noir(circuit);
 
-        // Initialize UltraHonk backend for proving
-        // The backend handles circuit compilation internally
-        this.backend = new UltraHonkBackend(circuit.bytecode);
+        // Initialize UltraHonk backend for proving with thread configuration
+        // threads > 1 enables parallel proving using Web Workers internally
+        this.backend = new UltraHonkBackend(circuit.bytecode, { threads: this.threads });
 
-        console.log(`[NoirProver] Initialized in ${Date.now() - start}ms`);
+        console.log(`[NoirProver] Initialized in ${Date.now() - start}ms (${this.threads} threads)`);
     }
 
     /**
