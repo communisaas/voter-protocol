@@ -14,8 +14,8 @@
 <meta name="DC.language" scheme="DCTERMS.RFC1766" content="EN-US" />
 <meta name="author" content="U.S. Census Bureau, ASD, WSCS" />
 <!-- Site wide JS -->
-<script type="e7d87ed2a02b1a2f4d0675c0-text/javascript" src="/main/javascript/ruthsarian_utilities.js"></script>
-<script type="e7d87ed2a02b1a2f4d0675c0-text/javascript">
+<script type="fa7134ff89882265026b90f4-text/javascript" src="/main/javascript/ruthsarian_utilities.js"></script>
+<script type="fa7134ff89882265026b90f4-text/javascript">
 <!--
 	if ( ( typeof( set_min_width ) ).toLowerCase() != 'undefined' ) { set_min_width( 'page-container' , 853 ); }
 	if ( ( typeof( sfHover ) ).toLowerCase() != 'undefined' ) { event_attach( 'onload' , function () { 
@@ -23,8 +23,8 @@
 	} ); }
 //-->
 </script>
-<script type="e7d87ed2a02b1a2f4d0675c0-text/javascript" src="/main/javascript/unlink.js"></script>
-<script type="e7d87ed2a02b1a2f4d0675c0-text/javascript" src="/main/javascript/jquery.js"></script>
+<script type="fa7134ff89882265026b90f4-text/javascript" src="/main/javascript/unlink.js"></script>
+<script type="fa7134ff89882265026b90f4-text/javascript" src="/main/javascript/jquery.js"></script>
 <!--End JavaScript Links-->
 <!-- You can edit the path to the CSS.  CSS MUST stay in a folder called "css" on the server-->
 <link href="css/SiteDefined.css" rel="stylesheet" type="text/css"  media="all, handheld" />
@@ -42,8 +42,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <script src="/main/uswds/uswds-2.12.0/js/uswds-init.min.js" type="e7d87ed2a02b1a2f4d0675c0-text/javascript"></script>
-    <script async type="e7d87ed2a02b1a2f4d0675c0-text/javascript" id="_fed_an_ua_tag" src="/main/javascript/dap/Universal-Federated-Analytics-Min.js?agency=DOC"></script>
+    <script src="/main/uswds/uswds-2.12.0/js/uswds-init.min.js" type="fa7134ff89882265026b90f4-text/javascript"></script>
+    <script async type="fa7134ff89882265026b90f4-text/javascript" id="_fed_an_ua_tag" src="/main/javascript/dap/Universal-Federated-Analytics-Min.js?agency=DOC"></script>
    <!-- <link rel="stylesheet" href="https://www.census.gov/main/uswds/uswds-2.12.0/css/uswds.min.css" /> -->
   <!--  <link rel="stylesheet" href="https://www.census.gov/main/.in/css/all_header_styles.css" /> -->
   <link rel="stylesheet" href="/main/css/all_header_styles.css" />
@@ -51,7 +51,7 @@
    
   </head>
   <body>
-    <script src="/main/uswds/uswds-2.12.0/js/uswds.min.js" type="e7d87ed2a02b1a2f4d0675c0-text/javascript"></script>
+    <script src="/main/uswds/uswds-2.12.0/js/uswds.min.js" type="fa7134ff89882265026b90f4-text/javascript"></script>
     <section class="usa-banner" aria-label="Official government website">
         <div class="usa-accordion">
           <header class="usa-banner__header">
@@ -161,11 +161,11 @@
 <!--
 <script type="text/javascript" src="/main/javascript/clickjack.js"></script>
 -->
-<script src="/main/responsive-header/jquery/jquery.js" class="cb-main-support global-file" type="e7d87ed2a02b1a2f4d0675c0-text/javascript"></script>
+<script src="/main/responsive-header/jquery/jquery.js" class="cb-main-support global-file" type="fa7134ff89882265026b90f4-text/javascript"></script>
 <!-- <script src="https://www.census.gov/main/javascript/jquery-ui-1.13.2/jquery-ui.js" class="cb-main-support global-file"></script> -->
 
 <!-- Check for jquery conflict -->
-<script type="e7d87ed2a02b1a2f4d0675c0-text/javascript">
+<script type="fa7134ff89882265026b90f4-text/javascript">
 
 	$.ajax({
 		type : 'get',
@@ -193,7 +193,7 @@
     });
 </script>
 
-<script src="/main/responsive-header/bootstrap-custom/js/bootstrap.js" class="cb-main-support global-file" type="e7d87ed2a02b1a2f4d0675c0-text/javascript"></script>
+<script src="/main/responsive-header/bootstrap-custom/js/bootstrap.js" class="cb-main-support global-file" type="fa7134ff89882265026b90f4-text/javascript"></script>
 <!-- <script src="https://www.census.gov/main/responsive-header/js/typeahead.js" class="cb-main-support global-file"></script> -->
 
 
@@ -265,7 +265,7 @@
 </header>
 <hr class="blue-line">
 <a class="sr-only" tabindex="-1" id="cb-after-header-anchor">end of header</a>
-<script src="/cdn-cgi/scripts/7d0fa10a/cloudflare-static/rocket-loader.min.js" data-cf-settings="e7d87ed2a02b1a2f4d0675c0-|49" defer></script></body>
+<script src="/cdn-cgi/scripts/7d0fa10a/cloudflare-static/rocket-loader.min.js" data-cf-settings="fa7134ff89882265026b90f4-|49" defer></script></body>
 
 </html>
 
@@ -341,7 +341,7 @@
 <!--  <link rel="stylesheet" type="text/css" href="/main/css/bootstrap-4.3.1.min.css">-->
 <link rel="stylesheet" type="text/css" href="/main/css/new_footer.css">
 <link rel="stylesheet" href="/main/css/font-awesome-6.5.1/css/all.min.css">
-<script src="/main/css/font-awesome-6.5.1/js/all.min.js" type="e7d87ed2a02b1a2f4d0675c0-text/javascript"></script>
+<script src="/main/css/font-awesome-6.5.1/js/all.min.js" type="fa7134ff89882265026b90f4-text/javascript"></script>
 
 
 <!-- <script src="/main/javascript/jquery-3.0.0/jquery.min.js"></script>
