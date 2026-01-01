@@ -17,17 +17,23 @@ export {
     computeLeafHash,
     computeLeafHashesBatch,
     AUTHORITY_LEVELS,
-    type BoundaryType,
     type MerkleLeafInput,
     type MerkleProof,
     type MerkleTreeConfig,
     type IPFSExportResult,
+    type ProvenanceSource,
     exportToIPFS,
 } from './merkle-tree.js';
 
 // Multi-Layer Builder
 export {
     MultiLayerMerkleTreeBuilder,
+    type MerkleBoundaryInput,
+    /**
+     * @deprecated Use MerkleBoundaryInput instead. This alias exists for backward compatibility
+     * and will be removed in v2.0. For general boundary provider types, import from
+     * './core/types.js' directly.
+     */
     type NormalizedBoundary,
     type MultiLayerMerkleTree,
     type MerkleLeafWithMetadata,
@@ -65,6 +71,43 @@ export {
     type FIPSValidation,
 } from './transformation/validator.js';
 
+// Core Boundary Types and Utilities
+export {
+    BoundaryType,
+    type BoundaryMetadata,
+    type BoundaryGeometry,
+    type BoundaryResolution,
+    type LatLng,
+    type BBox,
+    type PolygonRing,
+    PRECISION_RANK,
+    isBoundaryValid,
+    getPrecisionRank,
+    comparePrecision,
+    formatBoundary,
+    isPointInBBox,
+} from './types/boundary.js';
+
+// Geographic Utilities
+export {
+    extractCoordinatesFromFeature,
+    extractCoordinatesFromGeometry,
+    extractExteriorCoordinates,
+    type GeoPoint,
+    calculateCentroid,
+    calculateFeatureCentroid,
+    computeBoundingBox,
+    computeFeatureBoundingBox,
+    extractBBox,
+    calculateCentroidFromGeometry,
+    calculateCentroidFromBBox,
+    pointInPolygon,
+    pointInGeometry,
+} from './core/geo-utils.js';
+
+// Provenance Types
+export type { ProvenanceRecord } from './provenance/provenance-writer.js';
+
 // Poseidon2 hasher (async version using Noir) - re-exported from crypto package
 export {
     Poseidon2Hasher,
@@ -73,3 +116,98 @@ export {
     hashSingle,
     hashString,
 } from '@voter-protocol/crypto/poseidon2';
+
+// Snapshot Versioning
+export {
+    SnapshotManager,
+    type Snapshot,
+    type SnapshotMetadata,
+    type SnapshotDiff,
+    type SnapshotListEntry,
+} from './versioning/index.js';
+
+// Change Detection (TIGER source monitoring)
+export {
+    ChangeDetectionAdapter,
+    type TigerSourceConfig,
+    type ChangeDetectionConfig,
+    type ChangeDetectionAdapterResult,
+} from './acquisition/change-detection-adapter.js';
+
+// TIGER Batch Ingestion Orchestrator
+export {
+    TIGERIngestionOrchestrator,
+    createTIGERIngestionOrchestrator,
+    type BatchIngestionOptions,
+    type BatchIngestionResult,
+    type BatchIngestionError,
+    type CheckpointState,
+} from './acquisition/tiger-ingestion-orchestrator.js';
+
+// Global Tree Adapter (multi-country support)
+export {
+    GlobalTreeAdapter,
+    extractCountryRoots,
+    extractContinentalRoots,
+    type GlobalTreeConfig,
+    type UnifiedMerkleTree,
+} from './integration/global-tree-adapter.js';
+
+// Cross-Validation and School District Validation
+export {
+    CrossValidator,
+    SchoolDistrictValidator,
+    type CrossValidationConfig,
+    type CrossValidationResult,
+    type GeometryMismatch,
+    type SchoolDistrictValidationResult,
+} from './validators/index.js';
+
+// Shadow Atlas Service (unified entry point)
+export { ShadowAtlasService } from './core/shadow-atlas-service.js';
+
+// Core Types (for service configuration and results)
+export type {
+    AtlasBuildOptions,
+    AtlasBuildResult,
+    TIGERLayerType,
+    TIGERValidationOptions,
+    TIGERValidationResult,
+    TIGERLayerValidation,
+    LayerValidationResult,
+    BuildManifest,
+    SourceManifest,
+    LayerManifest,
+    ValidationManifest,
+    CheckForChangesOptions,
+    ChangeCheckResult,
+    BuildIfChangedResult,
+} from './core/types.js';
+
+// Configuration
+export { DEFAULT_CONFIG, createConfig, type ShadowAtlasConfig } from './core/config.js';
+
+// Boundary Providers
+export {
+    DCWardsProvider,
+    createDCWardsProvider,
+    isValidDCWardId,
+    getWardNumber,
+} from './providers/dc-wards-provider.js';
+
+// Special District Providers (non-TIGER boundaries)
+export {
+    SpecialDistrictProvider,
+    CaliforniaFireDistrictsProvider,
+    SPECIAL_DISTRICT_PROVIDERS,
+    SPECIAL_DISTRICT_PRIORITY,
+    getSpecialDistrictProvider,
+    registerSpecialDistrictProvider,
+    getProvidersForState,
+    getProvidersByType,
+    getDistrictTypesForState,
+    type SpecialDistrictType,
+    type SpecialDistrictMetadata,
+    type NormalizedSpecialDistrict,
+    type GovernanceType,
+} from './providers/special-district-provider.js';

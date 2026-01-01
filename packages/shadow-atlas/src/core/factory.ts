@@ -8,12 +8,12 @@
  */
 
 import { ShadowAtlasService } from './shadow-atlas-service.js';
-import { createConfig, DEFAULT_CONFIG, type ShadowAtlasConfig } from './config.js';
+import { createConfig, DEFAULT_CONFIG, type ShadowAtlasConfig, type DeepPartial } from './config.js';
 
 /**
  * Create ShadowAtlasService with proper dependencies
  *
- * @param config - Partial configuration to override defaults
+ * @param config - Partial configuration to override defaults (supports deep partial)
  * @returns Fully configured ShadowAtlasService instance
  *
  * @example
@@ -33,7 +33,7 @@ import { createConfig, DEFAULT_CONFIG, type ShadowAtlasConfig } from './config.j
  * ```
  */
 export function createShadowAtlasService(
-  config: Partial<ShadowAtlasConfig> = {}
+  config: DeepPartial<ShadowAtlasConfig> = {}
 ): ShadowAtlasService {
   const fullConfig = createConfig(config);
 
