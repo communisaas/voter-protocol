@@ -24,6 +24,7 @@
 
 import type { FeatureCollection, Polygon, MultiPolygon, Position } from 'geojson';
 import type { TIGERLayerType } from '../core/types.js';
+import { ValidationHaltError, type ValidationHaltDetails } from '../core/types/errors.js';
 import {
   getExpectedCount,
   getStateName,
@@ -31,7 +32,14 @@ import {
   EXPECTED_SLDU_BY_STATE,
   EXPECTED_SLDL_BY_STATE,
   EXPECTED_COUNTIES_BY_STATE,
+  EXPECTED_UNSD_BY_STATE,
+  EXPECTED_ELSD_BY_STATE,
+  EXPECTED_SCSD_BY_STATE,
 } from './tiger-expected-counts.js';
+import {
+  getMissingGEOIDs,
+  getExtraGEOIDs,
+} from './geoid-reference.js';
 import { STATE_FIPS_TO_NAME as CANONICAL_STATE_FIPS_TO_NAME } from '../core/types.js';
 import {
   detectOverlaps,
@@ -41,6 +49,9 @@ import {
 } from './topology-detector.js';
 import {
   getTopologyRules,
+  NEW_ENGLAND_FIPS,
+  USVI_FIPS,
+  EXPECTED_ESTATE_COUNT,
   type TopologyOverlap,
   type GapAnalysis,
   type SelfIntersection,
@@ -48,19 +59,42 @@ import {
 import type { NormalizedBoundary as CoreNormalizedBoundary, TopologyResult } from '../core/types.js';
 // extractCoordinates imported from centralized geo-utils (eliminated duplicate)
 import { extractCoordinatesFromGeometry } from '../core/geo-utils.js';
+// Redistricting gap detection for legislative layers (WP-GAP-1)
+import {
+  RedistrictingGapDetector,
+  type GapBoundaryType,
+  type GapStatus,
+} from '../provenance/gap-detector.js';
+import { STATE_ABBR_TO_FIPS } from '../core/types/fips.js';
+
+/**
+ * FIPS code to state abbreviation mapping
+ * Derived by inverting STATE_ABBR_TO_FIPS
+ */
+const FIPS_TO_STATE_ABBR: Readonly<Record<string, string>> = Object.entries(STATE_ABBR_TO_FIPS)
+  .reduce<Record<string, string>>((acc, [abbr, fips]) => {
+    acc[fips] = abbr;
+    return acc;
+  }, {});
 
 /**
  * Minimal normalized boundary for TIGER validation
  *
- * NOTE: This is a specialized minimal interface for TIGER validation only.
+ * This is a specialized minimal interface for TIGER validation only.
  * For the full canonical NormalizedBoundary, use core/types.ts
  */
-export interface NormalizedBoundary {
+export interface TIGERValidationBoundary {
   readonly geoid: string;
   readonly name: string;
   readonly geometry: Polygon | MultiPolygon;
   readonly properties: Record<string, unknown>;
 }
+
+/**
+ * @deprecated Use TIGERValidationBoundary instead. This alias exists for backward compatibility.
+ * Will be removed in the next major version.
+ */
+export type NormalizedBoundary = TIGERValidationBoundary;
 
 /**
  * Completeness validation result
@@ -142,6 +176,24 @@ export interface CrossValidationResult {
 }
 
 /**
+ * Redistricting gap warning for legislative layers
+ *
+ * During redistricting periods (Jan-Jun of years ending in 2, e.g., 2022, 2032),
+ * TIGER data may be stale for legislative boundaries. This warning alerts
+ * consumers to potential data freshness issues without failing validation.
+ */
+export interface RedistrictingGapWarning {
+  /** Warning message describing the gap situation */
+  readonly message: string;
+
+  /** Gap status from the detector */
+  readonly gapStatus: GapStatus;
+
+  /** Recommended action */
+  readonly recommendation: string;
+}
+
+/**
  * Overall validation result
  */
 export interface ValidationResult {
@@ -164,13 +216,101 @@ export interface ValidationResult {
 
   /** Human-readable summary */
   readonly summary: string;
+
+  /**
+   * Non-blocking warnings (e.g., redistricting gap detection)
+   *
+   * Warnings indicate potential issues but do not fail validation.
+   * Consumers should review warnings and take appropriate action.
+   */
+  readonly warnings?: readonly string[];
+
+  /**
+   * Redistricting gap warning for legislative layers (cd, sldu, sldl)
+   *
+   * Present when validation detects a redistricting gap period where
+   * TIGER data may be stale. Does NOT fail validation - informational only.
+   */
+  readonly redistrictingGapWarning?: RedistrictingGapWarning;
 }
+
+/**
+ * Configuration options for validation halt gates
+ *
+ * These options control when validation failures should HALT processing
+ * rather than just logging warnings. Halting prevents invalid data from
+ * entering the Merkle tree, which would break ZK proof generation.
+ *
+ * PHILOSOPHY:
+ * - WARNINGS (don't halt): Redistricting gap, low quality score (soft thresholds)
+ * - ERRORS (halt if configured): Self-intersections, missing districts below threshold, invalid coordinates
+ */
+export interface ValidationHaltOptions {
+  /**
+   * Halt processing if topology validation fails (self-intersections, invalid polygons).
+   * CRITICAL: Self-intersecting polygons break ZK proof generation.
+   * Default: true
+   */
+  readonly haltOnTopologyError: boolean;
+
+  /**
+   * Halt processing if completeness validation fails (count mismatch, invalid GEOIDs).
+   * CRITICAL: Missing districts create coverage gaps that invalidate proofs.
+   * Default: true
+   */
+  readonly haltOnCompletenessError: boolean;
+
+  /**
+   * Halt processing if coordinate validation fails (invalid lat/lng values).
+   * CRITICAL: Invalid coordinates produce incorrect Merkle tree commitments.
+   * Default: true
+   */
+  readonly haltOnCoordinateError: boolean;
+}
+
+/**
+ * Default halt options (halt on all critical errors)
+ */
+export const DEFAULT_HALT_OPTIONS: ValidationHaltOptions = {
+  haltOnTopologyError: true,
+  haltOnCompletenessError: true,
+  haltOnCoordinateError: true,
+};
 
 /**
  * State FIPS to name mapping (for validation)
  * Imported from canonical source in core/types.ts
  */
 const STATE_FIPS_TO_NAME = CANONICAL_STATE_FIPS_TO_NAME;
+
+/**
+ * School District Layer Constants
+ *
+ * TIGER provides three school district layers with state-specific usage patterns:
+ *
+ * UNIFIED-ONLY STATES (most common):
+ * - All districts are UNSD (K-12 under single administration)
+ * - ELSD and SCSD layers are empty
+ * - Examples: Washington, California (mostly), Texas, Ohio
+ *
+ * DUAL-SYSTEM STATES (elementary + secondary):
+ * - ELSD (K-8) and SCSD (9-12) cover same territory
+ * - Elementary and secondary CAN overlap (different grades, same area)
+ * - UNSD layer is typically empty or minimal
+ * - Examples: Illinois, Connecticut, Massachusetts, New Jersey
+ *
+ * MIXED STATES (unified + secondary overlays):
+ * - Primary coverage via UNSD
+ * - Some SCSD overlays for specialized high schools
+ * - Examples: California, Arizona
+ *
+ * VALIDATION RULES:
+ * - UNSD MUST NOT overlap with ELSD or SCSD (except NYC/Hawaii special cases)
+ * - ELSD and SCSD CAN overlap (serve same territory, different grades)
+ * - All land must be assigned to school district(s)
+ * - Dual-system states require both ELSD and SCSD coverage
+ */
+const SCHOOL_DISTRICT_LAYERS: readonly TIGERLayerType[] = ['unsd', 'elsd', 'scsd'] as const;
 
 /**
  * Validate GEOID format for different layer types
@@ -308,20 +448,186 @@ function getExpectedFields(layer: TIGERLayerType): string[] {
 }
 
 /**
+ * At-Large Congressional District States
+ *
+ * States with only ONE congressional district (at-large representation):
+ * - 02 = Alaska
+ * - 10 = Delaware
+ * - 38 = North Dakota
+ * - 46 = South Dakota
+ * - 50 = Vermont
+ * - 56 = Wyoming
+ *
+ * Territories with 1 non-voting delegate:
+ * - 60 = American Samoa
+ * - 66 = Guam
+ * - 69 = Northern Mariana Islands
+ * - 72 = Puerto Rico (resident commissioner)
+ * - 78 = US Virgin Islands
+ *
+ * TIGER files for at-large states sometimes contain placeholder/phantom
+ * features with "ZZZ" or "00" district codes that must be filtered.
+ */
+const AT_LARGE_CD_STATES: ReadonlySet<string> = new Set([
+  // At-large states (1 voting representative)
+  '02', // Alaska
+  '10', // Delaware
+  '38', // North Dakota
+  '46', // South Dakota
+  '50', // Vermont
+  '56', // Wyoming
+  // Territory delegates (non-voting)
+  '60', // American Samoa
+  '66', // Guam
+  '69', // Northern Mariana Islands
+  '72', // Puerto Rico
+  '78', // US Virgin Islands
+]);
+
+/**
+ * Placeholder district codes that should be filtered from TIGER CD data
+ *
+ * Census TIGER/Line files may include these phantom district codes:
+ * - ZZ: Placeholder for undefined/unassigned areas
+ * - 00: At-large placeholder (used in some at-large states)
+ * - 98: Overseas or non-resident areas
+ * - 99: Not defined / placeholder
+ */
+const PLACEHOLDER_CD_CODES: ReadonlySet<string> = new Set([
+  'ZZ', // Placeholder for undefined areas
+  '00', // At-large placeholder (when real district also exists)
+  '98', // Overseas/non-resident placeholder
+  '99', // Not defined placeholder
+]);
+
+/**
  * TIGER Data Validator
  *
  * Validates Census TIGER/Line boundary data for completeness, topology, and coordinate accuracy.
  */
 export class TIGERValidator {
   /**
+   * Check if a state uses at-large congressional representation
+   *
+   * At-large states have exactly 1 congressional district covering the entire state.
+   * Territories also have 1 delegate (non-voting).
+   *
+   * @param stateFips - Two-digit state FIPS code
+   * @returns True if state is at-large or a territory with 1 delegate
+   */
+  isAtLargeCongressionalState(stateFips: string): boolean {
+    return AT_LARGE_CD_STATES.has(stateFips);
+  }
+
+  /**
+   * Check if a district code is a placeholder that should be filtered
+   *
+   * @param districtCode - Two-character district code (e.g., "01", "ZZ")
+   * @returns True if this is a placeholder code
+   */
+  isPlaceholderDistrictCode(districtCode: string): boolean {
+    return PLACEHOLDER_CD_CODES.has(districtCode.toUpperCase());
+  }
+
+  /**
+   * Filter placeholder districts from congressional district boundaries
+   *
+   * Removes phantom/placeholder districts (ZZ, 00, 98, 99) from TIGER CD data.
+   * This is especially important for at-large states where TIGER files may
+   * contain both the valid district and a placeholder.
+   *
+   * @param boundaries - Congressional district boundaries to filter
+   * @returns Filtered boundaries with placeholders removed
+   */
+  filterPlaceholderDistricts(
+    boundaries: readonly NormalizedBoundary[]
+  ): readonly NormalizedBoundary[] {
+    return boundaries.filter(b => {
+      // Extract district portion from GEOID (last 2 characters for CD)
+      // CD GEOID format: SSDD (State + District)
+      if (b.geoid.length < 4) {
+        return true; // Keep if GEOID is malformed (will fail other validation)
+      }
+      const districtCode = b.geoid.slice(2, 4);
+      return !this.isPlaceholderDistrictCode(districtCode);
+    });
+  }
+
+  /**
+   * Check geographic restriction for a layer.
+   *
+   * Some TIGER layers are only valid in specific geographic regions:
+   * - NECTA (New England City and Town Areas): Only exists in New England states
+   * - Estate: Only exists in US Virgin Islands (FIPS 78)
+   *
+   * @param layer - TIGER layer type to check
+   * @param stateFips - Optional state FIPS code to validate against
+   * @returns Object with valid boolean, optional reason for failure, and optional expected count
+   */
+  checkGeographicRestriction(
+    layer: TIGERLayerType,
+    stateFips?: string
+  ): { valid: boolean; reason?: string; expectedCount?: number } {
+    // NECTA-related layers only valid in New England
+    const nectaLayers: readonly TIGERLayerType[] = ['necta', 'cnecta', 'nectadiv'];
+
+    if (nectaLayers.includes(layer) && stateFips) {
+      if (!NEW_ENGLAND_FIPS.includes(stateFips)) {
+        const stateName = getStateName(stateFips) || `FIPS ${stateFips}`;
+        return {
+          valid: false,
+          reason: `${layer.toUpperCase()} layer only valid for New England states (CT, ME, MA, NH, RI, VT), not ${stateName}`,
+        };
+      }
+    }
+
+    // Estate layer only valid in US Virgin Islands (FIPS 78)
+    if (layer === 'estate') {
+      if (stateFips && !USVI_FIPS.includes(stateFips)) {
+        const stateName = getStateName(stateFips) || `FIPS ${stateFips}`;
+        return {
+          valid: false,
+          reason: `Estate layer only valid for US Virgin Islands (FIPS 78), not ${stateName}`,
+        };
+      }
+      // National query or USVI query should expect exactly 3 estates
+      return {
+        valid: true,
+        expectedCount: EXPECTED_ESTATE_COUNT,
+      };
+    }
+
+    return { valid: true };
+  }
+
+  /**
    * Validate completeness of downloaded TIGER data
    * Ensures all expected boundaries are present
+   *
+   * For congressional districts (CD layer), this method:
+   * 1. Filters out placeholder districts (ZZ, 00, 98, 99)
+   * 2. Handles at-large states specially (must have exactly 1 valid district)
+   * 3. Reports filtered placeholders in summary for transparency
    */
   validateCompleteness(
     layer: TIGERLayerType,
     boundaries: readonly NormalizedBoundary[],
     stateFips?: string
   ): CompletenessResult {
+    // Check geographic restriction before count validation
+    const geoCheck = this.checkGeographicRestriction(layer, stateFips);
+    if (!geoCheck.valid) {
+      return {
+        valid: false,
+        expected: 0,
+        actual: 0,
+        percentage: 0,
+        missingGEOIDs: [],
+        extraGEOIDs: [],
+        summary: geoCheck.reason || 'Geographic restriction violated',
+      };
+    }
+
     const expected = getExpectedCount(layer, stateFips);
 
     if (expected === null) {
@@ -337,12 +643,35 @@ export class TIGERValidator {
       };
     }
 
-    const actual = boundaries.length;
+    // For congressional districts, filter placeholder districts before validation
+    let boundariesToValidate: readonly NormalizedBoundary[] = boundaries;
+    let filteredPlaceholderCount = 0;
+
+    if (layer === 'cd') {
+      const filtered = this.filterPlaceholderDistricts(boundaries);
+      filteredPlaceholderCount = boundaries.length - filtered.length;
+      boundariesToValidate = filtered;
+
+      // Special handling for at-large states
+      if (stateFips && this.isAtLargeCongressionalState(stateFips)) {
+        // At-large states must have exactly 1 valid district
+        if (filtered.length !== 1 && filtered.length !== expected) {
+          // Log a warning but continue validation
+          // This handles edge cases where TIGER data quality issues exist
+          console.warn(
+            `At-large state ${stateFips} has ${filtered.length} districts after filtering ` +
+            `(expected: ${expected}, filtered ${filteredPlaceholderCount} placeholders)`
+          );
+        }
+      }
+    }
+
+    const actual = boundariesToValidate.length;
     const percentage = expected > 0 ? (actual / expected) * 100 : 0;
 
     // Validate GEOID formats for school districts and other layers
     const invalidGEOIDs: string[] = [];
-    for (const boundary of boundaries) {
+    for (const boundary of boundariesToValidate) {
       if (!validateGeoidFormat(boundary.geoid, layer)) {
         invalidGEOIDs.push(boundary.geoid);
       }
@@ -352,7 +681,7 @@ export class TIGERValidator {
     const expectedFields = getExpectedFields(layer);
     const missingFieldsMap = new Map<string, string[]>();
 
-    for (const boundary of boundaries) {
+    for (const boundary of boundariesToValidate) {
       const properties = boundary.properties || {};
       const missingFields = expectedFields.filter(field => !(field in properties));
 
@@ -361,21 +690,31 @@ export class TIGERValidator {
       }
     }
 
-    // For now, we don't have authoritative GEOID lists to compare against
-    // So we only check counts (missing/extra GEOIDs would require reference data)
-    const missingGEOIDs: string[] = [];
-    const extraGEOIDs: string[] = [];
+    // Check for missing/extra GEOIDs using canonical reference lists
+    const actualGEOIDs = boundariesToValidate.map(b => b.geoid);
+    const missingGEOIDs = stateFips
+      ? Array.from(getMissingGEOIDs(layer, stateFips, actualGEOIDs))
+      : [];
+    const extraGEOIDs = stateFips
+      ? Array.from(getExtraGEOIDs(layer, stateFips, actualGEOIDs))
+      : [];
 
     const countValid = actual === expected;
     const formatValid = invalidGEOIDs.length === 0;
     const fieldsValid = missingFieldsMap.size === 0;
-    const valid = countValid && formatValid && fieldsValid;
+    const geoidValid = missingGEOIDs.length === 0 && extraGEOIDs.length === 0;
+    const valid = countValid && formatValid && fieldsValid && geoidValid;
 
     const stateName = stateFips ? getStateName(stateFips) : 'National';
     let summary = '';
 
+    // Build placeholder filter note for CD layer (provides transparency about filtering)
+    const placeholderNote = layer === 'cd' && filteredPlaceholderCount > 0
+      ? ` [filtered ${filteredPlaceholderCount} placeholder(s)]`
+      : '';
+
     if (valid) {
-      summary = `✅ Complete: ${actual}/${expected} ${layer.toUpperCase()} boundaries (${stateName})`;
+      summary = `✅ Complete: ${actual}/${expected} ${layer.toUpperCase()} boundaries (${stateName})${placeholderNote}`;
     } else {
       const issues: string[] = [];
 
@@ -385,6 +724,19 @@ export class TIGERValidator {
 
       if (!formatValid) {
         issues.push(`${invalidGEOIDs.length} invalid GEOIDs`);
+      }
+
+      if (!geoidValid) {
+        if (missingGEOIDs.length > 0) {
+          const preview = missingGEOIDs.slice(0, 5).join(', ');
+          const more = missingGEOIDs.length > 5 ? `, +${missingGEOIDs.length - 5} more` : '';
+          issues.push(`missing GEOIDs: ${preview}${more}`);
+        }
+        if (extraGEOIDs.length > 0) {
+          const preview = extraGEOIDs.slice(0, 5).join(', ');
+          const more = extraGEOIDs.length > 5 ? `, +${extraGEOIDs.length - 5} more` : '';
+          issues.push(`extra GEOIDs: ${preview}${more}`);
+        }
       }
 
       if (!fieldsValid) {
@@ -404,7 +756,7 @@ export class TIGERValidator {
         issues.push(`most common: ${topMissing}`);
       }
 
-      summary = `❌ Incomplete: ${issues.join('; ')} (${stateName})`;
+      summary = `❌ Incomplete: ${issues.join('; ')} (${stateName})${placeholderNote}`;
     }
 
     return {
@@ -764,8 +1116,9 @@ export class TIGERValidator {
     topology: TopologyResult,
     coordinates: CoordinateResult
   ): number {
-    // Completeness score (40%)
-    const completenessScore = completeness.percentage * 0.4;
+    // Completeness score (40%) - cap percentage at 100 to handle actual > expected
+    const cappedPercentage = Math.min(completeness.percentage, 100);
+    const completenessScore = cappedPercentage * 0.4;
 
     // Topology score (35%)
     const topologyScore = topology.valid ? 35 : 0;
@@ -773,16 +1126,27 @@ export class TIGERValidator {
     // Coordinates score (25%)
     const coordinatesScore = coordinates.valid ? 25 : 0;
 
-    return Math.round(completenessScore + topologyScore + coordinatesScore);
+    // Cap at 100 to ensure valid confidence value
+    return Math.min(100, Math.round(completenessScore + topologyScore + coordinatesScore));
   }
 
   /**
    * Validate TIGER data (all checks)
+   *
+   * For legislative layers (cd, sldu, sldl), also checks for redistricting
+   * gap periods where TIGER data may be stale. Gap detection produces
+   * WARNINGS, not validation failures.
+   *
+   * @param layer - TIGER layer type to validate
+   * @param boundaries - Boundaries to validate
+   * @param stateFips - Optional state FIPS code for state-specific validation
+   * @param asOf - Optional date for gap detection (defaults to current date, useful for testing)
    */
   validate(
     layer: TIGERLayerType,
     boundaries: readonly NormalizedBoundary[],
-    stateFips?: string
+    stateFips?: string,
+    asOf?: Date
   ): ValidationResult {
     const completeness = this.validateCompleteness(layer, boundaries, stateFips);
     const topology = this.validateTopology(boundaries);
@@ -796,10 +1160,58 @@ export class TIGERValidator {
 
     const stateName = stateFips ? getStateName(stateFips) : 'National';
 
-    const summary = `${layer.toUpperCase()} Validation (${stateName}): Quality Score ${qualityScore}/100\n` +
+    // Check redistricting gap for legislative layers (WP-GAP-1)
+    // Maps TIGER layer types to gap detector boundary types
+    const legislativeLayerMap: Partial<Record<TIGERLayerType, GapBoundaryType>> = {
+      'cd': 'congressional',
+      'sldu': 'state_senate',
+      'sldl': 'state_house',
+    };
+
+    const gapBoundaryType = legislativeLayerMap[layer];
+    let redistrictingGapWarning: RedistrictingGapWarning | undefined;
+    const warnings: string[] = [];
+
+    if (gapBoundaryType && stateFips) {
+      // Gap detector expects state abbreviation (e.g., "CA") not FIPS (e.g., "06")
+      const stateAbbr = FIPS_TO_STATE_ABBR[stateFips];
+
+      if (stateAbbr) {
+        const gapDetector = new RedistrictingGapDetector();
+        const gapStatus = gapDetector.checkBoundaryGap(
+          gapBoundaryType,
+          stateAbbr,
+          asOf ?? new Date()
+        );
+
+        if (gapStatus.inGap) {
+          const warningMessage = `Redistricting gap detected: ${gapStatus.reasoning}`;
+          warnings.push(warningMessage);
+
+          redistrictingGapWarning = {
+            message: warningMessage,
+            gapStatus,
+            recommendation: gapStatus.recommendation === 'use-primary'
+              ? `Use primary source from ${stateName} redistricting authority instead of TIGER`
+              : gapStatus.recommendation === 'wait'
+              ? 'Wait for TIGER update before using this data'
+              : gapStatus.recommendation === 'manual-review'
+              ? 'Manual review required - gap status unclear'
+              : 'Use TIGER data (no gap detected)',
+          };
+        }
+      }
+    }
+
+    // Build summary with gap warning if present
+    let summary = `${layer.toUpperCase()} Validation (${stateName}): Quality Score ${qualityScore}/100\n` +
       `${completeness.summary}\n` +
       `${topology.summary}\n` +
       `${coordinates.summary}`;
+
+    if (redistrictingGapWarning) {
+      summary += `\n[WARNING] ${redistrictingGapWarning.message}`;
+    }
 
     return {
       layer,
@@ -810,6 +1222,207 @@ export class TIGERValidator {
       coordinates,
       validatedAt: new Date(),
       summary,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      ...(redistrictingGapWarning ? { redistrictingGapWarning } : {}),
+    };
+  }
+
+  /**
+   * Validate TIGER data with halt gates (throws on critical failures)
+   *
+   * This method extends validate() to HALT processing when validation fails
+   * and halt gates are configured. This prevents invalid data from entering
+   * the Merkle tree, which would break ZK proof generation.
+   *
+   * HALT BEHAVIOR (throw ValidationHaltError):
+   * - Topology errors (self-intersections, invalid polygons) if haltOnTopologyError: true
+   * - Completeness errors (count mismatch, invalid GEOIDs) if haltOnCompletenessError: true
+   * - Coordinate errors (invalid lat/lng) if haltOnCoordinateError: true
+   *
+   * NON-HALT BEHAVIOR (warnings only, returned in result):
+   * - Redistricting gap periods (informational)
+   * - Low quality scores (soft threshold)
+   * - Suspicious locations (may be territories)
+   *
+   * @param layer - TIGER layer type to validate
+   * @param boundaries - Boundaries to validate
+   * @param haltOptions - Halt gate configuration
+   * @param stateFips - Optional state FIPS code for state-specific validation
+   * @param asOf - Optional date for gap detection (defaults to current date)
+   * @returns ValidationResult if all halt gates pass
+   * @throws ValidationHaltError if any configured halt gate triggers
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const result = validator.validateWithHaltGates(
+   *     'cd',
+   *     boundaries,
+   *     {
+   *       haltOnTopologyError: true,
+   *       haltOnCompletenessError: true,
+   *       haltOnCoordinateError: true,
+   *     },
+   *     '06' // California
+   *   );
+   *   // Validation passed, safe to add to Merkle tree
+   *   addToMerkleTree(boundaries);
+   * } catch (error) {
+   *   if (error instanceof ValidationHaltError) {
+   *     console.error(`Build halted: ${error.message}`);
+   *     console.error(`Stage: ${error.stage}, Layer: ${error.layerType}`);
+   *   }
+   *   throw error;
+   * }
+   * ```
+   */
+  validateWithHaltGates(
+    layer: TIGERLayerType,
+    boundaries: readonly NormalizedBoundary[],
+    haltOptions: ValidationHaltOptions,
+    stateFips?: string,
+    asOf?: Date
+  ): ValidationResult {
+    // Run completeness validation first
+    const completeness = this.validateCompleteness(layer, boundaries, stateFips);
+
+    // HALT GATE: Completeness
+    if (!completeness.valid && haltOptions.haltOnCompletenessError) {
+      const details: ValidationHaltDetails = {
+        stage: 'completeness',
+        details: {
+          expected: completeness.expected,
+          actual: completeness.actual,
+          percentage: completeness.percentage,
+          missingGEOIDs: completeness.missingGEOIDs,
+          extraGEOIDs: completeness.extraGEOIDs,
+        },
+        layerType: layer,
+        stateFips,
+      };
+
+      throw new ValidationHaltError(
+        `Completeness validation failed: ${completeness.summary}`,
+        details
+      );
+    }
+
+    // Run topology validation
+    const topology = this.validateTopology(boundaries);
+
+    // HALT GATE: Topology
+    if (!topology.valid && haltOptions.haltOnTopologyError) {
+      const details: ValidationHaltDetails = {
+        stage: 'topology',
+        details: {
+          selfIntersections: topology.selfIntersections,
+          overlaps: topology.overlaps,
+          gaps: topology.gaps,
+          invalidGeometries: topology.invalidGeometries,
+        },
+        layerType: layer,
+        stateFips,
+      };
+
+      throw new ValidationHaltError(
+        `Topology validation failed: ${topology.summary}`,
+        details
+      );
+    }
+
+    // Run coordinate validation
+    const coordinates = this.validateCoordinates(boundaries);
+
+    // HALT GATE: Coordinates
+    if (!coordinates.valid && haltOptions.haltOnCoordinateError) {
+      const details: ValidationHaltDetails = {
+        stage: 'coordinates',
+        details: {
+          outOfRangeCount: coordinates.outOfRangeCount,
+          nullCoordinates: coordinates.nullCoordinates,
+        },
+        layerType: layer,
+        stateFips,
+      };
+
+      throw new ValidationHaltError(
+        `Coordinate validation failed: ${coordinates.summary}`,
+        details
+      );
+    }
+
+    // All halt gates passed, compute final result
+    const qualityScore = this.calculateQualityScore(
+      completeness,
+      topology,
+      coordinates
+    );
+
+    const stateName = stateFips ? getStateName(stateFips) : 'National';
+
+    // Check redistricting gap for legislative layers (WP-GAP-1)
+    // This is a WARNING only, does not trigger halt
+    const legislativeLayerMap: Partial<Record<TIGERLayerType, GapBoundaryType>> = {
+      'cd': 'congressional',
+      'sldu': 'state_senate',
+      'sldl': 'state_house',
+    };
+
+    const gapBoundaryType = legislativeLayerMap[layer];
+    let redistrictingGapWarning: RedistrictingGapWarning | undefined;
+    const warnings: string[] = [];
+
+    if (gapBoundaryType && stateFips) {
+      const stateAbbr = FIPS_TO_STATE_ABBR[stateFips];
+
+      if (stateAbbr) {
+        const gapDetector = new RedistrictingGapDetector();
+        const gapStatus = gapDetector.checkBoundaryGap(
+          gapBoundaryType,
+          stateAbbr,
+          asOf ?? new Date()
+        );
+
+        if (gapStatus.inGap) {
+          const warningMessage = `Redistricting gap detected: ${gapStatus.reasoning}`;
+          warnings.push(warningMessage);
+
+          redistrictingGapWarning = {
+            message: warningMessage,
+            gapStatus,
+            recommendation: gapStatus.recommendation === 'use-primary'
+              ? `Use primary source from ${stateName} redistricting authority instead of TIGER`
+              : gapStatus.recommendation === 'wait'
+              ? 'Wait for TIGER update before using this data'
+              : gapStatus.recommendation === 'manual-review'
+              ? 'Manual review required - gap status unclear'
+              : 'Use TIGER data (no gap detected)',
+          };
+        }
+      }
+    }
+
+    // Build summary with gap warning if present
+    let summary = `${layer.toUpperCase()} Validation (${stateName}): Quality Score ${qualityScore}/100\n` +
+      `${completeness.summary}\n` +
+      `${topology.summary}\n` +
+      `${coordinates.summary}`;
+
+    if (redistrictingGapWarning) {
+      summary += `\n[WARNING] ${redistrictingGapWarning.message}`;
+    }
+
+    return {
+      layer,
+      stateFips: stateFips ?? null,
+      qualityScore,
+      completeness,
+      topology,
+      coordinates,
+      validatedAt: new Date(),
+      summary,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      ...(redistrictingGapWarning ? { redistrictingGapWarning } : {}),
     };
   }
 

@@ -24,7 +24,7 @@ import {
   EDGE_CASE_LARGE_AREA,
   getExpectedSchoolDistrictCount,
   type SchoolDistrictProperties,
-} from '../__tests__/fixtures/school-district-fixtures.js';
+} from '../../fixtures/school-district-fixtures.js';
 
 // ============================================================================
 // Validation Functions (normally imported from validator, defined here for tests)

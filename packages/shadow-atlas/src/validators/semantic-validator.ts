@@ -71,7 +71,6 @@ const NEGATIVE_KEYWORDS: readonly string[] = Object.freeze([
   'congressional',
   'state senate',
   'state house',
-  'legislative',
   'park',
 ]);
 
@@ -136,6 +135,7 @@ export class SemanticValidator {
       'ward',
       'civic district',
       'commission district',
+      'legislative district',
     ]);
 
     this.negativeKeywords = NEGATIVE_KEYWORDS;

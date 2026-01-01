@@ -19,6 +19,55 @@ import type { Polygon, MultiPolygon, Point } from 'geojson';
 export type { TIGERLayerType };
 
 // ============================================================================
+// Geographic Restriction Constants
+// ============================================================================
+
+/**
+ * New England state FIPS codes.
+ *
+ * NECTA (New England City and Town Areas) is a statistical concept that
+ * ONLY applies to New England. The Census Bureau uses towns (not counties)
+ * as building blocks in New England because towns are the primary local
+ * government there.
+ *
+ * States:
+ * - 09 = Connecticut
+ * - 23 = Maine
+ * - 25 = Massachusetts
+ * - 33 = New Hampshire
+ * - 44 = Rhode Island
+ * - 50 = Vermont
+ */
+export const NEW_ENGLAND_FIPS: readonly string[] = [
+  '09', // Connecticut
+  '23', // Maine
+  '25', // Massachusetts
+  '33', // New Hampshire
+  '44', // Rhode Island
+  '50', // Vermont
+] as const;
+
+/**
+ * US Virgin Islands FIPS code.
+ *
+ * Estates are a unique administrative division that exists ONLY in the
+ * US Virgin Islands. They are the USVI equivalent of counties.
+ *
+ * There are exactly 3 estates:
+ * - St. Croix
+ * - St. John
+ * - St. Thomas
+ *
+ * No other US state or territory has estates.
+ */
+export const USVI_FIPS: readonly string[] = ['78'] as const;
+
+/**
+ * Expected count of estates in USVI (exactly 3).
+ */
+export const EXPECTED_ESTATE_COUNT = 3 as const;
+
+// ============================================================================
 // Topology Rule Definitions
 // ============================================================================
 
@@ -95,6 +144,18 @@ export interface LayerTopologyRules {
    * - PLACE: false (rural areas may have no incorporated place)
    */
   readonly completeCoverageRequired: boolean;
+
+  /**
+   * State FIPS codes where this layer is valid.
+   *
+   * When defined, queries for this layer are only valid in these states.
+   * Used for region-specific statistical concepts like NECTA (New England only).
+   *
+   * Examples:
+   * - NECTA: ['09', '23', '25', '33', '44', '50'] (CT, ME, MA, NH, RI, VT)
+   * - Most layers: undefined (valid nationwide)
+   */
+  readonly allowedStateFips?: readonly string[];
 }
 
 /**
@@ -239,6 +300,226 @@ export const LAYER_TOPOLOGY_RULES: Readonly<Record<TIGERLayerType, LayerTopology
     toleranceMeters: 1.0,
     overlapsPermitted: false,
     completeCoverageRequired: false,
+  },
+
+  // ============================================================================
+  // County-level governance
+  // ============================================================================
+
+  submcd: {
+    mustTileWithinParent: true,
+    parentLayer: 'cousub',  // Subminor divides county subdivisions
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  concity: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // City-county consolidation (e.g., Indianapolis)
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  // ============================================================================
+  // Tribal and Indigenous Governance
+  // ============================================================================
+
+  aiannh: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Tribal lands cross jurisdictional boundaries
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  anrc: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Alaska Native corporations (Alaska only)
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  tbg: {
+    mustTileWithinParent: true,
+    parentLayer: 'ttract',  // Tribal block groups partition tribal tracts
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  ttract: {
+    mustTileWithinParent: true,
+    parentLayer: 'aiannh',  // Tribal tracts partition tribal areas
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  // ============================================================================
+  // Metropolitan and Urban Planning
+  // ============================================================================
+
+  cbsa: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Metro areas cross state lines
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  csa: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Combined metros
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  metdiv: {
+    mustTileWithinParent: true,
+    parentLayer: 'cbsa',  // Metro divisions partition large metros
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  uac: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Urban areas (density-based)
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+  },
+
+  necta: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // New England city/town areas
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+    allowedStateFips: NEW_ENGLAND_FIPS,  // NECTA only valid in New England
+  },
+
+  cnecta: {
+    mustTileWithinParent: false,
+    parentLayer: null,  // Combined NECTAs
+    maxOverlapPercentage: 100.0,
+    maxGapPercentage: 100.0,
+    toleranceMeters: 1.0,
+    overlapsPermitted: true,
+    completeCoverageRequired: false,
+    allowedStateFips: NEW_ENGLAND_FIPS,  // CNECTA only valid in New England
+  },
+
+  nectadiv: {
+    mustTileWithinParent: true,
+    parentLayer: 'necta',  // NECTA divisions partition large NECTAs
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+    allowedStateFips: NEW_ENGLAND_FIPS,  // NECTADIV only valid in New England
+  },
+
+  // ============================================================================
+  // Reference and Demographic Layers
+  // ============================================================================
+
+  tract: {
+    mustTileWithinParent: true,
+    parentLayer: 'county',  // Census tracts partition counties
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  bg: {
+    mustTileWithinParent: true,
+    parentLayer: 'tract',  // Block groups partition tracts
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  puma: {
+    mustTileWithinParent: true,
+    parentLayer: null,  // PUMAs partition states (not represented in TIGERLayerType)
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+  },
+
+  // ============================================================================
+  // Special Cases
+  // ============================================================================
+
+  estate: {
+    mustTileWithinParent: true,
+    parentLayer: null,  // Estates partition US Virgin Islands (county-equivalent)
+    maxOverlapPercentage: 0.001,
+    maxGapPercentage: 0.001,
+    toleranceMeters: 1.0,
+    overlapsPermitted: false,
+    completeCoverageRequired: true,
+    allowedStateFips: USVI_FIPS,  // Estate layer ONLY valid in US Virgin Islands (FIPS 78)
+  },
+
+  // ============================================================================
+  // Federal Installations (P0-2: Overlay Layer)
+  // ============================================================================
+
+  /**
+   * Military Installations - Federal jurisdiction overlay
+   *
+   * Special topology rules for military bases and federal lands:
+   * - NOT a tiling layer (overlay on top of state/county boundaries)
+   * - May overlap with any other layer (state, county, place, etc.)
+   * - No coverage requirement (federal land is sparse)
+   * - Used for voting jurisdiction resolution, not civic representation
+   *
+   * Residents on military installations vote in surrounding jurisdiction.
+   * See federal-jurisdiction.ts for voting resolution logic.
+   */
+  mil: {
+    mustTileWithinParent: false,     // Overlay layer - doesn't tile
+    parentLayer: null,               // No parent container
+    maxOverlapPercentage: 100.0,     // Can overlap any jurisdiction
+    maxGapPercentage: 100.0,         // Gaps expected (sparse coverage)
+    toleranceMeters: 1.0,            // Standard precision
+    overlapsPermitted: true,         // Designed to overlay other layers
+    completeCoverageRequired: false, // Sparse layer - no coverage mandate
   },
 };
 
@@ -409,4 +690,5 @@ export const OVERLAPPING_LAYERS: readonly TIGERLayerType[] = [
   'place',
   'cdp',
   'zcta',
+  'mil',  // P0-2: Military installations overlay
 ] as const;
