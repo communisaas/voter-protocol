@@ -17,58 +17,35 @@
  * Clients don't trust server - they verify cryptographically.
  */
 
-import { UltraHonkBackend } from '@aztec/bb.js';
-import { Noir } from '@noir-lang/noir_js';
-import type { CompiledCircuit } from '@noir-lang/noir_js';
 import { ShadowAtlasMerkleTree, createShadowAtlasMerkleTree, type MerkleProof } from '../merkle-tree.js';
 import type { DistrictBoundary } from './types';
-
-// Import compiled circuit
-import circuitJson from '@voter-protocol/crypto/circuits/district_membership';
+import {
+  DistrictProver,
+  type DistrictProof,
+  type CircuitDepth,
+} from '@voter-protocol/crypto/district-prover';
 
 /**
  * ZK Proof Service Configuration
  */
 export interface ZKProofServiceConfig {
   /**
-   * Number of threads for proving (default: auto-detect via navigator.hardwareConcurrency)
-   * Set to 1 for single-threaded proving (useful when SharedArrayBuffer is unavailable)
-   * Requires COOP/COEP headers for multithreading in browsers
+   * Circuit depth (14=municipal, 20=state, 22=federal)
+   * Must match the Merkle tree depth being used
    */
-  readonly threads?: number;
+  readonly depth: CircuitDepth;
 }
 
-/**
- * Circuit inputs for ZK proof generation
- * Field names MUST match circuit main() parameter names (snake_case)
- */
-export interface CircuitInputs {
-  /** Merkle root of the district tree */
-  readonly merkle_root: string;
-  /** Nullifier for double-spend prevention */
-  readonly nullifier: string;
-  /** Authority hash */
-  readonly authority_hash: string;
-  /** Epoch ID */
-  readonly epoch_id: string;
-  /** Campaign ID */
-  readonly campaign_id: string;
-  /** Leaf value (hashed address) */
-  readonly leaf: string;
-  /** Merkle path (siblings) - array of 14 Field values */
-  readonly merkle_path: readonly string[];
-  /** Leaf index in tree */
-  readonly leaf_index: number;
-  /** User secret for nullifier */
-  readonly user_secret: string;
-}
+// Re-export types from crypto package for convenience
+import type { DistrictWitness } from '@voter-protocol/crypto/district-prover';
+export type CircuitInputs = DistrictWitness;
 
 /**
  * ZK Proof Result
  */
 export interface ZKProofResult {
   /** Serialized proof bytes */
-  readonly proof: Uint8Array;
+  readonly proof: DistrictProof['proof'];
   /** Public inputs */
   readonly publicInputs: {
     readonly merkleRoot: string;
@@ -80,53 +57,30 @@ export interface ZKProofResult {
 }
 
 /**
- * Detect optimal thread count for proving
- * Returns 1 if SharedArrayBuffer is unavailable (no multithreading support)
- */
-function detectThreads(): number {
-  // Check for SharedArrayBuffer support (required for multithreading)
-  const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
-
-  if (!hasSharedArrayBuffer) {
-    console.log('[ZKProofService] SharedArrayBuffer unavailable - using single-threaded mode');
-    return 1;
-  }
-
-  // Use hardware concurrency, capped at reasonable limits
-  const cores = typeof navigator !== 'undefined'
-    ? navigator.hardwareConcurrency || 4
-    : 4;
-
-  // Cap at 8 threads - diminishing returns beyond this for ZK proving
-  return Math.min(cores, 8);
-}
-
-/**
  * ZK Proof Service
  *
- * Singleton service for generating ZK proofs using Noir + Barretenberg.
+ * Wrapper around DistrictProver from @voter-protocol/crypto.
  * Uses browser-native WASM proving (no server dependency).
  *
  * USAGE:
  * ```typescript
- * const zkService = await ZKProofService.create(config);
+ * const zkService = await ZKProofService.create({ depth: 20 });
  * const proof = await zkService.generateProof(inputs);
  * const isValid = await zkService.verify(proof.proof, Object.values(proof.publicInputs));
  * ```
  */
 export class ZKProofService {
-  private backend: UltraHonkBackend | null = null;
-  private noir: Noir | null = null;
-  private readonly threads: number;
+  private prover: DistrictProver | null = null;
+  private readonly depth: CircuitDepth;
 
-  private constructor(config: ZKProofServiceConfig = {}) {
-    this.threads = config.threads ?? detectThreads();
+  private constructor(config: ZKProofServiceConfig) {
+    this.depth = config.depth;
   }
 
   /**
    * Create ZK Proof Service (async factory)
    */
-  static async create(config: ZKProofServiceConfig = {}): Promise<ZKProofService> {
+  static async create(config: ZKProofServiceConfig): Promise<ZKProofService> {
     const service = new ZKProofService(config);
     await service.init();
     return service;
@@ -136,22 +90,15 @@ export class ZKProofService {
    * Initialize the prover (must be called before generating proofs)
    */
   private async init(): Promise<void> {
-    if (this.backend && this.noir) return; // Already initialized
+    if (this.prover) return; // Already initialized
 
-    console.log(`[ZKProofService] Initializing with ${this.threads} thread(s)...`);
+    console.log(`[ZKProofService] Initializing DistrictProver (depth=${this.depth})...`);
     const start = Date.now();
 
-    // Cast circuit JSON to CompiledCircuit type
-    const circuit = circuitJson as unknown as CompiledCircuit;
+    // Get singleton prover instance for this depth
+    this.prover = await DistrictProver.getInstance(this.depth);
 
-    // Initialize Noir for witness generation
-    this.noir = new Noir(circuit);
-
-    // Initialize UltraHonk backend for proving with thread configuration
-    // threads > 1 enables parallel proving using Web Workers internally
-    this.backend = new UltraHonkBackend(circuit.bytecode, { threads: this.threads });
-
-    console.log(`[ZKProofService] Initialized in ${Date.now() - start}ms (${this.threads} threads)`);
+    console.log(`[ZKProofService] Initialized in ${Date.now() - start}ms`);
   }
 
   /**
@@ -163,35 +110,23 @@ export class ZKProofService {
   async generateProof(inputs: CircuitInputs): Promise<ZKProofResult> {
     await this.init();
 
-    console.log('[ZKProofService] Generating witness...');
-    const witnessStart = Date.now();
-
-    // Use Noir to generate witness from circuit inputs
-    // The input names must match the circuit's main() function parameters (snake_case)
-    // Cast to Record<string, string | string[] | number> to satisfy Noir's InputMap type
-    const noirInputs = inputs as unknown as Record<string, string | string[] | number>;
-    const { witness } = await this.noir!.execute(noirInputs);
-    console.log(`[ZKProofService] Witness generated in ${Date.now() - witnessStart}ms`);
-
     console.log('[ZKProofService] Generating proof...');
-    const proofStart = Date.now();
+    const start = Date.now();
 
-    // Generate proof using UltraHonk backend
-    const { proof, publicInputs } = await this.backend!.generateProof(witness);
+    // Generate proof using DistrictProver
+    const districtProof = await this.prover!.generateProof(inputs);
 
-    console.log(`[ZKProofService] Proof generated in ${Date.now() - proofStart}ms`);
+    console.log(`[ZKProofService] Proof generated in ${Date.now() - start}ms`);
 
-    // Extract public inputs from proof result
-    // The order matches the circuit's return statement:
-    // (merkle_root, nullifier, authority_hash, epoch_id, campaign_id)
+    // Convert to ZKProofResult format
     return {
-      proof,
+      proof: districtProof.proof,
       publicInputs: {
-        merkleRoot: publicInputs[0] ?? inputs.merkle_root,
-        nullifier: publicInputs[1] ?? inputs.nullifier,
-        authorityHash: publicInputs[2] ?? inputs.authority_hash,
-        epochId: publicInputs[3] ?? inputs.epoch_id,
-        campaignId: publicInputs[4] ?? inputs.campaign_id,
+        merkleRoot: districtProof.publicInputs[0],
+        nullifier: districtProof.publicInputs[1],
+        authorityHash: districtProof.publicInputs[2],
+        epochId: districtProof.publicInputs[3],
+        campaignId: districtProof.publicInputs[4],
       },
     };
   }
@@ -200,23 +135,43 @@ export class ZKProofService {
    * Verify a ZK proof
    *
    * @param proof - Serialized proof bytes
-   * @param publicInputs - Array of public inputs (must match circuit return order)
+   * @param publicInputs - Public inputs object
    * @returns true if proof is valid
    */
-  async verify(proof: Uint8Array, publicInputs: string[]): Promise<boolean> {
+  async verify(
+    proof: DistrictProof['proof'],
+    publicInputs: ZKProofResult['publicInputs']
+  ): Promise<boolean> {
     await this.init();
-    return this.backend!.verifyProof({ proof, publicInputs });
+
+    const districtProof: DistrictProof = {
+      proof,
+      publicInputs: [
+        publicInputs.merkleRoot,
+        publicInputs.nullifier,
+        publicInputs.authorityHash,
+        publicInputs.epochId,
+        publicInputs.campaignId,
+      ],
+    };
+
+    const verificationConfig = {
+      expectedRoot: publicInputs.merkleRoot,
+      expectedNullifier: publicInputs.nullifier,
+      expectedAuthorityHash: publicInputs.authorityHash,
+      expectedEpochId: publicInputs.epochId,
+      expectedCampaignId: publicInputs.campaignId,
+    };
+
+    return this.prover!.verifyProof(districtProof, verificationConfig);
   }
 
   /**
-   * Clean up resources
+   * Clean up resources (no-op since DistrictProver is a singleton)
    */
   async destroy(): Promise<void> {
-    if (this.backend) {
-      await this.backend.destroy();
-      this.backend = null;
-      this.noir = null;
-    }
+    // DistrictProver is a singleton, no cleanup needed
+    this.prover = null;
   }
 }
 
@@ -246,7 +201,7 @@ export class ProofService {
    *
    * @param districts - Array of districts (must match Merkle tree construction)
    * @param addresses - Array of addresses used to build tree (sorted lexicographically)
-   * @param zkConfig - Optional ZK proof service configuration
+   * @param zkConfig - ZK proof service configuration (required for ZK proving)
    */
   static async create(
     districts: readonly DistrictBoundary[],
@@ -265,7 +220,7 @@ export class ProofService {
     const service = new ProofService(merkleTree, districtMap);
 
     // Initialize ZK service if config provided
-    if (zkConfig !== undefined) {
+    if (zkConfig) {
       service.zkService = await ZKProofService.create(zkConfig);
     }
 
@@ -413,15 +368,11 @@ export class ProofService {
     // For now, using placeholder - in production, compute actual nullifier
     const nullifier = '0x' + BigInt(0).toString(16).padStart(64, '0');
 
-    // Convert merkle_path to array of 14 hex strings
-    const merklePath = merkleProof.siblings.slice(0, 14).map((sibling) =>
+    // Convert merkle_path to array of hex strings
+    // NOTE: The depth should match the zkConfig.depth provided to create()
+    const merklePath = merkleProof.siblings.map((sibling) =>
       '0x' + sibling.toString(16).padStart(64, '0')
     );
-
-    // Pad merkle_path to 14 elements if needed
-    while (merklePath.length < 14) {
-      merklePath.push('0x' + BigInt(0).toString(16).padStart(64, '0'));
-    }
 
     return {
       merkle_root: '0x' + merkleProof.root.toString(16).padStart(64, '0'),
@@ -447,6 +398,7 @@ export class ProofService {
    * @param authorityHash - Authority hash
    * @param epochId - Epoch ID
    * @returns ZK proof with public inputs
+   * @throws Error if ZK service not initialized (must pass zkConfig to create())
    */
   async generateZKProof(
     districtId: string,
@@ -455,15 +407,16 @@ export class ProofService {
     authorityHash: string,
     epochId: string
   ): Promise<ZKProofResult> {
+    if (!this.zkService) {
+      throw new Error(
+        'ZK service not initialized. Pass zkConfig to ProofService.create() to enable ZK proving.'
+      );
+    }
+
     // 1. Get Merkle inclusion proof
     const merkleProof = await this.generateProof(districtId);
 
-    // 2. Initialize ZK service if not already initialized
-    if (!this.zkService) {
-      this.zkService = await ZKProofService.create();
-    }
-
-    // 3. Convert to circuit inputs
+    // 2. Convert to circuit inputs
     const circuitInputs = this.mapToCircuitInputs(
       merkleProof,
       userSecret,
@@ -472,7 +425,7 @@ export class ProofService {
       epochId
     );
 
-    // 4. Generate ZK proof
+    // 3. Generate ZK proof
     return this.zkService.generateProof(circuitInputs);
   }
 
@@ -480,12 +433,18 @@ export class ProofService {
    * Verify ZK proof
    *
    * @param proof - Serialized proof bytes
-   * @param publicInputs - Array of public inputs
+   * @param publicInputs - Public inputs object
    * @returns true if proof is valid
+   * @throws Error if ZK service not initialized
    */
-  async verifyZKProof(proof: Uint8Array, publicInputs: string[]): Promise<boolean> {
+  async verifyZKProof(
+    proof: DistrictProof['proof'],
+    publicInputs: ZKProofResult['publicInputs']
+  ): Promise<boolean> {
     if (!this.zkService) {
-      this.zkService = await ZKProofService.create();
+      throw new Error(
+        'ZK service not initialized. Pass zkConfig to ProofService.create() to enable ZK verification.'
+      );
     }
     return this.zkService.verify(proof, publicInputs);
   }

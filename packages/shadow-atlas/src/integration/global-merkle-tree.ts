@@ -13,7 +13,7 @@
  * CRYPTOGRAPHIC PROPERTIES:
  * - Hash function: Poseidon2 (ZK-compatible via Noir stdlib and @aztec/bb.js)
  * - Non-commutative: hash_pair(a, b) ≠ hash_pair(b, a) (sibling swap resistance)
- * - Domain separation: Leaf hashes include boundary type and authority level
+ * - Domain separation: Leaf hashes include country, region, boundary type, and authority level
  * - Deterministic: Same input → same root (reproducible builds)
  *
  * PROOF COMPLEXITY:
@@ -34,6 +34,7 @@ import {
   getRegionForCountry,
   type ContinentalRegion as RegistryContinentalRegion,
 } from '../registry/iso-3166-countries.js';
+import { BoundaryType } from '../core/types.js';
 
 // ============================================================================
 // Type Definitions
@@ -41,19 +42,15 @@ import {
 
 /**
  * Boundary types for global tree support
- * Maps to BoundaryType from merkle-tree.ts with extensions
+ * Extends canonical BoundaryType with international variants
  */
 export type GlobalBoundaryType =
-  | 'congressional-district'          // US Congressional districts
-  | 'state-legislative-upper'         // US State Senate
-  | 'state-legislative-lower'         // US State House
-  | 'county'                          // US Counties
-  | 'city-council-district'           // Municipal council districts (global)
-  | 'parliamentary-constituency'      // UK Westminster constituencies
-  | 'federal-electoral-district'      // Canada federal ridings
-  | 'electorate'                      // Australia federal electorates
-  | 'wahlkreis'                       // Germany Bundestag constituencies
-  | 'circonscription';                // France circonscriptions législatives
+  | BoundaryType                       // All US boundary types from canonical source
+  | 'parliamentary-constituency'       // UK Westminster constituencies
+  | 'federal-electoral-district'       // Canada federal ridings
+  | 'electorate'                       // Australia federal electorates
+  | 'wahlkreis'                        // Germany Bundestag constituencies
+  | 'circonscription';                 // France circonscriptions législatives
 
 /**
  * Authority levels for provenance tracking
@@ -321,7 +318,7 @@ export interface GlobalTreeUpdateResult {
  * SECURITY PROPERTIES:
  * - Collision resistance: Poseidon-128 (128-bit security)
  * - Non-commutativity: Prevents sibling swap attacks
- * - Domain separation: Boundary type and authority included in leaf hash
+ * - Domain separation: Country, region, boundary type, and authority included in leaf hash
  *
  * DATA SOURCE:
  * - Country registry: ISO 3166-1 alpha-2 codes (195 countries)
@@ -342,7 +339,7 @@ export class GlobalMerkleTreeBuilder {
    * @param districts - Array of district inputs from all countries
    * @returns Global Merkle tree with hierarchical structure
    */
-  build(districts: readonly GlobalDistrictInput[]): GlobalMerkleTree {
+  async build(districts: readonly GlobalDistrictInput[]): Promise<GlobalMerkleTree> {
     const startTime = Date.now();
 
     console.log(`\nBuilding global Merkle tree for ${districts.length} districts...`);
@@ -354,7 +351,7 @@ export class GlobalMerkleTreeBuilder {
     // STEP 2: Build country trees (region roots → country root)
     const countryTrees: CountryTree[] = [];
     for (const [countryCode, countryDistricts] of groupedByCountry) {
-      const countryTree = this.buildCountryTree(countryCode, countryDistricts);
+      const countryTree = await this.buildCountryTree(countryCode, countryDistricts);
       countryTrees.push(countryTree);
     }
     console.log(`  ✓ Built ${countryTrees.length} country trees`);
@@ -365,13 +362,13 @@ export class GlobalMerkleTreeBuilder {
     // STEP 4: Build continental trees (country roots → continental root)
     const continentalTrees: ContinentalTree[] = [];
     for (const [continent, countries] of groupedByContinent) {
-      const continentalTree = this.buildContinentalTree(continent, countries);
+      const continentalTree = await this.buildContinentalTree(continent, countries);
       continentalTrees.push(continentalTree);
     }
     console.log(`  ✓ Built ${continentalTrees.length} continental trees`);
 
     // STEP 5: Build global root (continental roots → global root)
-    const globalRoot = this.buildGlobalRoot(continentalTrees);
+    const globalRoot = await this.buildGlobalRoot(continentalTrees);
 
     const duration = Date.now() - startTime;
     console.log(`  ✓ Global root: ${this.formatHash(globalRoot)}`);
@@ -394,17 +391,17 @@ export class GlobalMerkleTreeBuilder {
    * @param districts - Districts within this country
    * @returns Country Merkle tree
    */
-  private buildCountryTree(
+  private async buildCountryTree(
     countryCode: string,
     districts: readonly GlobalDistrictInput[]
-  ): CountryTree {
+  ): Promise<CountryTree> {
     // Group districts by region
     const groupedByRegion = this.groupByRegion(districts);
 
     // Build regional trees
     const regionalTrees: RegionalTree[] = [];
     for (const [regionId, regionDistricts] of groupedByRegion) {
-      const regionalTree = this.buildRegionalTree(regionId, regionDistricts);
+      const regionalTree = await this.buildRegionalTree(regionId, regionDistricts);
       regionalTrees.push(regionalTree);
     }
 
@@ -412,7 +409,7 @@ export class GlobalMerkleTreeBuilder {
     regionalTrees.sort((a, b) => a.regionId.localeCompare(b.regionId));
 
     // Build country root from regional roots
-    const countryRoot = this.hashRegionalRoots(regionalTrees);
+    const countryRoot = await this.hashRegionalRoots(regionalTrees);
 
     const totalDistricts = districts.length;
 
@@ -432,18 +429,18 @@ export class GlobalMerkleTreeBuilder {
    * @param districts - Districts within this region
    * @returns Regional Merkle tree
    */
-  private buildRegionalTree(
+  private async buildRegionalTree(
     regionId: string,
     districts: readonly GlobalDistrictInput[]
-  ): RegionalTree {
+  ): Promise<RegionalTree> {
     // Sort districts by ID (deterministic)
     const sorted = [...districts].sort((a, b) => a.id.localeCompare(b.id));
 
     // Compute leaf hashes
-    const leaves = sorted.map(district => this.computeLeafHash(district));
+    const leaves = await Promise.all(sorted.map(district => this.computeLeafHash(district)));
 
     // Build Merkle tree from leaves (binary tree)
-    const root = this.buildMerkleRoot(leaves.map(l => l.leafHash));
+    const root = await this.buildMerkleRoot(leaves.map(l => l.leafHash));
 
     return {
       regionId,
@@ -462,17 +459,17 @@ export class GlobalMerkleTreeBuilder {
    * @param countries - Country trees within this continent
    * @returns Continental Merkle tree
    */
-  private buildContinentalTree(
+  private async buildContinentalTree(
     continent: ContinentalRegion,
     countries: readonly CountryTree[]
-  ): ContinentalTree {
+  ): Promise<ContinentalTree> {
     // Sort countries by code (deterministic)
     const sorted = [...countries].sort((a, b) =>
       a.countryCode.localeCompare(b.countryCode)
     );
 
     // Build continental root from country roots
-    const continentalRoot = this.hashCountryRoots(sorted);
+    const continentalRoot = await this.hashCountryRoots(sorted);
 
     const totalDistricts = sorted.reduce((sum, c) => sum + c.districtCount, 0);
 
@@ -490,7 +487,7 @@ export class GlobalMerkleTreeBuilder {
    * @param continents - Continental trees
    * @returns Global Merkle root
    */
-  private buildGlobalRoot(continents: readonly ContinentalTree[]): bigint {
+  private async buildGlobalRoot(continents: readonly ContinentalTree[]): Promise<bigint> {
     // Sort continents by name (deterministic)
     const sorted = [...continents].sort((a, b) =>
       a.continent.localeCompare(b.continent)
@@ -506,35 +503,51 @@ export class GlobalMerkleTreeBuilder {
   /**
    * Compute leaf hash for a district
    *
-   * LEAF HASH FORMAT:
-   * leaf_hash = Poseidon([type_hash, id_hash, geometry_hash, authority])
+   * LEAF HASH FORMAT (P0 SECURITY FIX - DOMAIN SEPARATION):
+   * leaf_hash = Poseidon([country, region, type, id, geometry, authority])
    *
-   * This four-element hash provides:
+   * SECURITY PROPERTIES:
+   * - Domain separation: Country + region prevent cross-jurisdiction ID collision
    * - Type safety: Different boundary types have different hashes
    * - Identity: Unique district ID
    * - Geography: Commitment to district geometry
    * - Authority: Provenance tracking
    *
+   * ATTACK PREVENTION:
+   * Without country/region in hash, districts with same ID across countries collide:
+   * - US Congressional District 1 (id="0201", country="US", region="AK")
+   * - Canada Federal Electoral District (id="0201", country="CA", region="AB")
+   * If both use ID "0201", leaf hashes would COLLIDE without country/region.
+   *
    * @param district - District input
    * @returns District leaf hash components
    */
-  private computeLeafHash(district: GlobalDistrictInput): DistrictLeafHash {
+  private async computeLeafHash(district: GlobalDistrictInput): Promise<DistrictLeafHash> {
+    // Hash country code (ISO 3166-1 alpha-2) - DOMAIN SEPARATION
+    const countryHash = await this.hashString(district.country);
+
+    // Hash region ID (state/province) - DOMAIN SEPARATION
+    const regionHash = await this.hashString(district.region);
+
     // Hash boundary type (domain separation)
-    const typeHash = this.hashString(district.boundaryType);
+    const typeHash = await this.hashString(district.boundaryType);
 
     // Hash district ID
-    const idHash = this.hashString(district.id);
+    const idHash = await this.hashString(district.id);
 
     // Hash geometry (simplified: hash GeoJSON string)
-    const geometryHash = this.hashGeometry(district.geometry);
+    const geometryHash = await this.hashGeometry(district.geometry);
 
     // Authority level (already numeric)
     const authority = BigInt(district.authority);
 
-    // Compute four-element Poseidon hash (iterative hash_pair)
-    let hash = this.hashPair(typeHash, idHash);
-    hash = this.hashPair(hash, geometryHash);
-    hash = this.hashPair(hash, authority);
+    // Compute six-element Poseidon hash (iterative hash_pair)
+    // Hierarchy: country → region → type → id → geometry → authority
+    let hash = await this.hashPair(countryHash, regionHash);
+    hash = await this.hashPair(hash, typeHash);
+    hash = await this.hashPair(hash, idHash);
+    hash = await this.hashPair(hash, geometryHash);
+    hash = await this.hashPair(hash, authority);
 
     return {
       id: district.id,
@@ -550,13 +563,16 @@ export class GlobalMerkleTreeBuilder {
    *
    * ALGORITHM: Binary tree bottom-up construction
    * - Pair up elements and hash
-   * - If odd count, promote last element to next level
+   * - If odd count, hash last element with itself (Bitcoin/Ethereum standard)
    * - Repeat until single root remains
+   *
+   * SECURITY: Hashing odd element with itself prevents structural ambiguity
+   * and ensures domain separation between leaf roots and paired hashes.
    *
    * @param leaves - Array of leaf hashes
    * @returns Merkle root
    */
-  private buildMerkleRoot(leaves: readonly bigint[]): bigint {
+  private async buildMerkleRoot(leaves: readonly bigint[]): Promise<bigint> {
     if (leaves.length === 0) {
       throw new Error('Cannot build Merkle root: no leaves');
     }
@@ -575,10 +591,12 @@ export class GlobalMerkleTreeBuilder {
           // Pair exists: hash together
           const left = currentLayer[i];
           const right = currentLayer[i + 1];
-          nextLayer.push(this.hashPair(left, right));
+          nextLayer.push(await this.hashPair(left, right));
         } else {
-          // Odd element: promote to next level
-          nextLayer.push(currentLayer[i]);
+          // Odd element: hash with itself (Bitcoin/Ethereum standard)
+          // SECURITY: Prevents structural ambiguity and ensures domain separation
+          const element = currentLayer[i];
+          nextLayer.push(await this.hashPair(element, element));
         }
       }
 
@@ -594,7 +612,7 @@ export class GlobalMerkleTreeBuilder {
    * @param regions - Regional trees
    * @returns Country root hash
    */
-  private hashRegionalRoots(regions: readonly RegionalTree[]): bigint {
+  private async hashRegionalRoots(regions: readonly RegionalTree[]): Promise<bigint> {
     const roots = regions.map(r => r.root);
     return this.buildMerkleRoot(roots);
   }
@@ -605,7 +623,7 @@ export class GlobalMerkleTreeBuilder {
    * @param countries - Country trees
    * @returns Continental root hash
    */
-  private hashCountryRoots(countries: readonly CountryTree[]): bigint {
+  private async hashCountryRoots(countries: readonly CountryTree[]): Promise<bigint> {
     const roots = countries.map(c => c.root);
     return this.buildMerkleRoot(roots);
   }
@@ -622,7 +640,7 @@ export class GlobalMerkleTreeBuilder {
    * @param str - String to hash
    * @returns Poseidon hash as bigint
    */
-  private hashString(str: string): bigint {
+  private async hashString(str: string): Promise<bigint> {
     const bytes = Buffer.from(str, 'utf-8');
     const chunks: bigint[] = [];
 
@@ -634,17 +652,17 @@ export class GlobalMerkleTreeBuilder {
 
     // Hash chunks with Poseidon
     if (chunks.length === 0) {
-      const hashHex = hash_single('0x00');
+      const hashHex = await hash_single('0x00');
       return BigInt(hashHex);
     } else if (chunks.length === 1) {
       const valueHex = '0x' + chunks[0].toString(16).padStart(64, '0');
-      const hashHex = hash_single(valueHex);
+      const hashHex = await hash_single(valueHex);
       return BigInt(hashHex);
     } else {
       // Multiple chunks: iterative hashing
       let hash = chunks[0];
       for (let i = 1; i < chunks.length; i++) {
-        hash = this.hashPair(hash, chunks[i]);
+        hash = await this.hashPair(hash, chunks[i]);
       }
       return hash;
     }
@@ -653,16 +671,78 @@ export class GlobalMerkleTreeBuilder {
   /**
    * Hash GeoJSON geometry using Poseidon
    *
-   * SIMPLIFIED: Hash canonical JSON representation
-   * PRODUCTION: Should hash normalized coordinate array for determinism
+   * P1 SECURITY FIX: Deterministic coordinate hashing
+   * - Normalizes coordinates to 6 decimal places (11cm precision, sufficient for districts)
+   * - Hashes coordinate pairs iteratively (prevents JSON key-order non-determinism)
+   * - Domain separation via "GEOMETRY" prefix
    *
-   * @param geometry - Polygon or MultiPolygon
-   * @returns Poseidon hash of geometry
+   * SECURITY PROPERTIES:
+   * - Deterministic: Same geometry → same hash (regardless of JSON serialization)
+   * - Normalized precision: 34.0 vs 34.00000001 produce identical hash
+   * - RFC 7946 winding order: Validated before hashing (caller responsibility)
+   *
+   * ATTACK PREVENTION:
+   * - JSON.stringify key order: ELIMINATED (no JSON serialization)
+   * - Floating-point variations: ELIMINATED (6 decimal place rounding)
+   * - Coordinate precision: 11cm sufficient for electoral districts
+   *
+   * COORDINATE ENCODING:
+   * - WGS84 range: lon [-180, +180], lat [-90, +90]
+   * - Normalized range: lon [-180M, +180M], lat [-90M, +90M] (×1e6)
+   * - Offset to positive: lon [0, 360M], lat [0, 180M] (for valid hex encoding)
+   *
+   * @param geometry - Polygon or MultiPolygon (WGS84 coordinates)
+   * @returns Poseidon hash of normalized coordinates
    */
-  private hashGeometry(geometry: Polygon | MultiPolygon): bigint {
-    // Canonical JSON representation
-    const canonical = JSON.stringify(geometry);
-    return this.hashString(canonical);
+  private async hashGeometry(geometry: Polygon | MultiPolygon): Promise<bigint> {
+    // Extract all coordinates (flattened)
+    const coords = this.extractAllCoordinates(geometry);
+
+    // Domain separator (prevents hash collision with other data types)
+    let hash = await this.hashString('GEOMETRY');
+
+    // Hash each coordinate pair iteratively
+    // Normalize to 6 decimal places (11cm precision @ equator)
+    for (const [lon, lat] of coords) {
+      // Round to 6 decimal places: 1e6 = 0.000001° ≈ 11cm at equator
+      // WGS84: lon ∈ [-180, 180], lat ∈ [-90, 90]
+      const lonNormalized = Math.round(lon * 1e6);
+      const latNormalized = Math.round(lat * 1e6);
+
+      // Offset to positive range (enables valid hex encoding for BigInt)
+      // lon: [-180M, +180M] → [0, 360M]
+      // lat: [-90M, +90M] → [0, 180M]
+      const lonPositive = lonNormalized + 180_000_000;
+      const latPositive = latNormalized + 90_000_000;
+
+      // Hash coordinate pair (lon, lat)
+      const coordHash = await this.hashPair(BigInt(lonPositive), BigInt(latPositive));
+
+      // Iteratively hash into accumulator
+      hash = await this.hashPair(hash, coordHash);
+    }
+
+    return hash;
+  }
+
+  /**
+   * Extract all coordinates from Polygon or MultiPolygon
+   *
+   * @param geometry - GeoJSON Polygon or MultiPolygon
+   * @returns Flattened array of [lon, lat] coordinate pairs
+   */
+  private extractAllCoordinates(geometry: Polygon | MultiPolygon): number[][] {
+    if (geometry.type === 'Polygon') {
+      // Polygon: array of LinearRing (array of positions)
+      // Flatten all rings (exterior + holes)
+      return geometry.coordinates.flat();
+    } else if (geometry.type === 'MultiPolygon') {
+      // MultiPolygon: array of Polygon coordinates
+      // Flatten to all positions across all polygons
+      return geometry.coordinates.flat(2);
+    } else {
+      throw new Error(`Unsupported geometry type: ${(geometry as { type: string }).type}`);
+    }
   }
 
   /**
@@ -675,10 +755,10 @@ export class GlobalMerkleTreeBuilder {
    * @param right - Right value
    * @returns Poseidon hash
    */
-  private hashPair(left: bigint, right: bigint): bigint {
+  private async hashPair(left: bigint, right: bigint): Promise<bigint> {
     const leftHex = '0x' + left.toString(16).padStart(64, '0');
     const rightHex = '0x' + right.toString(16).padStart(64, '0');
-    const hashHex = hash_pair(leftHex, rightHex);
+    const hashHex = await hash_pair(leftHex, rightHex);
     return BigInt(hashHex);
   }
 
@@ -881,19 +961,21 @@ export class GlobalMerkleTreeBuilder {
    * @returns Two-level global district proof
    * @throws Error if district not found
    */
-  generateProof(tree: GlobalMerkleTree, districtId: string): GlobalDistrictProof {
-    // Find district in tree
-    const { country, region, district, leaf } = this.findDistrict(tree, districtId);
+  async generateProof(tree: GlobalMerkleTree, districtId: string): Promise<GlobalDistrictProof> {
+    // Find district in tree (including continent for full proof path)
+    const { continent, country, region, district, leaf } = this.findDistrict(tree, districtId);
 
-    if (!country || !region || !district || !leaf) {
+    if (!continent || !country || !region || !district || !leaf) {
       throw new Error(`District not found in tree: ${districtId}`);
     }
 
     // Generate district proof (district leaf → country root)
-    const districtProof = this.generateDistrictProof(region, leaf);
+    // Chains: district→region→country
+    const districtProof = await this.generateDistrictProof(country, region, leaf);
 
     // Generate country proof (country root → global root)
-    const countryProof = this.generateCountryProof(tree, country);
+    // Chains: country→continent→global
+    const countryProof = await this.generateCountryProof(tree, continent, country);
 
     return {
       districtProof: {
@@ -924,12 +1006,13 @@ export class GlobalMerkleTreeBuilder {
    *
    * @param tree - Global Merkle tree
    * @param districtId - District ID
-   * @returns District location (country, region, district, leaf)
+   * @returns District location (continent, country, region, district, leaf)
    */
   private findDistrict(
     tree: GlobalMerkleTree,
     districtId: string
   ): {
+    continent: ContinentalTree | null;
     country: CountryTree | null;
     region: RegionalTree | null;
     district: GlobalDistrictInput | null;
@@ -941,6 +1024,7 @@ export class GlobalMerkleTreeBuilder {
           const leafIndex = region.leaves.findIndex(l => l.id === districtId);
           if (leafIndex !== -1) {
             return {
+              continent,
               country,
               region,
               district: region.districts[leafIndex],  // Retrieve full district data
@@ -951,56 +1035,107 @@ export class GlobalMerkleTreeBuilder {
       }
     }
 
-    return { country: null, region: null, district: null, leaf: null };
+    return { continent: null, country: null, region: null, district: null, leaf: null };
   }
 
   /**
-   * Generate district-level proof (within regional tree)
+   * Generate district-level proof (district → country root)
    *
-   * @param region - Regional tree
+   * ARCHITECTURE FIX: Chains through ALL intermediate levels:
+   * 1. District leaf → Region root (within regional tree)
+   * 2. Region root → Country root (within country tree)
+   *
+   * @param country - Country tree (contains all regions)
+   * @param region - Regional tree (contains district)
    * @param leaf - District leaf hash
-   * @returns Merkle proof (district → region root)
+   * @returns Combined Merkle proof (district → country root)
    */
-  private generateDistrictProof(
+  private async generateDistrictProof(
+    country: CountryTree,
     region: RegionalTree,
     leaf: DistrictLeafHash
-  ): { siblings: bigint[]; pathIndices: number[] } {
-    const leaves = region.leaves.map(l => l.leafHash);
-    const leafIndex = leaves.findIndex(l => l === leaf.leafHash);
+  ): Promise<{ siblings: bigint[]; pathIndices: number[] }> {
+    // STEP 1: Generate proof from district leaf → region root
+    const districtLeaves = region.leaves.map(l => l.leafHash);
+    const leafIndex = districtLeaves.findIndex(l => l === leaf.leafHash);
 
     if (leafIndex === -1) {
       throw new Error(`Leaf not found in region: ${leaf.id}`);
     }
 
-    return this.generateMerkleProof(leaves, leafIndex);
+    const districtToRegion = await this.generateMerkleProof(districtLeaves, leafIndex);
+
+    // STEP 2: Generate proof from region root → country root
+    // Get region roots in sorted order (same as tree construction)
+    const sortedRegions = [...country.regions].sort((a, b) =>
+      a.regionId.localeCompare(b.regionId)
+    );
+    const regionRoots = sortedRegions.map(r => r.root);
+    const regionIndex = regionRoots.findIndex(r => r === region.root);
+
+    if (regionIndex === -1) {
+      throw new Error(`Region not found in country: ${region.regionId}`);
+    }
+
+    const regionToCountry = await this.generateMerkleProof(regionRoots, regionIndex);
+
+    // STEP 3: Concatenate proofs (district→region, then region→country)
+    return {
+      siblings: [...districtToRegion.siblings, ...regionToCountry.siblings],
+      pathIndices: [...districtToRegion.pathIndices, ...regionToCountry.pathIndices],
+    };
   }
 
   /**
-   * Generate country-level proof (within global tree)
+   * Generate country-level proof (country → global root)
+   *
+   * ARCHITECTURE FIX: Chains through ALL intermediate levels:
+   * 1. Country root → Continental root (within continental tree)
+   * 2. Continental root → Global root (within global tree)
    *
    * @param tree - Global tree
+   * @param continent - Continental tree (contains the country)
    * @param country - Country tree
-   * @returns Merkle proof (country → global root)
+   * @returns Combined Merkle proof (country → global root)
    */
-  private generateCountryProof(
+  private async generateCountryProof(
     tree: GlobalMerkleTree,
+    continent: ContinentalTree,
     country: CountryTree
-  ): { siblings: bigint[]; pathIndices: number[] } {
-    // Flatten all country roots from global tree
-    const allCountryRoots: bigint[] = [];
-    for (const continent of tree.continents) {
-      for (const c of continent.countries) {
-        allCountryRoots.push(c.root);
-      }
-    }
-
-    const countryIndex = allCountryRoots.findIndex(r => r === country.root);
+  ): Promise<{ siblings: bigint[]; pathIndices: number[] }> {
+    // STEP 1: Generate proof from country root → continental root
+    // Get country roots in sorted order (same as tree construction)
+    const sortedCountries = [...continent.countries].sort((a, b) =>
+      a.countryCode.localeCompare(b.countryCode)
+    );
+    const countryRoots = sortedCountries.map(c => c.root);
+    const countryIndex = countryRoots.findIndex(r => r === country.root);
 
     if (countryIndex === -1) {
-      throw new Error(`Country root not found in global tree: ${country.countryCode}`);
+      throw new Error(`Country not found in continent: ${country.countryCode}`);
     }
 
-    return this.generateMerkleProof(allCountryRoots, countryIndex);
+    const countryToContinent = await this.generateMerkleProof(countryRoots, countryIndex);
+
+    // STEP 2: Generate proof from continental root → global root
+    // Get continental roots in sorted order (same as tree construction)
+    const sortedContinents = [...tree.continents].sort((a, b) =>
+      a.continent.localeCompare(b.continent)
+    );
+    const continentRoots = sortedContinents.map(c => c.root);
+    const continentIndex = continentRoots.findIndex(r => r === continent.root);
+
+    if (continentIndex === -1) {
+      throw new Error(`Continent not found in global tree: ${continent.continent}`);
+    }
+
+    const continentToGlobal = await this.generateMerkleProof(continentRoots, continentIndex);
+
+    // STEP 3: Concatenate proofs (country→continent, then continent→global)
+    return {
+      siblings: [...countryToContinent.siblings, ...continentToGlobal.siblings],
+      pathIndices: [...countryToContinent.pathIndices, ...continentToGlobal.pathIndices],
+    };
   }
 
   /**
@@ -1010,10 +1145,10 @@ export class GlobalMerkleTreeBuilder {
    * @param leafIndex - Index of leaf to prove
    * @returns Merkle proof (siblings and path indices)
    */
-  private generateMerkleProof(
+  private async generateMerkleProof(
     leaves: readonly bigint[],
     leafIndex: number
-  ): { siblings: bigint[]; pathIndices: number[] } {
+  ): Promise<{ siblings: bigint[]; pathIndices: number[] }> {
     const siblings: bigint[] = [];
     const pathIndices: number[] = [];
 
@@ -1026,7 +1161,13 @@ export class GlobalMerkleTreeBuilder {
       const siblingIndex = isLeftChild ? currentIndex + 1 : currentIndex - 1;
 
       if (siblingIndex < currentLayer.length) {
+        // Normal case: sibling exists
         siblings.push(currentLayer[siblingIndex]);
+        pathIndices.push(isLeftChild ? 0 : 1);
+      } else {
+        // Odd element case: node IS the last element, use itself as sibling
+        // SECURITY: This matches buildMerkleRoot behavior of hash(element, element)
+        siblings.push(currentLayer[currentIndex]);
         pathIndices.push(isLeftChild ? 0 : 1);
       }
 
@@ -1036,9 +1177,12 @@ export class GlobalMerkleTreeBuilder {
         if (i + 1 < currentLayer.length) {
           const left = currentLayer[i];
           const right = currentLayer[i + 1];
-          nextLayer.push(this.hashPair(left, right));
+          nextLayer.push(await this.hashPair(left, right));
         } else {
-          nextLayer.push(currentLayer[i]);
+          // Odd element: hash with itself (Bitcoin/Ethereum standard)
+          // SECURITY: Must match buildMerkleRoot behavior for consistent tree structure
+          const element = currentLayer[i];
+          nextLayer.push(await this.hashPair(element, element));
         }
       }
 
@@ -1055,7 +1199,7 @@ export class GlobalMerkleTreeBuilder {
    * @param proof - Global district proof
    * @returns true if proof is valid
    */
-  verifyProof(proof: GlobalDistrictProof): boolean {
+  async verifyProof(proof: GlobalDistrictProof): Promise<boolean> {
     // Step 1: Verify district proof → country root
     let hash = proof.districtProof.leaf;
     for (let i = 0; i < proof.districtProof.siblings.length; i++) {
@@ -1063,8 +1207,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.districtProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? this.hashPair(hash, sibling)
-        : this.hashPair(sibling, hash);
+        ? await this.hashPair(hash, sibling)
+        : await this.hashPair(sibling, hash);
     }
 
     if (hash !== proof.districtProof.countryRoot) {
@@ -1078,8 +1222,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.countryProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? this.hashPair(hash, sibling)
-        : this.hashPair(sibling, hash);
+        ? await this.hashPair(hash, sibling)
+        : await this.hashPair(sibling, hash);
     }
 
     return hash === proof.countryProof.globalRoot;
@@ -1106,11 +1250,11 @@ export class GlobalMerkleTreeBuilder {
    *
    * @example
    * ```typescript
-   * const proof = builder.generateRegionalProof(tree, 'europe');
+   * const proof = await builder.generateRegionalProof(tree, 'europe');
    * // Proves user is in Europe without revealing UK vs Germany vs France
    * ```
    */
-  generateRegionalProof(tree: GlobalMerkleTree, region: ContinentalRegion): RegionalProof {
+  async generateRegionalProof(tree: GlobalMerkleTree, region: ContinentalRegion): Promise<RegionalProof> {
     // Find continent in tree
     const continent = tree.continents.find(c => c.continent === region);
     if (!continent) {
@@ -1118,14 +1262,18 @@ export class GlobalMerkleTreeBuilder {
     }
 
     // Generate proof: continental root → global root
-    const continentalRoots = tree.continents.map(c => c.root);
-    const continentIndex = tree.continents.findIndex(c => c.continent === region);
+    // CRITICAL: Use sorted order (same as buildGlobalRoot)
+    const sortedContinents = [...tree.continents].sort((a, b) =>
+      a.continent.localeCompare(b.continent)
+    );
+    const continentalRoots = sortedContinents.map(c => c.root);
+    const continentIndex = sortedContinents.findIndex(c => c.continent === region);
 
     if (continentIndex === -1) {
       throw new Error(`Region not found in continents array: ${region}`);
     }
 
-    const proof = this.generateMerkleProof(continentalRoots, continentIndex);
+    const proof = await this.generateMerkleProof(continentalRoots, continentIndex);
 
     return {
       continentalRoot: continent.root,
@@ -1147,7 +1295,7 @@ export class GlobalMerkleTreeBuilder {
    * @param proof - Regional proof
    * @returns true if proof is valid
    */
-  verifyRegionalProof(proof: RegionalProof): boolean {
+  async verifyRegionalProof(proof: RegionalProof): Promise<boolean> {
     let hash = proof.continentalRoot;
 
     for (let i = 0; i < proof.continentalProof.siblings.length; i++) {
@@ -1155,8 +1303,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.continentalProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? this.hashPair(hash, sibling)
-        : this.hashPair(sibling, hash);
+        ? await this.hashPair(hash, sibling)
+        : await this.hashPair(sibling, hash);
     }
 
     return hash === proof.continentalProof.globalRoot;

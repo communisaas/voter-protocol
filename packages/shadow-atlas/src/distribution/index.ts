@@ -32,11 +32,35 @@ export type {
 } from './types.js';
 
 // Service exports
-export { RegionalPinningService } from './regional-pinning-service.js';
-export type { IPinningService } from './regional-pinning-service.js';
+export {
+  RegionalPinningService,
+  createRegionalPinningService,
+} from './regional-pinning-service.js';
+export type {
+  IPinningService,
+  RegionalServiceConfig,
+} from './regional-pinning-service.js';
 export { UpdateCoordinator } from './update-coordinator.js';
 export { AvailabilityMonitor } from './availability-monitor.js';
 export { FallbackResolver } from './fallback-resolver.js';
+
+// Concrete pinning service implementations
+export {
+  StorachaPinningService,
+  createStorachaPinningService,
+  PinataPinningService,
+  createPinataPinningService,
+  FleekPinningService,
+  createFleekPinningService,
+  createPinningService,
+  createConfiguredServices,
+} from './services/index.js';
+export type {
+  StorachaConfig,
+  PinataConfig,
+  FleekConfig,
+  ServiceFactoryOptions,
+} from './services/index.js';
 
 // Configuration exports
 export {

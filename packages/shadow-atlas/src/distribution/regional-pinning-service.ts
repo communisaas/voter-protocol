@@ -359,29 +359,59 @@ export class RegionalPinningService {
 // ============================================================================
 
 /**
+ * Service configuration for creating regional pinning service
+ */
+export interface RegionalServiceConfig {
+  readonly maxParallelUploads?: number;
+  readonly retryAttempts?: number;
+  readonly storacha?: {
+    readonly spaceDid?: string;
+    readonly agentPrivateKey?: string;
+  };
+  readonly pinata?: {
+    readonly jwt?: string;
+    readonly apiKey?: string;
+    readonly apiSecret?: string;
+  };
+  readonly fleek?: {
+    readonly apiKey?: string;
+    readonly apiSecret?: string;
+  };
+  readonly timeoutMs?: number;
+}
+
+/**
  * Create regional pinning service with default configuration
  *
  * Initializes all pinning services available in the region.
+ * Services are created based on available environment variables or explicit config.
  */
 export async function createRegionalPinningService(
   region: Region,
-  options: {
-    readonly maxParallelUploads?: number;
-    readonly retryAttempts?: number;
-  } = {}
+  options: RegionalServiceConfig = {}
 ): Promise<RegionalPinningService> {
-  const serviceConfigs = getPinningServicesForRegion(region);
+  // Import service factory (lazy load to avoid circular deps)
+  const { createConfiguredServices } = await import('./services/index.js');
 
-  // Create service instances (implementations would be imported)
-  const services: IPinningService[] = [];
+  // Create all configured services for this region
+  const services = createConfiguredServices(region, {
+    storacha: options.storacha,
+    pinata: options.pinata,
+    fleek: options.fleek,
+    timeoutMs: options.timeoutMs,
+  });
 
-  // NOTE: In production, this would instantiate actual service implementations:
-  // - StorachaPinningService (from ./services/storacha.ts)
-  // - PinataPinningService (from ./services/pinata.ts)
-  // - etc.
-  //
-  // For now, this is a factory that returns the orchestrator.
-  // Service implementations are added separately.
+  if (services.length === 0) {
+    console.warn(
+      `[RegionalPinningService] No pinning services configured for region ${region}. ` +
+      'Set environment variables: STORACHA_SPACE_DID/STORACHA_AGENT_KEY, ' +
+      'PINATA_JWT or PINATA_API_KEY/PINATA_API_SECRET, ' +
+      'FLEEK_API_KEY/FLEEK_API_SECRET'
+    );
+  }
 
-  return new RegionalPinningService(region, services, options);
+  return new RegionalPinningService(region, services, {
+    maxParallelUploads: options.maxParallelUploads,
+    retryAttempts: options.retryAttempts,
+  });
 }
