@@ -9,7 +9,8 @@
   },
   "include": [
     "*.ts",
-    "services/**/*"
+    "services/**/*",
+    "circuits/**/*"
   ],
   "exclude": [
     "node_modules",

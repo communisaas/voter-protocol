@@ -7,26 +7,30 @@
   "exports": {
     ".": "./dist/index.js",
     "./poseidon2": "./dist/poseidon2.js",
-    "./circuits": "./circuits/pkg/index.js",
+    "./district-prover": "./dist/district-prover.js",
+    "./circuits": "./dist/circuits/pkg/index.js",
     "./noir-fixtures": "./noir/fixtures/target/fixtures.json",
-    "./circuits/district_membership": "./noir/district_membership/target/district_membership.json"
+    "./circuits/district_membership_14": "./noir/district_membership/target/district_membership_14.json",
+    "./circuits/district_membership_20": "./noir/district_membership/target/district_membership_20.json",
+    "./circuits/district_membership_22": "./noir/district_membership/target/district_membership_22.json"
   },
   "scripts": {
     "build": "tsc",
+    "build:circuits": "./scripts/build-circuits.sh",
     "test": "vitest",
     "test:watch": "vitest watch"
   },
   "dependencies": {
+    "@aztec/bb.js": "^2.1.8",
     "@bokuweb/zstd-wasm": "^0.0.20",
     "@msgpack/msgpack": "^3.0.0",
     "@noble/hashes": "^1.3.3",
+    "@noir-lang/noir_js": "^1.0.0-beta.16",
     "circomlibjs": "^0.1.7",
     "pako": "^2.1.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@aztec/bb.js": "^2.1.8",
-    "@noir-lang/noir_js": "^1.0.0-beta.16",
     "@types/node": "^24.3.2",
     "@types/pako": "^2.0.4",
     "typescript": "^5.7.2",
