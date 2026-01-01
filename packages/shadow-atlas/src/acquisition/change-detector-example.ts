@@ -223,7 +223,86 @@ export function demonstrateCostSavings(): void {
 }
 
 /**
- * Example 7: Monitor for Unexpected Changes
+ * Example 7: High-Performance Batched Checking (NEW)
+ *
+ * Demonstrates parallel batch processing for checking 1000+ sources efficiently.
+ * This approach reduces total check time from O(n) sequential to O(n/batch_size) parallel.
+ */
+export async function highPerformanceBatchCheck(): Promise<void> {
+  const db = new SQLiteAdapter('./shadow-atlas.db');
+
+  // Configure for high-throughput checking
+  const detector = new ChangeDetector(
+    db,
+    {
+      // Retry config for reliability
+      maxAttempts: 3,
+      initialDelayMs: 1000,
+      maxDelayMs: 5000,
+      backoffMultiplier: 2,
+    },
+    {
+      // Batch config for performance
+      batchSize: 50,                    // Check 50 sources in parallel
+      delayBetweenBatchesMs: 100,       // Small delay to avoid rate limits
+      maxConcurrent: 50,                // Max concurrent requests
+      enableProgressReporting: true,    // Show progress updates
+    }
+  );
+
+  console.log('🚀 High-performance batch checking...');
+  console.log('   Batch size: 50 sources per batch');
+  console.log('   Delay between batches: 100ms');
+  console.log('');
+
+  const startTime = Date.now();
+  const changes = await detector.checkScheduledSources();
+  const duration = Date.now() - startTime;
+
+  console.log('');
+  console.log('📊 Performance Metrics:');
+  console.log(`   Duration: ${(duration / 1000).toFixed(2)}s`);
+  console.log(`   Changes detected: ${changes.length}`);
+  console.log(`   Throughput: ${(changes.length / (duration / 1000)).toFixed(2)} sources/sec`);
+
+  await db.close();
+}
+
+/**
+ * Example 8: Rate-Limit Friendly Batching
+ *
+ * Shows how to configure batching to respect external API rate limits.
+ */
+export async function rateLimitFriendlyCheck(): Promise<void> {
+  const db = new SQLiteAdapter('./shadow-atlas.db');
+
+  // Conservative config for rate-limited APIs
+  const detector = new ChangeDetector(
+    db,
+    undefined,
+    {
+      batchSize: 10,                    // Smaller batches
+      delayBetweenBatchesMs: 1000,      // 1 second delay between batches
+      maxConcurrent: 10,                // Limit concurrent requests
+      enableProgressReporting: true,
+    }
+  );
+
+  console.log('🐢 Rate-limit friendly checking...');
+  console.log('   Batch size: 10 sources per batch');
+  console.log('   Delay between batches: 1000ms');
+  console.log('   Max throughput: ~10 req/sec');
+  console.log('');
+
+  const changes = await detector.checkScheduledSources();
+
+  console.log(`✅ Completed without hitting rate limits: ${changes.length} changes`);
+
+  await db.close();
+}
+
+/**
+ * Example 9: Monitor for Unexpected Changes
  *
  * Alert when sources change outside their scheduled update windows.
  */
@@ -295,6 +374,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       demonstrateCostSavings();
       break;
 
+    case 'batch':
+      await highPerformanceBatchCheck();
+      break;
+
+    case 'rate-limit':
+      await rateLimitFriendlyCheck();
+      break;
+
     case 'monitor':
       await monitorUnexpectedChanges();
       break;
@@ -309,6 +396,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log('  redistricting - Redistricting year check');
       console.log('  july          - July annual update check');
       console.log('  costs         - Show cost comparison');
+      console.log('  batch         - High-performance batched checking (NEW)');
+      console.log('  rate-limit    - Rate-limit friendly batching (NEW)');
       console.log('  monitor       - Monitor unexpected changes');
       process.exit(1);
   }

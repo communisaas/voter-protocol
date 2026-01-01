@@ -441,3 +441,73 @@ LEFT JOIN snapshot_regions sr ON sr.snapshot_id = s.id
 WHERE s.archived_at IS NULL
   AND s.deprecated_at IS NULL
 GROUP BY s.id;
+
+-- ============================================================================
+-- FAILED_DOWNLOADS: Dead Letter Queue for failed TIGER downloads
+-- ============================================================================
+-- Records failed download attempts with retry metadata.
+-- Enables recovery of failed downloads after process restart.
+
+CREATE TABLE IF NOT EXISTS failed_downloads (
+  -- Identity
+  id TEXT PRIMARY KEY NOT NULL,
+
+  -- Foreign keys
+  job_id TEXT REFERENCES jobs(id) ON DELETE CASCADE,
+
+  -- Download context
+  url TEXT NOT NULL,
+  layer TEXT NOT NULL CHECK (layer IN (
+    'cd', 'sldu', 'sldl', 'county', 'cousub', 'submcd',
+    'place', 'unsd', 'elsd', 'scsd', 'vtd', 'zcta',
+    'aiannh', 'anrc', 'tbg', 'ttract',
+    'cbsa', 'csa', 'metdiv', 'uac', 'necta', 'cnecta', 'nectadiv',
+    'tract', 'bg', 'puma', 'estate', 'concity', 'mil'
+  )),
+  state_fips TEXT,
+  year INTEGER NOT NULL,
+
+  -- Retry tracking
+  attempt_count INTEGER NOT NULL DEFAULT 1 CHECK (attempt_count > 0),
+  max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts > 0),
+  last_error TEXT NOT NULL,
+  last_attempt_at TEXT NOT NULL,
+  next_retry_at TEXT,
+
+  -- Status lifecycle
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN (
+    'pending',     -- Initial failure, awaiting retry
+    'retrying',    -- Retry in progress
+    'exhausted',   -- Max retries reached, manual intervention required
+    'resolved'     -- Successfully retried or manually resolved
+  )),
+
+  -- Temporal metadata
+  created_at TEXT NOT NULL,
+  resolved_at TEXT,
+
+  -- Audit trail
+  archived_at TEXT
+);
+
+-- Query pattern: Get retryable downloads (pending or retry-ready)
+CREATE INDEX IF NOT EXISTS idx_failed_downloads_retryable
+  ON failed_downloads(status, next_retry_at)
+  WHERE archived_at IS NULL
+    AND status IN ('pending', 'retrying');
+
+-- Query pattern: DLQ statistics by layer
+CREATE INDEX IF NOT EXISTS idx_failed_downloads_stats
+  ON failed_downloads(layer, status, created_at DESC)
+  WHERE archived_at IS NULL;
+
+-- Query pattern: Job-specific failures
+CREATE INDEX IF NOT EXISTS idx_failed_downloads_job
+  ON failed_downloads(job_id, status)
+  WHERE archived_at IS NULL;
+
+-- Query pattern: Exhausted downloads requiring attention
+CREATE INDEX IF NOT EXISTS idx_failed_downloads_exhausted
+  ON failed_downloads(last_attempt_at DESC)
+  WHERE archived_at IS NULL
+    AND status = 'exhausted';

@@ -567,6 +567,195 @@ describe('ChangeDetector', () => {
     });
   });
 
+  describe('batched change detection', () => {
+    it('checks multiple sources in parallel batches', async () => {
+      mockFetch('"abc123"', null);
+
+      const sources: CanonicalSource[] = Array.from({ length: 50 }, (_, i) => ({
+        id: i.toString(),
+        url: `https://example.com/data${i}`,
+        boundaryType: 'municipal',
+        lastChecksum: null,
+        lastChecked: null,
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      }));
+
+      const batchDetector = new ChangeDetector(
+        db,
+        undefined,
+        { batchSize: 10, enableProgressReporting: false }
+      );
+
+      const changes = await batchDetector.checkSourcesBatch(sources);
+
+      // All sources should be detected as new (no previous checksum)
+      expect(changes.length).toBe(50);
+      expect(changes.every(c => c.changeType === 'new')).toBe(true);
+    });
+
+    it('handles partial failures in batch gracefully', async () => {
+      let callCount = 0;
+
+      global.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        // Fail every 5th request
+        if (callCount % 5 === 0) {
+          return Promise.reject(new Error('Network error'));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ etag: `"etag-${callCount}"` }),
+        });
+      });
+
+      const sources: CanonicalSource[] = Array.from({ length: 20 }, (_, i) => ({
+        id: i.toString(),
+        url: `https://example.com/data${i}`,
+        boundaryType: 'municipal',
+        lastChecksum: null,
+        lastChecked: null,
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      }));
+
+      const batchDetector = new ChangeDetector(
+        db,
+        { maxAttempts: 1, initialDelayMs: 0, maxDelayMs: 0, backoffMultiplier: 1 },
+        { batchSize: 10, enableProgressReporting: false }
+      );
+
+      const changes = await batchDetector.checkSourcesBatch(sources);
+
+      // Should have 20 - 4 = 16 successful checks (4 failures)
+      expect(changes.length).toBe(16);
+    });
+
+    it('respects batch size configuration', async () => {
+      let maxConcurrent = 0;
+      let currentConcurrent = 0;
+
+      global.fetch = vi.fn().mockImplementation(async () => {
+        currentConcurrent++;
+        maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        currentConcurrent--;
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ etag: '"test"' }),
+        };
+      });
+
+      const sources: CanonicalSource[] = Array.from({ length: 30 }, (_, i) => ({
+        id: i.toString(),
+        url: `https://example.com/data${i}`,
+        boundaryType: 'municipal',
+        lastChecksum: null,
+        lastChecked: null,
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      }));
+
+      const batchDetector = new ChangeDetector(
+        db,
+        undefined,
+        { batchSize: 5, enableProgressReporting: false }
+      );
+
+      await batchDetector.checkSourcesBatch(sources);
+
+      // Max concurrent should not exceed batch size
+      expect(maxConcurrent).toBeLessThanOrEqual(5);
+    });
+
+    it('delays between batches when configured', async () => {
+      const timestamps: number[] = [];
+
+      global.fetch = vi.fn().mockImplementation(async () => {
+        timestamps.push(Date.now());
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ etag: '"test"' }),
+        };
+      });
+
+      const sources: CanonicalSource[] = Array.from({ length: 6 }, (_, i) => ({
+        id: i.toString(),
+        url: `https://example.com/data${i}`,
+        boundaryType: 'municipal',
+        lastChecksum: null,
+        lastChecked: null,
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      }));
+
+      const batchDetector = new ChangeDetector(
+        db,
+        undefined,
+        { batchSize: 3, delayBetweenBatchesMs: 100, enableProgressReporting: false }
+      );
+
+      await batchDetector.checkSourcesBatch(sources);
+
+      // Should have delay between batches
+      expect(timestamps.length).toBe(6);
+
+      // Check that there's a gap between batch 1 (0-2) and batch 2 (3-5)
+      const batch1End = Math.max(timestamps[0], timestamps[1], timestamps[2]);
+      const batch2Start = Math.min(timestamps[3], timestamps[4], timestamps[5]);
+      const gap = batch2Start - batch1End;
+
+      // Gap should be at least the configured delay (minus some tolerance for timing)
+      expect(gap).toBeGreaterThanOrEqual(90);
+    });
+
+    it('filters out unchanged sources in batch', async () => {
+      let callCount = 0;
+
+      global.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({ etag: '"unchanged"' }),
+        });
+      });
+
+      // Create sources where some have matching checksums
+      const sources: CanonicalSource[] = Array.from({ length: 10 }, (_, i) => ({
+        id: i.toString(),
+        url: `https://example.com/data${i}`,
+        boundaryType: 'municipal',
+        lastChecksum: i % 2 === 0 ? '"unchanged"' : '"old"', // Even sources unchanged
+        lastChecked: '2024-01-01T00:00:00Z',
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      }));
+
+      const batchDetector = new ChangeDetector(
+        db,
+        undefined,
+        { batchSize: 5, enableProgressReporting: false }
+      );
+
+      const changes = await batchDetector.checkSourcesBatch(sources);
+
+      // Only odd-indexed sources should be detected as changed
+      expect(changes.length).toBe(5);
+      expect(changes.every(c => c.changeType === 'modified')).toBe(true);
+    });
+  });
+
   describe('type safety', () => {
     it('enforces readonly arrays in UpdateTrigger', () => {
       const trigger: UpdateTrigger = {

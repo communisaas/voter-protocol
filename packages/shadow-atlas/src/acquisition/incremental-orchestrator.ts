@@ -84,6 +84,7 @@ export interface OrchestratorConfig {
   readonly provenanceWriter: ProvenanceWriter;
   readonly db: DatabaseAdapter;
   readonly maxConcurrentDownloads?: number;
+  readonly maxConcurrentWrites?: number; // Disk I/O concurrency (default: 5)
   readonly retryAttempts?: number;
   readonly retryDelayMs?: number;
 }
@@ -118,11 +119,13 @@ export class IncrementalOrchestrator {
   private readonly config: OrchestratorConfig;
   private readonly retryConfig: RetryConfig;
   private readonly maxConcurrentDownloads: number;
+  private readonly maxConcurrentWrites: number;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.retryConfig = DEFAULT_RETRY_CONFIG;
     this.maxConcurrentDownloads = config.maxConcurrentDownloads ?? 10;
+    this.maxConcurrentWrites = config.maxConcurrentWrites ?? 5;
   }
 
   /**
@@ -175,23 +178,41 @@ export class IncrementalOrchestrator {
       const downloadResults = await this.downloadChangedSources(changes, runId, errors);
       console.log(`   ✓ Downloaded ${downloadResults.length} sources`);
 
-      // 3. Update affected tree branches
+      // 3. Update affected tree branches (parallel with batching)
       console.log('\n[3/4] Updating affected tree branches...');
-      for (const result of downloadResults) {
-        try {
-          const updated = await this.updateTreeBranch(result, runId);
-          if (updated) {
-            boundariesUpdated.push(result.muniId);
+
+      for (let i = 0; i < downloadResults.length; i += this.maxConcurrentWrites) {
+        const batch = downloadResults.slice(i, i + this.maxConcurrentWrites);
+
+        const batchResults = await Promise.all(
+          batch.map(async (result) => {
+            try {
+              const updated = await this.updateTreeBranch(result, runId);
+              return { updated, muniId: result.muniId, error: null };
+            } catch (error) {
+              errors.push({
+                sourceId: result.sourceId,
+                error: `Tree update failed: ${(error as Error).message}`,
+                recoverable: false,
+                timestamp: new Date().toISOString(),
+              });
+              return { updated: false, muniId: result.muniId, error: error as Error };
+            }
+          })
+        );
+
+        // Collect successful updates
+        for (const batchResult of batchResults) {
+          if (batchResult.updated) {
+            boundariesUpdated.push(batchResult.muniId);
           }
-        } catch (error) {
-          errors.push({
-            sourceId: result.sourceId,
-            error: `Tree update failed: ${(error as Error).message}`,
-            recoverable: false,
-            timestamp: new Date().toISOString(),
-          });
         }
+
+        // Progress update
+        const totalUpdated = boundariesUpdated.length;
+        console.log(`   Progress: ${totalUpdated} boundary branches updated`);
       }
+
       console.log(`   ✓ Updated ${boundariesUpdated.length} boundary branches`);
 
       // 4. Log completion event
@@ -360,22 +381,34 @@ export class IncrementalOrchestrator {
       const changes = await this.config.changeDetector.checkAllSources();
       console.log(`   ✓ Found ${changes.length} changed sources`);
 
-      // Download and update
+      // Download and update (parallel with batching)
       const downloadResults = await this.downloadChangedSources(changes, runId, errors);
 
-      for (const result of downloadResults) {
-        try {
-          const updated = await this.updateTreeBranch(result, runId);
-          if (updated) {
-            boundariesUpdated.push(result.muniId);
+      for (let i = 0; i < downloadResults.length; i += this.maxConcurrentWrites) {
+        const batch = downloadResults.slice(i, i + this.maxConcurrentWrites);
+
+        const batchResults = await Promise.all(
+          batch.map(async (result) => {
+            try {
+              const updated = await this.updateTreeBranch(result, runId);
+              return { updated, muniId: result.muniId, error: null };
+            } catch (error) {
+              errors.push({
+                sourceId: result.sourceId,
+                error: `Tree update failed: ${(error as Error).message}`,
+                recoverable: false,
+                timestamp: new Date().toISOString(),
+              });
+              return { updated: false, muniId: result.muniId, error: error as Error };
+            }
+          })
+        );
+
+        // Collect successful updates
+        for (const batchResult of batchResults) {
+          if (batchResult.updated) {
+            boundariesUpdated.push(batchResult.muniId);
           }
-        } catch (error) {
-          errors.push({
-            sourceId: result.sourceId,
-            error: `Tree update failed: ${(error as Error).message}`,
-            recoverable: false,
-            timestamp: new Date().toISOString(),
-          });
         }
       }
 

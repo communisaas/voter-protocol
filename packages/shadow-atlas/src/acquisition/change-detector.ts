@@ -94,16 +94,54 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 const REQUEST_TIMEOUT_MS = 5000;
 
 /**
+ * Configuration for batched change detection
+ */
+interface BatchConfig {
+  readonly batchSize: number;            // Sources per batch (default: 20)
+  readonly delayBetweenBatchesMs: number; // Delay between batches (default: 0)
+  readonly maxConcurrent: number;        // Max concurrent requests (default: 20)
+  readonly enableProgressReporting: boolean; // Log progress (default: true)
+}
+
+/**
+ * Default batch configuration
+ */
+const DEFAULT_BATCH_CONFIG: BatchConfig = {
+  batchSize: 20,
+  delayBetweenBatchesMs: 0,
+  maxConcurrent: 20,
+  enableProgressReporting: true,
+};
+
+/**
+ * Safe check result (includes error information)
+ */
+interface SafeCheckResult {
+  readonly source: CanonicalSource;
+  readonly change: ChangeReport | null;
+  readonly error: Error | null;
+  readonly latencyMs: number;
+}
+
+/**
  * Change Detector
  *
  * Event-driven change detection using HTTP headers.
  * Only downloads sources that have actually changed.
  */
 export class ChangeDetector {
+  private readonly batchConfig: BatchConfig;
+
   constructor(
     private readonly db: DatabaseAdapter,
-    private readonly retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG
-  ) {}
+    private readonly retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG,
+    batchConfig: Partial<BatchConfig> = {}
+  ) {
+    this.batchConfig = {
+      ...DEFAULT_BATCH_CONFIG,
+      ...batchConfig,
+    };
+  }
 
   /**
    * Check if a single source has changed
@@ -154,43 +192,117 @@ export class ChangeDetector {
   }
 
   /**
-   * Check all sources that are due for verification
-   * Based on update triggers (annual in July, redistricting years, etc.)
+   * Check a single source safely (catches errors)
+   * Returns detailed result including timing and error information
    */
-  async checkScheduledSources(): Promise<readonly ChangeReport[]> {
-    const sourcesDue = await this.getSourcesDueForCheck();
-    const changes: ChangeReport[] = [];
-
-    for (const source of sourcesDue) {
+  private async checkSourceSafe(source: CanonicalSource): Promise<SafeCheckResult> {
+    const startTime = Date.now();
+    try {
       const change = await this.checkForChange(source);
-      if (change) {
-        changes.push(change);
+      return {
+        source,
+        change,
+        error: null,
+        latencyMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      return {
+        source,
+        change: null,
+        error: error as Error,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Check multiple sources in parallel batches
+   * Respects rate limits and handles individual failures gracefully
+   *
+   * @param sources - Sources to check
+   * @returns Array of change reports (excludes errored/unchanged sources)
+   */
+  async checkSourcesBatch(sources: readonly CanonicalSource[]): Promise<readonly ChangeReport[]> {
+    const changes: ChangeReport[] = [];
+    const errors: Array<{ source: CanonicalSource; error: Error }> = [];
+    let totalChecked = 0;
+    let totalChanged = 0;
+    const totalSources = sources.length;
+
+    // Process in batches
+    for (let i = 0; i < sources.length; i += this.batchConfig.batchSize) {
+      const batch = sources.slice(i, i + this.batchConfig.batchSize);
+
+      // Check batch in parallel
+      const batchResults = await Promise.all(
+        batch.map(source => this.checkSourceSafe(source))
+      );
+
+      // Collect results
+      for (const result of batchResults) {
+        totalChecked++;
+
+        if (result.error) {
+          errors.push({ source: result.source, error: result.error });
+          console.warn(
+            `Failed to check source ${result.source.id} (${result.source.url}): ${result.error.message}`
+          );
+        } else if (result.change) {
+          changes.push(result.change);
+          totalChanged++;
+        }
       }
+
+      // Progress reporting
+      if (this.batchConfig.enableProgressReporting) {
+        console.log(
+          `Change detection progress: ${totalChecked}/${totalSources} checked, ${totalChanged} changed, ${errors.length} errors`
+        );
+      }
+
+      // Delay between batches if configured
+      if (this.batchConfig.delayBetweenBatchesMs > 0 && i + this.batchConfig.batchSize < sources.length) {
+        await this.sleep(this.batchConfig.delayBetweenBatchesMs);
+      }
+    }
+
+    // Final summary
+    if (this.batchConfig.enableProgressReporting) {
+      console.log(
+        `Change detection complete: ${totalChecked} sources checked, ${totalChanged} changed, ${errors.length} errors`
+      );
     }
 
     return changes;
   }
 
   /**
+   * Check all sources that are due for verification
+   * Based on update triggers (annual in July, redistricting years, etc.)
+   * Uses batched parallel checking for performance
+   */
+  async checkScheduledSources(): Promise<readonly ChangeReport[]> {
+    const sourcesDue = await this.getSourcesDueForCheck();
+    return this.checkSourcesBatch(sourcesDue);
+  }
+
+  /**
    * Force check all sources regardless of schedule
    * Use sparingly (e.g., after system outage)
+   * Uses batched parallel checking for performance
    */
   async checkAllSources(): Promise<readonly ChangeReport[]> {
     // Get all sources from database
     const sources = await this.getAllCanonicalSources();
-    const changes: ChangeReport[] = [];
 
-    for (const source of sources) {
-      const change = await this.checkForChange(source);
-      if (change) {
-        changes.push({
-          ...change,
-          trigger: 'forced',
-        });
-      }
-    }
+    // Check in batches
+    const changes = await this.checkSourcesBatch(sources);
 
-    return changes;
+    // Mark all changes as 'forced' trigger
+    return changes.map(change => ({
+      ...change,
+      trigger: 'forced' as const,
+    }));
   }
 
   /**
