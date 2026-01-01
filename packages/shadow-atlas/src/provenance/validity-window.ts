@@ -17,7 +17,12 @@
 
 /**
  * Boundary types for validity window calculations
- * Matches canonical boundary types but simplified for freshness concerns
+ *
+ * NOTE: Provenance subsystem uses simplified naming convention for internal
+ * data freshness tracking. Maps conceptually to canonical BoundaryType enum
+ * in ../types/boundary.ts but with different string literal values.
+ *
+ * See tiger-authority-rules.ts for complete mapping documentation.
  */
 export type BoundaryType =
   | 'congressional'

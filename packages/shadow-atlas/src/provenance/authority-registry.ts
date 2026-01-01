@@ -19,6 +19,12 @@
 
 /**
  * Boundary types supported by the registry
+ *
+ * NOTE: Provenance subsystem uses simplified naming convention for internal
+ * data freshness tracking. Maps conceptually to canonical BoundaryType enum
+ * in ../types/boundary.ts but with different string literal values.
+ *
+ * See tiger-authority-rules.ts for complete mapping documentation.
  */
 export type BoundaryType =
   | 'congressional'

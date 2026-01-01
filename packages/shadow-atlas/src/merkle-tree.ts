@@ -22,16 +22,10 @@
  */
 
 import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
+import { BoundaryType } from './core/types.js';
 
-/**
- * Boundary types for multi-layer tree support
- */
-export type BoundaryType =
-  | 'congressional-district'
-  | 'state-legislative-upper'
-  | 'state-legislative-lower'
-  | 'county'
-  | 'city-council-district';
+// Re-export for public API compatibility
+export type { BoundaryType };
 
 /**
  * Authority levels for provenance tracking
@@ -45,6 +39,28 @@ export const AUTHORITY_LEVELS = {
 } as const;
 
 /**
+ * Provenance source metadata for cryptographic commitment
+ *
+ * SECURITY: This data is hashed into the Merkle leaf, creating a cryptographic
+ * commitment to the data's lineage. Any tampering with source URL, checksum,
+ * or timestamp will produce a different leaf hash, breaking proof verification.
+ *
+ * LEGAL RISK MITIGATION: By including provenance in the leaf hash, we can
+ * cryptographically prove the exact source data that was used to construct
+ * the boundary. This addresses the audit finding: "Legal Risk: MEDIUM-HIGH"
+ */
+export interface ProvenanceSource {
+  /** Direct URL to source data (e.g., Census TIGER shapefile URL) */
+  readonly url: string;
+  /** SHA-256 checksum of downloaded file (hex string without 0x prefix) */
+  readonly checksum: string;
+  /** ISO 8601 timestamp when data was retrieved */
+  readonly timestamp: string;
+  /** Optional: Data provider identifier (e.g., "census-tiger", "municipal-gis") */
+  readonly provider?: string;
+}
+
+/**
  * Merkle leaf input for multi-layer tree
  */
 export interface MerkleLeafInput {
@@ -52,6 +68,14 @@ export interface MerkleLeafInput {
   readonly boundaryType: BoundaryType;    // Boundary type for disambiguation
   readonly geometryHash: bigint;          // Poseidon hash of geometry
   readonly authority: number;             // Authority level (1-5)
+  /**
+   * Optional provenance source for cryptographic commitment
+   *
+   * When provided, provenance is hashed into the leaf hash, creating an
+   * immutable commitment to data lineage. Backward compatible: leaves
+   * without provenance compute the same hash as before.
+   */
+  readonly source?: ProvenanceSource;
 }
 
 /**
@@ -373,7 +397,21 @@ export async function createShadowAtlasMerkleTree(
  * Example: CD-01 (Congressional District 1) vs SLDU-01 (State Senate District 1)
  * have same ID "01" but different boundary types, producing different leaf hashes.
  *
- * @param input - Merkle leaf input with ID, type, geometry hash, authority
+ * PROVENANCE COMMITMENT (v2.1.0):
+ * When source metadata is provided, the leaf hash includes a cryptographic commitment
+ * to the data's provenance (source URL, checksum, timestamp). This enables verification
+ * that a boundary was derived from a specific source file.
+ *
+ * Hash structure:
+ * - Without provenance: hash4(typeHash, idHash, geometryHash, authority)
+ * - With provenance:    hash4(typeHash, idHash, geometryHash, hash2(authority, provenanceHash))
+ *
+ * The hash2(authority, provenanceHash) combines authority level with provenance into a
+ * single field, maintaining hash4 arity while adding provenance commitment.
+ *
+ * BACKWARD COMPATIBILITY: Leaves without source metadata compute the same hash as before.
+ *
+ * @param input - Merkle leaf input with ID, type, geometry hash, authority, and optional provenance
  * @returns Promise<bigint> Poseidon2 hash as bigint
  */
 export async function computeLeafHash(input: MerkleLeafInput): Promise<bigint> {
@@ -383,14 +421,34 @@ export async function computeLeafHash(input: MerkleLeafInput): Promise<bigint> {
   const typeHash = await hasher.hashString(input.boundaryType);
   const idHash = await hasher.hashString(input.id);
 
-  // Hash: Poseidon2([typeHash, idHash, geometryHash, authority])
-  return hasher.hash4(typeHash, idHash, input.geometryHash, BigInt(input.authority));
+  // Compute authority field (with or without provenance)
+  let authorityField: bigint;
+
+  if (input.source?.url && input.source?.checksum) {
+    // WITH PROVENANCE: Combine authority + provenance into single hash
+    // Format: "url|checksum|timestamp" (timestamp optional but included if present)
+    const provenanceString = `${input.source.url}|${input.source.checksum}|${input.source.timestamp ?? ''}`;
+    const provenanceHash = await hasher.hashString(provenanceString);
+
+    // Combine: hash2(authority, provenanceHash)
+    // This ensures both authority level AND provenance are cryptographically committed
+    authorityField = await hasher.hashPair(BigInt(input.authority), provenanceHash);
+  } else {
+    // WITHOUT PROVENANCE: Use raw authority (backward compatible)
+    authorityField = BigInt(input.authority);
+  }
+
+  // Hash: Poseidon2([typeHash, idHash, geometryHash, authorityField])
+  return hasher.hash4(typeHash, idHash, input.geometryHash, authorityField);
 }
 
 /**
  * Batch compute leaf hashes for multiple inputs
  *
- * @param inputs - Array of Merkle leaf inputs
+ * Supports provenance commitment: inputs with source metadata will have
+ * provenance hashed into their leaf hash. See computeLeafHash() for details.
+ *
+ * @param inputs - Array of Merkle leaf inputs (with optional provenance)
  * @param batchSize - Max concurrent operations
  * @returns Promise<bigint[]> Array of hashes in same order
  */

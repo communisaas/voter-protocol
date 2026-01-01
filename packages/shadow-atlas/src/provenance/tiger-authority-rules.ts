@@ -27,7 +27,21 @@
 
 /**
  * Boundary types with TIGER data
- * Matches BoundaryType from authority-registry.ts
+ *
+ * NOTE: Provenance subsystem uses simplified naming convention ('congressional'
+ * vs 'congressional_district') for internal data freshness tracking. This maps
+ * conceptually to the canonical BoundaryType enum in ../types/boundary.ts but
+ * with different string literal values for historical reasons.
+ *
+ * Mapping to canonical BoundaryType:
+ * - 'congressional' → BoundaryType.CONGRESSIONAL_DISTRICT
+ * - 'state_senate' → BoundaryType.STATE_LEGISLATIVE_UPPER
+ * - 'state_house' → BoundaryType.STATE_LEGISLATIVE_LOWER
+ * - 'county' → BoundaryType.COUNTY
+ * - 'place' → BoundaryType.CITY_LIMITS / BoundaryType.CDP
+ * - 'school_unified' → BoundaryType.SCHOOL_DISTRICT_UNIFIED
+ * - 'voting_precinct' → BoundaryType.VOTING_DISTRICT
+ * - 'special_district' → Special district types in BoundaryType
  */
 export type TIGERBoundaryType =
   | 'congressional'
