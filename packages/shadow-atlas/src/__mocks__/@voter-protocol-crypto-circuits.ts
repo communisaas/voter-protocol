@@ -1,55 +1,110 @@
 /**
  * Mock implementation of @voter-protocol/crypto/circuits for testing
  *
- * CONTEXT: Shadow-atlas tests import hash_pair/hash_single from '@voter-protocol/crypto/circuits',
- * but the actual WASM circuits package isn't built. This mock provides deterministic hash functions
- * for testing purposes.
+ * CONTEXT: Shadow-atlas tests import hash_pair/hash_single from '@voter-protocol/crypto/circuits'.
+ * This mock wraps the real Poseidon2Hasher to ensure consistent hashing between tree building
+ * (which uses hasher.hashPairsBatch) and verification (which uses hash_pair).
  *
- * SECURITY: This is a TEST-ONLY mock using keccak256. Production code uses real Poseidon2 circuits.
- * DO NOT use this mock in production code.
+ * SECURITY: Uses real Poseidon2 from Noir fixtures circuit for ZK compatibility.
  *
  * TYPE SAFETY: Nuclear-level strictness - explicit types, no any, proper validation.
  */
 
-import { keccak256 } from 'ethers';
+import { Poseidon2Hasher } from '@voter-protocol/crypto/poseidon2';
 
 /**
- * Mock hash_pair function for testing
+ * Hash two field elements using Poseidon2
  *
- * Uses keccak256 for deterministic hashing in tests.
- * Real implementation uses Poseidon2 from Noir circuits.
+ * Wraps Poseidon2Hasher to match the circuits API.
  *
  * @param left - Left input as hex string (0x-prefixed)
  * @param right - Right input as hex string (0x-prefixed)
- * @returns Hash as hex string (0x-prefixed)
+ * @returns Promise<Hash as hex string (0x-prefixed)>
  */
-export function hash_pair(left: string, right: string): string {
+export async function hash_pair(left: string, right: string): Promise<string> {
   validateHexString(left, 'left');
   validateHexString(right, 'right');
 
-  // Normalize to 64-char hex (32 bytes)
-  const leftNorm = normalizeHex(left);
-  const rightNorm = normalizeHex(right);
+  const hasher = await Poseidon2Hasher.getInstance();
+  const result = await hasher.hashPair(BigInt(left), BigInt(right));
 
-  // Concatenate and hash
-  const combined = leftNorm + rightNorm.slice(2); // Remove 0x from right
-  return keccak256(combined);
+  return '0x' + result.toString(16).padStart(64, '0');
 }
 
 /**
- * Mock hash_single function for testing
+ * Hash a single field element using Poseidon2
  *
- * Uses keccak256 for deterministic hashing in tests.
- * Real implementation uses Poseidon2 from Noir circuits.
+ * Wraps Poseidon2Hasher to match the circuits API.
  *
  * @param value - Input as hex string (0x-prefixed)
- * @returns Hash as hex string (0x-prefixed)
+ * @returns Promise<Hash as hex string (0x-prefixed)>
  */
-export function hash_single(value: string): string {
+export async function hash_single(value: string): Promise<string> {
   validateHexString(value, 'value');
 
-  const normalized = normalizeHex(value);
-  return keccak256(normalized);
+  const hasher = await Poseidon2Hasher.getInstance();
+  const result = await hasher.hashSingle(BigInt(value));
+
+  return '0x' + result.toString(16).padStart(64, '0');
+}
+
+/**
+ * Hash four field elements using Poseidon2
+ *
+ * Wraps Poseidon2Hasher to match the circuits API.
+ *
+ * @param a - First input as hex string
+ * @param b - Second input as hex string
+ * @param c - Third input as hex string
+ * @param d - Fourth input as hex string
+ * @returns Promise<Hash as hex string (0x-prefixed)>
+ */
+export async function hash_4(
+  a: string,
+  b: string,
+  c: string,
+  d: string
+): Promise<string> {
+  validateHexString(a, 'a');
+  validateHexString(b, 'b');
+  validateHexString(c, 'c');
+  validateHexString(d, 'd');
+
+  const hasher = await Poseidon2Hasher.getInstance();
+  const result = await hasher.hash4(BigInt(a), BigInt(b), BigInt(c), BigInt(d));
+
+  return '0x' + result.toString(16).padStart(64, '0');
+}
+
+/**
+ * Batch hash pairs for efficient Merkle tree construction
+ *
+ * @param pairs - Array of [left, right] hex string pairs
+ * @returns Array of hash hex strings
+ */
+export async function hash_pairs_batch(
+  pairs: ReadonlyArray<readonly [string, string]>
+): Promise<string[]> {
+  const hasher = await Poseidon2Hasher.getInstance();
+
+  const bigintPairs: Array<readonly [bigint, bigint]> = pairs.map(
+    ([left, right]) => {
+      validateHexString(left, 'left');
+      validateHexString(right, 'right');
+      return [BigInt(left), BigInt(right)] as const;
+    }
+  );
+
+  const results = await hasher.hashPairsBatch(bigintPairs);
+
+  return results.map((r) => '0x' + r.toString(16).padStart(64, '0'));
+}
+
+/**
+ * Pre-warm the hasher singleton (optional, for faster first hash)
+ */
+export async function warmup(): Promise<void> {
+  await Poseidon2Hasher.getInstance();
 }
 
 /**
@@ -76,16 +131,4 @@ function validateHexString(value: string, paramName: string): void {
   if (!/^[0-9a-fA-F]+$/.test(hexPart)) {
     throw new Error(`${paramName} contains invalid hex characters: ${value.slice(0, 10)}...`);
   }
-}
-
-/**
- * Normalize hex string to 64-char (32 bytes) format
- *
- * @param value - Hex string to normalize
- * @returns 0x-prefixed 64-char hex string
- */
-function normalizeHex(value: string): string {
-  const hexPart = value.slice(2);
-  const padded = hexPart.padStart(64, '0');
-  return '0x' + padded;
 }

@@ -1,0 +1,206 @@
+{
+  "type": "FeatureCollection",
+  "name": "Congressional Districts Sample",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "01",
+        "GEOID": "5501",
+        "NAMELSAD": "Congressional District 1",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 15000000000,
+        "AWATER": 500000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-90.5, 43.0],
+          [-90.0, 43.0],
+          [-90.0, 43.5],
+          [-90.5, 43.5],
+          [-90.5, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "02",
+        "GEOID": "5502",
+        "NAMELSAD": "Congressional District 2",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 14000000000,
+        "AWATER": 400000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-89.5, 43.0],
+          [-89.0, 43.0],
+          [-89.0, 43.5],
+          [-89.5, 43.5],
+          [-89.5, 43.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "03",
+        "GEOID": "5503",
+        "NAMELSAD": "Congressional District 3",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 16000000000,
+        "AWATER": 600000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-91.0, 43.5],
+          [-90.5, 43.5],
+          [-90.5, 44.0],
+          [-91.0, 44.0],
+          [-91.0, 43.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "04",
+        "GEOID": "5504",
+        "NAMELSAD": "Congressional District 4",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 12000000000,
+        "AWATER": 300000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-88.5, 42.5],
+          [-88.0, 42.5],
+          [-88.0, 43.0],
+          [-88.5, 43.0],
+          [-88.5, 42.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "05",
+        "GEOID": "5505",
+        "NAMELSAD": "Congressional District 5",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 13000000000,
+        "AWATER": 350000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-90.0, 44.0],
+          [-89.5, 44.0],
+          [-89.5, 44.5],
+          [-90.0, 44.5],
+          [-90.0, 44.0]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "06",
+        "GEOID": "5506",
+        "NAMELSAD": "Congressional District 6",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 14500000000,
+        "AWATER": 450000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-88.0, 43.5],
+          [-87.5, 43.5],
+          [-87.5, 44.0],
+          [-88.0, 44.0],
+          [-88.0, 43.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "07",
+        "GEOID": "5507",
+        "NAMELSAD": "Congressional District 7",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 17000000000,
+        "AWATER": 700000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-90.5, 44.5],
+          [-90.0, 44.5],
+          [-90.0, 45.0],
+          [-90.5, 45.0],
+          [-90.5, 44.5]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "STATEFP": "55",
+        "CD119FP": "08",
+        "GEOID": "5508",
+        "NAMELSAD": "Congressional District 8",
+        "LSAD": "C2",
+        "CDSESSN": "119",
+        "MTFCC": "G5200",
+        "FUNCSTAT": "N",
+        "ALAND": 15500000000,
+        "AWATER": 550000000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-88.5, 44.0],
+          [-88.0, 44.0],
+          [-88.0, 44.5],
+          [-88.5, 44.5],
+          [-88.5, 44.0]
+        ]]
+      }
+    }
+  ]
+}

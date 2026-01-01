@@ -79,9 +79,13 @@ interface KnownSchoolDistrict {
 
 /**
  * Representative states for school district validation
- * - California: Largest system (~1,000 unified districts)
- * - Washington: Medium-sized system (~295 unified districts)
- * - Illinois: Split system (some areas have elementary + secondary)
+ *
+ * Expected counts from Census Bureau TIGER/Line 2024
+ * SOURCE: tiger-expected-counts.ts (verified against Census data)
+ *
+ * - Washington: Unified-only system (no elementary/secondary split)
+ * - Illinois: Dual-system state (elementary + secondary, minimal unified)
+ * - California: Mixed system (primarily unified with some secondary overlays)
  */
 const TEST_STATES: readonly StateTestConfig[] = [
   {
@@ -89,23 +93,27 @@ const TEST_STATES: readonly StateTestConfig[] = [
     stateName: 'Washington',
     stateFips: '53',
     expectedUnified: 295,
-    reason: 'Medium state - unified districts only',
+    expectedElementary: 0,
+    expectedSecondary: 0,
+    reason: 'Unified-only system',
   },
   {
     state: 'IL',
     stateName: 'Illinois',
     stateFips: '17',
-    expectedUnified: 862,
-    expectedElementary: 426,
-    expectedSecondary: 96,
-    reason: 'Large state - mix of unified and split districts',
+    expectedUnified: 0, // Illinois uses dual system, not unified
+    expectedElementary: 859,
+    expectedSecondary: 102,
+    reason: 'Dual-system state with elementary + secondary districts',
   },
   {
     state: 'CA',
     stateName: 'California',
     stateFips: '06',
     expectedUnified: 1037,
-    reason: 'Largest state - complex system',
+    expectedElementary: 0,
+    expectedSecondary: 77, // Some secondary overlays
+    reason: 'Mixed system - primarily unified with secondary overlays',
   },
 ] as const;
 
