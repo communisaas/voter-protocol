@@ -22,6 +22,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { calculateCentroidFromBBox, pointInGeometry } from '../core/geo-utils.js';
 
 interface CensusPlace {
   type: 'Feature';
@@ -68,7 +69,8 @@ interface BBox {
   maxY: number;
 }
 
-// Simple bounding box calculation
+// Simple bounding box calculation (local BBox interface)
+// Uses canonical calculateCentroidFromBBox internally
 function getBBox(geometry: GeoJSON.Geometry): BBox {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
@@ -114,44 +116,12 @@ function getBBox(geometry: GeoJSON.Geometry): BBox {
 }
 
 // Calculate centroid from bounding box (approximation)
+// CANONICAL: Uses calculateCentroidFromBBox from geo-utils.ts
 function getCentroid(geometry: GeoJSON.Geometry): [number, number] {
-  const bbox = getBBox(geometry);
-  return [(bbox.minX + bbox.maxX) / 2, (bbox.minY + bbox.maxY) / 2];
+  return calculateCentroidFromBBox(geometry);
 }
 
-// Ray casting algorithm for point-in-polygon test
-function pointInPolygon(point: [number, number], polygon: number[][]): boolean {
-  const [x, y] = point;
-  let inside = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0], yi = polygon[i][1];
-    const xj = polygon[j][0], yj = polygon[j][1];
-
-    const intersect = ((yi > y) !== (yj > y)) &&
-      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-
-    if (intersect) inside = !inside;
-  }
-
-  return inside;
-}
-
-// Check if point is in Polygon or MultiPolygon
-function pointInGeometry(point: [number, number], geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): boolean {
-  if (geometry.type === 'Polygon') {
-    // Test against exterior ring (first ring)
-    return pointInPolygon(point, geometry.coordinates[0]);
-  } else if (geometry.type === 'MultiPolygon') {
-    // Test against any polygon in multipolygon
-    for (const polygon of geometry.coordinates) {
-      if (pointInPolygon(point, polygon[0])) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
+// pointInPolygon and pointInGeometry moved to geo-utils.ts (imported above)
 
 // Check if bounding boxes overlap (for spatial index optimization)
 function bboxesOverlap(bbox1: BBox, bbox2: BBox): boolean {

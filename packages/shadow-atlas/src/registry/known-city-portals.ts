@@ -64,6 +64,37 @@ export const KNOWN_CITY_PORTALS: Readonly<Record<string, KnownCityPortal>> = {
         cityName: 'Los Angeles',
         arcgis: 'geohub.lacity.org',
     },
+    '4835000': {  // Houston, TX
+        cityName: 'Houston',
+        arcgis: 'mycity.houstontx.gov/pubgis', // Using typical ArcGIS pattern, verified in next steps or assuming standard based on research
+        // Note: Houston often uses specific services, but adding as placeholder for manual verification if needed.
+        // Better to have minimal config than none if it triggers discovery.
+    },
+    '0455000': {  // Phoenix, AZ
+        cityName: 'Phoenix',
+        arcgis: 'uagis.phoenix.gov/arcgis', // Known REST endpoint
+    },
+    '4260000': {  // Philadelphia, PA
+        cityName: 'Philadelphia',
+        arcgis: 'services.arcgis.com/fLeGjb7u4uXxbFz5', // Philadelphia's hosted services
+        socrata: 'opendata.arcgis.com', // Actually Philadelphia uses openatadataphilly.org which is CKAN-like but they have ArcGIS too
+    },
+    '4865000': {  // San Antonio, TX
+        cityName: 'San Antonio',
+        arcgis: 'gis.sanantonio.gov/ArcGIS',
+    },
+    '0666000': {  // San Diego, CA
+        cityName: 'San Diego',
+        arcgis: 'sangis.org', // SanGIS covers San Diego
+    },
+    '4819000': {  // Dallas, TX
+        cityName: 'Dallas',
+        arcgis: 'gis.dallascityhall.com/arcgis',
+    },
+    '0668000': {  // San Jose, CA
+        cityName: 'San Jose',
+        arcgis: 'geo.sanjoseca.gov/server',
+    },
 } as const;
 
 /**

@@ -14,6 +14,7 @@ import * as json from 'multiformats/codecs/json';
 import { sha256 } from 'multiformats/hashes/sha2';
 import type { NormalizedDistrict } from './types.js';
 import type { Polygon, MultiPolygon } from 'geojson';
+import { extractBBox } from '../core/geo-utils.js';
 
 // ============================================================================
 // IPFS CID Generation
@@ -271,8 +272,8 @@ function detectAreaChange(
 ): number | undefined {
   try {
     // Simplified area calculation (bounding box area proxy)
-    const prevArea = calculateBboxArea(extractBbox(prev));
-    const currArea = calculateBboxArea(extractBbox(curr));
+    const prevArea = calculateBboxArea(extractBBox(prev));
+    const currArea = calculateBboxArea(extractBBox(curr));
 
     if (prevArea === 0) return undefined;
 
@@ -283,40 +284,7 @@ function detectAreaChange(
   }
 }
 
-/**
- * Extract bounding box from geometry
- */
-function extractBbox(
-  geometry: Polygon | MultiPolygon
-): [number, number, number, number] {
-  let minLon = Infinity;
-  let minLat = Infinity;
-  let maxLon = -Infinity;
-  let maxLat = -Infinity;
-
-  const processRing = (ring: Array<[number, number]>): void => {
-    for (const [lon, lat] of ring) {
-      minLon = Math.min(minLon, lon);
-      minLat = Math.min(minLat, lat);
-      maxLon = Math.max(maxLon, lon);
-      maxLat = Math.max(maxLat, lat);
-    }
-  };
-
-  if (geometry.type === 'Polygon') {
-    for (const ring of geometry.coordinates) {
-      processRing(ring as Array<[number, number]>);
-    }
-  } else {
-    for (const polygon of geometry.coordinates) {
-      for (const ring of polygon) {
-        processRing(ring as Array<[number, number]>);
-      }
-    }
-  }
-
-  return [minLon, minLat, maxLon, maxLat];
-}
+// extractBbox removed - using extractBBox from geo-utils.ts (note: function was extractBbox, canonical is extractBBox)
 
 /**
  * Calculate approximate area from bounding box
@@ -324,7 +292,7 @@ function extractBbox(
  * Uses simple lat/lon box area (not geodesic).
  * Good enough for change detection percentage.
  */
-function calculateBboxArea(bbox: [number, number, number, number]): number {
+function calculateBboxArea(bbox: readonly [number, number, number, number]): number {
   const [minLon, minLat, maxLon, maxLat] = bbox;
   return (maxLon - minLon) * (maxLat - minLat);
 }

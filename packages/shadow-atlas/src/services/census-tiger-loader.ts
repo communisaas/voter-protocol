@@ -32,7 +32,7 @@ import type {
   LatLng,
   BBox,
 } from '../types/boundary.js';
-import { BoundaryType as BT, extractBBox } from '../types/boundary.js';
+import { BoundaryType as BT, extractBBox, PRECISION_RANK } from '../types/boundary.js';
 import { getStateNameFromFips } from '../core/types.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
 import type { ProvenanceRecord } from '../provenance-writer.js';
@@ -471,32 +471,12 @@ export class CensusTigerLoader implements BoundaryDataSource {
 
   /**
    * Get precision rank for boundary type
+   *
+   * NOTE: Uses PRECISION_RANK imported from types/boundary.ts
+   * to maintain single source of truth.
    */
   private getPrecisionRank(type: BoundaryType): number {
-    const ranks: Record<BoundaryType, number> = {
-      [BT.CITY_COUNCIL_DISTRICT]: 0,
-      [BT.CITY_COUNCIL_WARD]: 1,
-      [BT.CITY_LIMITS]: 2,
-      [BT.CDP]: 3,
-      [BT.COUNTY_SUBDIVISION]: 4,
-      [BT.SCHOOL_DISTRICT_UNIFIED]: 5,
-      [BT.SCHOOL_DISTRICT_ELEMENTARY]: 6,
-      [BT.SCHOOL_DISTRICT_SECONDARY]: 7,
-      [BT.FIRE_DISTRICT]: 8,
-      [BT.LIBRARY_DISTRICT]: 9,
-      [BT.HOSPITAL_DISTRICT]: 10,
-      [BT.WATER_DISTRICT]: 11,
-      [BT.UTILITY_DISTRICT]: 12,
-      [BT.TRANSIT_DISTRICT]: 13,
-      [BT.COUNTY]: 14,
-      [BT.CONGRESSIONAL_DISTRICT]: 15,
-      [BT.STATE_LEGISLATIVE_UPPER]: 16,
-      [BT.STATE_LEGISLATIVE_LOWER]: 17,
-      [BT.STATE_PROVINCE]: 18,
-      [BT.COUNTRY]: 19,
-      [BT.VOTING_DISTRICT]: 20,
-    };
-    return ranks[type] ?? 99;
+    return PRECISION_RANK[type] ?? 99;
   }
 
   /**

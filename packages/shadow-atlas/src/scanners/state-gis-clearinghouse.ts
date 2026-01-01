@@ -120,7 +120,7 @@ export class StateGISClearinghouseScanner {
         };
 
         // Verify this is a polygon layer (council districts must be polygons)
-        if (layerInfo.geometryType !== 'esriGeometryPolygon') {
+        if (layerInfo.geometryType !== 'esriGeometryPolygon' && layerInfo.geometryType !== 'esriGeometryMultiPolygon') {
           console.log(`   ⏭️  Skipping non-polygon layer: ${layerInfo.name} (${layerInfo.geometryType})`);
           continue;
         }
@@ -641,7 +641,7 @@ export class StateGISClearinghouseScanner {
       };
 
       // Must be polygon layer (governance boundaries are polygons)
-      if (layerData.geometryType !== 'esriGeometryPolygon') {
+      if (layerData.geometryType !== 'esriGeometryPolygon' && layerData.geometryType !== 'esriGeometryMultiPolygon') {
         return null;
       }
 

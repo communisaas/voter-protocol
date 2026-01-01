@@ -66,6 +66,7 @@ export interface MerkleProof {
   readonly root: string;           // Hex string
   readonly leaf: string;           // Hex string
   readonly siblings: readonly string[];  // Hex strings
+  readonly pathIndices: readonly number[];  // Path indices (0 = left child, 1 = right child)
   readonly districtId: string;
 }
 

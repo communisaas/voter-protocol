@@ -396,16 +396,88 @@ export function validateSnapshotID(
 // ============================================================================
 
 /**
- * GeoJSON Feature validation (basic structure check)
+ * GeoJSON Position validation (RFC 7946)
+ *
+ * Position is [longitude, latitude] or [longitude, latitude, altitude]
+ * Longitude: -180 to 180, Latitude: -90 to 90
+ *
+ * SECURITY: Validates coordinate ranges to prevent invalid geometry processing.
+ */
+export const GeoJSONPositionSchema = z
+  .tuple([
+    z.number().min(-180).max(180), // longitude
+    z.number().min(-90).max(90),   // latitude
+  ])
+  .rest(z.number()); // optional altitude and beyond
+
+/**
+ * GeoJSON LinearRing validation (RFC 7946)
+ *
+ * LinearRing is a closed ring with at least 4 positions where first == last.
+ *
+ * SECURITY: Validates ring closure and minimum vertex count.
+ */
+export const GeoJSONLinearRingSchema = z
+  .array(GeoJSONPositionSchema)
+  .min(4, 'LinearRing must have at least 4 positions');
+
+/**
+ * GeoJSON Polygon coordinates validation (RFC 7946)
+ *
+ * Polygon coordinates are arrays of LinearRings (first is exterior, rest are holes).
+ *
+ * SECURITY: Limits ring count to prevent memory exhaustion.
+ */
+export const GeoJSONPolygonCoordinatesSchema = z
+  .array(GeoJSONLinearRingSchema)
+  .min(1, 'Polygon must have at least one ring')
+  .max(100, 'Polygon exceeds maximum ring count (100)');
+
+/**
+ * GeoJSON MultiPolygon coordinates validation (RFC 7946)
+ *
+ * MultiPolygon coordinates are arrays of Polygon coordinates.
+ *
+ * SECURITY: Limits polygon count to prevent memory exhaustion.
+ */
+export const GeoJSONMultiPolygonCoordinatesSchema = z
+  .array(GeoJSONPolygonCoordinatesSchema)
+  .min(1, 'MultiPolygon must have at least one polygon')
+  .max(1000, 'MultiPolygon exceeds maximum polygon count (1000)');
+
+/**
+ * GeoJSON Polygon geometry validation
+ */
+export const GeoJSONPolygonGeometrySchema = z.object({
+  type: z.literal('Polygon'),
+  coordinates: GeoJSONPolygonCoordinatesSchema,
+});
+
+/**
+ * GeoJSON MultiPolygon geometry validation
+ */
+export const GeoJSONMultiPolygonGeometrySchema = z.object({
+  type: z.literal('MultiPolygon'),
+  coordinates: GeoJSONMultiPolygonCoordinatesSchema,
+});
+
+/**
+ * GeoJSON Geometry (Polygon or MultiPolygon) validation
+ */
+export const GeoJSONGeometrySchema = z.discriminatedUnion('type', [
+  GeoJSONPolygonGeometrySchema,
+  GeoJSONMultiPolygonGeometrySchema,
+]);
+
+/**
+ * GeoJSON Feature validation (type-safe structure check)
  *
  * SECURITY: Prevents processing of malformed GeoJSON that could crash parsers.
+ * Uses strict coordinate validation instead of z.any().
  */
 export const GeoJSONFeatureSchema = z.object({
   type: z.literal('Feature'),
-  geometry: z.object({
-    type: z.enum(['Polygon', 'MultiPolygon']),
-    coordinates: z.array(z.any()), // Detailed coordinate validation done separately
-  }),
+  geometry: GeoJSONGeometrySchema,
   properties: z.record(z.unknown()).nullable(),
 });
 

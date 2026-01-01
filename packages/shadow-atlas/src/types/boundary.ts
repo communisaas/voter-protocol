@@ -12,7 +12,9 @@
 
 import type { Polygon, MultiPolygon, Position } from 'geojson';
 import type { ProvenanceRecord } from '../provenance-writer.js';
+import { extractBBox } from '../core/geo-utils.js';
 export type { ProvenanceRecord };
+export { extractBBox };  // Re-export for backward compatibility
 
 /**
  * Boundary Type Enumeration
@@ -84,6 +86,33 @@ export enum BoundaryType {
 
   // Special Districts - Transportation (usually appointed)
   TRANSIT_DISTRICT = 'transit_district',
+
+  // Tribal and Indigenous Governance (sovereign representation)
+  TRIBAL_AREA = 'tribal_area',                    // AIANNH - American Indian/Alaska Native/Native Hawaiian Areas
+  ALASKA_NATIVE_CORP = 'alaska_native_corp',      // ANRC - Alaska Native Regional Corporations
+
+  // Metropolitan and Urban Planning (regional coordination)
+  METRO_AREA = 'metro_area',                      // CBSA/CSA - Core Based Statistical Areas
+  METRO_DIVISION = 'metro_division',              // METDIV - Metropolitan Divisions
+  URBAN_AREA = 'urban_area',                      // UAC - Urban Areas
+  NECTA = 'necta',                                // New England City and Town Areas
+  NECTA_DIVISION = 'necta_division',              // NECTA Divisions
+
+  // Reference and Analysis Layers
+  ZIP_CODE_AREA = 'zip_code_area',                // ZCTA - ZIP Code Tabulation Areas
+  CENSUS_TRACT = 'census_tract',                  // TRACT - Census Tracts
+  BLOCK_GROUP = 'block_group',                    // BG - Block Groups
+  PUMA = 'puma',                                  // Public Use Microdata Areas
+
+  // Tribal Census Infrastructure (demographic analysis)
+  TRIBAL_BLOCK_GROUP = 'tribal_block_group',      // TBG - Tribal Block Groups
+  TRIBAL_TRACT = 'tribal_tract',                  // TTRACT - Tribal Census Tracts
+
+  // Minor Civil Divisions (New England governance)
+  SUBMINOR_CIVIL_DIVISION = 'subminor_civil_division',  // SUBMCD - Subminor Civil Divisions
+
+  // Estates (US Virgin Islands only)
+  ESTATE = 'estate',                              // ESTATE - Estates in USVI
 }
 
 /**
@@ -128,18 +157,41 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   [BoundaryType.VOTING_DISTRICT]: 4.4,
 
   [BoundaryType.COUNTY_SUBDIVISION]: 4.5,
+  [BoundaryType.SUBMINOR_CIVIL_DIVISION]: 4.6,
 
   // Tier 2: County (universal US fallback)
   [BoundaryType.COUNTY]: 5,
+
+  // Tier 2.5: Tribal and Indigenous Governance (sovereign nations)
+  [BoundaryType.TRIBAL_AREA]: 5.5,
+  [BoundaryType.ALASKA_NATIVE_CORP]: 5.6,
+  [BoundaryType.ESTATE]: 5.7,  // USVI estates (county-equivalent)
 
   // Federal/State representation (parallel track, not fallback)
   [BoundaryType.CONGRESSIONAL_DISTRICT]: 6,
   [BoundaryType.STATE_LEGISLATIVE_UPPER]: 7,
   [BoundaryType.STATE_LEGISLATIVE_LOWER]: 8,
 
-  // Tier 3: Coarsest
-  [BoundaryType.STATE_PROVINCE]: 9,
-  [BoundaryType.COUNTRY]: 10,
+  // Tier 3: Metropolitan and Regional Planning
+  [BoundaryType.METRO_DIVISION]: 8.5,  // Finer than metro area
+  [BoundaryType.METRO_AREA]: 9,
+  [BoundaryType.NECTA_DIVISION]: 9.3,
+  [BoundaryType.NECTA]: 9.5,
+  [BoundaryType.URBAN_AREA]: 9.7,
+
+  // Tier 4: State/Province
+  [BoundaryType.STATE_PROVINCE]: 10,
+
+  // Tier 5: Reference and Analysis Layers (demographic, not civic)
+  [BoundaryType.PUMA]: 11,            // Public Use Microdata Areas
+  [BoundaryType.ZIP_CODE_AREA]: 12,   // ZIP codes (mail delivery)
+  [BoundaryType.CENSUS_TRACT]: 13,    // Demographic analysis
+  [BoundaryType.TRIBAL_TRACT]: 13.5,  // Tribal census tracts
+  [BoundaryType.BLOCK_GROUP]: 14,     // Fine demographic unit
+  [BoundaryType.TRIBAL_BLOCK_GROUP]: 14.5,  // Tribal block groups
+
+  // Tier 6: Country (coarsest)
+  [BoundaryType.COUNTRY]: 15,
 };
 
 /**
@@ -260,33 +312,7 @@ export function formatBoundary(boundary: BoundaryMetadata): string {
   return `${boundary.name} (${boundary.type}, ${boundary.jurisdiction})`;
 }
 
-/**
- * Extract bounding box from GeoJSON geometry
- */
-export function extractBBox(geometry: Polygon | MultiPolygon): BBox {
-  let minLon = Infinity;
-  let minLat = Infinity;
-  let maxLon = -Infinity;
-  let maxLat = -Infinity;
-
-  const processRing = (ring: Position[]) => {
-    for (const [lon, lat] of ring) {
-      minLon = Math.min(minLon, lon);
-      minLat = Math.min(minLat, lat);
-      maxLon = Math.max(maxLon, lon);
-      maxLat = Math.max(maxLat, lat);
-    }
-  };
-
-  if (geometry.type === 'Polygon') {
-    geometry.coordinates.forEach(processRing);
-  } else {
-    // MultiPolygon
-    geometry.coordinates.forEach((polygon) => polygon.forEach(processRing));
-  }
-
-  return [minLon, minLat, maxLon, maxLat];
-}
+// extractBBox moved to core/geo-utils.ts (imported above)
 
 /**
  * Check if point is inside bounding box

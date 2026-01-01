@@ -14,6 +14,7 @@ import type {
   FetchResult,
   FetcherSourceMetadata,
 } from '../types';
+import { extractExteriorCoordinates } from '../core/geo-utils.js';
 
 // Use FetcherSourceMetadata as the implementation of SourceMetadata for fetcher
 type SourceMetadata = FetcherSourceMetadata;
@@ -239,7 +240,8 @@ function computeBBox(
   let maxLat = -Infinity;
 
   for (const feature of features) {
-    const coords = extractCoordinates(feature.geometry);
+    // Type cast needed: GeoJSONGeometry uses readonly types, but extractExteriorCoordinates handles it
+    const coords = extractExteriorCoordinates(feature.geometry as any);
     for (const [lon, lat] of coords) {
       if (lon < minLon) minLon = lon;
       if (lon > maxLon) maxLon = lon;
@@ -251,17 +253,4 @@ function computeBBox(
   return [minLon, minLat, maxLon, maxLat];
 }
 
-/**
- * Extract all coordinates from geometry
- */
-function extractCoordinates(
-  geometry: GeoJSONFeature['geometry']
-): [number, number][] {
-  if (geometry.type === 'Polygon') {
-    // Polygon: first ring only (exterior)
-    return geometry.coordinates[0] as unknown as [number, number][];
-  } else {
-    // MultiPolygon: all exterior rings
-    return geometry.coordinates.flatMap(polygon => polygon[0]) as unknown as [number, number][];
-  }
-}
+// extractCoordinates removed - using extractExteriorCoordinates from geo-utils.ts
