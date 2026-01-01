@@ -25,6 +25,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { StateBatchExtractor, type ExtractedBoundary } from '../../../providers/state-batch-extractor.js';
 import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from '../../../providers/tiger-boundary-provider.js';
+import { CrossValidator } from '../../../validators/cross-validator.js';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 import { area, intersect, featureCollection } from '@turf/turf';
 import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
@@ -733,6 +734,64 @@ describe.skipIf(process.env.CI)('Cross-Validation: TIGER vs State Sources', () =
       expect(countMatch).toBe(true);
       expect(geoidResult.consistencyScore).toBeGreaterThanOrEqual(95);
     }, 180000); // 3 minute timeout for comprehensive validation
+
+    test('validates Wisconsin using CrossValidator class', async () => {
+      console.log('\n=== Wisconsin CrossValidator Test ===\n');
+
+      // Create CrossValidator instance
+      const validator = new CrossValidator(
+        tigerProvider,
+        stateExtractor,
+        {
+          tolerancePercent: 0.1,
+          requireBothSources: false,
+          minOverlapPercent: 95,
+        }
+      );
+
+      // Validate congressional districts
+      const result = await validator.validate('cd', '55', 2024);
+
+      console.log('\n   CROSS-VALIDATOR RESULT');
+      console.log('   ' + '='.repeat(50));
+      console.log(`   Layer: ${result.layer}`);
+      console.log(`   State: ${result.state}`);
+      console.log(`   TIGER Count: ${result.tigerCount}`);
+      console.log(`   State Count: ${result.stateCount}`);
+      console.log(`   Matched: ${result.matchedCount}`);
+      console.log(`   Quality Score: ${result.qualityScore}/100`);
+      console.log(`   Issues: ${result.issues.length}`);
+
+      if (result.unmatchedTiger.length > 0) {
+        console.log(`\n   Unmatched TIGER: ${result.unmatchedTiger.join(', ')}`);
+      }
+
+      if (result.unmatchedState.length > 0) {
+        console.log(`   Unmatched State: ${result.unmatchedState.join(', ')}`);
+      }
+
+      if (result.geometryMismatches.length > 0) {
+        console.log(`\n   Geometry Mismatches: ${result.geometryMismatches.length}`);
+        for (const mismatch of result.geometryMismatches.slice(0, 3)) {
+          console.log(`     ${mismatch.districtId}: ${mismatch.overlapPercent.toFixed(1)}% overlap (${mismatch.severity})`);
+        }
+      }
+
+      if (result.issues.length > 0) {
+        console.log(`\n   Issues:`);
+        for (const issue of result.issues) {
+          console.log(`     [${issue.severity}] ${issue.category}: ${issue.message}`);
+        }
+      }
+
+      // Validate
+      expect(result.tigerCount).toBe(8); // Wisconsin has 8 congressional districts
+      expect(result.stateCount).toBe(8);
+      expect(result.matchedCount).toBe(8);
+      expect(result.qualityScore).toBeGreaterThanOrEqual(80); // 80% minimum quality
+      expect(result.unmatchedTiger.length).toBe(0);
+      expect(result.unmatchedState.length).toBe(0);
+    }, 180000); // 3 minute timeout
   });
 
   // ============================================================================

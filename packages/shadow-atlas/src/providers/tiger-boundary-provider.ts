@@ -25,6 +25,7 @@
  */
 
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -38,6 +39,7 @@ import type { FeatureCollection } from 'geojson';
 import type { TIGERLayerType } from '../core/types.js';
 import { STATE_ABBR_TO_FIPS } from '../core/types.js';
 import { getExpectedCount, NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
+import type { DownloadDLQ } from '../acquisition/download-dlq.js';
 
 /**
  * TIGER layer types supported by FTP bulk download
@@ -51,17 +53,54 @@ import { getExpectedCount, NATIONAL_TOTALS } from '../validators/tiger-expected-
  * - Reference: zcta (ZIP codes)
  */
 export type TIGERLayer =
+  // Legislative districts
   | 'cd'      // Congressional Districts (435)
   | 'sldu'    // State Legislative Upper (~2,000)
   | 'sldl'    // State Legislative Lower (~5,400)
+
+  // County-level
   | 'county'  // Counties (3,143)
   | 'cousub'  // County Subdivisions - townships, boroughs (~34,000)
+  | 'submcd'  // Subminor Civil Divisions (~200)
+
+  // Municipal
   | 'place'   // Incorporated Places + CDPs (19,495 + ~9,500)
+
+  // School districts
   | 'unsd'    // Unified School Districts (~9,135)
   | 'elsd'    // Elementary School Districts (~3,064)
   | 'scsd'    // Secondary School Districts (~273)
+
+  // Electoral infrastructure
   | 'vtd'     // Voting Districts - precincts (~200,000)
-  | 'zcta';   // ZIP Code Tabulation Areas (~33,000)
+
+  // Tribal and Indigenous
+  | 'aiannh'  // American Indian/Alaska Native/Native Hawaiian Areas (~700)
+  | 'anrc'    // Alaska Native Regional Corporations (12)
+  | 'tbg'     // Tribal Block Groups
+  | 'ttract'  // Tribal Census Tracts
+
+  // Metropolitan and urban
+  | 'cbsa'    // Core Based Statistical Areas - metros (~940)
+  | 'csa'     // Combined Statistical Areas (~170)
+  | 'metdiv'  // Metropolitan Divisions (~30)
+  | 'uac'     // Urban Areas (~3,600)
+  | 'necta'   // New England City and Town Areas (~40)
+  | 'cnecta'  // Combined NECTA (~10)
+  | 'nectadiv' // NECTA Divisions (~7)
+
+  // Reference layers
+  | 'zcta'    // ZIP Code Tabulation Areas (~33,000)
+  | 'tract'   // Census Tracts (~85,000)
+  | 'bg'      // Block Groups (~242,000)
+  | 'puma'    // Public Use Microdata Areas (~2,400)
+
+  // Special cases
+  | 'estate'  // Estates (US Virgin Islands only) (3)
+  | 'concity' // Consolidated Cities (~40)
+
+  // Federal installations (P0-2: Military Bases)
+  | 'mil';    // Military Installations (~850)
 
 /**
  * Download options for TIGER boundary files
@@ -271,6 +310,278 @@ export const TIGER_FTP_LAYERS: Record<TIGERLayer, TIGERLayerMetadata> = {
     },
     adminLevel: 'city',  // Reference layer for mail targeting
   },
+
+  // ============================================================================
+  // Tribal and Indigenous Governance
+  // ============================================================================
+
+  aiannh: {
+    name: 'American Indian/Alaska Native/Native Hawaiian Areas',
+    ftpDir: 'AIANNH',
+    tigerWebLayerId: 72,  // TIGERweb layer ID for tribal areas
+    filePattern: 'national',  // Single national file (tribal lands span states)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'AIANNHCE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'district',  // Sovereign governance
+  },
+
+  anrc: {
+    name: 'Alaska Native Regional Corporations',
+    ftpDir: 'ANRC',
+    tigerWebLayerId: 74,  // TIGERweb layer ID for ANRCs
+    filePattern: 'national',  // Alaska only (12 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'ANRCFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'district',  // Corporate governance
+  },
+
+  tbg: {
+    name: 'Tribal Block Groups',
+    ftpDir: 'TBG',
+    tigerWebLayerId: 76,  // TIGERweb layer ID for tribal block groups
+    filePattern: 'state',  // State-level files
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'TBGCE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'district',  // Fine-grained demographic
+  },
+
+  ttract: {
+    name: 'Tribal Census Tracts',
+    ftpDir: 'TTRACT',
+    tigerWebLayerId: 75,  // TIGERweb layer ID for tribal tracts
+    filePattern: 'state',  // State-level files
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'TTRACTCE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'district',  // Demographic analysis
+  },
+
+  // ============================================================================
+  // Metropolitan and Urban Planning
+  // ============================================================================
+
+  cbsa: {
+    name: 'Core Based Statistical Areas',
+    ftpDir: 'CBSA',
+    tigerWebLayerId: 84,  // TIGERweb layer ID for metros
+    filePattern: 'national',  // Single national file (metros span states)
+    fields: {
+      stateFips: 'STATEFP',  // Primary state
+      entityFips: 'CBSAFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // Regional planning
+  },
+
+  csa: {
+    name: 'Combined Statistical Areas',
+    ftpDir: 'CSA',
+    tigerWebLayerId: 85,  // TIGERweb layer ID for combined metros
+    filePattern: 'national',  // Single national file
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'CSAFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // Mega-region planning
+  },
+
+  metdiv: {
+    name: 'Metropolitan Divisions',
+    ftpDir: 'METDIV',
+    tigerWebLayerId: 83,  // TIGERweb layer ID for metro divisions
+    filePattern: 'national',  // Single national file
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'METDIVFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // Sub-metro regions
+  },
+
+  uac: {
+    name: 'Urban Areas',
+    ftpDir: 'UAC',
+    tigerWebLayerId: 95,  // TIGERweb layer ID for urban areas
+    filePattern: 'national',  // Single national file (urban areas span counties)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'UACE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // Urban classification
+  },
+
+  necta: {
+    name: 'New England City and Town Areas',
+    ftpDir: 'NECTA',
+    tigerWebLayerId: 86,  // TIGERweb layer ID for NECTAs
+    filePattern: 'national',  // New England only (~40 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'NECTAFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // New England regional planning
+  },
+
+  cnecta: {
+    name: 'Combined New England City and Town Areas',
+    ftpDir: 'CNECTA',
+    tigerWebLayerId: 87,  // TIGERweb layer ID for combined NECTAs
+    filePattern: 'national',  // New England only (~10 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'CNECTAFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // New England mega-regions
+  },
+
+  nectadiv: {
+    name: 'NECTA Divisions',
+    ftpDir: 'NECTADIV',
+    tigerWebLayerId: 88,  // TIGERweb layer ID for NECTA divisions
+    filePattern: 'national',  // New England only (~7 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'NECTADIVFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // Sub-NECTA regions
+  },
+
+  // ============================================================================
+  // Reference and Demographic Layers
+  // ============================================================================
+
+  tract: {
+    name: 'Census Tracts',
+    ftpDir: 'TRACT',
+    tigerWebLayerId: 8,  // TIGERweb layer ID for tracts
+    filePattern: 'state',  // State-level files (~85,000 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'TRACTCE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // Fine demographic unit
+  },
+
+  bg: {
+    name: 'Block Groups',
+    ftpDir: 'BG',
+    tigerWebLayerId: 10,  // TIGERweb layer ID for block groups
+    filePattern: 'state',  // State-level files (~242,000 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'BLKGRPCE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // Finest demographic unit
+  },
+
+  puma: {
+    name: 'Public Use Microdata Areas',
+    ftpDir: 'PUMA',
+    tigerWebLayerId: 48,  // TIGERweb layer ID for PUMAs
+    filePattern: 'state',  // State-level files (~2,400 total)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'PUMACE',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // Statistical analysis regions
+  },
+
+  // ============================================================================
+  // Special Cases
+  // ============================================================================
+
+  submcd: {
+    name: 'Subminor Civil Divisions',
+    ftpDir: 'SUBMCD',
+    tigerWebLayerId: 40,  // TIGERweb layer ID for subminor civil divisions
+    filePattern: 'state',  // Very rare - only ~200 nationwide
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'SUBMCDFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // Fine-grained governance
+  },
+
+  estate: {
+    name: 'Estates',
+    ftpDir: 'ESTATE',
+    tigerWebLayerId: 78,  // TIGERweb layer ID for estates
+    filePattern: 'state',  // US Virgin Islands only (3 estates)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'ESTATEFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'county',  // County-equivalent in USVI
+  },
+
+  concity: {
+    name: 'Consolidated Cities',
+    ftpDir: 'CONCITY',
+    tigerWebLayerId: 32,  // TIGERweb layer ID for consolidated cities
+    filePattern: 'state',  // Rare - only ~40 nationwide
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'CONCTYFP',
+      geoid: 'GEOID',
+      name: 'NAMELSAD',
+    },
+    adminLevel: 'city',  // City-county consolidations
+  },
+
+  // ============================================================================
+  // Federal Installations (P0-2: Military Bases)
+  // ============================================================================
+
+  mil: {
+    name: 'Military Installations',
+    ftpDir: 'MIL',
+    tigerWebLayerId: 64,  // TIGERweb layer ID for military installations
+    filePattern: 'national',  // Single national file (~850 installations)
+    fields: {
+      stateFips: 'STATEFP',
+      entityFips: 'AREAID',
+      geoid: 'GEOID',
+      name: 'FULLNAME',
+    },
+    adminLevel: 'district',  // Federal jurisdiction overlay (not civic representation)
+  },
 };
 
 /**
@@ -306,12 +617,20 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
   private year: number;
   private maxRetries: number;
   private retryDelayMs: number;
+  private dlq?: DownloadDLQ;
+  private jobId?: string;
+  private autoExpireCache: boolean;
+  private gracePeriodDays: number;
 
   constructor(options: {
     cacheDir?: string;
     year?: number;
     maxRetries?: number;
     retryDelayMs?: number;
+    dlq?: DownloadDLQ;
+    jobId?: string;
+    autoExpireCache?: boolean;
+    gracePeriodDays?: number;
   } = {}) {
     // Default cache: packages/crypto/data/tiger-cache
     this.cacheDir = options.cacheDir ||
@@ -323,6 +642,14 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     // Retry configuration for network resilience
     this.maxRetries = options.maxRetries || 3;
     this.retryDelayMs = options.retryDelayMs || 1000;
+
+    // Optional DLQ for failed download persistence
+    this.dlq = options.dlq;
+    this.jobId = options.jobId;
+
+    // Cache expiration configuration (default: enabled with 30 day grace period)
+    this.autoExpireCache = options.autoExpireCache ?? true;
+    this.gracePeriodDays = options.gracePeriodDays ?? 30;
   }
 
   /**
@@ -597,9 +924,16 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     if (!forceRefresh) {
       try {
         await access(cacheFile);
-        const content = await readFile(cacheFile, 'utf-8');
-        console.log(`   💾 Loaded from cache: ${cacheFile}`);
-        return JSON.parse(content) as FeatureCollection;
+
+        // Check if cache is stale based on TIGER release schedule
+        if (this.isCacheStale(cacheFile)) {
+          console.log(`   ⏰ Cache stale (past TIGER ${year + 1} release + grace period), downloading fresh data...`);
+          // Fall through to download
+        } else {
+          const content = await readFile(cacheFile, 'utf-8');
+          console.log(`   💾 Loaded from cache: ${cacheFile}`);
+          return JSON.parse(content) as FeatureCollection;
+        }
       } catch {
         // Cache miss, download
       }
@@ -611,7 +945,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     console.log(`   📥 Downloading ${url}...`);
 
     // Download ZIP file with retry
-    await this.downloadFileWithRetry(url, zipPath);
+    await this.downloadFileWithRetry(url, zipPath, layer);
 
     console.log(`   🔄 Converting shapefile to GeoJSON...`);
 
@@ -643,8 +977,15 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     if (!forceRefresh) {
       try {
         await access(cacheFile);
-        const content = await readFile(cacheFile, 'utf-8');
-        return JSON.parse(content) as FeatureCollection;
+
+        // Check if cache is stale based on TIGER release schedule
+        if (this.isCacheStale(cacheFile)) {
+          console.log(`   ⏰ Cache stale (past TIGER ${year + 1} release + grace period), downloading fresh data for state ${stateFips}...`);
+          // Fall through to download
+        } else {
+          const content = await readFile(cacheFile, 'utf-8');
+          return JSON.parse(content) as FeatureCollection;
+        }
       } catch {
         // Cache miss, download
       }
@@ -654,7 +995,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     const zipPath = join(this.cacheDir, String(year), metadata.ftpDir, `tl_${year}_${stateFips}_${layer}.zip`);
 
     // Download ZIP file with retry
-    await this.downloadFileWithRetry(url, zipPath);
+    await this.downloadFileWithRetry(url, zipPath, layer, stateFips);
 
     // Convert to GeoJSON using ogr2ogr
     const geojson = await this.convertShapefileToGeoJSON(zipPath);
@@ -667,8 +1008,15 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
 
   /**
    * Download file via curl with exponential backoff retry
+   *
+   * On final failure, persists to DLQ for later retry if DLQ is configured.
    */
-  private async downloadFileWithRetry(url: string, outputPath: string): Promise<void> {
+  private async downloadFileWithRetry(
+    url: string,
+    outputPath: string,
+    layer?: TIGERLayer,
+    stateFips?: string
+  ): Promise<void> {
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
@@ -683,6 +1031,26 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
           console.log(`   ⚠️  Download failed (attempt ${attempt + 1}/${this.maxRetries + 1}), retrying in ${delay}ms...`);
           await this.sleep(delay);
         }
+      }
+    }
+
+    // Final failure - persist to DLQ if configured
+    if (this.dlq && layer) {
+      try {
+        await this.dlq.persistFailure({
+          jobId: this.jobId,
+          url,
+          layer,
+          stateFips,
+          year: this.year,
+          error: lastError?.message ?? 'Unknown error',
+          maxAttempts: this.maxRetries,
+          retryDelayMs: this.retryDelayMs,
+          retryBackoffMultiplier: 2,
+        });
+        console.log(`   📝 Persisted failed download to DLQ for later retry`);
+      } catch (dlqError) {
+        console.error(`   ⚠️  Failed to persist to DLQ: ${(dlqError as Error).message}`);
       }
     }
 
@@ -797,6 +1165,73 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
   private getNextCensusRelease(): string {
     const nextYear = this.year + 1;
     return `${nextYear}-09-01T00:00:00.000Z`;
+  }
+
+  /**
+   * Check if cached file is stale based on TIGER release schedule.
+   *
+   * TIGER data released September 1st annually - cache expires after grace period.
+   * Example: 2024 cache expires October 1, 2025 (30 days after Sept 1, 2025 release)
+   *
+   * @param cachePath - Path to cached file
+   * @returns true if cache is stale and should be refreshed
+   */
+  private isCacheStale(cachePath: string): boolean {
+    if (!this.autoExpireCache) {
+      return false;
+    }
+
+    try {
+      const stats = statSync(cachePath);
+      const cacheDate = new Date(stats.mtime);
+
+      // TIGER releases on September 1st of year following data year (UTC)
+      // e.g., 2024 data released Sept 1, 2025
+      const releaseDateMs = Date.UTC(this.year + 1, 8, 1); // Month is 0-indexed (8 = September)
+      const releaseDate = new Date(releaseDateMs);
+
+      // Add grace period to allow TIGER data to stabilize across all FTP mirrors
+      const expirationMs = releaseDateMs + this.gracePeriodDays * 24 * 60 * 60 * 1000;
+      const expirationDate = new Date(expirationMs);
+
+      // Cache is stale if:
+      // 1. We're past the expiration date (release + grace period)
+      // 2. Cache was created before the release date (old vintage)
+      const now = new Date();
+      return now > expirationDate && cacheDate < releaseDate;
+    } catch {
+      // If stat fails, treat as missing cache (not stale)
+      return false;
+    }
+  }
+
+  /**
+   * Get cache status for monitoring/alerting.
+   *
+   * Scans cache directory to identify fresh vs stale files based on TIGER release schedule.
+   * Useful for cache health monitoring and automated cleanup decisions.
+   *
+   * @returns Cache status summary
+   */
+  async getCacheStatus(): Promise<{
+    tigerYear: number;
+    autoExpireEnabled: boolean;
+    gracePeriodDays: number;
+    nextExpiration: Date;
+    cacheDir: string;
+  }> {
+    // Calculate expiration date in UTC to avoid timezone issues
+    const releaseDate = Date.UTC(this.year + 1, 8, 1); // September 1st of next year (UTC)
+    const expirationMs = releaseDate + this.gracePeriodDays * 24 * 60 * 60 * 1000;
+    const nextExpiration = new Date(expirationMs);
+
+    return {
+      tigerYear: this.year,
+      autoExpireEnabled: this.autoExpireCache,
+      gracePeriodDays: this.gracePeriodDays,
+      nextExpiration,
+      cacheDir: this.cacheDir,
+    };
   }
 
   /**
