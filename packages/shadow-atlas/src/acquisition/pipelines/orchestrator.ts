@@ -143,23 +143,43 @@ export class AcquisitionOrchestrator {
   }
 
   /**
-   * Write datasets to disk
+   * Write datasets to disk (parallel with batching)
    */
   private async writeDatasets(baseDir: string, subdir: string, datasets: readonly RawDataset[]): Promise<void> {
     const targetDir = join(baseDir, subdir);
+    const batchSize = 10; // Prevent overwhelming disk I/O
+    let written = 0;
 
-    for (let i = 0; i < datasets.length; i++) {
-      const dataset = datasets[i];
-      if (!dataset) continue;
+    for (let i = 0; i < datasets.length; i += batchSize) {
+      const batch = datasets.slice(i, i + batchSize);
 
-      const filename = `dataset-${i.toString().padStart(5, '0')}.geojson`;
-      const provenanceFilename = `provenance-${i.toString().padStart(5, '0')}.json`;
+      await Promise.all(
+        batch.map(async (dataset, batchIndex) => {
+          if (!dataset) return;
 
-      // Write GeoJSON
-      await writeFile(join(targetDir, filename), JSON.stringify(dataset.geojson, null, 2));
+          const globalIndex = i + batchIndex;
+          const filename = `dataset-${globalIndex.toString().padStart(5, '0')}.geojson`;
+          const provenanceFilename = `provenance-${globalIndex.toString().padStart(5, '0')}.json`;
 
-      // Write provenance
-      await writeFile(join(baseDir, 'provenance', provenanceFilename), JSON.stringify(dataset.provenance, null, 2));
+          try {
+            // Write GeoJSON and provenance in parallel
+            await Promise.all([
+              writeFile(join(targetDir, filename), JSON.stringify(dataset.geojson, null, 2)),
+              writeFile(join(baseDir, 'provenance', provenanceFilename), JSON.stringify(dataset.provenance, null, 2)),
+            ]);
+
+            written++;
+          } catch (error) {
+            console.error(`  ✗ Failed to write dataset ${globalIndex}: ${(error as Error).message}`);
+            throw error; // Re-throw to prevent silent data loss
+          }
+        })
+      );
+
+      // Progress update every batch
+      if (written % 50 === 0 || written === datasets.length) {
+        console.log(`  Progress: ${written}/${datasets.length} datasets written`);
+      }
     }
 
     console.log(`  ✓ Wrote ${datasets.length} datasets to ${subdir}/`);
