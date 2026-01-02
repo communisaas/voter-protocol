@@ -59,8 +59,8 @@ describe('ZKProofService', () => {
   let zkService: ZKProofService;
 
   beforeAll(async () => {
-    // Initialize ZK service (this loads the circuit and backend)
-    zkService = await ZKProofService.create({ threads: 1 });
+    // Initialize ZK service with depth 14 (municipal level)
+    zkService = await ZKProofService.create({ depth: 14 });
   });
 
   afterAll(async () => {
@@ -152,7 +152,7 @@ describe('ProofService - Async Factory Pattern', () => {
     const districts = [createMockDistrict('district-1', 'District 1')];
     const addresses = ['123 Main St'];
 
-    const service = await ProofService.create(districts, addresses, { threads: 1 });
+    const service = await ProofService.create(districts, addresses, { depth: 14 });
 
     expect(service).toBeDefined();
   });
@@ -230,7 +230,7 @@ describe('ProofService - Circuit Input Mapping', () => {
     const service = await ProofService.create(districts, addresses);
     const merkleProof = await service.generateProof('district-1');
 
-    const circuitInputs = service.mapToCircuitInputs(
+    const circuitInputs = await service.mapToCircuitInputs(
       merkleProof,
       '0x' + BigInt(12345).toString(16).padStart(64, '0'), // user_secret
       '0x' + BigInt(1).toString(16).padStart(64, '0'),      // campaign_id
@@ -259,7 +259,7 @@ describe('ProofService - Circuit Input Mapping', () => {
     const service = await ProofService.create(districts, addresses);
     const merkleProof = await service.generateProof('district-1');
 
-    const circuitInputs = service.mapToCircuitInputs(
+    const circuitInputs = await service.mapToCircuitInputs(
       merkleProof,
       '0x' + BigInt(12345).toString(16).padStart(64, '0'),
       '0x' + BigInt(1).toString(16).padStart(64, '0'),
@@ -278,7 +278,7 @@ describe('ProofService - Circuit Input Mapping', () => {
     const service = await ProofService.create(districts, addresses);
     const merkleProof = await service.generateProof('district-1');
 
-    const circuitInputs = service.mapToCircuitInputs(
+    const circuitInputs = await service.mapToCircuitInputs(
       merkleProof,
       '0x' + BigInt(12345).toString(16).padStart(64, '0'),
       '0x' + BigInt(1).toString(16).padStart(64, '0'),
@@ -356,7 +356,7 @@ describe('ProofService - ZK Proof Methods', () => {
     const districts = [createMockDistrict('district-1', 'District 1')];
     const addresses = ['123 Main St'];
 
-    const service = await ProofService.create(districts, addresses, { threads: 1 });
+    const service = await ProofService.create(districts, addresses, { depth: 14 });
 
     // Should not throw
     await expect(service.destroy()).resolves.not.toThrow();

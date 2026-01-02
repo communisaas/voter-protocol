@@ -225,8 +225,30 @@ const results = await optimizer.optimizeBatch(requests);
 
 **Usage**:
 ```typescript
+import Database from 'better-sqlite3';
 import { PreloadStrategy, US_METRO_PRELOAD_TARGETS } from './performance';
 
+// Option 1: Inject database instance (recommended for production)
+const db = new Database('.shadow-atlas/rtree-index.db', { readonly: true });
+const preload = new PreloadStrategy(cache, {
+  enableTimezoneAware: true,
+  enableTrafficPrediction: true,
+  enableEventDriven: true,
+  maxPreloadSizeMB: 200,
+  preloadIntervalMinutes: 15,
+}, db);
+
+// Option 2: Let PreloadStrategy open database from path
+const preload = new PreloadStrategy(cache, {
+  enableTimezoneAware: true,
+  enableTrafficPrediction: true,
+  enableEventDriven: true,
+  maxPreloadSizeMB: 200,
+  preloadIntervalMinutes: 15,
+  dbPath: '.shadow-atlas/rtree-index.db',
+});
+
+// Option 3: No database (uses placeholder fallback)
 const preload = new PreloadStrategy(cache, {
   enableTimezoneAware: true,
   enableTrafficPrediction: true,

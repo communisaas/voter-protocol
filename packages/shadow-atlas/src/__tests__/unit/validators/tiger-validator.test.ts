@@ -28,17 +28,17 @@ describe('TIGERValidator', () => {
   describe('validateCompleteness', () => {
     it('should pass with exact expected count', () => {
       // Wyoming has 1 congressional district (at-large)
-      // Note: District code 01 is used, not 00 (00 is a placeholder code that gets filtered)
+      // At-large states use district code 00 per Census TIGER convention
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -153,14 +153,14 @@ describe('TIGERValidator', () => {
       // Note: Using 01 and 02 as district codes (not 00 which is a placeholder)
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
         {
@@ -269,14 +269,14 @@ describe('TIGERValidator', () => {
       // Note: District code 01 is used, not 00 (00 is a placeholder code that gets filtered)
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -796,14 +796,14 @@ describe('TIGERValidator', () => {
       // Note: District code 01 is used, not 00 (00 is a placeholder code that gets filtered)
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];

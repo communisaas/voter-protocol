@@ -35,9 +35,10 @@ describe('UKBoundaryProvider', () => {
     });
 
     it('should have parliamentary layer configured', () => {
-      expect(provider.layers.parliamentary).toBeDefined();
-      expect(provider.layers.parliamentary.expectedCount).toBe(650);
-      expect(provider.layers.parliamentary.updateSchedule).toBe('event-driven');
+      const parliamentary = provider.layers.get('parliamentary');
+      expect(parliamentary).toBeDefined();
+      expect(parliamentary?.expectedCount).toBe(650);
+      expect(parliamentary?.updateSchedule).toBe('event-driven');
     });
   });
 
@@ -394,7 +395,8 @@ describe('UKBoundaryProvider', () => {
       const health = await provider.healthCheck();
 
       expect(health.available).toBe(true);
-      expect(health.latencyMs).toBeGreaterThan(0);
+      // Mocked fetches may complete in < 1ms, so accept >= 0
+      expect(health.latencyMs).toBeGreaterThanOrEqual(0);
       expect(health.issues).toHaveLength(0);
     });
 

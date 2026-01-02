@@ -16,7 +16,11 @@ import type {
 import { UpdateCoordinator } from './update-coordinator.js';
 import { AvailabilityMonitor } from './availability-monitor.js';
 import { FallbackResolver } from './fallback-resolver.js';
-import { RegionalPinningService } from './regional-pinning-service.js';
+import {
+  RegionalPinningService,
+  createRegionalPinningService,
+  type RegionalServiceConfig,
+} from './regional-pinning-service.js';
 import {
   DEFAULT_GLOBAL_CONFIG,
   DEFAULT_REGIONS,
@@ -42,14 +46,17 @@ export class ShadowAtlasGlobalExtension {
   private readonly updateCoordinator: UpdateCoordinator;
   private readonly availabilityMonitor: AvailabilityMonitor;
   private readonly fallbackResolver: FallbackResolver;
+  private readonly regionalServices: Map<Region, RegionalPinningService>;
+  private initPromise: Promise<void> | null = null;
 
-  constructor(atlasService: ShadowAtlasService) {
+  constructor(
+    atlasService: ShadowAtlasService,
+    serviceConfig?: RegionalServiceConfig
+  ) {
     this.atlasService = atlasService;
 
-    // Initialize regional pinning services
-    const regionalServices = new Map<Region, RegionalPinningService>();
-    // Note: In production, this would initialize actual pinning service implementations
-    // For now, this is a placeholder for the architecture
+    // Initialize regional pinning services map (populated async in init())
+    this.regionalServices = new Map<Region, RegionalPinningService>();
 
     // Initialize distribution components
     this.availabilityMonitor = new AvailabilityMonitor(DEFAULT_REGIONS, {
@@ -59,7 +66,7 @@ export class ShadowAtlasGlobalExtension {
 
     this.updateCoordinator = new UpdateCoordinator(
       DEFAULT_ROLLOUT,
-      regionalServices
+      this.regionalServices
     );
 
     this.fallbackResolver = new FallbackResolver(
@@ -67,8 +74,179 @@ export class ShadowAtlasGlobalExtension {
       this.availabilityMonitor
     );
 
+    // Start async initialization of regional services
+    this.initPromise = this.initializeRegionalServices(serviceConfig);
+
     // Start monitoring
     this.availabilityMonitor.startMonitoring();
+  }
+
+  /**
+   * Initialize regional pinning services from configuration
+   *
+   * Creates pinning services for each configured region using:
+   * 1. Explicit config passed to constructor
+   * 2. Environment variables (STORACHA_*, PINATA_*, FLEEK_*)
+   */
+  private async initializeRegionalServices(
+    config?: RegionalServiceConfig
+  ): Promise<void> {
+    const regions: Region[] = ['americas-east', 'americas-west', 'europe-west'];
+
+    for (const region of regions) {
+      try {
+        const service = await createRegionalPinningService(region, config);
+        this.regionalServices.set(region, service);
+      } catch (error) {
+        console.warn(
+          `[ShadowAtlasGlobalExtension] Failed to initialize pinning services for ${region}:`,
+          error instanceof Error ? error.message : error
+        );
+        // Continue with other regions - graceful degradation
+      }
+    }
+
+    if (this.regionalServices.size === 0) {
+      console.warn(
+        '[ShadowAtlasGlobalExtension] No regional pinning services initialized. ' +
+        'Set STORACHA_SPACE_DID/STORACHA_AGENT_KEY, PINATA_JWT, or FLEEK_API_KEY/FLEEK_API_SECRET.'
+      );
+    } else {
+      console.log(
+        `[ShadowAtlasGlobalExtension] Initialized ${this.regionalServices.size} regional pinning services`
+      );
+    }
+  }
+
+  /**
+   * Load merkle tree from persisted IPFS snapshot
+   *
+   * Allows bootstrapping from a previously published snapshot without rebuilding from scratch.
+   * Useful for:
+   * - Recovery from local database loss
+   * - Initializing new nodes from global state
+   * - Verifying historical snapshots
+   *
+   * @param cid - IPFS CID of the snapshot to load (or 'ipfs://CID' URL)
+   * @returns Loaded merkle tree with metadata, or null if unavailable
+   */
+  async loadMerkleTreeFromIPFS(
+    cid?: string
+  ): Promise<{
+    tree: import('../core/types.js').MerkleTree;
+    metadata: import('../core/types.js').SnapshotMetadata;
+  } | null> {
+    // Get CID from parameter, environment variable, or return null
+    const rootCid = cid ?? process.env.SHADOW_ATLAS_ROOT_CID;
+
+    if (!rootCid) {
+      console.debug('[ShadowAtlasGlobalExtension] No IPFS CID configured for merkle tree persistence');
+      return null;
+    }
+
+    try {
+      console.log(`[ShadowAtlasGlobalExtension] Loading merkle tree from IPFS CID: ${rootCid}`);
+
+      // Extract CID from ipfs:// URL if present
+      const cleanCid = rootCid.startsWith('ipfs://')
+        ? rootCid.slice(7)
+        : rootCid;
+
+      // Try gateways in priority order
+      const gateways = [
+        'https://w3s.link',
+        'https://dweb.link',
+        'https://ipfs.io',
+        'https://cloudflare-ipfs.com',
+      ];
+
+      let snapshotData: {
+        merkleRoot: string;
+        leaves: readonly string[];
+        districts: readonly import('../core/types.js').NormalizedDistrict[];
+        metadata?: {
+          id: string;
+          boundaryCount: number;
+          createdAt: string;
+          regions: readonly string[];
+        };
+      } | null = null;
+
+      for (const gateway of gateways) {
+        try {
+          const url = `${gateway}/ipfs/${cleanCid}`;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+          });
+
+          clearTimeout(timeout);
+
+          if (!response.ok) {
+            console.debug(`[ShadowAtlasGlobalExtension] Gateway ${gateway} returned ${response.status}`);
+            continue;
+          }
+
+          snapshotData = await response.json();
+          console.log(`[ShadowAtlasGlobalExtension] Successfully loaded snapshot from ${gateway}`);
+          break;
+        } catch (error) {
+          console.debug(`[ShadowAtlasGlobalExtension] Gateway ${gateway} failed:`, error);
+          continue;
+        }
+      }
+
+      if (!snapshotData) {
+        console.warn(`[ShadowAtlasGlobalExtension] Failed to load snapshot from all gateways for CID ${cleanCid}`);
+        return null;
+      }
+
+      // Reconstruct merkle tree from snapshot data
+      const merkleTree: import('../core/types.js').MerkleTree = {
+        root: snapshotData.merkleRoot,
+        leaves: [...snapshotData.leaves],
+        tree: [], // Full tree not needed for most operations
+        districts: [...snapshotData.districts],
+      };
+
+      // Reconstruct metadata
+      const metadata: import('../core/types.js').SnapshotMetadata = {
+        id: snapshotData.metadata?.id ?? cleanCid,
+        merkleRoot: snapshotData.merkleRoot,
+        ipfsCID: cleanCid,
+        boundaryCount: snapshotData.metadata?.boundaryCount ?? snapshotData.districts.length,
+        createdAt: snapshotData.metadata?.createdAt
+          ? new Date(snapshotData.metadata.createdAt)
+          : new Date(),
+        regions: snapshotData.metadata?.regions ?? [],
+      };
+
+      console.log(
+        `[ShadowAtlasGlobalExtension] Loaded merkle tree: ` +
+        `${metadata.boundaryCount} boundaries, root ${merkleTree.root.slice(0, 10)}...`
+      );
+
+      return { tree: merkleTree, metadata };
+    } catch (error) {
+      console.error(
+        `[ShadowAtlasGlobalExtension] Failed to load merkle tree from IPFS:`,
+        error instanceof Error ? error.message : error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Ensure regional services are initialized before publishing
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+      this.initPromise = null;
+    }
   }
 
   /**
@@ -82,6 +260,9 @@ export class ShadowAtlasGlobalExtension {
   async publishGlobal(
     options: Partial<GlobalPublishOptions> = {}
   ): Promise<GlobalPublishResult> {
+    // Ensure regional services are initialized
+    await this.ensureInitialized();
+
     // Get latest snapshot from atlas service
     const snapshots = await this.atlasService.listSnapshots(1);
     if (snapshots.length === 0) {
@@ -90,13 +271,63 @@ export class ShadowAtlasGlobalExtension {
 
     const latestSnapshot = snapshots[0];
 
-    // Load snapshot data (would retrieve merkle tree from persistence)
-    // For now, this is a placeholder
-    const merkleTree = {
-      root: latestSnapshot.merkleRoot,
-      leaves: [],
-      tree: [],
-      districts: [],
+    // Load versioned snapshot (includes layerCounts and metadata)
+    const fullSnapshot = await this.atlasService.getVersionedSnapshot(latestSnapshot.id);
+    if (!fullSnapshot) {
+      throw new Error(`Snapshot ${latestSnapshot.id} not found`);
+    }
+
+    // Load proof templates to reconstruct merkle tree leaves
+    const proofTemplates = await this.atlasService.getProofTemplates(latestSnapshot.id);
+
+    // Construct merkle tree from proof templates
+    // Each proof template contains the leaf hash for its district
+    const leaves = proofTemplates.map(pt => pt.leafHash);
+
+    // Calculate total boundaries from layer counts
+    const totalBoundaries = Object.values(fullSnapshot.layerCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    // Construct MerkleTree with minimal district data
+    // The UpdateCoordinator only uses districts.length for serialization
+    // We use Array.from to create a properly-sized array with placeholder districts
+    const merkleTree: import('../core/types.js').MerkleTree = {
+      root: '0x' + fullSnapshot.merkleRoot.toString(16).padStart(64, '0'),
+      leaves,
+      tree: [], // Full tree not needed for IPFS serialization
+      // Create minimal district objects - only .length is used by UpdateCoordinator
+      districts: Array.from({ length: proofTemplates.length }, (_, i) => ({
+        id: proofTemplates[i].districtId,
+        name: proofTemplates[i].districtId,
+        jurisdiction: 'USA',
+        districtType: 'council' as const,
+        geometry: { type: 'Polygon' as const, coordinates: [] },
+        provenance: {
+          source: 'https://www2.census.gov/geo/tiger/',
+          authority: 'federal' as const,
+          timestamp: fullSnapshot.timestamp.getTime(),
+          method: 'shadow-atlas-build',
+          responseHash: proofTemplates[i].leafHash,
+          jurisdiction: 'USA',
+          httpStatus: 200,
+          featureCount: 1,
+          geometryType: 'Polygon' as const,
+          coordinateSystem: 'EPSG:4326',
+        },
+        bbox: [0, 0, 0, 0] as const,
+      })) as import('../core/types.js').NormalizedDistrict[],
+    };
+
+    // Construct metadata matching SnapshotMetadata from core/types/service.ts
+    const metadata: import('../core/types.js').SnapshotMetadata = {
+      id: fullSnapshot.id,
+      merkleRoot: '0x' + fullSnapshot.merkleRoot.toString(16).padStart(64, '0'),
+      ipfsCID: fullSnapshot.ipfsCid ?? '',
+      boundaryCount: totalBoundaries,
+      createdAt: fullSnapshot.timestamp,
+      regions: [...fullSnapshot.metadata.statesIncluded],
     };
 
     const publishOptions: GlobalPublishOptions = {
@@ -110,7 +341,7 @@ export class ShadowAtlasGlobalExtension {
     // Execute coordinated global update
     const result = await this.updateCoordinator.coordinateUpdate(
       merkleTree,
-      latestSnapshot,
+      metadata,
       publishOptions
     );
 

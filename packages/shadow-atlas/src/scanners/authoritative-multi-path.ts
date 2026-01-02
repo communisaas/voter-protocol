@@ -13,41 +13,25 @@
  *
  * GOAL: 95%+ success with official names, zero validation errors
  *
- * GOVERNANCE PRE-FLIGHT INTEGRATION (TODO - not yet wired up):
+ * GOVERNANCE PRE-FLIGHT INTEGRATION (✅ IMPLEMENTED):
  *
- * To prevent wasted compute on at-large cities (no geographic districts),
- * call GovernanceValidator BEFORE this scanner runs:
+ * The scanner now automatically performs governance pre-flight checks to prevent
+ * wasted compute on at-large cities (no geographic districts).
  *
+ * USAGE:
  * ```typescript
- * import { GovernanceValidator } from '../validators/governance-validator.js';
- *
- * // In discovery pipeline (before calling this scanner):
- * const govValidator = new GovernanceValidator();
- * const govCheck = await govValidator.checkGovernance(city.fips);
- *
- * if (!govCheck.shouldAttemptLayer1) {
- *   console.log(`⏭️  Skipping Layer 1 for ${city.name}, ${city.state}`);
- *   console.log(`   Reason: ${govCheck.reason}`);
- *   console.log(`   Source: ${govCheck.source}`);
- *   return { success: false, fallbackToLayer2: true };
- * }
- *
- * // Proceed with multi-path scanner...
  * const scanner = new AuthoritativeMultiPathScanner();
+ *
+ * // Pre-flight check happens automatically inside search()
  * const candidates = await scanner.search(city);
  *
- * // After successful discovery, validate district count:
+ * // If candidates found, validate district count:
  * if (candidates.length > 0) {
  *   // Download and parse GeoJSON to get feature count...
  *   const featureCount = geojson.features.length;
  *
- *   const validation = govValidator.validateDiscoveredDistricts(
- *     city.fips,
- *     featureCount
- *   );
- *
+ *   const validation = scanner.validateDiscoveredDistricts(city, featureCount);
  *   if (!validation.valid) {
- *     console.warn(`⚠️  Discovery validation failed: ${validation.reason}`);
  *     // Continue with Layer 2 fallback or flag for manual review
  *   }
  * }
@@ -60,6 +44,7 @@ import type { CityInfo as CityTarget } from '../validators/geographic-validator.
 import type { PortalCandidate } from './arcgis-hub.js';
 // KNOWN_CITY_PORTALS imported from centralized registry (eliminated duplicate)
 import { KNOWN_CITY_PORTALS } from '../registry/known-city-portals.js';
+import { GovernanceValidator } from '../validators/governance-validator.js';
 
 /**
  * Authoritative path types (in priority order)
@@ -102,6 +87,11 @@ interface GovernanceLayerCandidate {
  */
 export class AuthoritativeMultiPathScanner {
   // KNOWN_CITY_PORTALS now imported from registry/known-city-portals.ts
+  private readonly governanceValidator: GovernanceValidator;
+
+  constructor() {
+    this.governanceValidator = new GovernanceValidator();
+  }
 
   /**
    * Search for council districts using multi-path strategy
@@ -110,6 +100,18 @@ export class AuthoritativeMultiPathScanner {
    */
   async search(city: CityTarget): Promise<PortalCandidate[]> {
     console.log(`   🎯 Authoritative search: ${city.name}, ${city.state}`);
+
+    // Pre-flight governance check (skip Layer 1 for at-large cities)
+    const govCheck = await this.governanceValidator.checkGovernance(city.fips);
+
+    if (!govCheck.shouldAttemptLayer1) {
+      console.log(`   ⏭️  Skipping Layer 1 for ${city.name}, ${city.state}`);
+      console.log(`      Reason: ${govCheck.reason}`);
+      if (govCheck.source) {
+        console.log(`      Source: ${govCheck.source}`);
+      }
+      return [];
+    }
 
     // Path 1: Direct city portal (highest priority)
     const path1 = await this.tryDirectCityPortal(city);
@@ -137,6 +139,31 @@ export class AuthoritativeMultiPathScanner {
 
     console.log(`   ❌ All authoritative paths failed for ${city.name}, ${city.state}`);
     return [];
+  }
+
+  /**
+   * Validate discovered districts against governance registry
+   *
+   * Call this AFTER successful discovery to validate district count.
+   *
+   * @param city - Target city
+   * @param featureCount - Number of features discovered from Layer 1
+   * @returns Validation result with details
+   */
+  validateDiscoveredDistricts(city: CityTarget, featureCount: number) {
+    const validation = this.governanceValidator.validateDiscoveredDistricts(
+      city.fips,
+      featureCount
+    );
+
+    if (!validation.valid) {
+      console.warn(`   ⚠️  Discovery validation failed for ${city.name}, ${city.state}`);
+      console.warn(`      ${validation.reason}`);
+    } else {
+      console.log(`   ✅ Discovery validation passed: ${validation.reason}`);
+    }
+
+    return validation;
   }
 
   /**

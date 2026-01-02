@@ -344,13 +344,83 @@ export class UpdateCoordinator {
     readonly totalGateways: number;
     readonly avgLatencyMs: number;
   }> {
-    // This would make actual HTTP requests to gateways
-    // For now, return placeholder
+    // Map regions to IPFS public gateways
+    const gateways: Readonly<Record<Region, string>> = {
+      'americas-east': 'https://gateway.pinata.cloud',
+      'americas-west': 'https://w3s.link',
+      'americas-south': 'https://dweb.link',
+      'europe-west': 'https://ipfs.io',
+      'europe-central': 'https://cf-ipfs.com',
+      'africa-south': 'https://gateway.pinata.cloud',
+      'asia-east': 'https://hardbin.com',
+      'asia-southeast': 'https://4everland.io',
+      'asia-south': 'https://ipfs.fleek.co',
+      'oceania': 'https://nftstorage.link',
+    };
+
+    // Perform HEAD requests to verify CID availability
+    const results = await Promise.allSettled(
+      regions.map(async (region) => {
+        const gateway = gateways[region];
+        const url = `${gateway}/ipfs/${cid}`;
+        const start = Date.now();
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+
+          const response = await fetch(url, {
+            method: 'HEAD',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeout);
+
+          return {
+            region,
+            available: response.ok,
+            latencyMs: Date.now() - start,
+            statusCode: response.status,
+          };
+        } catch (error) {
+          return {
+            region,
+            available: false,
+            latencyMs: Date.now() - start,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          };
+        }
+      })
+    );
+
+    // Extract successful results
+    const successful: Array<{
+      region: Region;
+      available: boolean;
+      latencyMs: number;
+    }> = [];
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.available) {
+        successful.push({
+          region: result.value.region,
+          available: result.value.available,
+          latencyMs: result.value.latencyMs,
+        });
+      }
+    }
+
+    // Calculate average latency
+    const avgLatency =
+      successful.length > 0
+        ? successful.reduce((sum, r) => sum + r.latencyMs, 0) / successful.length
+        : 0;
+
     return {
-      verified: true,
-      reachableGateways: regions.length,
+      verified: successful.length === regions.length,
+      reachableGateways: successful.length,
       totalGateways: regions.length,
-      avgLatencyMs: 50,
+      avgLatencyMs: Math.round(avgLatency),
     };
   }
 

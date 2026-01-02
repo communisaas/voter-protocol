@@ -31,14 +31,15 @@ describe('CanadaBoundaryProvider', () => {
       expect(provider.country).toBe('CA');
       expect(provider.countryName).toBe('Canada');
       expect(provider.dataSource).toBe('Elections Canada / Statistics Canada');
-      expect(provider.apiType).toBe('rest-custom');
+      expect(provider.apiType).toBe('rest-api');
       expect(provider.license).toBe('OGL-CA');
     });
 
     it('should have federal layer configured', () => {
-      expect(provider.layers.federal).toBeDefined();
-      expect(provider.layers.federal.expectedCount).toBe(338);
-      expect(provider.layers.federal.updateSchedule).toBe('event-driven');
+      const federal = provider.layers.get('federal');
+      expect(federal).toBeDefined();
+      expect(federal?.expectedCount).toBe(338);
+      expect(federal?.updateSchedule).toBe('event-driven');
     });
   });
 
@@ -439,7 +440,8 @@ describe('CanadaBoundaryProvider', () => {
       const health = await provider.healthCheck();
 
       expect(health.available).toBe(true);
-      expect(health.latencyMs).toBeGreaterThan(0);
+      // Mocked fetches may complete in < 1ms, so accept >= 0
+      expect(health.latencyMs).toBeGreaterThanOrEqual(0);
       expect(health.issues).toHaveLength(0);
     });
 

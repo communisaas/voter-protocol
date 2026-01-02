@@ -153,14 +153,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
       // Wyoming has 1 CD, provide exactly 1 with valid district code
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -177,14 +177,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
       // Wyoming has 1 CD, provide 1 with invalid geometry (null)
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large (invalid geometry)',
           geometry: null as unknown as Polygon,
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -207,14 +207,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
     it('should NOT throw when topology fails but halt disabled', () => {
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: null as unknown as Polygon,
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -233,17 +233,17 @@ describe('TIGERValidator.validateWithHaltGates', () => {
     it('should throw for empty polygon geometry', () => {
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large (empty)',
           geometry: {
             type: 'Polygon',
             coordinates: [], // Empty polygon
           },
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -260,7 +260,7 @@ describe('TIGERValidator.validateWithHaltGates', () => {
       // The polygon must be properly closed and not self-intersecting
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large (with null coord)',
           geometry: {
             type: 'Polygon',
@@ -275,10 +275,10 @@ describe('TIGERValidator.validateWithHaltGates', () => {
             ],
           },
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -308,7 +308,7 @@ describe('TIGERValidator.validateWithHaltGates', () => {
     it('should NOT throw when coordinates fail but halt disabled', () => {
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large (with NaN coord)',
           geometry: {
             type: 'Polygon',
@@ -323,10 +323,10 @@ describe('TIGERValidator.validateWithHaltGates', () => {
             ],
           },
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -345,7 +345,7 @@ describe('TIGERValidator.validateWithHaltGates', () => {
     it('should throw for out-of-range coordinates when topology halt disabled', () => {
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large (out of range)',
           geometry: {
             type: 'Polygon',
@@ -360,10 +360,10 @@ describe('TIGERValidator.validateWithHaltGates', () => {
             ],
           },
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -404,14 +404,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
       // Wyoming has 1 CD - provide 1 with null geometry but valid count
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: null as unknown as Polygon,
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -433,14 +433,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
       // Wyoming CD during redistricting gap period (e.g., Jan 2022)
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];
@@ -464,14 +464,14 @@ describe('TIGERValidator.validateWithHaltGates', () => {
     it('should return warnings in result when present', () => {
       const boundaries: NormalizedBoundary[] = [
         {
-          geoid: '5601',
+          geoid: '5600',
           name: 'Wyoming At-Large',
           geometry: createValidPolygon(),
           properties: {
-            GEOID: '5601',
+            GEOID: '5600',
             NAMELSAD: 'Congressional District (at Large)',
             STATEFP: '56',
-            CD119FP: '01',
+            CD119FP: '00',
           },
         },
       ];

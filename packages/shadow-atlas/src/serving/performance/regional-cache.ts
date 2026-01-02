@@ -20,6 +20,19 @@
 import type { DistrictBoundary } from '../types';
 
 /**
+ * IPFS snapshot data structure
+ * Matches the format published to IPFS by ShadowAtlasService
+ */
+interface SnapshotData {
+  readonly districts: Record<string, DistrictBoundary>;
+  readonly metadata?: {
+    readonly merkleRoot: string;
+    readonly version: number;
+    readonly timestamp: string;
+  };
+}
+
+/**
  * Cache entry with TTL and priority
  */
 interface CacheEntry<T> {
@@ -51,6 +64,8 @@ export interface RegionalCacheConfig {
   readonly l2TTLSeconds: number;       // L2 TTL (default: 86400)
   readonly enableL3IPFS: boolean;      // Enable IPFS caching
   readonly ipfsGateway?: string;       // IPFS gateway URL
+  readonly localCacheDir?: string;     // Local filesystem cache directory
+  readonly snapshotCid?: string;       // Current snapshot CID (from SnapshotMetadata)
 }
 
 /**
@@ -554,47 +569,173 @@ export class RegionalCache {
   /**
    * Get district from IPFS cache
    *
-   * Fetches district data from local filesystem cache keyed by CID.
-   * IPFS content is immutable, so we can cache indefinitely.
+   * Fetches entire snapshot from IPFS and extracts requested district.
+   * IPFS content is immutable (content-addressed), so we can cache indefinitely.
+   *
+   * Architecture:
+   * 1. Check local filesystem cache for snapshot (keyed by CID)
+   * 2. If miss, fetch from IPFS gateway
+   * 3. Extract requested district from snapshot
+   * 4. Cache snapshot locally for future requests
    *
    * @param districtId - District ID
-   * @returns District boundary or null if not cached
+   * @returns District boundary or null if not found
    */
   private async getFromIPFS(districtId: string): Promise<DistrictBoundary | null> {
-    if (!this.config.ipfsGateway) {
+    const { ipfsGateway, snapshotCid, localCacheDir } = this.config;
+
+    // Verify IPFS is configured
+    if (!ipfsGateway || !snapshotCid) {
       return null;
     }
 
     try {
-      // In production, this would:
-      // 1. Hash district ID to IPFS CID (content addressing)
-      // 2. Check local filesystem cache at .cache/ipfs/{cid}
-      // 3. If miss, fetch from IPFS gateway
-      // 4. Store in local cache with TTL
-      //
-      // const cid = await this.districtIdToCID(districtId);
-      // const cachePath = join(this.cacheDir, 'ipfs', cid);
-      //
-      // try {
-      //   const cached = await readFile(cachePath, 'utf-8');
-      //   return JSON.parse(cached) as DistrictBoundary;
-      // } catch {
-      //   // Cache miss - fetch from IPFS gateway
-      //   const url = `${this.config.ipfsGateway}/ipfs/${cid}`;
-      //   const response = await fetch(url);
-      //   if (!response.ok) return null;
-      //
-      //   const data = await response.json();
-      //   await writeFile(cachePath, JSON.stringify(data));
-      //   return data as DistrictBoundary;
-      // }
+      // Check local filesystem cache first
+      let snapshotData: SnapshotData | null = null;
 
-      // Placeholder: IPFS integration not yet implemented
+      if (localCacheDir) {
+        snapshotData = await this.loadSnapshotFromCache(snapshotCid, localCacheDir);
+      }
+
+      // Cache miss - fetch from IPFS gateway
+      if (!snapshotData) {
+        snapshotData = await this.fetchSnapshotFromIPFS(snapshotCid, ipfsGateway);
+
+        // Store in local cache for future requests
+        if (snapshotData && localCacheDir) {
+          await this.saveSnapshotToCache(snapshotCid, snapshotData, localCacheDir);
+        }
+      }
+
+      // Extract requested district from snapshot
+      if (snapshotData) {
+        return this.extractDistrictFromSnapshot(districtId, snapshotData);
+      }
+
       return null;
     } catch (error) {
       console.warn(`[RegionalCache] IPFS fetch failed for ${districtId}:`, error);
       return null;
     }
+  }
+
+  /**
+   * Load snapshot from local filesystem cache
+   */
+  private async loadSnapshotFromCache(
+    cid: string,
+    cacheDir: string
+  ): Promise<SnapshotData | null> {
+    try {
+      const { join } = await import('node:path');
+      const { readFile } = await import('node:fs/promises');
+
+      const cachePath = join(cacheDir, 'ipfs', `${cid}.json`);
+      const cached = await readFile(cachePath, 'utf-8');
+      return JSON.parse(cached) as SnapshotData;
+    } catch {
+      // Cache miss or read error
+      return null;
+    }
+  }
+
+  /**
+   * Fetch snapshot from IPFS gateway with fallback chain
+   *
+   * Tries multiple gateways in priority order:
+   * 1. Primary gateway from config
+   * 2. w3s.link (Storacha gateway)
+   * 3. dweb.link (Protocol Labs)
+   * 4. ipfs.io (Public fallback)
+   *
+   * IPFS URLs (ipfs://CID) are automatically resolved.
+   */
+  private async fetchSnapshotFromIPFS(
+    cidOrUrl: string,
+    primaryGateway: string
+  ): Promise<SnapshotData | null> {
+    // Extract CID from ipfs:// URL if present
+    const cid = cidOrUrl.startsWith('ipfs://')
+      ? cidOrUrl.slice(7) // Remove 'ipfs://' prefix
+      : cidOrUrl;
+
+    // Gateway fallback chain (ordered by reliability)
+    const gateways = [
+      primaryGateway,
+      'https://w3s.link',
+      'https://dweb.link',
+      'https://ipfs.io',
+    ].filter((url, index, arr) => arr.indexOf(url) === index); // Deduplicate
+
+    // Try each gateway in sequence
+    for (const gateway of gateways) {
+      try {
+        const url = `${gateway}/ipfs/${cid}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          console.debug(`[RegionalCache] Gateway ${gateway} returned ${response.status} for CID ${cid}`);
+          continue; // Try next gateway
+        }
+
+        const data = await response.json();
+        console.debug(`[RegionalCache] Successfully fetched CID ${cid} from ${gateway}`);
+        return data as SnapshotData;
+      } catch (error) {
+        console.debug(`[RegionalCache] Gateway ${gateway} failed for CID ${cid}:`, error);
+        continue; // Try next gateway
+      }
+    }
+
+    // All gateways failed
+    console.warn(`[RegionalCache] All gateways failed for CID ${cid}`);
+    return null;
+  }
+
+  /**
+   * Save snapshot to local filesystem cache
+   */
+  private async saveSnapshotToCache(
+    cid: string,
+    snapshot: SnapshotData,
+    cacheDir: string
+  ): Promise<void> {
+    try {
+      const { join, dirname } = await import('node:path');
+      const { mkdir, writeFile } = await import('node:fs/promises');
+
+      const cachePath = join(cacheDir, 'ipfs', `${cid}.json`);
+      await mkdir(dirname(cachePath), { recursive: true });
+      await writeFile(cachePath, JSON.stringify(snapshot));
+    } catch (error) {
+      console.warn(`[RegionalCache] Failed to cache snapshot ${cid}:`, error);
+    }
+  }
+
+  /**
+   * Extract district from snapshot data
+   *
+   * Snapshot format: { districts: { [id: string]: DistrictBoundary } }
+   * This matches the structure published to IPFS by ShadowAtlasService.
+   */
+  private extractDistrictFromSnapshot(
+    districtId: string,
+    snapshot: SnapshotData
+  ): DistrictBoundary | null {
+    if (!snapshot.districts || typeof snapshot.districts !== 'object') {
+      console.warn('[RegionalCache] Invalid snapshot format: missing districts object');
+      return null;
+    }
+
+    return snapshot.districts[districtId] ?? null;
   }
 
   /**

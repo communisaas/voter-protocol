@@ -649,21 +649,23 @@ describe('At-Large Congressional Districts', () => {
       expect(filtered[0].geoid).toBe('0201');
     });
 
-    it('should filter 00 placeholder districts', () => {
+    it('should keep 00 district for at-large states (Wyoming)', () => {
+      // Wyoming is at-large - district code 00 is VALID, not a placeholder
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('56', '01', 'Wyoming At-Large'),
-        createCDBoundary('56', '00', 'Wyoming Placeholder'),
+        createCDBoundary('56', '00', 'Wyoming At-Large'),
+        createCDBoundary('56', 'ZZ', 'Wyoming Placeholder'),
       ];
 
       const filtered = validator.filterPlaceholderDistricts(boundaries);
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].geoid).toBe('5601');
+      expect(filtered[0].geoid).toBe('5600');
     });
 
     it('should filter 98 and 99 placeholder districts', () => {
+      // Vermont is at-large - uses district code 00
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('50', '01', 'Vermont At-Large'),
+        createCDBoundary('50', '00', 'Vermont At-Large'),
         createCDBoundary('50', '98', 'Vermont Overseas'),
         createCDBoundary('50', '99', 'Vermont Undefined'),
       ];
@@ -671,7 +673,7 @@ describe('At-Large Congressional Districts', () => {
       const filtered = validator.filterPlaceholderDistricts(boundaries);
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].geoid).toBe('5001');
+      expect(filtered[0].geoid).toBe('5000');
     });
 
     it('should not filter valid district codes', () => {
@@ -703,9 +705,13 @@ describe('At-Large Congressional Districts', () => {
   });
 
   describe('validateCompleteness with at-large states', () => {
-    it('should validate Alaska with 1 CD boundary', () => {
+    // NOTE: At-large states use district code '00' (not '01') per Census TIGER convention
+    // This differs from multi-district states where '00' is a placeholder
+
+    it('should validate Alaska with 1 CD boundary (district 00)', () => {
+      // Alaska at-large uses GEOID 0200 (state 02 + district 00)
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('02', '01', 'Alaska At-Large'),
+        createCDBoundary('02', '00', 'Alaska At-Large'),
       ];
 
       const result = validator.validateCompleteness('cd', boundaries, '02');
@@ -717,9 +723,9 @@ describe('At-Large Congressional Districts', () => {
     });
 
     it('should filter placeholder and validate Alaska correctly', () => {
-      // TIGER data contains valid district + ZZ placeholder
+      // TIGER data contains valid district 00 + ZZ placeholder
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('02', '01', 'Alaska At-Large'),
+        createCDBoundary('02', '00', 'Alaska At-Large'),
         createCDBoundary('02', 'ZZ', 'Alaska Placeholder'),
       ];
 
@@ -731,9 +737,10 @@ describe('At-Large Congressional Districts', () => {
       expect(result.summary).toContain('filtered 1 placeholder');
     });
 
-    it('should validate Delaware with 1 CD boundary', () => {
+    it('should validate Delaware with 1 CD boundary (district 00)', () => {
+      // Delaware at-large uses GEOID 1000 (state 10 + district 00)
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('10', '01', 'Delaware At-Large'),
+        createCDBoundary('10', '00', 'Delaware At-Large'),
       ];
 
       const result = validator.validateCompleteness('cd', boundaries, '10');
@@ -743,22 +750,24 @@ describe('At-Large Congressional Districts', () => {
       expect(result.actual).toBe(1);
     });
 
-    it('should filter 00 placeholder from Wyoming', () => {
+    it('should validate Wyoming with district 00 (at-large)', () => {
+      // Wyoming at-large uses GEOID 5600 (state 56 + district 00)
+      // District 00 is VALID for at-large states, not a placeholder
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('56', '01', 'Wyoming At-Large'),
-        createCDBoundary('56', '00', 'Wyoming At-Large Placeholder'),
+        createCDBoundary('56', '00', 'Wyoming At-Large'),
       ];
 
       const result = validator.validateCompleteness('cd', boundaries, '56');
 
       expect(result.valid).toBe(true);
+      expect(result.expected).toBe(1);
       expect(result.actual).toBe(1);
-      expect(result.summary).toContain('filtered 1 placeholder');
     });
 
-    it('should validate territory delegate (Puerto Rico)', () => {
+    it('should validate territory delegate (Puerto Rico uses 00)', () => {
+      // Puerto Rico resident commissioner uses GEOID 7200
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('72', '01', 'Puerto Rico Resident Commissioner'),
+        createCDBoundary('72', '00', 'Puerto Rico Resident Commissioner'),
       ];
 
       const result = validator.validateCompleteness('cd', boundaries, '72');
@@ -832,9 +841,11 @@ describe('At-Large Congressional Districts', () => {
     });
 
     it('should handle all-placeholder boundary array', () => {
+      // Test with only TRUE placeholders (ZZ, 98, 99) - NOT 00
+      // For at-large states, 00 is the VALID district, not a placeholder
       const boundaries: NormalizedBoundary[] = [
-        createCDBoundary('02', 'ZZ', 'Alaska Placeholder'),
-        createCDBoundary('02', '00', 'Alaska Placeholder 2'),
+        createCDBoundary('02', 'ZZ', 'Alaska Placeholder 1'),
+        createCDBoundary('02', '99', 'Alaska Placeholder 2'),
       ];
 
       const result = validator.validateCompleteness('cd', boundaries, '02');

@@ -12,11 +12,18 @@
  * - Cache hit rate: >90% during peak hours
  * - Memory efficiency: <200MB for preloaded data
  *
+ * DATABASE INTEGRATION:
+ * - Queries R-tree indexed SQLite database built by RTreeBuilder
+ * - Schema: districts(id, name, jurisdiction, district_type, geometry, provenance, bbox)
+ * - Accepts database via dependency injection OR path in config
+ * - Gracefully falls back to placeholder generation if database unavailable
+ *
  * CRITICAL: Reduces cold-start latency during traffic spikes.
  */
 
 import type { DistrictBoundary } from '../types';
 import type { RegionalCache } from './regional-cache';
+import type Database from 'better-sqlite3';
 
 /**
  * Preload priority levels
@@ -70,6 +77,7 @@ export interface PreloadStrategyConfig {
   readonly enableEventDriven: boolean;         // Event-based preloading
   readonly maxPreloadSizeMB: number;           // Max memory for preloaded data
   readonly preloadIntervalMinutes: number;     // Background preload interval
+  readonly dbPath?: string;                    // Optional database path for district queries
 }
 
 /**
@@ -83,6 +91,7 @@ export type PreloadFunction = (districtIds: readonly string[]) => Promise<void>;
 export class PreloadStrategy {
   private readonly config: PreloadStrategyConfig;
   private readonly cache: RegionalCache;
+  private readonly db: Database.Database | null;
 
   // Preload targets (sorted by priority)
   private readonly targets: PreloadTarget[];
@@ -98,12 +107,28 @@ export class PreloadStrategy {
   private preloadedDistricts = 0;
   private avgPreloadTimeMs = 0;
 
-  constructor(cache: RegionalCache, config: PreloadStrategyConfig) {
+  constructor(cache: RegionalCache, config: PreloadStrategyConfig, db: Database.Database | null = null) {
     this.cache = cache;
     this.config = config;
     this.targets = [];
     this.trafficPatterns = new Map();
     this.events = [];
+
+    // Use injected database or initialize from path
+    if (db) {
+      this.db = db;
+    } else if (config.dbPath) {
+      try {
+        // Dynamic import to avoid bundling better-sqlite3 if not needed
+        const Database = require('better-sqlite3');
+        this.db = new Database(config.dbPath, { readonly: true });
+      } catch (error) {
+        console.warn('[PreloadStrategy] Failed to open database:', error);
+        this.db = null;
+      }
+    } else {
+      this.db = null;
+    }
   }
 
   /**
@@ -333,6 +358,9 @@ export class PreloadStrategy {
   /**
    * Query database for districts matching a geographic region
    *
+   * Queries the R-tree indexed database built by RTreeBuilder.
+   * Schema: districts(id, name, jurisdiction, district_type, geometry, provenance, bbox)
+   *
    * @param target - Geographic region target
    * @returns Array of district IDs for the region
    */
@@ -352,7 +380,7 @@ export class PreloadStrategy {
     // - State House: "{country}-{region}-house-{number}"
     // - City Council: "{country}-{region}-{city}-council-{number}"
 
-    // Generate expected district ID patterns
+    // Generate expected district ID patterns (SQL LIKE patterns)
     const patterns: string[] = [];
 
     if (target.city) {
@@ -369,25 +397,31 @@ export class PreloadStrategy {
       patterns.push(`${pattern}-%-cd-%`);
     }
 
-    // For now, generate placeholder IDs based on patterns
-    // In production, this would query the SQLite database:
-    //
-    // const db = new Database(this.dbPath);
-    // const stmt = db.prepare(`
-    //   SELECT DISTINCT id FROM districts
-    //   WHERE id LIKE ?
-    //   ORDER BY id
-    //   LIMIT 100
-    // `);
-    // const results: string[] = [];
-    // for (const pattern of patterns) {
-    //   const rows = stmt.all(pattern) as { id: string }[];
-    //   results.push(...rows.map(r => r.id));
-    // }
-    // db.close();
-    // return results;
+    // Query database if available
+    if (this.db) {
+      const results: string[] = [];
 
-    // Placeholder implementation (generates example IDs)
+      try {
+        const stmt = this.db.prepare(`
+          SELECT DISTINCT id FROM districts
+          WHERE id LIKE ?
+          ORDER BY id
+          LIMIT 100
+        `);
+
+        for (const pattern of patterns) {
+          const rows = stmt.all(pattern) as Array<{ id: string }>;
+          results.push(...rows.map(r => r.id));
+        }
+
+        return results;
+      } catch (error) {
+        console.error('[PreloadStrategy] Database query failed:', error);
+        // Fall through to placeholder implementation
+      }
+    }
+
+    // Fallback: Generate placeholder IDs if database unavailable
     const placeholderIds: string[] = [];
     if (target.city) {
       // Generate 5-10 city council districts
@@ -456,6 +490,21 @@ export class PreloadStrategy {
       scheduledEvents: this.events.length,
       activeEvents: this.getActiveEvents().length,
     };
+  }
+
+  /**
+   * Close database connection and cleanup resources
+   *
+   * Call this when shutting down the preload strategy.
+   */
+  close(): void {
+    if (this.db) {
+      try {
+        this.db.close();
+      } catch (error) {
+        console.error('[PreloadStrategy] Failed to close database:', error);
+      }
+    }
   }
 }
 

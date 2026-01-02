@@ -175,39 +175,87 @@ async function fetchGeometry(layerUrl: string): Promise<unknown | null> {
 }
 
 /**
+ * In-memory cache for successful geometry fetches
+ * Prevents redundant network calls during tree construction
+ */
+const geometryCache = new Map<string, string>();
+
+/**
  * Hash district geometry
  *
  * PRODUCTION MODE: Fetches actual GeoJSON geometry from ArcGIS FeatureServer and hashes it.
- * FALLBACK MODE: If geometry fetch fails, uses layer_url as deterministic placeholder.
+ * FALLBACK MODE: If geometry fetch fails after retries, uses layer_url as deterministic placeholder.
+ *
+ * RETRY STRATEGY:
+ * - 3 retry attempts with exponential backoff
+ * - Delays: 1s, 2s, 4s
+ * - In-memory caching to avoid redundant fetches
+ * - URL hash fallback only after all retries exhausted
  *
  * This ensures Merkle tree construction can proceed even if some layers are temporarily unavailable,
  * while still producing deterministic hashes for available geometries.
  *
  * @param district - Governance district metadata
- * @param useProductionGeometry - If true, fetch actual geometry; if false, use placeholder (default: false)
  * @returns Keccak256 hash of geometry
  */
-async function hashGeometry(
-  district: GovernanceDistrict,
-  useProductionGeometry = false
-): Promise<string> {
-  if (!useProductionGeometry) {
-    // Placeholder mode (backward compatible with existing tests)
-    return keccak256(district.layer_url + ':geometry');
+async function hashGeometry(district: GovernanceDistrict): Promise<string> {
+  // Check cache first
+  const cachedHash = geometryCache.get(district.layer_url);
+  if (cachedHash) {
+    return cachedHash;
   }
 
-  // Production mode: Fetch actual geometry
-  const geometry = await fetchGeometry(district.layer_url);
+  // Retry configuration
+  const maxRetries = 3;
+  const baseDelayMs = 1000;
 
-  if (geometry !== null) {
-    // Hash actual geometry (deterministic JSON serialization)
-    const geometryJson = JSON.stringify(geometry);
-    return keccak256(geometryJson);
+  let lastError: Error | null = null;
+
+  // Retry loop with exponential backoff
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const geometry = await fetchGeometry(district.layer_url);
+
+      if (geometry !== null) {
+        // Hash actual geometry (deterministic JSON serialization)
+        const geometryJson = JSON.stringify(geometry);
+        const hash = keccak256(geometryJson);
+
+        // Cache successful result
+        geometryCache.set(district.layer_url, hash);
+
+        return hash;
+      }
+
+      // Geometry was null (not an error, just empty) - don't retry
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delayMs = Math.pow(2, attempt - 1) * baseDelayMs;
+        console.warn(
+          `   ⚠️  Geometry fetch failed for ${district.layer_url} (attempt ${attempt}/${maxRetries}): ${lastError.message}`
+        );
+        console.log(`   🔄 Retrying in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
   }
 
-  // Fallback: Use layer_url if geometry unavailable
-  console.warn(`   ⚠️  Using placeholder geometry hash for ${district.layer_url}`);
-  return keccak256(district.layer_url + ':geometry');
+  // All retries exhausted - fall back to URL hash
+  console.warn(
+    `   ⚠️  Geometry fetch failed after ${maxRetries} attempts for ${district.layer_url}. Using URL fallback.`
+  );
+  if (lastError) {
+    console.warn(`   📋 Last error: ${lastError.message}`);
+  }
+
+  const fallbackHash = keccak256(district.layer_url + ':geometry');
+  geometryCache.set(district.layer_url, fallbackHash);
+
+  return fallbackHash;
 }
 
 /**
@@ -233,16 +281,14 @@ function hashMetadata(district: GovernanceDistrict): string {
  *
  * @param district - Governance district
  * @param index - Leaf position in tree (0-based)
- * @param useProductionGeometry - If true, fetch actual geometry; if false, use placeholder
  * @returns Merkle leaf with hashed fields
  */
 async function createLeaf(
   district: GovernanceDistrict,
-  index: number,
-  useProductionGeometry = false
+  index: number
 ): Promise<MerkleLeaf> {
   const district_id = createDistrictId(district);
-  const geometry_hash = await hashGeometry(district, useProductionGeometry);
+  const geometry_hash = await hashGeometry(district);
   const metadata_hash = hashMetadata(district);
 
   // Leaf hash: keccak256(district_id || geometry_hash || metadata_hash)
@@ -386,16 +432,7 @@ async function main(): Promise<void> {
   const version = '2025-Q1';
   const startTime = Date.now();
 
-  // Parse CLI arguments
-  const useProductionGeometry = process.argv.includes('--production-geometry');
-
-  if (useProductionGeometry) {
-    console.log('🌐 PRODUCTION MODE: Fetching actual GeoJSON geometry from ArcGIS FeatureServers');
-    console.log('   (This will take significantly longer than placeholder mode)\n');
-  } else {
-    console.log('📝 PLACEHOLDER MODE: Using layer_url as geometry proxy (fast)');
-    console.log('   (Run with --production-geometry to fetch actual geometry)\n');
-  }
+  console.log('🌐 PRODUCTION MODE: Fetching actual GeoJSON geometry from ArcGIS FeatureServers\n');
 
   // Step 1: Load districts from classified layers
   const inputPath = join(__dirname, 'data', 'comprehensive_classified_layers.jsonl');
@@ -416,10 +453,10 @@ async function main(): Promise<void> {
     createDistrictId(a).localeCompare(createDistrictId(b))
   );
 
-  // Create leaves (async if fetching production geometry)
+  // Create leaves (async for fetching production geometry)
   const leaves: MerkleLeaf[] = [];
   for (let i = 0; i < sortedDistricts.length; i++) {
-    const leaf = await createLeaf(sortedDistricts[i], i, useProductionGeometry);
+    const leaf = await createLeaf(sortedDistricts[i], i);
     leaves.push(leaf);
 
     if ((i + 1) % 100 === 0) {

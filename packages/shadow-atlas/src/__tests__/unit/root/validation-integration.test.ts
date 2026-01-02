@@ -18,9 +18,10 @@ import type { CityTarget } from '../../../providers/us-council-district-discover
 
 /**
  * Load test fixture from disk
+ * Note: Fixtures are stored in src/test-data/ (3 levels up to src/, then test-data/)
  */
 function loadFixture(filename: string): FeatureCollection {
-  const path = join(__dirname, 'test-data', filename);
+  const path = join(__dirname, '../../../test-data', filename);
   const content = readFileSync(path, 'utf-8');
   return JSON.parse(content) as FeatureCollection;
 }

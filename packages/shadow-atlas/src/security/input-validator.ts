@@ -228,7 +228,8 @@ const ALLOWED_DOMAINS = [
 /**
  * URL validation schema
  *
- * SECURITY: Enforces HTTPS, validates domain allowlist, rejects private IPs.
+ * SECURITY: Enforces HTTPS, rejects private IPs, validates domain allowlist.
+ * NOTE: Private IP check MUST come before domain allowlist to provide correct error messages.
  */
 export const URLSchema = z.string()
   .url('Invalid URL format')
@@ -243,17 +244,7 @@ export const URLSchema = z.string()
     },
     'URL must use HTTPS protocol'
   )
-  .refine(
-    (url) => {
-      try {
-        const parsed = new URL(url);
-        return ALLOWED_DOMAINS.some((domain) => parsed.hostname.endsWith(domain));
-      } catch {
-        return false;
-      }
-    },
-    'URL domain not in allowlist'
-  )
+  // SECURITY: Check private IPs FIRST before domain allowlist to give accurate error messages
   .refine(
     (url) => {
       try {
@@ -277,6 +268,17 @@ export const URLSchema = z.string()
       }
     },
     'URL must not point to private IP or localhost'
+  )
+  .refine(
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        return ALLOWED_DOMAINS.some((domain) => parsed.hostname.endsWith(domain));
+      } catch {
+        return false;
+      }
+    },
+    'URL domain not in allowlist'
   );
 
 export type ValidatedURL = z.infer<typeof URLSchema>;
@@ -539,6 +541,15 @@ export const PaginationSchema = z.object({
 export type ValidatedPagination = z.infer<typeof PaginationSchema>;
 
 /**
+ * Check if a string represents a valid integer (no decimals, no trailing garbage)
+ * SECURITY: Prevents DoS via parseInt accepting floats like "10.5" as 10
+ */
+function isValidIntegerString(str: string): boolean {
+  // Must match only digits, optionally with leading minus
+  return /^-?\d+$/.test(str);
+}
+
+/**
  * Validate pagination parameters
  *
  * @param limitStr - Raw limit string
@@ -549,6 +560,14 @@ export function validatePagination(
   limitStr: string | undefined,
   offsetStr: string | undefined
 ): { success: true; data: ValidatedPagination } | { success: false; error: string } {
+  // SECURITY: Reject non-integer strings before parseInt (prevents DoS via float truncation)
+  if (limitStr && !isValidIntegerString(limitStr)) {
+    return { success: false, error: 'Limit must be an integer' };
+  }
+  if (offsetStr && !isValidIntegerString(offsetStr)) {
+    return { success: false, error: 'Offset must be an integer' };
+  }
+
   const limit = limitStr ? parseInt(limitStr, 10) : 10;
   const offset = offsetStr ? parseInt(offsetStr, 10) : 0;
 
@@ -638,6 +657,21 @@ export function validateResponseSize(
 // ============================================================================
 
 /**
+ * Type guard for Zod-like error objects
+ * Uses duck-typing to handle both actual ZodError instances and plain objects with same shape
+ */
+function isZodLikeError(error: unknown): error is { errors: Array<{ message: string }> } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'errors' in error &&
+    Array.isArray((error as { errors: unknown }).errors) &&
+    (error as { errors: unknown[] }).errors.length > 0 &&
+    typeof (error as { errors: Array<{ message: unknown }> }).errors[0]?.message === 'string'
+  );
+}
+
+/**
  * Sanitize error messages for client responses
  *
  * SECURITY: Prevents information disclosure via detailed error messages.
@@ -646,7 +680,8 @@ export function validateResponseSize(
  * @returns Sanitized error message
  */
 export function sanitizeErrorMessage(error: unknown): string {
-  if (error instanceof z.ZodError) {
+  // Check for Zod-like errors using duck-typing (handles both ZodError instances and plain objects)
+  if (isZodLikeError(error)) {
     // Return first validation error only (don't expose full schema)
     return error.errors[0]?.message ?? 'Validation error';
   }

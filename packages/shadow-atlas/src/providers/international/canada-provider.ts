@@ -482,7 +482,12 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
         }
       } catch (err) {
         console.warn(`Error fetching ${nextUrl}`, err);
-        break; // Or retry logic
+        // If we haven't fetched any data yet, propagate the error
+        // If we have partial data, return what we have (partial success)
+        if (ridings.length === 0) {
+          throw err;
+        }
+        break;
       }
     }
 

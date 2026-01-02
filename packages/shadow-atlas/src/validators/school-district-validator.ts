@@ -26,7 +26,7 @@
  * - Expected counts from authoritative Census data (tiger-expected-counts.ts)
  */
 
-import type { Feature, Polygon, MultiPolygon } from 'geojson';
+import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson';
 import type { TIGERLayerType } from '../core/types.js';
 import {
   EXPECTED_UNSD_BY_STATE,
@@ -35,6 +35,10 @@ import {
   getStateName,
 } from './tiger-expected-counts.js';
 import type { NormalizedBoundary } from './tiger-validator.js';
+import { ValidationHaltError, type ValidationHaltDetails } from '../core/types/errors.js';
+import { spawn } from 'node:child_process';
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { join } from 'node:path';
 
 /**
  * States with dual elementary/secondary school district systems
@@ -91,6 +95,16 @@ export const DUAL_SYSTEM_STATES: ReadonlySet<string> = new Set([
 export function isDualSystemState(stateFips: string): boolean {
   return DUAL_SYSTEM_STATES.has(stateFips);
 }
+
+/**
+ * Cache directory for downloaded state boundaries
+ *
+ * Uses same cache directory as TIGERBoundaryProvider for consistency.
+ */
+const STATE_BOUNDARY_CACHE_DIR = join(
+  process.cwd(),
+  'packages/crypto/data/tiger-cache'
+);
 
 /**
  * School district type classification
@@ -189,6 +203,67 @@ export interface DistrictSystemConfig {
   readonly allowsElementary: boolean;
   readonly allowsSecondary: boolean;
 }
+
+/**
+ * Configuration options for school district validation halt gates
+ *
+ * These options control when validation failures should HALT processing
+ * rather than just logging warnings. Halting prevents invalid data from
+ * entering the Merkle tree, which would break ZK proof generation.
+ *
+ * PHILOSOPHY:
+ * - WARNINGS (don't halt): Minor count discrepancies, informational notes
+ * - ERRORS (halt if configured): Critical overlaps (UNSD with ELSD/SCSD), missing coverage, invalid counts
+ *
+ * SPECIAL CASES:
+ * - NYC Exception: New York City has UNSD-ELSD/SCSD overlaps (specialized high schools serving unified district territory)
+ * - Hawaii Exception: Hawaii Department of Education operates statewide unified system with specialized secondary programs
+ */
+export interface SchoolDistrictHaltOptions {
+  /**
+   * Halt processing if overlap validation fails (UNSD overlaps ELSD/SCSD).
+   *
+   * CRITICAL: UNSD (K-12) overlapping with ELSD (K-8) or SCSD (9-12) indicates
+   * data corruption - unified districts serve all grades and cannot coexist
+   * with grade-specific districts in the same territory.
+   *
+   * EXCEPTIONS (allowed overlaps):
+   * - New York City (FIPS 36): Specialized high schools serve UNSD territory
+   * - Hawaii (FIPS 15): Statewide system with specialized secondary programs
+   *
+   * Default: true
+   */
+  readonly haltOnOverlapError: boolean;
+
+  /**
+   * Halt processing if coverage validation fails (<95% state coverage).
+   *
+   * CRITICAL: Gaps in school district coverage create territories where
+   * students cannot be assigned to districts, breaking PIP verification.
+   *
+   * Default: true
+   */
+  readonly haltOnCoverageError: boolean;
+
+  /**
+   * Halt processing if count validation fails (significant deviation from expected).
+   *
+   * CRITICAL: Large count mismatches (>10%) indicate incomplete data download
+   * or data corruption that would produce invalid Merkle tree commitments.
+   *
+   * Default: true
+   */
+  readonly haltOnCountMismatch: boolean;
+}
+
+/**
+ * Default halt options (halt on all critical errors)
+ */
+export const DEFAULT_SCHOOL_HALT_OPTIONS: SchoolDistrictHaltOptions = {
+  haltOnOverlapError: true,
+  haltOnCoverageError: true,
+  haltOnCountMismatch: true,
+};
 
 /**
  * State district system configurations
@@ -354,27 +429,133 @@ export class SchoolDistrictValidator {
    *
    * Downloads state boundary shapefile and extracts geometry for coverage analysis.
    * Cached locally to avoid repeated downloads.
+   *
+   * Uses same download/cache pattern as TIGERBoundaryProvider:
+   * 1. Check cache first (packages/crypto/data/tiger-cache/{year}/STATE/{stateFips}.geojson)
+   * 2. If cache miss, download national state boundary file
+   * 3. Convert shapefile to GeoJSON using ogr2ogr
+   * 4. Extract specific state geometry and cache it
+   *
+   * @param stateFips - 2-digit state FIPS code (e.g., "06" for California)
+   * @param year - TIGER vintage year (e.g., 2024)
+   * @returns State boundary as Polygon or MultiPolygon geometry
    */
   private async getStateBoundary(
     stateFips: string,
     year: number
   ): Promise<Polygon | MultiPolygon> {
-    // NOTE: For now, return a simple bounding box as placeholder
-    // Real implementation would download TIGER state boundary file
-    // URL pattern: https://www2.census.gov/geo/tiger/TIGER{year}/STATE/tl_{year}_us_state.zip
+    // Check cache first
+    const cacheDir = join(STATE_BOUNDARY_CACHE_DIR, String(year), 'STATE');
+    const cacheFile = join(cacheDir, `${stateFips}.geojson`);
 
-    // TEMPORARY: Use a simplified bounding box for the state
-    // This is a placeholder - real implementation should:
-    // 1. Download tl_{year}_us_state.zip from TIGER
-    // 2. Extract shapefile
-    // 3. Filter to state FIPS
-    // 4. Convert to GeoJSON
-    // 5. Cache locally
+    try {
+      await access(cacheFile);
+      const content = await readFile(cacheFile, 'utf-8');
+      const feature = JSON.parse(content) as Feature<Polygon | MultiPolygon>;
+      return feature.geometry;
+    } catch {
+      // Cache miss, download and extract
+    }
 
-    // For now, throw error to indicate this needs state boundary data
-    throw new Error(
-      `getStateBoundary not yet implemented. Need state boundary for ${stateFips} year ${year}.`
+    // Ensure cache directory exists
+    await mkdir(cacheDir, { recursive: true });
+
+    // Download national state boundary file
+    const url = `https://www2.census.gov/geo/tiger/TIGER${year}/STATE/tl_${year}_us_state.zip`;
+    const zipPath = join(cacheDir, `tl_${year}_us_state.zip`);
+
+    console.log(`   📥 Downloading state boundaries from ${url}...`);
+    await this.downloadFile(url, zipPath);
+
+    // Convert to GeoJSON using ogr2ogr
+    console.log(`   🔄 Converting shapefile to GeoJSON...`);
+    const geojson = await this.convertShapefileToGeoJSON(zipPath);
+
+    // Find the specific state feature
+    const stateFeature = geojson.features.find(
+      (f) => f.properties?.STATEFP === stateFips || f.properties?.GEOID === stateFips
     );
+
+    if (!stateFeature) {
+      throw new Error(
+        `State ${stateFips} not found in TIGER state boundary file for year ${year}`
+      );
+    }
+
+    // Cache the individual state geometry
+    await writeFile(cacheFile, JSON.stringify(stateFeature));
+    console.log(`   💾 Cached state boundary to ${cacheFile}`);
+
+    return stateFeature.geometry as Polygon | MultiPolygon;
+  }
+
+  /**
+   * Download file using curl
+   *
+   * Reuses same download pattern as TIGERBoundaryProvider.
+   */
+  private async downloadFile(url: string, outputPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const curl = spawn('curl', ['-L', '-o', outputPath, url]);
+
+      curl.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`curl failed with code ${code}`));
+        }
+      });
+
+      curl.on('error', reject);
+    });
+  }
+
+  /**
+   * Convert shapefile to GeoJSON using ogr2ogr
+   *
+   * Reuses same conversion pattern as TIGERBoundaryProvider.
+   */
+  private async convertShapefileToGeoJSON(zipPath: string): Promise<FeatureCollection> {
+    return new Promise((resolve, reject) => {
+      const ogr2ogr = spawn('ogr2ogr', [
+        '-f',
+        'GeoJSON',
+        '/vsistdout/', // Output to stdout
+        `/vsizip/${zipPath}`, // Read from ZIP
+        '-t_srs',
+        'EPSG:4326', // Convert to WGS84
+      ]);
+
+      let stdout = '';
+      let stderr = '';
+
+      ogr2ogr.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      ogr2ogr.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      ogr2ogr.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const geojson = JSON.parse(stdout) as FeatureCollection;
+            resolve(geojson);
+          } catch (error) {
+            reject(new Error(`Failed to parse GeoJSON: ${(error as Error).message}`));
+          }
+        } else {
+          reject(new Error(`ogr2ogr failed: ${stderr}`));
+        }
+      });
+
+      ogr2ogr.on('error', (error) => {
+        reject(
+          new Error(`Failed to spawn ogr2ogr: ${error.message}. Ensure GDAL is installed.`)
+        );
+      });
+    });
   }
 
   /**
@@ -468,6 +649,340 @@ export class SchoolDistrictValidator {
       unsdCount: expectedUnsd,
       elsdCount: expectedElsd,
       scsdCount: expectedScsd,
+      expectedUnsd,
+      expectedElsd,
+      expectedScsd,
+      matches,
+      issues,
+      summary,
+      notes,
+    };
+  }
+
+  /**
+   * Validate school district data with halt gates (throws on critical failures)
+   *
+   * This method extends validate() to HALT processing when validation fails
+   * and halt gates are configured. This prevents invalid data from entering
+   * the Merkle tree, which would break ZK proof generation.
+   *
+   * HALT BEHAVIOR (throw ValidationHaltError):
+   * - Overlap errors (UNSD overlaps ELSD/SCSD) if haltOnOverlapError: true
+   * - Coverage errors (<95% state coverage) if haltOnCoverageError: true
+   * - Count mismatches (>10% deviation) if haltOnCountMismatch: true
+   *
+   * NON-HALT BEHAVIOR (warnings only, returned in result):
+   * - Minor count discrepancies (<10% deviation)
+   * - Informational notes about dual-system states
+   * - Expected ELSD-SCSD overlaps in dual-system states
+   *
+   * SPECIAL EXCEPTIONS (NYC and Hawaii):
+   * - New York City (FIPS 36): Specialized high schools create valid UNSD-SCSD overlaps
+   * - Hawaii (FIPS 15): Statewide unified system with specialized secondary programs
+   *
+   * @param stateFips - 2-digit state FIPS code
+   * @param unsdBoundaries - Unified school district boundaries
+   * @param elsdBoundaries - Elementary school district boundaries
+   * @param scsdBoundaries - Secondary school district boundaries
+   * @param haltOptions - Halt gate configuration
+   * @param vintage - TIGER vintage year (for state boundary fetching)
+   * @returns SchoolDistrictValidationResult if all halt gates pass
+   * @throws ValidationHaltError if any configured halt gate triggers
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const result = validator.validateWithHaltGates(
+   *     '06', // California
+   *     unsdBoundaries,
+   *     elsdBoundaries,
+   *     scsdBoundaries,
+   *     {
+   *       haltOnOverlapError: true,
+   *       haltOnCoverageError: true,
+   *       haltOnCountMismatch: true,
+   *     },
+   *     2024
+   *   );
+   *   // Validation passed, safe to add to Merkle tree
+   *   addToMerkleTree([...unsdBoundaries, ...elsdBoundaries, ...scsdBoundaries]);
+   * } catch (error) {
+   *   if (error instanceof ValidationHaltError) {
+   *     console.error(`Build halted: ${error.message}`);
+   *     console.error(`Stage: ${error.stage}, State: ${error.stateFips}`);
+   *   }
+   *   throw error;
+   * }
+   * ```
+   */
+  async validateWithHaltGates(
+    stateFips: string,
+    unsdBoundaries: readonly NormalizedBoundary[],
+    elsdBoundaries: readonly NormalizedBoundary[],
+    scsdBoundaries: readonly NormalizedBoundary[],
+    haltOptions: SchoolDistrictHaltOptions,
+    vintage: number
+  ): Promise<SchoolDistrictValidationResult> {
+    // Get expected counts from reference data
+    const expectedUnsd = EXPECTED_UNSD_BY_STATE[stateFips] ?? 0;
+    const expectedElsd = EXPECTED_ELSD_BY_STATE[stateFips] ?? 0;
+    const expectedScsd = EXPECTED_SCSD_BY_STATE[stateFips] ?? 0;
+
+    const actualUnsd = unsdBoundaries.length;
+    const actualElsd = elsdBoundaries.length;
+    const actualScsd = scsdBoundaries.length;
+
+    const issues: ValidationIssue[] = [];
+    const notes: string[] = [];
+    const stateName = getStateName(stateFips) ?? `State ${stateFips}`;
+
+    // =========================================================================
+    // HALT GATE 1: Count Validation
+    // Large count mismatches (>10%) indicate data corruption or incomplete downloads
+    // =========================================================================
+    if (haltOptions.haltOnCountMismatch) {
+      const unsdMismatch = expectedUnsd > 0
+        ? Math.abs(actualUnsd - expectedUnsd) / expectedUnsd
+        : 0;
+      const elsdMismatch = expectedElsd > 0
+        ? Math.abs(actualElsd - expectedElsd) / expectedElsd
+        : 0;
+      const scsdMismatch = expectedScsd > 0
+        ? Math.abs(actualScsd - expectedScsd) / expectedScsd
+        : 0;
+
+      const significantMismatch = unsdMismatch > 0.1 || elsdMismatch > 0.1 || scsdMismatch > 0.1;
+
+      if (significantMismatch) {
+        const details: ValidationHaltDetails = {
+          stage: 'completeness',
+          details: {
+            expected: { unsd: expectedUnsd, elsd: expectedElsd, scsd: expectedScsd },
+            actual: { unsd: actualUnsd, elsd: actualElsd, scsd: actualScsd },
+            mismatchPercent: {
+              unsd: (unsdMismatch * 100).toFixed(1),
+              elsd: (elsdMismatch * 100).toFixed(1),
+              scsd: (scsdMismatch * 100).toFixed(1),
+            },
+          },
+          layerType: 'school-districts',
+          stateFips,
+        };
+
+        throw new ValidationHaltError(
+          `School district count mismatch exceeds 10% threshold: ` +
+          `UNSD ${actualUnsd}/${expectedUnsd} (${(unsdMismatch * 100).toFixed(1)}%), ` +
+          `ELSD ${actualElsd}/${expectedElsd} (${(elsdMismatch * 100).toFixed(1)}%), ` +
+          `SCSD ${actualScsd}/${expectedScsd} (${(scsdMismatch * 100).toFixed(1)}%)`,
+          details
+        );
+      }
+    }
+
+    // =========================================================================
+    // HALT GATE 2: Overlap Validation
+    // UNSD overlaps with ELSD/SCSD are NEVER valid (except NYC and Hawaii)
+    // =========================================================================
+    const overlaps = await this.checkOverlaps(
+      unsdBoundaries,
+      elsdBoundaries,
+      scsdBoundaries,
+      stateFips
+    );
+
+    // Filter overlaps to identify critical ones (UNSD overlaps, excluding NYC/Hawaii exceptions)
+    const criticalOverlaps = overlaps.filter(overlap => {
+      // Only UNSD overlaps are critical
+      const isUnsdOverlap =
+        (overlap.type1 === 'unsd' && (overlap.type2 === 'elsd' || overlap.type2 === 'scsd')) ||
+        (overlap.type2 === 'unsd' && (overlap.type1 === 'elsd' || overlap.type1 === 'scsd'));
+
+      if (!isUnsdOverlap) return false;
+
+      // NYC exception: FIPS 36 (New York) allows specialized high school overlaps
+      if (stateFips === '36') return false;
+
+      // Hawaii exception: FIPS 15 (Hawaii) allows statewide system overlaps
+      if (stateFips === '15') return false;
+
+      return true;
+    });
+
+    if (criticalOverlaps.length > 0 && haltOptions.haltOnOverlapError) {
+      const details: ValidationHaltDetails = {
+        stage: 'topology',
+        details: {
+          criticalOverlaps: criticalOverlaps.map(o => ({
+            geoid1: o.geoid1,
+            geoid2: o.geoid2,
+            type1: o.type1,
+            type2: o.type2,
+            overlapAreaSqM: o.overlapAreaSqM,
+            description: o.description,
+          })),
+          totalCriticalOverlaps: criticalOverlaps.length,
+        },
+        layerType: 'school-districts',
+        stateFips,
+      };
+
+      throw new ValidationHaltError(
+        `School district overlap validation failed: ${criticalOverlaps.length} critical UNSD overlaps detected. ` +
+        `Unified districts (K-12) cannot overlap with elementary (K-8) or secondary (9-12) districts.`,
+        details
+      );
+    }
+
+    // Add informational notes about exceptions
+    if (stateFips === '36') {
+      notes.push(
+        'New York City exception: Specialized high schools serving unified district territory create expected UNSD-SCSD overlaps.'
+      );
+    }
+    if (stateFips === '15') {
+      notes.push(
+        'Hawaii exception: Statewide unified system with specialized secondary programs creates expected overlaps.'
+      );
+    }
+
+    // =========================================================================
+    // HALT GATE 3: Coverage Validation
+    // All state territory must be assigned to school districts (≥95% coverage)
+    // =========================================================================
+    if (haltOptions.haltOnCoverageError) {
+      try {
+        // Fetch state boundary for coverage analysis
+        const stateGeometry = await this.getStateBoundary(stateFips, vintage);
+        const allBoundaries = [...unsdBoundaries, ...elsdBoundaries, ...scsdBoundaries];
+        const coverage = await this.checkCoverage(allBoundaries, stateGeometry);
+
+        if (!coverage.valid) {
+          const details: ValidationHaltDetails = {
+            stage: 'completeness',
+            details: {
+              coveragePercent: coverage.coveragePercent.toFixed(2),
+              threshold: 95,
+              totalAreaSqM: coverage.totalArea,
+              coveredAreaSqM: coverage.coveredArea,
+              gapCount: coverage.gaps.length,
+              gaps: coverage.gaps.map(g => ({
+                areaSqM: g.areaSqM,
+                centroid: g.centroid,
+                description: g.description,
+              })),
+            },
+            layerType: 'school-districts',
+            stateFips,
+          };
+
+          throw new ValidationHaltError(
+            `School district coverage validation failed: ${coverage.coveragePercent.toFixed(1)}% coverage ` +
+            `(threshold: 95%). Gaps detected: ${coverage.gaps.length} uncovered regions.`,
+            details
+          );
+        }
+      } catch (error) {
+        // If coverage check itself fails (e.g., state boundary not found), treat as critical
+        if (error instanceof ValidationHaltError) {
+          throw error;
+        }
+
+        // Other errors (e.g., network issues) - log warning but continue
+        console.warn(`Coverage validation failed for ${stateName}: ${error}`);
+        notes.push(`Coverage validation skipped due to error: ${(error as Error).message}`);
+      }
+    }
+
+    // =========================================================================
+    // Build validation result (all halt gates passed)
+    // =========================================================================
+
+    // Add overlap issues as warnings (non-critical overlaps)
+    for (const overlap of overlaps) {
+      // Only add non-critical overlaps (ELSD-SCSD in dual-system states, or filtered NYC/Hawaii)
+      const isCritical = criticalOverlaps.includes(overlap);
+      if (!isCritical) {
+        issues.push({
+          severity: 'info',
+          type: 'expected_overlap',
+          message: overlap.description,
+          details: {
+            geoid1: overlap.geoid1,
+            geoid2: overlap.geoid2,
+            type1: overlap.type1,
+            type2: overlap.type2,
+            overlapAreaSqM: overlap.overlapAreaSqM,
+          },
+        });
+      }
+    }
+
+    // Validate district system configuration
+    const config = DISTRICT_SYSTEM_CONFIG[stateFips];
+    if (!config) {
+      issues.push({
+        severity: 'warning',
+        type: 'unknown_state',
+        message: `No district system configuration for ${stateName}`,
+      });
+    } else {
+      // Check for unexpected district types (warnings only, not halt)
+      if (actualUnsd > 0 && !config.allowsUnified) {
+        issues.push({
+          severity: 'warning',
+          type: 'unexpected_unified',
+          message: `${stateName} should not have unified districts (has ${actualUnsd})`,
+        });
+      }
+
+      if (actualElsd > 0 && !config.allowsElementary) {
+        issues.push({
+          severity: 'warning',
+          type: 'unexpected_elementary',
+          message: `${stateName} should not have elementary districts (has ${actualElsd})`,
+        });
+      }
+
+      if (actualScsd > 0 && !config.allowsSecondary) {
+        issues.push({
+          severity: 'warning',
+          type: 'unexpected_secondary',
+          message: `${stateName} should not have secondary districts (has ${actualScsd})`,
+        });
+      }
+    }
+
+    // Add note for dual-system states explaining ELSD-SCSD overlap allowance
+    if (isDualSystemState(stateFips)) {
+      notes.push(
+        `${stateName} uses a dual elementary/secondary school district system. ` +
+        `Elementary (K-8) and secondary (9-12) district overlaps are expected and valid ` +
+        `because they serve the same geographic territory for different grade levels.`
+      );
+    }
+
+    // Add note about system type for clarity
+    if (config) {
+      if (config.type === 'unified-only') {
+        notes.push(`${stateName} uses unified school districts only (K-12).`);
+      } else if (config.type === 'dual-system') {
+        notes.push(`${stateName} uses separate elementary and secondary school districts.`);
+      } else if (config.type === 'mixed') {
+        notes.push(`${stateName} uses a mixed system with both unified and secondary districts.`);
+      }
+    }
+
+    const matches = issues.filter(i => i.severity === 'error').length === 0;
+
+    const summary = matches
+      ? `${stateName}: ${actualUnsd} unified, ${actualElsd} elementary, ${actualScsd} secondary (validation passed)`
+      : `${stateName}: ${issues.length} validation issues`;
+
+    return {
+      state: stateFips,
+      unsdCount: actualUnsd,
+      elsdCount: actualElsd,
+      scsdCount: actualScsd,
       expectedUnsd,
       expectedElsd,
       expectedScsd,

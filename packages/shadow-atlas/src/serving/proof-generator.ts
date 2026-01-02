@@ -184,16 +184,19 @@ export class ProofService {
   private merkleTree: ShadowAtlasMerkleTree;
   private readonly districtMap: Map<string, number>;
   private zkService: ZKProofService | null = null;
+  private readonly circuitDepth: CircuitDepth;
 
   /**
    * Private constructor - use ProofService.create() instead
    */
   private constructor(
     merkleTree: ShadowAtlasMerkleTree,
-    districtMap: Map<string, number>
+    districtMap: Map<string, number>,
+    circuitDepth: CircuitDepth = 14
   ) {
     this.merkleTree = merkleTree;
     this.districtMap = districtMap;
+    this.circuitDepth = circuitDepth;
   }
 
   /**
@@ -217,7 +220,9 @@ export class ProofService {
       districtMap.set(district.id, index);
     });
 
-    const service = new ProofService(merkleTree, districtMap);
+    // Use provided depth or default to 14 (municipal level)
+    const circuitDepth: CircuitDepth = zkConfig?.depth ?? 14;
+    const service = new ProofService(merkleTree, districtMap, circuitDepth);
 
     // Initialize ZK service if config provided
     if (zkConfig) {
@@ -298,7 +303,7 @@ export class ProofService {
    * @param proof - Merkle proof to verify
    * @returns true if proof is valid
    */
-  verifyProof(proof: MerkleProof): boolean {
+  async verifyProof(proof: MerkleProof): Promise<boolean> {
     let computedHash = proof.leaf;
 
     for (let i = 0; i < proof.siblings.length; i++) {
@@ -306,9 +311,9 @@ export class ProofService {
       const isLeftChild = proof.pathIndices[i] === 0;
 
       if (isLeftChild) {
-        computedHash = this.hashPair(computedHash, sibling);
+        computedHash = await this.hashPair(computedHash, sibling);
       } else {
-        computedHash = this.hashPair(sibling, computedHash);
+        computedHash = await this.hashPair(sibling, computedHash);
       }
     }
 
@@ -316,21 +321,49 @@ export class ProofService {
   }
 
   /**
-   * Hash two values using Poseidon (via WASM)
-   * NOTE: In production, import from merkle-tree.ts
+   * Hash two values using Poseidon2 (via Noir circuit)
+   *
+   * SECURITY: Uses cryptographic Poseidon2 hash, NOT XOR.
+   * Delegates to hash_pair from crypto package mock (which uses real Poseidon2Hasher).
    */
-  private hashPair(left: bigint, right: bigint): bigint {
-    // Import hash_pair from WASM circuit
-    // For now, simplified implementation (replace with actual WASM call)
+  private async hashPair(left: bigint, right: bigint): Promise<bigint> {
     const leftHex = '0x' + left.toString(16).padStart(64, '0');
     const rightHex = '0x' + right.toString(16).padStart(64, '0');
 
-    // In production: import { hash_pair } from '../../circuits/pkg';
-    // const hashHex = hash_pair(leftHex, rightHex);
-    // return BigInt(hashHex);
+    // Import from crypto circuits mock (wraps Poseidon2Hasher)
+    const { hash_pair } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
+    const hashHex = await hash_pair(leftHex, rightHex);
+    return BigInt(hashHex);
+  }
 
-    // Placeholder: XOR for testing (REPLACE with WASM Poseidon)
-    return left ^ right;
+  /**
+   * Hash multiple values using Poseidon2 (for nullifier generation)
+   *
+   * SECURITY: Hash chain for nullifier = hash(hash(hash(a, b), c), d)
+   * Ensures deterministic but unique output for (user, campaign, authority, epoch).
+   *
+   * @param values - Array of hex strings to hash
+   * @returns Hash as hex string (0x-prefixed)
+   */
+  private async hashMultiple(values: readonly string[]): Promise<string> {
+    if (values.length === 0) {
+      throw new Error('Cannot hash empty array');
+    }
+
+    const { hash_4 } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
+
+    // Use hash_4 for 4 values (optimal for Poseidon2)
+    if (values.length === 4) {
+      return hash_4(values[0], values[1], values[2], values[3]);
+    }
+
+    // For other lengths, use iterative hashing
+    let result = BigInt(values[0]);
+    for (let i = 1; i < values.length; i++) {
+      result = await this.hashPair(result, BigInt(values[i]));
+    }
+
+    return '0x' + result.toString(16).padStart(64, '0');
   }
 
   /**
@@ -357,22 +390,41 @@ export class ProofService {
    * @param epochId - Epoch ID
    * @returns Circuit inputs ready for ZK proof generation
    */
-  mapToCircuitInputs(
+  async mapToCircuitInputs(
     merkleProof: MerkleProof,
     userSecret: string,
     campaignId: string,
     authorityHash: string,
     epochId: string
-  ): CircuitInputs {
-    // Compute nullifier: Poseidon2(userSecret, campaignId, authorityHash, epochId)
-    // For now, using placeholder - in production, compute actual nullifier
-    const nullifier = '0x' + BigInt(0).toString(16).padStart(64, '0');
+  ): Promise<CircuitInputs> {
+    // SECURITY FIX: Compute actual nullifier using Poseidon2 hash
+    // Nullifier = hash_4(userSecret, campaignId, authorityHash, epochId)
+    // This ensures deterministic but unique nullifier per (user, campaign, authority, epoch)
+    const nullifier = await this.hashMultiple([
+      userSecret,
+      campaignId,
+      authorityHash,
+      epochId,
+    ]);
 
     // Convert merkle_path to array of hex strings
-    // NOTE: The depth should match the zkConfig.depth provided to create()
+    const ZERO_HASH = '0x' + BigInt(0).toString(16).padStart(64, '0');
     const merklePath = merkleProof.siblings.map((sibling) =>
       '0x' + sibling.toString(16).padStart(64, '0')
     );
+
+    // Pad merkle_path to circuit depth if needed
+    // Shallow trees (few leaves) have shorter paths, but circuit expects fixed length
+    while (merklePath.length < this.circuitDepth) {
+      merklePath.push(ZERO_HASH);
+    }
+
+    if (merklePath.length > this.circuitDepth) {
+      throw new Error(
+        `Merkle path too long: ${merklePath.length} > ${this.circuitDepth}. ` +
+        `Increase circuit depth to accommodate tree size.`
+      );
+    }
 
     return {
       merkle_root: '0x' + merkleProof.root.toString(16).padStart(64, '0'),
@@ -416,8 +468,8 @@ export class ProofService {
     // 1. Get Merkle inclusion proof
     const merkleProof = await this.generateProof(districtId);
 
-    // 2. Convert to circuit inputs
-    const circuitInputs = this.mapToCircuitInputs(
+    // 2. Convert to circuit inputs (now async due to nullifier computation)
+    const circuitInputs = await this.mapToCircuitInputs(
       merkleProof,
       userSecret,
       campaignId,

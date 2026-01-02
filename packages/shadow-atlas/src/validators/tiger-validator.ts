@@ -532,9 +532,10 @@ export class TIGERValidator {
   /**
    * Filter placeholder districts from congressional district boundaries
    *
-   * Removes phantom/placeholder districts (ZZ, 00, 98, 99) from TIGER CD data.
-   * This is especially important for at-large states where TIGER files may
-   * contain both the valid district and a placeholder.
+   * Removes phantom/placeholder districts (ZZ, 98, 99) from TIGER CD data.
+   * Special handling for district code 00:
+   * - For at-large states (AK, DE, ND, SD, VT, WY, territories): 00 is the VALID district
+   * - For non-at-large states: 00 is a placeholder (appears alongside real districts)
    *
    * @param boundaries - Congressional district boundaries to filter
    * @returns Filtered boundaries with placeholders removed
@@ -543,12 +544,20 @@ export class TIGERValidator {
     boundaries: readonly NormalizedBoundary[]
   ): readonly NormalizedBoundary[] {
     return boundaries.filter(b => {
-      // Extract district portion from GEOID (last 2 characters for CD)
+      // Extract state and district portions from GEOID
       // CD GEOID format: SSDD (State + District)
       if (b.geoid.length < 4) {
         return true; // Keep if GEOID is malformed (will fail other validation)
       }
+      const stateFips = b.geoid.slice(0, 2);
       const districtCode = b.geoid.slice(2, 4);
+
+      // Special case: district code 00 is VALID for at-large states
+      // (Alaska, Delaware, North Dakota, South Dakota, Vermont, Wyoming, territories)
+      if (districtCode === '00' && this.isAtLargeCongressionalState(stateFips)) {
+        return true; // Keep at-large district
+      }
+
       return !this.isPlaceholderDistrictCode(districtCode);
     });
   }

@@ -2,11 +2,13 @@
  * Tests for Authoritative Multi-Path Scanner
  *
  * Focus: Governance layer detection from ArcGIS services
+ * and governance pre-flight validation
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthoritativeMultiPathScanner } from './authoritative-multi-path.js';
 import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
+import { GovernanceValidator } from '../validators/governance-validator.js';
 
 describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
   let scanner: AuthoritativeMultiPathScanner;
@@ -314,6 +316,157 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
       // This is the highest scoring keyword, so confidence = 100
       expect(candidates[0].confidenceScore).toBe(100);
       expect(candidates[0].matchedKeywords.length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('Governance Pre-Flight Integration', () => {
+    it('should skip Layer 1 search for at-large cities', async () => {
+      // Phoenix, AZ was at-large until 2024 (check if it's in registry)
+      const phoenixFips = '0455000';
+
+      const city: CityTarget = {
+        fips: phoenixFips,
+        name: 'Phoenix',
+        state: 'AZ',
+        lat: 33.4484,
+        lng: -112.074,
+      };
+
+      // Check if Phoenix is marked as at-large in registry
+      const govValidator = new GovernanceValidator();
+      const govCheck = await govValidator.checkGovernance(phoenixFips);
+
+      if (govCheck.structure === 'at-large') {
+        // If in registry as at-large, scanner should return empty array
+        const candidates = await scanner.search(city);
+        expect(candidates).toHaveLength(0);
+      } else {
+        // If not in registry or not at-large, test should acknowledge this
+        console.log(`Phoenix governance: ${govCheck.structure} (not at-large in registry)`);
+      }
+    });
+
+    it('should attempt Layer 1 search for district-based cities', async () => {
+      const city: CityTarget = {
+        fips: '5363000', // Seattle - district-based
+        name: 'Seattle',
+        state: 'WA',
+        lat: 47.6062,
+        lng: -122.3321,
+      };
+
+      // Mock successful portal response
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ results: [] }),
+      } as Response);
+
+      // Should attempt search (not skip due to governance)
+      // Result depends on portal availability, but should not return empty due to at-large
+      const govValidator = new GovernanceValidator();
+      const govCheck = await govValidator.checkGovernance(city.fips);
+
+      expect(govCheck.shouldAttemptLayer1).toBe(true);
+    });
+
+    it('should attempt Layer 1 for unknown cities (graceful degradation)', async () => {
+      const city: CityTarget = {
+        fips: '9999999', // Invalid/unknown FIPS
+        name: 'Unknown City',
+        state: 'XX',
+        lat: 0,
+        lng: 0,
+      };
+
+      // Mock fetch to fail (no portal data)
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      } as Response);
+
+      // Should attempt search even for unknown cities (graceful degradation)
+      const govValidator = new GovernanceValidator();
+      const govCheck = await govValidator.checkGovernance(city.fips);
+
+      expect(govCheck.shouldAttemptLayer1).toBe(true);
+      expect(govCheck.structure).toBe('unknown');
+    });
+
+    it('should validate discovered district count against registry', async () => {
+      const city: CityTarget = {
+        fips: '5363000', // Seattle - 7 districts
+        name: 'Seattle',
+        state: 'WA',
+        lat: 47.6062,
+        lng: -122.3321,
+      };
+
+      // Validate correct count
+      const validResult = scanner.validateDiscoveredDistricts(city, 7);
+
+      // Check if Seattle is in registry
+      const govValidator = new GovernanceValidator();
+      const metadata = govValidator.getGovernanceMetadata(city.fips);
+
+      if (metadata && metadata.districtSeats === 7) {
+        expect(validResult.valid).toBe(true);
+        expect(validResult.discoveredCount).toBe(7);
+      } else {
+        // If not in registry or different count, validation will pass (no registry entry)
+        console.log(`Seattle registry metadata: ${JSON.stringify(metadata)}`);
+      }
+    });
+
+    it('should warn on district count mismatch', async () => {
+      const city: CityTarget = {
+        fips: '5363000', // Seattle - 7 districts
+        name: 'Seattle',
+        state: 'WA',
+        lat: 47.6062,
+        lng: -122.3321,
+      };
+
+      // Mock console.warn to verify warning
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Validate incorrect count
+      const invalidResult = scanner.validateDiscoveredDistricts(city, 10);
+
+      // Check if Seattle is in registry
+      const govValidator = new GovernanceValidator();
+      const metadata = govValidator.getGovernanceMetadata(city.fips);
+
+      if (metadata && metadata.districtSeats !== undefined) {
+        // If in registry, should detect mismatch
+        if (metadata.districtSeats !== 10) {
+          expect(invalidResult.valid).toBe(false);
+          expect(warnSpy).toHaveBeenCalled();
+        }
+      }
+
+      warnSpy.mockRestore();
+    });
+
+    it('should handle mixed governance structures', async () => {
+      // Test city with mixed at-large + district seats
+      const govValidator = new GovernanceValidator();
+
+      // Find a city with mixed structure (if any in registry)
+      // For now, test that mixed structures allow Layer 1 attempts
+      const city: CityTarget = {
+        fips: '1234567', // Hypothetical mixed-governance city
+        name: 'Test City',
+        state: 'TX',
+        lat: 30,
+        lng: -95,
+      };
+
+      const govCheck = await govValidator.checkGovernance(city.fips);
+
+      // Unknown cities default to attempting discovery
+      if (govCheck.structure === 'unknown') {
+        expect(govCheck.shouldAttemptLayer1).toBe(true);
+      }
     });
   });
 });

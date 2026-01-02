@@ -219,7 +219,8 @@ describe('AustraliaBoundaryProvider', () => {
 
       const result = await provider.extractFederalDivisions();
 
-      expect(result.durationMs).toBeGreaterThan(0);
+      // Mocked fetches may complete in < 1ms, so accept >= 0
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
       expect(result.extractedAt).toBeInstanceOf(Date);
     });
   });
@@ -447,7 +448,8 @@ describe('AustraliaBoundaryProvider', () => {
       const health = await provider.healthCheck();
 
       expect(health.available).toBe(true);
-      expect(health.latencyMs).toBeGreaterThan(0);
+      // Mocked fetches may complete in < 1ms, so accept >= 0
+      expect(health.latencyMs).toBeGreaterThanOrEqual(0);
       expect(health.issues).toHaveLength(0);
       expect(health.lastChecked).toBeInstanceOf(Date);
     });

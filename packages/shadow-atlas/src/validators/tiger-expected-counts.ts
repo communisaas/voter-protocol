@@ -350,7 +350,7 @@ export const EXPECTED_SLDU_BY_STATE: Record<string, number> = {
   '53': 49,  // Washington Senate
   '54': 34,  // West Virginia Senate
   '55': 33,  // Wisconsin Senate
-  '56': 30,  // Wyoming Senate
+  '56': 31,  // Wyoming Senate (increased from 30 after 2020 redistricting)
 };
 
 /**
@@ -410,7 +410,7 @@ export const EXPECTED_SLDL_BY_STATE: Record<string, number> = {
   '53': 98,  // Washington House
   '54': 100, // West Virginia House
   '55': 99,  // Wisconsin Assembly
-  '56': 60,  // Wyoming House
+  '56': 62,  // Wyoming House (increased from 60 after 2020 redistricting)
 };
 
 /**

@@ -36,7 +36,9 @@
  */
 
 import { randomUUID, createHash } from 'crypto';
-import { join } from 'path';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { hostname } from 'os';
 import type {
   ExtractionScope,
@@ -93,6 +95,8 @@ import { DeterministicValidationPipeline } from '../validators/deterministic-val
 import { DEFAULT_CONFIG } from './config.js';
 import { UKBoundaryProvider } from '../providers/international/uk-provider.js';
 import { CanadaBoundaryProvider } from '../providers/international/canada-provider.js';
+import { AustraliaBoundaryProvider } from '../providers/international/australia-provider.js';
+import { NewZealandBoundaryProvider } from '../providers/international/nz-provider.js';
 import { SqlitePersistenceAdapter } from '../persistence/sqlite-adapter.js';
 import { MetricsStore, StructuredLogger, createMetricsStore, createLogger } from '../observability/metrics.js';
 import { ProvenanceWriter } from '../provenance/provenance-writer.js';
@@ -127,6 +131,8 @@ export class ShadowAtlasService {
   // International providers
   private readonly ukProvider: UKBoundaryProvider;
   private readonly canadaProvider: CanadaBoundaryProvider;
+  private readonly australiaProvider: AustraliaBoundaryProvider;
+  private readonly nzProvider: NewZealandBoundaryProvider;
 
   // Persistence layer (SQLite when enabled, in-memory fallback for tests)
   private readonly persistenceAdapter: SqlitePersistenceAdapter | null;
@@ -175,6 +181,14 @@ export class ShadowAtlasService {
       retryDelayMs: config.extraction.retryDelayMs,
     });
     this.canadaProvider = new CanadaBoundaryProvider({
+      retryAttempts: config.extraction.retryAttempts,
+      retryDelayMs: config.extraction.retryDelayMs,
+    });
+    this.australiaProvider = new AustraliaBoundaryProvider({
+      retryAttempts: config.extraction.retryAttempts,
+      retryDelayMs: config.extraction.retryDelayMs,
+    });
+    this.nzProvider = new NewZealandBoundaryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
     });
@@ -534,6 +548,62 @@ export class ShadowAtlasService {
       this.metrics?.recordProviderHealth('CanadaBoundaryProvider', false, caLatency, errorMsg);
     }
 
+    // Check Australia provider
+    const auStart = Date.now();
+    try {
+      const auHealth = await this.australiaProvider.healthCheck();
+      providers.push({
+        name: 'AustraliaBoundaryProvider',
+        available: auHealth.available,
+        latencyMs: auHealth.latencyMs,
+        issues: auHealth.issues,
+      });
+      this.metrics?.recordProviderHealth(
+        'AustraliaBoundaryProvider',
+        auHealth.available,
+        auHealth.latencyMs,
+        auHealth.issues[0]
+      );
+    } catch (error) {
+      const auLatency = Date.now() - auStart;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      providers.push({
+        name: 'AustraliaBoundaryProvider',
+        available: false,
+        latencyMs: auLatency,
+        issues: [errorMsg],
+      });
+      this.metrics?.recordProviderHealth('AustraliaBoundaryProvider', false, auLatency, errorMsg);
+    }
+
+    // Check New Zealand provider
+    const nzStart = Date.now();
+    try {
+      const nzHealth = await this.nzProvider.healthCheck();
+      providers.push({
+        name: 'NewZealandBoundaryProvider',
+        available: nzHealth.available,
+        latencyMs: nzHealth.latencyMs,
+        issues: nzHealth.issues,
+      });
+      this.metrics?.recordProviderHealth(
+        'NewZealandBoundaryProvider',
+        nzHealth.available,
+        nzHealth.latencyMs,
+        nzHealth.issues[0]
+      );
+    } catch (error) {
+      const nzLatency = Date.now() - nzStart;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      providers.push({
+        name: 'NewZealandBoundaryProvider',
+        available: false,
+        latencyMs: nzLatency,
+        issues: [errorMsg],
+      });
+      this.metrics?.recordProviderHealth('NewZealandBoundaryProvider', false, nzLatency, errorMsg);
+    }
+
     const healthy = providers.every((p) => p.available);
     this.log.info('Health check complete', {
       healthy,
@@ -573,6 +643,12 @@ export class ShadowAtlasService {
         }
         if (scope.country === 'CA') {
           return this.extractCanada(options);
+        }
+        if (scope.country === 'AU') {
+          return this.extractAustralia(options);
+        }
+        if (scope.country === 'NZ') {
+          return this.extractNewZealand(options);
         }
         throw new Error(`Country ${scope.country} not yet supported`);
 
@@ -810,6 +886,143 @@ export class ShadowAtlasService {
       return [stateResult];
     } catch (error) {
       console.error('[ShadowAtlas] Canada extraction failed:', error);
+      if (!options.continueOnError) {
+        throw error;
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Extract Australia federal electoral divisions
+   *
+   * Uses AustraliaBoundaryProvider to fetch from AEC ArcGIS services.
+   * Returns data in StateExtractionResult format for compatibility.
+   */
+  private async extractAustralia(
+    options: ExtractionOptions
+  ): Promise<StateExtractionResult[]> {
+    console.log('[ShadowAtlas] Extracting Australia federal electoral divisions...');
+
+    try {
+      const result = await this.australiaProvider.extractFederalDivisions();
+
+      // Convert to StateExtractionResult format for compatibility
+      const stateResult: StateExtractionResult = {
+        state: 'AU',
+        stateName: 'Australia',
+        authority: 'federal-mandate',
+        layers: [
+          {
+            state: 'AU',
+            layerType: 'congressional', // Map to equivalent US type
+            expectedCount: result.expectedCount,
+            featureCount: result.actualCount,
+            boundaries: result.boundaries.map((d) => ({
+              id: d.id,
+              name: d.name,
+              layerType: 'congressional' as const,
+              geometry: d.geometry,
+              source: {
+                state: 'AU',
+                portalName: 'AEC',
+                endpoint: d.source.endpoint,
+                authority: 'federal-mandate' as const,
+                vintage: d.source.vintage,
+                retrievedAt: d.source.retrievedAt,
+              },
+              properties: d.properties,
+            })),
+            success: result.matched,
+            error: result.error,
+            metadata: {
+              endpoint: result.source,
+              extractedAt: result.extractedAt.toISOString(),
+              durationMs: result.durationMs,
+            },
+          },
+        ],
+        summary: {
+          totalBoundaries: result.actualCount,
+          layersSucceeded: result.matched ? 1 : 0,
+          layersFailed: result.matched ? 0 : 1,
+          durationMs: result.durationMs,
+        },
+      };
+
+      return [stateResult];
+    } catch (error) {
+      console.error('[ShadowAtlas] Australia extraction failed:', error);
+      if (!options.continueOnError) {
+        throw error;
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Extract New Zealand electoral districts
+   *
+   * Uses NewZealandBoundaryProvider to fetch from Stats NZ ArcGIS services.
+   * Returns data in StateExtractionResult format for compatibility.
+   */
+  private async extractNewZealand(
+    options: ExtractionOptions
+  ): Promise<StateExtractionResult[]> {
+    console.log('[ShadowAtlas] Extracting New Zealand electoral districts...');
+
+    try {
+      const result = await this.nzProvider.extractAll();
+
+      // Convert to StateExtractionResult format for compatibility
+      // NZ has two layers: general and Māori electorates
+      const stateResult: StateExtractionResult = {
+        state: 'NZ',
+        stateName: 'New Zealand',
+        authority: 'federal-mandate',
+        layers: result.layers.map((layerResult) => ({
+          state: 'NZ',
+          layerType: 'congressional' as const, // Map to equivalent US type
+          expectedCount: layerResult.expectedCount,
+          featureCount: layerResult.actualCount,
+          boundaries: layerResult.boundaries.map((e) => ({
+            id: e.id,
+            name: e.name,
+            layerType: 'congressional' as const,
+            geometry: e.geometry,
+            source: {
+              state: 'NZ',
+              portalName: 'Stats NZ',
+              endpoint: e.source.endpoint,
+              authority: 'federal-mandate' as const,
+              vintage: e.source.vintage,
+              retrievedAt: e.source.retrievedAt,
+            },
+            properties: {
+              ...e.properties,
+              electorateType: e.type, // Preserve general vs Māori distinction
+              region: e.region,
+            },
+          })),
+          success: layerResult.success,
+          error: layerResult.error,
+          metadata: {
+            endpoint: layerResult.source,
+            extractedAt: layerResult.extractedAt.toISOString(),
+            durationMs: layerResult.durationMs,
+          },
+        })),
+        summary: {
+          totalBoundaries: result.totalBoundaries,
+          layersSucceeded: result.successfulLayers,
+          layersFailed: result.failedLayers,
+          durationMs: result.durationMs,
+        },
+      };
+
+      return [stateResult];
+    } catch (error) {
+      console.error('[ShadowAtlas] New Zealand extraction failed:', error);
       if (!options.continueOnError) {
         throw error;
       }
@@ -1143,6 +1356,46 @@ export class ShadowAtlasService {
     return Array.from(this.snapshots.values())
       .map(s => s.metadata)
       .slice(0, limit);
+  }
+
+  /**
+   * Get versioned snapshot by ID from SnapshotManager
+   *
+   * @param snapshotId - Snapshot ID (UUID)
+   * @returns Full snapshot with metadata, or null if not found
+   */
+  async getVersionedSnapshot(snapshotId: string): Promise<Snapshot | null> {
+    return this.snapshotManager.getById(snapshotId);
+  }
+
+  /**
+   * Get proof templates for a snapshot
+   *
+   * Returns array of proof template objects with districtId, leafHash, siblings, etc.
+   *
+   * @param snapshotId - Snapshot ID (UUID)
+   * @returns Array of proof templates, or empty array if not found
+   */
+  async getProofTemplates(snapshotId: string): Promise<Array<{
+    readonly districtId: string;
+    readonly leafHash: string;
+    readonly authority: number;
+    readonly siblings: readonly string[];
+    readonly pathIndices: readonly number[];
+  }>> {
+    const store = await this.snapshotManager.getProofTemplateStore(snapshotId);
+    if (!store) {
+      return [];
+    }
+
+    // Convert Record to array
+    return Object.entries(store.templates).map(([districtId, template]) => ({
+      districtId,
+      leafHash: template.leafHash,
+      authority: template.authority,
+      siblings: template.siblings,
+      pathIndices: template.pathIndices,
+    }));
   }
 
   /**
@@ -2259,7 +2512,7 @@ export class ShadowAtlasService {
       } else if (treeType === 'global') {
         // Global tree: Export minimal JSON with roots
         const exportData = {
-          version: '2.0.0',
+          version: this.getPackageVersion(),
           treeType: 'global',
           globalRoot: `0x${merkleRoot.toString(16)}`,
           totalBoundaries,
@@ -2420,7 +2673,7 @@ export class ShadowAtlasService {
 
     // Prepare tree data for upload
     const treeData = {
-      version: '2.0.0',
+      version: this.getPackageVersion(),
       root: `0x${merkleRoot.toString(16)}`,
       snapshotId: snapshot.id,
       snapshotVersion: snapshot.version,
@@ -3090,9 +3343,10 @@ export class ShadowAtlasService {
    */
   private getPackageVersion(): string {
     try {
-      // Try to read package.json (this will work in runtime, not during build)
-      // For now, return a placeholder - in production this would read from package.json
-      return '0.1.0';
+      const __dirname = dirname(fileURLToPath(import.meta.url));
+      const pkgPath = join(__dirname, '../../package.json');
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      return pkg.version ?? 'unknown';
     } catch {
       return 'unknown';
     }
