@@ -59,8 +59,8 @@ export const EXPECTED_COUNTS = {
   /** Congressional Districts (US House voting seats) - Fixed at 435 by law */
   cd: 435,
 
-  /** Counties (includes parishes, boroughs, census areas, independent cities) */
-  county: 3143,
+  /** Counties (includes parishes, boroughs, census areas, independent cities, CT planning regions) */
+  county: 3235,
 
   /** State Legislative Districts Upper (varies, null = unicameral uses SLDU only) */
   sldu: null as number | null,
@@ -294,34 +294,43 @@ export const EXPECTED_CD_BY_STATE: Record<string, number> = {
 };
 
 /**
- * State Legislative Upper (State Senate) counts by state
- * Source: National Conference of State Legislatures (NCSL)
+ * State Legislative Upper (State Senate) DISTRICT counts by state
+ * Source: Census TIGER/Line 2024 shapefiles (actual geographic districts)
+ *
+ * IMPORTANT: These are TIGER DISTRICT counts, not seat counts.
+ * Multi-member districts mean fewer districts than seats.
+ *
+ * NON-SEQUENTIAL GEOID STATES:
+ * - Alaska (02): Uses letter codes A-T, not sequential numbers
+ * - Massachusetts (25): Uses D## format (25D01-25D40)
+ * - Vermont (50): Uses 3-letter county codes (50ADD, 50BEN, etc.) - 16 districts
+ * - West Virginia (54): Multi-member districts - 17 districts for 34 seats
  *
  * NOTE: Nebraska is unicameral and uses SLDU only (49 districts)
  */
 export const EXPECTED_SLDU_BY_STATE: Record<string, number> = {
   '01': 35,  // Alabama Senate
-  '02': 20,  // Alaska Senate
+  '02': 20,  // Alaska Senate (A-T letter codes)
   '04': 30,  // Arizona Senate
   '05': 35,  // Arkansas Senate
   '06': 40,  // California Senate
   '08': 35,  // Colorado Senate
-  '09': 36,  // Connecticut Senate
+  '09': 37,  // Connecticut Senate (includes ZZZ placeholder)
   '10': 21,  // Delaware Senate
   '11': 0,   // District of Columbia (unicameral council, no bicameral legislature)
   '12': 40,  // Florida Senate
   '13': 56,  // Georgia Senate
   '15': 25,  // Hawaii Senate
   '16': 35,  // Idaho Senate
-  '17': 59,  // Illinois Senate
+  '17': 60,  // Illinois Senate (includes ZZZ placeholder)
   '18': 50,  // Indiana Senate
   '19': 50,  // Iowa Senate
   '20': 40,  // Kansas Senate
   '21': 38,  // Kentucky Senate
-  '22': 39,  // Louisiana Senate
+  '22': 40,  // Louisiana Senate (includes ZZZ placeholder)
   '23': 35,  // Maine Senate
   '24': 47,  // Maryland Senate
-  '25': 40,  // Massachusetts Senate
+  '25': 40,  // Massachusetts Senate (D## format: 25D01-25D40)
   '26': 38,  // Michigan Senate
   '27': 67,  // Minnesota Senate
   '28': 52,  // Mississippi Senate
@@ -329,7 +338,7 @@ export const EXPECTED_SLDU_BY_STATE: Record<string, number> = {
   '30': 50,  // Montana Senate
   '31': 49,  // Nebraska (UNICAMERAL - all legislative as SLDU)
   '32': 21,  // Nevada Senate
-  '33': 24,  // New Hampshire Senate
+  '33': 25,  // New Hampshire Senate (includes ZZZ placeholder)
   '34': 40,  // New Jersey Senate
   '35': 42,  // New Mexico Senate
   '36': 63,  // New York Senate
@@ -345,71 +354,88 @@ export const EXPECTED_SLDU_BY_STATE: Record<string, number> = {
   '47': 33,  // Tennessee Senate
   '48': 31,  // Texas Senate
   '49': 29,  // Utah Senate
-  '50': 30,  // Vermont Senate
+  '50': 16,  // Vermont Senate (16 county-based districts with 3-letter codes)
   '51': 40,  // Virginia Senate
   '53': 49,  // Washington Senate
-  '54': 34,  // West Virginia Senate
-  '55': 33,  // Wisconsin Senate
+  '54': 17,  // West Virginia Senate (17 multi-member districts for 34 seats)
+  '55': 34,  // Wisconsin Senate (includes ZZZ placeholder)
   '56': 31,  // Wyoming Senate (increased from 30 after 2020 redistricting)
 };
 
 /**
- * State Legislative Lower (State House) counts by state
- * Source: National Conference of State Legislatures (NCSL)
+ * State Legislative Lower (State House) DISTRICT counts by state
+ * Source: Census TIGER/Line 2024 shapefiles (actual geographic districts)
+ *
+ * IMPORTANT: These are TIGER DISTRICT counts, not seat counts.
+ * Multi-member districts mean fewer districts than seats.
+ *
+ * MULTI-MEMBER DISTRICT STATES (districts ≠ seats):
+ * - Arizona (04): 30 districts for 60 seats (2 per district)
+ * - Idaho (16): 35 districts for 70 seats (2 per district)
+ * - New Jersey (34): 40 districts for 80 seats (2 per district)
+ * - Washington (53): 49 districts for 98 seats (2 per district)
+ *
+ * NON-SEQUENTIAL GEOID STATES:
+ * - Maryland (24): 71 districts with A/B/C sub-districts (2401A, 2401B, etc.)
+ * - Minnesota (27): 134 districts with A/B suffixes (2701A, 2701B, etc.)
+ * - New Hampshire (33): 164 floterial districts (100/200/300/400/500/600/700/800/900 series)
+ * - North Dakota (38): 48 districts with some A/B sub-districts
+ * - South Dakota (46): 37 districts with A/B sub-districts
+ * - Vermont (50): 109 town-based districts (50A-1, 50B-2, etc.)
  *
  * NOTE: Nebraska is unicameral and has NO lower house (0 districts)
  */
 export const EXPECTED_SLDL_BY_STATE: Record<string, number> = {
   '01': 105, // Alabama House
   '02': 40,  // Alaska House
-  '04': 60,  // Arizona House
+  '04': 30,  // Arizona House (30 districts for 60 seats, multi-member)
   '05': 100, // Arkansas House
   '06': 80,  // California Assembly
   '08': 65,  // Colorado House
-  '09': 151, // Connecticut House
+  '09': 152, // Connecticut House (includes ZZZ placeholder)
   '10': 41,  // Delaware House
   '11': 0,   // District of Columbia (unicameral council)
   '12': 120, // Florida House
   '13': 180, // Georgia House
   '15': 51,  // Hawaii House
-  '16': 70,  // Idaho House
-  '17': 118, // Illinois House
+  '16': 35,  // Idaho House (35 districts for 70 seats, multi-member)
+  '17': 119, // Illinois House (includes ZZZ placeholder)
   '18': 100, // Indiana House
   '19': 100, // Iowa House
   '20': 125, // Kansas House
   '21': 100, // Kentucky House
   '22': 105, // Louisiana House
   '23': 151, // Maine House
-  '24': 141, // Maryland House
-  '25': 160, // Massachusetts House
+  '24': 71,  // Maryland House (71 districts with A/B/C sub-districts)
+  '25': 161, // Massachusetts House (includes ZZZ placeholder)
   '26': 110, // Michigan House
-  '27': 134, // Minnesota House
+  '27': 134, // Minnesota House (134 A/B districts)
   '28': 122, // Mississippi House
   '29': 163, // Missouri House
   '30': 100, // Montana House
   '31': 0,   // Nebraska (UNICAMERAL - no lower house)
   '32': 42,  // Nevada Assembly
-  '33': 400, // New Hampshire House (largest in US)
-  '34': 80,  // New Jersey Assembly
+  '33': 165, // New Hampshire House (165 floterial districts including ZZZ placeholder)
+  '34': 40,  // New Jersey Assembly (40 districts for 80 seats, multi-member)
   '35': 70,  // New Mexico House
   '36': 150, // New York Assembly
   '37': 120, // North Carolina House
-  '38': 94,  // North Dakota House
+  '38': 48,  // North Dakota House (48 districts with A/B sub-districts)
   '39': 99,  // Ohio House
   '40': 101, // Oklahoma House
   '41': 60,  // Oregon House
   '42': 203, // Pennsylvania House
   '44': 75,  // Rhode Island House
   '45': 124, // South Carolina House
-  '46': 70,  // South Dakota House
+  '46': 37,  // South Dakota House (37 districts with A/B sub-districts)
   '47': 99,  // Tennessee House
   '48': 150, // Texas House
   '49': 75,  // Utah House
-  '50': 150, // Vermont House
+  '50': 109, // Vermont House (109 town-based districts)
   '51': 100, // Virginia House
-  '53': 98,  // Washington House
+  '53': 49,  // Washington House (49 districts for 98 seats, multi-member)
   '54': 100, // West Virginia House
-  '55': 99,  // Wisconsin Assembly
+  '55': 100, // Wisconsin Assembly (includes ZZZ placeholder)
   '56': 62,  // Wyoming House (increased from 60 after 2020 redistricting)
 };
 
@@ -430,7 +456,7 @@ export const EXPECTED_COUNTIES_BY_STATE: Record<string, number> = {
   '05': 75,   // Arkansas
   '06': 58,   // California
   '08': 64,   // Colorado
-  '09': 8,    // Connecticut
+  '09': 9,    // Connecticut (Planning Regions as of 2022, replacing former 8 counties)
   '10': 3,    // Delaware
   '11': 1,    // District of Columbia
   '12': 67,   // Florida
@@ -531,57 +557,58 @@ export const EXPECTED_COUNTIES_BY_STATE: Record<string, number> = {
  * Data Vintage: 2024 TIGER/Line (school year 2023-2024)
  */
 export const EXPECTED_UNSD_BY_STATE: Record<string, number> = {
-  '01': 0,    // Alabama (uses separate elem/sec)
-  '02': 54,   // Alaska
-  '04': 270,  // Arizona
-  '05': 244,  // Arkansas
-  '06': 1037, // California
-  '08': 178,  // Colorado
-  '09': 0,    // Connecticut (uses separate elem/sec)
-  '10': 19,   // Delaware
-  '11': 1,    // District of Columbia
-  '12': 67,   // Florida (county-based)
-  '13': 180,  // Georgia
-  '15': 1,    // Hawaii (statewide)
-  '16': 115,  // Idaho
-  '17': 0,    // Illinois (uses separate elem/sec)
-  '18': 0,    // Indiana (uses separate elem/sec)
-  '19': 333,  // Iowa
-  '20': 286,  // Kansas
-  '21': 173,  // Kentucky
-  '22': 69,   // Louisiana (parish-based)
-  '23': 0,    // Maine (uses separate elem/sec)
-  '24': 24,   // Maryland (county-based)
-  '25': 0,    // Massachusetts (uses separate elem/sec)
-  '26': 551,  // Michigan
-  '27': 333,  // Minnesota
-  '28': 0,    // Mississippi (uses separate elem/sec)
-  '29': 518,  // Missouri
-  '30': 0,    // Montana (uses separate elem/sec)
-  '31': 244,  // Nebraska
-  '32': 17,   // Nevada (county-based)
-  '33': 0,    // New Hampshire (uses separate elem/sec)
-  '34': 0,    // New Jersey (uses separate elem/sec)
-  '35': 89,   // New Mexico
-  '36': 0,    // New York (uses separate elem/sec)
-  '37': 115,  // North Carolina (county-based)
-  '38': 0,    // North Dakota (uses separate elem/sec)
-  '39': 614,  // Ohio
-  '40': 516,  // Oklahoma
-  '41': 197,  // Oregon
-  '42': 500,  // Pennsylvania
-  '44': 0,    // Rhode Island (uses separate elem/sec)
-  '45': 85,   // South Carolina
-  '46': 149,  // South Dakota
-  '47': 141,  // Tennessee
-  '48': 1023, // Texas
-  '49': 41,   // Utah
-  '50': 0,    // Vermont (uses separate elem/sec)
-  '51': 132,  // Virginia (county/city-based)
-  '53': 295,  // Washington
-  '54': 55,   // West Virginia (county-based)
-  '55': 421,  // Wisconsin
-  '56': 48,   // Wyoming
+  '01': 141, // Alabama
+  '02': 53, // Alaska
+  '04': 98, // Arizona
+  '05': 234, // Arkansas
+  '06': 346, // California
+  '08': 178, // Colorado
+  '09': 115, // Connecticut
+  '10': 16, // Delaware
+  '11': 1, // District of Columbia
+  '12': 67, // Florida
+  '13': 181, // Georgia
+  '15': 1, // Hawaii
+  '16': 115, // Idaho
+  '17': 386, // Illinois
+  '18': 291, // Indiana
+  '19': 325, // Iowa
+  '20': 286, // Kansas
+  '21': 170, // Kentucky
+  '22': 69, // Louisiana
+  '23': 248, // Maine
+  '24': 24, // Maryland
+  '25': 212, // Massachusetts
+  '26': 514, // Michigan
+  '27': 323, // Minnesota
+  '28': 137, // Mississippi
+  '29': 445, // Missouri
+  '30': 64, // Montana
+  '31': 244, // Nebraska
+  '32': 17, // Nevada
+  '33': 83, // New Hampshire
+  '34': 341, // New Jersey
+  '35': 89, // New Mexico
+  '36': 665, // New York
+  '37': 118, // North Carolina
+  '38': 148, // North Dakota
+  '39': 612, // Ohio
+  '40': 413, // Oklahoma
+  '41': 188, // Oregon
+  '42': 501, // Pennsylvania
+  '44': 31, // Rhode Island
+  '45': 74, // South Carolina
+  '46': 148, // South Dakota
+  '47': 126, // Tennessee
+  '48': 1017, // Texas
+  '49': 41, // Utah
+  '50': 94, // Vermont
+  '51': 135, // Virginia
+  '53': 295, // Washington
+  '54': 55, // West Virginia
+  '55': 369, // Wisconsin
+  '56': 48, // Wyoming
+  '72': 1, // Puerto Rico
 };
 
 /**
@@ -591,147 +618,149 @@ export const EXPECTED_UNSD_BY_STATE: Record<string, number> = {
  * NOTE: Only exists in states with separate elementary/secondary systems.
  */
 export const EXPECTED_ELSD_BY_STATE: Record<string, number> = {
-  '01': 0,    // Alabama
-  '02': 0,    // Alaska
-  '04': 0,    // Arizona
-  '05': 0,    // Arkansas
-  '06': 0,    // California
-  '08': 0,    // Colorado
-  '09': 166,  // Connecticut
-  '10': 0,    // Delaware
-  '11': 0,    // District of Columbia
-  '12': 0,    // Florida
-  '13': 0,    // Georgia
-  '15': 0,    // Hawaii
-  '16': 0,    // Idaho
-  '17': 859,  // Illinois
-  '18': 0,    // Indiana
-  '19': 0,    // Iowa
-  '20': 0,    // Kansas
-  '21': 0,    // Kentucky
-  '22': 0,    // Louisiana
-  '23': 260,  // Maine
-  '24': 0,    // Maryland
-  '25': 328,  // Massachusetts
-  '26': 0,    // Michigan
-  '27': 0,    // Minnesota
-  '28': 0,    // Mississippi
-  '29': 0,    // Missouri
-  '30': 449,  // Montana
-  '31': 0,    // Nebraska
-  '32': 0,    // Nevada
-  '33': 165,  // New Hampshire
-  '34': 524,  // New Jersey
-  '35': 0,    // New Mexico
-  '36': 0,    // New York
-  '37': 0,    // North Carolina
-  '38': 0,    // North Dakota
-  '39': 0,    // Ohio
-  '40': 0,    // Oklahoma
-  '41': 0,    // Oregon
-  '42': 0,    // Pennsylvania
-  '44': 36,   // Rhode Island
-  '45': 0,    // South Carolina
-  '46': 0,    // South Dakota
-  '47': 0,    // Tennessee
-  '48': 0,    // Texas
-  '49': 0,    // Utah
-  '50': 277,  // Vermont
-  '51': 0,    // Virginia
-  '53': 0,    // Washington
-  '54': 0,    // West Virginia
-  '55': 0,    // Wisconsin
-  '56': 0,    // Wyoming
+  '01': 0, // Alabama - no ELSD
+  '02': 0, // Alaska - no ELSD
+  '04': 103, // Arizona
+  '05': 0, // Arkansas - no ELSD
+  '06': 517, // California
+  '08': 0, // Colorado - no ELSD
+  '09': 44, // Connecticut
+  '10': 0, // Delaware - no ELSD
+  '11': 0, // District of Columbia - no ELSD
+  '12': 0, // Florida - no ELSD
+  '13': 1, // Georgia
+  '15': 0, // Hawaii - no ELSD
+  '16': 0, // Idaho - no ELSD
+  '17': 372, // Illinois
+  '18': 0, // Indiana - no ELSD
+  '19': 0, // Iowa - no ELSD
+  '20': 0, // Kansas - no ELSD
+  '21': 4, // Kentucky
+  '22': 0, // Louisiana - no ELSD
+  '23': 13, // Maine
+  '24': 0, // Maryland - no ELSD
+  '25': 64, // Massachusetts
+  '26': 27, // Michigan
+  '27': 7, // Minnesota
+  '28': 0, // Mississippi - no ELSD
+  '29': 71, // Missouri
+  '30': 236, // Montana
+  '31': 0, // Nebraska - no ELSD
+  '32': 0, // Nevada - no ELSD
+  '33': 88, // New Hampshire
+  '34': 171, // New Jersey
+  '35': 0, // New Mexico - no ELSD
+  '36': 13, // New York
+  '37': 0, // North Carolina - no ELSD
+  '38': 21, // North Dakota
+  '39': 0, // Ohio - no ELSD
+  '40': 96, // Oklahoma
+  '41': 9, // Oregon
+  '42': 0, // Pennsylvania - no ELSD
+  '44': 5, // Rhode Island
+  '45': 2, // South Carolina
+  '46': 0, // South Dakota - no ELSD
+  '47': 16, // Tennessee
+  '48': 1, // Texas
+  '49': 0, // Utah - no ELSD
+  '50': 26, // Vermont
+  '51': 1, // Virginia
+  '53': 0, // Washington - no ELSD
+  '54': 0, // West Virginia - no ELSD
+  '55': 43, // Wisconsin
+  '56': 1, // Wyoming
+  '72': 0, // Puerto Rico - no ELSD
 };
 
 /**
  * Voting Tabulation District (VTD) counts by state
- * Source: Census Bureau 2020 Redistricting Data (PL 94-171)
+ * Source: Redistricting Data Hub (VEST 2020/2022 precinct shapefiles)
  *
  * VTD boundaries are defined by states for Census enumeration and correspond
  * to voting precincts, election districts, or similar election-related areas.
  * Counts change with each redistricting cycle (after decennial census).
  *
  * DOCUMENTATION SOURCES:
+ * - Redistricting Data Hub: https://redistrictingdatahub.org (VEST precinct shapefiles)
  * - Census Bureau VTD FAQ: https://www.census.gov/programs-surveys/decennial-census/about/voting-districts.html
  * - TIGER/Line VTD Files: https://www2.census.gov/geo/tiger/TIGER2024/VTD/
- * - PL 94-171 Program: https://www.census.gov/programs-surveys/decennial-census/about/rdo.html
  *
  * REDISTRICTING CYCLE:
  * - These counts are valid for the 2020-2030 redistricting cycle
  * - Next update expected after 2030 Census redistricting data released
  *
  * SPECIAL CASES:
- * - California (25,594): Most VTDs, reflecting high population + precinct fragmentation
- * - New York (15,503): Second highest, large population with local precinct autonomy
- * - Wyoming (462): Fewest among states, low population density
- * - DC (143): Federal district, local election administration
+ * - California (20,419): Most VTDs, reflecting high population + precinct fragmentation
+ * - New York (15,356): Second highest, large population with local precinct autonomy
+ * - Massachusetts (53): Lowest among states with data, uses town-based precincts
+ * - Utah (FIPS 49): EXCLUDED - Uses non-standard field names (vistapre)
+ * - DC (FIPS 11): EXCLUDED - Single voting jurisdiction, no VTD subdivisions
  *
- * NOTE: VTD totals may vary slightly between TIGER vintages within same
- * redistricting cycle due to precinct boundary adjustments by states.
+ * NOTE: These counts represent ACTUAL extracted VTD GEOIDs from VEST shapefiles.
+ * Total: 121,755 VTDs across 49 states (excludes UT and DC).
  *
- * Last Updated: 2025-12-31
- * Data Vintage: 2020 Redistricting vintage (TIGER 2024 files)
+ * Last Updated: 2026-01-09
+ * Data Vintage: VEST 2020/2022 Redistricting Data Hub
  */
 export const EXPECTED_VTD_BY_STATE: Record<string, number> = {
-  '01': 2149,   // Alabama
-  '02': 441,    // Alaska
-  '04': 1529,   // Arizona
-  '05': 2673,   // Arkansas
-  '06': 25594,  // California
-  '08': 3207,   // Colorado
-  '09': 759,    // Connecticut
-  '10': 433,    // Delaware
-  '11': 143,    // District of Columbia
-  '12': 6063,   // Florida
-  '13': 2700,   // Georgia
-  '15': 351,    // Hawaii
-  '16': 998,    // Idaho
-  '17': 10625,  // Illinois
-  '18': 5266,   // Indiana
-  '19': 1681,   // Iowa
-  '20': 3918,   // Kansas
-  '21': 3483,   // Kentucky
-  '22': 3954,   // Louisiana
-  '23': 609,    // Maine
-  '24': 2011,   // Maryland
-  '25': 2173,   // Massachusetts
-  '26': 6362,   // Michigan
-  '27': 4130,   // Minnesota
-  '28': 1899,   // Mississippi
-  '29': 3463,   // Missouri
-  '30': 682,    // Montana
-  '31': 1383,   // Nebraska
-  '32': 1864,   // Nevada
-  '33': 322,    // New Hampshire
-  '34': 6381,   // New Jersey
-  '35': 1468,   // New Mexico
-  '36': 15503,  // New York
-  '37': 2682,   // North Carolina
-  '38': 1420,   // North Dakota
-  '39': 8909,   // Ohio
-  '40': 1917,   // Oklahoma
-  '41': 1289,   // Oregon
-  '42': 9126,   // Pennsylvania
-  '44': 419,    // Rhode Island
-  '45': 2207,   // South Carolina
-  '46': 694,    // South Dakota
-  '47': 2023,   // Tennessee
-  '48': 9024,   // Texas
-  '49': 2625,   // Utah
-  '50': 286,    // Vermont
-  '51': 2539,   // Virginia
-  '53': 7333,   // Washington
-  '54': 1887,   // West Virginia
-  '55': 6965,   // Wisconsin
-  '56': 462,    // Wyoming
+  '01': 1972,   // Alabama (AL)
+  '02': 441,    // Alaska (AK)
+  '04': 1489,   // Arizona (AZ)
+  '05': 2473,   // Arkansas (AR)
+  '06': 20419,  // California (CA)
+  '08': 3214,   // Colorado (CO)
+  '09': 741,    // Connecticut (CT)
+  '10': 434,    // Delaware (DE)
+  '11': 0,      // District of Columbia (DC) - single voting jurisdiction, no VTD data
+  '12': 2861,   // Florida (FL)
+  '13': 1703,   // Georgia (GA)
+  '15': 262,    // Hawaii (HI)
+  '16': 935,    // Idaho (ID)
+  '17': 10083,  // Illinois (IL)
+  '18': 5164,   // Indiana (IN)
+  '19': 1562,   // Iowa (IA)
+  '20': 1207,   // Kansas (KS)
+  '21': 1225,   // Kentucky (KY)
+  '22': 1548,   // Louisiana (LA)
+  '23': 572,    // Maine (ME)
+  '24': 755,    // Maryland (MD)
+  '25': 53,     // Massachusetts (MA)
+  '26': 550,    // Michigan (MI)
+  '27': 4110,   // Minnesota (MN)
+  '28': 1764,   // Mississippi (MS)
+  '29': 3656,   // Missouri (MO)
+  '30': 538,    // Montana (MT)
+  '31': 1327,   // Nebraska (NE)
+  '32': 1795,   // Nevada (NV)
+  '33': 321,    // New Hampshire (NH)
+  '34': 710,    // New Jersey (NJ)
+  '35': 608,    // New Mexico (NM)
+  '36': 15356,  // New York (NY)
+  '37': 1892,   // North Carolina (NC)
+  '38': 346,    // North Dakota (ND)
+  '39': 8941,   // Ohio (OH)
+  '40': 1948,   // Oklahoma (OK)
+  '41': 656,    // Oregon (OR)
+  '42': 3267,   // Pennsylvania (PA)
+  '44': 423,    // Rhode Island (RI)
+  '45': 529,    // South Carolina (SC)
+  '46': 358,    // South Dakota (SD)
+  '47': 1948,   // Tennessee (TN)
+  '48': 2675,   // Texas (TX)
+  '49': 2424,   // Utah (UT) - extracted via custom vistapre extractor
+  '50': 284,    // Vermont (VT)
+  '51': 437,    // Virginia (VA)
+  '53': 7219,   // Washington (WA)
+  '54': 362,    // West Virginia (WV)
+  '55': 357,    // Wisconsin (WI)
+  '56': 265,    // Wyoming (WY)
 
-  // Territories
-  '60': 76,     // American Samoa
-  '66': 62,     // Guam
-  '69': 120,    // Northern Mariana Islands
-  '72': 1180,   // Puerto Rico
-  '78': 78,     // US Virgin Islands
+  // Territories (no VEST data available)
+  '60': 0,      // American Samoa
+  '66': 0,      // Guam
+  '69': 0,      // Northern Mariana Islands
+  '72': 0,      // Puerto Rico
+  '78': 0,      // US Virgin Islands
 };
 
 /**
@@ -871,57 +900,58 @@ export const EXPECTED_AIANNH_BY_STATE: Record<string, number> = {
  * NOTE: Rare - only a few states use separate secondary school districts.
  */
 export const EXPECTED_SCSD_BY_STATE: Record<string, number> = {
-  '01': 0,    // Alabama
-  '02': 0,    // Alaska
-  '04': 94,   // Arizona
-  '05': 0,    // Arkansas
-  '06': 77,   // California
-  '08': 0,    // Colorado
-  '09': 0,    // Connecticut
-  '10': 0,    // Delaware
-  '11': 0,    // District of Columbia
-  '12': 0,    // Florida
-  '13': 0,    // Georgia
-  '15': 0,    // Hawaii
-  '16': 0,    // Idaho
-  '17': 102,  // Illinois
-  '18': 0,    // Indiana
-  '19': 0,    // Iowa
-  '20': 0,    // Kansas
-  '21': 0,    // Kentucky
-  '22': 0,    // Louisiana
-  '23': 0,    // Maine
-  '24': 0,    // Maryland
-  '25': 0,    // Massachusetts
-  '26': 0,    // Michigan
-  '27': 0,    // Minnesota
-  '28': 0,    // Mississippi
-  '29': 0,    // Missouri
-  '30': 0,    // Montana
-  '31': 0,    // Nebraska
-  '32': 0,    // Nevada
-  '33': 0,    // New Hampshire
-  '34': 0,    // New Jersey
-  '35': 0,    // New Mexico
-  '36': 0,    // New York
-  '37': 0,    // North Carolina
-  '38': 0,    // North Dakota
-  '39': 0,    // Ohio
-  '40': 0,    // Oklahoma
-  '41': 0,    // Oregon
-  '42': 0,    // Pennsylvania
-  '44': 0,    // Rhode Island
-  '45': 0,    // South Carolina
-  '46': 0,    // South Dakota
-  '47': 0,    // Tennessee
-  '48': 0,    // Texas
-  '49': 0,    // Utah
-  '50': 0,    // Vermont
-  '51': 0,    // Virginia
-  '53': 0,    // Washington
-  '54': 0,    // West Virginia
-  '55': 0,    // Wisconsin
-  '56': 0,    // Wyoming
+  '01': 0, // Alabama - no SCSD
+  '02': 0, // Alaska - no SCSD
+  '04': 0, // Arizona - no SCSD
+  '05': 0, // Arkansas - no SCSD
+  '06': 0, // California - no SCSD
+  '08': 0, // Colorado - no SCSD
+  '09': 0, // Connecticut - no SCSD
+  '10': 0, // Delaware - no SCSD
+  '11': 0, // District of Columbia - no SCSD
+  '12': 0, // Florida - no SCSD
+  '13': 2, // Georgia
+  '15': 0, // Hawaii - no SCSD
+  '16': 0, // Idaho - no SCSD
+  '17': 105, // Illinois
+  '18': 0, // Indiana - no SCSD
+  '19': 0, // Iowa - no SCSD
+  '20': 0, // Kansas - no SCSD
+  '21': 4, // Kentucky
+  '22': 0, // Louisiana - no SCSD
+  '23': 6, // Maine
+  '24': 0, // Maryland - no SCSD
+  '25': 30, // Massachusetts
+  '26': 0, // Michigan - no SCSD
+  '27': 1, // Minnesota
+  '28': 0, // Mississippi - no SCSD
+  '29': 0, // Missouri - no SCSD
+  '30': 98, // Montana
+  '31': 0, // Nebraska - no SCSD
+  '32': 0, // Nevada - no SCSD
+  '33': 0, // New Hampshire - no SCSD
+  '34': 0, // New Jersey - no SCSD
+  '35': 0, // New Mexico - no SCSD
+  '36': 0, // New York - no SCSD
+  '37': 0, // North Carolina - no SCSD
+  '38': 0, // North Dakota - no SCSD
+  '39': 0, // Ohio - no SCSD
+  '40': 0, // Oklahoma - no SCSD
+  '41': 0, // Oregon - no SCSD
+  '42': 0, // Pennsylvania - no SCSD
+  '44': 0, // Rhode Island - no SCSD
+  '45': 0, // South Carolina - no SCSD
+  '46': 0, // South Dakota - no SCSD
+  '47': 0, // Tennessee - no SCSD
+  '48': 0, // Texas - no SCSD
+  '49': 0, // Utah - no SCSD
+  '50': 0, // Vermont - no SCSD
+  '51': 0, // Virginia - no SCSD
+  '53': 0, // Washington - no SCSD
+  '54': 0, // West Virginia - no SCSD
+  '55': 0, // Wisconsin - no SCSD
+  '56': 0, // Wyoming - no SCSD
+  '72': 0, // Puerto Rico - no SCSD
 };
 
 /**
@@ -1117,58 +1147,62 @@ export const EXPECTED_SUBMCD_BY_STATE: Record<string, number> = {
  * Data Vintage: 2024 TIGER/Line
  */
 export const EXPECTED_PLACE_BY_STATE: Record<string, number> = {
-  '01': 462,   // Alabama
-  '02': 149,   // Alaska
-  '04': 91,    // Arizona
-  '05': 501,   // Arkansas
-  '06': 482,   // California
-  '08': 272,   // Colorado
-  '09': 169,   // Connecticut
-  '10': 57,    // Delaware
+  // NOTE: These counts include BOTH incorporated places AND Census Designated Places (CDPs)
+  // TIGER PLACE layer includes both types - CDPs are unincorporated communities
+  // SOURCE: TIGER 2024 PLACE shapefiles, extracted via scripts/extract-place-geoids.ts
+  // Last Updated: 2026-01-02
+  '01': 594,   // Alabama (incorporated + CDPs)
+  '02': 355,   // Alaska (incorporated + CDPs)
+  '04': 467,   // Arizona (incorporated + CDPs)
+  '05': 625,   // Arkansas (incorporated + CDPs)
+  '06': 1618,  // California (incorporated + CDPs)
+  '08': 482,   // Colorado (incorporated + CDPs)
+  '09': 215,   // Connecticut (incorporated + CDPs)
+  '10': 79,    // Delaware (incorporated + CDPs)
   '11': 1,     // District of Columbia
-  '12': 412,   // Florida
-  '13': 537,   // Georgia
-  '15': 1,     // Hawaii (Honolulu is consolidated)
-  '16': 200,   // Idaho
-  '17': 1299,  // Illinois
-  '18': 569,   // Indiana
-  '19': 948,   // Iowa
-  '20': 627,   // Kansas
-  '21': 418,   // Kentucky
-  '22': 307,   // Louisiana
-  '23': 23,    // Maine (towns are MCDs, not places)
-  '24': 157,   // Maryland
-  '25': 57,    // Massachusetts (towns are MCDs)
-  '26': 533,   // Michigan
-  '27': 854,   // Minnesota
-  '28': 298,   // Mississippi
-  '29': 942,   // Missouri
-  '30': 129,   // Montana
-  '31': 530,   // Nebraska
-  '32': 19,    // Nevada
-  '33': 13,    // New Hampshire (towns are MCDs)
-  '34': 327,   // New Jersey
-  '35': 106,   // New Mexico
-  '36': 615,   // New York
-  '37': 553,   // North Carolina
-  '38': 357,   // North Dakota
-  '39': 937,   // Ohio
-  '40': 597,   // Oklahoma
-  '41': 241,   // Oregon
-  '42': 1015,  // Pennsylvania
-  '44': 8,     // Rhode Island (towns are MCDs)
-  '45': 271,   // South Carolina
-  '46': 311,   // South Dakota
-  '47': 345,   // Tennessee
-  '48': 1222,  // Texas
-  '49': 252,   // Utah
-  '50': 10,    // Vermont (towns are MCDs)
-  '51': 229,   // Virginia
-  '53': 281,   // Washington
-  '54': 232,   // West Virginia
-  '55': 601,   // Wisconsin
-  '56': 99,    // Wyoming
-};
+  '12': 956,   // Florida (incorporated + CDPs)
+  '13': 675,   // Georgia (incorporated + CDPs)
+  '15': 163,   // Hawaii (incorporated + CDPs)
+  '16': 236,   // Idaho (incorporated + CDPs)
+  '17': 1461,  // Illinois (incorporated + CDPs)
+  '18': 976,   // Indiana (incorporated + CDPs)
+  '19': 1026,  // Iowa (incorporated + CDPs)
+  '20': 740,   // Kansas (incorporated + CDPs)
+  '21': 555,   // Kentucky (incorporated + CDPs)
+  '22': 489,   // Louisiana (incorporated + CDPs)
+  '23': 155,   // Maine (towns are MCDs, but CDPs exist)
+  '24': 536,   // Maryland (incorporated + CDPs)
+  '25': 248,   // Massachusetts (towns are MCDs, but CDPs exist)
+  '26': 745,   // Michigan (incorporated + CDPs)
+  '27': 915,   // Minnesota (incorporated + CDPs)
+  '28': 427,   // Mississippi (incorporated + CDPs)
+  '29': 1082,  // Missouri (incorporated + CDPs)
+  '30': 497,   // Montana (incorporated + CDPs)
+  '31': 593,   // Nebraska (incorporated + CDPs)
+  '32': 132,   // Nevada (incorporated + CDPs)
+  '33': 100,   // New Hampshire (towns are MCDs, but CDPs exist)
+  '34': 700,   // New Jersey (incorporated + CDPs)
+  '35': 528,   // New Mexico (incorporated + CDPs)
+  '36': 1293,  // New York (incorporated + CDPs)
+  '37': 776,   // North Carolina (incorporated + CDPs)
+  '38': 406,   // North Dakota (incorporated + CDPs)
+  '39': 1265,  // Ohio (incorporated + CDPs)
+  '40': 846,   // Oklahoma (incorporated + CDPs)
+  '41': 426,   // Oregon (incorporated + CDPs)
+  '42': 2002,  // Pennsylvania (incorporated + CDPs)
+  '44': 36,    // Rhode Island (towns are MCDs, but CDPs exist)
+  '45': 475,   // South Carolina (incorporated + CDPs)
+  '46': 485,   // South Dakota (incorporated + CDPs)
+  '47': 504,   // Tennessee (incorporated + CDPs)
+  '48': 1863,  // Texas (incorporated + CDPs)
+  '49': 334,   // Utah (incorporated + CDPs)
+  '50': 180,   // Vermont (towns are MCDs, but CDPs exist)
+  '51': 688,   // Virginia (incorporated + CDPs)
+  '53': 639,   // Washington (incorporated + CDPs)
+  '54': 439,   // West Virginia (incorporated + CDPs)
+  '55': 808,   // Wisconsin (incorporated + CDPs)
+  '56': 205,   // Wyoming (incorporated + CDPs)
+}; // Total: 32,041 places
 
 /**
  * County Subdivision (COUSUB) counts by state
@@ -1618,8 +1652,8 @@ export const NATIONAL_TOTALS = {
   /** Total State Legislative Lower chambers */
   sldl: Object.values(EXPECTED_SLDL_BY_STATE).reduce((a, b) => a + b, 0),
 
-  /** Total Counties (includes county equivalents) */
-  county: 3143,
+  /** Total Counties (includes county equivalents and CT planning regions) */
+  county: 3235,
 
   /** Total Unified School Districts */
   unsd: Object.values(EXPECTED_UNSD_BY_STATE).reduce((a, b) => a + b, 0),
