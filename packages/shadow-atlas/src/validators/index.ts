@@ -106,3 +106,46 @@ export {
   validateGEOIDCompleteness,
   CANONICAL_CD_GEOIDS,
 } from './geoid-reference.js';
+
+// Place GEOIDs (separated due to size - 32,000+ entries)
+export {
+  CANONICAL_PLACE_GEOIDS,
+  EXPECTED_PLACE_BY_STATE,
+  NATIONAL_PLACE_TOTAL,
+  getPlaceGEOIDs,
+  getExpectedPlaceCount,
+} from './place-geoids.js';
+
+// TIGER Canonical Cross-Validation (TIGER vs canonical GEOIDs)
+export {
+  TIGERCanonicalValidator,
+  createTIGERCanonicalValidator,
+  formatCrossValidationReport,
+  type CanonicalCrossValidationResult,
+  type CanonicalCrossValidationReport,
+  type ValidatableLayerReport,
+  type TIGERCanonicalValidatorOptions,
+} from './tiger-canonical-validator.js';
+
+// GEOID Validation Suite & Comprehensive Reporting
+export {
+  // Core validation
+  validateAllCanonicalGEOIDs,
+  validateLayer,
+  validateGEOIDFormat,
+  validateCanonicalCoverage,
+  validateExpectedCounts,
+  generateValidationReport,
+  // Comprehensive reporting (Task 4.1)
+  generateComprehensiveReport,
+  generateComprehensiveReportText,
+  // Types
+  type ValidatableLayer,
+  type ValidationReport,
+  type LayerValidation,
+  type StateLayerValidation,
+  type ComprehensiveValidationReport,
+  type ComprehensiveReportOptions,
+  type VTDCoverageGap,
+  GEOID_FORMATS,
+} from './geoid-validation-suite.js';

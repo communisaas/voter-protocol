@@ -12,8 +12,9 @@ import {
   getExtraGEOIDs,
   validateGEOIDCompleteness,
   CANONICAL_CD_GEOIDS,
+  CANONICAL_COUNTY_GEOIDS,
 } from '../../../validators/geoid-reference.js';
-import { EXPECTED_CD_BY_STATE } from '../../../validators/tiger-expected-counts.js';
+import { EXPECTED_CD_BY_STATE, EXPECTED_COUNTIES_BY_STATE } from '../../../validators/tiger-expected-counts.js';
 
 describe('GEOID Reference Lists', () => {
   describe('CANONICAL_CD_GEOIDS', () => {
@@ -121,8 +122,20 @@ describe('GEOID Reference Lists', () => {
       expect(geoids?.length).toBe(7);
     });
 
+    it('should return canonical GEOIDs for county layer', () => {
+      const geoids = getCanonicalGEOIDs('county', '01'); // Alabama
+      expect(geoids).toBeDefined();
+      expect(geoids?.length).toBe(67); // Alabama has 67 counties
+    });
+
+    it('should return place GEOIDs for supported states', () => {
+      const geoids = getCanonicalGEOIDs('place', '01');
+      expect(geoids).toBeDefined();
+      expect(geoids!.length).toBeGreaterThan(0); // Alabama has multiple places
+    });
+
     it('should return null for unsupported layer', () => {
-      const geoids = getCanonicalGEOIDs('county', '01');
+      const geoids = getCanonicalGEOIDs('cdp', '01'); // CDP not yet supported
       expect(geoids).toBeNull();
     });
 
@@ -169,9 +182,13 @@ describe('GEOID Reference Lists', () => {
       expect(missing.length).toBe(2);
     });
 
-    it('should return empty array for unsupported layer', () => {
-      const missing = getMissingGEOIDs('county', '01', ['01001']);
-      expect(missing).toEqual([]);
+    it('should detect missing counties', () => {
+      // Alabama has 67 counties - test with a subset
+      const actualGEOIDs = ['01001', '01003', '01005']; // Missing 01007 and others
+
+      const missing = getMissingGEOIDs('county', '01', actualGEOIDs);
+      expect(missing.length).toBeGreaterThan(0);
+      expect(missing).toContain('01007'); // Should contain missing county
     });
   });
 
@@ -263,10 +280,23 @@ describe('GEOID Reference Lists', () => {
     });
 
     it('should return valid for unsupported layers (no canonical data)', () => {
-      const result = validateGEOIDCompleteness('county', '01', ['01001']);
+      // CDP layer is not yet supported
+      const result = validateGEOIDCompleteness('cdp', '01', ['0100100']);
 
       expect(result.valid).toBe(true);
       expect(result.expected).toBe(0);
+    });
+
+    it('should validate county GEOIDs correctly', () => {
+      // Test with all Delaware counties (3 counties)
+      const delawareCounties = ['10001', '10003', '10005'];
+      const result = validateGEOIDCompleteness('county', '10', delawareCounties);
+
+      expect(result.valid).toBe(true);
+      expect(result.missing).toEqual([]);
+      expect(result.extra).toEqual([]);
+      expect(result.expected).toBe(3);
+      expect(result.actual).toBe(3);
     });
   });
 
@@ -295,6 +325,151 @@ describe('GEOID Reference Lists', () => {
       expect(result.extra).toContain('02ZZ');
       expect(result.expected).toBe(1);
       expect(result.actual).toBe(2);
+    });
+  });
+
+  describe('CANONICAL_COUNTY_GEOIDS', () => {
+    it('should have entries for all 56 jurisdictions', () => {
+      // 50 states + DC + 5 territories = 56 total
+      const expectedJurisdictions = 56;
+      expect(Object.keys(CANONICAL_COUNTY_GEOIDS).length).toBe(expectedJurisdictions);
+    });
+
+    it('should match expected counts from tiger-expected-counts', () => {
+      for (const [stateFips, geoids] of Object.entries(CANONICAL_COUNTY_GEOIDS)) {
+        const expectedCount = EXPECTED_COUNTIES_BY_STATE[stateFips];
+        expect(geoids.length).toBe(expectedCount);
+      }
+    });
+
+    it('should have correct GEOID format (5 digits SSCCC)', () => {
+      for (const [stateFips, geoids] of Object.entries(CANONICAL_COUNTY_GEOIDS)) {
+        for (const geoid of geoids) {
+          expect(geoid).toMatch(/^\d{5}$/);
+          // GEOID should start with state FIPS
+          expect(geoid.startsWith(stateFips)).toBe(true);
+        }
+      }
+    });
+
+    it('should have Texas with 254 counties (most in US)', () => {
+      const txGeoids = CANONICAL_COUNTY_GEOIDS['48'];
+      expect(txGeoids.length).toBe(254);
+    });
+
+    it('should have Delaware with 3 counties (fewest of states)', () => {
+      const deGeoids = CANONICAL_COUNTY_GEOIDS['10'];
+      expect(deGeoids.length).toBe(3);
+      expect(deGeoids).toEqual(['10001', '10003', '10005']);
+    });
+
+    it('should have DC with 1 county-equivalent', () => {
+      const dcGeoids = CANONICAL_COUNTY_GEOIDS['11'];
+      expect(dcGeoids.length).toBe(1);
+      expect(dcGeoids[0]).toBe('11001');
+    });
+
+    it('should have Connecticut with 9 Planning Regions (2022 transition)', () => {
+      // Connecticut dissolved its 8 counties in 2022 and replaced with 9 planning regions
+      const ctGeoids = CANONICAL_COUNTY_GEOIDS['09'];
+      expect(ctGeoids.length).toBe(9);
+      // Planning region GEOIDs use 1XX format (110-190)
+      expect(ctGeoids[0]).toBe('09110');
+    });
+
+    it('should have Louisiana with 64 parishes', () => {
+      const laGeoids = CANONICAL_COUNTY_GEOIDS['22'];
+      expect(laGeoids.length).toBe(64);
+    });
+
+    it('should have Alaska with 30 boroughs/census areas', () => {
+      const akGeoids = CANONICAL_COUNTY_GEOIDS['02'];
+      expect(akGeoids.length).toBe(30);
+    });
+
+    it('should have Virginia with 133 county-equivalents (95 counties + 38 independent cities)', () => {
+      const vaGeoids = CANONICAL_COUNTY_GEOIDS['51'];
+      expect(vaGeoids.length).toBe(133);
+      // Independent cities have GEOID >= 510 (like 51510 for Alexandria)
+      const independentCities = vaGeoids.filter((g: string) => g.slice(2) >= '500');
+      expect(independentCities.length).toBeGreaterThan(30);
+    });
+
+    it('should include independent cities with 5XX county codes', () => {
+      // Baltimore City (24510), St. Louis City (29510), Carson City (32510)
+      expect(CANONICAL_COUNTY_GEOIDS['24']).toContain('24510'); // Baltimore City
+      expect(CANONICAL_COUNTY_GEOIDS['29']).toContain('29510'); // St. Louis City
+      expect(CANONICAL_COUNTY_GEOIDS['32']).toContain('32510'); // Carson City
+    });
+
+    it('should have Puerto Rico with 78 municipios', () => {
+      const prGeoids = CANONICAL_COUNTY_GEOIDS['72'];
+      expect(prGeoids.length).toBe(78);
+    });
+
+    it('should total 3235 county-equivalents', () => {
+      let totalCounties = 0;
+      for (const geoids of Object.values(CANONICAL_COUNTY_GEOIDS)) {
+        totalCounties += geoids.length;
+      }
+
+      // 3235 = 3143 traditional + 92 new (CT Planning Regions transition + other adjustments)
+      expect(totalCounties).toBe(3235);
+    });
+
+    it('should have no duplicate GEOIDs', () => {
+      const allGEOIDs = new Set<string>();
+
+      for (const geoids of Object.values(CANONICAL_COUNTY_GEOIDS)) {
+        for (const geoid of geoids) {
+          expect(allGEOIDs.has(geoid)).toBe(false);
+          allGEOIDs.add(geoid);
+        }
+      }
+
+      expect(allGEOIDs.size).toBe(3235);
+    });
+
+    it('should have sorted GEOIDs within each state', () => {
+      for (const [stateFips, geoids] of Object.entries(CANONICAL_COUNTY_GEOIDS)) {
+        const sorted = [...geoids].sort();
+        expect(geoids).toEqual(sorted);
+      }
+    });
+  });
+
+  describe('County GEOID Helper Functions', () => {
+    it('should get canonical county GEOIDs for a state', () => {
+      const geoids = getCanonicalGEOIDs('county', '06'); // California
+      expect(geoids).toBeDefined();
+      expect(geoids?.length).toBe(58);
+      expect(geoids).toContain('06037'); // Los Angeles County
+    });
+
+    it('should detect missing county GEOIDs', () => {
+      // Hawaii has 5 counties
+      const actualGEOIDs = ['15001', '15003', '15007', '15009']; // Missing 15005 (Kalawao)
+
+      const missing = getMissingGEOIDs('county', '15', actualGEOIDs);
+      expect(missing).toEqual(['15005']);
+    });
+
+    it('should detect extra county GEOIDs', () => {
+      // Delaware has 3 counties
+      const actualGEOIDs = ['10001', '10003', '10005', '10999']; // 10999 is invalid
+
+      const extra = getExtraGEOIDs('county', '10', actualGEOIDs);
+      expect(extra).toEqual(['10999']);
+    });
+
+    it('should validate complete county list', () => {
+      // Rhode Island has 5 counties
+      const riCounties = ['44001', '44003', '44005', '44007', '44009'];
+      const result = validateGEOIDCompleteness('county', '44', riCounties);
+
+      expect(result.valid).toBe(true);
+      expect(result.expected).toBe(5);
+      expect(result.actual).toBe(5);
     });
   });
 });
