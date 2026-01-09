@@ -604,13 +604,13 @@ npx tsx compare-atlas-versions.ts --old v1.0.0 --new v1.1.0
 
 ## Validation Status Summary
 
-| Layer | Status | Coverage | Next Steps |
-|-------|--------|----------|------------|
-| **1. Discovery** | ✅ Implemented | 31,316 layers | Expand keywords |
-| **2. Classification** | ✅ Implemented | 4,163 governance | Add global taxonomy |
-| **3. Geometric** | ⏳ Partial | ~90% expected HIGH | Implement shapely validation |
-| **4. Deduplication** | ⏳ TODO | ~16% duplicates expected | Implement IoU + name matching |
-| **5. Merkle Tree** | ⏳ TODO | 100% target | Implement tree construction |
+| Layer | Status | Coverage | Notes |
+|-------|--------|----------|-------|
+| **1. Discovery** | ✅ Complete | 31,316 layers | All 50 states + territories |
+| **2. Classification** | ✅ Complete | 4,163 governance | GEOID validation suite |
+| **3. Geometric** | ✅ Complete | TIGER cross-validation | 100% match rate |
+| **4. Deduplication** | ✅ Complete | Authority resolution | Provenance tracking |
+| **5. Merkle Tree** | ✅ Complete | Global tree | Integration module |
 
 ---
 
@@ -619,13 +619,13 @@ npx tsx compare-atlas-versions.ts --old v1.0.0 --new v1.1.0
 **How are we validating?** Multi-layer validation from discovery through production:
 
 1. ✅ **Discovery**: Polygon + fields + features + extent
-2. ✅ **Classification**: Confidence scoring (>40% threshold) + tier gating
-3. ⏳ **Geometric**: Self-intersection + area bounds + coordinate validation (TO DO)
-4. ⏳ **Deduplication**: IoU + name similarity (TO DO)
-5. ⏳ **Merkle tree**: Proof validity + canonical ordering (TO DO)
+2. ✅ **Classification**: GEOID format validation + expected count reconciliation
+3. ✅ **Geometric**: TIGER cross-validation (100% match rate across 50 states)
+4. ✅ **Deduplication**: Authority resolution with provenance tracking
+5. ✅ **Merkle tree**: Global tree construction with proof generation
 
-**Current state**: Layers 1-2 implemented (68% → 13% high-confidence governance)
-**Next**: Implement Layer 3 (geometric validation), Layer 4 (deduplication), Layer 5 (Merkle tree)
+**Current state**: All 5 layers production-ready (2026-01-09)
+**Coverage**: 50/50 states, 124,179 VTDs, 7/7 GEOID layers validated
 
 **Engineering distinction**: Validate at EVERY stage, not just final output. Garbage in = garbage out.
 

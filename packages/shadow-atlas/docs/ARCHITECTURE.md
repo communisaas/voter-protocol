@@ -167,21 +167,20 @@ This document describes the architecture of Shadow Atlas as implemented. The sys
 
 #### `transformation/` - Data Transformation
 **Files:** 7 TypeScript files
-**Purpose:** GeoJSON normalization, coordinate projection, Merkle tree building
+**Purpose:** GeoJSON normalization, coordinate projection, validation
 **Key Exports:**
-- `TransformationPipeline` - Orchestrates transformation steps
-- `GeoJSONNormalizer` - Normalizes GeoJSON to canonical format
-- `CoordinateProjector` - Transforms coordinates between projections
-- `MerkleTreeBuilder` - Constructs Merkle trees from boundaries
+- `Normalizer` - Normalizes GeoJSON to canonical format
+- `Validator` - Validates geometry and semantic properties
+- `RTreeBuilder` - Constructs spatial R-tree indexes
 
-**Dependencies:** core/types, integration
+**Dependencies:** core/types
 
 **Critical Files:**
-- `geojson-normalizer.ts` - Canonical GeoJSON format
-- `coordinate-projector.ts` - WGS84 projection transformations
-- `merkle-builder.ts` - Deterministic Merkle tree construction
+- `normalizer.ts` - Canonical GeoJSON format
+- `validator.ts` - Geometry and semantic validation
+- `rtree-builder.ts` - Spatial index construction
 
-**Rationale:** Transformation layer ensures all boundaries are in a canonical format before Merkle tree construction. Critical for deterministic proof generation—different GeoJSON representations of the same boundary must hash to the same value.
+**Rationale:** Transformation layer ensures all boundaries are in a canonical format. Critical for deterministic proof generation—different GeoJSON representations of the same boundary must hash to the same value.
 
 ---
 
@@ -311,20 +310,19 @@ This document describes the architecture of Shadow Atlas as implemented. The sys
 ### Tier 5: Advanced Features
 
 #### `integration/` - Merkle Tree Integration
-**Files:** 6 TypeScript files
+**Files:** 4 TypeScript files
 **Purpose:** Global Merkle tree construction, proof generation, ZK circuit integration
 **Key Exports:**
 - `GlobalMerkleTree` - Constructs global Merkle tree from all boundaries
-- `StateBatchToMerkle` - Converts state batch extraction to Merkle leaves
-- `ProofGenerator` - Generates Merkle proofs for ZK circuits
+- `GlobalTreeAdapter` - Adapts between tree formats for ZK circuits
 
-**Dependencies:** transformation, core
+**Dependencies:** core
 
 **Critical Files:**
 - `global-merkle-tree.ts` - Global Merkle tree builder
 - `global-merkle-tree.test.ts` - Merkle tree test cases
-- `state-batch-to-merkle.ts` - Batch → Merkle conversion
-- `state-batch-to-merkle.test.ts` - Integration tests
+- `global-tree-adapter.ts` - ZK circuit format adapter
+- `GLOBAL_MERKLE_SPEC.md` - Specification documentation
 
 **Rationale:** Integration module bridges Shadow Atlas (geographic data) with noir-prover (ZK circuits). Merkle tree structure must match circuit expectations exactly—this module enforces that contract.
 

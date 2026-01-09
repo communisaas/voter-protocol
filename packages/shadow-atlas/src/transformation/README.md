@@ -57,7 +57,7 @@ SQLite Database + Merkle Root
    - Auxiliary table: Full GeoJSON + provenance
    - Performance: <50ms point-in-polygon via R-tree
 
-6. **Merkle Tree** (`merkle-builder.ts`)
+6. **Merkle Tree** (via `integration/global-merkle-tree.ts`)
    - Deterministic ordering: Sort districts by ID (lexicographic)
    - Leaf hash: `keccak256(id + geometry + provenance)`
    - Tree construction: Binary tree with `keccak256(left + right)`
@@ -68,35 +68,25 @@ SQLite Database + Merkle Root
 ### CLI
 
 ```bash
-# Run complete pipeline
-npx tsx transformation/pipeline.ts \
-  --input acquisition/outputs/raw-2025-11-20 \
-  --output transformation/outputs/validated-2025-11-20
+# Run validation via CLI
+npx tsx src/cli/validate-tiger.ts --state CA
 
-# Expected output:
-# transformation/outputs/validated-2025-11-20/
-#   ├── shadow-atlas-v1.db          (SQLite with R-tree)
-#   ├── merkle-root.txt             (0x1234...abcd)
-#   ├── merkle-tree.json            (Full tree for proof generation)
-#   └── transformation-metadata.json (Audit trail)
+# Build complete atlas
+npx tsx src/cli/build-atlas.ts --all
 ```
 
 ### Programmatic
 
 ```typescript
-import { TransformationPipeline } from './transformation/pipeline.js';
+import { Validator } from './transformation/validator.js';
+import { Normalizer } from './transformation/normalizer.js';
 
-const pipeline = new TransformationPipeline({
-  inputDir: 'acquisition/outputs/raw-2025-11-20',
-  outputDir: 'transformation/outputs/validated-2025-11-20',
-  skipValidation: false,
-});
+const validator = new Validator();
+const normalizer = new Normalizer();
 
-const result = await pipeline.transform();
-
-console.log(`Merkle root: ${result.merkleRoot}`);
-console.log(`Database: ${result.databasePath}`);
-console.log(`Districts: ${result.districtCount}`);
+// Validate and normalize districts
+const validationResult = await validator.validate(rawDistricts);
+const normalized = normalizer.normalize(validationResult.passed);
 ```
 
 ## Type Safety
@@ -335,24 +325,11 @@ Every rejection recorded in metadata:
 ### Unit Tests
 
 ```bash
-# Test validator
-npx tsx transformation/validator.test.ts
+# Run all transformation tests
+npm run test -- src/transformation
 
-# Test normalizer
-npx tsx transformation/normalizer.test.ts
-
-# Test R-tree builder
-npx tsx transformation/rtree-builder.test.ts
-
-# Test Merkle builder
-npx tsx transformation/merkle-builder.test.ts
-```
-
-### Integration Tests
-
-```bash
-# Test full pipeline
-npx tsx transformation/pipeline.test.ts
+# Test utilities
+npx vitest run src/transformation/utils.test.ts
 ```
 
 ### Golden Vectors
