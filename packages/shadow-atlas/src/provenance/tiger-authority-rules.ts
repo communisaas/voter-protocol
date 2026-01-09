@@ -83,6 +83,7 @@ export type SourceProvider =
   | 'county-gis'
   | 'municipal-gis'
   | 'arcgis-hub'
+  | 'redistricting-data-hub'
   | 'osm';
 
 /**
@@ -326,24 +327,32 @@ export const TIGER_AUTHORITY_RULES: Record<TIGERBoundaryType, TIGERAuthorityRule
   },
 
   'voting_precinct': {
-    authorityLevel: AuthorityLevel.UNKNOWN,
-    legalStatus: 'unofficial',
+    authorityLevel: AuthorityLevel.HUB_AGGREGATOR,
+    legalStatus: 'advisory',
     validityWindow: {
-      releaseMonth: 7,
+      releaseMonth: 3, // Q1 updates after November elections
       validMonths: 12,
     },
     precedence: [
-      // TIGER does NOT provide voting precincts
-      // County elections offices are authoritative
+      // TIGER does NOT provide voting precincts (VTDs)
+      // County elections offices are authoritative (3,143 counties)
+      // Best aggregated source: Redistricting Data Hub (Princeton Gerrymandering Project)
       {
-        source: 'county-gis',
-        authority: AuthorityLevel.MUNICIPAL_OFFICIAL,
+        source: 'redistricting-data-hub',
+        authority: AuthorityLevel.HUB_AGGREGATOR,
         preference: 1,
       },
+      // State-specific election portals (higher authority but less comprehensive)
       {
         source: 'state-gis',
         authority: AuthorityLevel.STATE_MANDATE,
         preference: 2,
+      },
+      // County GIS (authoritative but fragmented across 3,143 sources)
+      {
+        source: 'county-gis',
+        authority: AuthorityLevel.MUNICIPAL_OFFICIAL,
+        preference: 3,
       },
     ],
   },

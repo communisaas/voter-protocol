@@ -26,9 +26,12 @@
 
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { statSync } from 'node:fs';
-import { join } from 'node:path';
-import { spawn } from 'node:child_process';
+import { join, basename } from 'node:path';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
+
+const execFileAsync = promisify(execFile);
 import type {
   BoundaryProvider,
   RawBoundaryFile,
@@ -117,6 +120,57 @@ export interface TIGERDownloadOptions {
 
   /** Force re-download even if cached */
   forceRefresh?: boolean;
+}
+
+/**
+ * Options for validation-only download mode
+ *
+ * Downloads TIGER shapefile and extracts only GEOIDs without processing full geometries.
+ * Faster than full download for boundary validation workflows.
+ */
+export interface ValidationDownloadOptions {
+  /** Layer type to download */
+  layer: TIGERLayer;
+
+  /** State FIPS code (e.g., "06" for California) - required for state-level layers */
+  stateFips: string;
+
+  /** Optional: Specific year (defaults to provider year) */
+  year?: number;
+
+  /** Force re-download even if cached */
+  forceRefresh?: boolean;
+}
+
+/**
+ * Result of validation-only extraction
+ *
+ * Contains extracted GEOIDs and metadata for validation against canonical reference lists.
+ */
+export interface ValidationExtractionResult {
+  /** Layer type extracted */
+  readonly layer: TIGERLayer;
+
+  /** State FIPS code */
+  readonly stateFips: string;
+
+  /** Extracted GEOIDs (unique, sorted) */
+  readonly geoids: readonly string[];
+
+  /** Total feature count in shapefile */
+  readonly featureCount: number;
+
+  /** Source URL of shapefile */
+  readonly source: string;
+
+  /** Extraction timestamp */
+  readonly extractedAt: Date;
+
+  /** TIGER vintage year */
+  readonly year: number;
+
+  /** GEOID field name used for extraction */
+  readonly geoidField: string;
 }
 
 /**
@@ -1239,6 +1293,236 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // ============================================================================
+  // Validation-Only Download Mode
+  // ============================================================================
+
+  /**
+   * Download TIGER shapefile and extract only GEOIDs for validation.
+   *
+   * Skips geometry processing for faster validation workflows.
+   * Uses ogrinfo to extract GEOID field values directly from shapefile.
+   *
+   * @param options - Validation download options
+   * @returns Extraction result with GEOIDs and metadata
+   *
+   * @example
+   * ```typescript
+   * const provider = new TIGERBoundaryProvider({ year: 2024 });
+   *
+   * // Extract Congressional District GEOIDs for California
+   * const result = await provider.downloadForValidation({
+   *   layer: 'cd',
+   *   stateFips: '06',
+   * });
+   *
+   * console.log(result.geoids); // ['0601', '0602', ..., '0652']
+   * console.log(result.featureCount); // 52
+   * ```
+   */
+  async downloadForValidation(
+    options: ValidationDownloadOptions
+  ): Promise<ValidationExtractionResult> {
+    const { layer, stateFips, forceRefresh = false } = options;
+    const year = options.year ?? this.year;
+    const metadata = TIGER_FTP_LAYERS[layer];
+
+    console.log(`🔍 Validation download: ${metadata.name} for state ${stateFips} (${year})`);
+
+    // Ensure cache directory exists
+    await mkdir(join(this.cacheDir, String(year), metadata.ftpDir), { recursive: true });
+
+    // Get or download the shapefile
+    const zipPath = await this.getOrDownloadShapefile(layer, stateFips, year, forceRefresh);
+
+    // Extract GEOIDs using ogrinfo (no geometry processing)
+    const extractionResult = await this.extractGeoidsFromZip(zipPath, metadata.fields.geoid, layer);
+
+    // Build source URL
+    const sourceUrl = metadata.filePattern === 'national'
+      ? this.getNationalFileUrl(layer, year)
+      : this.getStateFileUrl(layer, stateFips, year);
+
+    console.log(`   ✅ Extracted ${extractionResult.geoids.length} unique GEOIDs from ${extractionResult.featureCount} features`);
+
+    return {
+      layer,
+      stateFips,
+      geoids: extractionResult.geoids,
+      featureCount: extractionResult.featureCount,
+      source: sourceUrl,
+      extractedAt: new Date(),
+      year,
+      geoidField: metadata.fields.geoid,
+    };
+  }
+
+  /**
+   * Get existing cached shapefile or download if missing
+   */
+  private async getOrDownloadShapefile(
+    layer: TIGERLayer,
+    stateFips: string,
+    year: number,
+    forceRefresh: boolean
+  ): Promise<string> {
+    const metadata = TIGER_FTP_LAYERS[layer];
+
+    // Determine file name based on layer pattern
+    let zipFileName: string;
+    let zipPath: string;
+
+    if (metadata.filePattern === 'national') {
+      zipFileName = `tl_${year}_us_${layer}.zip`;
+      zipPath = join(this.cacheDir, String(year), metadata.ftpDir, zipFileName);
+    } else {
+      // State-level file - handle CD special case
+      const layerSuffix = layer === 'cd' ? 'cd119' : layer;
+      zipFileName = `tl_${year}_${stateFips}_${layerSuffix}.zip`;
+      zipPath = join(this.cacheDir, String(year), metadata.ftpDir, zipFileName);
+    }
+
+    // Check cache
+    if (!forceRefresh) {
+      try {
+        await access(zipPath);
+
+        // Check if cache is stale
+        if (!this.isCacheStale(zipPath)) {
+          console.log(`   💾 Using cached shapefile: ${zipFileName}`);
+          return zipPath;
+        }
+        console.log(`   ⏰ Cache stale, re-downloading...`);
+      } catch {
+        // Cache miss, download
+      }
+    }
+
+    // Download shapefile
+    const url = metadata.filePattern === 'national'
+      ? this.getNationalFileUrl(layer, year)
+      : this.getStateFileUrl(layer, stateFips, year);
+
+    console.log(`   📥 Downloading ${zipFileName}...`);
+    await this.downloadFileWithRetry(url, zipPath, layer, stateFips);
+
+    return zipPath;
+  }
+
+  /**
+   * Extract GEOIDs from zipped shapefile using ogrinfo
+   *
+   * Uses SQL DISTINCT query to extract unique GEOIDs without loading full geometries.
+   * This is significantly faster than converting to GeoJSON for validation purposes.
+   */
+  private async extractGeoidsFromZip(
+    zipPath: string,
+    geoidField: string,
+    layer: TIGERLayer
+  ): Promise<{ geoids: readonly string[]; featureCount: number }> {
+    // First, get the layer name from the shapefile
+    const layerName = await this.detectShapefileLayerName(zipPath);
+
+    if (!layerName) {
+      throw new Error(`Could not detect layer name in shapefile: ${zipPath}`);
+    }
+
+    // Extract distinct GEOIDs using ogrinfo SQL query
+    try {
+      const { stdout: distinctOutput } = await execFileAsync('ogrinfo', [
+        '-sql',
+        `SELECT DISTINCT ${geoidField} FROM "${layerName}" ORDER BY ${geoidField}`,
+        `/vsizip/${zipPath}`,
+      ], {
+        maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large datasets
+      });
+
+      // Parse ogrinfo output to extract GEOIDs
+      const geoids = this.parseOgrinfoDistinctOutput(distinctOutput, geoidField);
+
+      // Get total feature count
+      const { stdout: countOutput } = await execFileAsync('ogrinfo', [
+        '-sql',
+        `SELECT COUNT(*) FROM "${layerName}"`,
+        `/vsizip/${zipPath}`,
+      ], {
+        maxBuffer: 1024 * 1024,
+      });
+
+      const featureCount = this.parseOgrinfoCount(countOutput);
+
+      return { geoids, featureCount };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to extract GEOIDs from ${zipPath}: ${message}`);
+    }
+  }
+
+  /**
+   * Detect the layer name inside a zipped shapefile
+   */
+  private async detectShapefileLayerName(zipPath: string): Promise<string | null> {
+    try {
+      const { stdout } = await execFileAsync('ogrinfo', [
+        '-so',
+        `/vsizip/${zipPath}`,
+      ], {
+        maxBuffer: 1024 * 1024,
+      });
+
+      // Parse output to find layer name
+      // Format: "1: layer_name (Polygon)"
+      const layerMatch = stdout.match(/^\d+:\s+(\S+)\s+\(/m);
+      return layerMatch ? layerMatch[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Parse ogrinfo DISTINCT query output to extract GEOIDs
+   *
+   * Output format:
+   * ```
+   * OGRFeature(...):0
+   *   GEOID (String) = 0601
+   * OGRFeature(...):1
+   *   GEOID (String) = 0602
+   * ```
+   */
+  private parseOgrinfoDistinctOutput(output: string, geoidField: string): readonly string[] {
+    const lines = output.split('\n');
+    const geoids: string[] = [];
+    const pattern = new RegExp(`^\\s*${geoidField}\\s+\\([^)]+\\)\\s*=\\s*(.+)$`, 'i');
+
+    for (const line of lines) {
+      const match = line.match(pattern);
+      if (match) {
+        const geoid = match[1].trim();
+        if (geoid && geoid !== '(null)' && geoid !== '') {
+          geoids.push(geoid);
+        }
+      }
+    }
+
+    return geoids;
+  }
+
+  /**
+   * Parse ogrinfo COUNT(*) query output
+   *
+   * Output format:
+   * ```
+   * OGRFeature(...):0
+   *   COUNT_* (Integer64) = 52
+   * ```
+   */
+  private parseOgrinfoCount(output: string): number {
+    // Look for COUNT result in various formats
+    const countMatch = output.match(/COUNT[^=]*=\s*(\d+)/i);
+    return countMatch ? parseInt(countMatch[1], 10) : 0;
   }
 }
 

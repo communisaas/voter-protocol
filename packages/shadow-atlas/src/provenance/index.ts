@@ -48,4 +48,6 @@ export type {
   BoundaryType,
   SourceFreshness,
   TigerComparison,
+  FreshnessAlert,
+  AlertHandler,
 } from './primary-comparator.js';

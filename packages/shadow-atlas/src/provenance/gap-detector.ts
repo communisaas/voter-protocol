@@ -132,18 +132,28 @@ interface StateGapInfo {
 /**
  * Boundary types affected by redistricting gaps
  *
- * Only legislative boundaries are affected:
+ * Legislative boundaries affected by redistricting:
  * - Congressional districts
  * - State senate districts
  * - State house districts
  *
- * Other boundaries (county, city, school) are not affected.
+ * VTDs are affected by DIFFERENT gap patterns (post-election, precinct consolidation).
  */
 const REDISTRICTING_BOUNDARY_TYPES = new Set<GapBoundaryType>([
   'congressional',
   'state_senate',
   'state_house',
 ]);
+
+/**
+ * Boundary types affected by VTD-specific gaps
+ *
+ * VTDs have different gap patterns than legislative districts:
+ * - Post-election precinct consolidation (Q1 each year)
+ * - State-specific redistricting cycles
+ * - No TIGER source (VTDs not in TIGER)
+ */
+const VTD_BOUNDARY_TYPES = new Set<GapBoundaryType>(['voting_precinct']);
 
 /**
  * Redistricting cycle calendar
@@ -434,10 +444,9 @@ export class RedistrictingGapDetector {
    * Check gap status for a specific boundary and jurisdiction
    *
    * ALGORITHM:
-   * 1. Only legislative boundaries are affected by redistricting gaps
-   * 2. Check if we're in a redistricting year (2021-2022, 2031-2032)
-   * 3. Get finalization info for this state
-   * 4. Determine gap status based on timeline
+   * 1. Check if VTD (voting_precinct) - use VTD-specific gap logic
+   * 2. Check if legislative boundary - use redistricting gap logic
+   * 3. Other boundaries: no gap issues
    *
    * @param boundaryType - Type of boundary to check
    * @param jurisdiction - State code (e.g., "CA", "TX")
@@ -449,7 +458,12 @@ export class RedistrictingGapDetector {
     jurisdiction: string,
     asOf: Date = new Date()
   ): GapStatus {
-    // Step 1: Only legislative boundaries are affected
+    // Step 1: Check if VTD - use VTD-specific gap logic
+    if (VTD_BOUNDARY_TYPES.has(boundaryType)) {
+      return this.checkVTDGap(jurisdiction, asOf);
+    }
+
+    // Step 2: Only legislative boundaries are affected by redistricting gaps
     if (!REDISTRICTING_BOUNDARY_TYPES.has(boundaryType)) {
       return {
         inGap: false,
@@ -584,6 +598,56 @@ export class RedistrictingGapDetector {
 
     // Future cycles: return empty map (will be populated as redistricting occurs)
     return new Map();
+  }
+
+  /**
+   * Check VTD-specific gap status
+   *
+   * VTD GAP PATTERNS (different from legislative districts):
+   * - Post-election: Q1 (January-March) after November elections
+   *   - Counties consolidate precincts based on turnout
+   *   - New VTD data typically available by March
+   * - Post-redistricting: Years following redistricting (2022, 2032, 2042)
+   *   - VTD boundaries may change to align with new legislative districts
+   * - No TIGER source: VTDs not included in Census TIGER
+   *   - Must use RDH (Redistricting Data Hub) or state sources
+   *
+   * @param jurisdiction - State code (e.g., "CA", "TX")
+   * @param asOf - Date to check
+   * @returns Gap status with recommendation
+   */
+  private checkVTDGap(jurisdiction: string, asOf: Date): GapStatus {
+    const month = asOf.getMonth() + 1; // 1-based month
+    const year = asOf.getFullYear();
+
+    // Q1 post-election window (January-March)
+    if (month >= 1 && month <= 3) {
+      return {
+        inGap: true,
+        gapType: 'post-finalization-pre-tiger',
+        recommendation: 'use-primary',
+        reasoning: `Post-election precinct consolidation period (Q1). VTD data for ${jurisdiction} may be stale. Check Redistricting Data Hub (https://redistrictingdatahub.org/) or ${jurisdiction} state election office for latest VTD boundaries.`,
+      };
+    }
+
+    // Post-redistricting years (2022, 2032, 2042)
+    const postRedistrictingYears = [2022, 2032, 2042];
+    if (postRedistrictingYears.includes(year)) {
+      return {
+        inGap: true,
+        gapType: 'post-finalization-pre-tiger',
+        recommendation: 'use-primary',
+        reasoning: `Post-redistricting year ${year}. VTD boundaries for ${jurisdiction} may have changed to align with new legislative districts. Use Redistricting Data Hub or ${jurisdiction} state source for current VTD data.`,
+      };
+    }
+
+    // Outside gap periods - existing VTD data is current
+    return {
+      inGap: false,
+      gapType: 'none',
+      recommendation: 'use-primary',
+      reasoning: `VTD data for ${jurisdiction} is current. Use Redistricting Data Hub (primary source) or cached VTD data. Note: VTDs are not available in Census TIGER.`,
+    };
   }
 
   /**

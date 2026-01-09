@@ -52,10 +52,10 @@ describe('TIGERAuthorityRules', () => {
       expect(rule.legalStatus).toBe('binding');
     });
 
-    it('should assign UNKNOWN to voting precincts (TIGER does not provide)', () => {
+    it('should assign HUB_AGGREGATOR to voting precincts (RDH as primary source)', () => {
       const rule = getTIGERAuthorityRule('voting_precinct');
-      expect(rule.authorityLevel).toBe(AuthorityLevel.UNKNOWN);
-      expect(rule.legalStatus).toBe('unofficial');
+      expect(rule.authorityLevel).toBe(AuthorityLevel.HUB_AGGREGATOR);
+      expect(rule.legalStatus).toBe('advisory');
     });
 
     it('should assign UNKNOWN to special districts (TIGER does not provide)', () => {
@@ -87,22 +87,26 @@ describe('TIGERAuthorityRules', () => {
       expect(rule.validityWindow.releaseMonth).toBe(7);
     });
 
-    it('should have consistent release month across all types', () => {
-      const allTypes: TIGERBoundaryType[] = [
+    it('should have consistent release month across TIGER-provided types', () => {
+      // TIGER-provided types all release in July
+      const tigerProvidedTypes: TIGERBoundaryType[] = [
         'congressional',
         'state_senate',
         'state_house',
         'county',
         'place',
         'school_unified',
-        'voting_precinct',
-        'special_district',
       ];
 
-      for (const type of allTypes) {
+      for (const type of tigerProvidedTypes) {
         const rule = getTIGERAuthorityRule(type);
         expect(rule.validityWindow.releaseMonth).toBe(7);
       }
+    });
+
+    it('should have Q1 release month for voting precincts (post-election)', () => {
+      const rule = getTIGERAuthorityRule('voting_precinct');
+      expect(rule.validityWindow.releaseMonth).toBe(3); // March for Q1
     });
   });
 
@@ -216,11 +220,11 @@ describe('TIGERAuthorityRules', () => {
     });
 
     describe('Non-TIGER boundaries', () => {
-      it('should use county-gis for voting precincts', () => {
+      it('should use redistricting-data-hub for voting precincts', () => {
         const preferredSource = getPreferredSource('voting_precinct');
 
-        expect(preferredSource.source).toBe('county-gis');
-        expect(preferredSource.authority).toBe(AuthorityLevel.MUNICIPAL_OFFICIAL);
+        expect(preferredSource.source).toBe('redistricting-data-hub');
+        expect(preferredSource.authority).toBe(AuthorityLevel.HUB_AGGREGATOR);
       });
 
       it('should use state-gis for special districts', () => {

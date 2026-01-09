@@ -134,6 +134,8 @@ export interface BoundaryLayers {
   readonly unifiedSchoolDistricts?: readonly MerkleBoundaryInput[];
   readonly elementarySchoolDistricts?: readonly MerkleBoundaryInput[];
   readonly secondarySchoolDistricts?: readonly MerkleBoundaryInput[];
+  // Voting precincts (VTDs - Voting Tabulation Districts)
+  readonly votingPrecincts?: readonly MerkleBoundaryInput[];
 }
 
 /**
@@ -334,6 +336,11 @@ export class MultiLayerMerkleTreeBuilder {
 
     if (layers.secondarySchoolDistricts) {
       all.push(...layers.secondarySchoolDistricts);
+    }
+
+    // Voting precincts (VTDs)
+    if (layers.votingPrecincts) {
+      all.push(...layers.votingPrecincts);
     }
 
     return all;

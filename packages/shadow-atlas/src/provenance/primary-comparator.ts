@@ -81,6 +81,30 @@ export interface TigerComparison {
 }
 
 /**
+ * Freshness alert when data is potentially stale
+ *
+ * Triggered during scheduled audits when TIGER data lags behind
+ * authoritative primary sources. Alert handlers can implement
+ * custom notification logic (email, Slack, PagerDuty, etc.).
+ */
+export interface FreshnessAlert {
+  readonly jurisdiction: string;
+  readonly boundaryType: BoundaryType;
+  readonly staleDays: number;
+  readonly lastModified: Date | null;
+  readonly recommendation: 'use-tiger' | 'use-primary' | 'manual-review';
+  readonly reason: string;
+}
+
+/**
+ * Alert handler callback type
+ *
+ * Handlers are invoked for each stale data alert during freshness audits.
+ * Supports both synchronous and asynchronous handlers.
+ */
+export type AlertHandler = (alert: FreshnessAlert) => void | Promise<void>;
+
+/**
  * Primary Source Registry
  *
  * Maps US states to their redistricting commission URLs.
@@ -202,6 +226,7 @@ export class PrimarySourceComparator {
   private readonly timeout = 5000;        // 5 second timeout
   private readonly maxRetries = 3;        // 3 retry attempts
   private readonly retryDelayMs = 1000;   // 1 second initial delay
+  private alertHandlers: AlertHandler[] = [];
 
   /**
    * Compare TIGER freshness against primary source for a jurisdiction
@@ -328,6 +353,135 @@ export class PrimarySourceComparator {
     }
 
     return results;
+  }
+
+  /**
+   * Register handler to be called when stale data detected
+   *
+   * Handlers are invoked during freshness audits for each alert.
+   * Multiple handlers can be registered; all will be called.
+   *
+   * @param handler - Callback function to invoke on stale data detection
+   */
+  registerAlertHandler(handler: AlertHandler): void {
+    this.alertHandlers.push(handler);
+  }
+
+  /**
+   * Run freshness audit for a boundary type, triggering alerts for stale data
+   *
+   * Leverages compareAllStates() to check all jurisdictions with primary sources,
+   * then converts results to FreshnessAlert objects and invokes registered handlers.
+   * Only generates alerts when recommendation !== 'use-tiger' (i.e., data is stale).
+   *
+   * @param boundaryType - The boundary type to audit
+   * @returns Array of freshness alerts generated during the audit
+   */
+  async runFreshnessAudit(boundaryType: BoundaryType): Promise<FreshnessAlert[]> {
+    const comparisons = await this.compareAllStates(boundaryType);
+    const alerts: FreshnessAlert[] = [];
+
+    for (const [jurisdiction, comparison] of comparisons) {
+      // Only trigger alerts for stale data (not 'use-tiger')
+      if (comparison.recommendation === 'use-tiger') {
+        continue;
+      }
+
+      // Calculate stale days from TIGER's last modified date
+      const staleDays = this.calculateStaleDays(comparison);
+
+      const alert: FreshnessAlert = {
+        jurisdiction,
+        boundaryType,
+        staleDays,
+        lastModified: comparison.tigerLastModified,
+        recommendation: comparison.recommendation,
+        reason: comparison.reason,
+      };
+
+      alerts.push(alert);
+
+      // Invoke all registered handlers for this alert
+      await this.invokeAlertHandlers(alert);
+    }
+
+    return alerts;
+  }
+
+  /**
+   * Run freshness audit for all boundary types
+   *
+   * Performs comprehensive audit across all boundary types, returning
+   * a map of boundary type to alerts. Useful for quarterly full audits.
+   *
+   * @returns Map of boundary type to array of freshness alerts
+   */
+  async runFullAudit(): Promise<Map<BoundaryType, FreshnessAlert[]>> {
+    const allBoundaryTypes: BoundaryType[] = [
+      'congressional',
+      'state_senate',
+      'state_house',
+      'county',
+      'place',
+      'city_council',
+      'school_unified',
+      'voting_precinct',
+      'special_district',
+    ];
+
+    const results = new Map<BoundaryType, FreshnessAlert[]>();
+
+    // Run audits sequentially to avoid rate limiting on external sources
+    for (const boundaryType of allBoundaryTypes) {
+      const alerts = await this.runFreshnessAudit(boundaryType);
+      results.set(boundaryType, alerts);
+    }
+
+    return results;
+  }
+
+  /**
+   * Calculate the number of days TIGER data is stale
+   *
+   * Uses lagDays from comparison if available, otherwise calculates
+   * from TIGER's last modified date compared to current date.
+   */
+  private calculateStaleDays(comparison: TigerComparison): number {
+    // If lagDays is already calculated, use it
+    if (comparison.lagDays !== undefined && comparison.lagDays > 0) {
+      return comparison.lagDays;
+    }
+
+    // If TIGER has a last modified date, calculate days since then
+    if (comparison.tigerLastModified) {
+      const now = new Date();
+      const diffMs = now.getTime() - comparison.tigerLastModified.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    }
+
+    // No date information available
+    return 0;
+  }
+
+  /**
+   * Invoke all registered alert handlers for an alert
+   *
+   * Handles both sync and async handlers, catching errors to prevent
+   * one failed handler from blocking others.
+   */
+  private async invokeAlertHandlers(alert: FreshnessAlert): Promise<void> {
+    for (const handler of this.alertHandlers) {
+      try {
+        await handler(alert);
+      } catch (error) {
+        // Log but don't throw - one handler failure shouldn't block others
+        console.error(
+          `Alert handler failed for ${alert.jurisdiction}/${alert.boundaryType}:`,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      }
+    }
   }
 
   /**

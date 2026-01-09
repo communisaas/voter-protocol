@@ -23,6 +23,7 @@ import type {
 } from './types.js';
 import type { RegionalPinningService } from './regional-pinning-service.js';
 import type { MerkleTree, SnapshotMetadata } from '../core/types.js';
+import type { BoundaryType } from '../provenance/authority-registry.js';
 
 // ============================================================================
 // Update Coordinator
@@ -61,6 +62,10 @@ export class UpdateCoordinator {
    *
    * Executes phased deployment across regions with verification.
    * Automatically rolls back on failure if configured.
+   *
+   * VTD HANDLING: VTD updates follow different cadence than TIGER layers:
+   * - TIGER: Annual September release
+   * - VTDs: Post-election (Q1), post-redistricting (varies), precinct changes (ad-hoc)
    */
   async coordinateUpdate(
     merkleTree: MerkleTree,
@@ -505,5 +510,101 @@ export class UpdateCoordinator {
       cid: this.currentRollout.cid,
       phases: new Map(this.currentRollout.phases),
     };
+  }
+
+  /**
+   * Check if boundary type needs update
+   *
+   * Different boundary types update on different cadences:
+   * - TIGER layers: Annual September release
+   * - VTDs: Post-election (Q1), post-redistricting, precinct changes
+   * - Legislative districts: Post-redistricting (2021-2022, 2031-2032)
+   *
+   * @param boundaryType - Type of boundary to check
+   * @param asOf - Date to check (defaults to now)
+   * @returns True if update likely available
+   */
+  shouldUpdateBoundary(
+    boundaryType: BoundaryType,
+    asOf: Date = new Date()
+  ): boolean {
+    const month = asOf.getMonth() + 1; // 1-based month
+    const year = asOf.getFullYear();
+
+    // VTD-specific update triggers
+    if (boundaryType === 'voting_precinct') {
+      return this.shouldUpdateVTD(asOf);
+    }
+
+    // Legislative district update triggers (redistricting cycles)
+    if (
+      boundaryType === 'congressional' ||
+      boundaryType === 'state_senate' ||
+      boundaryType === 'state_house'
+    ) {
+      return this.shouldUpdateLegislativeDistricts(year, month);
+    }
+
+    // TIGER layers: Annual September release
+    // Check if it's September or later (TIGER typically releases mid-July)
+    return month >= 7;
+  }
+
+  /**
+   * Check if VTD update is likely needed
+   *
+   * VTD UPDATE CADENCE:
+   * - Post-election: Q1 (January-March) after November elections
+   * - Post-redistricting: Years following redistricting (2022, 2032, 2042)
+   * - Precinct consolidation: Ad-hoc (requires manual scanner trigger)
+   *
+   * @param asOf - Date to check
+   * @returns True if VTD update likely available
+   */
+  private shouldUpdateVTD(asOf: Date): boolean {
+    const month = asOf.getMonth() + 1; // 1-based month
+    const year = asOf.getFullYear();
+
+    // Q1 post-election updates (January-March)
+    if (month >= 1 && month <= 3) {
+      return true;
+    }
+
+    // Post-redistricting years (2022, 2032, 2042)
+    const postRedistrictingYears = [2022, 2032, 2042];
+    if (postRedistrictingYears.includes(year)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if legislative district update is likely needed
+   *
+   * Legislative districts update during redistricting cycles:
+   * - Finalization year (2021, 2031, 2041): States finalize new maps
+   * - Gap year (2022, 2032, 2042): TIGER updates (July)
+   *
+   * @param year - Year to check
+   * @param month - Month to check (1-based)
+   * @returns True if legislative district update likely available
+   */
+  private shouldUpdateLegislativeDistricts(year: number, month: number): boolean {
+    const redistrictingYears = [2021, 2022, 2031, 2032, 2041, 2042];
+
+    if (!redistrictingYears.includes(year)) {
+      // Not a redistricting cycle - use annual TIGER release
+      return month >= 7;
+    }
+
+    // Redistricting cycle active
+    if ([2021, 2031, 2041].includes(year)) {
+      // Finalization year - states may release new maps throughout the year
+      return true;
+    }
+
+    // Gap year (2022, 2032, 2042) - wait for TIGER update
+    return month >= 7;
   }
 }

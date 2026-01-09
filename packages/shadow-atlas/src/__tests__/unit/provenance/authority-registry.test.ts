@@ -131,9 +131,12 @@ describe('AuthorityRegistry', () => {
       expect(txSource?.entity).toContain('Texas');
     });
 
-    it('should return empty array for states without primary sources', () => {
+    it('should return wildcard sources for states without state-specific sources', () => {
+      // ZZ is invalid, but wildcard jurisdiction '*' matches all states
       const sources = registry.getPrimarySourcesForState('ZZ');
-      expect(sources).toEqual([]);
+      // Should return sources with jurisdiction='*' (e.g., RDH for VTDs)
+      expect(sources.length).toBeGreaterThan(0);
+      expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
 
     it('should return multiple sources for states with various boundary types', () => {
@@ -241,8 +244,19 @@ describe('AuthorityRegistry', () => {
       expect(registry.hasPrimarySources('city_council')).toBe(false);
     });
 
-    it('should not have primary sources for voting_precinct', () => {
-      expect(registry.hasPrimarySources('voting_precinct')).toBe(false);
+    it('should have primary sources for voting_precinct (VTDs)', () => {
+      expect(registry.hasPrimarySources('voting_precinct')).toBe(true);
+
+      const entry = registry.getAuthority('voting_precinct');
+      expect(entry.primarySources.length).toBeGreaterThan(0);
+
+      // RDH should be first source with wildcard jurisdiction
+      const rdhSource = entry.primarySources.find(
+        (s) => s.name === 'Redistricting Data Hub'
+      );
+      expect(rdhSource).toBeDefined();
+      expect(rdhSource?.jurisdiction).toBe('*');
+      expect(rdhSource?.entity).toContain('Princeton');
     });
 
     it('should have TIGER aggregator for county boundaries', () => {
@@ -473,32 +487,34 @@ describe('AuthorityRegistry', () => {
       expect(entry.expectedLag.redistricting).toContain('Varies');
     });
 
-    it('should document variable lag for voting_precinct', () => {
+    it('should document post-election lag for voting_precinct', () => {
       const entry = registry.getAuthority('voting_precinct');
-      expect(entry.expectedLag.normal).toContain('Varies');
+      expect(entry.expectedLag.normal).toBe('1-3 months post-election');
+      expect(entry.expectedLag.redistricting).toBe('6-12 months during redistricting cycles');
     });
   });
 
   describe('Edge cases', () => {
-    it('should handle empty jurisdiction string', () => {
+    it('should return only wildcard sources for empty jurisdiction', () => {
+      // Empty string doesn't match any specific state, but wildcard '*' matches
       const sources = registry.getPrimarySourcesForState('');
-      expect(sources).toEqual([]);
+      expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
 
-    it('should handle lowercase state codes (no match)', () => {
-      // Registry is case-sensitive by design
+    it('should return only wildcard sources for lowercase state codes', () => {
+      // Registry is case-sensitive - lowercase 'ca' only matches wildcard
       const sources = registry.getPrimarySourcesForState('ca');
-      expect(sources).toEqual([]);
+      expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
 
-    it('should handle mixed case state codes (no match)', () => {
+    it('should return only wildcard sources for mixed case state codes', () => {
       const sources = registry.getPrimarySourcesForState('Ca');
-      expect(sources).toEqual([]);
+      expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
 
-    it('should handle unknown state codes', () => {
+    it('should return only wildcard sources for unknown state codes', () => {
       const sources = registry.getPrimarySourcesForState('XX');
-      expect(sources).toEqual([]);
+      expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
 
     it('should not throw on unknown boundary type lookup', () => {
@@ -771,6 +787,100 @@ describe('AuthorityRegistry', () => {
           ['annual', 'redistricting', 'census', 'event', 'manual']
         ).toContain(trigger.type);
       }
+    });
+  });
+
+  describe('VTD Authority Configuration', () => {
+    it('should have Redistricting Data Hub as first primary source', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      expect(entry.primarySources.length).toBeGreaterThan(0);
+
+      const firstSource = entry.primarySources[0];
+      expect(firstSource.name).toBe('Redistricting Data Hub');
+      expect(firstSource.entity).toBe('Princeton Gerrymandering Project');
+      expect(firstSource.jurisdiction).toBe('*'); // All states
+      expect(firstSource.url).toBe('https://redistrictingdatahub.org/data/download-data/');
+      expect(firstSource.format).toBe('shapefile');
+      expect(firstSource.machineReadable).toBe(true);
+    });
+
+    it('should have state-specific sources for CA and TX', () => {
+      const entry = registry.getAuthority('voting_precinct');
+
+      const caSource = entry.primarySources.find((s) => s.jurisdiction === 'CA');
+      expect(caSource).toBeDefined();
+      expect(caSource?.name).toBe('California Statewide Database');
+      expect(caSource?.entity).toBe('UC Berkeley');
+
+      const txSource = entry.primarySources.find((s) => s.jurisdiction === 'TX');
+      expect(txSource).toBeDefined();
+      expect(txSource?.name).toBe('Texas Legislative Council');
+    });
+
+    it('should have no aggregator sources (VTDs not in TIGER)', () => {
+      const sources = registry.getAggregatorSources('voting_precinct');
+      expect(sources.length).toBe(0);
+    });
+
+    it('should have redistricting update trigger', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      const redistrictingTrigger = entry.updateTriggers.find(
+        (t) => t.type === 'redistricting'
+      );
+      expect(redistrictingTrigger).toBeDefined();
+    });
+
+    it('should have annual update trigger for Q1 (post-election)', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      const annualTrigger = entry.updateTriggers.find(
+        (t) => t.type === 'annual'
+      );
+      expect(annualTrigger).toBeDefined();
+
+      if (annualTrigger?.type === 'annual') {
+        expect(annualTrigger.month).toBe(3); // March for Q1
+      }
+    });
+
+    it('should have post-election event trigger', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      const eventTrigger = entry.updateTriggers.find(
+        (t) => t.type === 'event'
+      );
+      expect(eventTrigger).toBeDefined();
+
+      if (eventTrigger?.type === 'event') {
+        expect(eventTrigger.description).toContain('precinct');
+      }
+    });
+
+    it('should return VTD sources via getPrimarySourcesForState for wildcard', () => {
+      // The wildcard source should appear for any state query
+      const sources = registry.getPrimarySourcesForState('CA');
+
+      // Should include RDH (wildcard) and CA-specific source
+      const rdhSource = sources.find((s) => s.name === 'Redistricting Data Hub');
+      expect(rdhSource).toBeDefined();
+
+      const caSource = sources.find(
+        (s) => s.name === 'California Statewide Database'
+      );
+      expect(caSource).toBeDefined();
+    });
+
+    it('should have display name indicating VTDs', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      expect(entry.displayName).toContain('VTD');
+    });
+
+    it('should have correct authority entity (County Elections Office)', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      expect(entry.authorityEntity).toBe('County Elections Office');
+    });
+
+    it('should have State Election Code as legal basis', () => {
+      const entry = registry.getAuthority('voting_precinct');
+      expect(entry.legalBasis).toBe('State Election Code');
     });
   });
 });

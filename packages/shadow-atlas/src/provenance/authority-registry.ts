@@ -544,18 +544,70 @@ const AUTHORITY_DATA: Record<BoundaryType, AuthorityEntry> = {
 
   voting_precinct: {
     boundaryType: 'voting_precinct',
-    displayName: 'Voting Precincts',
+    displayName: 'Voting Precincts (VTDs)',
     authorityEntity: 'County Elections Office',
     legalBasis: 'State Election Code',
-    primarySources: [],
-    aggregatorSources: [],
+    primarySources: [
+      // National aggregator - best comprehensive source for VTD data
+      {
+        name: 'Redistricting Data Hub',
+        entity: 'Princeton Gerrymandering Project',
+        jurisdiction: '*', // All states
+        url: 'https://redistrictingdatahub.org/data/download-data/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+      // State-specific sources for states with high-quality election data portals
+      {
+        name: 'California Statewide Database',
+        entity: 'UC Berkeley',
+        jurisdiction: 'CA',
+        url: 'https://statewidedatabase.org/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+      {
+        name: 'Texas Legislative Council',
+        entity: 'Texas Legislative Council',
+        jurisdiction: 'TX',
+        url: 'https://redistricting.capitol.texas.gov/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+      {
+        name: 'Florida Division of Elections',
+        entity: 'Florida Department of State',
+        jurisdiction: 'FL',
+        url: 'https://dos.myflorida.com/elections/data-statistics/voter-registration-statistics/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+      {
+        name: 'Ohio Secretary of State',
+        entity: 'Ohio Secretary of State',
+        jurisdiction: 'OH',
+        url: 'https://www.ohiosos.gov/elections/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+      {
+        name: 'Pennsylvania Department of State',
+        entity: 'Pennsylvania Department of State',
+        jurisdiction: 'PA',
+        url: 'https://www.vote.pa.gov/',
+        format: 'shapefile',
+        machineReadable: true,
+      },
+    ],
+    aggregatorSources: [], // VTDs not in TIGER - correct
     updateTriggers: [
       { type: 'redistricting', years: REDISTRICTING_YEARS },
       { type: 'event', description: 'Post-election precinct consolidation' },
+      { type: 'annual', month: 3 }, // Q1 updates after November elections
     ],
     expectedLag: {
-      normal: 'Varies by county',
-      redistricting: 'Varies by county',
+      normal: '1-3 months post-election',
+      redistricting: '6-12 months during redistricting cycles',
     },
   },
 
