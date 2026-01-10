@@ -28,3 +28,20 @@ discovery-staging/
 *.geojson
 .shadow-atlas/
 src/data/*.json
+
+# TIGER/Census cache (downloadable, large binaries)
+packages/crypto/data/tiger-cache/
+packages/crypto/data/rdh-cache/
+
+# Runtime analysis data (regeneratable)
+src/agents/data/*.json
+data/discovery-state.json
+
+# Test outputs
+test-discovery-attempts/
+test-*.js
+test-*.ts
+!src/__tests__/**
+
+# Temp files
+:memory:/
