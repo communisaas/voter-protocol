@@ -8,7 +8,7 @@
  * Every validation result must be comprehensively typed for audit trail.
  */
 
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
 import type { TIGERBoundaryType } from '../provenance/tiger-authority-rules.js';
 import type { ExtractedBoundary, BatchExtractionResult } from '../providers/state-batch-extractor.js';
 

@@ -12,6 +12,7 @@
  */
 
 import type { DatabaseAdapter, Source, Artifact } from '../core/types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Update trigger types
@@ -186,7 +187,11 @@ export class ChangeDetector {
       };
     } catch (error) {
       // Error fetching headers - treat as no change to avoid spurious downloads
-      console.error(`Error checking source ${source.id}:`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('Error checking source for changes', {
+        sourceId: source.id,
+        error: message,
+      });
       return null;
     }
   }
@@ -244,9 +249,11 @@ export class ChangeDetector {
 
         if (result.error) {
           errors.push({ source: result.source, error: result.error });
-          console.warn(
-            `Failed to check source ${result.source.id} (${result.source.url}): ${result.error.message}`
-          );
+          logger.warn('Failed to check source', {
+            sourceId: result.source.id,
+            url: result.source.url,
+            error: result.error.message,
+          });
         } else if (result.change) {
           changes.push(result.change);
           totalChanged++;
@@ -255,9 +262,12 @@ export class ChangeDetector {
 
       // Progress reporting
       if (this.batchConfig.enableProgressReporting) {
-        console.log(
-          `Change detection progress: ${totalChecked}/${totalSources} checked, ${totalChanged} changed, ${errors.length} errors`
-        );
+        logger.info('Change detection progress', {
+          checked: totalChecked,
+          total: totalSources,
+          changed: totalChanged,
+          errors: errors.length,
+        });
       }
 
       // Delay between batches if configured
@@ -268,9 +278,11 @@ export class ChangeDetector {
 
     // Final summary
     if (this.batchConfig.enableProgressReporting) {
-      console.log(
-        `Change detection complete: ${totalChecked} sources checked, ${totalChanged} changed, ${errors.length} errors`
-      );
+      logger.info('Change detection complete', {
+        sourcesChecked: totalChecked,
+        sourcesChanged: totalChanged,
+        errors: errors.length,
+      });
     }
 
     return changes;
@@ -338,7 +350,10 @@ export class ChangeDetector {
     // 3. Update heads table to point to new artifact
 
     // For now, we'll add a note that this needs integration with artifact management
-    console.warn('updateChecksum requires integration with artifact management');
+    logger.warn('updateChecksum requires integration with artifact management', {
+      sourceId,
+      checksum,
+    });
   }
 
   /**

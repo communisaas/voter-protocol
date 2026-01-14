@@ -22,12 +22,18 @@ import {
 import type { FeatureCollection, Polygon } from 'geojson';
 
 /**
- * Soft-fail wrapper for network tests in CI
+ * Network test wrapper - skipped by default unless RUN_NETWORK_TESTS=true
+ * These tests require live network access to external GIS servers.
  */
-const isCI = process.env.CI === 'true';
+const runNetworkTests = process.env.RUN_NETWORK_TESTS === 'true';
 
 function networkTest(name: string, fn: () => Promise<void>, timeout = 30000) {
   const vitestTimeout = timeout + 5000;
+
+  // Skip network tests by default
+  if (!runNetworkTests) {
+    return test.skip(`${name} (requires RUN_NETWORK_TESTS=true)`, async () => {});
+  }
 
   return test(name, async () => {
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -37,16 +43,7 @@ function networkTest(name: string, fn: () => Promise<void>, timeout = 30000) {
       );
     });
 
-    try {
-      await Promise.race([fn(), timeoutPromise]);
-    } catch (error) {
-      if (isCI) {
-        console.warn(`[SOFT-FAIL] Network test "${name}" failed in CI:`, error);
-        // Don't rethrow - test passes with warning in CI
-      } else {
-        throw error;
-      }
-    }
+    await Promise.race([fn(), timeoutPromise]);
   }, vitestTimeout);
 }
 

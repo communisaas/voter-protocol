@@ -21,8 +21,8 @@ import {
   generateValidationReport,
   GEOID_FORMATS,
   type ValidatableLayer,
-} from '../../../validators/geoid-validation-suite.js';
-import { CANONICAL_CD_GEOIDS } from '../../../validators/geoid-reference.js';
+} from '../../../validators/geoid/validation-suite.js';
+import { CANONICAL_CD_GEOIDS } from '../../../validators/geoid/reference.js';
 
 describe('GEOID Format Validation', () => {
   describe('Congressional Districts (CD)', () => {
@@ -161,10 +161,16 @@ describe('GEOID Format Validation', () => {
       expect(validateGEOIDFormat('vtd', '48201012345')).toBe(true);
     });
 
-    it('rejects invalid VTD formats', () => {
-      expect(validateGEOIDFormat('vtd', '0600100010')).toBe(false); // Too short
-      expect(validateGEOIDFormat('vtd', '060010001000')).toBe(false); // Too long
-      expect(validateGEOIDFormat('vtd', '06001-00010')).toBe(false); // Hyphen
+    it('accepts any non-empty VTD format (VEST uses local precinct IDs)', () => {
+      // VEST data uses raw precinct identifiers, NOT standardized Census GEOIDs
+      // Format varies by state: numeric, alphanumeric, hyphenated, etc.
+      // Only empty strings should be rejected
+      expect(validateGEOIDFormat('vtd', '0600100010')).toBe(true); // Short OK
+      expect(validateGEOIDFormat('vtd', '060010001000')).toBe(true); // Long OK
+      expect(validateGEOIDFormat('vtd', '06001-00010')).toBe(true); // Hyphen OK
+      expect(validateGEOIDFormat('vtd', '1-GR')).toBe(true); // Iowa format
+      expect(validateGEOIDFormat('vtd', '0')).toBe(true); // Florida format
+      expect(validateGEOIDFormat('vtd', '')).toBe(false); // Empty rejected
     });
   });
 });
@@ -410,7 +416,8 @@ describe('GEOID Format Specifications', () => {
     expect(GEOID_FORMATS.elsd.length).toBe(7);
     expect(GEOID_FORMATS.scsd.length).toBe(7);
     expect(GEOID_FORMATS.county.length).toBe(5);
-    expect(GEOID_FORMATS.vtd.length).toBe(11);
+    // VTD uses variable-length VEST precinct identifiers (not standardized Census GEOIDs)
+    expect(GEOID_FORMATS.vtd.length).toBe('variable');
   });
 
   it('has valid example GEOIDs', () => {

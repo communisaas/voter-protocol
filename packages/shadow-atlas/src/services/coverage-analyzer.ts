@@ -10,7 +10,7 @@
  */
 
 import { queryProvenance, type ProvenanceEntry } from './provenance-writer.js';
-import { KNOWN_PORTALS, type KnownPortal, isStale } from '../registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal, isStale } from '../core/registry/known-portals.js';
 
 /**
  * Coverage status for a city

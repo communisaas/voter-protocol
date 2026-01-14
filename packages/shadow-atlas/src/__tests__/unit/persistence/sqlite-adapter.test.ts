@@ -23,7 +23,7 @@ import type {
   NotConfiguredTask,
   OrchestrationOptions,
 } from '../services/batch-orchestrator.types.js';
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
 import type { SnapshotMetadata } from '../core/types.js';
 import type { ValidationResult } from '../../../persistence/sqlite-adapter.js';
 

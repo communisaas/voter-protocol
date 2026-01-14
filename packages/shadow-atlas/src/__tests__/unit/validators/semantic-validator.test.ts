@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import { SemanticValidator } from '../../../validators/semantic-validator.js';
+import { SemanticValidator } from '../../../validators/semantic/validator.js';
 
 describe('SemanticValidator', () => {
     describe('scoreTitle()', () => {

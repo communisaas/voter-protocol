@@ -17,12 +17,12 @@ import type {
   PolygonRing,
   BoundaryGeometry,
   BoundaryType,
-} from '../types/boundary.js';
+} from '../core/types/boundary.js';
 import {
   isPointInBBox,
   extractBBox,
   getPrecisionRank,
-} from '../types/boundary.js';
+} from '../core/types/boundary.js';
 
 /**
  * Point-in-Polygon Test Result

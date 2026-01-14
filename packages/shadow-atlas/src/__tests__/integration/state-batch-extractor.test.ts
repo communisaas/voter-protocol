@@ -17,7 +17,7 @@ import {
   assertValidBoundaryGeometry,
   assertValidGeoidsForState,
   assertUniformAuthority,
-} from '../utils/index.js';
+} from '../core/utils/index.js';
 
 const skipInCI = isCI && !runIntegration;
 

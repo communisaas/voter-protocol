@@ -19,6 +19,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface ClassifiedLayer {
   readonly service_url: string;
@@ -69,7 +70,7 @@ class FeatureCountReEnumerator {
     const totalRequests = stats.successCount + stats.failureCount;
     if (totalRequests >= 5 && stats.failureCount / totalRequests > 0.8) {
       if (!stats.circuitOpen) {
-        console.warn(`⚠️  Circuit breaker opened for ${domain}`);
+        logger.warn(`⚠️  Circuit breaker opened for ${domain}`);
         stats.circuitOpen = true;
       }
       return true;
@@ -89,7 +90,7 @@ class FeatureCountReEnumerator {
     if (success) {
       stats.successCount++;
       if (stats.circuitOpen) {
-        console.log(`✓ Circuit breaker reset for ${domain}`);
+        logger.info(`✓ Circuit breaker reset for ${domain}`);
         stats.circuitOpen = false;
       }
     } else {
@@ -214,14 +215,14 @@ class FeatureCountReEnumerator {
     const errorRate = totalCountQueries > 0 ?
       this.countQueryFailures / totalCountQueries : 0;
 
-    console.log('\n' + '='.repeat(70));
-    console.log(`Progress: ${totalCountQueries}/${total} layers (${((totalCountQueries / total) * 100).toFixed(1)}%)`);
-    console.log(`Count queries: ${this.countQuerySuccesses}/${totalCountQueries} (${successRate}% success)`);
-    console.log(`Rate: ${rate.toFixed(2)} layers/sec`);
-    console.log(`Concurrency: ${this.currentConcurrency}`);
-    console.log(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
-    console.log(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
-    console.log('='.repeat(70));
+    logger.info('\n' + '='.repeat(70));
+    logger.info(`Progress: ${totalCountQueries}/${total} layers (${((totalCountQueries / total) * 100).toFixed(1)}%)`);
+    logger.info(`Count queries: ${this.countQuerySuccesses}/${totalCountQueries} (${successRate}% success)`);
+    logger.info(`Rate: ${rate.toFixed(2)} layers/sec`);
+    logger.info(`Concurrency: ${this.currentConcurrency}`);
+    logger.info(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
+    logger.info(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
+    logger.info('='.repeat(70));
 
     this.adjustConcurrency(errorRate);
   }
@@ -245,23 +246,23 @@ async function reEnumerateFeatureCounts(
   outputFile: string,
   batchSize: number = 1000
 ): Promise<void> {
-  console.log('='.repeat(70));
-  console.log('PHASE 2 P0: FIX FEATURE COUNT DATA QUALITY');
-  console.log('='.repeat(70));
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log(`Batch size: ${batchSize} layers`);
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('PHASE 2 P0: FIX FEATURE COUNT DATA QUALITY');
+  logger.info('='.repeat(70));
+  logger.info(`Input: ${inputFile}`);
+  logger.info(`Output: ${outputFile}`);
+  logger.info(`Batch size: ${batchSize} layers`);
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Load existing classified layers
-  console.log('Loading existing 31,316 layer records...');
+  logger.info('Loading existing 31,316 layer records...');
   const content = readFileSync(inputFile, 'utf-8');
   const lines = content.split('\n').filter(line => line.trim());
   const existingLayers = lines.map(line => JSON.parse(line) as ClassifiedLayer);
 
-  console.log(`✓ Loaded ${existingLayers.length} layers`);
-  console.log('');
+  logger.info(`✓ Loaded ${existingLayers.length} layers`);
+  logger.info('');
 
   // Analyze fake counts before re-enumeration
   const fakeCountDistribution = new Map<number | null, number>();
@@ -270,26 +271,26 @@ async function reEnumerateFeatureCounts(
     fakeCountDistribution.set(layer.feature_count, count + 1);
   }
 
-  console.log('Fake count distribution (top 10):');
+  logger.info('Fake count distribution (top 10):');
   const sortedFakeCounts = Array.from(fakeCountDistribution.entries())
     .sort((a, b) => (b[1] - a[1]))
     .slice(0, 10);
   for (const [count, freq] of sortedFakeCounts) {
-    console.log(`  ${count === null ? 'null' : count}: ${freq} layers (${((freq / existingLayers.length) * 100).toFixed(1)}%)`);
+    logger.info(`  ${count === null ? 'null' : count}: ${freq} layers (${((freq / existingLayers.length) * 100).toFixed(1)}%)`);
   }
-  console.log('');
+  logger.info('');
 
   const enumerator = new FeatureCountReEnumerator();
   const updatedLayers: ClassifiedLayer[] = [];
 
-  console.log('Starting re-enumeration with actual counts...');
-  console.log('');
+  logger.info('Starting re-enumeration with actual counts...');
+  logger.info('');
 
   // Process in batches with intermediate saves
   for (let i = 0; i < existingLayers.length; i += batchSize) {
     const batch = existingLayers.slice(i, i + batchSize);
 
-    console.log(`\nProcessing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(existingLayers.length / batchSize)} (layers ${i}-${i + batch.length})...`);
+    logger.info(`\nProcessing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(existingLayers.length / batchSize)} (layers ${i}-${i + batch.length})...`);
 
     const batchResults = await enumerator.processBatch(batch);
     updatedLayers.push(...batchResults);
@@ -301,7 +302,7 @@ async function reEnumerateFeatureCounts(
       outputFile,
       updatedLayers.map(l => JSON.stringify(l)).join('\n')
     );
-    console.log(`\n✓ Saved intermediate results (${updatedLayers.length} layers)`);
+    logger.info(`\n✓ Saved intermediate results (${updatedLayers.length} layers)`);
   }
 
   // Final save
@@ -310,20 +311,20 @@ async function reEnumerateFeatureCounts(
     updatedLayers.map(l => JSON.stringify(l)).join('\n')
   );
 
-  console.log('\n' + '='.repeat(70));
-  console.log('✓ RE-ENUMERATION COMPLETE');
-  console.log('='.repeat(70));
+  logger.info('\n' + '='.repeat(70));
+  logger.info('✓ RE-ENUMERATION COMPLETE');
+  logger.info('='.repeat(70));
 
   const stats = enumerator.getStats();
-  console.log(`Total layers: ${stats.totalRequests}`);
-  console.log(`Count queries succeeded: ${stats.successes} (${stats.successRate}%)`);
-  console.log(`Count queries failed: ${stats.failures}`);
-  console.log(`Average rate: ${stats.layersPerSecond} layers/sec`);
-  console.log(`Total time: ${Math.floor(Number(stats.elapsedSeconds) / 60)}m ${Math.floor(Number(stats.elapsedSeconds) % 60)}s`);
-  console.log('');
+  logger.info(`Total layers: ${stats.totalRequests}`);
+  logger.info(`Count queries succeeded: ${stats.successes} (${stats.successRate}%)`);
+  logger.info(`Count queries failed: ${stats.failures}`);
+  logger.info(`Average rate: ${stats.layersPerSecond} layers/sec`);
+  logger.info(`Total time: ${Math.floor(Number(stats.elapsedSeconds) / 60)}m ${Math.floor(Number(stats.elapsedSeconds) % 60)}s`);
+  logger.info('');
 
   // Analyze real counts after re-enumeration
-  console.log('Real count distribution (excluding null):');
+  logger.info('Real count distribution (excluding null):');
   const realCountDistribution = new Map<string, number>();
   const nullCounts = updatedLayers.filter(l => l.feature_count === null).length;
 
@@ -345,33 +346,33 @@ async function reEnumerateFeatureCounts(
     }
   }
 
-  console.log(`  null: ${nullCounts} layers (${((nullCounts / updatedLayers.length) * 100).toFixed(1)}%)`);
+  logger.info(`  null: ${nullCounts} layers (${((nullCounts / updatedLayers.length) * 100).toFixed(1)}%)`);
   const sortedRealCounts = Array.from(realCountDistribution.entries())
     .sort((a, b) => {
       const order = ['1-9', '10-49', '50-99', '100-499', '500-999', '1000-4999', '5000-9999', '10000+'];
       return order.indexOf(a[0]) - order.indexOf(b[0]);
     });
   for (const [bucket, freq] of sortedRealCounts) {
-    console.log(`  ${bucket}: ${freq} layers (${((freq / updatedLayers.length) * 100).toFixed(1)}%)`);
+    logger.info(`  ${bucket}: ${freq} layers (${((freq / updatedLayers.length) * 100).toFixed(1)}%)`);
   }
-  console.log('');
+  logger.info('');
 
   // Sample comparison: fake vs real counts
-  console.log('Sample comparison (first 10 polygon layers with successful count queries):');
+  logger.info('Sample comparison (first 10 polygon layers with successful count queries):');
   const sampleLayers = updatedLayers
     .filter(l => l.geometry_type === 'esriGeometryPolygon' && l.feature_count !== null)
     .slice(0, 10);
 
   for (const layer of sampleLayers) {
-    console.log(`  ${layer.layer_name}`);
-    console.log(`    URL: ${layer.layer_url}`);
-    console.log(`    Real count: ${layer.feature_count}`);
-    console.log(`    District type: ${layer.district_type} (${layer.tier})`);
+    logger.info(`  ${layer.layer_name}`);
+    logger.info(`    URL: ${layer.layer_url}`);
+    logger.info(`    Real count: ${layer.feature_count}`);
+    logger.info(`    District type: ${layer.district_type} (${layer.tier})`);
   }
-  console.log('');
+  logger.info('');
 
-  console.log(`Output: ${outputFile}`);
-  console.log('='.repeat(70));
+  logger.info(`Output: ${outputFile}`);
+  logger.info('='.repeat(70));
 }
 
 // Run
@@ -381,10 +382,10 @@ const outputFile = join(dataDir, 'comprehensive_classified_layers.jsonl'); // Ov
 
 reEnumerateFeatureCounts(inputFile, outputFile, 1000)
   .then(() => {
-    console.log('\n✓ Feature count re-enumeration complete!');
+    logger.info('\n✓ Feature count re-enumeration complete!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n✗ Fatal error:', error);
+    logger.error('\n✗ Fatal error:', error);
     process.exit(1);
   });

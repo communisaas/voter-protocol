@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PointInPolygonEngine } from '../../../services/pip-engine.js';
 import type { Polygon, MultiPolygon, Position } from 'geojson';
-import type { LatLng, BoundaryGeometry, BoundaryType } from '../types/boundary.js';
+import type { LatLng, BoundaryGeometry, BoundaryType } from '../core/types/boundary.js';
 
 describe('PointInPolygonEngine', () => {
   let engine: PointInPolygonEngine;

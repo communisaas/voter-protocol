@@ -21,11 +21,12 @@ import type {
   BoundaryGeometry,
   LatLng,
   BoundaryType,
-} from '../types/boundary.js';
-import { BoundaryType as BT, PRECISION_RANK } from '../types/boundary.js';
+} from '../core/types/boundary.js';
+import { BoundaryType as BT, PRECISION_RANK } from '../core/types/boundary.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
 import { BoundaryLoader } from './boundary-loader.js';
 import { CensusTigerLoader } from './census-tiger-loader.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Data source priority configuration
@@ -105,7 +106,10 @@ export class CompositeBoundarySource implements BoundaryDataSource {
         const boundaries = await config.source.getCandidateBoundaries(point);
         return { config, boundaries };
       } catch (error) {
-        console.warn(`Data source ${config.name} failed:`, error);
+        logger.warn('Data source query failed', {
+          sourceName: config.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
         return { config, boundaries: [] };
       }
     });
@@ -234,9 +238,11 @@ export class CompositeBoundarySource implements BoundaryDataSource {
           fallbackUsed = true;
         }
       }
-    } catch {
+    } catch (error) {
       // Census failed - this should never happen in production
-      console.error('Census TIGER query failed - this should not happen');
+      logger.error('Census TIGER query failed - this should not happen', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     // Sort by precision

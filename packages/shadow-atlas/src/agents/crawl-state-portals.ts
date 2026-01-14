@@ -16,6 +16,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface LayerDiscovery {
   readonly service_url: string;
@@ -52,7 +53,7 @@ async function searchStatePortal(
   stateCode: string,
   portalUrl: string
 ): Promise<LayerDiscovery[]> {
-  console.log(`\nSearching ${stateCode} state portal: ${portalUrl}`);
+  logger.info(`\nSearching ${stateCode} state portal: ${portalUrl}`);
 
   const discoveries: LayerDiscovery[] = [];
   const keywords = [
@@ -69,7 +70,7 @@ async function searchStatePortal(
       // Use ArcGIS Hub public API (no auth required)
       const searchUrl = `https://hub.arcgis.com/api/v3/datasets?q=${encodeURIComponent(keyword)}&filter[portal]=${encodeURIComponent(portalUrl)}`;
 
-      console.log(`  Searching: "${keyword}"...`);
+      logger.info(`  Searching: "${keyword}"...`);
 
       const response = await fetch(searchUrl, {
         headers: { 'Accept': 'application/json' },
@@ -77,7 +78,7 @@ async function searchStatePortal(
       });
 
       if (!response.ok) {
-        console.warn(`    ⚠️  HTTP ${response.status}`);
+        logger.warn(`    ⚠️  HTTP ${response.status}`);
         continue;
       }
 
@@ -93,11 +94,11 @@ async function searchStatePortal(
       };
 
       if (!data.data || data.data.length === 0) {
-        console.log(`    No results`);
+        logger.info(`    No results`);
         continue;
       }
 
-      console.log(`    Found ${data.data.length} datasets`);
+      logger.info(`    Found ${data.data.length} datasets`);
 
       for (const dataset of data.data) {
         const serviceUrl = dataset.attributes.serviceUrl || dataset.attributes.url;
@@ -123,11 +124,11 @@ async function searchStatePortal(
       await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (error) {
-      console.error(`    Error: ${(error as Error).message}`);
+      logger.error(`    Error: ${(error as Error).message}`);
     }
   }
 
-  console.log(`  ✓ Total discoveries: ${discoveries.length}`);
+  logger.info(`  ✓ Total discoveries: ${discoveries.length}`);
   return discoveries;
 }
 
@@ -180,17 +181,17 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const testMode = args.includes('--test');
 
-  console.log('='.repeat(70));
-  console.log('STATE PORTAL BROAD SEARCH - Phase 2 P3');
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('STATE PORTAL BROAD SEARCH - Phase 2 P3');
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Select portals
   const portals = testMode
     ? [['FL', STATE_ARCGIS_HUB_PORTALS.FL]]
     : Object.entries(STATE_ARCGIS_HUB_PORTALS);
 
-  console.log(`Searching ${portals.length} state portals${testMode ? ' (test mode)' : ''}...`);
+  logger.info(`Searching ${portals.length} state portals${testMode ? ' (test mode)' : ''}...`);
 
   const allDiscoveries: LayerDiscovery[] = [];
 
@@ -202,9 +203,9 @@ async function main(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
-  console.log('\n' + '='.repeat(70));
-  console.log('Enumerating layers in discovered services...');
-  console.log('='.repeat(70));
+  logger.info('\n' + '='.repeat(70));
+  logger.info('Enumerating layers in discovered services...');
+  logger.info('='.repeat(70));
 
   const enrichedDiscoveries: Array<LayerDiscovery & {
     layer_number: number;
@@ -212,7 +213,7 @@ async function main(): Promise<void> {
   }> = [];
 
   for (const discovery of allDiscoveries) {
-    console.log(`\nEnumerating: ${discovery.layer_name}`);
+    logger.info(`\nEnumerating: ${discovery.layer_name}`);
 
     const layers = await enumerateServiceLayers(discovery.service_url);
 
@@ -227,7 +228,7 @@ async function main(): Promise<void> {
           geometry_type: layer.geometry_type,
         });
 
-        console.log(`  ✓ Layer ${layer.layer_number}: ${layer.layer_name} (polygon)`);
+        logger.info(`  ✓ Layer ${layer.layer_number}: ${layer.layer_name} (polygon)`);
       }
     }
 
@@ -247,19 +248,22 @@ async function main(): Promise<void> {
     byState[discovery.source_state] = (byState[discovery.source_state] || 0) + 1;
   }
 
-  console.log('\n' + '='.repeat(70));
-  console.log('DISCOVERY COMPLETE');
-  console.log('='.repeat(70));
-  console.log(`Total services: ${allDiscoveries.length}`);
-  console.log(`Total polygon layers: ${enrichedDiscoveries.length}`);
-  console.log('');
-  console.log('By state:');
+  logger.info('\n' + '='.repeat(70));
+  logger.info('DISCOVERY COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info(`Total services: ${allDiscoveries.length}`);
+  logger.info(`Total polygon layers: ${enrichedDiscoveries.length}`);
+  logger.info('');
+  logger.info('By state:');
   for (const [state, count] of Object.entries(byState).sort((a, b) => b[1] - a[1])) {
-    console.log(`  ${state}: ${count}`);
+    logger.info(`  ${state}: ${count}`);
   }
-  console.log('');
-  console.log(`Output: ${outputPath}`);
-  console.log('='.repeat(70));
+  logger.info('');
+  logger.info(`Output: ${outputPath}`);
+  logger.info('='.repeat(70));
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

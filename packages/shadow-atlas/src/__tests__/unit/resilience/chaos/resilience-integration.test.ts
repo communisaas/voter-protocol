@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createResilienceStack } from '../index.js';
-import type { ResilienceStack } from '../index.js';
+import { createResilienceStack } from '../../../../resilience/index.js';
+import type { ResilienceStack } from '../../../../resilience/index.js';
 import { ChaosFaultInjector, createChaosFaultInjector } from '../../../../resilience/chaos/fault-injector.js';
 
 describe('Resilience Integration', () => {
@@ -478,6 +478,10 @@ describe('Resilience Integration', () => {
       }
 
       expect(recovered).toBe(true);
+
+      // Need one more successful call to fully close the circuit (successThreshold: 2)
+      await stack.execute('test-upstream', async () => 'success');
+
       expect(stack.circuitBreaker.getStats().state).toBe('closed');
     }, 10000); // 10 second timeout for this test
   });

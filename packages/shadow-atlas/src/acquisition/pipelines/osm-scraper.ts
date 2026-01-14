@@ -26,6 +26,7 @@ import type {
 } from '../types.js';
 import { retryWithBackoff, sha256, BatchProcessor } from '../utils.js';
 import { PostDownloadValidator } from '../post-download-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Default configuration
@@ -88,8 +89,8 @@ export class OSMScraper {
   async scrapeAll(): Promise<ScraperResult> {
     const startTime = Date.now();
 
-    console.log('Starting OpenStreetMap scrape...');
-    console.log(`Processing ${COUNTRIES.length} countries`);
+    logger.info('Starting OpenStreetMap scrape');
+    logger.info('Processing countries', { count: COUNTRIES.length });
 
     // Process countries in parallel
     const processor = new BatchProcessor(
@@ -106,9 +107,11 @@ export class OSMScraper {
 
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `\nOSM scrape complete: ${datasets.length} datasets acquired, ${failures.length} failed in ${(executionTime / 1000).toFixed(1)}s`
-    );
+    logger.info('OSM scrape complete', {
+      datasetsAcquired: datasets.length,
+      failures: failures.length,
+      executionSeconds: (executionTime / 1000).toFixed(1)
+    });
 
     return {
       datasets,
@@ -124,7 +127,7 @@ export class OSMScraper {
    * Scrape single country
    */
   async scrapeCountry(country: CountryConfig): Promise<RawDataset | null> {
-    console.log(`\nScraping ${country.name} (${country.code})`);
+    logger.info('Scraping country', { name: country.name, code: country.code });
 
     try {
       // Build Overpass query
@@ -156,14 +159,14 @@ export class OSMScraper {
           backoffMultiplier: this.config.backoffMultiplier,
         },
         (attempt, error) => {
-          console.log(`  Retry ${attempt}/${this.config.maxRetries} for ${country.code}: ${error.message}`);
+          logger.debug('Retrying request', { attempt, maxRetries: this.config.maxRetries, country: country.code, error: error.message });
         }
       );
 
       const responseText = await response.text();
       const overpassData = JSON.parse(responseText) as OverpassResponse;
 
-      console.log(`  Downloaded ${overpassData.elements.length} elements`);
+      logger.info('Downloaded OSM elements', { count: overpassData.elements.length, country: country.code });
 
       // Convert to GeoJSON
       const geojson = this.convertToGeoJSON(overpassData, country);
@@ -176,16 +179,16 @@ export class OSMScraper {
 
       // Confidence routing
       if (validation.confidence < 60) {
-        console.log(`❌ REJECTED: ${country.name} (${validation.confidence}% confidence)`);
-        console.log(`   Issues: ${validation.issues.join(', ')}`);
+        logger.info('Country data rejected', { country: country.name, confidence: validation.confidence, issues: validation.issues });
+         
         return null;
       }
 
       if (validation.confidence < 85) {
-        console.log(`⚠️  REVIEW NEEDED: ${country.name} (${validation.confidence}% confidence)`);
-        console.log(`   Warnings: ${validation.warnings.join(', ')}`);
+        logger.warn('Country data needs review', { country: country.name, confidence: validation.confidence, warnings: validation.warnings });
+         
       } else {
-        console.log(`✅ ACCEPTED: ${country.name} (${validation.confidence}% confidence, ${validation.metadata.featureCount} features)`);
+        logger.info('Country data accepted', { country: country.name, confidence: validation.confidence, featureCount: validation.metadata.featureCount });
       }
 
       // Build provenance with validation metadata
@@ -212,7 +215,7 @@ export class OSMScraper {
       return { geojson, provenance };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`  ✗ Failed to scrape ${country.code}: ${errorMessage}`);
+      logger.error('Failed to scrape country', { code: country.code, error: errorMessage });
       return null;
     }
   }
@@ -304,15 +307,16 @@ export async function main(): Promise<void> {
   const scraper = new OSMScraper();
   const result = await scraper.scrapeAll();
 
-  console.log('\n=== Final Results ===');
-  console.log(`Datasets acquired: ${result.datasets.length}`);
-  console.log(`Failures: ${result.failures.length}`);
-  console.log(`Execution time: ${(result.executionTime / 1000).toFixed(1)}s`);
+  logger.info('Final Results', {
+    datasetsAcquired: result.datasets.length,
+    failures: result.failures.length,
+    executionSeconds: (result.executionTime / 1000).toFixed(1)
+  });
 
   if (result.failures.length > 0) {
-    console.log('\n=== Failures ===');
+    logger.info('Failures');
     result.failures.forEach(f => {
-      console.log(`  ${f.source}: ${f.error}`);
+      logger.info('Failure', { source: f.source, error: f.error });
     });
   }
 }
@@ -320,7 +324,10 @@ export async function main(): Promise<void> {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
-    console.error('Fatal error:', error);
+    logger.error('Fatal error in OSM scraper', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   });
 }

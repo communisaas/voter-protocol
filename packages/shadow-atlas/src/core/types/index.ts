@@ -28,7 +28,7 @@ export {
   comparePrecision,
   formatBoundary,
   isPointInBBox,
-} from '../../types/boundary.js';
+} from './boundary.js';
 
 // Re-export extractBBox from geo-utils
 export { extractBBox } from '../geo-utils.js';
@@ -288,3 +288,17 @@ export {
 
 export type { ValidationHaltStage, ValidationHaltDetails } from './errors.js';
 export { ValidationHaltError, isValidationHaltError } from './errors.js';
+
+// ============================================================================
+// Validator Types (Cross-validation and TIGERValidator result types)
+// ============================================================================
+
+export type {
+  ValidationIssueSeverity,
+  ValidationIssue,
+  GeometryMismatch,
+  CrossValidationResult,
+  GapStatus,
+  RedistrictingGapWarning,
+  ValidationResult,
+} from './validators.js';

@@ -54,6 +54,7 @@ import {
   type ProviderHealth,
   type LayerExtractionResult,
 } from './base-provider.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // NZ-Specific Types
@@ -479,7 +480,10 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
 
       return hasChanged;
     } catch (error) {
-      console.warn('[NZ Provider] Change detection failed:', error);
+      logger.warn('Change detection failed', {
+        country: 'NZ',
+        error: error instanceof Error ? error.message : String(error)
+      });
       return false;
     }
   }

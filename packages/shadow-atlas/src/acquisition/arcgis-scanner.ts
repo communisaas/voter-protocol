@@ -15,9 +15,10 @@
 
 import type { FeatureCollection, Feature, Geometry } from 'geojson';
 import type { PortalType } from '../core/types.js';
-import { SemanticValidator } from '../validators/semantic-validator.js';
-import { getStatePortal, type StateGISPortal } from '../registry/state-gis-portals.js';
-import { generateSearchQueries } from '../utils/search-term-generator.js';
+import { SemanticValidator } from '../validators/semantic/validator.js';
+import { getStatePortal, type StateGISPortal } from '../core/registry/state-gis-portals.js';
+import { generateSearchQueries } from '../core/utils/search-term-generator.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * City information for discovery
@@ -75,7 +76,7 @@ export interface ValidationResult {
 // STATE_BOUNDS imported from centralized geo-constants (eliminated duplicate)
 import { STATE_BOUNDS } from '../core/geo-constants.js';
 // KNOWN_CITY_PORTALS imported from centralized registry (eliminated duplicate)
-import { KNOWN_CITY_PORTALS, type KnownCityPortal } from '../registry/known-city-portals.js';
+import { KNOWN_CITY_PORTALS, type KnownCityPortal } from '../core/registry/known-city-portals.js';
 
 // Re-export interface for backward compatibility
 type KnownPortalEntry = KnownCityPortal;
@@ -183,14 +184,19 @@ export class ArcGISScanner {
     const searchedSources: string[] = [];
     const errors: string[] = [];
 
-    console.log(`🔍 Multi-strategy search: ${city.name}, ${city.state}`);
+    logger.info('Multi-strategy search', {
+      cityName: city.name,
+      state: city.state,
+    });
 
     // Strategy 1: Known city portals (skip if not in registry)
     const knownPortalLayers = await this.searchKnownPortals(city);
     if (knownPortalLayers.length > 0) {
       allLayers.push(...knownPortalLayers);
       searchedSources.push('known-portal');
-      console.log(`   ✅ Found ${knownPortalLayers.length} layers from known portal`);
+      logger.info('Found layers from known portal', {
+        layersCount: knownPortalLayers.length,
+      });
     }
 
     // Strategy 2: ArcGIS Hub (primary)
@@ -199,12 +205,16 @@ export class ArcGISScanner {
       if (hubLayers.length > 0) {
         allLayers.push(...hubLayers);
         searchedSources.push('hub');
-        console.log(`   ✅ Found ${hubLayers.length} layers from Hub`);
+        logger.info('Found layers from Hub', {
+          layersCount: hubLayers.length,
+        });
       }
     } catch (error) {
       const message = `Hub search failed: ${(error as Error).message}`;
       errors.push(message);
-      console.warn(`   ⚠️  ${message}`);
+      logger.warn('Hub search failed', {
+        error: (error as Error).message,
+      });
     }
 
     // Strategy 3: State GIS portal (if Hub failed or returned nothing)
@@ -214,12 +224,16 @@ export class ArcGISScanner {
         if (stateLayers.length > 0) {
           allLayers.push(...stateLayers);
           searchedSources.push('state-portal');
-          console.log(`   ✅ Found ${stateLayers.length} layers from state portal`);
+          logger.info('Found layers from state portal', {
+            layersCount: stateLayers.length,
+          });
         }
       } catch (error) {
         const message = `State portal search failed: ${(error as Error).message}`;
         errors.push(message);
-        console.warn(`   ⚠️  ${message}`);
+        logger.warn('State portal search failed', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -230,12 +244,16 @@ export class ArcGISScanner {
         if (directLayers.length > 0) {
           allLayers.push(...directLayers);
           searchedSources.push('direct-mapserver');
-          console.log(`   ✅ Found ${directLayers.length} layers from direct MapServer`);
+          logger.info('Found layers from direct MapServer', {
+            layersCount: directLayers.length,
+          });
         }
       } catch (error) {
         const message = `Direct MapServer search failed: ${(error as Error).message}`;
         errors.push(message);
-        console.warn(`   ⚠️  ${message}`);
+        logger.warn('Direct MapServer search failed', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -243,7 +261,10 @@ export class ArcGISScanner {
     const sortedLayers = allLayers.sort((a, b) => b.semanticScore - a.semanticScore);
 
     const duration = Date.now() - startTime;
-    console.log(`   📊 Search complete: ${sortedLayers.length} layers found in ${duration}ms`);
+    logger.info('Search complete', {
+      layersFound: sortedLayers.length,
+      durationMs: duration,
+    });
 
     return {
       layers: sortedLayers,
@@ -263,18 +284,24 @@ export class ArcGISScanner {
       return [];
     }
 
-    console.log(`   🎯 Searching known portal for ${city.name}`);
+    logger.info('Searching known portal', {
+      cityName: city.name,
+    });
 
     // Try Socrata first
     if (known.socrata) {
       try {
         const layer = await this.querySocrataDomain(known.socrata, city);
         if (layer) {
-          console.log(`   ✅ Found layer in Socrata portal: ${known.socrata}`);
+          logger.info('Found layer in Socrata portal', {
+            domain: known.socrata,
+          });
           return [layer];
         }
       } catch (error) {
-        console.warn(`   ⏭️  Socrata failed: ${(error as Error).message}`);
+        logger.warn('Socrata query failed', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -283,11 +310,15 @@ export class ArcGISScanner {
       try {
         const layer = await this.queryKnownHubDataset(known.datasetId, city);
         if (layer) {
-          console.log(`   ✅ Found layer in ArcGIS Hub: ${known.arcgis}`);
+          logger.info('Found layer in ArcGIS Hub', {
+            portal: known.arcgis,
+          });
           return [layer];
         }
       } catch (error) {
-        console.warn(`   ⏭️  ArcGIS Hub failed: ${(error as Error).message}`);
+        logger.warn('ArcGIS Hub query failed', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -299,16 +330,20 @@ export class ArcGISScanner {
    * This is the primary strategy - most cities publish here.
    */
   async searchHub(city: CityInfo): Promise<readonly DiscoveredLayer[]> {
-    console.log(`   🔍 Searching ArcGIS Hub for ${city.name}`);
+    logger.info('Searching ArcGIS Hub', {
+      cityName: city.name,
+    });
 
     const searchQueries = generateSearchQueries(city.name, city.state, 10);
-    console.log(`   Generated ${searchQueries.length} search query variations`);
+    logger.info('Generated search query variations', {
+      queriesCount: searchQueries.length,
+    });
 
     const allLayers: DiscoveredLayer[] = [];
     const seenDatasetIds = new Set<string>();
 
     for (const query of searchQueries) {
-      console.log(`   Trying query: "${query}"`);
+      logger.debug('Trying query', { query });
 
       try {
         const url = `${this.HUB_API_BASE}/datasets?q=${encodeURIComponent(query)}`;
@@ -319,7 +354,9 @@ export class ArcGISScanner {
         });
 
         if (!response.ok) {
-          console.warn(`   ⚠️  Query failed with ${response.status}`);
+          logger.warn('Query failed', {
+            status: response.status,
+          });
           continue;
         }
 
@@ -363,11 +400,16 @@ export class ArcGISScanner {
 
         // If we found results, stop searching
         if (allLayers.length > 0) {
-          console.log(`   ✅ Found ${allLayers.length} candidates with query: "${query}"`);
+          logger.info('Found candidates', {
+            candidatesCount: allLayers.length,
+            query,
+          });
           break;
         }
       } catch (error) {
-        console.warn(`   ⚠️  Query error: ${(error as Error).message}`);
+        logger.warn('Query error', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -385,12 +427,15 @@ export class ArcGISScanner {
     const statePortal = getStatePortal(state);
 
     if (!statePortal) {
-      console.log(`   ⏭️  No state GIS portal registered for ${state}`);
+      logger.info('No state GIS portal registered', { state });
       return [];
     }
 
-    console.log(`   🏛️  Searching state portal: ${statePortal.stateName}`);
-    console.log(`   Portal: ${statePortal.portalUrl} (${statePortal.authority} authority)`);
+    logger.info('Searching state portal', {
+      stateName: statePortal.stateName,
+      portalUrl: statePortal.portalUrl,
+      authority: statePortal.authority,
+    });
 
     // Route to appropriate strategy
     switch (statePortal.searchStrategy) {
@@ -403,7 +448,9 @@ export class ArcGISScanner {
       case 'rest-api':
         return await this.scanStateRESTAPI(city!, statePortal);
       default:
-        console.warn(`   ⚠️  Unknown search strategy: ${statePortal.searchStrategy}`);
+        logger.warn('Unknown search strategy', {
+          searchStrategy: statePortal.searchStrategy,
+        });
         return [];
     }
   }
@@ -413,22 +460,30 @@ export class ArcGISScanner {
    * Last resort - tries common city GIS URL patterns.
    */
   async searchDirectMapServer(city: CityInfo): Promise<readonly DiscoveredLayer[]> {
-    console.log(`   🔍 Direct MapServer scan: ${city.name}, ${city.state}`);
+    logger.info('Direct MapServer scan', {
+      cityName: city.name,
+      state: city.state,
+    });
 
     const layers: DiscoveredLayer[] = [];
     const domains = this.generateMunicipalGISDomains(city);
 
-    console.log(`   Generated ${domains.length} potential GIS domains`);
+    logger.info('Generated potential GIS domains', {
+      domainsCount: domains.length,
+    });
 
     for (const domain of domains.slice(0, this.maxDomainsPerCity)) {
-      console.log(`   Checking domain: ${domain}`);
+      logger.debug('Checking domain', { domain });
 
       try {
         const services = await this.discoverServices(domain, city);
 
         if (services.length === 0) continue;
 
-        console.log(`   ✅ Found ${services.length} services on ${domain}`);
+        logger.info('Found services on domain', {
+          servicesCount: services.length,
+          domain,
+        });
 
         // Enumerate layers in each service
         for (const serviceUrl of services) {
@@ -438,7 +493,10 @@ export class ArcGISScanner {
             const semanticResult = this.semanticValidator.scoreTitle(layer.name);
 
             if (semanticResult.score >= 30) {
-              console.log(`   ✅ High-scoring layer: "${layer.name}" (score: ${semanticResult.score})`);
+              logger.info('High-scoring layer', {
+                layerName: layer.name,
+                score: semanticResult.score,
+              });
 
               const downloadUrl = `${layer.layerUrl}/query?where=1%3D1&outFields=*&f=geojson`;
 
@@ -454,7 +512,10 @@ export class ArcGISScanner {
                 },
               });
             } else if (semanticResult.score === 0) {
-              console.log(`   ⚠️  Layer rejected: "${layer.name}" (${semanticResult.reasons.join(', ')})`);
+              logger.debug('Layer rejected', {
+                layerName: layer.name,
+                reasons: semanticResult.reasons,
+              });
             }
           }
         }
@@ -464,7 +525,9 @@ export class ArcGISScanner {
       }
     }
 
-    console.log(`   📊 Direct scan complete: ${layers.length} layers found`);
+    logger.info('Direct scan complete', {
+      layersFound: layers.length,
+    });
 
     return layers;
   }
@@ -729,7 +792,10 @@ export class ArcGISScanner {
         if (isValid) {
           filtered.push(layer);
         } else {
-          console.log(`   ⏭️  Filtered out "${layer.title}" (coordinates outside ${city.state})`);
+          logger.debug('Filtered out layer', {
+            layerTitle: layer.title,
+            reason: `Coordinates outside ${city.state}`,
+          });
         }
       } catch (error) {
         // Conservative: keep if validation fails
@@ -866,7 +932,9 @@ export class ArcGISScanner {
         });
 
         if (!response.ok) {
-          console.warn(`   ⚠️  Failed to fetch layer metadata: ${layerInfo.layer}`);
+          logger.warn('Failed to fetch layer metadata', {
+            layer: layerInfo.layer,
+          });
           continue;
         }
 
@@ -877,7 +945,9 @@ export class ArcGISScanner {
         };
 
         if (metadata.geometryType !== 'esriGeometryPolygon') {
-          console.log(`   ⏭️  Skipping non-polygon layer: ${metadata.name}`);
+          logger.debug('Skipping non-polygon layer', {
+            layerName: metadata.name,
+          });
           continue;
         }
 
@@ -898,10 +968,15 @@ export class ArcGISScanner {
             },
           });
 
-          console.log(`   ✅ Direct layer: ${metadata.name} (score: ${semanticResult.score + 20})`);
+          logger.info('Direct layer found', {
+            layerName: metadata.name,
+            score: semanticResult.score + 20,
+          });
         }
       } catch (error) {
-        console.warn(`   ⚠️  Failed to check layer: ${(error as Error).message}`);
+        logger.warn('Failed to check layer', {
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -925,7 +1000,9 @@ export class ArcGISScanner {
       });
 
       if (!response.ok) {
-        console.warn(`   ⚠️  State Hub API failed: ${response.status}`);
+        logger.warn('State Hub API failed', {
+          status: response.status,
+        });
         return [];
       }
 
@@ -975,12 +1052,16 @@ export class ArcGISScanner {
           },
         });
 
-        console.log(`   ✅ State Hub result: ${dataset.attributes.name}`);
+        logger.info('State Hub result found', {
+          datasetName: dataset.attributes.name,
+        });
       }
 
       return layers;
     } catch (error) {
-      console.warn(`   ⚠️  State Hub API error: ${(error as Error).message}`);
+      logger.warn('State Hub API error', {
+        error: (error as Error).message,
+      });
       return [];
     }
   }
@@ -1063,13 +1144,17 @@ export class ArcGISScanner {
             },
           });
 
-          console.log(`   ✅ CKAN result: ${pkg.title}`);
+          logger.info('CKAN result found', {
+            packageTitle: pkg.title,
+          });
         }
       }
 
       return layers;
     } catch (error) {
-      console.warn(`   ⚠️  CKAN error: ${(error as Error).message}`);
+      logger.warn('CKAN error', {
+        error: (error as Error).message,
+      });
       return [];
     }
   }
@@ -1126,12 +1211,16 @@ export class ArcGISScanner {
           },
         });
 
-        console.log(`   ✅ Socrata result: ${result.resource.name}`);
+        logger.info('Socrata result found', {
+          resourceName: result.resource.name,
+        });
       }
 
       return layers;
     } catch (error) {
-      console.warn(`   ⚠️  Socrata error: ${(error as Error).message}`);
+      logger.warn('Socrata error', {
+        error: (error as Error).message,
+      });
       return [];
     }
   }
@@ -1143,7 +1232,9 @@ export class ArcGISScanner {
     city: CityInfo,
     portal: StateGISPortal
   ): Promise<readonly DiscoveredLayer[]> {
-    console.log(`   ⏭️  REST enumeration not yet implemented for ${portal.stateName}`);
+    logger.info('REST enumeration not yet implemented', {
+      stateName: portal.stateName,
+    });
     return [];
   }
 
@@ -1433,7 +1524,9 @@ export class ArcGISScanner {
 
       return Object.freeze(layers);
     } catch (error) {
-      console.warn(`   ⚠️  Failed to enumerate layers: ${(error as Error).message}`);
+      logger.warn('Failed to enumerate layers', {
+        error: (error as Error).message,
+      });
       return [];
     }
   }

@@ -13,6 +13,8 @@
  * boundary data. Every field must be validated.
  */
 
+import { logger } from '../core/utils/logger.js';
+
 /**
  * Source claim for a boundary
  *
@@ -309,7 +311,10 @@ export class ConflictResolver {
         const result = await this.resolveConflict(boundaryId, sources);
         results.set(boundaryId, result);
       } catch (error) {
-        console.error(`Failed to resolve conflict for ${boundaryId}:`, error);
+        logger.error('Failed to resolve conflict', {
+          boundaryId,
+          error: error instanceof Error ? error.message : String(error),
+        });
         // Continue processing other boundaries
       }
     }

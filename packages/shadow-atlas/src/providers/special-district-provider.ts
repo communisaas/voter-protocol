@@ -35,6 +35,7 @@ import type {
   VerificationSource,
   UpdateMonitoringMethod,
 } from '../core/types/index.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Special District Type Definitions
@@ -227,7 +228,10 @@ export abstract class SpecialDistrictProvider implements BoundaryProvider {
   async download(params: DownloadParams): Promise<RawBoundaryFile[]> {
     const url = this.getSourceUrl();
 
-    console.log(`Downloading ${this.districtType} districts for state ${this.stateFips}...`);
+    logger.info('Downloading special district boundaries', {
+      districtType: this.districtType,
+      state: this.stateFips
+    });
 
     let response: Response;
     let lastError: Error | undefined;
@@ -246,7 +250,10 @@ export abstract class SpecialDistrictProvider implements BoundaryProvider {
         const geojsonText = await response.text();
         const data = Buffer.from(geojsonText, 'utf-8');
 
-        console.log(`Downloaded ${data.length} bytes for ${this.name}`);
+        logger.info('Download complete', {
+          provider: this.name,
+          bytes: data.length
+        });
 
         return [{
           url,
@@ -268,9 +275,12 @@ export abstract class SpecialDistrictProvider implements BoundaryProvider {
 
         if (attempt < this.maxRetries) {
           const delay = this.retryDelayMs * Math.pow(2, attempt);
-          console.log(
-            `Download failed (attempt ${attempt + 1}/${this.maxRetries + 1}), retrying in ${delay}ms...`
-          );
+          logger.warn('Download attempt failed, retrying', {
+            attempt: attempt + 1,
+            maxRetries: this.maxRetries + 1,
+            delayMs: delay,
+            error: lastError.message
+          });
           await this.sleep(delay);
         }
       }
@@ -301,11 +311,15 @@ export abstract class SpecialDistrictProvider implements BoundaryProvider {
         const parsed = this.parseFeatures(featureCollection);
         boundaries.push(...parsed);
 
-        console.log(`Transformed ${parsed.length} ${this.districtType} districts`);
+        logger.info('Transformed boundaries', {
+          districtType: this.districtType,
+          boundaryCount: parsed.length
+        });
       } catch (error) {
-        console.error(
-          `Transform error for ${this.name}: ${(error as Error).message}`
-        );
+        logger.error('Transform error', {
+          provider: this.name,
+          error: (error as Error).message
+        });
       }
     }
 

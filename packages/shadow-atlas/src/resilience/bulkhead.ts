@@ -17,6 +17,7 @@
  */
 
 import type { BulkheadConfig, BulkheadStats, ResilienceEvent } from './types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Bulkhead rejection error (thrown when capacity exceeded)
@@ -260,7 +261,9 @@ export class Bulkhead {
       try {
         listener(event);
       } catch (error) {
-        console.error('[Bulkhead] Event listener error:', error);
+        logger.error('Bulkhead event listener error', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

@@ -23,6 +23,8 @@
  */
 
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
+import { sha256 } from '@noble/hashes/sha256';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Type Definitions
@@ -169,12 +171,20 @@ export abstract class StateBoundaryProvider {
 
     for (const layer of this.portal.availableLayers) {
       try {
-        console.log(`[${this.portal.stateName}] Downloading ${layer}...`);
+        logger.info('Downloading layer', { state: this.portal.stateName, layer });
         const result = await this.downloadLayer(layer);
         results.set(layer, result);
-        console.log(`[${this.portal.stateName}] ✓ ${layer}: ${result.featureCount} features`);
+        logger.info('Layer download complete', {
+          state: this.portal.stateName,
+          layer,
+          featureCount: result.featureCount
+        });
       } catch (error) {
-        console.error(`[${this.portal.stateName}] ✗ ${layer}: ${error}`);
+        logger.error('Layer download failed', {
+          state: this.portal.stateName,
+          layer,
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     }
 
@@ -189,7 +199,7 @@ export abstract class StateBoundaryProvider {
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log(`   Fetching: ${url} (attempt ${attempt}/${retries})`);
+        logger.debug('Fetching GeoJSON', { url, attempt, retries });
 
         const response = await fetch(url, {
           headers: {
@@ -211,7 +221,7 @@ export abstract class StateBoundaryProvider {
         return data;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`   Attempt ${attempt} failed: ${lastError.message}`);
+        logger.warn('Fetch attempt failed', { attempt, error: lastError.message });
 
         if (attempt < retries) {
           const delay = Math.pow(2, attempt) * 1000;
@@ -244,17 +254,16 @@ export abstract class StateBoundaryProvider {
   }
 
   /**
-   * Compute checksum for data integrity
+   * Compute checksum for data integrity using SHA-256
+   *
+   * SECURITY: Replaces bit-shift hash (WS-5) for collision resistance.
+   * Data integrity checksums must be cryptographically secure.
    */
   protected computeChecksum(data: unknown): string {
     const str = JSON.stringify(data);
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).padStart(8, '0');
+    const bytes = new TextEncoder().encode(str);
+    const hash = sha256(bytes);
+    return Buffer.from(hash).toString('hex');
   }
 }
 

@@ -16,6 +16,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { ChangeDetector, ChangeReport, UpdateTrigger } from './change-detector.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * TIGER source configuration
@@ -180,7 +181,11 @@ export class ChangeDetectionAdapter {
           changedStatesSet.add(state);
         } catch (error) {
           // Error checking source - log but continue
-          console.warn(`Failed to check ${sourceId}: ${(error as Error).message}`);
+          const message = error instanceof Error ? error.message : String(error);
+          logger.warn('Failed to check TIGER source', {
+            sourceId,
+            error: message,
+          });
         }
       }
     }

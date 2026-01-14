@@ -18,11 +18,12 @@ import type {
   BoundaryType,
   LatLng,
   BBox,
-} from '../types/boundary.js';
-import { extractBBox, BoundaryType as BT } from '../types/boundary.js';
+} from '../core/types/boundary.js';
+import { extractBBox, BoundaryType as BT } from '../core/types/boundary.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
-import { KNOWN_PORTALS, type KnownPortal } from '../registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../core/registry/known-portals.js';
 import type { ProvenanceRecord } from '../provenance-writer.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * GeoJSON Feature with expected properties
@@ -206,9 +207,10 @@ export class BoundaryLoader implements BoundaryDataSource {
         allBoundaries.push(...boundaries);
       } catch (error) {
         // Log error but continue loading other portals
-        console.warn(
-          `Failed to load boundaries for ${portal.cityName}: ${error}`
-        );
+        logger.warn('Failed to load boundaries for city', {
+          cityName: portal.cityName,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 

@@ -15,6 +15,7 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
+import { logger } from '../core/utils/logger.js';
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -163,7 +164,10 @@ class FileLock {
         await this.lockHandle.close();
       } catch (error) {
         // Log but don't throw - we MUST set handle to null
-        console.warn('[FileLock] Failed to close lock handle:', error);
+        logger.warn('Failed to close lock handle', {
+          module: 'FileLock',
+          error: error instanceof Error ? error.message : String(error),
+        });
       } finally {
         // ALWAYS clear the reference (prevents GC leak)
         this.lockHandle = null;
@@ -453,12 +457,17 @@ export async function queryProvenance(
           results.push(entry);
         } catch (parseError) {
           // Skip malformed entries
-          console.warn(`Skipping malformed entry: ${line}`);
+          logger.warn('Skipping malformed entry', {
+            line: line.substring(0, 100), // Truncate for logging
+          });
         }
       }
     } catch (error) {
       // Log file doesn't exist or is corrupted, skip
-      console.warn(`Failed to read log: ${logPath}`);
+      logger.warn('Failed to read log', {
+        logPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

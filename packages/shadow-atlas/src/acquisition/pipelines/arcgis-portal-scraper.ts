@@ -22,6 +22,7 @@ import type {
 } from '../types.js';
 import { retryWithBackoff, sha256, parseLastModified, BatchProcessor } from '../utils.js';
 import { PostDownloadValidator } from '../post-download-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Default configuration
@@ -54,11 +55,11 @@ export class ArcGISPortalScraper {
   async scrapeAll(): Promise<ScraperResult> {
     const startTime = Date.now();
 
-    console.log('Starting ArcGIS Portal scrape...');
+    logger.info('Starting ArcGIS Portal scrape');
 
     // 1. Search for all relevant Feature Services
     const items = await this.searchPortal();
-    console.log(`Found ${items.length} potential Feature Services`);
+    logger.info('Found potential Feature Services', { count: items.length });
 
     // 2. Download all Feature Services in parallel
     const processor = new BatchProcessor(
@@ -75,9 +76,11 @@ export class ArcGISPortalScraper {
 
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `\nArcGIS Portal scrape complete: ${datasets.length} datasets acquired, ${failures.length} failed in ${(executionTime / 1000).toFixed(1)}s`
-    );
+    logger.info('ArcGIS Portal scrape complete', {
+      datasetsAcquired: datasets.length,
+      failures: failures.length,
+      executionSeconds: (executionTime / 1000).toFixed(1)
+    });
 
     return {
       datasets,
@@ -132,7 +135,7 @@ export class ArcGISPortalScraper {
 
       items.push(...response.results);
 
-      console.log(`Fetched ${items.length}/${response.total} items`);
+      logger.info('Fetching Portal items', { fetched: items.length, total: response.total });
 
       if (items.length >= response.total || response.results.length === 0) {
         break;
@@ -152,7 +155,7 @@ export class ArcGISPortalScraper {
       // 1. Find polygon layer
       const layerId = await this.findPolygonLayer(item.url);
       if (layerId === null) {
-        console.warn(`No polygon layer found for ${item.url}`);
+        logger.warn('No polygon layer found', { url: item.url });
         return null;
       }
 
@@ -196,17 +199,17 @@ export class ArcGISPortalScraper {
 
       // Confidence routing: Reject <60%, log warning 60-84%, accept 85-100%
       if (validation.confidence < 60) {
-        console.log(`❌ REJECTED: ${item.title} (${validation.confidence}% confidence)`);
-        console.log(`   Issues: ${validation.issues.join(', ')}`);
+        logger.info('Dataset rejected', { title: item.title, confidence: validation.confidence, issues: validation.issues });
+         
         return null;
       }
 
       if (validation.confidence < 85) {
-        console.log(`⚠️  REVIEW NEEDED: ${item.title} (${validation.confidence}% confidence)`);
-        console.log(`   Warnings: ${validation.warnings.join(', ')}`);
+        logger.warn('Dataset needs review', { title: item.title, confidence: validation.confidence, warnings: validation.warnings });
+         
         // Continue but log for review
       } else {
-        console.log(`✅ ACCEPTED: ${item.title} (${validation.confidence}% confidence, ${validation.metadata.featureCount} features)`);
+        logger.info('Dataset accepted', { title: item.title, confidence: validation.confidence, featureCount: validation.metadata.featureCount });
       }
 
       // 4. Extract metadata
@@ -237,7 +240,7 @@ export class ArcGISPortalScraper {
       return { geojson, provenance };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to download ${item.url}: ${errorMessage}`);
+      logger.error('Failed to download dataset', { url: item.url, error: errorMessage });
       return null;
     }
   }
@@ -278,7 +281,7 @@ export class ArcGISPortalScraper {
       return polygonLayer ? polygonLayer.id : null;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to fetch metadata for ${serviceUrl}: ${errorMessage}`);
+      logger.error('Failed to fetch metadata', { serviceUrl, error: errorMessage });
       return null;
     }
   }
@@ -303,18 +306,24 @@ export async function main(): Promise<void> {
   const scraper = new ArcGISPortalScraper();
   const result = await scraper.scrapeAll();
 
-  console.log('\n=== Final Results ===');
-  console.log(`Datasets acquired: ${result.datasets.length}`);
-  console.log(`Failures: ${result.failures.length}`);
-  console.log(`Execution time: ${(result.executionTime / 1000).toFixed(1)}s`);
+  logger.info('Final Results', {
+    datasetsAcquired: result.datasets.length,
+    failures: result.failures.length,
+    executionSeconds: (result.executionTime / 1000).toFixed(1)
+  });
 
   if (result.failures.length > 0) {
-    console.log('\n=== Failures ===');
+    logger.info('Failures', {
+      totalFailures: result.failures.length,
+      showing: Math.min(result.failures.length, 10)
+    });
     result.failures.slice(0, 10).forEach(f => {
-      console.log(`  ${f.source}: ${f.error}`);
+      logger.info('Failure', { source: f.source, error: f.error });
     });
     if (result.failures.length > 10) {
-      console.log(`  ... and ${result.failures.length - 10} more`);
+      logger.info('Additional failures', {
+        count: result.failures.length - 10
+      });
     }
   }
 }
@@ -322,7 +331,10 @@ export async function main(): Promise<void> {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
-    console.error('Fatal error:', error);
+    logger.error('Fatal error in ArcGIS Portal scraper', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   });
 }

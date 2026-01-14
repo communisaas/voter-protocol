@@ -12,6 +12,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface CensusPlaceRaw {
   readonly fips: string;
@@ -79,7 +80,7 @@ function normalizeCitySlug(name: string): string {
 function getStateAbbreviation(state: string): string {
   const abbr = STATE_ABBREVIATIONS[state];
   if (!abbr) {
-    console.warn(`⚠️  Unknown state: ${state} (falling back to original)`);
+    logger.warn(`⚠️  Unknown state: ${state} (falling back to original)`);
     return state.toLowerCase();
   }
   return abbr.toLowerCase();
@@ -89,17 +90,17 @@ function getStateAbbreviation(state: string): string {
  * Load Census places and enrich with URL generation metadata
  */
 function loadCensusPlaces(inputFile: string): CensusPlace[] {
-  console.log('='.repeat(70));
-  console.log('CENSUS PLACE LOADER');
-  console.log('='.repeat(70));
-  console.log(`Input: ${inputFile}`);
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('CENSUS PLACE LOADER');
+  logger.info('='.repeat(70));
+  logger.info(`Input: ${inputFile}`);
+  logger.info('');
 
   const content = readFileSync(inputFile, 'utf-8');
   const rawPlaces = JSON.parse(content) as CensusPlaceRaw[];
 
-  console.log(`Loaded ${rawPlaces.length} cities from Census data`);
-  console.log('');
+  logger.info(`Loaded ${rawPlaces.length} cities from Census data`);
+  logger.info('');
 
   // Enrich with URL generation metadata
   const enrichedPlaces: CensusPlace[] = rawPlaces.map(place => ({
@@ -114,21 +115,21 @@ function loadCensusPlaces(inputFile: string): CensusPlace[] {
   const minPopulation = Math.min(...enrichedPlaces.map(p => p.population));
   const maxPopulation = Math.max(...enrichedPlaces.map(p => p.population));
 
-  console.log('Census Place Statistics:');
-  console.log(`  Total cities: ${enrichedPlaces.length}`);
-  console.log(`  Total population: ${totalPopulation.toLocaleString()}`);
-  console.log(`  Average population: ${avgPopulation.toLocaleString()}`);
-  console.log(`  Min population: ${minPopulation.toLocaleString()} (${enrichedPlaces.find(p => p.population === minPopulation)?.name})`);
-  console.log(`  Max population: ${maxPopulation.toLocaleString()} (${enrichedPlaces.find(p => p.population === maxPopulation)?.name})`);
-  console.log('');
+  logger.info('Census Place Statistics:');
+  logger.info(`  Total cities: ${enrichedPlaces.length}`);
+  logger.info(`  Total population: ${totalPopulation.toLocaleString()}`);
+  logger.info(`  Average population: ${avgPopulation.toLocaleString()}`);
+  logger.info(`  Min population: ${minPopulation.toLocaleString()} (${enrichedPlaces.find(p => p.population === minPopulation)?.name})`);
+  logger.info(`  Max population: ${maxPopulation.toLocaleString()} (${enrichedPlaces.find(p => p.population === maxPopulation)?.name})`);
+  logger.info('');
 
   // Sample entries
-  console.log('Sample cities (top 5):');
+  logger.info('Sample cities (top 5):');
   for (const place of enrichedPlaces.slice(0, 5)) {
-    console.log(`  ${place.rank}. ${place.name}, ${place.state} (pop: ${place.population.toLocaleString()})`);
-    console.log(`     Slug: ${place.city_slug} | State abbr: ${place.state_abbr}`);
+    logger.info(`  ${place.rank}. ${place.name}, ${place.state} (pop: ${place.population.toLocaleString()})`);
+    logger.info(`     Slug: ${place.city_slug} | State abbr: ${place.state_abbr}`);
   }
-  console.log('');
+  logger.info('');
 
   return enrichedPlaces;
 }
@@ -141,9 +142,9 @@ const places = loadCensusPlaces(inputFile);
 
 writeFileSync(outputFile, JSON.stringify(places, null, 2));
 
-console.log('✓ Census places enriched and saved');
-console.log(`Output: ${outputFile}`);
-console.log('='.repeat(70));
+logger.info('✓ Census places enriched and saved');
+logger.info(`Output: ${outputFile}`);
+logger.info('='.repeat(70));
 
 export type { CensusPlace };
 export { loadCensusPlaces, normalizeCitySlug, getStateAbbreviation };

@@ -7,9 +7,11 @@
  * TYPE SAFETY: Nuclear-level strictness. Cache corruption = data loss.
  */
 
-import { readFile, writeFile, mkdir, readdir, stat, unlink, rm } from 'node:fs/promises';
+import { readFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { atomicWriteJSON } from '../../core/utils/atomic-write.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // Types
@@ -137,14 +139,8 @@ export class FilesystemCache {
     // Ensure directory exists
     await mkdir(dirname(cachePath), { recursive: true });
 
-    // Atomic write (write to temp file, then rename)
-    const tempPath = `${cachePath}.tmp`;
-    await writeFile(tempPath, JSON.stringify(entry));
-    await rm(cachePath, { force: true });
-    await writeFile(cachePath, JSON.stringify(entry));
-    await unlink(tempPath).catch(() => {
-      /* ignore - temp file cleanup */
-    });
+    // Atomic write using proper atomic pattern
+    await atomicWriteJSON(cachePath, entry);
 
     // Evict if over size limit
     await this.evictIfNeeded();
@@ -340,9 +336,11 @@ export class FilesystemCache {
     }
 
     if (evicted > 0) {
-      console.log(
-        `[FilesystemCache] Evicted ${evicted} entries (freed ${((stats.totalBytes - currentSize) / 1024 / 1024).toFixed(2)} MB)`
-      );
+      logger.info('Cache cleanup completed', {
+        evictedCount: evicted,
+        freedMB: ((stats.totalBytes - currentSize) / 1024 / 1024).toFixed(2),
+        remainingSizeMB: (currentSize / 1024 / 1024).toFixed(2),
+      });
     }
   }
 }

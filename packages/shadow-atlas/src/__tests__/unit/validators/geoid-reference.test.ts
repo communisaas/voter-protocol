@@ -13,7 +13,7 @@ import {
   validateGEOIDCompleteness,
   CANONICAL_CD_GEOIDS,
   CANONICAL_COUNTY_GEOIDS,
-} from '../../../validators/geoid-reference.js';
+} from '../../../validators/geoid/reference.js';
 import { EXPECTED_CD_BY_STATE, EXPECTED_COUNTIES_BY_STATE } from '../../../validators/tiger-expected-counts.js';
 
 describe('GEOID Reference Lists', () => {

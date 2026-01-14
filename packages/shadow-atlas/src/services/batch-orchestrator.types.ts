@@ -5,7 +5,7 @@
  * No `any`, no loose casts, no exceptions.
  */
 
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
 
 // ============================================================================
 // Job State Types

@@ -24,8 +24,8 @@ import {
   SchoolDistrictValidator,
   DUAL_SYSTEM_STATES,
   isDualSystemState,
-} from '../../../validators/school-district-validator.js';
-import type { NormalizedBoundary } from '../../../validators/tiger-validator.js';
+} from '../../../validators/tiger/school-district.js';
+import type { NormalizedBoundary } from '../../../validators/tiger/validator.js';
 
 // ============================================================================
 // Test Helpers

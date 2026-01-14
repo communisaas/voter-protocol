@@ -25,7 +25,7 @@ import {
   generateComprehensiveReport,
   generateComprehensiveReportText,
   type ComprehensiveValidationReport,
-} from '../validators/geoid-validation-suite.js';
+} from '../validators/geoid/validation-suite.js';
 
 interface CLIOptions {
   full: boolean;

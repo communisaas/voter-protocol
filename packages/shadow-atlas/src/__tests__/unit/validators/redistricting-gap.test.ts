@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TIGERValidator } from '../../../validators/tiger-validator.js';
+import { TIGERValidator } from '../../../validators/tiger/validator.js';
 import type { TIGERLayerType } from '../../../core/types.js';
 import type { Polygon } from 'geojson';
 

@@ -57,13 +57,13 @@ export {
     type GlobalMerkleTree,
     type GlobalDistrictProof,
     type GlobalTreeUpdateResult,
-} from './integration/global-merkle-tree.js';
+} from './core/global-merkle-tree.js';
 
 // TIGER boundary types
 export type { TIGERBoundaryType } from './provenance/tiger-authority-rules.js';
 
 // Legislative layer types
-export type { LegislativeLayerType } from './registry/state-gis-portals.js';
+export type { LegislativeLayerType } from './core/registry/state-gis-portals.js';
 
 // Transformation and Validation
 export {
@@ -86,7 +86,7 @@ export {
     comparePrecision,
     formatBoundary,
     isPointInBBox,
-} from './types/boundary.js';
+} from './core/types/boundary.js';
 
 // Geographic Utilities
 export {
@@ -124,7 +124,7 @@ export {
     type SnapshotMetadata,
     type SnapshotDiff,
     type SnapshotListEntry,
-} from './versioning/index.js';
+} from './distribution/snapshots/index.js';
 
 // Change Detection (TIGER source monitoring)
 export {
@@ -151,7 +151,7 @@ export {
     extractContinentalRoots,
     type GlobalTreeConfig,
     type UnifiedMerkleTree,
-} from './integration/global-tree-adapter.js';
+} from './core/global-tree-adapter.js';
 
 // Cross-Validation and School District Validation
 export {

@@ -1,4 +1,7 @@
 /**
+ * Integration test - skipped in unit test suite
+ * Run with: npm run test:integration
+ *
  * Shadow Atlas TypeScript SDK - Unit Tests
  *
  * Tests for SDK client library:
@@ -11,8 +14,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ShadowAtlasClient, ShadowAtlasError } from '../../../sdk/shadow-atlas-client';
-import type { LookupResult, SnapshotMetadata } from '../../../sdk/shadow-atlas-client';
+import { ShadowAtlasClient, ShadowAtlasError } from '../../../distribution/api/shadow-atlas-client.js';
+import type { LookupResult, SnapshotMetadata } from '../../../distribution/api/shadow-atlas-client.js';
 
 /**
  * Mock fetch for testing
@@ -26,7 +29,9 @@ function mockFetch(
     Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
-      headers: new Map(Object.entries(headers)),
+      headers: {
+        get: (key: string) => headers[key.toLowerCase()] ?? null,
+      },
       json: () => Promise.resolve(body),
     } as Response)
   );
@@ -613,12 +618,14 @@ describe('ShadowAtlasClient - Error Handling', () => {
   });
 
   it('handles timeout errors', async () => {
-    global.fetch = vi.fn(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve({} as Response), 20000)
-        )
-    );
+    // Mock AbortController to immediately abort
+    const mockAbortController = {
+      signal: { aborted: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+      abort: vi.fn(),
+    };
+    vi.spyOn(global, 'AbortController').mockImplementation(() => mockAbortController as unknown as AbortController);
+
+    global.fetch = vi.fn().mockRejectedValue(new Error('Request aborted'));
 
     const clientWithTimeout = new ShadowAtlasClient({
       timeout: 100,
@@ -628,6 +635,8 @@ describe('ShadowAtlasClient - Error Handling', () => {
     await expect(
       clientWithTimeout.lookup(39.7392, -104.9903)
     ).rejects.toThrow();
+
+    vi.restoreAllMocks();
   });
 });
 

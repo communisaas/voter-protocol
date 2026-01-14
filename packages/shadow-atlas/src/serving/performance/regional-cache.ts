@@ -18,6 +18,7 @@
  */
 
 import type { DistrictBoundary } from '../types';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * IPFS snapshot data structure
@@ -138,7 +139,12 @@ export class RegionalCache {
 
       this.l1Hits++;
       const duration = performance.now() - startTime;
-      console.debug(`[RegionalCache] L1 hit: ${districtId} in ${duration.toFixed(2)}ms`);
+      logger.debug('RegionalCache L1 hit', {
+        districtId,
+        durationMs: duration,
+        tier: 'L1',
+        method: 'get',
+      });
 
       return { district: l1Entry.value, tier: 'L1' };
     }
@@ -157,7 +163,13 @@ export class RegionalCache {
 
           this.l2Hits++;
           const duration = performance.now() - startTime;
-          console.debug(`[RegionalCache] L2 hit: ${districtId} in ${duration.toFixed(2)}ms`);
+          logger.debug('RegionalCache L2 hit', {
+            districtId,
+            durationMs: duration,
+            tier: 'L2',
+            regionalKey,
+            method: 'get',
+          });
 
           return { district: l2Entry.value, tier: 'L2' };
         }
@@ -184,7 +196,11 @@ export class RegionalCache {
 
         this.l3Hits++;
         const duration = performance.now() - startTime;
-        console.debug(`[RegionalCache] L3 hit: ${districtId} in ${duration.toFixed(2)}ms`);
+        logger.debug('RegionalCache L3 hit', {
+          districtId,
+          durationMs: duration,
+          tier: 'L3',
+        });
 
         return { district: l3Result, tier: 'L3' };
       }
@@ -218,7 +234,12 @@ export class RegionalCache {
 
       this.l1Hits++;
       const duration = performance.now() - startTime;
-      console.debug(`[RegionalCache] L1 hit: ${districtId} in ${duration.toFixed(2)}ms`);
+      logger.debug('RegionalCache L1 hit', {
+        districtId,
+        durationMs: duration,
+        tier: 'L1',
+        method: 'getSync',
+      });
 
       return { district: l1Entry.value, tier: 'L1' };
     }
@@ -237,7 +258,13 @@ export class RegionalCache {
 
           this.l2Hits++;
           const duration = performance.now() - startTime;
-          console.debug(`[RegionalCache] L2 hit: ${districtId} in ${duration.toFixed(2)}ms`);
+          logger.debug('RegionalCache L2 hit', {
+            districtId,
+            durationMs: duration,
+            tier: 'L2',
+            regionalKey,
+            method: 'getSync',
+          });
 
           return { district: l2Entry.value, tier: 'L2' };
         }
@@ -354,7 +381,11 @@ export class RegionalCache {
     };
 
     this.setL1(districtId, promotedEntry);
-    console.debug(`[RegionalCache] Promoted ${districtId} to L1 (priority: ${promotedEntry.priority})`);
+    logger.debug('RegionalCache promoted to L1', {
+      districtId,
+      priority: promotedEntry.priority,
+      accessCount: promotedEntry.accessCount,
+    });
   }
 
   /**
@@ -391,7 +422,11 @@ export class RegionalCache {
       this.l1Cache.delete(evictKey);
       this.l1Size -= entry.size;
       this.evictions++;
-      console.debug(`[RegionalCache] Evicted from L1: ${evictKey} (priority: ${entry.priority})`);
+      logger.debug('RegionalCache evicted from L1', {
+        districtId: evictKey,
+        priority: entry.priority,
+        accessCount: entry.accessCount,
+      });
     }
   }
 
@@ -414,7 +449,10 @@ export class RegionalCache {
       this.l2Cache.delete(evictKey);
       this.l2Size -= shard.totalSize;
       this.evictions++;
-      console.debug(`[RegionalCache] Evicted from L2: ${evictKey} (${shard.districts.size} districts)`);
+      logger.debug('RegionalCache evicted from L2', {
+        regionalKey: evictKey,
+        districtCount: shard.districts.size,
+      });
     }
   }
 
@@ -476,7 +514,10 @@ export class RegionalCache {
     }
 
     const duration = performance.now() - startTime;
-    console.log(`[RegionalCache] Preloaded ${districts.length} critical districts in ${duration.toFixed(2)}ms`);
+    logger.info('RegionalCache preloaded critical districts', {
+      districtCount: districts.length,
+      durationMs: duration,
+    });
   }
 
   /**
@@ -524,7 +565,10 @@ export class RegionalCache {
     this.l2Cache.clear();
     this.l1Size = 0;
     this.l2Size = 0;
-    console.log('[RegionalCache] Cleared all caches');
+    logger.info('RegionalCache cleared all caches', {
+      l1Size: this.l1Cache.size,
+      l2ShardCount: this.l2Cache.size,
+    });
   }
 
   /**
@@ -559,7 +603,10 @@ export class RegionalCache {
       }
     }
 
-    console.log(`[RegionalCache] Invalidated ${invalidated} cache entries`);
+    logger.info('RegionalCache invalidated cache entries', {
+      invalidatedCount: invalidated,
+      districtCount: districtIds.length,
+    });
   }
 
   // ============================================================================
@@ -614,7 +661,10 @@ export class RegionalCache {
 
       return null;
     } catch (error) {
-      console.warn(`[RegionalCache] IPFS fetch failed for ${districtId}:`, error);
+      logger.warn('RegionalCache IPFS fetch failed', {
+        districtId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
@@ -682,21 +732,34 @@ export class RegionalCache {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          console.debug(`[RegionalCache] Gateway ${gateway} returned ${response.status} for CID ${cid}`);
+          logger.debug('RegionalCache gateway response', {
+            gateway,
+            cid,
+            statusCode: response.status,
+          });
           continue; // Try next gateway
         }
 
         const data = await response.json();
-        console.debug(`[RegionalCache] Successfully fetched CID ${cid} from ${gateway}`);
+        logger.debug('RegionalCache successfully fetched from gateway', {
+          cid,
+          gateway,
+        });
         return data as SnapshotData;
       } catch (error) {
-        console.debug(`[RegionalCache] Gateway ${gateway} failed for CID ${cid}:`, error);
+        logger.debug('RegionalCache gateway failed', {
+          gateway,
+          cid,
+          error: error instanceof Error ? error.message : String(error),
+        });
         continue; // Try next gateway
       }
     }
 
     // All gateways failed
-    console.warn(`[RegionalCache] All gateways failed for CID ${cid}`);
+    logger.warn('RegionalCache all gateways failed', {
+      cid,
+    });
     return null;
   }
 
@@ -710,13 +773,18 @@ export class RegionalCache {
   ): Promise<void> {
     try {
       const { join, dirname } = await import('node:path');
-      const { mkdir, writeFile } = await import('node:fs/promises');
+      const { mkdir } = await import('node:fs/promises');
+      const { atomicWriteJSON } = await import('../../core/utils/atomic-write.js');
 
       const cachePath = join(cacheDir, 'ipfs', `${cid}.json`);
       await mkdir(dirname(cachePath), { recursive: true });
-      await writeFile(cachePath, JSON.stringify(snapshot));
+      // Use atomic write to prevent cache corruption on crash
+      await atomicWriteJSON(cachePath, snapshot);
     } catch (error) {
-      console.warn(`[RegionalCache] Failed to cache snapshot ${cid}:`, error);
+      logger.warn('RegionalCache failed to cache snapshot', {
+        cid,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -731,7 +799,9 @@ export class RegionalCache {
     snapshot: SnapshotData
   ): DistrictBoundary | null {
     if (!snapshot.districts || typeof snapshot.districts !== 'object') {
-      console.warn('[RegionalCache] Invalid snapshot format: missing districts object');
+      logger.warn('RegionalCache invalid snapshot format', {
+        reason: 'missing districts object',
+      });
       return null;
     }
 
@@ -766,7 +836,10 @@ export class RegionalCache {
 
       // Placeholder: IPFS integration not yet implemented
     } catch (error) {
-      console.warn(`[RegionalCache] IPFS store failed for ${districtId}:`, error);
+      logger.warn('RegionalCache IPFS store failed', {
+        districtId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

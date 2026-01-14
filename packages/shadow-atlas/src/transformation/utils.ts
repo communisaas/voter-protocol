@@ -12,6 +12,7 @@
 import { CID } from 'multiformats/cid';
 import * as json from 'multiformats/codecs/json';
 import { sha256 } from 'multiformats/hashes/sha2';
+import { sha256 as sha256Noble } from '@noble/hashes/sha256';
 import type { NormalizedDistrict } from './types.js';
 import type { Polygon, MultiPolygon } from 'geojson';
 import { extractBBox } from '../core/geo-utils.js';
@@ -222,28 +223,24 @@ function detectDistrictChanges(
 }
 
 /**
- * Hash geometry for quick comparison
+ * Hash geometry for quick comparison using SHA-256
  *
- * Creates deterministic hash from geometry coordinates.
+ * SECURITY: Replaces bit-shift hash (WS-5) for collision resistance.
+ * SHA-256 provides cryptographic collision resistance unlike simple bit operations.
  *
  * @param geometry - GeoJSON geometry
- * @returns Hash string
+ * @returns SHA-256 hash as hex string
  */
 function hashGeometry(geometry: Polygon | MultiPolygon): string {
   // Create deterministic serialization of coordinates
-  // Sort nested arrays to ensure consistent ordering
   const serialized = JSON.stringify(geometry.coordinates);
 
-  // Simple hash using character codes (deterministic)
-  // In production, use crypto.createHash('sha256')
-  let hash = 0;
-  for (let i = 0; i < serialized.length; i++) {
-    const char = serialized.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
+  // Compute SHA-256 hash for collision resistance
+  const bytes = new TextEncoder().encode(serialized);
+  const hash = sha256Noble(bytes);
 
-  return `hash-${hash}-${serialized.length}`;
+  // Return hex string for easy comparison
+  return Buffer.from(hash).toString('hex');
 }
 
 /**

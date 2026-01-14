@@ -16,6 +16,7 @@
  */
 
 import type { DistrictBoundary } from '../types';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Coordinate lookup request
@@ -132,7 +133,11 @@ export class BatchOptimizer {
     this.avgClusterSize = (this.avgClusterSize * (this.totalBatches - 1) + clusters.length) / this.totalBatches;
 
     const duration = performance.now() - startTime;
-    console.log(`[BatchOptimizer] Processed batch: ${requests.length} requests, ${clusters.length} clusters, ${duration.toFixed(2)}ms`);
+    logger.info('BatchOptimizer processed batch', {
+      requestCount: requests.length,
+      clusterCount: clusters.length,
+      durationMs: duration,
+    });
 
     return finalResults;
   }
@@ -182,7 +187,11 @@ export class BatchOptimizer {
 
     const dedupedRequests = Array.from(coordMap.values());
 
-    console.debug(`[BatchOptimizer] Deduplicated: ${requests.length} -> ${dedupedRequests.length} unique coordinates`);
+    logger.debug('BatchOptimizer deduplicated requests', {
+      originalCount: requests.length,
+      uniqueCount: dedupedRequests.length,
+      deduplicationRate: ((requests.length - dedupedRequests.length) / requests.length * 100).toFixed(1) + '%',
+    });
 
     return { dedupedRequests, dedupeMap };
   }
@@ -228,7 +237,11 @@ export class BatchOptimizer {
       });
     }
 
-    console.debug(`[BatchOptimizer] Clustered: ${requests.length} requests into ${clusters.length} locality groups`);
+    logger.debug('BatchOptimizer clustered requests', {
+      requestCount: requests.length,
+      clusterCount: clusters.length,
+      avgClusterSize: (requests.length / clusters.length).toFixed(2),
+    });
 
     return clusters;
   }
@@ -293,7 +306,10 @@ export class BatchOptimizer {
 
         // Early termination if enabled and match found
         if (this.config.enableEarlyTermination && result.district !== null) {
-          console.debug(`[BatchOptimizer] Early termination: found district for ${request.id}`);
+          logger.debug('BatchOptimizer early termination', {
+            requestId: request.id,
+            districtId: result.district.id,
+          });
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -401,7 +417,9 @@ export class BatchOptimizer {
    */
   clearCache(): void {
     this.dedupeCache.clear();
-    console.log('[BatchOptimizer] Cleared deduplication cache');
+    logger.info('BatchOptimizer cleared deduplication cache', {
+      cacheSize: this.dedupeCache.size,
+    });
   }
 
   /**

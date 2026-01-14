@@ -46,6 +46,7 @@ import {
   type ProviderHealth,
   type LayerExtractionResult,
 } from './base-provider.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // UK-Specific Types
@@ -210,14 +211,17 @@ export class UKBoundaryProvider extends BaseInternationalProvider<
     const endpoint = this.buildLayerEndpoint(layer.name);
 
     try {
-      console.log('[UK] Extracting parliamentary constituencies...');
+      logger.info('Extracting parliamentary constituencies', { country: 'UK' });
       const geojson = await this.fetchGeoJSON(endpoint);
       const constituencies = this.normalizeConstituencies(geojson, endpoint);
       const durationMs = Date.now() - startTime;
 
-      console.log(
-        `[UK] ✓ Parliamentary: ${constituencies.length}/${layer.expectedCount} constituencies (${durationMs}ms)`
-      );
+      logger.info('Parliamentary extraction complete', {
+        country: 'UK',
+        constituencyCount: constituencies.length,
+        expectedCount: layer.expectedCount,
+        durationMs
+      });
 
       // Calculate confidence
       const confidence = this.calculateConfidence(
@@ -241,7 +245,7 @@ export class UKBoundaryProvider extends BaseInternationalProvider<
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[UK] ✗ Parliamentary: ${message}`);
+      logger.error('Parliamentary extraction failed', { country: 'UK', error: message });
 
       return this.createFailedResult(
         'parliamentary',
@@ -272,7 +276,10 @@ export class UKBoundaryProvider extends BaseInternationalProvider<
       // Fallback to base implementation (HTTP headers)
       return super.hasChangedSince(lastExtraction);
     } catch (error) {
-      console.warn('[UK] Could not check for changes:', error);
+      logger.warn('Could not check for changes', {
+        country: 'UK',
+        error: error instanceof Error ? error.message : String(error)
+      });
       return true;
     }
   }

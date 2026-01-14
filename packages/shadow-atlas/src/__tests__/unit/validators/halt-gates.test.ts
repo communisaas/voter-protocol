@@ -21,7 +21,7 @@ import {
   DEFAULT_HALT_OPTIONS,
   type ValidationHaltOptions,
   type NormalizedBoundary,
-} from '../../../validators/tiger-validator.js';
+} from '../../../validators/tiger/validator.js';
 import {
   ValidationHaltError,
   isValidationHaltError,

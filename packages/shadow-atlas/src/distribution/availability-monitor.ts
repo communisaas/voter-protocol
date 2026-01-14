@@ -21,6 +21,7 @@ import type {
   DistributionError,
 } from './types.js';
 import type { RegionConfig } from './global-ipfs-strategy.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Availability Monitor
@@ -92,17 +93,21 @@ export class AvailabilityMonitor {
     }
 
     this.isMonitoring = true;
-    console.log('[AvailabilityMonitor] Starting continuous monitoring');
+    logger.info('Starting continuous monitoring');
 
     // Run initial health check immediately
     this.runHealthCheck().catch(error => {
-      console.error('[AvailabilityMonitor] Initial health check failed:', error);
+      logger.error('Initial health check failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 
     // Schedule periodic health checks
     this.monitoringInterval = setInterval(() => {
       this.runHealthCheck().catch(error => {
-        console.error('[AvailabilityMonitor] Health check failed:', error);
+        logger.error('Health check failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
     }, this.healthCheckIntervalMs);
   }
@@ -116,14 +121,14 @@ export class AvailabilityMonitor {
       this.monitoringInterval = null;
     }
     this.isMonitoring = false;
-    console.log('[AvailabilityMonitor] Stopped monitoring');
+    logger.info('Stopped monitoring');
   }
 
   /**
    * Run health check for all gateways
    */
   private async runHealthCheck(): Promise<void> {
-    console.log('[AvailabilityMonitor] Running health check...');
+    logger.info('Running health check');
 
     const healthCheckPromises = this.regions.flatMap(region =>
       region.gateways.map((gateway: string) =>
@@ -139,9 +144,10 @@ export class AvailabilityMonitor {
     ).length;
     const total = this.gatewayHealth.size;
 
-    console.log(
-      `[AvailabilityMonitor] Health check complete: ${healthy}/${total} gateways healthy`
-    );
+    logger.info('Health check complete', {
+      healthyGateways: healthy,
+      totalGateways: total,
+    });
   }
 
   /**
@@ -212,10 +218,10 @@ export class AvailabilityMonitor {
         });
       }
 
-      console.warn(
-        `[AvailabilityMonitor] Gateway ${gatewayUrl} health check failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
+      logger.warn('Gateway health check failed', {
+        gateway: gatewayUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

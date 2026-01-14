@@ -25,6 +25,7 @@ import type { SourceFreshness } from './primary-comparator.js';
 import { gapDetector } from './gap-detector.js';
 import type { GapBoundaryType } from './gap-detector.js';
 import { authorityRegistry } from './authority-registry.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Type Definitions
@@ -198,7 +199,10 @@ export class EventSubscriptionService {
       try {
         listener(event);
       } catch (error) {
-        console.error('Event listener error:', error);
+        logger.error('Event listener error', {
+          eventType: event.type,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -226,7 +230,10 @@ export class EventSubscriptionService {
           // Check for new entries and emit events
           await this.processRSSFeed(feed, sourceType);
         } catch (error) {
-          console.error(`Failed to fetch RSS feed ${url}:`, error);
+          logger.error('Failed to fetch RSS feed', {
+            url,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }
@@ -631,7 +638,11 @@ export class EventSubscriptionService {
         backoffMs,
       });
 
-      console.error(`Polling failed for ${pollingId}:`, error);
+      logger.error('Polling failed', {
+        pollingId,
+        error: error instanceof Error ? error.message : String(error),
+        consecutiveFailures: updatedConfig.consecutiveFailures,
+      });
       return null;
     }
   }

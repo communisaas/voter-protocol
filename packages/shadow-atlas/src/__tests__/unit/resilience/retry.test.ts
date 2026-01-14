@@ -19,7 +19,7 @@ describe('RetryExecutor', () => {
       maxDelayMs: 5000,
       backoffMultiplier: 2,
       jitterFactor: 0,  // No jitter for deterministic tests
-      retryableErrors: ['network_timeout', 'network_error', 'rate_limit'],
+      retryableErrors: ['network_timeout', 'network_error', 'rate_limit', 'service_unavailable'],
     };
     executor = new RetryExecutor(config);
   });

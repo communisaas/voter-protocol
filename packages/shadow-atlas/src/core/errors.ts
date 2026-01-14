@@ -6,7 +6,7 @@
  * to enable better debugging and error handling.
  */
 
-import type { CrossValidationResult } from '../validators/cross-validator.js';
+import type { CrossValidationResult } from './types/validators.js';
 
 /**
  * Error thrown when cross-validation fails and failOnMismatch is enabled

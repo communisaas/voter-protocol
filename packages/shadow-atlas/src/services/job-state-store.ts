@@ -28,6 +28,7 @@ import type {
   ProgressUpdateData,
   DEFAULT_ORCHESTRATION_OPTIONS,
 } from './batch-orchestrator.types.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Job State Store
@@ -263,7 +264,10 @@ export class JobStateStore {
         jobStates.push(jobState);
       } catch (error) {
         // Skip invalid job files
-        console.warn(`Failed to read job file ${file}:`, error);
+        logger.warn('Failed to read job file', {
+          file,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -330,6 +334,9 @@ export class JobStateStore {
    * Uses temp file + rename for atomic writes.
    */
   private async writeJobState(jobState: JobState): Promise<void> {
+    // Ensure storage directory exists before writing
+    await mkdir(this.storageDir, { recursive: true });
+
     const filePath = this.getJobFilePath(jobState.jobId);
     const tempPath = `${filePath}.tmp`;
 

@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { calculateCentroidFromBBox, pointInGeometry } from '../core/geo-utils.js';
+import { logger } from '../core/utils/logger.js';
 
 interface CensusPlace {
   type: 'Feature';
@@ -205,36 +206,36 @@ function findPlaceForDistrict(
 }
 
 async function main() {
-  console.log('=============================================');
-  console.log('Spatial Join: Census Places with Districts');
-  console.log('=============================================\n');
+  logger.info('=============================================');
+  logger.info('Spatial Join: Census Places with Districts');
+  logger.info('=============================================\n');
 
   const dataDir = join(__dirname, 'data');
 
   // Load Census places
   const censusPlacesPath = join(dataDir, 'census_places_2024.geojson');
   if (!existsSync(censusPlacesPath)) {
-    console.error('ERROR: Census places file not found!');
-    console.error(`Expected: ${censusPlacesPath}`);
-    console.error('Run load-census-tiger-places.ts first.');
+    logger.error('ERROR: Census places file not found!');
+    logger.error(`Expected: ${censusPlacesPath}`);
+    logger.error('Run load-census-tiger-places.ts first.');
     process.exit(1);
   }
 
-  console.log('Loading Census places...');
+  logger.info('Loading Census places...');
   const censusPlacesData = readFileSync(censusPlacesPath, 'utf-8');
   const censusPlacesGeoJSON = JSON.parse(censusPlacesData);
   const censusPlaces: CensusPlace[] = censusPlacesGeoJSON.features;
-  console.log(`Loaded ${censusPlaces.length.toLocaleString()} Census places\n`);
+  logger.info(`Loaded ${censusPlaces.length.toLocaleString()} Census places\n`);
 
   // Load governance districts
   const districtsPath = join(dataDir, 'comprehensive_classified_layers.jsonl');
   if (!existsSync(districtsPath)) {
-    console.error('ERROR: Governance districts file not found!');
-    console.error(`Expected: ${districtsPath}`);
+    logger.error('ERROR: Governance districts file not found!');
+    logger.error(`Expected: ${districtsPath}`);
     process.exit(1);
   }
 
-  console.log('Loading governance districts...');
+  logger.info('Loading governance districts...');
   const districtsData = readFileSync(districtsPath, 'utf-8');
   const allDistricts: GovernanceDistrict[] = districtsData
     .split('\n')
@@ -243,10 +244,10 @@ async function main() {
 
   // Filter to elected governance districts only
   const electedDistricts = allDistricts.filter(d => d.elected === true);
-  console.log(`Loaded ${electedDistricts.length.toLocaleString()} elected governance districts\n`);
+  logger.info(`Loaded ${electedDistricts.length.toLocaleString()} elected governance districts\n`);
 
   // Spatial join
-  console.log('Starting spatial join...\n');
+  logger.info('Starting spatial join...\n');
   const enrichedDistricts: GovernanceDistrict[] = [];
   let matchedByCentroid = 0;
   let matchedByName = 0;
@@ -256,9 +257,9 @@ async function main() {
     const district = electedDistricts[i];
 
     if ((i + 1) % 100 === 0) {
-      console.log(`Progress: ${i + 1}/${electedDistricts.length} (${((i + 1) / electedDistricts.length * 100).toFixed(1)}%)`);
-      console.log(`  Matched: ${matchedByCentroid + matchedByName} (centroid: ${matchedByCentroid}, name: ${matchedByName})`);
-      console.log(`  Unmatched: ${unmatched}\n`);
+      logger.info(`Progress: ${i + 1}/${electedDistricts.length} (${((i + 1) / electedDistricts.length * 100).toFixed(1)}%)`);
+      logger.info(`  Matched: ${matchedByCentroid + matchedByName} (centroid: ${matchedByCentroid}, name: ${matchedByName})`);
+      logger.info(`  Unmatched: ${unmatched}\n`);
     }
 
     // Fetch district geometry
@@ -339,15 +340,18 @@ async function main() {
   writeFileSync(outputPath, outputData);
 
   // Final statistics
-  console.log('\n=============================================');
-  console.log('Spatial Join Complete');
-  console.log('=============================================');
-  console.log(`Total districts processed: ${electedDistricts.length.toLocaleString()}`);
-  console.log(`  Matched by centroid: ${matchedByCentroid.toLocaleString()} (${((matchedByCentroid / electedDistricts.length) * 100).toFixed(1)}%)`);
-  console.log(`  Matched by name: ${matchedByName.toLocaleString()} (${((matchedByName / electedDistricts.length) * 100).toFixed(1)}%)`);
-  console.log(`  Unmatched: ${unmatched.toLocaleString()} (${((unmatched / electedDistricts.length) * 100).toFixed(1)}%)`);
-  console.log(`\nOutput: ${outputPath}`);
-  console.log('=============================================\n');
+  logger.info('\n=============================================');
+  logger.info('Spatial Join Complete');
+  logger.info('=============================================');
+  logger.info(`Total districts processed: ${electedDistricts.length.toLocaleString()}`);
+  logger.info(`  Matched by centroid: ${matchedByCentroid.toLocaleString()} (${((matchedByCentroid / electedDistricts.length) * 100).toFixed(1)}%)`);
+  logger.info(`  Matched by name: ${matchedByName.toLocaleString()} (${((matchedByName / electedDistricts.length) * 100).toFixed(1)}%)`);
+  logger.info(`  Unmatched: ${unmatched.toLocaleString()} (${((unmatched / electedDistricts.length) * 100).toFixed(1)}%)`);
+  logger.info(`\nOutput: ${outputPath}`);
+  logger.info('=============================================\n');
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

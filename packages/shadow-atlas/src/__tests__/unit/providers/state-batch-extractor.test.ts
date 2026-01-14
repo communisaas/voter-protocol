@@ -18,7 +18,7 @@ import {
   getLegislativeEndpoint,
   getLegislativeStats,
   getRedistrictingCommissionStates,
-} from '../registry/state-gis-portals.js';
+} from '../../../core/registry/state-gis-portals.js';
 
 // ============================================================================
 // Registry Tests

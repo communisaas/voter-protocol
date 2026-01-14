@@ -148,7 +148,7 @@ describe('EventSubscriptionService - RSS Feed Parsing', () => {
     );
 
     await expect(service.monitorRSSFeeds()).resolves.toBeDefined();
-  });
+  }, 20000); // RSS timeout test needs longer vitest timeout
 });
 
 // ============================================================================

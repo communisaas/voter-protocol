@@ -33,6 +33,7 @@ import type {
   SnapshotMetadata,
 } from './types';
 import { randomBytes } from 'crypto';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Standardized API response wrapper
@@ -190,27 +191,30 @@ export class ShadowAtlasAPI {
    */
   start(): void {
     this.server.listen(this.port, this.host, () => {
-      console.log(
-        `[API] Shadow Atlas API ${this.apiVersion.version} listening on http://${this.host}:${this.port}`
-      );
-      console.log('[API] Endpoints:');
-      console.log(`  GET /${this.apiVersion.version}/lookup?lat={lat}&lng={lng} - District lookup`);
-      console.log(`  GET /${this.apiVersion.version}/districts/:id - Direct district lookup`);
-      console.log(`  GET /${this.apiVersion.version}/health - Health check`);
-      console.log(`  GET /${this.apiVersion.version}/metrics - Prometheus metrics`);
-      console.log(`  GET /${this.apiVersion.version}/snapshot - Current snapshot metadata`);
-      console.log(`  GET /${this.apiVersion.version}/snapshots - List snapshots`);
+      logger.info('Shadow Atlas API server started', {
+        version: this.apiVersion.version,
+        host: this.host,
+        port: this.port,
+        url: `http://${this.host}:${this.port}`,
+      });
+
+      logger.info('API endpoints registered', {
+        endpoints: [
+          `GET /${this.apiVersion.version}/lookup?lat={lat}&lng={lng} - District lookup`,
+          `GET /${this.apiVersion.version}/districts/:id - Direct district lookup`,
+          `GET /${this.apiVersion.version}/health - Health check`,
+          `GET /${this.apiVersion.version}/metrics - Prometheus metrics`,
+          `GET /${this.apiVersion.version}/snapshot - Current snapshot metadata`,
+          `GET /${this.apiVersion.version}/snapshots - List snapshots`,
+        ],
+      });
 
       if (this.apiVersion.deprecated) {
-        console.warn(
-          `[API] WARNING: API version ${this.apiVersion.version} is DEPRECATED`
-        );
-        console.warn(
-          `[API] Sunset date: ${this.apiVersion.sunsetDate || 'TBD'}`
-        );
-        console.warn(
-          `[API] Migration guide: ${this.apiVersion.migrationGuide || 'TBD'}`
-        );
+        logger.warn('API version is deprecated', {
+          version: this.apiVersion.version,
+          sunsetDate: this.apiVersion.sunsetDate || 'TBD',
+          migrationGuide: this.apiVersion.migrationGuide || 'TBD',
+        });
       }
     });
 
@@ -224,7 +228,7 @@ export class ShadowAtlasAPI {
   stop(): void {
     this.server.close();
     this.syncService.stop();
-    console.log('[API] Server stopped');
+    logger.info('API server stopped');
   }
 
   /**
@@ -303,7 +307,11 @@ export class ShadowAtlasAPI {
         );
       }
     } catch (error) {
-      console.error('[API] Request error:', error);
+      logger.error('API request error', {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       this.sendErrorResponse(
         res,
         500,

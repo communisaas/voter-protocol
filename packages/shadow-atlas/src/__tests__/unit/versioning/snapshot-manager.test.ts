@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SnapshotManager } from '../../../versioning/snapshot-manager.js';
+import { SnapshotManager } from '../../../distribution/snapshots/snapshot-manager.js';
 import type { AtlasBuildResult, LayerValidationResult } from '../../../core/types.js';
 
 const TEST_STORAGE_DIR = join(process.cwd(), 'test-output', 'snapshot-manager-test');

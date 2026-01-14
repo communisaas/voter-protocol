@@ -12,6 +12,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { ProvenanceEntry } from './provenance-writer.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Append provenance entry to staging area (ZERO LOCK CONTENTION)
@@ -92,11 +93,19 @@ export async function readStagingEntries(
           const entry = JSON.parse(line) as ProvenanceEntry;
           entries.push(entry);
         } catch (parseError) {
-          console.warn(`[Staging] Malformed entry in ${file}: ${line}`);
+          logger.warn('Malformed entry in staging file', {
+            module: 'Staging',
+            file,
+            line: line.substring(0, 100), // Truncate for logging
+          });
         }
       }
     } catch (error) {
-      console.warn(`[Staging] Failed to read ${file}:`, error);
+      logger.warn('Failed to read staging file', {
+        module: 'Staging',
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -118,7 +127,11 @@ export async function clearStagingFiles(baseDir: string = './discovery-staging')
     try {
       await fs.unlink(file);
     } catch (error) {
-      console.warn(`[Staging] Failed to delete ${file}:`, error);
+      logger.warn('Failed to delete staging file', {
+        module: 'Staging',
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

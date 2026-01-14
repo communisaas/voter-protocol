@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { GovernanceValidator } from '../../../validators/governance-validator.js';
+import { GovernanceValidator } from '../../../validators/semantic/governance.js';
 
 describe('GovernanceValidator', () => {
   describe('checkGovernance()', () => {

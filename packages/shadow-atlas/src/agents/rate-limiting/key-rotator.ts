@@ -9,6 +9,8 @@
  * Real scaling requires keys from different projects.
  */
 
+import { logger } from '../../core/utils/logger.js';
+
 export interface KeyConfig {
   /** API key */
   readonly key: string;
@@ -151,7 +153,7 @@ export class KeyRotator {
       keyState.rateLimitedUntil = Date.now() + retryAfterMs;
       keyState.errorCount++;
 
-      console.warn(
+      logger.warn(
         `[KeyRotator] Key ${keyState.config.label ?? keyState.config.projectId} ` +
         `rate limited for ${Math.ceil(retryAfterMs / 1000)}s ` +
         `(errors: ${keyState.errorCount})`

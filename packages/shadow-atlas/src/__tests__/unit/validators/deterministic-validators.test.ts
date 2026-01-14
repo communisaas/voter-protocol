@@ -17,9 +17,9 @@ import {
   DeterministicValidationPipeline,
   type ValidationResult,
   type CityTarget,
-} from '../../../validators/deterministic-validators.js';
+} from '../../../validators/pipeline/deterministic.js';
 import type { NormalizedGeoJSON } from '../types/index.js';
-import type { AdministrativeLevel } from '../types/provider.js';
+import type { AdministrativeLevel } from '../core/types/provider.js';
 
 /**
  * Test helper: Create mock GeoJSON with specified feature count and names

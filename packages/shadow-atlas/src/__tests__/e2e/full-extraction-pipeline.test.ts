@@ -18,7 +18,7 @@ import {
   assertValidBoundaryGeometry,
   assertUniqueIds,
   assertUniqueGeoids,
-} from '../utils/index.js';
+} from '../core/utils/index.js';
 
 const skipInCI = isCI && !runE2E;
 

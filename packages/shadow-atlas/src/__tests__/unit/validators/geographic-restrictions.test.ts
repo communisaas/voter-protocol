@@ -23,14 +23,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { TIGERValidator } from '../../../validators/tiger-validator.js';
-import type { NormalizedBoundary } from '../../../validators/tiger-validator.js';
+import { TIGERValidator } from '../../../validators/tiger/validator.js';
+import type { NormalizedBoundary } from '../../../validators/tiger/validator.js';
 import {
   NEW_ENGLAND_FIPS,
   USVI_FIPS,
   EXPECTED_ESTATE_COUNT,
   LAYER_TOPOLOGY_RULES,
-} from '../../../validators/topology-rules.js';
+} from '../../../validators/topology/rules.js';
 import type { Polygon } from 'geojson';
 
 describe('Geographic Restrictions', () => {

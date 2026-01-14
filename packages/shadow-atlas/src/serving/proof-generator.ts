@@ -24,6 +24,7 @@ import {
   type DistrictProof,
   type CircuitDepth,
 } from '@voter-protocol/crypto/district-prover';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * ZK Proof Service Configuration
@@ -92,13 +93,13 @@ export class ZKProofService {
   private async init(): Promise<void> {
     if (this.prover) return; // Already initialized
 
-    console.log(`[ZKProofService] Initializing DistrictProver (depth=${this.depth})...`);
+    logger.info('Initializing DistrictProver', { depth: this.depth });
     const start = Date.now();
 
     // Get singleton prover instance for this depth
     this.prover = await DistrictProver.getInstance(this.depth);
 
-    console.log(`[ZKProofService] Initialized in ${Date.now() - start}ms`);
+    logger.info('DistrictProver initialized', { duration: Date.now() - start });
   }
 
   /**
@@ -110,13 +111,13 @@ export class ZKProofService {
   async generateProof(inputs: CircuitInputs): Promise<ZKProofResult> {
     await this.init();
 
-    console.log('[ZKProofService] Generating proof...');
+    logger.info('Generating ZK proof');
     const start = Date.now();
 
     // Generate proof using DistrictProver
     const districtProof = await this.prover!.generateProof(inputs);
 
-    console.log(`[ZKProofService] Proof generated in ${Date.now() - start}ms`);
+    logger.info('ZK proof generated', { duration: Date.now() - start });
 
     // Convert to ZKProofResult format
     return {

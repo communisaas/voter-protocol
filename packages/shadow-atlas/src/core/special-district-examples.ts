@@ -15,6 +15,7 @@ import {
   getSpecialDistrictDescription,
   SCHOOL_DISTRICT_TYPES,
 } from './special-district-types.js';
+import { logger } from './utils/logger.js';
 
 // ============================================================================
 // Example 1: Basic Type Usage
@@ -27,12 +28,16 @@ function example1_basicTypeUsage(): void {
   const waterType = BoundaryType.WATER_DISTRICT;
 
   // Get precision ranks
-  console.log('School district rank:', PRECISION_RANK[schoolType]); // 5
-  console.log('Fire district rank:', PRECISION_RANK[fireType]);     // 8
-  console.log('Water district rank:', PRECISION_RANK[waterType]);   // 11
+  logger.info('School district rank', { rank: PRECISION_RANK[schoolType] }); // 5
+  logger.info('Fire district rank', { rank: PRECISION_RANK[fireType] });     // 8
+  logger.info('Water district rank', { rank: PRECISION_RANK[waterType] });   // 11
 
   // Lower rank = higher precision/priority in resolution
-  console.log('School ranks higher than water:', PRECISION_RANK[schoolType] < PRECISION_RANK[waterType]); // true
+  logger.info('School ranks higher than water', {
+    schoolRank: PRECISION_RANK[schoolType],
+    waterRank: PRECISION_RANK[waterType],
+    isHigher: PRECISION_RANK[schoolType] < PRECISION_RANK[waterType],
+  }); // true
 }
 
 // ============================================================================
@@ -42,13 +47,13 @@ function example1_basicTypeUsage(): void {
 function example2_typeNarrowing(boundaryType: BoundaryType): void {
   // Check if boundary is a special district
   if (isSpecialDistrict(boundaryType)) {
-    console.log('This is a special district:', boundaryType);
+    logger.info('This is a special district', { boundaryType });
 
     // Further narrow by governance type
     if (isElectedSpecialDistrict(boundaryType)) {
-      console.log('High civic priority - elected board');
+      logger.info('High civic priority - elected board', { boundaryType });
     } else {
-      console.log('Lower civic priority - appointed board');
+      logger.info('Lower civic priority - appointed board', { boundaryType });
     }
   }
 }
@@ -79,7 +84,7 @@ function example3_civicCategorization(type: BoundaryType): BoundaryWithCivicMeta
 
 // Usage:
 const schoolMetadata = example3_civicCategorization(BoundaryType.SCHOOL_DISTRICT_UNIFIED);
-console.log(schoolMetadata);
+logger.info('School metadata example', { metadata: schoolMetadata });
 // {
 //   type: 'school_district_unified',
 //   name: 'Example District',
@@ -107,7 +112,7 @@ const allBoundaries: readonly BoundaryType[] = [
 ];
 
 const electedOnly = example4_filterElectedDistricts(allBoundaries);
-console.log('Elected districts:', electedOnly);
+logger.info('Elected districts', { districts: electedOnly });
 // ['school_district_unified', 'fire_district']
 
 // ============================================================================
@@ -135,7 +140,7 @@ const matches: readonly BoundaryType[] = [
 ];
 
 const bestMatch = example5_hierarchicalResolution(matches);
-console.log('Best boundary for ZK proof:', bestMatch);
+logger.info('Best boundary for ZK proof', { bestMatch });
 // 'school_district_unified' (rank 5, higher precision than county/congressional)
 
 // ============================================================================
@@ -173,7 +178,7 @@ const userMatches: readonly BoundaryType[] = [
 ];
 
 const dashboard = example6_buildCivicDashboard(userMatches);
-console.log('Civic participation opportunities:', dashboard);
+logger.info('Civic participation opportunities', { dashboard });
 // [
 //   { type: 'school_district_unified', priorityScore: 100, actionable: true, ... },
 //   { type: 'fire_district', priorityScore: 80, actionable: true, ... },
@@ -191,7 +196,11 @@ function example7_iterateSchoolDistricts(): void {
     const description = getSpecialDistrictDescription(districtType);
     const priority = getCivicParticipationPriority(districtType);
 
-    console.log(`${districtType}: ${description} (priority: ${priority})`);
+    logger.info('School district info', {
+      districtType,
+      description,
+      priority,
+    });
   }
 
   // Output:
@@ -228,7 +237,7 @@ const boundaryTypes: readonly BoundaryType[] = [
 ];
 
 const merkleMetadata = boundaryTypes.map(example8_merkleLeafMetadata);
-console.log('Merkle leaf metadata:', merkleMetadata);
+logger.info('Merkle leaf metadata', { metadata: merkleMetadata });
 
 // ============================================================================
 // Export Examples (for documentation)

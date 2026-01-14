@@ -3,13 +3,10 @@
  *
  * Types for building the Shadow Atlas from TIGER/Line data,
  * including validation and layer configuration.
+ *
+ * NOTE: BuildValidationError is exported from core/errors.ts directly.
+ * Do not re-export it here to avoid circular dependencies.
  */
-
-// ============================================================================
-// Error Classes
-// ============================================================================
-
-export { BuildValidationError } from '../errors.js';
 
 /**
  * TIGER Layer Types - Complete US Civic Boundary Coverage
@@ -375,7 +372,7 @@ export interface LayerValidationResult {
   readonly expectedCount: number;
 
   /** Full validation result (null if failed before validation) */
-  readonly validation: import('../../validators/tiger-validator.js').ValidationResult | null;
+  readonly validation: import('./validators.js').ValidationResult | null;
 
   /** Error message if layer failed */
   readonly error?: string;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCityNameVariations, generateSearchQueries, getDistrictSynonyms, getStateVariations } from '../../../utils/search-term-generator.js';
+import { getCityNameVariations, generateSearchQueries, getDistrictSynonyms, getStateVariations } from '../../../core/utils/search-term-generator.js';
 
 describe('Search Term Generator', () => {
   describe('getCityNameVariations', () => {

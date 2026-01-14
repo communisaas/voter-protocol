@@ -21,6 +21,7 @@ import type {
   CircuitBreakerConfig,
   ResilienceEvent,
 } from './types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Circuit breaker error (thrown when circuit is open)
@@ -316,7 +317,9 @@ export class CircuitBreaker {
       try {
         listener(event);
       } catch (error) {
-        console.error('[CircuitBreaker] Event listener error:', error);
+        logger.error('CircuitBreaker event listener error', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

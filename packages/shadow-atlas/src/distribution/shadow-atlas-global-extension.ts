@@ -26,6 +26,7 @@ import {
   DEFAULT_REGIONS,
   DEFAULT_ROLLOUT,
 } from './global-ipfs-strategy.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Global distribution extension for ShadowAtlasService
@@ -98,23 +99,22 @@ export class ShadowAtlasGlobalExtension {
         const service = await createRegionalPinningService(region, config);
         this.regionalServices.set(region, service);
       } catch (error) {
-        console.warn(
-          `[ShadowAtlasGlobalExtension] Failed to initialize pinning services for ${region}:`,
-          error instanceof Error ? error.message : error
-        );
+        logger.warn('Failed to initialize pinning services for region', {
+          region,
+          error: error instanceof Error ? error.message : String(error),
+        });
         // Continue with other regions - graceful degradation
       }
     }
 
     if (this.regionalServices.size === 0) {
-      console.warn(
-        '[ShadowAtlasGlobalExtension] No regional pinning services initialized. ' +
-        'Set STORACHA_SPACE_DID/STORACHA_AGENT_KEY, PINATA_JWT, or FLEEK_API_KEY/FLEEK_API_SECRET.'
-      );
+      logger.warn('No regional pinning services initialized', {
+        message: 'Set STORACHA_SPACE_DID/STORACHA_AGENT_KEY, PINATA_JWT, or FLEEK_API_KEY/FLEEK_API_SECRET',
+      });
     } else {
-      console.log(
-        `[ShadowAtlasGlobalExtension] Initialized ${this.regionalServices.size} regional pinning services`
-      );
+      logger.info('Initialized regional pinning services', {
+        serviceCount: this.regionalServices.size,
+      });
     }
   }
 
@@ -140,12 +140,12 @@ export class ShadowAtlasGlobalExtension {
     const rootCid = cid ?? process.env.SHADOW_ATLAS_ROOT_CID;
 
     if (!rootCid) {
-      console.debug('[ShadowAtlasGlobalExtension] No IPFS CID configured for merkle tree persistence');
+      logger.debug('No IPFS CID configured for merkle tree persistence');
       return null;
     }
 
     try {
-      console.log(`[ShadowAtlasGlobalExtension] Loading merkle tree from IPFS CID: ${rootCid}`);
+      logger.info('Loading merkle tree from IPFS', { cid: rootCid });
 
       // Extract CID from ipfs:// URL if present
       const cleanCid = rootCid.startsWith('ipfs://')
@@ -186,21 +186,30 @@ export class ShadowAtlasGlobalExtension {
           clearTimeout(timeout);
 
           if (!response.ok) {
-            console.debug(`[ShadowAtlasGlobalExtension] Gateway ${gateway} returned ${response.status}`);
+            logger.debug('Gateway returned non-OK status', {
+              gateway,
+              status: response.status,
+            });
             continue;
           }
 
           snapshotData = await response.json();
-          console.log(`[ShadowAtlasGlobalExtension] Successfully loaded snapshot from ${gateway}`);
+          logger.info('Successfully loaded snapshot from gateway', { gateway });
           break;
         } catch (error) {
-          console.debug(`[ShadowAtlasGlobalExtension] Gateway ${gateway} failed:`, error);
+          logger.debug('Gateway fetch failed', {
+            gateway,
+            error: error instanceof Error ? error.message : String(error),
+          });
           continue;
         }
       }
 
       if (!snapshotData) {
-        console.warn(`[ShadowAtlasGlobalExtension] Failed to load snapshot from all gateways for CID ${cleanCid}`);
+        logger.warn('Failed to load snapshot from all gateways', {
+          cid: cleanCid,
+          gatewayCount: gateways.length,
+        });
         return null;
       }
 
@@ -224,17 +233,18 @@ export class ShadowAtlasGlobalExtension {
         regions: snapshotData.metadata?.regions ?? [],
       };
 
-      console.log(
-        `[ShadowAtlasGlobalExtension] Loaded merkle tree: ` +
-        `${metadata.boundaryCount} boundaries, root ${merkleTree.root.slice(0, 10)}...`
-      );
+      logger.info('Loaded merkle tree from IPFS', {
+        boundaryCount: metadata.boundaryCount,
+        merkleRoot: merkleTree.root.slice(0, 10),
+        cid: cleanCid,
+      });
 
       return { tree: merkleTree, metadata };
     } catch (error) {
-      console.error(
-        `[ShadowAtlasGlobalExtension] Failed to load merkle tree from IPFS:`,
-        error instanceof Error ? error.message : error
-      );
+      logger.error('Failed to load merkle tree from IPFS', {
+        error: error instanceof Error ? error.message : String(error),
+        cid: rootCid,
+      });
       return null;
     }
   }

@@ -40,10 +40,11 @@ import {
   type LegislativeLayer,
   type LegislativeLayerType,
   type StateAuthorityLevel,
-} from '../registry/state-gis-portals.js';
+} from '../core/registry/state-gis-portals.js';
+import { logger } from '../core/utils/logger.js';
 
 // Re-export types for external use
-export type { LegislativeLayerType, StateAuthorityLevel } from '../registry/state-gis-portals.js';
+export type { LegislativeLayerType, StateAuthorityLevel } from '../core/registry/state-gis-portals.js';
 
 // ============================================================================
 // Types
@@ -167,13 +168,19 @@ export class StateBatchExtractor {
     }
 
     try {
-      console.log(`[${portal.stateName}] Extracting ${layerType}...`);
+      logger.info('Extracting layer', { state: portal.stateName, layerType });
       const stateFips = this.getStateFips(stateUpper);
       const geojson = await this.fetchGeoJSON(layer.endpoint, stateFips);
       const boundaries = this.normalizeFeatures(geojson, portal, layer);
 
       const durationMs = Date.now() - startTime;
-      console.log(`[${portal.stateName}] ✓ ${layerType}: ${boundaries.length}/${layer.expectedCount} features (${durationMs}ms)`);
+      logger.info('Layer extraction complete', {
+        state: portal.stateName,
+        layerType,
+        featureCount: boundaries.length,
+        expectedCount: layer.expectedCount,
+        durationMs
+      });
 
       return {
         state: stateUpper,
@@ -190,7 +197,11 @@ export class StateBatchExtractor {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[${portal.stateName}] ✗ ${layerType}: ${message}`);
+      logger.error('Layer extraction failed', {
+        state: portal.stateName,
+        layerType,
+        error: message
+      });
       return this.failedResult(stateUpper, layerType, message, startTime, layer.endpoint, layer.expectedCount);
     }
   }
@@ -207,13 +218,13 @@ export class StateBatchExtractor {
 
     // Nebraska: Unicameral legislature - no state house
     if (stateUpper === 'NE' && layerType === 'state_house') {
-      console.log(`   Skipping ${layerType} for NE (unicameral legislature)`);
+      logger.debug('Skipping layer for unicameral legislature', { state: stateUpper, layerType });
       return true;
     }
 
     // DC: City Council, not a state legislature - skip both chambers
     if (stateUpper === 'DC' && (layerType === 'state_senate' || layerType === 'state_house')) {
-      console.log(`   Skipping ${layerType} for DC (city council, not state legislature)`);
+      logger.debug('Skipping layer for city council', { state: stateUpper, layerType });
       return true;
     }
 
@@ -279,12 +290,12 @@ export class StateBatchExtractor {
     const startTime = Date.now();
     const statesWithData = getStatesWithLegislativeData();
 
-    console.log(`\nExtracting ${statesWithData.length} states with legislative data...\n`);
+    logger.info('Starting batch extraction', { stateCount: statesWithData.length });
 
     const results: StateExtractionResult[] = [];
 
     for (const portal of statesWithData) {
-      console.log(`\n=== ${portal.stateName} (${portal.state}) ===`);
+      logger.info('Extracting state', { state: portal.stateName, code: portal.state });
       const result = await this.extractState(portal.state);
       results.push(result);
     }
@@ -317,7 +328,11 @@ export class StateBatchExtractor {
       try {
         // Build query URL based on endpoint type
         const url = this.buildQueryUrl(endpoint, stateFips);
-        console.log(`   Fetching: ${url.substring(0, 80)}... (attempt ${attempt}/${this.retryAttempts})`);
+        logger.debug('Fetching GeoJSON', {
+          url: url.substring(0, 80),
+          attempt,
+          maxAttempts: this.retryAttempts
+        });
 
         const response = await fetch(url, {
           headers: {
@@ -339,7 +354,7 @@ export class StateBatchExtractor {
         return data;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`   Attempt ${attempt} failed: ${lastError.message}`);
+        logger.warn('Fetch attempt failed', { attempt, error: lastError.message });
 
         if (attempt < this.retryAttempts) {
           const delay = Math.pow(2, attempt) * this.retryDelayMs;
@@ -407,7 +422,7 @@ export class StateBatchExtractor {
         // Examples: "17ZZ" (IL CD water), "17ZZZ" (IL state leg water)
         const geoid = String(f.properties?.GEOID ?? '');
         if (/ZZ+$/.test(geoid)) {
-          console.debug(`   Filtering pseudo-district: ${geoid} (water/undefined area)`);
+          logger.debug('Filtering pseudo-district', { geoid, reason: 'water/undefined area' });
           return false;
         }
 

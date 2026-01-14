@@ -14,7 +14,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { mkdir, rm } from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { SnapshotManager } from '../../../versioning/snapshot-manager.js';
+import { SnapshotManager } from '../../../distribution/snapshots/snapshot-manager.js';
 import {
   MultiLayerMerkleTreeBuilder,
   type MultiLayerMerkleTree,
@@ -25,7 +25,7 @@ import type {
   ProofTemplate,
   ProofTemplateStore,
 } from '../../../core/types/atlas.js';
-import { BoundaryType } from '../../../types/boundary.js';
+import { BoundaryType } from '../../../core/types/boundary.js';
 
 /**
  * Test fixture: Create mock boundary input

@@ -34,8 +34,8 @@ import {
   type CandidateUrl,
   type ValidatedBoundary,
 } from './workflow/state.js';
-import { CensusPlaceListLoader } from '../registry/census-place-list.js';
-import { ArcGISHubScanner } from '../scanners/arcgis-hub.js';
+import { CensusPlaceListLoader } from '../core/registry/census-place-list.js';
+import { ArcGISHubScanner } from '../acquisition/scanners/arcgis-hub.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -53,8 +53,8 @@ function parseArgs(): {
 
   const regionIndex = args.indexOf('--region');
   if (regionIndex === -1 || !args[regionIndex + 1]) {
-    console.error('Usage: npx tsx agents/discover.ts --region <region>');
-    console.error('Example: npx tsx agents/discover.ts --region US-MT');
+    logger.error('Usage: npx tsx agents/discover.ts --region <region>');
+    logger.error('Example: npx tsx agents/discover.ts --region US-MT');
     process.exit(1);
   }
 
@@ -115,6 +115,7 @@ function parseRegion(region: string): { country: string; subdivision: string } {
 
 // STATE_FIPS imported from centralized geo-constants (eliminated duplicate)
 import { STATE_ABBR_TO_FIPS as STATE_FIPS } from '../core/geo-constants.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Governance classification prompt
@@ -157,25 +158,25 @@ async function runDiscovery(
   if (options.resume) {
     const checkpoint = loadCheckpoint(region);
     if (checkpoint) {
-      console.log(`Resuming from checkpoint (phase: ${checkpoint.phase})`);
+      logger.info(`Resuming from checkpoint (phase: ${checkpoint.phase})`);
       state = checkpoint;
     } else {
-      console.log('No checkpoint found, starting fresh');
+      logger.info('No checkpoint found, starting fresh');
       state = createInitialState(region);
     }
   } else {
     state = createInitialState(region);
   }
 
-  console.log('='.repeat(70));
-  console.log(`  AGENTIC BOUNDARY DISCOVERY: ${region}`);
-  console.log('='.repeat(70));
-  console.log();
+  logger.info('='.repeat(70));
+  logger.info(`  AGENTIC BOUNDARY DISCOVERY: ${region}`);
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Phase 1: Load places
   if (state.phase === 'initializing' || state.phase === 'loading_places') {
     state.phase = 'loading_places';
-    console.log('Phase 1: Loading places from Census Bureau...');
+    logger.info('Phase 1: Loading places from Census Bureau...');
 
     if (country === 'US') {
       const fips = STATE_FIPS[subdivision];
@@ -200,7 +201,7 @@ async function runDiscovery(
         state.places = state.places.slice(0, options.maxPlaces);
       }
 
-      console.log(`   Loaded ${state.places.length} places`);
+      logger.info(`   Loaded ${state.places.length} places`);
     } else {
       throw new Error(`Country ${country} not yet supported. Only US implemented.`);
     }
@@ -211,7 +212,7 @@ async function runDiscovery(
   // Phase 2: Classify governance types
   if (state.phase === 'loading_places' || state.phase === 'classifying_governance') {
     state.phase = 'classifying_governance';
-    console.log('\nPhase 2: Classifying governance types...');
+    logger.info('\nPhase 2: Classifying governance types...');
 
     const alreadyClassified = new Set(state.classifications.map(c => c.placeId));
 
@@ -262,7 +263,7 @@ async function runDiscovery(
             });
           }
         } catch (error) {
-          console.warn(`   Error classifying ${place.name}: ${(error as Error).message}`);
+          logger.warn(`   Error classifying ${place.name}: ${(error as Error).message}`);
           state.errors.push({
             placeId: place.id,
             phase: 'classifying_governance',
@@ -291,7 +292,7 @@ async function runDiscovery(
       }
     }
 
-    console.log(`   Classified ${state.classifications.length} places`);
+    logger.info(`   Classified ${state.classifications.length} places`);
     state.currentPlaceIndex = 0;
     saveCheckpoint(state);
   }
@@ -299,13 +300,13 @@ async function runDiscovery(
   // Phase 3: Search for boundary sources
   if (state.phase === 'classifying_governance' || state.phase === 'searching_sources') {
     state.phase = 'searching_sources';
-    console.log('\nPhase 3: Searching for boundary sources...');
+    logger.info('\nPhase 3: Searching for boundary sources...');
 
     const wardBased = state.classifications.filter(
       c => c.governanceType !== 'at-large' && c.governanceType !== 'unknown'
     );
 
-    console.log(`   ${wardBased.length} places need boundary data`);
+    logger.info(`   ${wardBased.length} places need boundary data`);
 
     if (!options.dryRun) {
       const scanner = new ArcGISHubScanner();
@@ -336,19 +337,19 @@ async function runDiscovery(
           // Rate limit
           await new Promise(r => setTimeout(r, 500));
         } catch (error) {
-          console.warn(`   Error searching for ${classification.placeName}: ${(error as Error).message}`);
+          logger.warn(`   Error searching for ${classification.placeName}: ${(error as Error).message}`);
         }
       }
     }
 
-    console.log(`   Found ${state.candidateUrls.length} candidate URLs`);
+    logger.info(`   Found ${state.candidateUrls.length} candidate URLs`);
     saveCheckpoint(state);
   }
 
   // Phase 4: Validate URLs
   if (state.phase === 'searching_sources' || state.phase === 'validating_urls') {
     state.phase = 'validating_urls';
-    console.log('\nPhase 4: Validating discovered URLs...');
+    logger.info('\nPhase 4: Validating discovered URLs...');
 
     const alreadyValidated = new Set(state.validatedBoundaries.map(b => b.url));
 
@@ -393,7 +394,7 @@ async function runDiscovery(
       await new Promise(r => setTimeout(r, 200));
     }
 
-    console.log(`   Validated ${state.validatedBoundaries.length} boundaries`);
+    logger.info(`   Validated ${state.validatedBoundaries.length} boundaries`);
     saveCheckpoint(state);
   }
 
@@ -403,21 +404,21 @@ async function runDiscovery(
   saveCheckpoint(state);
 
   // Print summary
-  console.log('\n');
-  console.log('='.repeat(70));
-  console.log('  DISCOVERY COMPLETE');
-  console.log('='.repeat(70));
-  console.log();
-  console.log(`Region: ${state.summary.region}`);
-  console.log(`Total places: ${state.summary.totalPlaces}`);
-  console.log(`Ward-based places: ${state.summary.wardBasedPlaces}`);
-  console.log(`At-large places: ${state.summary.atLargePlaces}`);
-  console.log(`Boundaries found: ${state.summary.boundariesFound}`);
-  console.log(`Boundaries missing: ${state.summary.boundariesMissing}`);
-  console.log(`Coverage: ${state.summary.coveragePercent}%`);
-  console.log(`API calls: ${state.summary.totalApiCalls}`);
-  console.log(`Estimated cost: $${state.summary.totalCost.toFixed(4)}`);
-  console.log(`Duration: ${Math.round(state.summary.durationMs / 1000)}s`);
+  logger.info('\n');
+  logger.info('='.repeat(70));
+  logger.info('  DISCOVERY COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info('');
+  logger.info(`Region: ${state.summary.region}`);
+  logger.info(`Total places: ${state.summary.totalPlaces}`);
+  logger.info(`Ward-based places: ${state.summary.wardBasedPlaces}`);
+  logger.info(`At-large places: ${state.summary.atLargePlaces}`);
+  logger.info(`Boundaries found: ${state.summary.boundariesFound}`);
+  logger.info(`Boundaries missing: ${state.summary.boundariesMissing}`);
+  logger.info(`Coverage: ${state.summary.coveragePercent}%`);
+  logger.info(`API calls: ${state.summary.totalApiCalls}`);
+  logger.info(`Estimated cost: $${state.summary.totalCost.toFixed(4)}`);
+  logger.info(`Duration: ${Math.round(state.summary.durationMs / 1000)}s`);
 
   return state;
 }
@@ -434,13 +435,13 @@ async function main(): Promise<void> {
     try {
       const keyRotator = createKeyRotatorFromEnv();
       client = new GeminiClient(keyRotator);
-      console.log('Gemini client initialized with key rotation');
+      logger.info('Gemini client initialized with key rotation');
     } catch (error) {
-      console.warn('Could not initialize Gemini client:', (error as Error).message);
+      logger.warn('Could not initialize Gemini client', { error: (error as Error).message });
     }
   } else if (!args.dryRun) {
-    console.warn('GEMINI_KEYS not set. Running without AI classification.');
-    console.warn('Set GEMINI_KEYS=project1:key1:tier1,project2:key2:free');
+    logger.warn('GEMINI_KEYS not set. Running without AI classification.');
+    logger.warn('Set GEMINI_KEYS=project1:key1:tier1,project2:key2:free');
   }
 
   await runDiscovery(args.region, {
@@ -451,4 +452,7 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

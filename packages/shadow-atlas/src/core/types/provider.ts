@@ -8,6 +8,9 @@
 import type { Geometry, FeatureCollection } from 'geojson';
 import type { AdministrativeLevel, AuthorityLevel, LegalStatus, CollectionMethod } from './discovery.js';
 
+// Re-export types that consumers expect from provider.ts
+export type { AdministrativeLevel, AuthorityLevel, LegalStatus, CollectionMethod };
+
 /**
  * Update schedules for automated refresh
  */

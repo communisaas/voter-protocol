@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 import { writeFile, appendFile, mkdir, readdir, stat, unlink, readFile } from 'fs/promises';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Types
@@ -655,19 +656,31 @@ export async function queryAuditLogs(filters: LogFilter): Promise<readonly Secur
             events.push(event);
           } catch (parseError) {
             // Skip malformed log entries (log corruption)
-            console.error(`Failed to parse log entry in ${logFile}:`, parseError);
+            logger.error('Failed to parse audit log entry', {
+              operation: 'query_audit_logs',
+              logFile,
+              error: parseError instanceof Error ? parseError.message : String(parseError),
+            });
           }
         }
       } catch (fileError) {
         // Skip unreadable files (permissions, corruption)
-        console.error(`Failed to read log file ${logFile}:`, fileError);
+        logger.error('Failed to read audit log file', {
+          operation: 'query_audit_logs',
+          logFile,
+          error: fileError instanceof Error ? fileError.message : String(fileError),
+        });
       }
     }
 
     return events;
   } catch (error) {
     // Directory doesn't exist or not readable
-    console.error(`Failed to query audit logs in ${logDir}:`, error);
+    logger.error('Failed to query audit logs', {
+      operation: 'query_audit_logs',
+      logDir,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }
@@ -810,13 +823,21 @@ async function cleanupOldLogFiles(logDir: string, maxFiles: number): Promise<num
         await unlink(file.path);
         deletedCount++;
       } catch (unlinkError) {
-        console.error(`Failed to delete old log file ${file.path}:`, unlinkError);
+        logger.error('Failed to delete old audit log file', {
+          operation: 'cleanup_old_logs',
+          filePath: file.path,
+          error: unlinkError instanceof Error ? unlinkError.message : String(unlinkError),
+        });
       }
     }
 
     return deletedCount;
   } catch (error) {
-    console.error(`Failed to cleanup old log files in ${logDir}:`, error);
+    logger.error('Failed to cleanup old audit log files', {
+      operation: 'cleanup_old_logs',
+      logDir,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return 0;
   }
 }

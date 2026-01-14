@@ -19,6 +19,7 @@ import type {
   PinningServiceType,
   PinResult,
 } from '../types.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Storacha client configuration
@@ -213,7 +214,7 @@ export class StorachaPinningService implements IPinningService {
   async unpin(cid: string): Promise<void> {
     // Storacha uses CAR-based upload; unpin is handled via space management
     // For now, this is a no-op as content is immutable once uploaded
-    console.warn(`Storacha unpin not fully implemented for CID: ${cid}`);
+    logger.warn('Storacha unpin not fully implemented', { cid });
   }
 
   /**

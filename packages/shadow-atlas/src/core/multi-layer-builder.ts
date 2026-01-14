@@ -41,6 +41,8 @@ import {
 } from '../merkle-tree.js';
 import { hash_pair } from '@voter-protocol/crypto/circuits';
 import { getHasher } from '@voter-protocol/crypto/poseidon2';
+import { sha256 } from '@noble/hashes/sha256';
+import { logger } from './utils/logger.js';
 
 /**
  * Provenance source metadata for cryptographic commitment
@@ -179,11 +181,11 @@ export class MultiLayerMerkleTreeBuilder {
    * @returns Complete Merkle tree with all boundaries
    */
   async buildTree(layers: BoundaryLayers): Promise<MultiLayerMerkleTree> {
-    console.log('[MultiLayerBuilder] Building unified Merkle tree...');
+    logger.info('Building unified Merkle tree');
 
     // STEP 1: Flatten all boundaries with type annotation
     const allBoundaries = this.flattenBoundaries(layers);
-    console.log(`  Total boundaries: ${allBoundaries.length}`);
+    logger.info('Boundaries flattened', { count: allBoundaries.length });
 
     // STEP 2: Sort deterministically (type alphabetical, then ID lexicographic)
     const sorted = this.sortBoundaries(allBoundaries);
@@ -200,10 +202,12 @@ export class MultiLayerMerkleTreeBuilder {
     // STEP 6: Compute layer counts
     const layerCounts = this.computeLayerCounts(sorted);
 
-    console.log(`  ✓ Merkle root: 0x${root.toString(16).slice(0, 16)}...`);
-    console.log(`  ✓ Tree depth: ${tree.length}`);
-    console.log(`  ✓ Leaf count: ${leaves.length}`);
-    console.log(`  Layer counts:`, layerCounts);
+    logger.info('Merkle tree built successfully', {
+      root: `0x${root.toString(16).slice(0, 16)}...`,
+      depth: tree.length,
+      leafCount: leaves.length,
+      layerCounts,
+    });
 
     return {
       root,
@@ -384,7 +388,7 @@ export class MultiLayerMerkleTreeBuilder {
   private async computeLeafHashes(
     boundaries: readonly MerkleBoundaryInput[]
   ): Promise<MerkleLeafWithMetadata[]> {
-    console.time('[MultiLayerBuilder] Geometry hashing (parallel)');
+    const startGeometry = Date.now();
 
     // STEP 1: Batch hash all geometries in parallel
     const geometryStrings = boundaries.map(b => JSON.stringify(b.geometry));
@@ -393,8 +397,16 @@ export class MultiLayerMerkleTreeBuilder {
       this.config.batchSize
     );
 
-    console.timeEnd('[MultiLayerBuilder] Geometry hashing (parallel)');
-    console.time('[MultiLayerBuilder] Leaf hashing (parallel)');
+    const geometryDuration = Date.now() - startGeometry;
+    logger.debug('Geometry hashing completed', {
+      operation: 'geometry_hashing',
+      boundaryCount: boundaries.length,
+      batchSize: this.config.batchSize,
+      durationMs: geometryDuration,
+      parallelMode: true,
+    });
+
+    const startLeaf = Date.now();
 
     // STEP 2: Prepare all leaf inputs (including provenance if available)
     const leafInputs: MerkleLeafInput[] = boundaries.map((boundary, index) => ({
@@ -413,7 +425,14 @@ export class MultiLayerMerkleTreeBuilder {
       this.config.batchSize
     );
 
-    console.timeEnd('[MultiLayerBuilder] Leaf hashing (parallel)');
+    const leafDuration = Date.now() - startLeaf;
+    logger.debug('Leaf hashing completed', {
+      operation: 'leaf_hashing',
+      leafCount: leafInputs.length,
+      batchSize: this.config.batchSize,
+      durationMs: leafDuration,
+      parallelMode: true,
+    });
 
     // STEP 4: Build metadata array
     const results: MerkleLeafWithMetadata[] = boundaries.map((boundary, index) => ({
@@ -484,7 +503,8 @@ export class MultiLayerMerkleTreeBuilder {
     const tree: bigint[][] = [Array.from(leaves)];
     let currentLayer = Array.from(leaves);
 
-    console.time('[MultiLayerBuilder] Tree layer construction (parallel)');
+    const startTree = Date.now();
+    const initialLeafCount = leaves.length;
 
     // Build layers until we reach single root
     while (currentLayer.length > 1) {
@@ -517,7 +537,15 @@ export class MultiLayerMerkleTreeBuilder {
       currentLayer = nextLayer;
     }
 
-    console.timeEnd('[MultiLayerBuilder] Tree layer construction (parallel)');
+    const treeDuration = Date.now() - startTree;
+    logger.debug('Tree construction completed', {
+      operation: 'tree_construction',
+      initialLeaves: initialLeafCount,
+      treeDepth: tree.length,
+      batchSize: this.config.batchSize,
+      durationMs: treeDuration,
+      parallelMode: true,
+    });
 
     return tree;
   }
@@ -533,21 +561,20 @@ export class MultiLayerMerkleTreeBuilder {
   }
 
   /**
-   * Hash geometry string to bigint
+   * Hash geometry string to bigint using SHA-256
+   *
+   * SECURITY: Replaces XOR-based hash (WS-5) for collision resistance.
+   * SHA-256 provides cryptographic collision resistance unlike XOR (commutative, trivial collisions).
+   *
+   * @param geometryString - Serialized geometry (GeoJSON)
+   * @returns SHA-256 hash truncated to 31 bytes (248 bits) for field element compatibility
    */
   private hashGeometry(geometryString: string): bigint {
-    // Simple hash for now (could use full Poseidon of coordinate array)
-    const bytes = Buffer.from(geometryString, 'utf-8');
-    let hash = BigInt(0);
-
-    // XOR chunks (simple but deterministic)
-    for (let i = 0; i < bytes.length; i += 31) {
-      const chunk = bytes.slice(i, i + 31);
-      const chunkBigInt = BigInt('0x' + chunk.toString('hex'));
-      hash ^= chunkBigInt;
-    }
-
-    return hash;
+    const bytes = new TextEncoder().encode(geometryString);
+    const hash = sha256(bytes);
+    // Take first 31 bytes to fit in field element (248 bits < BN254 scalar field ~254 bits)
+    // This prevents overflow when used in Poseidon hash operations
+    return BigInt('0x' + Buffer.from(hash.slice(0, 31)).toString('hex'));
   }
 
   /**

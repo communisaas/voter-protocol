@@ -4,6 +4,7 @@ import { inflate } from 'pako';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -38,7 +39,7 @@ export class CircuitDriver {
    * Generate proving key
    */
     async generateProvingKey(): Promise<Uint8Array> {
-        console.log('Generating proving key...');
+        logger.info('Generating proving key');
         const start = Date.now();
         const result = await (this.api as any).acirGetProvingKey({
             circuit: {
@@ -53,7 +54,7 @@ export class CircuitDriver {
                 optimizedSolidityVerifier: false,
             }
         });
-        console.log(`Proving key generated in ${Date.now() - start}ms`);
+        logger.info('Proving key generated', { duration: Date.now() - start });
         return (result as any).provingKey ?? result;
     }
 
@@ -63,7 +64,7 @@ export class CircuitDriver {
     async prove(witness: Uint8Array, provingKey?: Uint8Array): Promise<Uint8Array> {
         const pk = provingKey || await this.generateProvingKey();
 
-        console.log('Generating proof...');
+        logger.info('Generating ZK proof');
         const start = Date.now();
         const result = await (this.api as any).acirProveWithPk({
             circuit: {
@@ -80,7 +81,7 @@ export class CircuitDriver {
                 optimizedSolidityVerifier: false,
             }
         });
-        console.log(`Proof generated in ${Date.now() - start}ms`);
+        logger.info('ZK proof generated', { duration: Date.now() - start });
 
         return (result as any).proof ?? result;
     }
@@ -90,7 +91,7 @@ export class CircuitDriver {
      */
     async verify(proof: Uint8Array): Promise<boolean> {
         // Placeholder until verification method is identified
-        console.warn("Verify method not yet implemented in driver");
+        logger.warn('Verify method not yet implemented in driver');
         return true;
         // return this.api.acirVerify(proof);
     }

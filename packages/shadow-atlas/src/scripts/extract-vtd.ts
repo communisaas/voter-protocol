@@ -21,7 +21,7 @@
  * REPLACES: scripts/extract-vtd-geoids.mjs (orphaned script)
  */
 
-import { createRDHVTDExtractor, STATE_CODES } from '../extractors/rdh-vtd-extractor.js';
+import { createRDHVTDExtractor, STATE_CODES } from '../acquisition/extractors/rdh-vtd-extractor.js';
 import { config } from 'dotenv';
 
 // Load .env file

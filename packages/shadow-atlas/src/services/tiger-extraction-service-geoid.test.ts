@@ -7,7 +7,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TIGERExtractionService } from './tiger-extraction-service.js';
 import type { TIGERLayerResult } from './tiger-extraction-service.js';
-import { getExpectedCongressionalGEOIDs } from '../registry/expected-geoids.js';
+import { getExpectedCongressionalGEOIDs } from '../core/registry/expected-geoids.js';
 
 describe('TIGERExtractionService - GEOID Validation', () => {
   describe('validate() with GEOID completeness checking', () => {

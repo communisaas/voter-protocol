@@ -18,10 +18,11 @@ import type {
   RawBoundaryFile,
   NormalizedBoundary,
   UpdateMetadata,
-  SourceMetadata,
+  ProviderSourceMetadata,
   AdministrativeLevel,
-} from '../types/provider.js';
-import { transformShapefileToGeoJSON } from '../transformers/shapefile-to-geojson.js';
+} from '../core/types/provider.js';
+import { transformShapefileToGeoJSON } from '../transformation/shapefile-to-geojson.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * US Census TIGER/Line provider implementation
@@ -60,7 +61,11 @@ export class USCensusTIGERProvider implements BoundaryProvider {
   async download(params: DownloadParams): Promise<RawBoundaryFile[]> {
     const { level, region, version = this.currentYear, forceRefresh = false } = params;
 
-    console.log(`[USCensusTIGER] Downloading ${level} boundaries for ${region ?? 'all states'}...`);
+    logger.info('Downloading Census TIGER boundaries', {
+      level,
+      region: region ?? 'all states',
+      version
+    });
 
     switch (level) {
       case 'state':
@@ -147,7 +152,11 @@ export class USCensusTIGERProvider implements BoundaryProvider {
       const fips = fipsCodes[i];
       const stateName = Object.keys(this.stateFIPSMap).find(k => this.stateFIPSMap[k] === fips);
 
-      console.log(`  [${i + 1}/${total}] Downloading ${stateName} (FIPS ${fips})...`);
+      logger.debug('Downloading state PLACE file', {
+        progress: `${i + 1}/${total}`,
+        state: stateName,
+        fips
+      });
 
       const url = `${this.baseURL}/TIGER${year}/PLACE/tl_${year}_${fips}_place.zip`;
 
@@ -166,12 +175,18 @@ export class USCensusTIGERProvider implements BoundaryProvider {
           },
         });
       } catch (error) {
-        console.error(`  Failed to download ${stateName}:`, error);
+        logger.error('Failed to download state', {
+          state: stateName,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Continue with other states
       }
     }
 
-    console.log(`[USCensusTIGER] Downloaded ${files.length}/${total} states successfully`);
+    logger.info('Download complete', {
+      successCount: files.length,
+      totalCount: total
+    });
 
     return files;
   }
@@ -183,7 +198,9 @@ export class USCensusTIGERProvider implements BoundaryProvider {
     const boundaries: NormalizedBoundary[] = [];
 
     for (const file of raw) {
-      console.log(`[USCensusTIGER] Transforming ${file.metadata.stateCode ?? file.metadata.scope}...`);
+      logger.debug('Transforming shapefile', {
+        state: file.metadata.stateCode ?? file.metadata.scope
+      });
 
       // Transform Shapefile → WGS84 GeoJSON
       const geojson = await transformShapefileToGeoJSON(file.data, {
@@ -234,7 +251,7 @@ export class USCensusTIGERProvider implements BoundaryProvider {
       }
     }
 
-    console.log(`[USCensusTIGER] Transformed ${boundaries.length} boundaries`);
+    logger.info('Transform complete', { boundaryCount: boundaries.length });
 
     return boundaries;
   }
@@ -274,7 +291,7 @@ export class USCensusTIGERProvider implements BoundaryProvider {
   /**
    * Get source metadata
    */
-  async getMetadata(): Promise<SourceMetadata> {
+  async getMetadata(): Promise<ProviderSourceMetadata> {
     return {
       provider: this.name,
       url: this.source,
@@ -325,7 +342,11 @@ export class USCensusTIGERProvider implements BoundaryProvider {
         return Buffer.from(arrayBuffer);
       } catch (error) {
         lastError = error as Error;
-        console.warn(`    Attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
+        logger.warn('Download attempt failed', {
+          attempt,
+          maxRetries,
+          error: lastError.message
+        });
 
         if (attempt < maxRetries) {
           await this.sleep(retryDelay);

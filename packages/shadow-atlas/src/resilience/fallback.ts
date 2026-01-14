@@ -17,6 +17,7 @@
  */
 
 import type { FallbackConfig, FallbackStrategy } from './types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Fallback executor with multiple strategies
@@ -133,9 +134,10 @@ export class FallbackExecutor<T> {
       );
     }
 
-    console.warn(
-      `[Fallback] Using stale cache (age: ${age}ms) due to error: ${error.message}`
-    );
+    logger.warn('Using stale cache due to error', {
+      cacheAgeMs: age,
+      error: error.message,
+    });
 
     return {
       value: cachedValue.value,

@@ -23,6 +23,7 @@
 
 import type { DistrictBoundary } from '../types';
 import type { RegionalCache } from './regional-cache';
+import { logger } from '../../core/utils/logger.js';
 import type Database from 'better-sqlite3';
 
 /**
@@ -123,7 +124,9 @@ export class PreloadStrategy {
         const Database = require('better-sqlite3');
         this.db = new Database(config.dbPath, { readonly: true });
       } catch (error) {
-        console.warn('[PreloadStrategy] Failed to open database:', error);
+        logger.warn('PreloadStrategy failed to open database', {
+          error: error instanceof Error ? error.message : String(error),
+        });
         this.db = null;
       }
     } else {
@@ -142,7 +145,9 @@ export class PreloadStrategy {
     // Sort by priority (CRITICAL first)
     this.targets.sort((a, b) => b.priority - a.priority);
 
-    console.log(`[PreloadStrategy] Registered ${targets.length} preload targets`);
+    logger.info('PreloadStrategy registered preload targets', {
+      targetCount: targets.length,
+    });
   }
 
   /**
@@ -155,7 +160,9 @@ export class PreloadStrategy {
       this.trafficPatterns.set(pattern.region, pattern);
     }
 
-    console.log(`[PreloadStrategy] Registered ${patterns.length} traffic patterns`);
+    logger.info('PreloadStrategy registered traffic patterns', {
+      patternCount: patterns.length,
+    });
   }
 
   /**
@@ -169,7 +176,11 @@ export class PreloadStrategy {
     // Sort events by start time
     this.events.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
-    console.log(`[PreloadStrategy] Scheduled event: ${event.name} at ${event.startTime.toISOString()}`);
+    logger.info('PreloadStrategy scheduled event', {
+      eventName: event.name,
+      startTime: event.startTime.toISOString(),
+      priority: event.priority,
+    });
   }
 
   /**
@@ -220,7 +231,10 @@ export class PreloadStrategy {
     const duration = performance.now() - startTime;
     this.avgPreloadTimeMs = (this.avgPreloadTimeMs * (this.preloadCount - 1) + duration) / this.preloadCount;
 
-    console.log(`[PreloadStrategy] Preloaded ${districtIds.length} districts in ${duration.toFixed(2)}ms`);
+    logger.info('PreloadStrategy preloaded districts', {
+      districtCount: districtIds.length,
+      durationMs: duration,
+    });
   }
 
   /**
@@ -343,7 +357,10 @@ export class PreloadStrategy {
 
     for (const target of targets) {
       if (districtIds.length >= maxDistricts) {
-        console.warn(`[PreloadStrategy] Reached memory budget (${maxDistricts} districts)`);
+        logger.warn('PreloadStrategy reached memory budget', {
+          maxDistricts,
+          currentCount: districtIds.length,
+        });
         break;
       }
 
@@ -416,7 +433,10 @@ export class PreloadStrategy {
 
         return results;
       } catch (error) {
-        console.error('[PreloadStrategy] Database query failed:', error);
+        logger.error('PreloadStrategy database query failed', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         // Fall through to placeholder implementation
       }
     }
@@ -470,11 +490,16 @@ export class PreloadStrategy {
       try {
         await this.executePreload(lookupFn);
       } catch (error) {
-        console.error('[PreloadStrategy] Background preload failed:', error);
+        logger.error('PreloadStrategy background preload failed', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       }
     }, intervalMs);
 
-    console.log(`[PreloadStrategy] Started background preload (interval: ${this.config.preloadIntervalMinutes}m)`);
+    logger.info('PreloadStrategy started background preload', {
+      intervalMinutes: this.config.preloadIntervalMinutes,
+    });
   }
 
   /**
@@ -502,7 +527,9 @@ export class PreloadStrategy {
       try {
         this.db.close();
       } catch (error) {
-        console.error('[PreloadStrategy] Failed to close database:', error);
+        logger.error('PreloadStrategy failed to close database', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

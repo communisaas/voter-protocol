@@ -17,6 +17,7 @@ import * as turf from '@turf/turf';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from './types';
 import type { ProvenanceMetadata } from '../core/types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Cache entry with TTL
@@ -142,9 +143,21 @@ export class DistrictLookupService {
 
   /**
    * Perform database lookup with R-tree spatial index
+   *
+   * NOTE: This uses synchronous better-sqlite3 which blocks the event loop.
+   * For high-concurrency API serving, consider:
+   * 1. Worker thread pool for SQLite queries
+   * 2. better-sqlite3-worker-threads wrapper
+   * 3. Read-only connection pool with setImmediate yielding
+   *
+   * Current approach is acceptable for:
+   * - Low-to-moderate concurrency (<100 concurrent requests)
+   * - Readonly queries with in-memory cache (this.cache) absorbing most load
+   * - Sub-millisecond query times (R-tree index is very fast)
    */
   private performLookup(lat: number, lon: number): DistrictBoundary | null {
     // Step 1: R-tree bounding box query (fast filter)
+    // PERF: Synchronous SQLite call - blocks event loop but typically <1ms
     const candidates = this.db
       .prepare(
         `
@@ -200,7 +213,11 @@ export class DistrictLookupService {
         }
       } catch (error) {
         // Skip malformed geometries (log in production)
-        console.error(`Failed to parse geometry for district ${row.id}:`, error);
+        logger.error('Failed to parse geometry for district', {
+          districtId: row.id,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         continue;
       }
     }

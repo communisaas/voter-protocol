@@ -6,7 +6,8 @@
  * SCALE: 1000+ registry entries (future)
  */
 
-import type { KnownPortal } from '../registry/known-portals.js';
+import type { KnownPortal } from '../core/registry/known-portals.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Health check result for a registry entry
@@ -223,7 +224,10 @@ export async function validateRegistry(
   const entries = Object.entries(registry);
   const results: HealthCheckResult[] = [];
 
-  console.log(`\nValidating ${entries.length} registry entries (${concurrency} concurrent)...\n`);
+  logger.info('Starting registry validation', {
+    totalEntries: entries.length,
+    concurrency,
+  });
 
   // Process in batches
   for (let i = 0; i < entries.length; i += concurrency) {
@@ -237,7 +241,11 @@ export async function validateRegistry(
 
     // Progress update
     const progress = ((results.length / entries.length) * 100).toFixed(1);
-    console.log(`Progress: ${results.length}/${entries.length} (${progress}%)`);
+    logger.info('Validation progress', {
+      completed: results.length,
+      total: entries.length,
+      progressPercent: progress,
+    });
   }
 
   // Calculate summary

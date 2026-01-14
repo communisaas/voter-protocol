@@ -13,6 +13,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface CensusPlace {
   readonly fips: string;
@@ -72,10 +73,10 @@ async function main(): Promise<void> {
   const censusFile = join(__dirname, '../data/us-cities-top-1000.json');
   const censusPlaces = JSON.parse(readFileSync(censusFile, 'utf-8')) as CensusPlace[];
 
-  console.log('='.repeat(70));
-  console.log('COVERAGE GAP ANALYSIS');
-  console.log('='.repeat(70));
-  console.log(`Census places (top 1,000): ${censusPlaces.length}`);
+  logger.info('='.repeat(70));
+  logger.info('COVERAGE GAP ANALYSIS');
+  logger.info('='.repeat(70));
+  logger.info(`Census places (top 1,000): ${censusPlaces.length}`);
 
   // Load existing classified layers
   const classifiedFile = join(dataDir, 'comprehensive_classified_layers.jsonl');
@@ -83,8 +84,8 @@ async function main(): Promise<void> {
   const lines = content.split('\n').filter(line => line.trim());
   const classifiedLayers = lines.map(line => JSON.parse(line) as Record<string, unknown>);
 
-  console.log(`Existing classified layers: ${classifiedLayers.length}`);
-  console.log('');
+  logger.info(`Existing classified layers: ${classifiedLayers.length}`);
+  logger.info('');
 
   // Filter for municipal (city) council districts only
   const cityCouncilLayers = classifiedLayers.filter(layer =>
@@ -93,8 +94,8 @@ async function main(): Promise<void> {
      layer.governance_level === 'municipal')
   );
 
-  console.log(`City council layers: ${cityCouncilLayers.length}`);
-  console.log('');
+  logger.info(`City council layers: ${cityCouncilLayers.length}`);
+  logger.info('');
 
   // Extract city names from classified layers
   const discoveredCityNames = new Set<string>();
@@ -105,8 +106,8 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`Discovered cities (estimated): ${discoveredCityNames.size}`);
-  console.log('');
+  logger.info(`Discovered cities (estimated): ${discoveredCityNames.size}`);
+  logger.info('');
 
   // Find missing cities
   const missingCities: CensusPlace[] = [];
@@ -123,10 +124,10 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log('Coverage Statistics:');
-  console.log(`  Covered cities: ${coveredCities.length} (${((coveredCities.length / censusPlaces.length) * 100).toFixed(1)}%)`);
-  console.log(`  Missing cities: ${missingCities.length} (${((missingCities.length / censusPlaces.length) * 100).toFixed(1)}%)`);
-  console.log('');
+  logger.info('Coverage Statistics:');
+  logger.info(`  Covered cities: ${coveredCities.length} (${((coveredCities.length / censusPlaces.length) * 100).toFixed(1)}%)`);
+  logger.info(`  Missing cities: ${missingCities.length} (${((missingCities.length / censusPlaces.length) * 100).toFixed(1)}%)`);
+  logger.info('');
 
   // Analyze missing cities by population tier
   const tier1 = missingCities.filter(c => c.population >= 500000);  // Major cities
@@ -134,22 +135,22 @@ async function main(): Promise<void> {
   const tier3 = missingCities.filter(c => c.population >= 100000 && c.population < 250000);  // Medium cities
   const tier4 = missingCities.filter(c => c.population < 100000);  // Smaller cities
 
-  console.log('Missing Cities by Population Tier:');
-  console.log(`  Tier 1 (pop >= 500k): ${tier1.length} cities`);
-  console.log(`  Tier 2 (pop 250k-500k): ${tier2.length} cities`);
-  console.log(`  Tier 3 (pop 100k-250k): ${tier3.length} cities`);
-  console.log(`  Tier 4 (pop < 100k): ${tier4.length} cities`);
-  console.log('');
+  logger.info('Missing Cities by Population Tier:');
+  logger.info(`  Tier 1 (pop >= 500k): ${tier1.length} cities`);
+  logger.info(`  Tier 2 (pop 250k-500k): ${tier2.length} cities`);
+  logger.info(`  Tier 3 (pop 100k-250k): ${tier3.length} cities`);
+  logger.info(`  Tier 4 (pop < 100k): ${tier4.length} cities`);
+  logger.info('');
 
   // Priority targets (Tier 1 + Tier 2 for manual research)
   const priorityTargets = [...tier1, ...tier2];
 
-  console.log(`Priority targets for manual research: ${priorityTargets.length} cities`);
-  console.log('');
+  logger.info(`Priority targets for manual research: ${priorityTargets.length} cities`);
+  logger.info('');
 
-  console.log('Top 20 Missing Cities (by population):');
+  logger.info('Top 20 Missing Cities (by population):');
   for (const place of missingCities.slice(0, 20)) {
-    console.log(`  ${place.rank}. ${place.name}, ${place.state} (pop: ${place.population.toLocaleString()})`);
+    logger.info(`  ${place.rank}. ${place.name}, ${place.state} (pop: ${place.population.toLocaleString()})`);
   }
 
   // Geographic distribution
@@ -158,13 +159,13 @@ async function main(): Promise<void> {
     missingByState.set(place.state, (missingByState.get(place.state) || 0) + 1);
   }
 
-  console.log('\nTop 10 States with Missing Cities:');
+  logger.info('\nTop 10 States with Missing Cities:');
   const sortedStates = Array.from(missingByState.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 
   for (const [state, count] of sortedStates) {
-    console.log(`  ${state}: ${count} missing cities`);
+    logger.info(`  ${state}: ${count} missing cities`);
   }
 
   // Save detailed report
@@ -199,21 +200,21 @@ async function main(): Promise<void> {
   const reportFile = join(dataDir, 'coverage_gap_analysis.json');
   writeFileSync(reportFile, JSON.stringify(report, null, 2));
 
-  console.log('\n' + '='.repeat(70));
-  console.log('ANALYSIS COMPLETE');
-  console.log('='.repeat(70));
-  console.log(`Report saved: ${reportFile}`);
-  console.log('');
-  console.log('RECOMMENDED NEXT STEPS:');
-  console.log('1. Manual research for Tier 1 missing cities (high value targets)');
-  console.log('2. Search ArcGIS Hub with alternate query terms (e.g., "ward boundaries")');
-  console.log('3. Check state/county GIS portals for cities without direct servers');
-  console.log('4. Document findings in curated registry');
+  logger.info('\n' + '='.repeat(70));
+  logger.info('ANALYSIS COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info(`Report saved: ${reportFile}`);
+  logger.info('');
+  logger.info('RECOMMENDED NEXT STEPS:');
+  logger.info('1. Manual research for Tier 1 missing cities (high value targets)');
+  logger.info('2. Search ArcGIS Hub with alternate query terms (e.g., "ward boundaries")');
+  logger.info('3. Check state/county GIS portals for cities without direct servers');
+  logger.info('4. Document findings in curated registry');
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     process.exit(1);
   });

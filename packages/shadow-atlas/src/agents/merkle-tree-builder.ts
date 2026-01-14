@@ -26,8 +26,9 @@ import { readFileSync, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { GovernanceDistrict } from '../schemas/governance-district.js';
-import { QualityTier } from '../schemas/governance-district.js';
+import type { GovernanceDistrict } from '../validation/schemas/governance-district.js';
+import { QualityTier } from '../validation/schemas/governance-district.js';
+import { logger } from '../core/utils/logger.js';
 
 // ES module path handling
 const __filename = fileURLToPath(import.meta.url);
@@ -156,7 +157,7 @@ async function fetchGeometry(layerUrl: string): Promise<unknown | null> {
     });
 
     if (!response.ok) {
-      console.warn(`   ⚠️  Geometry fetch failed for ${layerUrl}: HTTP ${response.status}`);
+      logger.warn(`   ⚠️  Geometry fetch failed for ${layerUrl}: HTTP ${response.status}`);
       return null;
     }
 
@@ -169,7 +170,7 @@ async function fetchGeometry(layerUrl: string): Promise<unknown | null> {
 
     return null;
   } catch (error) {
-    console.warn(`   ⚠️  Geometry fetch error for ${layerUrl}: ${(error as Error).message}`);
+    logger.warn(`   ⚠️  Geometry fetch error for ${layerUrl}: ${(error as Error).message}`);
     return null;
   }
 }
@@ -235,21 +236,21 @@ async function hashGeometry(district: GovernanceDistrict): Promise<string> {
       if (attempt < maxRetries) {
         // Exponential backoff: 1s, 2s, 4s
         const delayMs = Math.pow(2, attempt - 1) * baseDelayMs;
-        console.warn(
+        logger.warn(
           `   ⚠️  Geometry fetch failed for ${district.layer_url} (attempt ${attempt}/${maxRetries}): ${lastError.message}`
         );
-        console.log(`   🔄 Retrying in ${delayMs}ms...`);
+        logger.info(`   🔄 Retrying in ${delayMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
   }
 
   // All retries exhausted - fall back to URL hash
-  console.warn(
+  logger.warn(
     `   ⚠️  Geometry fetch failed after ${maxRetries} attempts for ${district.layer_url}. Using URL fallback.`
   );
   if (lastError) {
-    console.warn(`   📋 Last error: ${lastError.message}`);
+    logger.warn(`   📋 Last error: ${lastError.message}`);
   }
 
   const fallbackHash = keccak256(district.layer_url + ':geometry');
@@ -416,8 +417,8 @@ function loadDistricts(inputPath: string): GovernanceDistrict[] {
     return governanceTiers.includes(d.tier as QualityTier);
   });
 
-  console.log(`\nLoaded ${allDistricts.length} total districts`);
-  console.log(`Filtered to ${governanceDistricts.length} governance districts (GOLD/SILVER/BRONZE)`);
+  logger.info(`\nLoaded ${allDistricts.length} total districts`);
+  logger.info(`Filtered to ${governanceDistricts.length} governance districts (GOLD/SILVER/BRONZE)`);
 
   return governanceDistricts;
 }
@@ -426,27 +427,27 @@ function loadDistricts(inputPath: string): GovernanceDistrict[] {
  * Main execution
  */
 async function main(): Promise<void> {
-  console.log('Shadow Atlas Merkle Tree Builder (Layer 5)');
-  console.log('==========================================\n');
+  logger.info('Shadow Atlas Merkle Tree Builder (Layer 5)');
+  logger.info('==========================================\n');
 
   const version = '2025-Q1';
   const startTime = Date.now();
 
-  console.log('🌐 PRODUCTION MODE: Fetching actual GeoJSON geometry from ArcGIS FeatureServers\n');
+  logger.info('🌐 PRODUCTION MODE: Fetching actual GeoJSON geometry from ArcGIS FeatureServers\n');
 
   // Step 1: Load districts from classified layers
   const inputPath = join(__dirname, 'data', 'comprehensive_classified_layers.jsonl');
-  console.log(`Reading input: ${inputPath}`);
+  logger.info(`Reading input: ${inputPath}`);
 
   const districts = loadDistricts(inputPath);
 
   if (districts.length === 0) {
-    console.error('ERROR: No governance districts found in input');
+    logger.error('ERROR: No governance districts found in input');
     process.exit(1);
   }
 
   // Step 2: Create leaves with deterministic ordering
-  console.log('\nCreating Merkle leaves...');
+  logger.info('\nCreating Merkle leaves...');
 
   // Sort districts by district_id (lexicographic) for canonical ordering
   const sortedDistricts = [...districts].sort((a, b) =>
@@ -460,24 +461,24 @@ async function main(): Promise<void> {
     leaves.push(leaf);
 
     if ((i + 1) % 100 === 0) {
-      console.log(`  Created ${i + 1}/${sortedDistricts.length} leaves`);
+      logger.info(`  Created ${i + 1}/${sortedDistricts.length} leaves`);
     }
   }
 
-  console.log(`Created ${leaves.length} leaves (deterministically sorted)`);
+  logger.info(`Created ${leaves.length} leaves (deterministically sorted)`);
 
   // Step 3: Build Merkle tree
-  console.log('\nBuilding Merkle tree...');
+  logger.info('\nBuilding Merkle tree...');
 
   const tree = buildMerkleTree(leaves);
 
-  console.log(`Tree constructed:`);
-  console.log(`  Root: ${tree.root}`);
-  console.log(`  Depth: ${tree.depth} levels`);
-  console.log(`  Leaves: ${tree.leafCount}`);
+  logger.info(`Tree constructed:`);
+  logger.info(`  Root: ${tree.root}`);
+  logger.info(`  Depth: ${tree.depth} levels`);
+  logger.info(`  Leaves: ${tree.leafCount}`);
 
   // Step 4: Generate proofs for all leaves
-  console.log('\nGenerating Merkle proofs...');
+  logger.info('\nGenerating Merkle proofs...');
 
   const proofs: MerkleProof[] = [];
   for (let i = 0; i < leaves.length; i++) {
@@ -485,14 +486,14 @@ async function main(): Promise<void> {
     proofs.push(proof);
 
     if ((i + 1) % 1000 === 0) {
-      console.log(`  Generated ${i + 1}/${leaves.length} proofs`);
+      logger.info(`  Generated ${i + 1}/${leaves.length} proofs`);
     }
   }
 
-  console.log(`Generated ${proofs.length} proofs`);
+  logger.info(`Generated ${proofs.length} proofs`);
 
   // Step 5: Validate all proofs
-  console.log('\nValidating proofs...');
+  logger.info('\nValidating proofs...');
 
   let verified = 0;
   let failed = 0;
@@ -507,17 +508,17 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`  Verified: ${verified}/${proofs.length}`);
-  console.log(`  Failed: ${failed}/${proofs.length}`);
+  logger.info(`  Verified: ${verified}/${proofs.length}`);
+  logger.info(`  Failed: ${failed}/${proofs.length}`);
 
   if (failed > 0) {
-    console.error('\nERROR: Proof validation failed!');
-    console.error('Failed district IDs:', failedProofs.slice(0, 10));
+    logger.error('\nERROR: Proof validation failed!');
+    logger.error('Failed district IDs', { failedDistricts: failedProofs.slice(0, 10) });
     process.exit(1);
   }
 
   // Step 6: Write outputs
-  console.log('\nWriting outputs...');
+  logger.info('\nWriting outputs...');
 
   const outputDir = join(__dirname, 'data');
 
@@ -534,21 +535,21 @@ async function main(): Promise<void> {
     join(outputDir, 'merkle_tree.json'),
     JSON.stringify(treeOutput, null, 2)
   );
-  console.log('  ✓ merkle_tree.json');
+  logger.info('  ✓ merkle_tree.json');
 
   // Write proofs
   writeFileSync(
     join(outputDir, 'merkle_proofs.json'),
     JSON.stringify(proofs, null, 2)
   );
-  console.log('  ✓ merkle_proofs.json');
+  logger.info('  ✓ merkle_proofs.json');
 
   // Write leaves
   writeFileSync(
     join(outputDir, 'merkle_leaves.json'),
     JSON.stringify(leaves, null, 2)
   );
-  console.log('  ✓ merkle_leaves.json');
+  logger.info('  ✓ merkle_leaves.json');
 
   // Step 7: Generate report
   const elapsedMs = Date.now() - startTime;
@@ -630,17 +631,17 @@ Action Required:
     join(outputDir, 'merkle_tree_report.txt'),
     reportText
   );
-  console.log('  ✓ merkle_tree_report.txt');
+  logger.info('  ✓ merkle_tree_report.txt');
 
   writeFileSync(
     join(outputDir, 'merkle_tree_report.json'),
     JSON.stringify(report, null, 2)
   );
-  console.log('  ✓ merkle_tree_report.json');
+  logger.info('  ✓ merkle_tree_report.json');
 
-  console.log('\n' + '='.repeat(60));
-  console.log(reportText);
-  console.log('='.repeat(60) + '\n');
+  logger.info('\n' + '='.repeat(60));
+  logger.info(reportText);
+  logger.info('='.repeat(60) + '\n');
 
   if (report.status !== 'READY') {
     process.exit(1);
@@ -650,7 +651,7 @@ Action Required:
 // Execute if run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(err => {
-    console.error('FATAL ERROR:', err);
+    logger.error('FATAL ERROR:', err);
     process.exit(1);
   });
 }

@@ -13,6 +13,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // TYPES
@@ -202,7 +203,7 @@ async function validateArcGISServer(url: string): Promise<boolean> {
 async function discoverCityServer(city: CityTarget): Promise<DiscoveredServer | null> {
   const patterns = generateUrlPatterns(city.name, city.state);
 
-  console.log(`[${city.rank}/${city.name}, ${city.state}] Trying ${patterns.length} patterns...`);
+  logger.info(`[${city.rank}/${city.name}, ${city.state}] Trying ${patterns.length} patterns...`);
 
   for (const pattern of patterns) {
     // Check DNS cache first
@@ -216,7 +217,7 @@ async function discoverCityServer(city: CityTarget): Promise<DiscoveredServer | 
     const responseTime = Date.now() - startTime;
 
     if (isValid) {
-      console.log(`✓ Found server: ${pattern} (${responseTime}ms)`);
+      logger.info(`✓ Found server: ${pattern} (${responseTime}ms)`);
       dnsCache.set(domain, true);
 
       return {
@@ -237,7 +238,7 @@ async function discoverCityServer(city: CityTarget): Promise<DiscoveredServer | 
     }
   }
 
-  console.log(`✗ No server found for ${city.name}, ${city.state}`);
+  logger.info(`✗ No server found for ${city.name}, ${city.state}`);
   return null;
 }
 
@@ -257,7 +258,7 @@ async function discoverServersParallel(
   for (let i = 0; i < cities.length; i += concurrency) {
     const batch = cities.slice(i, i + concurrency);
 
-    console.log(`\n[Batch ${Math.floor(i / concurrency) + 1}/${Math.ceil(cities.length / concurrency)}] Processing ${batch.length} cities...`);
+    logger.info(`\n[Batch ${Math.floor(i / concurrency) + 1}/${Math.ceil(cities.length / concurrency)}] Processing ${batch.length} cities...`);
 
     const batchResults = await Promise.all(
       batch.map(city => discoverCityServer(city))
@@ -305,25 +306,25 @@ function calculateStats(
 }
 
 function printStats(stats: DiscoveryStats): void {
-  console.log('\n' + '='.repeat(80));
-  console.log('DISCOVERY STATISTICS');
-  console.log('='.repeat(80));
-  console.log(`Total cities scanned: ${stats.totalCities}`);
-  console.log(`Valid servers found: ${stats.validServers}`);
-  console.log(`Failed discoveries: ${stats.failedCities}`);
-  console.log(`Hit rate: ${stats.hitRate.toFixed(2)}%`);
-  console.log(`Avg response time: ${stats.avgResponseTime.toFixed(0)}ms`);
-  console.log('\nPattern distribution:');
+  logger.info('\n' + '='.repeat(80));
+  logger.info('DISCOVERY STATISTICS');
+  logger.info('='.repeat(80));
+  logger.info(`Total cities scanned: ${stats.totalCities}`);
+  logger.info(`Valid servers found: ${stats.validServers}`);
+  logger.info(`Failed discoveries: ${stats.failedCities}`);
+  logger.info(`Hit rate: ${stats.hitRate.toFixed(2)}%`);
+  logger.info(`Avg response time: ${stats.avgResponseTime.toFixed(0)}ms`);
+  logger.info('\nPattern distribution:');
 
   const sortedPatterns = Object.entries(stats.patternDistribution)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10); // Top 10 patterns
 
   for (const [pattern, count] of sortedPatterns) {
-    console.log(`  ${count.toString().padStart(4)} - ${pattern}`);
+    logger.info(`  ${count.toString().padStart(4)} - ${pattern}`);
   }
 
-  console.log('='.repeat(80) + '\n');
+  logger.info('='.repeat(80) + '\n');
 }
 
 // ============================================================================
@@ -331,16 +332,16 @@ function printStats(stats: DiscoveryStats): void {
 // ============================================================================
 
 async function main() {
-  console.log('City-Specific ArcGIS Server Discovery');
-  console.log('Target: Top 1,000 US cities by population\n');
+  logger.info('City-Specific ArcGIS Server Discovery');
+  logger.info('Target: Top 1,000 US cities by population\n');
 
   // Load city list
   const citiesData = await fs.readFile(CITY_LIST_PATH, 'utf-8');
   const cities: CityTarget[] = JSON.parse(citiesData);
 
-  console.log(`Loaded ${cities.length} cities`);
-  console.log(`Concurrency: ${CONCURRENT_REQUESTS} parallel requests`);
-  console.log(`Timeout: ${REQUEST_TIMEOUT}ms per pattern\n`);
+  logger.info(`Loaded ${cities.length} cities`);
+  logger.info(`Concurrency: ${CONCURRENT_REQUESTS} parallel requests`);
+  logger.info(`Timeout: ${REQUEST_TIMEOUT}ms per pattern\n`);
 
   // Discover servers
   const startTime = Date.now();
@@ -351,7 +352,7 @@ async function main() {
   const stats = calculateStats(cities, servers);
   printStats(stats);
 
-  console.log(`Total runtime: ${elapsedTime.toFixed(1)} minutes\n`);
+  logger.info(`Total runtime: ${elapsedTime.toFixed(1)} minutes\n`);
 
   // Save results
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -361,13 +362,16 @@ async function main() {
     'utf-8'
   );
 
-  console.log(`Results saved to: ${OUTPUT_PATH}`);
-  console.log(`Next step: Run enumerate-city-district-layers.ts to discover governance districts\n`);
+  logger.info(`Results saved to: ${OUTPUT_PATH}`);
+  logger.info(`Next step: Run enumerate-city-district-layers.ts to discover governance districts\n`);
 }
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(console.error);
+  main().catch(error => {
+    logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+    process.exit(1);
+  });
 }
 
 export { discoverCityServer, generateUrlPatterns, generateCitySlugs };

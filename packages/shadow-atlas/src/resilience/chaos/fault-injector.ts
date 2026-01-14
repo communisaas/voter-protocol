@@ -19,6 +19,7 @@
  */
 
 import type { ChaosFault, ChaosFaultType, ChaosFaultConfig } from '../types.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Chaos fault injection error
@@ -287,7 +288,9 @@ export class ChaosFaultInjector {
       try {
         listener(event);
       } catch (error) {
-        console.error('[ChaosFaultInjector] Event listener error:', error);
+        logger.error('ChaosFaultInjector event listener error', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

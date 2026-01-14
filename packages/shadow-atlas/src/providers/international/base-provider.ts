@@ -28,6 +28,7 @@
  */
 
 import type { Polygon, MultiPolygon, FeatureCollection } from 'geojson';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // Base Provider Interface (Contract for All International Providers)
@@ -444,7 +445,10 @@ export abstract class BaseInternationalProvider<
           }
         }
       } catch (error) {
-        console.warn(`[${this.country}] Could not check for changes:`, error);
+        logger.warn('Could not check for changes', {
+          country: this.country,
+          error: error instanceof Error ? error.message : String(error)
+        });
         // Conservatively return true if we can't check
         return true;
       }
@@ -545,9 +549,12 @@ export abstract class BaseInternationalProvider<
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
-        console.log(
-          `   [${this.country}] Fetching: ${url.substring(0, 80)}... (attempt ${attempt}/${this.retryAttempts})`
-        );
+        logger.debug('Fetching GeoJSON', {
+          country: this.country,
+          url: url.substring(0, 80),
+          attempt,
+          maxAttempts: this.retryAttempts
+        });
 
         const response = await fetch(url, {
           headers: {
@@ -569,16 +576,23 @@ export abstract class BaseInternationalProvider<
           throw new Error('Invalid GeoJSON: missing features array');
         }
 
-        console.log(`   [${this.country}] ✓ Fetched ${data.features.length} features`);
+        logger.debug('GeoJSON fetched', {
+          country: this.country,
+          featureCount: data.features.length
+        });
         return data;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`   [${this.country}] Attempt ${attempt} failed: ${lastError.message}`);
+        logger.warn('Fetch attempt failed', {
+          country: this.country,
+          attempt,
+          error: lastError.message
+        });
 
         if (attempt < this.retryAttempts) {
           // Exponential backoff: 1s, 2s, 4s, 8s, ...
           const delay = Math.pow(2, attempt - 1) * this.retryDelayMs;
-          console.log(`   [${this.country}] Retrying in ${delay}ms...`);
+          logger.debug('Retrying fetch', { country: this.country, delayMs: delay });
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }

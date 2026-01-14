@@ -18,6 +18,7 @@
 
 import Database from 'better-sqlite3';
 import type { NormalizedDistrict, DistrictRecord } from './types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * R-tree index builder
@@ -32,7 +33,10 @@ export class RTreeBuilder {
    * @param dbPath - Output SQLite database path
    */
   build(districts: readonly NormalizedDistrict[], dbPath: string): void {
-    console.log(`Building R-tree index for ${districts.length} districts...`);
+    logger.info('Building R-tree spatial index', {
+      districtCount: districts.length,
+      outputPath: dbPath,
+    });
 
     // Open database (overwrites if exists)
     const db = new Database(dbPath);
@@ -53,9 +57,11 @@ export class RTreeBuilder {
       // Optimize database
       this.optimize(db);
 
-      console.log(`✓ R-tree index built: ${dbPath}`);
-      console.log(`  - ${districts.length} districts indexed`);
-      console.log(`  - Database size: ${this.getDatabaseSize(db)} MB`);
+      logger.info('R-tree index build complete', {
+        dbPath,
+        districtCount: districts.length,
+        databaseSizeMB: this.getDatabaseSize(db),
+      });
     } finally {
       db.close();
     }
@@ -92,7 +98,7 @@ export class RTreeBuilder {
       );
     `);
 
-    console.log('  ✓ Schema created');
+    logger.debug('R-tree schema created');
   }
 
   /**
@@ -146,7 +152,9 @@ export class RTreeBuilder {
     // Execute transaction
     insertAll(districts);
 
-    console.log(`  ✓ ${districts.length} districts inserted`);
+    logger.debug('Districts inserted into R-tree database', {
+      districtCount: districts.length,
+    });
   }
 
   /**
@@ -165,7 +173,7 @@ export class RTreeBuilder {
       ON districts(district_type);
     `);
 
-    console.log('  ✓ Indexes built');
+    logger.debug('R-tree indexes built');
   }
 
   /**
@@ -178,7 +186,7 @@ export class RTreeBuilder {
     // Vacuum to reclaim space
     db.exec('VACUUM');
 
-    console.log('  ✓ Database optimized');
+    logger.debug('R-tree database optimized');
   }
 
   /**
@@ -198,25 +206,34 @@ export class RTreeBuilder {
     try {
       // Check district count
       const districtCount = db.prepare('SELECT COUNT(*) as count FROM districts').get() as { count: number };
-      console.log(`  ✓ District count: ${districtCount.count}`);
+      logger.debug('R-tree district count validated', {
+        districtCount: districtCount.count,
+      });
 
       // Check R-tree count (should match)
       const rtreeCount = db.prepare('SELECT COUNT(*) as count FROM rtree_index').get() as { count: number };
-      console.log(`  ✓ R-tree count: ${rtreeCount.count}`);
+      logger.debug('R-tree index count validated', {
+        rtreeCount: rtreeCount.count,
+      });
 
       if (districtCount.count !== rtreeCount.count) {
-        console.error(`  ✗ Count mismatch: districts=${districtCount.count}, rtree=${rtreeCount.count}`);
+        logger.error('R-tree count mismatch detected', {
+          districtCount: districtCount.count,
+          rtreeCount: rtreeCount.count,
+        });
         return false;
       }
 
       // Run integrity check
       const integrityResult = db.prepare('PRAGMA integrity_check').get() as { integrity_check: string };
       if (integrityResult.integrity_check !== 'ok') {
-        console.error(`  ✗ Integrity check failed: ${integrityResult.integrity_check}`);
+        logger.error('R-tree integrity check failed', {
+          integrityResult: integrityResult.integrity_check,
+        });
         return false;
       }
 
-      console.log('  ✓ Database validation passed');
+      logger.info('R-tree database validation passed');
       return true;
     } finally {
       db.close();
@@ -254,11 +271,13 @@ export class RTreeBuilder {
       const p95 = sorted[Math.floor(sorted.length * 0.95)];
       const p99 = sorted[Math.floor(sorted.length * 0.99)];
 
-      console.log('\n  Query Performance:');
-      console.log(`    - Avg: ${avg.toFixed(2)}ms`);
-      console.log(`    - p50: ${p50.toFixed(2)}ms`);
-      console.log(`    - p95: ${p95.toFixed(2)}ms`);
-      console.log(`    - p99: ${p99.toFixed(2)}ms`);
+      logger.info('R-tree query performance benchmark', {
+        avgMs: avg.toFixed(2),
+        p50Ms: p50.toFixed(2),
+        p95Ms: p95.toFixed(2),
+        p99Ms: p99.toFixed(2),
+        testPointCount: testPoints.length,
+      });
     } finally {
       db.close();
     }

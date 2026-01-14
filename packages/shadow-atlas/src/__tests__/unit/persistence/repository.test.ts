@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ulid } from 'ulid';
+import { randomBytes } from 'node:crypto';
 import { ShadowAtlasRepository } from '../../../persistence/repository';
 import { SQLiteAdapter } from '../../../persistence/adapters/sqlite';
 import type {
@@ -22,13 +22,20 @@ import { nowISO8601, parseJobScope, parseSnapshotRegions } from '../../../persis
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+// Helper to generate IDs (similar to sqlite-adapter)
+function generateId(prefix: string): string {
+  const timestamp = Date.now().toString(36);
+  const random = randomBytes(4).toString('hex');
+  return `${prefix}-${timestamp}-${random}`;
+}
+
 // Test fixture helpers
 async function createTestRepository(): Promise<{
   repo: ShadowAtlasRepository;
   adapter: SQLiteAdapter;
 }> {
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, 'schema.sql'),
+    path.join(__dirname, '../../../persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');
@@ -41,7 +48,7 @@ async function createTestRepository(): Promise<{
 function createTestJob(overrides: Partial<JobInsert> = {}): JobInsert {
   const now = nowISO8601();
   return {
-    id: ulid() as JobId,
+    id: generateId('job') as JobId,
     scope_states: JSON.stringify(['US-CA']),
     scope_layers: JSON.stringify(['congressional']),
     status: 'pending',
@@ -176,7 +183,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     const job = await repo.createJob(createTestJob());
 
     const extractionInsert: ExtractionInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -200,7 +207,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     const job = await repo.createJob(createTestJob());
 
     const extractionInsert: ExtractionInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -214,7 +221,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     // Attempt duplicate
     const duplicate: ExtractionInsert = {
       ...extractionInsert,
-      id: ulid() as any, // Different ID
+      id: generateId("test") as any, // Different ID
     };
 
     await expect(repo.createExtraction(duplicate)).rejects.toThrow();
@@ -228,7 +235,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     const job = await repo.createJob(createTestJob());
 
     await repo.createExtraction({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -238,7 +245,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     });
 
     await repo.createExtraction({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-TX',
       layer_type: 'congressional',
@@ -259,7 +266,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     const job = await repo.createJob(createTestJob());
 
     await repo.createExtraction({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -269,7 +276,7 @@ describe('ShadowAtlasRepository - Extractions', () => {
     });
 
     await repo.createExtraction({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'state_senate',
@@ -296,7 +303,7 @@ describe('ShadowAtlasRepository - Failures', () => {
     const job = await repo.createJob(createTestJob());
 
     const failureInsert: FailureInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-TX',
       layer_type: 'congressional',
@@ -322,7 +329,7 @@ describe('ShadowAtlasRepository - Failures', () => {
     const job = await repo.createJob(createTestJob());
 
     const failure = await repo.createFailure({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-TX',
       layer_type: 'congressional',
@@ -349,7 +356,7 @@ describe('ShadowAtlasRepository - Failures', () => {
 
     // Retryable, not yet retried
     await repo.createFailure({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -360,7 +367,7 @@ describe('ShadowAtlasRepository - Failures', () => {
 
     // Not retryable
     await repo.createFailure({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-TX',
       layer_type: 'congressional',
@@ -371,7 +378,7 @@ describe('ShadowAtlasRepository - Failures', () => {
 
     // Already retried
     const retried = await repo.createFailure({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-NY',
       layer_type: 'congressional',
@@ -399,7 +406,7 @@ describe('ShadowAtlasRepository - Snapshots', () => {
     const job = await repo.createJob(createTestJob());
 
     const snapshotInsert: SnapshotInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       merkle_root: '0xabcdef1234567890',
       ipfs_cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
@@ -430,7 +437,7 @@ describe('ShadowAtlasRepository - Snapshots', () => {
     const merkleRoot = '0xabcdef1234567890';
     await repo.createSnapshot(
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         job_id: job.id,
         merkle_root: merkleRoot,
         ipfs_cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
@@ -456,7 +463,7 @@ describe('ShadowAtlasRepository - Snapshots', () => {
     // Older snapshot
     await repo.createSnapshot(
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         job_id: job.id,
         merkle_root: '0x1111',
         ipfs_cid: 'bafyold',
@@ -470,7 +477,7 @@ describe('ShadowAtlasRepository - Snapshots', () => {
     // Newer snapshot
     await repo.createSnapshot(
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         job_id: job.id,
         merkle_root: '0x2222',
         ipfs_cid: 'bafynew',
@@ -494,7 +501,7 @@ describe('ShadowAtlasRepository - Snapshots', () => {
 
     const snapshot = await repo.createSnapshot(
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         job_id: job.id,
         merkle_root: '0xabcdef',
         ipfs_cid: 'bafytest',
@@ -520,7 +527,7 @@ describe('ShadowAtlasRepository - Validation Results', () => {
 
     const job = await repo.createJob(createTestJob());
     const extraction = await repo.createExtraction({
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -530,7 +537,7 @@ describe('ShadowAtlasRepository - Validation Results', () => {
     });
 
     const validationInsert: ValidationResultInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       extraction_id: extraction.id,
       validator_type: 'tiger_census',
       passed: true,
@@ -556,7 +563,7 @@ describe('ShadowAtlasRepository - Validation Results', () => {
     const job = await repo.createJob(createTestJob());
 
     const extractionInsert: ExtractionInsert = {
-      id: ulid() as any,
+      id: generateId("test") as any,
       job_id: job.id,
       state_code: 'US-CA',
       layer_type: 'congressional',
@@ -567,14 +574,14 @@ describe('ShadowAtlasRepository - Validation Results', () => {
 
     const validations: ValidationResultInsert[] = [
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         extraction_id: extractionInsert.id,
         validator_type: 'tiger_census',
         passed: true,
         validated_at: nowISO8601(),
       },
       {
-        id: ulid() as any,
+        id: generateId("test") as any,
         extraction_id: extractionInsert.id,
         validator_type: 'official_district_count',
         passed: true,
@@ -603,7 +610,7 @@ describe('ShadowAtlasRepository - Transactions', () => {
       await adapter.transaction(async () => {
         // Create extraction
         await repo.createExtraction({
-          id: ulid() as any,
+          id: generateId("test") as any,
           job_id: job.id,
           state_code: 'US-CA',
           layer_type: 'congressional',

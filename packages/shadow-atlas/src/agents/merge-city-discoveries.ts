@@ -10,6 +10,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // TYPES
@@ -77,7 +78,7 @@ const PYTHON_CLASSIFIER = path.join(__dirname, 'comprehensive-district-classifie
  * Reuses existing comprehensive-district-classifier.py
  */
 async function classifyDiscoveries(): Promise<void> {
-  console.log('Running Python classifier on discovered layers...');
+  logger.info('Running Python classifier on discovered layers...');
 
   try {
     // Check if discoveries file exists
@@ -91,9 +92,9 @@ async function classifyDiscoveries(): Promise<void> {
       maxBuffer: 100 * 1024 * 1024 // 100MB buffer for large outputs
     });
 
-    console.log('✓ Classification complete\n');
+    logger.info('✓ Classification complete\n');
   } catch (error) {
-    console.error('✗ Classification failed:', error);
+    logger.error('✗ Classification failed', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -121,7 +122,7 @@ async function loadLayersFromJSONL(filePath: string): Promise<LayerMetadata[]> {
       }
     }
   } catch (error) {
-    console.warn(`Could not load ${filePath}:`, error);
+    logger.warn(`Could not load ${filePath}`, { error: error instanceof Error ? error.message : String(error) });
     return [];
   }
 
@@ -176,7 +177,7 @@ async function mergeLayers(
   existingLayers: LayerMetadata[],
   newDiscoveries: LayerMetadata[]
 ): Promise<LayerMetadata[]> {
-  console.log('Merging layers...');
+  logger.info('Merging layers...');
 
   // Combine all layers
   const combined = [...existingLayers, ...newDiscoveries];
@@ -184,8 +185,8 @@ async function mergeLayers(
   // Deduplicate (existing layers win on duplicates)
   const deduplicated = deduplicateLayers(combined);
 
-  console.log(`✓ Merged ${existingLayers.length} existing + ${newDiscoveries.length} new = ${deduplicated.length} total`);
-  console.log(`✓ Removed ${combined.length - deduplicated.length} duplicates\n`);
+  logger.info(`✓ Merged ${existingLayers.length} existing + ${newDiscoveries.length} new = ${deduplicated.length} total`);
+  logger.info(`✓ Removed ${combined.length - deduplicated.length} duplicates\n`);
 
   return deduplicated;
 }
@@ -271,23 +272,23 @@ async function calculateMergeStats(
 }
 
 function printMergeStats(stats: MergeStats): void {
-  console.log('\n' + '='.repeat(80));
-  console.log('MERGE STATISTICS');
-  console.log('='.repeat(80));
-  console.log(`Existing layers: ${stats.existingLayers.toLocaleString()}`);
-  console.log(`New discoveries: ${stats.newDiscoveries.toLocaleString()}`);
-  console.log(`Duplicates removed: ${stats.duplicatesRemoved.toLocaleString()}`);
-  console.log(`Total layers after merge: ${stats.totalLayersAfterMerge.toLocaleString()}`);
-  console.log();
-  console.log('City Council Districts:');
-  console.log(`  Before: ${stats.cityCouncilBefore.toLocaleString()}`);
-  console.log(`  After:  ${stats.cityCouncilAfter.toLocaleString()}`);
-  console.log(`  Added:  ${stats.cityCouncilAdded.toLocaleString()} (+${((stats.cityCouncilAdded / stats.cityCouncilBefore) * 100).toFixed(1)}%)`);
-  console.log();
-  console.log('City Coverage:');
-  console.log(`  Top cities with GIS servers: ${stats.topCitiesCovered}`);
-  console.log(`  Coverage of top 1000: ${stats.coverageImprovement.toFixed(1)}%`);
-  console.log('='.repeat(80) + '\n');
+  logger.info('\n' + '='.repeat(80));
+  logger.info('MERGE STATISTICS');
+  logger.info('='.repeat(80));
+  logger.info(`Existing layers: ${stats.existingLayers.toLocaleString()}`);
+  logger.info(`New discoveries: ${stats.newDiscoveries.toLocaleString()}`);
+  logger.info(`Duplicates removed: ${stats.duplicatesRemoved.toLocaleString()}`);
+  logger.info(`Total layers after merge: ${stats.totalLayersAfterMerge.toLocaleString()}`);
+  logger.info('');
+  logger.info('City Council Districts:');
+  logger.info(`  Before: ${stats.cityCouncilBefore.toLocaleString()}`);
+  logger.info(`  After:  ${stats.cityCouncilAfter.toLocaleString()}`);
+  logger.info(`  Added:  ${stats.cityCouncilAdded.toLocaleString()} (+${((stats.cityCouncilAdded / stats.cityCouncilBefore) * 100).toFixed(1)}%)`);
+  logger.info('');
+  logger.info('City Coverage:');
+  logger.info(`  Top cities with GIS servers: ${stats.topCitiesCovered}`);
+  logger.info(`  Coverage of top 1000: ${stats.coverageImprovement.toFixed(1)}%`);
+  logger.info('='.repeat(80) + '\n');
 }
 
 // ============================================================================
@@ -295,24 +296,24 @@ function printMergeStats(stats: MergeStats): void {
 // ============================================================================
 
 async function main() {
-  console.log('City Discovery Merge & Validation');
-  console.log('Integrating newly discovered layers into master dataset\n');
+  logger.info('City Discovery Merge & Validation');
+  logger.info('Integrating newly discovered layers into master dataset\n');
 
   // Step 1: Classify discovered layers
   await classifyDiscoveries();
 
   // Step 2: Load existing and classified discoveries
-  console.log('Loading datasets...');
+  logger.info('Loading datasets...');
   const existingLayers = await loadLayersFromJSONL(EXISTING_LAYERS_PATH);
   const rawDiscoveries = await loadLayersFromJSONL(CLASSIFIED_DISCOVERIES_PATH);
 
-  console.log(`✓ Loaded ${existingLayers.length} existing layers`);
-  console.log(`✓ Loaded ${rawDiscoveries.length} classified discoveries\n`);
+  logger.info(`✓ Loaded ${existingLayers.length} existing layers`);
+  logger.info(`✓ Loaded ${rawDiscoveries.length} classified discoveries\n`);
 
   // Step 3: Filter high-quality discoveries
-  console.log('Filtering high-quality governance districts...');
+  logger.info('Filtering high-quality governance districts...');
   const qualityDiscoveries = filterHighQualityLayers(rawDiscoveries);
-  console.log(`✓ ${qualityDiscoveries.length} high-quality layers (rejected ${rawDiscoveries.length - qualityDiscoveries.length} low-quality)\n`);
+  logger.info(`✓ ${qualityDiscoveries.length} high-quality layers (rejected ${rawDiscoveries.length - qualityDiscoveries.length} low-quality)\n`);
 
   // Step 4: Merge and deduplicate
   const mergedLayers = await mergeLayers(existingLayers, qualityDiscoveries);
@@ -322,17 +323,20 @@ async function main() {
   printMergeStats(stats);
 
   // Step 6: Save merged dataset
-  console.log('Saving merged dataset...');
+  logger.info('Saving merged dataset...');
   const outputLines = mergedLayers.map(layer => JSON.stringify(layer)).join('\n');
   await fs.writeFile(MERGED_OUTPUT_PATH, outputLines, 'utf-8');
 
-  console.log(`✓ Merged dataset saved to: ${MERGED_OUTPUT_PATH}`);
-  console.log(`\nReplace existing file: mv ${MERGED_OUTPUT_PATH} ${EXISTING_LAYERS_PATH}\n`);
+  logger.info(`✓ Merged dataset saved to: ${MERGED_OUTPUT_PATH}`);
+  logger.info(`\nReplace existing file: mv ${MERGED_OUTPUT_PATH} ${EXISTING_LAYERS_PATH}\n`);
 }
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(console.error);
+  main().catch(error => {
+    logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+    process.exit(1);
+  });
 }
 
 export { mergeLayers, filterHighQualityLayers, calculateMergeStats };

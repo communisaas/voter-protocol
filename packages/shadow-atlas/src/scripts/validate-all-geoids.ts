@@ -34,7 +34,7 @@ import {
   type ValidatableLayer,
   type ValidationReport,
   type LayerValidation,
-} from '../validators/geoid-validation-suite.js';
+} from '../validators/geoid/validation-suite.js';
 
 interface CliOptions {
   readonly verbose: boolean;

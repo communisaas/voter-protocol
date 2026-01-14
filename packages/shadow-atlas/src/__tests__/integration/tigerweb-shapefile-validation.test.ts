@@ -29,7 +29,7 @@ import {
   validateCount,
   getTotalCongressionalDistricts,
   type LegislativeChamber,
-} from '../../registry/official-district-counts.js';
+} from '../../core/registry/official-district-counts.js';
 
 // ============================================================================
 // Skip Control

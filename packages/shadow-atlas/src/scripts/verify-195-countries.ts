@@ -23,7 +23,7 @@ import {
   getCountriesWithProviders,
   getRegistryStatistics,
   type ContinentalRegion,
-} from '../registry/iso-3166-countries.js';
+} from '../core/registry/iso-3166-countries.js';
 
 // ============================================================================
 // Main Verification

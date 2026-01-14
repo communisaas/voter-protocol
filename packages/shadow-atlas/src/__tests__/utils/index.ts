@@ -9,7 +9,7 @@
  *   createBoundary,
  *   createMockFetch,
  *   assertValidGeoid,
- * } from '../utils/index.js';
+ * } from '../core/utils/index.js';
  * ```
  */
 
@@ -18,6 +18,9 @@ export * from './fixtures.js';
 
 // Re-export all mocks
 export * from './mocks.js';
+
+// Re-export shadow atlas mocks
+export * from './shadow-atlas-mocks.js';
 
 // Re-export all assertions
 export * from './assertions.js';

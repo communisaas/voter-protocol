@@ -13,7 +13,7 @@ import {
   getPlaceGEOIDs,
   getExpectedPlaceCount,
 } from '../../../validators/place-geoids.js';
-import { getCanonicalGEOIDs, validateGEOIDCompleteness } from '../../../validators/geoid-reference.js';
+import { getCanonicalGEOIDs, validateGEOIDCompleteness } from '../../../validators/geoid/reference.js';
 
 describe('Place GEOIDs', () => {
   describe('CANONICAL_PLACE_GEOIDS', () => {

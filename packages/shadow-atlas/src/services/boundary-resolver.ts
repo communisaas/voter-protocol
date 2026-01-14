@@ -21,14 +21,14 @@ import type {
   BoundaryGeometry,
   BoundaryResolution,
   ProvenanceRecord,
-} from '../types/boundary.js';
+} from '../core/types/boundary.js';
 import {
   isBoundaryValid,
   isPointInBBox,
   getPrecisionRank,
   comparePrecision,
   PRECISION_RANK,
-} from '../types/boundary.js';
+} from '../core/types/boundary.js';
 
 /**
  * Geocoding result from any geocoder

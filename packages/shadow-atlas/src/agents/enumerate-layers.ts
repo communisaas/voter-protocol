@@ -19,6 +19,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface LayerInfo {
   readonly service_url: string;
@@ -64,7 +65,7 @@ class HighPerformanceLayerEnumerator {
     const totalRequests = stats.successCount + stats.failureCount;
     if (totalRequests >= 5 && stats.failureCount / totalRequests > 0.8) {
       if (!stats.circuitOpen) {
-        console.warn(`⚠️  Circuit breaker opened for ${domain}`);
+        logger.warn(`⚠️  Circuit breaker opened for ${domain}`);
         stats.circuitOpen = true;
       }
       return true;
@@ -84,7 +85,7 @@ class HighPerformanceLayerEnumerator {
     if (success) {
       stats.successCount++;
       if (stats.circuitOpen) {
-        console.log(`✓ Circuit breaker reset for ${domain}`);
+        logger.info(`✓ Circuit breaker reset for ${domain}`);
         stats.circuitOpen = false;
       }
     } else {
@@ -296,17 +297,17 @@ class HighPerformanceLayerEnumerator {
     const countQueryRate = totalCountQueries > 0 ?
       ((this.countQuerySuccesses / totalCountQueries) * 100).toFixed(1) : '0.0';
 
-    console.log('\n' + '='.repeat(70));
-    console.log(`Progress: ${this.requestCount}/${total} services (${((this.requestCount / total) * 100).toFixed(1)}%)`);
-    console.log(`Success: ${this.successCount} (${((this.successCount / this.requestCount) * 100).toFixed(1)}%)`);
-    console.log(`Failed: ${this.failureCount}`);
-    console.log(`Layers found: ${foundLayers}`);
-    console.log(`Count queries: ${this.countQuerySuccesses}/${totalCountQueries} (${countQueryRate}% success)`);
-    console.log(`Rate: ${rate.toFixed(2)} services/sec`);
-    console.log(`Concurrency: ${this.currentConcurrency}`);
-    console.log(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
-    console.log(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
-    console.log('='.repeat(70));
+    logger.info('\n' + '='.repeat(70));
+    logger.info(`Progress: ${this.requestCount}/${total} services (${((this.requestCount / total) * 100).toFixed(1)}%)`);
+    logger.info(`Success: ${this.successCount} (${((this.successCount / this.requestCount) * 100).toFixed(1)}%)`);
+    logger.info(`Failed: ${this.failureCount}`);
+    logger.info(`Layers found: ${foundLayers}`);
+    logger.info(`Count queries: ${this.countQuerySuccesses}/${totalCountQueries} (${countQueryRate}% success)`);
+    logger.info(`Rate: ${rate.toFixed(2)} services/sec`);
+    logger.info(`Concurrency: ${this.currentConcurrency}`);
+    logger.info(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
+    logger.info(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
+    logger.info('='.repeat(70));
 
     this.adjustConcurrency(errorRate);
   }
@@ -317,17 +318,17 @@ async function enumerateAllLayersOptimized(
   outputFile: string,
   batchSize: number = 100
 ): Promise<void> {
-  console.log('='.repeat(70));
-  console.log('HIGH-PERFORMANCE LAYER ENUMERATION');
-  console.log('='.repeat(70));
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log(`Batch size: ${batchSize}`);
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('HIGH-PERFORMANCE LAYER ENUMERATION');
+  logger.info('='.repeat(70));
+  logger.info(`Input: ${inputFile}`);
+  logger.info(`Output: ${outputFile}`);
+  logger.info(`Batch size: ${batchSize}`);
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Load datasets with NO geometry
-  console.log('Loading datasets with no geometry...');
+  logger.info('Loading datasets with no geometry...');
   const content = readFileSync(inputFile, 'utf-8');
   const lines = content.split('\n').filter(line => line.trim());
   const datasets = lines.map(line => JSON.parse(line) as Record<string, unknown>);
@@ -337,19 +338,19 @@ async function enumerateAllLayersOptimized(
     .map(d => String(d.url ?? ''))
     .filter(url => url.includes('FeatureServer') || url.includes('MapServer'));
 
-  console.log(`Found ${serviceUrls.length} services without geometry`);
-  console.log('');
+  logger.info(`Found ${serviceUrls.length} services without geometry`);
+  logger.info('');
 
   const enumerator = new HighPerformanceLayerEnumerator();
   const allLayerInfos: LayerInfo[] = [];
 
-  console.log('Enumerating layers in parallel...');
+  logger.info('Enumerating layers in parallel...');
 
   // Process in batches
   for (let i = 0; i < serviceUrls.length; i += batchSize) {
     const batch = serviceUrls.slice(i, i + batchSize);
 
-    console.log(`\nProcessing batch ${Math.floor(i / batchSize) + 1} (services ${i}-${i + batch.length})...`);
+    logger.info(`\nProcessing batch ${Math.floor(i / batchSize) + 1} (services ${i}-${i + batch.length})...`);
 
     const batchResults = await enumerator.processBatch(batch);
     allLayerInfos.push(...batchResults);
@@ -362,7 +363,7 @@ async function enumerateAllLayersOptimized(
         outputFile,
         allLayerInfos.map(l => JSON.stringify(l)).join('\n')
       );
-      console.log(`\n✓ Saved intermediate results (${allLayerInfos.length} layers)`);
+      logger.info(`\n✓ Saved intermediate results (${allLayerInfos.length} layers)`);
     }
   }
 
@@ -372,34 +373,34 @@ async function enumerateAllLayersOptimized(
     allLayerInfos.map(l => JSON.stringify(l)).join('\n')
   );
 
-  console.log('\n' + '='.repeat(70));
-  console.log('✓ LAYER ENUMERATION COMPLETE');
-  console.log('='.repeat(70));
-  console.log(`Total services: ${serviceUrls.length}`);
-  console.log(`Total layers: ${allLayerInfos.length}`);
-  console.log(`Avg layers/service: ${(allLayerInfos.length / serviceUrls.length).toFixed(1)}`);
-  console.log('');
+  logger.info('\n' + '='.repeat(70));
+  logger.info('✓ LAYER ENUMERATION COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info(`Total services: ${serviceUrls.length}`);
+  logger.info(`Total layers: ${allLayerInfos.length}`);
+  logger.info(`Avg layers/service: ${(allLayerInfos.length / serviceUrls.length).toFixed(1)}`);
+  logger.info('');
 
   // Statistics
   const withGeometry = allLayerInfos.filter(l => l.geometry_type !== null);
   const polygons = allLayerInfos.filter(l => l.geometry_type === 'esriGeometryPolygon');
 
-  console.log('Geometry statistics:');
-  console.log(`  With geometry: ${withGeometry.length} (${(withGeometry.length / allLayerInfos.length * 100).toFixed(1)}%)`);
-  console.log(`  Polygons: ${polygons.length} (${(polygons.length / allLayerInfos.length * 100).toFixed(1)}%)`);
-  console.log('');
+  logger.info('Geometry statistics:');
+  logger.info(`  With geometry: ${withGeometry.length} (${(withGeometry.length / allLayerInfos.length * 100).toFixed(1)}%)`);
+  logger.info(`  Polygons: ${polygons.length} (${(polygons.length / allLayerInfos.length * 100).toFixed(1)}%)`);
+  logger.info('');
 
-  console.log(`Output: ${outputFile}`);
-  console.log('='.repeat(70));
+  logger.info(`Output: ${outputFile}`);
+  logger.info('='.repeat(70));
 
   // Sample polygons
   if (polygons.length > 0) {
-    console.log('\nSample polygon layers:');
+    logger.info('\nSample polygon layers:');
     for (const layer of polygons.slice(0, 5)) {
-      console.log(`  ${layer.layer_name}`);
-      console.log(`    URL: ${layer.layer_url}`);
-      console.log(`    Features: ${layer.feature_count ?? 'unknown'}`);
-      console.log(`    Fields: ${layer.fields.slice(0, 3).join(', ')}${layer.fields.length > 3 ? ', ...' : ''}`);
+      logger.info(`  ${layer.layer_name}`);
+      logger.info(`    URL: ${layer.layer_url}`);
+      logger.info(`    Features: ${layer.feature_count ?? 'unknown'}`);
+      logger.info(`    Fields: ${layer.fields.slice(0, 3).join(', ')}${layer.fields.length > 3 ? ', ...' : ''}`);
     }
   }
 }
@@ -411,10 +412,10 @@ const outputFile = join(dataDir, 'enumerated_layers.jsonl');
 
 enumerateAllLayersOptimized(inputFile, outputFile, 100)
   .then(() => {
-    console.log('\n✓ Layer enumeration complete!');
+    logger.info('\n✓ Layer enumeration complete!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n✗ Fatal error:', error);
+    logger.error('\n✗ Fatal error:', error);
     process.exit(1);
   });

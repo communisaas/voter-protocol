@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { validatePortal, validateRegistry } from '../../../services/registry-validator.js';
-import type { KnownPortal } from '../registry/known-portals.js';
+import type { KnownPortal } from '../core/registry/known-portals.js';
 
 describe('Registry Validator', () => {
   // Mock fetch

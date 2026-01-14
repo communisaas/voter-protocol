@@ -35,6 +35,11 @@ export type BoundaryType =
   | 'voting_precinct'
   | 'special_district';
 
+import type { TIGERBoundaryType, SourceProvider } from './tiger-authority-rules.js';
+import { getTIGERAuthorityRule } from './tiger-authority-rules.js';
+import { getTIGERValidityWindow } from './tiger-validity.js';
+import { logger } from '../core/utils/logger.js';
+
 /**
  * Primary source information
  * Embedded registry of state redistricting authorities
@@ -476,10 +481,11 @@ export class PrimarySourceComparator {
         await handler(alert);
       } catch (error) {
         // Log but don't throw - one handler failure shouldn't block others
-        console.error(
-          `Alert handler failed for ${alert.jurisdiction}/${alert.boundaryType}:`,
-          error instanceof Error ? error.message : 'Unknown error'
-        );
+        logger.error('Alert handler failed', {
+          jurisdiction: alert.jurisdiction,
+          boundaryType: alert.boundaryType,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
   }

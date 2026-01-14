@@ -21,9 +21,9 @@
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
  */
 
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
 import { StateBatchExtractor } from '../providers/state-batch-extractor.js';
-import { STATE_GIS_PORTALS, getStatesWithLegislativeData, getLegislativeEndpoint } from '../registry/state-gis-portals.js';
+import { STATE_GIS_PORTALS, getStatesWithLegislativeData, getLegislativeEndpoint } from '../core/registry/state-gis-portals.js';
 import { JobStateStore } from './job-state-store.js';
 import type {
   OrchestrationOptions,
@@ -50,11 +50,12 @@ import { join, dirname } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
-import { CensusPlaceListLoader } from '../registry/census-place-list.js';
-import type { KnownPortal } from '../registry/known-portals.js';
+import { CensusPlaceListLoader } from '../core/registry/census-place-list.js';
+import type { KnownPortal } from '../core/registry/known-portals.js';
 import * as https from 'https';
 import * as http from 'http';
 import { createWriteStream } from 'fs';
+import { logger } from '../core/utils/logger.js';
 
 const execAsync = promisify(exec);
 
@@ -337,9 +338,11 @@ export class BatchOrchestrator {
         task => !completedTaskIds.has(task.taskId)
       );
 
-      console.log(
-        `Resuming job ${jobId}: ${pendingTasks.length} pending tasks (${completedTaskIds.size} already completed)`
-      );
+      logger.info('Resuming job', {
+        jobId,
+        pendingTasks: pendingTasks.length,
+        completedTasks: completedTaskIds.size,
+      });
 
       // Execute pending tasks (merge options to ensure all required fields)
       const mergedOptions = this.mergeOptions(job.options);
@@ -520,7 +523,10 @@ export class BatchOrchestrator {
       const fips = await this.getCityFips(cityName, state, censusLoader);
 
       if (!fips) {
-        console.warn(`[${state}] ${cityName}: No FIPS code found - skipping`);
+        logger.warn('No FIPS code found for city', {
+          state,
+          cityName,
+        });
         continue;
       }
 
@@ -1006,7 +1012,7 @@ export class BatchOrchestrator {
         // Check if job was cancelled
         const job = await this.stateStore.getJob(jobId);
         if (job?.status === 'cancelled') {
-          console.log(`Job ${jobId} cancelled, stopping worker`);
+          logger.info('Job cancelled, stopping worker', { jobId });
           return;
         }
 
@@ -1058,7 +1064,12 @@ export class BatchOrchestrator {
     // Retry loop
     for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
       try {
-        console.log(`[${state}] [${layer}] Extracting (attempt ${attempt}/${options.maxRetries})...`);
+        logger.info('Extracting layer', {
+          state,
+          layer,
+          attempt,
+          maxAttempts: options.maxRetries,
+        });
 
         // Extract layer
         const result = await this.extractor.extractLayer(state, layer);
@@ -1072,9 +1083,12 @@ export class BatchOrchestrator {
         if (options.validateAfterExtraction) {
           validationPassed = result.featureCount === result.expectedCount;
           if (!validationPassed) {
-            console.warn(
-              `[${state}] [${layer}] Validation warning: Expected ${result.expectedCount}, got ${result.featureCount}`
-            );
+            logger.warn('Validation warning - count mismatch', {
+              state,
+              layer,
+              expected: result.expectedCount,
+              actual: result.featureCount,
+            });
           }
         }
 
@@ -1092,12 +1106,21 @@ export class BatchOrchestrator {
         // Notify completion
         await this.notifyProgress(jobId, task.taskId, 'completed', options.onProgress);
 
-        console.log(`[${state}] [${layer}] ✓ Completed (${result.featureCount} boundaries)`);
+        logger.info('Layer extraction completed', {
+          state,
+          layer,
+          boundaryCount: result.featureCount,
+        });
 
         return;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(`[${state}] [${layer}] Attempt ${attempt} failed: ${lastError.message}`);
+        logger.error('Layer extraction attempt failed', {
+          state,
+          layer,
+          attempt,
+          error: lastError.message,
+        });
 
         // Retry delay
         if (attempt < options.maxRetries) {
@@ -1127,7 +1150,12 @@ export class BatchOrchestrator {
       lastError?.message
     );
 
-    console.log(`[${state}] [${layer}] ✗ Failed after ${options.maxRetries} attempts`);
+    logger.error('Layer extraction failed after all retries', {
+      state,
+      layer,
+      attempts: options.maxRetries,
+      error: lastError?.message,
+    });
 
     // Fail fast if continueOnError is false
     if (!options.continueOnError) {

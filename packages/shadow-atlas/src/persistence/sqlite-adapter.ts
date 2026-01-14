@@ -28,7 +28,7 @@ import type {
   ProgressUpdateData,
 } from '../services/batch-orchestrator.types.js';
 import type { SnapshotMetadata } from '../core/types.js';
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
 
 // ============================================================================
 // Public Types
@@ -339,6 +339,11 @@ export class SqlitePersistenceAdapter {
     scope: JobScope,
     options: OrchestrationOptions
   ): Promise<string> {
+    // Validate scope is not empty
+    if (scope.states.length === 0 || scope.layers.length === 0) {
+      throw new Error('Cannot create job with empty scope');
+    }
+
     const jobId = this.generateJobId();
     const now = new Date().toISOString();
     const totalTasks = scope.states.length * scope.layers.length;

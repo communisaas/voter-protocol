@@ -19,6 +19,8 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { atomicWriteJSONSync } from '../core/utils/atomic-write.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Raw dataset from hub-council-districts.jsonl
@@ -150,7 +152,7 @@ class OptimizedSchemaEnricher {
     const totalRequests = stats.successCount + stats.failureCount;
     if (totalRequests >= 5 && stats.failureCount / totalRequests > 0.8) {
       if (!stats.circuitOpen) {
-        console.warn(`⚠️  Circuit breaker opened for ${domain} (${stats.failureCount}/${totalRequests} failures)`);
+        logger.warn(`⚠️  Circuit breaker opened for ${domain} (${stats.failureCount}/${totalRequests} failures)`);
         stats.circuitOpen = true;
       }
       return true;
@@ -174,7 +176,7 @@ class OptimizedSchemaEnricher {
       stats.successCount++;
       // Reset circuit breaker on success
       if (stats.circuitOpen) {
-        console.log(`✓ Circuit breaker reset for ${domain}`);
+        logger.info(`✓ Circuit breaker reset for ${domain}`);
         stats.circuitOpen = false;
       }
     } else {
@@ -305,7 +307,7 @@ class OptimizedSchemaEnricher {
           // Don't log 404s (permanent failures)
           return null;
         }
-        console.warn(`HTTP ${response.status} for ${url}`);
+        logger.warn(`HTTP ${response.status} for ${url}`);
         return null;
       }
 
@@ -501,16 +503,16 @@ class OptimizedSchemaEnricher {
     const etaSeconds = remaining / rate;
     const errorRate = this.failureCount / this.requestCount;
 
-    console.log('\n' + '='.repeat(70));
-    console.log(`Progress: ${this.requestCount}/${total} (${((this.requestCount / total) * 100).toFixed(1)}%)`);
-    console.log(`Success: ${this.successCount} (${((this.successCount / this.requestCount) * 100).toFixed(1)}%)`);
-    console.log(`Failed: ${this.failureCount}`);
-    console.log(`Retries: ${this.retryCount}`);
-    console.log(`Rate: ${rate.toFixed(2)} requests/sec`);
-    console.log(`Concurrency: ${this.currentConcurrency}`);
-    console.log(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
-    console.log(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
-    console.log('='.repeat(70));
+    logger.info('\n' + '='.repeat(70));
+    logger.info(`Progress: ${this.requestCount}/${total} (${((this.requestCount / total) * 100).toFixed(1)}%)`);
+    logger.info(`Success: ${this.successCount} (${((this.successCount / this.requestCount) * 100).toFixed(1)}%)`);
+    logger.info(`Failed: ${this.failureCount}`);
+    logger.info(`Retries: ${this.retryCount}`);
+    logger.info(`Rate: ${rate.toFixed(2)} requests/sec`);
+    logger.info(`Concurrency: ${this.currentConcurrency}`);
+    logger.info(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
+    logger.info(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
+    logger.info('='.repeat(70));
 
     // Adjust concurrency based on error rate
     this.adjustConcurrency(errorRate);
@@ -533,34 +535,34 @@ async function enrichAllDatasetsOptimized(
   checkpointFile: string,
   batchSize: number = 100
 ): Promise<void> {
-  console.log('='.repeat(70));
-  console.log('HIGH-PERFORMANCE SCHEMA ENRICHMENT');
-  console.log('='.repeat(70));
-  console.log(`Input: ${inputFile}`);
-  console.log(`Output: ${outputFile}`);
-  console.log(`Checkpoint: ${checkpointFile}`);
-  console.log(`Batch size: ${batchSize}`);
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('HIGH-PERFORMANCE SCHEMA ENRICHMENT');
+  logger.info('='.repeat(70));
+  logger.info(`Input: ${inputFile}`);
+  logger.info(`Output: ${outputFile}`);
+  logger.info(`Checkpoint: ${checkpointFile}`);
+  logger.info(`Batch size: ${batchSize}`);
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Load datasets
-  console.log('Loading datasets...');
+  logger.info('Loading datasets...');
   const content = readFileSync(inputFile, 'utf-8');
   const lines = content.split('\n').filter(line => line.trim());
   const datasets: RawDataset[] = lines.map(line => JSON.parse(line) as RawDataset);
 
-  console.log(`✓ Loaded ${datasets.length} datasets\n`);
+  logger.info(`✓ Loaded ${datasets.length} datasets\n`);
 
   // Check for existing checkpoint
   let startIndex = 0;
   let enrichedResults: EnrichedDataset[] = [];
 
   if (existsSync(checkpointFile)) {
-    console.log(`Found checkpoint: ${checkpointFile}`);
+    logger.info(`Found checkpoint: ${checkpointFile}`);
     const checkpoint = JSON.parse(readFileSync(checkpointFile, 'utf-8')) as Checkpoint;
     startIndex = checkpoint.last_index;
     enrichedResults = [...checkpoint.results];
-    console.log(`Resuming from index ${startIndex}\n`);
+    logger.info(`Resuming from index ${startIndex}\n`);
   }
 
   // Initialize enricher
@@ -570,19 +572,19 @@ async function enrichAllDatasetsOptimized(
   for (let i = startIndex; i < datasets.length; i += batchSize) {
     const batch = datasets.slice(i, i + batchSize);
 
-    console.log(`\nProcessing batch ${Math.floor(i / batchSize) + 1} (datasets ${i}-${i + batch.length})...`);
+    logger.info(`\nProcessing batch ${Math.floor(i / batchSize) + 1} (datasets ${i}-${i + batch.length})...`);
 
     // Process batch in parallel
     const batchResults = await enricher.processBatch(batch);
     enrichedResults.push(...batchResults);
 
-    // Save checkpoint
+    // Save checkpoint atomically to prevent corruption on crash
     const checkpoint: Checkpoint = {
       last_index: i + batch.length,
       results: enrichedResults,
       timestamp: new Date().toISOString(),
     };
-    writeFileSync(checkpointFile, JSON.stringify(checkpoint, null, 2));
+    atomicWriteJSONSync(checkpointFile, checkpoint);
 
     // Print progress
     enricher.printProgress(datasets.length);
@@ -593,7 +595,7 @@ async function enrichAllDatasetsOptimized(
         outputFile,
         enrichedResults.map(r => JSON.stringify(r)).join('\n')
       );
-      console.log(`\n✓ Saved intermediate results to ${outputFile}`);
+      logger.info(`\n✓ Saved intermediate results to ${outputFile}`);
     }
   }
 
@@ -603,19 +605,19 @@ async function enrichAllDatasetsOptimized(
     enrichedResults.map(r => JSON.stringify(r)).join('\n')
   );
 
-  console.log('\n' + '='.repeat(70));
-  console.log('✓ ENRICHMENT COMPLETE');
-  console.log('='.repeat(70));
-  console.log(`Total enriched: ${enrichedResults.length}`);
-  console.log(`Success rate: ${((enricher['successCount'] / enrichedResults.length) * 100).toFixed(1)}%`);
-  console.log(`Total retries: ${enricher['retryCount']}`);
-  console.log(`Output: ${outputFile}`);
-  console.log('='.repeat(70));
+  logger.info('\n' + '='.repeat(70));
+  logger.info('✓ ENRICHMENT COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info(`Total enriched: ${enrichedResults.length}`);
+  logger.info(`Success rate: ${((enricher['successCount'] / enrichedResults.length) * 100).toFixed(1)}%`);
+  logger.info(`Total retries: ${enricher['retryCount']}`);
+  logger.info(`Output: ${outputFile}`);
+  logger.info('='.repeat(70));
 
   // Cleanup checkpoint
   if (existsSync(checkpointFile)) {
     writeFileSync(checkpointFile + '.done', readFileSync(checkpointFile));
-    console.log(`\nCheckpoint archived: ${checkpointFile}.done`);
+    logger.info(`\nCheckpoint archived: ${checkpointFile}.done`);
   }
 }
 

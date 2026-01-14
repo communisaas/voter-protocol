@@ -18,6 +18,7 @@
  */
 
 import type Database from 'better-sqlite3';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Country bounding box for fast routing
@@ -130,7 +131,10 @@ export class HierarchicalRTree {
     }
 
     const duration = performance.now() - startTime;
-    console.log(`[HierarchicalRTree] Initialized ${this.countryPartitions.size} country partitions in ${duration.toFixed(2)}ms`);
+    logger.info('HierarchicalRTree initialized country partitions', {
+      partitionCount: this.countryPartitions.size,
+      durationMs: duration,
+    });
   }
 
   /**
@@ -161,7 +165,9 @@ export class HierarchicalRTree {
     const countryTree = this.getCountryTree(countryCode);
 
     if (!countryTree) {
-      console.warn(`[HierarchicalRTree] Failed to load R-tree for country ${countryCode}`);
+      logger.warn('HierarchicalRTree failed to load R-tree', {
+        countryCode,
+      });
       return [];
     }
 
@@ -169,7 +175,11 @@ export class HierarchicalRTree {
     const candidates = this.queryShard(countryTree, lat, lon);
 
     const duration = performance.now() - startTime;
-    console.debug(`[HierarchicalRTree] Lookup in ${duration.toFixed(2)}ms: ${countryCode}, ${candidates.length} candidates`);
+    logger.debug('HierarchicalRTree lookup completed', {
+      countryCode,
+      candidateCount: candidates.length,
+      durationMs: duration,
+    });
 
     return candidates;
   }
@@ -263,7 +273,11 @@ export class HierarchicalRTree {
     const root = this.bulkLoadRTree(leafNodes);
 
     const duration = performance.now() - startTime;
-    console.log(`[HierarchicalRTree] Loaded R-tree for ${countryCode}: ${districts.length} districts in ${duration.toFixed(2)}ms`);
+    logger.info('HierarchicalRTree loaded R-tree for country', {
+      countryCode,
+      districtCount: districts.length,
+      durationMs: duration,
+    });
 
     return {
       countryCode,
@@ -392,7 +406,9 @@ export class HierarchicalRTree {
     if (oldestCode) {
       this.countryTrees.delete(oldestCode);
       this.shardEvictions++;
-      console.log(`[HierarchicalRTree] Evicted shard: ${oldestCode}`);
+      logger.info('HierarchicalRTree evicted shard', {
+        countryCode: oldestCode,
+      });
     }
   }
 
@@ -449,7 +465,9 @@ export class HierarchicalRTree {
    */
   clearCache(): void {
     this.countryTrees.clear();
-    console.log('[HierarchicalRTree] Cleared all cached shards');
+    logger.info('HierarchicalRTree cleared all cached shards', {
+      shardCount: this.countryTrees.size,
+    });
   }
 
   /**
@@ -463,7 +481,10 @@ export class HierarchicalRTree {
     }
 
     const duration = performance.now() - startTime;
-    console.log(`[HierarchicalRTree] Preloaded ${countryCodes.length} countries in ${duration.toFixed(2)}ms`);
+    logger.info('HierarchicalRTree preloaded countries', {
+      countryCount: countryCodes.length,
+      durationMs: duration,
+    });
   }
 }
 

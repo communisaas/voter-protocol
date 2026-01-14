@@ -21,8 +21,8 @@
 import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson';
 import { bbox as turfBbox } from '@turf/bbox';
 import { union as turfUnion } from '@turf/union';
-import { MULTI_COUNTY_REGISTRY, getCountiesForCity } from '../registry/multi-county-cities.js';
-import { getPrimaryCountyForPlace } from '../registry/place-county-crosswalk.js';
+import { MULTI_COUNTY_REGISTRY, getCountiesForCity } from '../core/registry/multi-county-cities.js';
+import { getPrimaryCountyForPlace } from '../core/registry/place-county-crosswalk.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';

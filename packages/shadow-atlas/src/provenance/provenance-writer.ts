@@ -19,6 +19,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
+import { logger } from '../core/utils/logger.js';
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -213,7 +214,9 @@ class FileLock {
       try {
         await this.lockHandle.close();
       } catch (error) {
-        console.warn('[FileLock] Failed to close lock handle:', error);
+        logger.warn('Failed to close lock handle', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       } finally {
         this.lockHandle = null;
       }
@@ -402,7 +405,10 @@ export class ProvenanceWriter {
             await this.appendToCompressed(entry);
             merged++;
           } catch (error) {
-            console.warn(`Failed to merge entry from ${file}:`, error);
+            logger.warn('Failed to merge entry from staging file', {
+              file,
+              error: error instanceof Error ? error.message : String(error),
+            });
             errors++;
           }
         }
@@ -410,7 +416,10 @@ export class ProvenanceWriter {
         // Delete staging file after successful merge
         await fs.unlink(file);
       } catch (error) {
-        console.error(`Failed to merge staging file ${file}:`, error);
+        logger.error('Failed to merge staging file', {
+          file,
+          error: error instanceof Error ? error.message : String(error),
+        });
         errors++;
       }
     }

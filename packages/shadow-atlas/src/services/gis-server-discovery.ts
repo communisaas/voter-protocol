@@ -16,7 +16,8 @@
  * Zero tolerance for type bypasses.
  */
 
-import type { CityTarget } from '../validators/deterministic-validators.js';
+import type { CityTarget } from '../validators/pipeline/deterministic.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * GIS server endpoint metadata
@@ -385,7 +386,10 @@ export class GISServerDiscovery {
   ): Promise<readonly GISService[]> {
     // Depth limit to prevent infinite recursion
     if (depth >= this.maxDepth) {
-      console.warn(`   Max depth ${this.maxDepth} reached at folder: ${folder}`);
+      logger.warn('Max recursion depth reached', {
+        maxDepth: this.maxDepth,
+        folder,
+      });
       return [];
     }
 
@@ -444,7 +448,10 @@ export class GISServerDiscovery {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`   Failed to explore folder ${folder || '(root)'}: ${errorMessage}`);
+      logger.warn('Failed to explore folder', {
+        folder: folder || '(root)',
+        error: errorMessage,
+      });
     }
 
     return services;
@@ -498,7 +505,10 @@ export class GISServerDiscovery {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`   Failed to explore service ${serviceUrl}: ${errorMessage}`);
+      logger.warn('Failed to explore service', {
+        serviceUrl,
+        error: errorMessage,
+      });
       return null;
     }
   }
@@ -551,7 +561,10 @@ export class GISServerDiscovery {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`   Failed to get layer details ${layerUrl}: ${errorMessage}`);
+      logger.warn('Failed to get layer details', {
+        layerUrl,
+        error: errorMessage,
+      });
       return null;
     }
   }

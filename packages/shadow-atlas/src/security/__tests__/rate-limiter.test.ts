@@ -82,20 +82,28 @@ describe('Rate Limiter - Basic Functionality', () => {
   });
 
   test('enforces global limit across all clients', () => {
-    const clients: ClientIdentifier[] = Array(100).fill(null).map((_, i) => ({
+    // Create fresh rate limiter with tight global limit for testing
+    const testRateLimiter = createRateLimiter({
+      ip: { maxRequests: 10, windowMs: 1000 },
+      global: { maxRequests: 100, windowMs: 1000 }, // Tighter limit for test
+    });
+
+    const clients: ClientIdentifier[] = Array(10).fill(null).map((_, i) => ({
       ip: `192.168.1.${i + 1}`,
     }));
 
-    // Each client makes 10 requests (1000 total)
+    // Each client makes 10 requests (100 total)
     for (const client of clients) {
       for (let i = 0; i < 10; i++) {
-        rateLimiter.checkClient(client);
+        testRateLimiter.checkClient(client);
       }
     }
 
     // Global limit exhausted - next request should fail
-    const result = rateLimiter.checkClient({ ip: '192.168.2.1' });
+    const result = testRateLimiter.checkClient({ ip: '192.168.2.1' });
     expect(result.allowed).toBe(false);
+
+    testRateLimiter.destroy();
   });
 });
 

@@ -6,6 +6,7 @@
 
 import { createHash } from 'crypto';
 import type { RetryConfig, ScraperProgress } from './types.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * SHA-256 hash of data
@@ -153,11 +154,15 @@ export class ProgressTracker {
       const remaining = this.total - processed;
       const eta = remaining / rate;
 
-      console.log(
-        `Progress: ${processed}/${this.total} (${((processed / this.total) * 100).toFixed(1)}%) | ` +
-        `Completed: ${this.completed} | Failed: ${this.failed} | ` +
-        `Rate: ${rate.toFixed(1)} items/sec | ETA: ${(eta / 60).toFixed(1)} min`
-      );
+      logger.info('Batch processing progress', {
+        processed,
+        total: this.total,
+        percentComplete: ((processed / this.total) * 100).toFixed(1),
+        completed: this.completed,
+        failed: this.failed,
+        ratePerSec: rate.toFixed(1),
+        etaMinutes: (eta / 60).toFixed(1),
+      });
 
       if (this.onProgress) {
         this.onProgress({
@@ -253,9 +258,12 @@ export class BatchProcessor<T, R> {
     }
 
     const stats = this.tracker.getStats();
-    console.log(
-      `\nBatch complete: ${stats.completed} succeeded, ${stats.failed} failed in ${(stats.duration / 1000).toFixed(1)}s (${stats.rate.toFixed(1)} items/sec)`
-    );
+    logger.info('Batch processing complete', {
+      succeeded: stats.completed,
+      failed: stats.failed,
+      durationSec: (stats.duration / 1000).toFixed(1),
+      ratePerSec: stats.rate.toFixed(1),
+    });
 
     return { results, failures };
   }

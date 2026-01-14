@@ -21,12 +21,14 @@
  * - Corrupt checkpoint state (unrecoverable)
  */
 
-import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { readFile, mkdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { atomicWriteJSON } from '../core/utils/atomic-write.js';
 import type { TIGERBoundaryProvider, TIGERDownloadOptions } from '../providers/tiger-boundary-provider.js';
 import type { ShadowAtlasConfig } from '../core/config.js';
 import type { TIGERLayerType, NormalizedBoundary } from '../core/types.js';
 import type { DownloadDLQ } from './download-dlq.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Types
@@ -223,16 +225,14 @@ export class TIGERIngestionOrchestrator {
       this.config.batchIngestion?.checkpointDir ??
       join(this.config.storageDir, 'checkpoints');
 
-    console.log('='.repeat(80));
-    console.log('TIGER BATCH INGESTION - Multi-State, Multi-Layer Download');
-    console.log('='.repeat(80));
-    console.log(`Checkpoint ID: ${checkpoint.id}`);
-    console.log(`States: ${options.states.length}`);
-    console.log(`Layers: ${options.layers.join(', ')}`);
-    console.log(`Year: ${options.year}`);
-    console.log(`Max Concurrent: ${maxConcurrent}`);
-    console.log(`Circuit Breaker Threshold: ${circuitThreshold}`);
-    console.log('='.repeat(80));
+    logger.info('TIGER BATCH INGESTION - Multi-State, Multi-Layer Download', {
+      checkpointId: checkpoint.id,
+      statesCount: options.states.length,
+      layers: options.layers,
+      year: options.year,
+      maxConcurrent,
+      circuitBreakerThreshold: circuitThreshold,
+    });
 
     // Mutable checkpoint for updates
     const mutableCheckpoint: MutableCheckpointState = {
@@ -245,7 +245,7 @@ export class TIGERIngestionOrchestrator {
     // Process states in batches
     for (let i = 0; i < options.states.length; i += maxConcurrent) {
       if (this.circuitOpen) {
-        console.log('\n[CIRCUIT BREAKER] Open - aborting remaining states');
+        logger.warn('Circuit breaker open - aborting remaining states');
         break;
       }
 
@@ -253,7 +253,11 @@ export class TIGERIngestionOrchestrator {
       const batchNum = Math.floor(i / maxConcurrent) + 1;
       const totalBatches = Math.ceil(options.states.length / maxConcurrent);
 
-      console.log(`\n[Batch ${batchNum}/${totalBatches}] Processing states: ${batch.join(', ')}`);
+      logger.info('Processing batch', {
+        batchNum,
+        totalBatches,
+        states: batch,
+      });
 
       const batchResults = await Promise.allSettled(
         batch.map((state) =>
@@ -278,9 +282,10 @@ export class TIGERIngestionOrchestrator {
           mutableCheckpoint.completedStates.push(state);
           this.consecutiveFailures = 0; // Reset on success
 
-          console.log(
-            `   [OK] ${state}: ${result.value.boundaries.length} boundaries`
-          );
+          logger.info('State ingestion succeeded', {
+            state,
+            boundariesCount: result.value.boundaries.length,
+          });
         } else {
           // Failure
           const error: BatchIngestionError =
@@ -304,14 +309,18 @@ export class TIGERIngestionOrchestrator {
           mutableCheckpoint.failedStates.push(state);
           this.consecutiveFailures++;
 
-          console.log(`   [FAIL] ${state}: ${error.error}`);
+          logger.error('State ingestion failed', {
+            state,
+            error: error.error,
+            retryable: error.retryable,
+          });
 
           // Check circuit breaker
           if (this.consecutiveFailures >= circuitThreshold) {
             this.circuitOpen = true;
-            console.error(
-              `\n[CIRCUIT BREAKER] Tripped after ${circuitThreshold} consecutive failures`
-            );
+            logger.error('Circuit breaker tripped', {
+              consecutiveFailures: circuitThreshold,
+            });
           }
         }
       }
@@ -328,17 +337,15 @@ export class TIGERIngestionOrchestrator {
     const durationMs = Date.now() - startTime;
     const finalCheckpoint = toImmutableCheckpoint(mutableCheckpoint);
 
-    console.log('\n' + '='.repeat(80));
-    console.log('BATCH INGESTION COMPLETE');
-    console.log('='.repeat(80));
-    console.log(`Completed: ${mutableCheckpoint.completedStates.length} states`);
-    console.log(`Failed: ${mutableCheckpoint.failedStates.length} states`);
-    console.log(`Pending: ${mutableCheckpoint.pendingStates.length} states`);
-    console.log(`Boundaries: ${results.length}`);
-    console.log(`Duration: ${(durationMs / 1000).toFixed(2)}s`);
-    console.log(`Circuit Breaker: ${this.circuitOpen ? 'TRIPPED' : 'OK'}`);
-    console.log(`Checkpoint: ${finalCheckpoint.id}`);
-    console.log('='.repeat(80));
+    logger.info('Batch ingestion complete', {
+      completedStates: mutableCheckpoint.completedStates.length,
+      failedStates: mutableCheckpoint.failedStates.length,
+      pendingStates: mutableCheckpoint.pendingStates.length,
+      boundariesCount: results.length,
+      durationMs,
+      circuitBreakerTripped: this.circuitOpen,
+      checkpointId: finalCheckpoint.id,
+    });
 
     return {
       success: errors.length === 0 && !this.circuitOpen,
@@ -376,26 +383,26 @@ export class TIGERIngestionOrchestrator {
       throw new Error(`Checkpoint ${checkpointId} not found in ${checkpointDir}`);
     }
 
-    console.log('='.repeat(80));
-    console.log('RESUMING BATCH INGESTION FROM CHECKPOINT');
-    console.log('='.repeat(80));
-    console.log(`Checkpoint ID: ${checkpointId}`);
-    console.log(`Originally started: ${checkpoint.startedAt}`);
-    console.log(`Completed states: ${checkpoint.completedStates.length}`);
-    console.log(`Failed states: ${checkpoint.failedStates.length}`);
-    console.log(`Pending states: ${checkpoint.pendingStates.length}`);
-    console.log('='.repeat(80));
+    logger.info('Resuming batch ingestion from checkpoint', {
+      checkpointId,
+      startedAt: checkpoint.startedAt,
+      completedStates: checkpoint.completedStates.length,
+      failedStates: checkpoint.failedStates.length,
+      pendingStates: checkpoint.pendingStates.length,
+    });
 
     // Determine which states to process
     const statesToProcess: string[] = [...checkpoint.pendingStates];
 
     if (retryFailed) {
       statesToProcess.push(...checkpoint.failedStates);
-      console.log(`Retrying ${checkpoint.failedStates.length} failed states`);
+      logger.info('Retrying failed states', {
+        failedStatesCount: checkpoint.failedStates.length,
+      });
     }
 
     if (statesToProcess.length === 0) {
-      console.log('No states to process - batch already complete');
+      logger.info('No states to process - batch already complete');
       return {
         success: checkpoint.failedStates.length === 0,
         completed: checkpoint.completedStates.length,
@@ -458,7 +465,7 @@ export class TIGERIngestionOrchestrator {
   resetCircuitBreaker(): void {
     this.consecutiveFailures = 0;
     this.circuitOpen = false;
-    console.log('[CIRCUIT BREAKER] Reset manually');
+    logger.info('Circuit breaker reset manually');
   }
 
   /**
@@ -472,27 +479,30 @@ export class TIGERIngestionOrchestrator {
    */
   async retryFromDLQ(limit = 50): Promise<number> {
     if (!this.dlq) {
-      console.log('⚠️  DLQ not configured, skipping retry');
+      logger.warn('DLQ not configured, skipping retry');
       return 0;
     }
 
-    console.log('='.repeat(80));
-    console.log('RETRYING FAILED DOWNLOADS FROM DLQ');
-    console.log('='.repeat(80));
+    logger.info('Retrying failed downloads from DLQ', { limit });
 
     const retryable = await this.dlq.getRetryableDownloads(limit);
 
     if (retryable.length === 0) {
-      console.log('✅ No failed downloads to retry');
+      logger.info('No failed downloads to retry');
       return 0;
     }
 
-    console.log(`Found ${retryable.length} downloads to retry`);
+    logger.info('Found retryable downloads', { count: retryable.length });
 
     let successCount = 0;
 
     for (const download of retryable) {
-      console.log(`\n[RETRY] ${download.layer} - ${download.stateFips ?? 'national'} (attempt ${download.attemptCount + 1}/${download.maxAttempts})`);
+      logger.info('Retrying download', {
+        layer: download.layer,
+        stateFips: download.stateFips ?? 'national',
+        attempt: download.attemptCount + 1,
+        maxAttempts: download.maxAttempts,
+      });
 
       await this.dlq.markRetrying(download.id);
 
@@ -510,10 +520,13 @@ export class TIGERIngestionOrchestrator {
         // Success - mark as resolved
         await this.dlq.markResolved(download.id);
         successCount++;
-        console.log(`   ✅ Retry succeeded`);
+        logger.info('Retry succeeded', { downloadId: download.id });
       } catch (error) {
         const errorMessage = (error as Error).message;
-        console.log(`   ❌ Retry failed: ${errorMessage}`);
+        logger.error('Retry failed', {
+          downloadId: download.id,
+          error: errorMessage,
+        });
 
         // Increment attempt count
         await this.dlq.incrementAttempt(download.id, errorMessage);
@@ -521,17 +534,18 @@ export class TIGERIngestionOrchestrator {
         // Check if exhausted
         if (download.attemptCount + 1 >= download.maxAttempts) {
           await this.dlq.markExhausted(download.id);
-          console.log(`   ⚠️  Max retries reached, marked as exhausted`);
+          logger.warn('Max retries reached, marked as exhausted', {
+            downloadId: download.id,
+          });
         }
       }
     }
 
-    console.log('\n' + '='.repeat(80));
-    console.log('DLQ RETRY COMPLETE');
-    console.log('='.repeat(80));
-    console.log(`Succeeded: ${successCount}/${retryable.length}`);
-    console.log(`Failed: ${retryable.length - successCount}/${retryable.length}`);
-    console.log('='.repeat(80));
+    logger.info('DLQ retry complete', {
+      succeeded: successCount,
+      failed: retryable.length - successCount,
+      total: retryable.length,
+    });
 
     return successCount;
   }
@@ -619,9 +633,13 @@ export class TIGERIngestionOrchestrator {
     try {
       await mkdir(checkpointDir, { recursive: true });
       const filePath = join(checkpointDir, `${checkpoint.id}.json`);
-      await writeFile(filePath, JSON.stringify(checkpoint, null, 2), 'utf-8');
+      // Use atomic write to prevent corrupted checkpoint on crash
+      await atomicWriteJSON(filePath, checkpoint);
     } catch (error) {
-      console.error(`Failed to save checkpoint: ${(error as Error).message}`);
+      logger.error('Failed to save checkpoint', {
+        error: (error as Error).message,
+        checkpointId: checkpoint.id,
+      });
       // Don't throw - checkpoint save failure shouldn't abort batch
     }
   }

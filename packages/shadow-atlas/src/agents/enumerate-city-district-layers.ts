@@ -11,6 +11,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // TYPES
@@ -122,9 +123,9 @@ async function buildExistingLayerIndex(): Promise<Set<string>> {
       }
     }
 
-    console.log(`Loaded ${existingUrls.size} existing layer URLs for deduplication`);
+    logger.info(`Loaded ${existingUrls.size} existing layer URLs for deduplication`);
   } catch (error) {
-    console.warn('No existing layers file found, skipping deduplication');
+    logger.warn('No existing layers file found, skipping deduplication');
   }
 
   return existingUrls;
@@ -267,7 +268,7 @@ async function discoverLayersFromServer(
   server: DiscoveredServer,
   existingUrls: Set<string>
 ): Promise<LayerMetadata[]> {
-  console.log(`[${server.city}, ${server.state}] Enumerating layers from ${server.serverUrl}`);
+  logger.info(`[${server.city}, ${server.state}] Enumerating layers from ${server.serverUrl}`);
 
   const discoveredLayers: LayerMetadata[] = [];
 
@@ -276,11 +277,11 @@ async function discoverLayersFromServer(
     const services = await enumerateServices(server.serverUrl);
 
     if (services.length === 0) {
-      console.log(`  ✗ No services found`);
+      logger.info(`  ✗ No services found`);
       return [];
     }
 
-    console.log(`  Found ${services.length} services`);
+    logger.info(`  Found ${services.length} services`);
 
     // Step 2: For each service, enumerate layers
     for (const service of services) {
@@ -301,7 +302,7 @@ async function discoverLayersFromServer(
 
         // Deduplicate against existing layers
         if (existingUrls.has(metadata.layer_url)) {
-          console.log(`  ⊗ Duplicate: ${metadata.layer_name}`);
+          logger.info(`  ⊗ Duplicate: ${metadata.layer_name}`);
           continue;
         }
 
@@ -311,11 +312,11 @@ async function discoverLayersFromServer(
         metadata.population = server.population;
 
         discoveredLayers.push(metadata);
-        console.log(`  ✓ New discovery: ${metadata.layer_name} (${metadata.feature_count} features)`);
+        logger.info(`  ✓ New discovery: ${metadata.layer_name} (${metadata.feature_count} features)`);
       }
     }
   } catch (error) {
-    console.error(`  ✗ Error enumerating server: ${error}`);
+    logger.error(`  ✗ Error enumerating server: ${error}`);
   }
 
   return discoveredLayers;
@@ -334,7 +335,7 @@ async function discoverLayersParallel(
   for (let i = 0; i < servers.length; i += concurrency) {
     const batch = servers.slice(i, i + concurrency);
 
-    console.log(`\n[Batch ${Math.floor(i / concurrency) + 1}/${Math.ceil(servers.length / concurrency)}] Processing ${batch.length} servers...`);
+    logger.info(`\n[Batch ${Math.floor(i / concurrency) + 1}/${Math.ceil(servers.length / concurrency)}] Processing ${batch.length} servers...`);
 
     const batchResults = await Promise.all(
       batch.map(server => discoverLayersFromServer(server, existingUrls))
@@ -343,7 +344,7 @@ async function discoverLayersParallel(
     const flatResults = batchResults.flat();
     allLayers.push(...flatResults);
 
-    console.log(`Batch complete: ${flatResults.length} new layers discovered`);
+    logger.info(`Batch complete: ${flatResults.length} new layers discovered`);
 
     // Brief pause between batches
     if (i + concurrency < servers.length) {
@@ -375,14 +376,14 @@ function calculateStats(
 }
 
 function printStats(stats: EnumerationStats): void {
-  console.log('\n' + '='.repeat(80));
-  console.log('ENUMERATION STATISTICS');
-  console.log('='.repeat(80));
-  console.log(`Total servers processed: ${stats.totalServers}`);
-  console.log(`Governance layers found: ${stats.governanceLayersFound}`);
-  console.log(`New discoveries: ${stats.newDiscoveries}`);
-  console.log(`Avg layers per server: ${stats.avgLayersPerServer.toFixed(2)}`);
-  console.log('='.repeat(80) + '\n');
+  logger.info('\n' + '='.repeat(80));
+  logger.info('ENUMERATION STATISTICS');
+  logger.info('='.repeat(80));
+  logger.info(`Total servers processed: ${stats.totalServers}`);
+  logger.info(`Governance layers found: ${stats.governanceLayersFound}`);
+  logger.info(`New discoveries: ${stats.newDiscoveries}`);
+  logger.info(`Avg layers per server: ${stats.avgLayersPerServer.toFixed(2)}`);
+  logger.info('='.repeat(80) + '\n');
 }
 
 // ============================================================================
@@ -390,16 +391,16 @@ function printStats(stats: EnumerationStats): void {
 // ============================================================================
 
 async function main() {
-  console.log('City Governance District Layer Enumeration');
-  console.log('Discovering layers from city-specific ArcGIS servers\n');
+  logger.info('City Governance District Layer Enumeration');
+  logger.info('Discovering layers from city-specific ArcGIS servers\n');
 
   // Load discovered servers
   const serversData = await fs.readFile(SERVERS_PATH, 'utf-8');
   const servers: DiscoveredServer[] = JSON.parse(serversData);
 
-  console.log(`Loaded ${servers.length} city servers`);
-  console.log(`Concurrency: ${CONCURRENT_REQUESTS} parallel requests`);
-  console.log(`Timeout: ${REQUEST_TIMEOUT}ms per request\n`);
+  logger.info(`Loaded ${servers.length} city servers`);
+  logger.info(`Concurrency: ${CONCURRENT_REQUESTS} parallel requests`);
+  logger.info(`Timeout: ${REQUEST_TIMEOUT}ms per request\n`);
 
   // Build deduplication index
   const existingUrls = await buildExistingLayerIndex();
@@ -413,7 +414,7 @@ async function main() {
   const stats = calculateStats(servers, layers, existingUrls.size);
   printStats(stats);
 
-  console.log(`Total runtime: ${elapsedTime.toFixed(1)} minutes\n`);
+  logger.info(`Total runtime: ${elapsedTime.toFixed(1)} minutes\n`);
 
   // Save results (JSONL format for compatibility with classification pipeline)
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -421,13 +422,16 @@ async function main() {
   const outputLines = layers.map(layer => JSON.stringify(layer)).join('\n');
   await fs.writeFile(OUTPUT_PATH, outputLines, 'utf-8');
 
-  console.log(`Results saved to: ${OUTPUT_PATH}`);
-  console.log(`Next step: Run Python classifier to classify discovered layers\n`);
+  logger.info(`Results saved to: ${OUTPUT_PATH}`);
+  logger.info(`Next step: Run Python classifier to classify discovered layers\n`);
 }
 
 // Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(console.error);
+  main().catch(error => {
+    logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+    process.exit(1);
+  });
 }
 
 export { discoverLayersFromServer, isGovernanceLayer, buildExistingLayerIndex };

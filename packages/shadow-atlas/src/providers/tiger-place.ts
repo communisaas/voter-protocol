@@ -30,10 +30,11 @@ import type {
   RawBoundaryFile,
   NormalizedBoundary,
   AdministrativeLevel,
-} from '../types/provider.js';
+} from '../core/types/provider.js';
 import type { FeatureCollection } from 'geojson';
 // Canonical CityTarget imported from core/city-target.ts
 import type { CityTargetWithPopulation } from '../core/city-target.js';
+import { logger } from '../core/utils/logger.js';
 
 // Re-export with population as optional for backward compatibility
 export type CityTarget = Omit<CityTargetWithPopulation, 'population'> & {
@@ -82,24 +83,30 @@ export class TIGERPlaceProvider implements BoundaryProvider {
    * (Alternative to download() for targeted discovery)
    */
   async discoverCities(cities: CityTarget[]): Promise<RawBoundaryFile[]> {
-    console.log(`🗺️  Discovering PLACE boundaries for ${cities.length} cities from Census TIGER ${this.year}...`);
+    logger.info('Discovering PLACE boundaries from Census TIGER', {
+      cityCount: cities.length,
+      year: this.year
+    });
 
     // Ensure cache directory exists
     await mkdir(join(this.cacheDir, String(this.year)), { recursive: true });
 
     // Group cities by state for batch processing
     const citiesByState = this.groupByState(cities);
-    console.log(`📊 Processing ${citiesByState.size} states...`);
+    logger.info('Processing states', { stateCount: citiesByState.size });
 
     const results: RawBoundaryFile[] = [];
 
     for (const [stateCode, stateCities] of Array.from(citiesByState.entries())) {
-      console.log(`\n🏛️  ${stateCode}: ${stateCities.length} cities`);
+      logger.info('Processing state', { state: stateCode, cityCount: stateCities.length });
 
       try {
         // Download/load state PLACE file (cached)
         const statePlaces = await this.getStatePlaces(stateCode);
-        console.log(`   ✅ Loaded ${statePlaces.features.length} places for ${stateCode}`);
+        logger.info('Loaded state PLACE file', {
+          state: stateCode,
+          placeCount: statePlaces.features.length
+        });
 
         // Match each city to its PLACE feature
         for (const city of stateCities) {
@@ -107,7 +114,7 @@ export class TIGERPlaceProvider implements BoundaryProvider {
             const cityPlace = this.findPlaceByFIPS(statePlaces, city.fips);
 
             if (!cityPlace) {
-              console.log(`   ⚠️  ${city.name}: No PLACE found with FIPS ${city.fips}`);
+              logger.warn('PLACE not found', { city: city.name, fips: city.fips });
               continue;
             }
 
@@ -136,19 +143,28 @@ export class TIGERPlaceProvider implements BoundaryProvider {
               },
             });
 
-            console.log(`   ✅ ${city.name}: PLACE boundary found (FIPS ${city.fips})`);
+            logger.info('PLACE boundary found', { city: city.name, fips: city.fips });
 
           } catch (error) {
-            console.error(`   ❌ ${city.name}: ${(error as Error).message}`);
+            logger.error('Failed to process city', {
+              city: city.name,
+              error: (error as Error).message
+            });
           }
         }
 
       } catch (error) {
-        console.error(`   ❌ Failed to load ${stateCode} PLACE file: ${(error as Error).message}`);
+        logger.error('Failed to load state PLACE file', {
+          state: stateCode,
+          error: (error as Error).message
+        });
       }
     }
 
-    console.log(`\n✨ Discovery complete: ${results.length}/${cities.length} cities with PLACE boundaries`);
+    logger.info('Discovery complete', {
+      foundCount: results.length,
+      totalCount: cities.length
+    });
     return results;
   }
 
@@ -288,12 +304,12 @@ export class TIGERPlaceProvider implements BoundaryProvider {
     const zipPath = join(this.cacheDir, String(this.year), `tl_${this.year}_${stateFips}_place.zip`);
     const cacheFile = join(this.cacheDir, String(this.year), `${stateFips}_place.geojson`);
 
-    console.log(`   📥 Downloading ${url}...`);
+    logger.info('Downloading state PLACE file', { url, stateFips });
 
     // Download ZIP file
     await this.downloadFile(url, zipPath);
 
-    console.log(`   🔄 Converting shapefile to GeoJSON...`);
+    logger.debug('Converting shapefile to GeoJSON', { zipPath });
 
     // Convert to GeoJSON using ogr2ogr
     const geojson = await this.convertShapefileToGeoJSON(zipPath);
@@ -301,7 +317,7 @@ export class TIGERPlaceProvider implements BoundaryProvider {
     // Cache GeoJSON
     await writeFile(cacheFile, JSON.stringify(geojson, null, 2));
 
-    console.log(`   💾 Cached to ${cacheFile}`);
+    logger.debug('Cached GeoJSON', { cacheFile });
 
     return geojson;
   }

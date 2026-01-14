@@ -216,9 +216,9 @@ EXIT CODES:
  * Attempt to import cross-validator module
  * Returns null if module not yet implemented
  */
-async function loadCrossValidator(): Promise<typeof import('../validators/cross-validator.js') | null> {
+async function loadCrossValidator(): Promise<typeof import('../validators/cross/tiger-vs-state.js') | null> {
   try {
-    return await import('../validators/cross-validator.js');
+    return await import('../validators/cross/tiger-vs-state.js');
   } catch (error) {
     const err = error as Error & { code?: string };
     if (err.message.includes('Cannot find module') || err.code === 'ERR_MODULE_NOT_FOUND') {

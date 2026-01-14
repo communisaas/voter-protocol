@@ -1,4 +1,7 @@
 /**
+ * Integration test - skipped in unit test suite
+ * Run with: npm run test:integration
+ *
  * Cross-Validation Test Suite - TIGER vs State Sources
  *
  * Validates consistency between Census TIGER/Line data and state GIS portals.
@@ -16,6 +19,9 @@
  * - Discrepancies flagged for manual review, not automatic rejection
  * - Cross-validation builds confidence in Shadow Atlas data quality
  *
+ * Integration tests - require network access to state GIS portals and Census Bureau
+ * Run separately with: npx vitest run --config vitest.integration.config.ts
+ *
  * INTEGRATION:
  * - Runs against live APIs (skip in CI with process.env.CI check)
  * - Tests Wisconsin as pilot (full extraction working for all 4 layers)
@@ -25,7 +31,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { StateBatchExtractor, type ExtractedBoundary } from '../../../providers/state-batch-extractor.js';
 import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from '../../../providers/tiger-boundary-provider.js';
-import { CrossValidator } from '../../../validators/cross-validator.js';
+import { CrossValidator } from '../../../validators/cross/tiger-vs-state.js';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 import { area, intersect, featureCollection } from '@turf/turf';
 import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';

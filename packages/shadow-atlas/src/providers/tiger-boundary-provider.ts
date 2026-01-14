@@ -37,12 +37,13 @@ import type {
   RawBoundaryFile,
   NormalizedBoundary,
   AdministrativeLevel,
-} from '../types/provider.js';
+} from '../core/types/provider.js';
 import type { FeatureCollection } from 'geojson';
 import type { TIGERLayerType } from '../core/types.js';
 import { STATE_ABBR_TO_FIPS } from '../core/types.js';
 import { getExpectedCount, NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
 import type { DownloadDLQ } from '../acquisition/download-dlq.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * TIGER layer types supported by FTP bulk download
@@ -746,7 +747,11 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     const metadata = TIGER_FTP_LAYERS[options.layer];
     const year = options.year || this.year;
 
-    console.log(`🗺️  Downloading ${metadata.name} from Census TIGER ${year}...`);
+    logger.info('Downloading TIGER layer', {
+      layer: metadata.name,
+      year,
+      source: 'census-tiger'
+    });
 
     // Ensure cache directory exists
     await mkdir(join(this.cacheDir, String(year), metadata.ftpDir), { recursive: true });
@@ -798,7 +803,11 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
         });
       } else {
         // All states (bulk download)
-        console.log(`   📊 Bulk download: Processing all 56 states/territories...`);
+        logger.info('Processing bulk download', {
+          layer: options.layer,
+          totalStates: 56,
+          mode: 'bulk'
+        });
 
         for (const [stateCode, fips] of Object.entries(STATE_FIPS)) {
           try {
@@ -822,15 +831,27 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
               },
             });
 
-            console.log(`   ✅ ${stateCode}: ${geojson.features.length} features`);
+            logger.info('State download complete', {
+              stateCode,
+              features: geojson.features.length,
+              layer: options.layer
+            });
           } catch (error) {
-            console.error(`   ⚠️  ${stateCode}: ${(error as Error).message}`);
+            logger.error('State download failed', {
+              stateCode,
+              layer: options.layer,
+              error: (error as Error).message
+            });
           }
         }
       }
     }
 
-    console.log(`\n✨ Download complete: ${results.length} file(s) for ${metadata.name}`);
+    logger.info('Download complete', {
+      layer: metadata.name,
+      fileCount: results.length,
+      year
+    });
     return results;
   }
 
@@ -857,7 +878,10 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
           const entityFips = props[metadata.fields.entityFips] as string;
 
           if (!geoid || !name) {
-            console.warn(`   ⚠️  Skipping feature with missing GEOID or name:`, props);
+            logger.warn('Skipping feature with missing GEOID or name', {
+              layer,
+              properties: props
+            });
             continue;
           }
 
@@ -895,11 +919,15 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
           });
         }
       } catch (error) {
-        console.error(`   ❌ Transform error: ${(error as Error).message}`);
+        logger.error('Transform error', {
+          error: (error as Error).message
+        });
       }
     }
 
-    console.log(`\n🔄 Transformed ${normalized.length} boundaries`);
+    logger.info('Transformation complete', {
+      boundaryCount: normalized.length
+    });
     return normalized;
   }
 
@@ -981,11 +1009,18 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
 
         // Check if cache is stale based on TIGER release schedule
         if (this.isCacheStale(cacheFile)) {
-          console.log(`   ⏰ Cache stale (past TIGER ${year + 1} release + grace period), downloading fresh data...`);
+          logger.info('Cache stale, downloading fresh data', {
+            year,
+            nextYear: year + 1,
+            reason: 'past-tiger-release-grace-period'
+          });
           // Fall through to download
         } else {
           const content = await readFile(cacheFile, 'utf-8');
-          console.log(`   💾 Loaded from cache: ${cacheFile}`);
+          logger.info('Loaded from cache', {
+            cacheFile,
+            year
+          });
           return JSON.parse(content) as FeatureCollection;
         }
       } catch {
@@ -996,12 +1031,19 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     const url = this.getNationalFileUrl(layer, year);
     const zipPath = join(this.cacheDir, String(year), metadata.ftpDir, `tl_${year}_us_${layer}.zip`);
 
-    console.log(`   📥 Downloading ${url}...`);
+    logger.info('Downloading shapefile', {
+      url,
+      year,
+      layer
+    });
 
     // Download ZIP file with retry
     await this.downloadFileWithRetry(url, zipPath, layer);
 
-    console.log(`   🔄 Converting shapefile to GeoJSON...`);
+    logger.info('Converting shapefile to GeoJSON', {
+      format: 'shapefile-to-geojson',
+      layer
+    });
 
     // Convert to GeoJSON using ogr2ogr
     const geojson = await this.convertShapefileToGeoJSON(zipPath);
@@ -1009,8 +1051,11 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     // Cache GeoJSON (compact format to avoid V8 string length limits on large datasets)
     await writeFile(cacheFile, JSON.stringify(geojson));
 
-    console.log(`   💾 Cached to ${cacheFile}`);
-    console.log(`   ✅ ${geojson.features.length} features loaded`);
+    logger.info('Cached shapefile', {
+      cacheFile,
+      features: geojson.features.length,
+      layer
+    });
 
     return geojson;
   }
@@ -1034,7 +1079,12 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
 
         // Check if cache is stale based on TIGER release schedule
         if (this.isCacheStale(cacheFile)) {
-          console.log(`   ⏰ Cache stale (past TIGER ${year + 1} release + grace period), downloading fresh data for state ${stateFips}...`);
+          logger.info('State cache stale, downloading fresh data', {
+            stateFips,
+            year,
+            nextYear: year + 1,
+            reason: 'past-tiger-release-grace-period'
+          });
           // Fall through to download
         } else {
           const content = await readFile(cacheFile, 'utf-8');
@@ -1082,7 +1132,13 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
 
         if (attempt < this.maxRetries) {
           const delay = this.retryDelayMs * Math.pow(2, attempt);
-          console.log(`   ⚠️  Download failed (attempt ${attempt + 1}/${this.maxRetries + 1}), retrying in ${delay}ms...`);
+          logger.warn('Download failed, retrying', {
+            attempt: attempt + 1,
+            maxAttempts: this.maxRetries + 1,
+            retryDelayMs: delay,
+            error: lastError?.message,
+            layer
+          });
           await this.sleep(delay);
         }
       }
@@ -1102,9 +1158,18 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
           retryDelayMs: this.retryDelayMs,
           retryBackoffMultiplier: 2,
         });
-        console.log(`   📝 Persisted failed download to DLQ for later retry`);
+        logger.info('Persisted failed download to DLQ', {
+          layer,
+          url,
+          stateFips
+        });
       } catch (dlqError) {
-        console.error(`   ⚠️  Failed to persist to DLQ: ${(dlqError as Error).message}`);
+        logger.error('Failed to persist to DLQ', {
+          layer,
+          url,
+          stateFips,
+          error: (dlqError as Error).message
+        });
       }
     }
 
@@ -1329,7 +1394,12 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     const year = options.year ?? this.year;
     const metadata = TIGER_FTP_LAYERS[layer];
 
-    console.log(`🔍 Validation download: ${metadata.name} for state ${stateFips} (${year})`);
+    logger.info('Validation download', {
+      layer: metadata.name,
+      stateFips,
+      year,
+      mode: 'validation'
+    });
 
     // Ensure cache directory exists
     await mkdir(join(this.cacheDir, String(year), metadata.ftpDir), { recursive: true });
@@ -1345,7 +1415,12 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
       ? this.getNationalFileUrl(layer, year)
       : this.getStateFileUrl(layer, stateFips, year);
 
-    console.log(`   ✅ Extracted ${extractionResult.geoids.length} unique GEOIDs from ${extractionResult.featureCount} features`);
+    logger.info('Validation extraction complete', {
+      uniqueGeoids: extractionResult.geoids.length,
+      totalFeatures: extractionResult.featureCount,
+      layer: metadata.name,
+      stateFips
+    });
 
     return {
       layer,
@@ -1391,10 +1466,16 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
 
         // Check if cache is stale
         if (!this.isCacheStale(zipPath)) {
-          console.log(`   💾 Using cached shapefile: ${zipFileName}`);
+          logger.info('Using cached shapefile', {
+            cacheFile: zipFileName,
+            year
+          });
           return zipPath;
         }
-        console.log(`   ⏰ Cache stale, re-downloading...`);
+        logger.info('Cache stale, re-downloading', {
+          year,
+          cacheFile: zipFileName
+        });
       } catch {
         // Cache miss, download
       }
@@ -1405,7 +1486,11 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
       ? this.getNationalFileUrl(layer, year)
       : this.getStateFileUrl(layer, stateFips, year);
 
-    console.log(`   📥 Downloading ${zipFileName}...`);
+    logger.info('Downloading validation shapefile', {
+      zipFileName,
+      url,
+      year
+    });
     await this.downloadFileWithRetry(url, zipPath, layer, stateFips);
 
     return zipPath;

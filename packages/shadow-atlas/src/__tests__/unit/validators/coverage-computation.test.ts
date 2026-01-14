@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { SchoolDistrictValidator } from '../../../validators/school-district-validator.js';
-import type { NormalizedBoundary } from '../../../validators/tiger-validator.js';
+import { SchoolDistrictValidator } from '../../../validators/tiger/school-district.js';
+import type { NormalizedBoundary } from '../../../validators/tiger/validator.js';
 
 describe('SchoolDistrictValidator - Coverage Computation', () => {
   const validator = new SchoolDistrictValidator();

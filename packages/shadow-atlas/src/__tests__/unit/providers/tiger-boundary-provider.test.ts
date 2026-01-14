@@ -1,4 +1,7 @@
 /**
+ * Integration test - skipped in unit test suite
+ * Run with: npm run test:integration
+ *
  * TIGER Boundary Provider Tests
  *
  * Validates authoritative federal boundary data acquisition and transformation.
@@ -10,11 +13,15 @@
  * - GeoJSON transformation and GEOID uniqueness
  * - Expected feature counts (440-445 CD including territories, 3143 counties)
  * - Network resilience (retry with exponential backoff)
+ *
+ * Integration tests - "Network Operations" tests require network access to Census Bureau
+ * Those tests use soft-fail in CI (warnings instead of failures).
+ * Run full integration suite with: npx vitest run --config vitest.integration.config.ts
  */
 
 import { describe, test, expect } from 'vitest';
 import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from '../../../providers/tiger-boundary-provider.js';
-import { NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
+import { NATIONAL_TOTALS } from '../../../validators/tiger-expected-counts.js';
 import type { FeatureCollection } from 'geojson';
 
 /**
@@ -90,7 +97,9 @@ describe('TIGERBoundaryProvider', () => {
       expect(sldl.name).toBe('State Legislative Lower');
       expect(sldl.ftpDir).toBe('SLDL');
       expect(sldl.tigerWebLayerId).toBe(22);
-      expect(NATIONAL_TOTALS.sldl).toBeGreaterThan(5300); // ~5411 actual
+      // Updated count based on actual TIGER 2024 data (4838 actual)
+      expect(NATIONAL_TOTALS.sldl).toBeGreaterThan(4800);
+      expect(NATIONAL_TOTALS.sldl).toBeLessThan(5500);
       expect(sldl.filePattern).toBe('state');
       expect(sldl.adminLevel).toBe('district');
 
@@ -107,7 +116,8 @@ describe('TIGERBoundaryProvider', () => {
       expect(county.name).toBe('Counties');
       expect(county.ftpDir).toBe('COUNTY');
       expect(county.tigerWebLayerId).toBe(12);
-      expect(NATIONAL_TOTALS.county).toBe(3143);
+      // Updated to 3235 based on actual TIGER 2024 data (includes CT planning regions)
+      expect(NATIONAL_TOTALS.county).toBe(3235);
       expect(county.filePattern).toBe('national');
       expect(county.adminLevel).toBe('county');
 

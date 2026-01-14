@@ -22,6 +22,7 @@ import type {
   DistributionErrorType,
 } from './types.js';
 import { getPinningServicesForRegion } from './global-ipfs-strategy.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Pinning Service Interface
@@ -402,12 +403,10 @@ export async function createRegionalPinningService(
   });
 
   if (services.length === 0) {
-    console.warn(
-      `[RegionalPinningService] No pinning services configured for region ${region}. ` +
-      'Set environment variables: STORACHA_SPACE_DID/STORACHA_AGENT_KEY, ' +
-      'PINATA_JWT or PINATA_API_KEY/PINATA_API_SECRET, ' +
-      'FLEEK_API_KEY/FLEEK_API_SECRET'
-    );
+    logger.warn('No pinning services configured for region', {
+      region,
+      message: 'Set environment variables: STORACHA_SPACE_DID/STORACHA_AGENT_KEY, PINATA_JWT or PINATA_API_KEY/PINATA_API_SECRET, FLEEK_API_KEY/FLEEK_API_SECRET',
+    });
   }
 
   return new RegionalPinningService(region, services, {

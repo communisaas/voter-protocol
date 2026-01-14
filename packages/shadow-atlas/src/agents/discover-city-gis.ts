@@ -18,6 +18,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface CensusPlace {
   readonly fips: string;
@@ -329,13 +330,13 @@ async function discoverAllCities(
   places: CensusPlace[],
   batchSize: number = 50
 ): Promise<DiscoveryResult[]> {
-  console.log('='.repeat(70));
-  console.log('DIRECT CITY GIS DISCOVERY');
-  console.log('='.repeat(70));
-  console.log(`Total cities: ${places.length}`);
-  console.log(`Batch size: ${batchSize}`);
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('DIRECT CITY GIS DISCOVERY');
+  logger.info('='.repeat(70));
+  logger.info(`Total cities: ${places.length}`);
+  logger.info(`Batch size: ${batchSize}`);
+  logger.info('='.repeat(70));
+  logger.info('');
 
   const results: DiscoveryResult[] = [];
   const startTime = Date.now();
@@ -345,7 +346,7 @@ async function discoverAllCities(
     const batchNum = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(places.length / batchSize);
 
-    console.log(`\nProcessing batch ${batchNum}/${totalBatches} (cities ${i + 1}-${i + batch.length})...`);
+    logger.info(`\nProcessing batch ${batchNum}/${totalBatches} (cities ${i + 1}-${i + batch.length})...`);
 
     // Process batch in parallel
     const batchResults = await Promise.all(
@@ -363,13 +364,13 @@ async function discoverAllCities(
     const remaining = places.length - results.length;
     const etaSeconds = remaining / rate;
 
-    console.log(`Progress: ${results.length}/${places.length} cities (${((results.length / places.length) * 100).toFixed(1)}%)`);
-    console.log(`GIS servers discovered: ${discovered} (${((discovered / results.length) * 100).toFixed(1)}%)`);
-    console.log(`Cities with council districts: ${withCouncilDistricts}`);
-    console.log(`Total council districts found: ${totalDistricts}`);
-    console.log(`Rate: ${rate.toFixed(2)} cities/sec`);
-    console.log(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
-    console.log(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
+    logger.info(`Progress: ${results.length}/${places.length} cities (${((results.length / places.length) * 100).toFixed(1)}%)`);
+    logger.info(`GIS servers discovered: ${discovered} (${((discovered / results.length) * 100).toFixed(1)}%)`);
+    logger.info(`Cities with council districts: ${withCouncilDistricts}`);
+    logger.info(`Total council districts found: ${totalDistricts}`);
+    logger.info(`Rate: ${rate.toFixed(2)} cities/sec`);
+    logger.info(`Elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`);
+    logger.info(`ETA: ${Math.floor(etaSeconds / 3600)}h ${Math.floor((etaSeconds % 3600) / 60)}m`);
 
     // Small delay between batches to be respectful
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -385,9 +386,9 @@ function deduplicateDiscoveries(
   existingLayersFile: string,
   discoveries: DiscoveryResult[]
 ): { unique: LayerInfo[]; duplicates: number } {
-  console.log('\n' + '='.repeat(70));
-  console.log('DEDUPLICATION');
-  console.log('='.repeat(70));
+  logger.info('\n' + '='.repeat(70));
+  logger.info('DEDUPLICATION');
+  logger.info('='.repeat(70));
 
   // Load existing layers
   const content = readFileSync(existingLayersFile, 'utf-8');
@@ -395,12 +396,12 @@ function deduplicateDiscoveries(
   const existingLayers = lines.map(line => JSON.parse(line) as Record<string, unknown>);
   const existingUrls = new Set(existingLayers.map(l => String(l.layer_url ?? '')));
 
-  console.log(`Existing classified layers: ${existingLayers.length}`);
+  logger.info(`Existing classified layers: ${existingLayers.length}`);
 
   // Extract all discovered layers
   const allDiscoveredLayers = discoveries.flatMap(d => d.council_district_layers);
 
-  console.log(`Newly discovered layers: ${allDiscoveredLayers.length}`);
+  logger.info(`Newly discovered layers: ${allDiscoveredLayers.length}`);
 
   // Filter for unique layers
   const uniqueLayers = allDiscoveredLayers.filter(layer =>
@@ -409,9 +410,9 @@ function deduplicateDiscoveries(
 
   const duplicates = allDiscoveredLayers.length - uniqueLayers.length;
 
-  console.log(`Unique new layers: ${uniqueLayers.length}`);
-  console.log(`Duplicates removed: ${duplicates}`);
-  console.log('='.repeat(70));
+  logger.info(`Unique new layers: ${uniqueLayers.length}`);
+  logger.info(`Duplicates removed: ${duplicates}`);
+  logger.info('='.repeat(70));
 
   return { unique: uniqueLayers, duplicates };
 }
@@ -441,8 +442,8 @@ async function main(): Promise<void> {
     discoveries.map(d => JSON.stringify(d)).join('\n')
   );
 
-  console.log('\n✓ Discovery results saved');
-  console.log(`Output: ${discoveryResultsFile}`);
+  logger.info('\n✓ Discovery results saved');
+  logger.info(`Output: ${discoveryResultsFile}`);
 
   // Deduplicate against existing layers
   const { unique, duplicates } = deduplicateDiscoveries(existingLayersFile, discoveries);
@@ -453,8 +454,8 @@ async function main(): Promise<void> {
     unique.map(l => JSON.stringify(l)).join('\n')
   );
 
-  console.log('\n✓ Unique layers saved');
-  console.log(`Output: ${uniqueLayersFile}`);
+  logger.info('\n✓ Unique layers saved');
+  logger.info(`Output: ${uniqueLayersFile}`);
 
   // Generate statistics
   const statistics = {
@@ -475,29 +476,29 @@ async function main(): Promise<void> {
 
   writeFileSync(statisticsFile, JSON.stringify(statistics, null, 2));
 
-  console.log('\n✓ Statistics saved');
-  console.log(`Output: ${statisticsFile}`);
+  logger.info('\n✓ Statistics saved');
+  logger.info(`Output: ${statisticsFile}`);
 
   // Final summary
-  console.log('\n' + '='.repeat(70));
-  console.log('DISCOVERY COMPLETE');
-  console.log('='.repeat(70));
-  console.log(`GIS servers discovered: ${statistics.gis_servers_discovered}/${statistics.total_cities_tested} (${(statistics.discovery_rate * 100).toFixed(1)}%)`);
-  console.log(`Cities with council districts: ${statistics.cities_with_council_districts}`);
-  console.log(`Total layers discovered: ${statistics.total_layers_discovered}`);
-  console.log(`Unique new layers: ${statistics.unique_new_layers}`);
-  console.log(`Duplicates removed: ${statistics.duplicates_removed}`);
-  console.log(`Coverage increase: +${statistics.unique_new_layers} layers (+${statistics.coverage_improvement.percentage_increase.toFixed(1)}%)`);
-  console.log('='.repeat(70));
+  logger.info('\n' + '='.repeat(70));
+  logger.info('DISCOVERY COMPLETE');
+  logger.info('='.repeat(70));
+  logger.info(`GIS servers discovered: ${statistics.gis_servers_discovered}/${statistics.total_cities_tested} (${(statistics.discovery_rate * 100).toFixed(1)}%)`);
+  logger.info(`Cities with council districts: ${statistics.cities_with_council_districts}`);
+  logger.info(`Total layers discovered: ${statistics.total_layers_discovered}`);
+  logger.info(`Unique new layers: ${statistics.unique_new_layers}`);
+  logger.info(`Duplicates removed: ${statistics.duplicates_removed}`);
+  logger.info(`Coverage increase: +${statistics.unique_new_layers} layers (+${statistics.coverage_improvement.percentage_increase.toFixed(1)}%)`);
+  logger.info('='.repeat(70));
 }
 
 // Run
 main()
   .then(() => {
-    console.log('\n✓ Direct city discovery complete!');
+    logger.info('\n✓ Direct city discovery complete!');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('\n✗ Fatal error:', error);
+    logger.error('\n✗ Fatal error:', error);
     process.exit(1);
   });

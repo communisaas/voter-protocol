@@ -41,6 +41,7 @@ import type {
   MultiPolygon,
   Geometry,
 } from 'geojson';
+import { logger } from '../core/utils/logger.js';
 
 /** DC FIPS code */
 const DC_FIPS = '11';
@@ -110,7 +111,7 @@ export class DCWardsProvider implements BoundaryProvider {
    * Download DC ward boundaries from ArcGIS REST API
    */
   async download(_params: DownloadParams): Promise<RawBoundaryFile[]> {
-    console.log('Downloading DC ward boundaries from DC Open Data...');
+    logger.info('Downloading DC ward boundaries from DC Open Data');
 
     const response = await fetch(this.WARDS_API_URL);
 
@@ -127,7 +128,7 @@ export class DCWardsProvider implements BoundaryProvider {
       throw new Error('Invalid GeoJSON response from DC Open Data API');
     }
 
-    console.log(`   Downloaded ${geojson.features.length} ward features`);
+    logger.info('Downloaded ward features', { featureCount: geojson.features.length });
 
     const geojsonBuffer = Buffer.from(JSON.stringify(geojson), 'utf-8');
 
@@ -191,7 +192,7 @@ export class DCWardsProvider implements BoundaryProvider {
       );
     }
 
-    console.log(`   Transformed ${boundaries.length} DC ward boundaries`);
+    logger.info('Transformed DC ward boundaries', { boundaryCount: boundaries.length });
 
     return boundaries;
   }
@@ -213,7 +214,7 @@ export class DCWardsProvider implements BoundaryProvider {
     }
 
     if (!wardNumberStr) {
-      console.warn('   Skipping feature with missing ward number:', props);
+      logger.warn('Skipping feature with missing ward number', { properties: props });
       return null;
     }
 
@@ -222,9 +223,10 @@ export class DCWardsProvider implements BoundaryProvider {
       feature.geometry.type !== 'Polygon' &&
       feature.geometry.type !== 'MultiPolygon'
     ) {
-      console.warn(
-        `   Skipping ward ${wardNumberStr}: invalid geometry type ${feature.geometry.type}`
-      );
+      logger.warn('Skipping ward with invalid geometry', {
+        ward: wardNumberStr,
+        geometryType: feature.geometry.type
+      });
       return null;
     }
 
@@ -289,7 +291,9 @@ export class DCWardsProvider implements BoundaryProvider {
         }
       }
     } catch (error) {
-      console.warn('Failed to check for DC ward updates:', error);
+      logger.warn('Failed to check for DC ward updates', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
 
     // No updates available

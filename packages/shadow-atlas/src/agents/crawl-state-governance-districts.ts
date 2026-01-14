@@ -19,6 +19,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface LayerInfo {
   readonly service_url: string;
@@ -755,7 +756,7 @@ class StateLegislativeScanner {
   async scanState(stateCode: string): Promise<LayerInfo[]> {
     const portal = STATE_GOVERNANCE_PORTALS[stateCode];
     if (!portal) {
-      console.log(`⚠️  No redistricting portal configured for ${stateCode}`);
+      logger.info(`⚠️  No redistricting portal configured for ${stateCode}`);
       return [];
     }
 
@@ -766,8 +767,8 @@ class StateLegislativeScanner {
         continue;
       }
 
-      console.log(`\n🏛️  Scanning ${portal.state} redistricting portal...`);
-      console.log(`   ${portalInfo.url}`);
+      logger.info(`\n🏛️  Scanning ${portal.state} redistricting portal...`);
+      logger.info(`   ${portalInfo.url}`);
 
       try {
         if (portalInfo.platform === 'arcgis') {
@@ -775,11 +776,11 @@ class StateLegislativeScanner {
         } else if (portalInfo.platform === 'socrata') {
           layers.push(...await this.scanSocrataPortal(portalInfo.url, portal, portalInfo.notes));
         } else {
-          console.log(`   ⚠️  Custom portal ${portalInfo.url} requires manual research`);
-          console.log(`   Notes: ${portalInfo.notes}`);
+          logger.info(`   ⚠️  Custom portal ${portalInfo.url} requires manual research`);
+          logger.info(`   Notes: ${portalInfo.notes}`);
         }
       } catch (error) {
-        console.error(`   ✗ Error: ${(error as Error).message}`);
+        logger.error(`   ✗ Error: ${(error as Error).message}`);
       }
     }
 
@@ -857,7 +858,7 @@ class StateLegislativeScanner {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
       } catch (error) {
-        console.error(`   ⚠️  Error searching "${keyword}": ${(error as Error).message}`);
+        logger.error(`   ⚠️  Error searching "${keyword}": ${(error as Error).message}`);
       }
     }
 
@@ -918,7 +919,7 @@ class StateLegislativeScanner {
       return layers;
 
     } catch (error) {
-      console.error(`   ✗ Socrata portal error: ${(error as Error).message}`);
+      logger.error(`   ✗ Socrata portal error: ${(error as Error).message}`);
       return [];
     }
   }
@@ -1082,12 +1083,12 @@ async function main(): Promise<void> {
     selectedStates = ['CA', 'TX', 'FL', 'NY', 'PA']; // Default: Top 5 states
   }
 
-  console.log('═'.repeat(70));
-  console.log('STATE GOVERNANCE DISTRICT CRAWLER');
-  console.log('═'.repeat(70));
-  console.log(`Target: State legislative, congressional, county commission districts`);
-  console.log(`States: ${selectedStates.join(', ')}`);
-  console.log('');
+  logger.info('═'.repeat(70));
+  logger.info('STATE GOVERNANCE DISTRICT CRAWLER');
+  logger.info('═'.repeat(70));
+  logger.info(`Target: State legislative, congressional, county commission districts`);
+  logger.info(`States: ${selectedStates.join(', ')}`);
+  logger.info('');
 
   const scanner = new StateLegislativeScanner();
   const allLayers: LayerInfo[] = [];
@@ -1108,12 +1109,12 @@ async function main(): Promise<void> {
   );
 
   // Print summary
-  console.log('\n' + '═'.repeat(70));
-  console.log('CRAWL COMPLETE');
-  console.log('═'.repeat(70));
-  console.log(`Total governance layers discovered: ${allLayers.length}`);
-  console.log('');
-  console.log('By district type:');
+  logger.info('\n' + '═'.repeat(70));
+  logger.info('CRAWL COMPLETE');
+  logger.info('═'.repeat(70));
+  logger.info(`Total governance layers discovered: ${allLayers.length}`);
+  logger.info('');
+  logger.info('By district type:');
 
   const byType: Record<string, number> = {};
   for (const layer of allLayers) {
@@ -1121,11 +1122,11 @@ async function main(): Promise<void> {
   }
 
   for (const [type, count] of Object.entries(byType)) {
-    console.log(`  ${type}: ${count}`);
+    logger.info(`  ${type}: ${count}`);
   }
 
-  console.log('');
-  console.log('By state:');
+  logger.info('');
+  logger.info('By state:');
 
   const byState: Record<string, number> = {};
   for (const layer of allLayers) {
@@ -1133,17 +1134,20 @@ async function main(): Promise<void> {
   }
 
   for (const [state, count] of Object.entries(byState)) {
-    console.log(`  ${state}: ${count}`);
+    logger.info(`  ${state}: ${count}`);
   }
 
-  console.log('');
-  console.log(`Output: ${outputPath}`);
-  console.log('═'.repeat(70));
-  console.log('');
-  console.log('⚠️  NEXT STEPS:');
-  console.log('1. Run classification: npx tsx comprehensive-district-classifier.py data/state_governance_discoveries.jsonl');
-  console.log('2. Deduplicate: npx tsx agents/deduplicate-discoveries.ts');
-  console.log('3. Merge: cat data/state_governance_discoveries.jsonl >> data/comprehensive_classified_layers.jsonl');
+  logger.info('');
+  logger.info(`Output: ${outputPath}`);
+  logger.info('═'.repeat(70));
+  logger.info('');
+  logger.info('⚠️  NEXT STEPS:');
+  logger.info('1. Run classification: npx tsx comprehensive-district-classifier.py data/state_governance_discoveries.jsonl');
+  logger.info('2. Deduplicate: npx tsx agents/deduplicate-discoveries.ts');
+  logger.info('3. Merge: cat data/state_governance_discoveries.jsonl >> data/comprehensive_classified_layers.jsonl');
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

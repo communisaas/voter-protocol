@@ -9,6 +9,7 @@
  */
 
 import { KeyRotator, RateLimitError, AllKeysExhaustedError } from '../rate-limiting/key-rotator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Supported Gemini models
@@ -185,7 +186,7 @@ export class GeminiClient {
         const jitter = baseDelay * this.retryConfig.jitterFactor * Math.random();
         const delay = baseDelay + jitter;
 
-        console.warn(
+        logger.warn(
           `[GeminiClient] Retry ${attempt + 1}/${this.retryConfig.maxAttempts} ` +
           `in ${Math.round(delay)}ms: ${(error as Error).message}`
         );

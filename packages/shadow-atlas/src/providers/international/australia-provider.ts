@@ -48,6 +48,7 @@ import {
   type BoundarySource,
   type ProviderHealth,
 } from './base-provider.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // Australia-Specific Types
@@ -190,7 +191,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     }
 
     try {
-      console.log('[Australia] Extracting federal electoral divisions...');
+      logger.info('Extracting federal electoral divisions', { country: 'Australia' });
       const geojson = await this.fetchGeoJSON(
         `${layer.endpoint}/query?where=1%3D1&outFields=*&f=geojson`
       );
@@ -204,9 +205,13 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
         layer.authority
       );
 
-      console.log(
-        `[Australia] ✓ Federal: ${divisions.length}/${layer.expectedCount} divisions (${durationMs}ms, confidence: ${confidence}%)`
-      );
+      logger.info('Federal extraction complete', {
+        country: 'Australia',
+        divisionCount: divisions.length,
+        expectedCount: layer.expectedCount,
+        durationMs,
+        confidence
+      });
 
       return {
         layer: 'federal',
@@ -222,7 +227,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Australia] ✗ Federal: ${message}`);
+      logger.error('Federal extraction failed', { country: 'Australia', error: message });
 
       return this.createFailedResult('federal', message, layer.expectedCount, layer.endpoint, startTime);
     }
@@ -242,12 +247,17 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     }
 
     try {
-      console.log(`[Australia] Extracting federal divisions for ${stateCode}...`);
+      logger.info('Extracting federal divisions by state', { country: 'Australia', state: stateCode });
       const allDivisions = await this.extractFederalDivisions();
       const stateDivisions = allDivisions.boundaries.filter((d) => d.state === stateCode);
       const durationMs = Date.now() - startTime;
 
-      console.log(`[Australia] ✓ ${stateCode}: ${stateDivisions.length} divisions (${durationMs}ms)`);
+      logger.info('State extraction complete', {
+        country: 'Australia',
+        state: stateCode,
+        divisionCount: stateDivisions.length,
+        durationMs
+      });
 
       return {
         layer: 'federal',
@@ -263,7 +273,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Australia] ✗ ${stateCode}: ${message}`);
+      logger.error('State extraction failed', { country: 'Australia', state: stateCode, error: message });
 
       return this.createFailedResult('federal', message, 0, layer.endpoint, startTime);
     }

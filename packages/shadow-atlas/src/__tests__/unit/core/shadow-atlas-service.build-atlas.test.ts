@@ -56,21 +56,79 @@ function createMockRawFile(
 }
 
 /**
+ * Mock NormalizedBoundary matching the actual interface
+ */
+interface MockNormalizedBoundary {
+  readonly id: string;
+  readonly name: string;
+  readonly level: number; // AdministrativeLevel
+  readonly geometry: Polygon | MultiPolygon;
+  readonly properties: Record<string, unknown>;
+  readonly source: {
+    readonly provider: string;
+    readonly url: string;
+    readonly version: string;
+    readonly license: string;
+    readonly updatedAt: string;
+    readonly checksum: string;
+    readonly authorityLevel: string;
+    readonly legalStatus: string;
+    readonly collectionMethod: string;
+    readonly lastVerified: string;
+    readonly verifiedBy: string;
+    readonly topologyValidated: boolean;
+    readonly geometryRepaired: boolean;
+    readonly coordinateSystem: string;
+    readonly nextScheduledUpdate: string;
+    readonly updateMonitoring: string;
+  };
+}
+
+// Fixed timestamp for deterministic test output
+const FIXED_TIMESTAMP = '2024-01-15T00:00:00.000Z';
+
+/**
  * Create mock normalized boundaries from GeoJSON
  */
 function createMockBoundaries(
-  geojson: FeatureCollection<Polygon | MultiPolygon>
-): Array<{
-  id: string;
-  name: string;
-  geometry: Polygon | MultiPolygon;
-  properties: Record<string, unknown>;
-}> {
+  geojson: FeatureCollection<Polygon | MultiPolygon>,
+  layer: string,
+  year: number
+): MockNormalizedBoundary[] {
+  const url = `https://www2.census.gov/geo/tiger/TIGER${year}/${layer.toUpperCase()}/tl_${year}_55_${layer}.zip`;
+  const now = FIXED_TIMESTAMP; // Use fixed timestamp for deterministic tests
+
   return geojson.features.map((feature) => ({
     id: (feature.properties?.['GEOID'] as string) || 'unknown',
     name: (feature.properties?.['NAMELSAD'] as string) || 'Unknown District',
+    level: 4, // Federal level for congressional districts
     geometry: feature.geometry,
-    properties: feature.properties || {},
+    properties: {
+      stateFips: '55',
+      entityFips: (feature.properties?.['GEOID'] as string)?.slice(2) || '',
+      geoid: (feature.properties?.['GEOID'] as string) || 'unknown',
+      layer,
+      layerName: layer === 'cd' ? 'Congressional Districts' : 'Unknown',
+      ...feature.properties,
+    },
+    source: {
+      provider: 'MockTIGERBoundaryProvider',
+      url,
+      version: String(year),
+      license: 'CC0-1.0',
+      updatedAt: now,
+      checksum: 'mock-checksum-12345',
+      authorityLevel: 'federal-mandate',
+      legalStatus: 'binding',
+      collectionMethod: 'census-tiger',
+      lastVerified: now,
+      verifiedBy: 'automated',
+      topologyValidated: true,
+      geometryRepaired: false,
+      coordinateSystem: 'EPSG:4326',
+      nextScheduledUpdate: `${year + 1}-01-01`,
+      updateMonitoring: 'api-polling',
+    },
   }));
 }
 
@@ -81,6 +139,7 @@ const tigerCdSampleTyped = tigerCdSample as unknown as FeatureCollection<Polygon
 vi.mock('../../../providers/tiger-boundary-provider.js', () => ({
   TIGERBoundaryProvider: class MockTIGERBoundaryProvider {
     private readonly year: number;
+    private lastLayer = 'cd';
 
     constructor(options: { year: number }) {
       this.year = options.year;
@@ -95,16 +154,18 @@ vi.mock('../../../providers/tiger-boundary-provider.js', () => ({
       if (options.stateFips === '00' || options.stateFips === '99') {
         throw new Error(`Failed to download ${options.layer} for state ${options.stateFips}`);
       }
+      this.lastLayer = options.layer;
       return [createMockRawFile(tigerCdSampleTyped, options.layer, this.year)];
     }
 
-    async transform(): Promise<Array<{
-      id: string;
-      name: string;
-      geometry: Polygon | MultiPolygon;
-      properties: Record<string, unknown>;
-    }>> {
-      return createMockBoundaries(tigerCdSampleTyped);
+    async transform(rawFiles: MockRawBoundaryFile[]): Promise<MockNormalizedBoundary[]> {
+      // Extract layer from raw file metadata
+      const layer = rawFiles[0]?.metadata?.layer ?? this.lastLayer;
+      return createMockBoundaries(tigerCdSampleTyped, layer, this.year);
+    }
+
+    async healthCheck(): Promise<{ available: boolean; latencyMs: number }> {
+      return { available: true, latencyMs: 10 };
     }
   },
 }));
@@ -201,12 +262,13 @@ describe('ShadowAtlasService.buildAtlas()', () => {
     const mod = await import('../../../core/shadow-atlas-service.js');
     ShadowAtlasService = mod.ShadowAtlasService;
 
-    // Initialize service
+    // Initialize service with cross-validation disabled for deterministic tests
     service = new ShadowAtlasService({
       storageDir: ':memory:',
       persistence: { enabled: false, autoMigrate: false, databasePath: ':memory:' },
       extraction: { retryAttempts: 1, retryDelayMs: 100 },
       validation: { minPassRate: 0.8 },
+      crossValidation: { enabled: false }, // Disable for deterministic unit tests
     });
     await service.initialize();
   });
@@ -229,6 +291,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'], // Wisconsin (small state for testing)
       year: 2024,
       qualityThreshold: 80,
+      crossValidation: { enabled: false }, // Disable cross-validation for unit tests
     });
 
     // Verify result structure
@@ -259,6 +322,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'], // Wisconsin
       year: 2024,
       qualityThreshold: 70,
+      crossValidation: { enabled: false },
     });
 
     // Verify multiple layers (both return mock CD data for simplicity)
@@ -288,6 +352,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       year: 2024,
       qualityThreshold: 80,
       outputPath,
+      crossValidation: { enabled: false },
     });
 
     // Verify export succeeded
@@ -330,6 +395,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'], // Wisconsin
       year: 2024,
       qualityThreshold: 100, // Unrealistically high threshold
+      crossValidation: { enabled: false },
     });
 
     // Build should still succeed
@@ -354,29 +420,41 @@ describe('ShadowAtlasService.buildAtlas()', () => {
   });
 
   it('should produce deterministic Merkle roots for identical inputs', async () => {
-    // Build atlas twice with same inputs
-    const result1 = await service.buildAtlas({
-      layers: ['cd'],
-      states: ['55'], // Wisconsin
-      year: 2024,
-      qualityThreshold: 80,
-    });
+    // Use fake timers to ensure deterministic timestamps
+    vi.useFakeTimers();
+    const fixedDate = new Date('2024-01-15T00:00:00.000Z');
+    vi.setSystemTime(fixedDate);
 
-    const result2 = await service.buildAtlas({
-      layers: ['cd'],
-      states: ['55'], // Wisconsin
-      year: 2024,
-      qualityThreshold: 80,
-    });
+    try {
+      // Build atlas twice with same inputs
+      const result1 = await service.buildAtlas({
+        layers: ['cd'],
+        states: ['55'], // Wisconsin
+        year: 2024,
+        qualityThreshold: 80,
+        crossValidation: { enabled: false },
+      });
 
-    // Merkle roots should be identical
-    expect(result1.merkleRoot).toBe(result2.merkleRoot);
+      const result2 = await service.buildAtlas({
+        layers: ['cd'],
+        states: ['55'], // Wisconsin
+        year: 2024,
+        qualityThreshold: 80,
+        crossValidation: { enabled: false },
+      });
 
-    // Boundary counts should be identical
-    expect(result1.totalBoundaries).toBe(result2.totalBoundaries);
+      // Merkle roots should be identical
+      expect(result1.merkleRoot).toBe(result2.merkleRoot);
 
-    // Tree depths should be identical
-    expect(result1.treeDepth).toBe(result2.treeDepth);
+      // Boundary counts should be identical
+      expect(result1.totalBoundaries).toBe(result2.totalBoundaries);
+
+      // Tree depths should be identical
+      expect(result1.treeDepth).toBe(result2.treeDepth);
+    } finally {
+      // Restore real timers
+      vi.useRealTimers();
+    }
   });
 
   it('should include all validation details in layer results', async () => {
@@ -385,6 +463,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'], // Wisconsin
       year: 2024,
       qualityThreshold: 80,
+      crossValidation: { enabled: false },
     });
 
     // Check validation details
@@ -422,6 +501,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'], // Wisconsin
       year: 2024,
       qualityThreshold: 80,
+      crossValidation: { enabled: false },
     });
 
     const endTime = Date.now();
@@ -440,6 +520,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'],
       year: 2024,
       qualityThreshold: 80,
+      crossValidation: { enabled: false },
     });
 
     // BN254 field modulus
@@ -457,6 +538,7 @@ describe('ShadowAtlasService.buildAtlas()', () => {
       states: ['55'],
       year: 2024,
       qualityThreshold: 80,
+      crossValidation: { enabled: false },
     });
 
     // US-only builds should use flat tree

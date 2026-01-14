@@ -7,6 +7,7 @@
 
 import { Pool, type PoolClient, type PoolConfig } from 'pg';
 import type { DatabaseAdapter } from '../repository';
+import { logger } from '../../core/utils/logger.js';
 
 export class PostgreSQLAdapter implements DatabaseAdapter {
   private pool: Pool;
@@ -24,7 +25,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
     // Error handler for pool-level errors
     this.pool.on('error', (err: Error) => {
-      console.error('Unexpected pool error:', err);
+      logger.error('Unexpected PostgreSQL pool error', {
+        error: err.message,
+        stack: err.stack,
+      });
     });
   }
 

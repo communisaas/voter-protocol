@@ -78,9 +78,9 @@ import type {
   LayerExtractionResult,
   StateExtractionResult,
 } from '../providers/state-batch-extractor.js';
-import type { LegislativeLayerType } from '../registry/state-gis-portals.js';
-import { DeterministicValidationPipeline } from '../validators/deterministic-validators.js';
-import { getLegislativeEndpoint, STATE_GIS_PORTALS } from '../registry/state-gis-portals.js';
+import type { LegislativeLayerType } from '../core/registry/state-gis-portals.js';
+import { DeterministicValidationPipeline } from '../validators/pipeline/deterministic.js';
+import { getLegislativeEndpoint, STATE_GIS_PORTALS } from '../core/registry/state-gis-portals.js';
 
 // ============================================================================
 // Constants

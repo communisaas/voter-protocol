@@ -91,7 +91,7 @@ import { StateBatchExtractor } from '../providers/state-batch-extractor.js';
 // NOTE: state-batch-to-merkle.ts is DEPRECATED - uses SHA256 (NOT ZK-compatible)
 // The deprecated functions (integrateMultipleStates, incrementalUpdate) are no longer imported
 // Use buildAtlas() with MultiLayerMerkleTreeBuilder instead (uses Poseidon2, ZK-compatible)
-import { DeterministicValidationPipeline } from '../validators/deterministic-validators.js';
+import { DeterministicValidationPipeline } from '../validators/pipeline/deterministic.js';
 import { DEFAULT_CONFIG } from './config.js';
 import { UKBoundaryProvider } from '../providers/international/uk-provider.js';
 import { CanadaBoundaryProvider } from '../providers/international/canada-provider.js';
@@ -100,16 +100,17 @@ import { NewZealandBoundaryProvider } from '../providers/international/nz-provid
 import { SqlitePersistenceAdapter } from '../persistence/sqlite-adapter.js';
 import { MetricsStore, StructuredLogger, createMetricsStore, createLogger } from '../observability/metrics.js';
 import { ProvenanceWriter } from '../provenance/provenance-writer.js';
+import { logger } from './utils/logger.js';
 import type { CompactDiscoveryEntry } from '../provenance/provenance-writer.js';
 import { ChangeDetectionAdapter } from '../acquisition/change-detection-adapter.js';
 import type { ChangeDetectionAdapterResult } from '../acquisition/change-detection-adapter.js';
-import { SnapshotManager } from '../versioning/snapshot-manager.js';
-import type { Snapshot } from '../versioning/types.js';
+import { SnapshotManager } from '../distribution/snapshots/snapshot-manager.js';
+import type { Snapshot } from '../distribution/snapshots/types.js';
 import type { CrossValidationSummary, CrossValidationStatus, SchoolDistrictValidationSummary } from './types.js';
-import type { CrossValidationResult } from '../validators/cross-validator.js';
-import { SchoolDistrictValidator } from '../validators/school-district-validator.js';
-import type { SchoolDistrictValidationResult, OverlapIssue } from '../validators/school-district-validator.js';
-import type { NormalizedBoundary } from '../validators/tiger-validator.js';
+import type { CrossValidationResult } from '../validators/cross/tiger-vs-state.js';
+import { SchoolDistrictValidator } from '../validators/tiger/school-district.js';
+import type { SchoolDistrictValidationResult, OverlapIssue } from '../validators/tiger/school-district.js';
+import type { NormalizedBoundary } from '../validators/tiger/validator.js';
 import { getStateName } from '../validators/tiger-expected-counts.js';
 import {
   hasExtractionScopeType,
@@ -752,7 +753,10 @@ export class ShadowAtlasService {
         if (!options.continueOnError) {
           throw error;
         }
-        console.error(`Failed to extract region ${region.state}:`, error);
+        logger.error(`Failed to extract region ${region.state}`, {
+          region: region.state,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -768,7 +772,7 @@ export class ShadowAtlasService {
   private async extractUnitedKingdom(
     options: ExtractionOptions
   ): Promise<StateExtractionResult[]> {
-    console.log('[ShadowAtlas] Extracting UK parliamentary constituencies...');
+    logger.info('Extracting UK parliamentary constituencies', { country: 'GB' });
 
     try {
       const result = await this.ukProvider.extractParliamentaryConstituencies();
@@ -818,7 +822,10 @@ export class ShadowAtlasService {
 
       return [stateResult];
     } catch (error) {
-      console.error('[ShadowAtlas] UK extraction failed:', error);
+      logger.error('UK extraction failed', {
+        country: 'GB',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (!options.continueOnError) {
         throw error;
       }
@@ -835,7 +842,7 @@ export class ShadowAtlasService {
   private async extractCanada(
     options: ExtractionOptions
   ): Promise<StateExtractionResult[]> {
-    console.log('[ShadowAtlas] Extracting Canada federal electoral districts...');
+    logger.info('Extracting Canada federal electoral districts', { country: 'CA' });
 
     try {
       const result = await this.canadaProvider.extractFederalDistricts();
@@ -885,7 +892,10 @@ export class ShadowAtlasService {
 
       return [stateResult];
     } catch (error) {
-      console.error('[ShadowAtlas] Canada extraction failed:', error);
+      logger.error('Canada extraction failed', {
+        country: 'CA',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (!options.continueOnError) {
         throw error;
       }
@@ -902,7 +912,7 @@ export class ShadowAtlasService {
   private async extractAustralia(
     options: ExtractionOptions
   ): Promise<StateExtractionResult[]> {
-    console.log('[ShadowAtlas] Extracting Australia federal electoral divisions...');
+    logger.info('Extracting Australia federal electoral divisions', { country: 'AU' });
 
     try {
       const result = await this.australiaProvider.extractFederalDivisions();
@@ -952,7 +962,10 @@ export class ShadowAtlasService {
 
       return [stateResult];
     } catch (error) {
-      console.error('[ShadowAtlas] Australia extraction failed:', error);
+      logger.error('Australia extraction failed', {
+        country: 'AU',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (!options.continueOnError) {
         throw error;
       }
@@ -969,7 +982,7 @@ export class ShadowAtlasService {
   private async extractNewZealand(
     options: ExtractionOptions
   ): Promise<StateExtractionResult[]> {
-    console.log('[ShadowAtlas] Extracting New Zealand electoral districts...');
+    logger.info('Extracting New Zealand electoral districts', { country: 'NZ' });
 
     try {
       const result = await this.nzProvider.extractAll();
@@ -1022,7 +1035,10 @@ export class ShadowAtlasService {
 
       return [stateResult];
     } catch (error) {
-      console.error('[ShadowAtlas] New Zealand extraction failed:', error);
+      logger.error('New Zealand extraction failed', {
+        country: 'NZ',
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (!options.continueOnError) {
         throw error;
       }
@@ -1633,7 +1649,7 @@ export class ShadowAtlasService {
 
     // Import TIGERBoundaryProvider and TIGERValidator dynamically
     const { TIGERBoundaryProvider } = await import('../providers/tiger-boundary-provider.js');
-    const { TIGERValidator } = await import('../validators/tiger-validator.js');
+    const { TIGERValidator } = await import('../validators/tiger/validator.js');
     const { getStateName } = await import('../validators/tiger-expected-counts.js');
 
     const provider = new TIGERBoundaryProvider({ year });
@@ -1852,7 +1868,7 @@ export class ShadowAtlasService {
 
     // Import dependencies (lazy load to avoid circular deps)
     const { TIGERBoundaryProvider } = await import('../providers/tiger-boundary-provider.js');
-    const { TIGERValidator, DEFAULT_HALT_OPTIONS } = await import('../validators/tiger-validator.js');
+    const { TIGERValidator, DEFAULT_HALT_OPTIONS } = await import('../validators/tiger/validator.js');
     const { ValidationHaltError, isValidationHaltError } = await import('./types/errors.js');
     const { MultiLayerMerkleTreeBuilder } = await import('./multi-layer-builder.js');
 
@@ -2308,8 +2324,8 @@ export class ShadowAtlasService {
 
     if (this.config.globalTree?.enabled) {
       // Global hierarchical tree
-      const { GlobalMerkleTreeBuilder } = await import('../integration/global-merkle-tree.js');
-      const { GlobalTreeAdapter, extractCountryRoots, extractContinentalRoots } = await import('../integration/global-tree-adapter.js');
+      const { GlobalMerkleTreeBuilder } = await import('./global-merkle-tree.js');
+      const { GlobalTreeAdapter, extractCountryRoots, extractContinentalRoots } = await import('./global-tree-adapter.js');
 
       const globalBuilder = new GlobalMerkleTreeBuilder();
       const adapter = new GlobalTreeAdapter(globalBuilder, {
@@ -2918,12 +2934,12 @@ export class ShadowAtlasService {
     jobId: string
   ): Promise<CrossValidationSummary[]> {
     // Lazy import to avoid circular dependencies
-    const { CrossValidator } = await import('../validators/cross-validator.js');
+    const { CrossValidator } = await import('../validators/cross/tiger-vs-state.js');
     const { TIGERBoundaryProvider } = await import('../providers/tiger-boundary-provider.js');
     const { BuildValidationError } = await import('./errors.js');
 
     const results: CrossValidationSummary[] = [];
-    const fullValidationResults: import('../validators/cross-validator.js').CrossValidationResult[] = [];
+    const fullValidationResults: import('../validators/cross/tiger-vs-state.js').CrossValidationResult[] = [];
 
     // Create a TIGERBoundaryProvider adapter that conforms to BoundaryProvider interface
     const tigerProvider = new TIGERBoundaryProvider({ year: vintage });

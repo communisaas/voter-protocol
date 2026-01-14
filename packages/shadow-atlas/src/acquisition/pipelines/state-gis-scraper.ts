@@ -22,9 +22,10 @@ import type {
   AcquisitionProvenanceMetadata,
   PortalType,
 } from '../types.js';
-import { STATE_GIS_PORTALS, type StateGISPortal } from '../../registry/state-gis-portals.js';
+import { STATE_GIS_PORTALS, type StateGISPortal } from '../../core/registry/state-gis-portals.js';
 import { retryWithBackoff, sha256, parseLastModified, BatchProcessor } from '../utils.js';
 import { PostDownloadValidator } from '../post-download-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Default configuration
@@ -56,10 +57,12 @@ export class StateGISPortalScraper {
   async scrapeAll(): Promise<ScraperResult> {
     const startTime = Date.now();
 
-    console.log('Starting State GIS portal scrape...');
+    logger.info('Starting State GIS portal scrape');
 
     const portals = Object.values(STATE_GIS_PORTALS);
-    console.log(`Found ${portals.length} state portals`);
+    logger.info('Found state portals', {
+      portalCount: portals.length
+    });
 
     // Process all portals in parallel
     const processor = new BatchProcessor(
@@ -76,9 +79,11 @@ export class StateGISPortalScraper {
 
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `\nState GIS scrape complete: ${datasets.length} datasets acquired, ${failures.length} portal failures in ${(executionTime / 1000).toFixed(1)}s`
-    );
+    logger.info('State GIS scrape complete', {
+      datasetsAcquired: datasets.length,
+      failures: failures.length,
+      executionSeconds: (executionTime / 1000).toFixed(1)
+    });
 
     return {
       datasets,
@@ -94,7 +99,10 @@ export class StateGISPortalScraper {
    * Scrape single state portal
    */
   private async scrapePortal(portal: StateGISPortal): Promise<readonly (RawDataset | null)[]> {
-    console.log(`\nScraping ${portal.stateName} (${portal.portalUrl})`);
+    logger.info('Scraping state portal', {
+      state: portal.stateName,
+      portalUrl: portal.portalUrl
+    });
 
     try {
       switch (portal.searchStrategy) {
@@ -111,12 +119,18 @@ export class StateGISPortalScraper {
           return await this.scrapeCatalogAPI(portal);
 
         default:
-          console.warn(`Unknown search strategy for ${portal.state}: ${portal.searchStrategy}`);
+          logger.warn('Unknown search strategy for state portal', {
+            state: portal.state,
+            searchStrategy: portal.searchStrategy
+          });
           return [];
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to scrape ${portal.state}: ${errorMessage}`);
+      logger.error('Failed to scrape state portal', {
+        state: portal.state,
+        error: errorMessage
+      });
       return [];
     }
   }
@@ -126,7 +140,7 @@ export class StateGISPortalScraper {
    */
   private async scrapeDirectLayers(portal: StateGISPortal): Promise<readonly (RawDataset | null)[]> {
     if (!portal.municipalBoundaryLayers || portal.municipalBoundaryLayers.length === 0) {
-      console.warn(`No direct layers configured for ${portal.state}`);
+      logger.warn('No direct layers configured', { state: portal.state });
       return [];
     }
 
@@ -139,11 +153,11 @@ export class StateGISPortalScraper {
 
         if (dataset) {
           datasets.push(dataset);
-          console.log(`  ✓ Downloaded ${layer.coverage} (${dataset.provenance.featureCount} features)`);
+          logger.info('Downloaded direct layer', { coverage: layer.coverage, featureCount: dataset.provenance.featureCount });
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`  ✗ Failed to download ${layer.layer}: ${errorMessage}`);
+        logger.error('Failed to download layer', { layer: layer.layer, error: errorMessage });
         datasets.push(null);
       }
     }
@@ -195,7 +209,7 @@ export class StateGISPortalScraper {
       return datasets;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Hub API search failed for ${portal.state}: ${errorMessage}`);
+      logger.error('Hub API search failed', { state: portal.state, error: errorMessage });
       return [];
     }
   }
@@ -204,7 +218,7 @@ export class StateGISPortalScraper {
    * Scrape using REST API
    */
   private async scrapeRESTAPI(portal: StateGISPortal): Promise<readonly (RawDataset | null)[]> {
-    console.log(`REST API scraping not yet implemented for ${portal.state}`);
+    logger.info('REST API scraping not yet implemented', { state: portal.state });
     return [];
   }
 
@@ -217,7 +231,7 @@ export class StateGISPortalScraper {
     } else if (portal.portalType === 'ckan') {
       return await this.scrapeCKAN(portal);
     } else {
-      console.warn(`Unknown catalog type for ${portal.state}: ${portal.portalType}`);
+      logger.warn('Unknown catalog type', { state: portal.state, portalType: portal.portalType });
       return [];
     }
   }
@@ -226,7 +240,7 @@ export class StateGISPortalScraper {
    * Scrape Socrata portal
    */
   private async scrapeSocrata(portal: StateGISPortal): Promise<readonly (RawDataset | null)[]> {
-    console.log(`Socrata scraping not yet implemented for ${portal.state}`);
+    logger.info('Socrata scraping not yet implemented', { state: portal.state });
     return [];
   }
 
@@ -234,7 +248,7 @@ export class StateGISPortalScraper {
    * Scrape CKAN portal
    */
   private async scrapeCKAN(portal: StateGISPortal): Promise<readonly (RawDataset | null)[]> {
-    console.log(`CKAN scraping not yet implemented for ${portal.state}`);
+    logger.info('CKAN scraping not yet implemented', { state: portal.state });
     return [];
   }
 
@@ -281,16 +295,26 @@ export class StateGISPortalScraper {
 
       // Confidence routing
       if (validation.confidence < 60) {
-        console.log(`❌ REJECTED: ${portal.stateName} (${validation.confidence}% confidence)`);
-        console.log(`   Issues: ${validation.issues.join(', ')}`);
+        logger.info('Dataset rejected', {
+          state: portal.stateName,
+          confidence: validation.confidence,
+          issues: validation.issues
+        });
         return null;
       }
 
       if (validation.confidence < 85) {
-        console.log(`⚠️  REVIEW NEEDED: ${portal.stateName} (${validation.confidence}% confidence)`);
-        console.log(`   Warnings: ${validation.warnings.join(', ')}`);
+        logger.warn('Dataset needs review', {
+          state: portal.stateName,
+          confidence: validation.confidence,
+          warnings: validation.warnings
+        });
       } else {
-        console.log(`✅ ACCEPTED: ${portal.stateName} (${validation.confidence}% confidence, ${validation.metadata.featureCount} features)`);
+        logger.info('Dataset accepted', {
+          state: portal.stateName,
+          confidence: validation.confidence,
+          featureCount: validation.metadata.featureCount
+        });
       }
 
       const lastModified = parseLastModified(response.headers.get('Last-Modified'));
@@ -320,7 +344,7 @@ export class StateGISPortalScraper {
       return { geojson, provenance };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Failed to download ${layerUrl}: ${errorMessage}`);
+      logger.error('Failed to download layer', { layerUrl, error: errorMessage });
       return null;
     }
   }
@@ -345,15 +369,16 @@ export async function main(): Promise<void> {
   const scraper = new StateGISPortalScraper();
   const result = await scraper.scrapeAll();
 
-  console.log('\n=== Final Results ===');
-  console.log(`Datasets acquired: ${result.datasets.length}`);
-  console.log(`Failures: ${result.failures.length}`);
-  console.log(`Execution time: ${(result.executionTime / 1000).toFixed(1)}s`);
+  logger.info('Final Results', {
+    datasetsAcquired: result.datasets.length,
+    failures: result.failures.length,
+    executionSeconds: (result.executionTime / 1000).toFixed(1)
+  });
 
   if (result.failures.length > 0) {
-    console.log('\n=== Failures ===');
+    logger.info('Failures');
     result.failures.forEach(f => {
-      console.log(`  ${f.source}: ${f.error}`);
+      logger.info('Failure', { source: f.source, error: f.error });
     });
   }
 }
@@ -361,7 +386,10 @@ export async function main(): Promise<void> {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
-    console.error('Fatal error:', error);
+    logger.error('Fatal error in state GIS scraper', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   });
 }

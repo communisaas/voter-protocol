@@ -241,7 +241,7 @@ export class ShadowAtlasRepository {
         insert.state_code,
         insert.layer_type,
         insert.boundary_count,
-        insert.validation_passed,
+        insert.validation_passed ? 1 : 0,
         insert.source_url ?? null,
         insert.source_type ?? null,
         insert.completed_at,
@@ -257,25 +257,43 @@ export class ShadowAtlasRepository {
       throw new Error(`Failed to create extraction: ${insert.id}`);
     }
 
-    return row;
+    // Convert SQLite integer to boolean
+    return {
+      ...row,
+      validation_passed: Boolean((row as unknown as { validation_passed: number }).validation_passed),
+    };
   }
 
   async getExtraction(id: ExtractionId): Promise<ExtractionRow | null> {
-    return this.db.queryOne<ExtractionRow>(
+    const row = await this.db.queryOne<ExtractionRow>(
       'SELECT * FROM extractions WHERE id = ? AND archived_at IS NULL',
       [id]
     );
+
+    if (!row) return null;
+
+    // Convert SQLite integer to boolean
+    return {
+      ...row,
+      validation_passed: Boolean((row as unknown as { validation_passed: number }).validation_passed),
+    };
   }
 
   async listExtractionsByJob(
     jobId: JobId
   ): Promise<ReadonlyArray<ExtractionRow>> {
-    return this.db.queryMany<ExtractionRow>(
+    const rows = await this.db.queryMany<ExtractionRow>(
       `SELECT * FROM extractions
        WHERE job_id = ? AND archived_at IS NULL
        ORDER BY completed_at DESC`,
       [jobId]
     );
+
+    // Convert SQLite integers to booleans
+    return rows.map(row => ({
+      ...row,
+      validation_passed: Boolean((row as unknown as { validation_passed: number }).validation_passed),
+    }));
   }
 
   async getExtractionCoverage(): Promise<ReadonlyArray<ExtractionCoverageView>> {
@@ -303,7 +321,7 @@ export class ShadowAtlasRepository {
         insert.error_message,
         insert.error_stack ?? null,
         insert.attempt_count ?? 1,
-        insert.retryable,
+        insert.retryable ? 1 : 0,
         insert.source_url ?? null,
         insert.source_type ?? null,
         insert.failed_at,
@@ -320,14 +338,20 @@ export class ShadowAtlasRepository {
       throw new Error(`Failed to create failure record: ${insert.id}`);
     }
 
-    return row;
+    // Convert SQLite integers to booleans
+    return this.convertFailureRow(row);
   }
 
   async getFailure(id: FailureId): Promise<FailureRow | null> {
-    return this.db.queryOne<FailureRow>(
+    const row = await this.db.queryOne<FailureRow>(
       'SELECT * FROM failures WHERE id = ? AND archived_at IS NULL',
       [id]
     );
+
+    if (!row) return null;
+
+    // Convert SQLite integers to booleans
+    return this.convertFailureRow(row);
   }
 
   async updateFailure(id: FailureId, update: FailureUpdate): Promise<FailureRow> {
@@ -340,7 +364,8 @@ export class ShadowAtlasRepository {
     }
     if (update.retry_succeeded !== undefined) {
       setClauses.push('retry_succeeded = ?');
-      values.push(update.retry_succeeded);
+      // Convert boolean to integer for SQLite
+      values.push(update.retry_succeeded === null ? null : (update.retry_succeeded ? 1 : 0));
     }
     if (update.archived_at !== undefined) {
       setClauses.push('archived_at = ?');
@@ -367,13 +392,14 @@ export class ShadowAtlasRepository {
       throw new Error(`Failure not found: ${id}`);
     }
 
-    return row;
+    // Convert SQLite integers to booleans
+    return this.convertFailureRow(row);
   }
 
   async listRetryableFailures(
     jobId: JobId
   ): Promise<ReadonlyArray<FailureRow>> {
-    return this.db.queryMany<FailureRow>(
+    const rows = await this.db.queryMany<FailureRow>(
       `SELECT * FROM failures
        WHERE job_id = ?
          AND retryable = TRUE
@@ -382,6 +408,25 @@ export class ShadowAtlasRepository {
        ORDER BY failed_at ASC`,
       [jobId]
     );
+
+    // Convert SQLite integers to booleans
+    return rows.map(row => this.convertFailureRow(row));
+  }
+
+  /**
+   * Convert SQLite integer booleans to TypeScript booleans for FailureRow
+   */
+  private convertFailureRow(row: FailureRow): FailureRow {
+    const rawRow = row as unknown as {
+      retryable: number;
+      retry_succeeded: number | null;
+    };
+
+    return {
+      ...row,
+      retryable: Boolean(rawRow.retryable),
+      retry_succeeded: rawRow.retry_succeeded === null ? null : Boolean(rawRow.retry_succeeded),
+    };
   }
 
   // ==========================================================================
@@ -569,7 +614,7 @@ export class ShadowAtlasRepository {
         insert.id,
         insert.extraction_id,
         insert.validator_type,
-        insert.passed,
+        insert.passed ? 1 : 0,  // Convert boolean to integer for SQLite
         insert.expected_count ?? null,
         insert.actual_count ?? null,
         insert.discrepancies ?? null,
@@ -588,18 +633,28 @@ export class ShadowAtlasRepository {
       throw new Error(`Failed to create validation result: ${insert.id}`);
     }
 
-    return row;
+    // Convert SQLite integer to boolean
+    return {
+      ...row,
+      passed: Boolean((row as unknown as { passed: number }).passed),
+    };
   }
 
   async listValidationResultsByExtraction(
     extractionId: ExtractionId
   ): Promise<ReadonlyArray<ValidationResultRow>> {
-    return this.db.queryMany<ValidationResultRow>(
+    const rows = await this.db.queryMany<ValidationResultRow>(
       `SELECT * FROM validation_results
        WHERE extraction_id = ? AND archived_at IS NULL
        ORDER BY validated_at DESC`,
       [extractionId]
     );
+
+    // Convert SQLite integers to booleans
+    return rows.map(row => ({
+      ...row,
+      passed: Boolean((row as unknown as { passed: number }).passed),
+    }));
   }
 
   // ==========================================================================

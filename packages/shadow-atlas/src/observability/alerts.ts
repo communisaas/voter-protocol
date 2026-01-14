@@ -21,6 +21,7 @@
 import { appendFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import type { HealthSummary, MetricsStore } from './metrics.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Alert Types
@@ -226,10 +227,17 @@ export class WebhookAlertChannel implements AlertChannel {
       });
 
       if (!response.ok) {
-        console.error(`Webhook failed: ${response.status} ${response.statusText}`);
+        logger.error('Webhook failed', {
+          status: response.status,
+          statusText: response.statusText,
+          url: this.webhookUrl,
+        });
       }
     } catch (error) {
-      console.error('Failed to send webhook:', error);
+      logger.error('Failed to send webhook', {
+        error: error instanceof Error ? error.message : String(error),
+        url: this.webhookUrl,
+      });
     }
   }
 }
@@ -368,11 +376,19 @@ export class HealthCheckRunner {
     if (this.intervalId) return;
 
     // Run immediately
-    this.check().catch(console.error);
+    this.check().catch((error) => {
+      logger.error('Health check failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     // Then on interval
     this.intervalId = setInterval(() => {
-      this.check().catch(console.error);
+      this.check().catch((error) => {
+        logger.error('Health check failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }, this.intervalMs);
   }
 

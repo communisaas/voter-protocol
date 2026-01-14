@@ -98,16 +98,15 @@ describe('RedistrictingGapDetector', () => {
   });
 
   describe('checkBoundaryGap - non-legislative boundaries', () => {
-    const nonLegislative: GapBoundaryType[] = [
+    const nonLegislativeNonVTD: GapBoundaryType[] = [
       'county',
       'place',
       'city_council',
       'school_unified',
-      'voting_precinct',
       'special_district',
     ];
 
-    it.each(nonLegislative)(
+    it.each(nonLegislativeNonVTD)(
       'should return use-tiger for %s even during gap period',
       (boundaryType) => {
         const status = detector.checkBoundaryGap(
@@ -121,6 +120,46 @@ describe('RedistrictingGapDetector', () => {
         expect(status.reasoning).toContain('not affected by redistricting');
       }
     );
+
+    it('should return use-primary for voting_precinct with VTD-specific gap logic', () => {
+      // VTDs have different gap patterns than legislative districts
+      // March 2022 is BOTH Q1 (post-election) AND post-redistricting year
+      const status = detector.checkBoundaryGap(
+        'voting_precinct',
+        'CA',
+        new Date('2022-03-15')
+      );
+      expect(status.inGap).toBe(true);
+      expect(status.gapType).toBe('post-finalization-pre-tiger');
+      expect(status.recommendation).toBe('use-primary');
+      expect(status.reasoning).toContain('Q1');
+    });
+
+    it('should return use-primary for voting_precinct outside Q1 in redistricting year', () => {
+      // Post-redistricting year (2022) but outside Q1
+      const status = detector.checkBoundaryGap(
+        'voting_precinct',
+        'CA',
+        new Date('2022-06-15')
+      );
+      expect(status.inGap).toBe(true);
+      expect(status.gapType).toBe('post-finalization-pre-tiger');
+      expect(status.recommendation).toBe('use-primary');
+      expect(status.reasoning).toContain('Post-redistricting year 2022');
+    });
+
+    it('should return current VTD data for voting_precinct outside gap periods', () => {
+      // Not Q1, not post-redistricting year
+      const status = detector.checkBoundaryGap(
+        'voting_precinct',
+        'CA',
+        new Date('2023-06-15')
+      );
+      expect(status.inGap).toBe(false);
+      expect(status.gapType).toBe('none');
+      expect(status.recommendation).toBe('use-primary');
+      expect(status.reasoning).toContain('VTD data for CA is current');
+    });
   });
 
   describe('checkBoundaryGap - legislative boundaries', () => {

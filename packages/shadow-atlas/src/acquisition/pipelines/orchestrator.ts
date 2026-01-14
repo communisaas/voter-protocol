@@ -17,6 +17,7 @@ import { ArcGISPortalScraper } from './arcgis-portal-scraper.js';
 import { StateGISPortalScraper } from './state-gis-scraper.js';
 import { OSMScraper } from './osm-scraper.js';
 import { PostDownloadValidator } from '../post-download-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Acquisition Orchestrator
@@ -40,12 +41,10 @@ export class AcquisitionOrchestrator {
     const timestamp = new Date().toISOString().split('T')[0];
     const outputDir = join(this.outputBaseDir, `raw-${timestamp}`);
 
-    console.log('='.repeat(80));
-    console.log('SHADOW ATLAS QUARTERLY BATCH SCRAPE');
-    console.log('='.repeat(80));
-    console.log(`Timestamp: ${timestamp}`);
-    console.log(`Output directory: ${outputDir}`);
-    console.log('='.repeat(80));
+    logger.info('Starting Shadow Atlas quarterly batch scrape', {
+      timestamp,
+      outputDir
+    });
 
     // Create output directories
     await mkdir(outputDir, { recursive: true });
@@ -57,7 +56,7 @@ export class AcquisitionOrchestrator {
     await mkdir(join(outputDir, 'staging/rejected'), { recursive: true });
 
     // Parallel scraping
-    console.log('\nStarting parallel scraping...\n');
+    logger.info('Starting parallel scraping across all sources');
 
     const [stateGISResult, arcgisPortalResult, osmResult] = await Promise.all([
       this.scrapeStateGIS(),
@@ -66,9 +65,7 @@ export class AcquisitionOrchestrator {
     ]);
 
     // Write datasets to disk
-    console.log('\n' + '='.repeat(80));
-    console.log('Writing datasets to disk...');
-    console.log('='.repeat(80));
+    logger.info('Writing datasets to disk');
 
     await this.writeDatasets(outputDir, 'usa/state-gis', stateGISResult.datasets);
     await this.writeDatasets(outputDir, 'usa/arcgis-portal', arcgisPortalResult.datasets);
@@ -84,7 +81,7 @@ export class AcquisitionOrchestrator {
     await writeFile(join(outputDir, 'sources.json'), JSON.stringify(sources, null, 2));
 
     // Compute snapshot hash
-    console.log('\nComputing snapshot hash...');
+    logger.info('Computing snapshot hash');
     const snapshotHash = await this.hashDirectory(outputDir);
 
     const executionTime = Date.now() - startTime;
@@ -100,17 +97,16 @@ export class AcquisitionOrchestrator {
     await writeFile(join(outputDir, 'snapshot-metadata.json'), JSON.stringify(metadata, null, 2));
 
     // Final summary
-    console.log('\n' + '='.repeat(80));
-    console.log('SCRAPE COMPLETE');
-    console.log('='.repeat(80));
-    console.log(`Total datasets: ${sources.reduce((sum, s) => sum + s.count, 0)}`);
-    console.log(`  - State GIS: ${stateGISResult.datasets.length}`);
-    console.log(`  - ArcGIS Portal: ${arcgisPortalResult.datasets.length}`);
-    console.log(`  - OpenStreetMap: ${osmResult.datasets.length}`);
-    console.log(`Execution time: ${(executionTime / 1000 / 60).toFixed(1)} minutes`);
-    console.log(`Snapshot hash: ${snapshotHash}`);
-    console.log(`Output: ${outputDir}`);
-    console.log('='.repeat(80));
+    const totalDatasets = sources.reduce((sum, s) => sum + s.count, 0);
+    logger.info('Scrape complete', {
+      totalDatasets,
+      stateGIS: stateGISResult.datasets.length,
+      arcgisPortal: arcgisPortalResult.datasets.length,
+      osm: osmResult.datasets.length,
+      executionMinutes: (executionTime / 1000 / 60).toFixed(1),
+      snapshotHash,
+      outputDir
+    });
 
     return metadata;
   }
@@ -119,7 +115,7 @@ export class AcquisitionOrchestrator {
    * Scrape State GIS portals
    */
   private async scrapeStateGIS() {
-    console.log('--- State GIS Portals ---');
+    logger.info('Scraping State GIS portals');
     const scraper = new StateGISPortalScraper();
     return await scraper.scrapeAll();
   }
@@ -128,7 +124,7 @@ export class AcquisitionOrchestrator {
    * Scrape ArcGIS Portal
    */
   private async scrapeArcGISPortal() {
-    console.log('\n--- ArcGIS Portal ---');
+    logger.info('Scraping ArcGIS Portal');
     const scraper = new ArcGISPortalScraper();
     return await scraper.scrapeAll();
   }
@@ -137,7 +133,7 @@ export class AcquisitionOrchestrator {
    * Scrape OpenStreetMap
    */
   private async scrapeOSM() {
-    console.log('\n--- OpenStreetMap ---');
+    logger.info('Scraping OpenStreetMap');
     const scraper = new OSMScraper();
     return await scraper.scrapeAll();
   }
@@ -170,7 +166,11 @@ export class AcquisitionOrchestrator {
 
             written++;
           } catch (error) {
-            console.error(`  ✗ Failed to write dataset ${globalIndex}: ${(error as Error).message}`);
+            logger.error('Failed to write dataset', {
+              subdir,
+              datasetIndex: globalIndex,
+              error: (error as Error).message
+            });
             throw error; // Re-throw to prevent silent data loss
           }
         })
@@ -178,11 +178,18 @@ export class AcquisitionOrchestrator {
 
       // Progress update every batch
       if (written % 50 === 0 || written === datasets.length) {
-        console.log(`  Progress: ${written}/${datasets.length} datasets written`);
+        logger.info('Dataset write progress', {
+          written,
+          total: datasets.length,
+          subdir
+        });
       }
     }
 
-    console.log(`  ✓ Wrote ${datasets.length} datasets to ${subdir}/`);
+    logger.info('Datasets written successfully', {
+      count: datasets.length,
+      subdir
+    });
   }
 
   /**
@@ -212,7 +219,10 @@ export async function main(): Promise<void> {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(error => {
-    console.error('Fatal error:', error);
+    logger.error('Fatal error in orchestrator', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     process.exit(1);
   });
 }

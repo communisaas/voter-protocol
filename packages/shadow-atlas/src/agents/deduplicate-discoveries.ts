@@ -22,6 +22,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 interface LayerRecord {
   readonly service_url?: string;
@@ -87,7 +88,7 @@ function calculateQualityScore(record: LayerRecord): number {
  */
 function loadJSONL(filePath: string): LayerRecord[] {
   if (!existsSync(filePath)) {
-    console.warn(`⚠️  File not found: ${filePath}`);
+    logger.warn(`⚠️  File not found: ${filePath}`);
     return [];
   }
 
@@ -98,7 +99,7 @@ function loadJSONL(filePath: string): LayerRecord[] {
     try {
       return JSON.parse(line) as LayerRecord;
     } catch (error) {
-      console.error(`Error parsing line ${index + 1} in ${filePath}: ${(error as Error).message}`);
+      logger.error(`Error parsing line ${index + 1} in ${filePath}: ${(error as Error).message}`);
       return null;
     }
   }).filter((record): record is LayerRecord => record !== null);
@@ -206,28 +207,28 @@ function deduplicateByURL(
  * Print statistics
  */
 function printStats(stats: DeduplicationStats): void {
-  console.log('\n' + '='.repeat(70));
-  console.log('DEDUPLICATION STATISTICS');
-  console.log('='.repeat(70));
-  console.log(`Total input records: ${stats.totalInputRecords.toLocaleString()}`);
-  console.log(`Unique records: ${stats.uniqueRecords.toLocaleString()}`);
-  console.log(`Duplicates removed: ${stats.duplicatesRemoved.toLocaleString()} (${(stats.duplicatesRemoved / stats.totalInputRecords * 100).toFixed(1)}%)`);
-  console.log('');
+  logger.info('\n' + '='.repeat(70));
+  logger.info('DEDUPLICATION STATISTICS');
+  logger.info('='.repeat(70));
+  logger.info(`Total input records: ${stats.totalInputRecords.toLocaleString()}`);
+  logger.info(`Unique records: ${stats.uniqueRecords.toLocaleString()}`);
+  logger.info(`Duplicates removed: ${stats.duplicatesRemoved.toLocaleString()} (${(stats.duplicatesRemoved / stats.totalInputRecords * 100).toFixed(1)}%)`);
+  logger.info('');
 
-  console.log('By source:');
+  logger.info('By source:');
   for (const [source, counts] of Object.entries(stats.bySource)) {
-    console.log(`  ${source}:`);
-    console.log(`    Total: ${counts.total.toLocaleString()}`);
-    console.log(`    Kept: ${counts.kept.toLocaleString()}`);
-    console.log(`    Removed: ${counts.removed.toLocaleString()} (${(counts.removed / counts.total * 100).toFixed(1)}%)`);
+    logger.info(`  ${source}:`);
+    logger.info(`    Total: ${counts.total.toLocaleString()}`);
+    logger.info(`    Kept: ${counts.kept.toLocaleString()}`);
+    logger.info(`    Removed: ${counts.removed.toLocaleString()} (${(counts.removed / counts.total * 100).toFixed(1)}%)`);
   }
-  console.log('');
+  logger.info('');
 
-  console.log('Quality metrics:');
-  console.log(`  With feature count: ${stats.qualityMetrics.withFeatureCount.toLocaleString()} (${(stats.qualityMetrics.withFeatureCount / stats.uniqueRecords * 100).toFixed(1)}%)`);
-  console.log(`  With classification: ${stats.qualityMetrics.withClassification.toLocaleString()} (${(stats.qualityMetrics.withClassification / stats.uniqueRecords * 100).toFixed(1)}%)`);
-  console.log(`  With full metadata: ${stats.qualityMetrics.withFullMetadata.toLocaleString()} (${(stats.qualityMetrics.withFullMetadata / stats.uniqueRecords * 100).toFixed(1)}%)`);
-  console.log('='.repeat(70));
+  logger.info('Quality metrics:');
+  logger.info(`  With feature count: ${stats.qualityMetrics.withFeatureCount.toLocaleString()} (${(stats.qualityMetrics.withFeatureCount / stats.uniqueRecords * 100).toFixed(1)}%)`);
+  logger.info(`  With classification: ${stats.qualityMetrics.withClassification.toLocaleString()} (${(stats.qualityMetrics.withClassification / stats.uniqueRecords * 100).toFixed(1)}%)`);
+  logger.info(`  With full metadata: ${stats.qualityMetrics.withFullMetadata.toLocaleString()} (${(stats.qualityMetrics.withFullMetadata / stats.uniqueRecords * 100).toFixed(1)}%)`);
+  logger.info('='.repeat(70));
 }
 
 /**
@@ -258,10 +259,10 @@ function parseArgs(): {
 async function main(): Promise<void> {
   const args = parseArgs();
 
-  console.log('='.repeat(70));
-  console.log('DEDUPLICATION SCRIPT - Phase 2 P3');
-  console.log('='.repeat(70));
-  console.log('');
+  logger.info('='.repeat(70));
+  logger.info('DEDUPLICATION SCRIPT - Phase 2 P3');
+  logger.info('='.repeat(70));
+  logger.info('');
 
   // Default sources
   const defaultSources = [
@@ -279,20 +280,20 @@ async function main(): Promise<void> {
 
   for (const sourcePath of sources) {
     const fileName = sourcePath.split('/').pop() || 'unknown';
-    console.log(`Loading ${fileName}...`);
+    logger.info(`Loading ${fileName}...`);
 
     const records = loadJSONL(sourcePath);
-    console.log(`  Loaded ${records.length.toLocaleString()} records`);
+    logger.info(`  Loaded ${records.length.toLocaleString()} records`);
 
     allRecords.push(...records);
     sourceLabels.push(...Array(records.length).fill(fileName));
   }
 
-  console.log('');
-  console.log(`Total records to process: ${allRecords.length.toLocaleString()}`);
+  logger.info('');
+  logger.info(`Total records to process: ${allRecords.length.toLocaleString()}`);
 
   // Deduplicate
-  console.log('\nDeduplicating by URL...');
+  logger.info('\nDeduplicating by URL...');
   const { unique, stats } = deduplicateByURL(allRecords, sourceLabels);
 
   // Print statistics
@@ -306,10 +307,13 @@ async function main(): Promise<void> {
       unique.map(record => JSON.stringify(record)).join('\n')
     );
 
-    console.log('');
-    console.log(`✓ Saved ${unique.length.toLocaleString()} unique records to:`);
-    console.log(`  ${outputPath}`);
+    logger.info('');
+    logger.info(`✓ Saved ${unique.length.toLocaleString()} unique records to:`);
+    logger.info(`  ${outputPath}`);
   }
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

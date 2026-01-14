@@ -9,11 +9,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { CKANScanner } from '../../../scanners/ckan.js';
-import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
+import { CKANScanner } from '../../../acquisition/scanners/ckan.js';
+import type { CityTarget } from '../../../validators/geographic-validator.js';
 
 describe('CKANScanner with SemanticValidator Integration', () => {
-  const lexingtonCity: CityInfo as CityTarget = {
+  const lexingtonCity: CityTarget = {
     name: 'Lexington',
     state: 'KY',
     fips: '2146027',

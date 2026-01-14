@@ -24,6 +24,7 @@ import type {
 import type { RegionalPinningService } from './regional-pinning-service.js';
 import type { MerkleTree, SnapshotMetadata } from '../core/types.js';
 import type { BoundaryType } from '../provenance/authority-registry.js';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Update Coordinator
@@ -438,7 +439,10 @@ export class UpdateCoordinator {
     cid: string,
     regionalStatuses: readonly RegionalPublishStatus[]
   ): Promise<void> {
-    console.warn(`[UpdateCoordinator] Rolling back deployment for CID ${cid}`);
+    logger.warn('Rolling back deployment', {
+      cid,
+      completedRegions: regionalStatuses.filter(s => s.status === 'completed').length,
+    });
 
     const unpinPromises = regionalStatuses
       .filter(s => s.status === 'completed')
@@ -449,14 +453,16 @@ export class UpdateCoordinator {
         try {
           // Unpin from all services in region
           // (Implementation would call service.unpin() for each pinning service)
-          console.log(
-            `[UpdateCoordinator] Rolled back ${status.region} for CID ${cid}`
-          );
+          logger.info('Rolled back region', {
+            region: status.region,
+            cid,
+          });
         } catch (error) {
-          console.error(
-            `[UpdateCoordinator] Failed to rollback ${status.region}:`,
-            error
-          );
+          logger.error('Failed to rollback region', {
+            region: status.region,
+            cid,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       });
 

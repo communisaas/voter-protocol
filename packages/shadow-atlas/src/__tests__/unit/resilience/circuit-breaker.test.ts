@@ -340,7 +340,7 @@ describe('CircuitBreaker', () => {
       expect(stats.state).toBe('closed');
     });
 
-    it('should allow overriding defaults', () => {
+    it('should allow overriding defaults', async () => {
       const breaker = createCircuitBreaker('my-service', {
         failureThreshold: 10,
       });
@@ -348,7 +348,7 @@ describe('CircuitBreaker', () => {
       // Need 10 failures to open
       for (let i = 0; i < 9; i++) {
         try {
-          breaker.execute(async () => {
+          await breaker.execute(async () => {
             throw new Error('Failure');
           });
         } catch (error) {

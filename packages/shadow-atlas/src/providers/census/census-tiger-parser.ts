@@ -15,6 +15,7 @@
 
 import { open as parseShapefile } from 'shapefile';
 import * as turf from '@turf/turf';
+import { logger } from '../../core/utils/logger.js';
 
 // TypeScript interfaces for type safety
 
@@ -109,7 +110,7 @@ export async function parseCensusTIGERPlaces(
     // Get state abbreviation
     const stateAbbr = STATE_FIPS_TO_ABBR[props.STATEFP];
     if (!stateAbbr) {
-      console.warn(`Unknown state FIPS: ${props.STATEFP} for ${props.NAME}`);
+      logger.warn('Unknown state FIPS', { fips: props.STATEFP, name: props.NAME });
       result = await source.read();
       continue;
     }
@@ -248,20 +249,20 @@ WHERE id NOT IN (SELECT muni_id FROM municipality_state);
  * @returns Array of municipalities ready for D1 insert
  */
 export async function bootstrapMunicipalitiesFromCensus(): Promise<Municipality[]> {
-  console.log('📥 Downloading Census TIGER/Line 2025 - Places...');
+  logger.info('Downloading Census TIGER/Line 2025 - Places');
 
   // Direct URL to Census FTP (always latest)
   const tigerUrl = 'https://www2.census.gov/geo/tiger/TIGER2025/PLACE/tl_2025_us_place.zip';
 
   // Parse shapefile
-  console.log('📊 Parsing shapefile...');
+  logger.info('Parsing shapefile');
   const municipalities = await parseCensusTIGERPlaces(tigerUrl);
-  console.log(`✅ Parsed ${municipalities.length} municipalities`);
+  logger.info('Shapefile parsed', { municipalityCount: municipalities.length });
 
   // Fetch population data from Census API
-  console.log('👥 Fetching population data from Census API...');
+  logger.info('Fetching population data from Census API');
   const populationMap = await fetchPopulationData();
-  console.log(`✅ Loaded population for ${populationMap.size} places`);
+  logger.info('Population data loaded', { placeCount: populationMap.size });
 
   // Merge population data
   for (const muni of municipalities) {
@@ -274,9 +275,13 @@ export async function bootstrapMunicipalitiesFromCensus(): Promise<Municipality[
   // Sort by population descending (prioritize large cities)
   municipalities.sort((a, b) => b.population - a.population);
 
-  console.log(`🏙️  Top 10 municipalities by population:`);
-  municipalities.slice(0, 10).forEach((m, i) => {
-    console.log(`  ${i + 1}. ${m.name}, ${m.state} - ${m.population.toLocaleString()}`);
+  logger.info('Top 10 municipalities by population', {
+    municipalities: municipalities.slice(0, 10).map((m, i) => ({
+      rank: i + 1,
+      name: m.name,
+      state: m.state,
+      population: m.population
+    }))
   });
 
   return municipalities;
@@ -295,10 +300,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .then(municipalities => {
       // Generate SQL
       const sql = generateInsertSQL(municipalities);
-      console.log(sql);
+      logger.info(sql);
     })
     .catch(error => {
-      console.error('❌ Bootstrap failed:', error);
+      logger.error('Bootstrap failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       process.exit(1);
     });
 }

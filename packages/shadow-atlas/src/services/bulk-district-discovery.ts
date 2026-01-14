@@ -20,8 +20,8 @@
  * COST: $0 (all public APIs)
  */
 
-import type { BoundaryType } from '../types/boundary.js';
-import { BoundaryType as BT } from '../types/boundary.js';
+import type { BoundaryType } from '../core/types/boundary.js';
+import { BoundaryType as BT } from '../core/types/boundary.js';
 
 /**
  * Census place data from TIGER/Line

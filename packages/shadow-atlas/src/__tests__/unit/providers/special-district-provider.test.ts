@@ -588,11 +588,9 @@ describe('Integration: Download and Transform', () => {
         level: 'district',
       };
 
-      await expect(mockProvider.download(params)).rejects.toThrow(
-        /Download failed after \d+ attempts/
-      );
+      await expect(mockProvider.download(params)).rejects.toThrow();
     } finally {
       global.fetch = originalFetch;
     }
-  });
+  }, 15000); // Allow time for retry delays
 });

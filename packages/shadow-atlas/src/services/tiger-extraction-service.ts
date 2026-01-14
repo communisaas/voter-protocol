@@ -42,16 +42,17 @@ import {
   validateCount,
   type LegislativeChamber,
   type CountValidation,
-} from '../registry/official-district-counts.js';
+} from '../core/registry/official-district-counts.js';
 import {
   validateGEOIDCompleteness,
   validateNationalGEOIDCompleteness,
   type GEOIDEntityType,
   type GEOIDValidationResult,
-} from '../registry/expected-geoids.js';
+} from '../core/registry/expected-geoids.js';
 import { readFile, writeFile, access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
 // Types
@@ -403,7 +404,11 @@ export class TIGERExtractionService {
         await this.sleep(this.rateLimitMs);
       } catch (error) {
         this.stats.failedRequests++;
-        console.error(`Failed to extract ${layer} for state ${stateFips}: ${(error as Error).message}`);
+        logger.error('Failed to extract layer for state', {
+          layer,
+          stateFips,
+          error: (error as Error).message,
+        });
       }
     }
 
@@ -716,13 +721,18 @@ export class TIGERExtractionService {
         await this.clearProviderCache(options?.entityType);
       }
 
-      console.log(
-        `[TIGERExtractionService] Cleared ${clearedEntries} cache entries (${(freedBytes / 1024 / 1024).toFixed(2)} MB)`
-      );
+      logger.info('Cache cleared', {
+        service: 'TIGERExtractionService',
+        clearedEntries,
+        freedMB: (freedBytes / 1024 / 1024).toFixed(2),
+      });
 
       return { clearedEntries, freedBytes };
     } catch (error) {
-      console.error('[TIGERExtractionService] Cache clearing failed:', error);
+      logger.error('Cache clearing failed', {
+        service: 'TIGERExtractionService',
+        error: error instanceof Error ? error.message : String(error),
+      });
       return { clearedEntries, freedBytes };
     }
   }
@@ -761,7 +771,10 @@ export class TIGERExtractionService {
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.warn('[TIGERExtractionService] Provider cache clearing failed:', error);
+        logger.warn('Provider cache clearing failed', {
+          service: 'TIGERExtractionService',
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

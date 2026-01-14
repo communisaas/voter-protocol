@@ -31,11 +31,12 @@ import type {
   BoundaryType,
   LatLng,
   BBox,
-} from '../types/boundary.js';
-import { BoundaryType as BT, extractBBox, PRECISION_RANK } from '../types/boundary.js';
+} from '../core/types/boundary.js';
+import { BoundaryType as BT, extractBBox, PRECISION_RANK } from '../core/types/boundary.js';
 import { getStateNameFromFips } from '../core/types.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
 import type { ProvenanceRecord } from '../provenance-writer.js';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Census TIGER data year
@@ -281,14 +282,20 @@ export class CensusTigerLoader implements BoundaryDataSource {
       });
 
       if (!response.ok) {
-        console.warn(`TIGERweb query failed for ${layerKey}: ${response.status}`);
+        logger.warn('TIGERweb query failed', {
+          layerKey,
+          httpStatus: response.status,
+        });
         return [];
       }
 
       const data = await response.json();
       return this.convertTigerwebResponse(data, config);
     } catch (error) {
-      console.warn(`TIGERweb query error for ${layerKey}:`, error);
+      logger.warn('TIGERweb query error', {
+        layerKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }

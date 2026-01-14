@@ -50,6 +50,7 @@ import {
   type ProviderHealth,
   type LayerExtractionResult,
 } from './base-provider.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // Canada-Specific Types
@@ -251,13 +252,16 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
     const endpoint = layer.endpoint;
 
     try {
-      console.log('[Canada] Extracting federal electoral districts...');
+      logger.info('Extracting federal electoral districts', { country: 'Canada' });
       const ridings = await this.fetchAllRidings(endpoint);
       const durationMs = Date.now() - startTime;
 
-      console.log(
-        `[Canada] ✓ Federal: ${ridings.length}/${layer.expectedCount} ridings (${durationMs}ms)`
-      );
+      logger.info('Federal extraction complete', {
+        country: 'Canada',
+        ridingCount: ridings.length,
+        expectedCount: layer.expectedCount,
+        durationMs
+      });
 
       return {
         layer: 'federal',
@@ -278,7 +282,7 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Canada] ✗ Federal: ${message}`);
+      logger.error('Federal extraction failed', { country: 'Canada', error: message });
 
       return (this.createFailedResult(
         'federal',
@@ -300,7 +304,7 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
   async resolveAddressToDistrict(lat: number, lng: number): Promise<ResolvedDistrict | null> {
     try {
       const url = `${this.representApiUrl}/boundaries/?contains=${lat},${lng}&sets=federal-electoral-districts`;
-      console.log(`[Canada] Resolving address: ${lat}, ${lng}`);
+      logger.info('Resolving address to district', { country: 'Canada', lat, lng });
 
       const response = await fetch(url, {
         headers: {
@@ -328,7 +332,10 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
         province: (boundary.related?.province_code as CanadaProvince) ?? 'ON',
       };
     } catch (error) {
-      console.error('[Canada] Address resolution failed:', error);
+      logger.error('Address resolution failed', {
+        country: 'Canada',
+        error: error instanceof Error ? error.message : String(error)
+      });
       return null;
     }
   }
@@ -342,14 +349,20 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
     const endpoint = layer.endpoint;
 
     try {
-      console.log(`[Canada] Extracting federal districts for ${provinceCode}...`);
+      logger.info('Extracting federal districts by province', {
+        country: 'Canada',
+        province: provinceCode
+      });
       const allRidings = await this.fetchAllRidings(endpoint);
       const provincialRidings = allRidings.filter((r) => r.province === provinceCode);
       const durationMs = Date.now() - startTime;
 
-      console.log(
-        `[Canada] ✓ ${provinceCode}: ${provincialRidings.length} ridings (${durationMs}ms)`
-      );
+      logger.info('Province extraction complete', {
+        country: 'Canada',
+        province: provinceCode,
+        ridingCount: provincialRidings.length,
+        durationMs
+      });
 
       return {
         layer: 'federal',
@@ -365,7 +378,11 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Canada] ✗ ${provinceCode}: ${message}`);
+      logger.error('Province extraction failed', {
+        country: 'Canada',
+        province: provinceCode,
+        error: message
+      });
 
       return (this.createFailedResult(
         'federal',
@@ -453,7 +470,7 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
 
     while (nextUrl) {
       try {
-        console.log(`   Fetching: ${nextUrl} ...`);
+        logger.debug('Fetching ridings', { url: nextUrl });
         const response = await fetch(nextUrl, {
           headers: {
             Accept: 'application/json',
@@ -481,7 +498,10 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
           nextUrl = `${this.representApiUrl}${nextUrl}`;
         }
       } catch (err) {
-        console.warn(`Error fetching ${nextUrl}`, err);
+        logger.warn('Error fetching ridings', {
+          url: nextUrl,
+          error: err instanceof Error ? err.message : String(err)
+        });
         // If we haven't fetched any data yet, propagate the error
         // If we have partial data, return what we have (partial success)
         if (ridings.length === 0) {

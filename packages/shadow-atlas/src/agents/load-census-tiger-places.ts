@@ -24,6 +24,7 @@
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../core/utils/logger.js';
 
 // US states and territories (FIPS codes)
 const US_STATES = [
@@ -135,34 +136,34 @@ async function downloadStateShapefile(stateFips: string, stateName: string): Pro
 
   // Skip if shapefile already exists
   if (existsSync(shpFile)) {
-    console.log(`[${stateName}] Shapefile already exists, skipping download`);
+    logger.info(`[${stateName}] Shapefile already exists, skipping download`);
     return true;
   }
 
   // Skip if zip already exists
   if (existsSync(zipFile)) {
-    console.log(`[${stateName}] Zip file exists, extracting...`);
+    logger.info(`[${stateName}] Zip file exists, extracting...`);
     try {
       execSync(`unzip -q -o "${zipFile}" -d "${dataDir}"`, { stdio: 'ignore' });
       if (existsSync(shpFile)) {
-        console.log(`[${stateName}] Extracted shapefile`);
+        logger.info(`[${stateName}] Extracted shapefile`);
         return true;
       }
     } catch (error) {
-      console.error(`[${stateName}] Failed to extract: ${error}`);
+      logger.error(`[${stateName}] Failed to extract: ${error}`);
       return false;
     }
   }
 
   // Download shapefile
   const url = `https://www2.census.gov/geo/tiger/TIGER2024/PLACE/tl_2024_${stateFips}_place.zip`;
-  console.log(`[${stateName}] Downloading from ${url}...`);
+  logger.info(`[${stateName}] Downloading from ${url}...`);
 
   try {
     execSync(`curl -o "${zipFile}" "${url}"`, { stdio: 'ignore' });
 
     if (!existsSync(zipFile)) {
-      console.error(`[${stateName}] Download failed (file not found)`);
+      logger.error(`[${stateName}] Download failed (file not found)`);
       return false;
     }
 
@@ -170,14 +171,14 @@ async function downloadStateShapefile(stateFips: string, stateName: string): Pro
     execSync(`unzip -q -o "${zipFile}" -d "${dataDir}"`, { stdio: 'ignore' });
 
     if (existsSync(shpFile)) {
-      console.log(`[${stateName}] Downloaded and extracted successfully`);
+      logger.info(`[${stateName}] Downloaded and extracted successfully`);
       return true;
     } else {
-      console.error(`[${stateName}] Extraction failed (shapefile not found)`);
+      logger.error(`[${stateName}] Extraction failed (shapefile not found)`);
       return false;
     }
   } catch (error) {
-    console.error(`[${stateName}] Failed: ${error}`);
+    logger.error(`[${stateName}] Failed: ${error}`);
     return false;
   }
 }
@@ -188,20 +189,20 @@ async function convertShapefileToGeoJSON(stateFips: string, stateName: string): 
   const geoJsonFile = join(dataDir, `tl_2024_${stateFips}_place.geojson`);
 
   if (!existsSync(shpFile)) {
-    console.error(`[${stateName}] Shapefile not found: ${shpFile}`);
+    logger.error(`[${stateName}] Shapefile not found: ${shpFile}`);
     return [];
   }
 
   // Convert shapefile to GeoJSON using ogr2ogr
   try {
-    console.log(`[${stateName}] Converting shapefile to GeoJSON...`);
+    logger.info(`[${stateName}] Converting shapefile to GeoJSON...`);
     execSync(
       `ogr2ogr -f GeoJSON "${geoJsonFile}" "${shpFile}" -t_srs EPSG:4326`,
       { stdio: 'ignore' }
     );
 
     if (!existsSync(geoJsonFile)) {
-      console.error(`[${stateName}] GeoJSON conversion failed`);
+      logger.error(`[${stateName}] GeoJSON conversion failed`);
       return [];
     }
 
@@ -235,19 +236,19 @@ async function convertShapefileToGeoJSON(stateFips: string, stateName: string): 
       };
     });
 
-    console.log(`[${stateName}] Converted ${places.length} places (${places.filter(p => p.properties.place_type === 'incorporated').length} incorporated, ${places.filter(p => p.properties.place_type === 'cdp').length} CDPs)`);
+    logger.info(`[${stateName}] Converted ${places.length} places (${places.filter(p => p.properties.place_type === 'incorporated').length} incorporated, ${places.filter(p => p.properties.place_type === 'cdp').length} CDPs)`);
 
     return places;
   } catch (error) {
-    console.error(`[${stateName}] Conversion failed: ${error}`);
+    logger.error(`[${stateName}] Conversion failed: ${error}`);
     return [];
   }
 }
 
 async function main() {
-  console.log('===================================');
-  console.log('Census TIGER/Line 2024 Place Loader');
-  console.log('===================================\n');
+  logger.info('===================================');
+  logger.info('Census TIGER/Line 2024 Place Loader');
+  logger.info('===================================\n');
 
   const dataDir = join(__dirname, 'data', 'census-places');
 
@@ -257,7 +258,7 @@ async function main() {
   }
 
   // Phase 1: Download all state shapefiles
-  console.log('Phase 1: Downloading state shapefiles...\n');
+  logger.info('Phase 1: Downloading state shapefiles...\n');
   let downloadSuccessCount = 0;
 
   for (const state of US_STATES) {
@@ -268,10 +269,10 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  console.log(`\nDownload complete: ${downloadSuccessCount}/${US_STATES.length} states successful\n`);
+  logger.info(`\nDownload complete: ${downloadSuccessCount}/${US_STATES.length} states successful\n`);
 
   // Phase 2: Convert shapefiles to GeoJSON and consolidate
-  console.log('Phase 2: Converting to GeoJSON and consolidating...\n');
+  logger.info('Phase 2: Converting to GeoJSON and consolidating...\n');
 
   const allPlaces: CensusPlace[] = [];
 
@@ -293,14 +294,17 @@ async function main() {
   const incorporated = allPlaces.filter(p => p.properties.place_type === 'incorporated').length;
   const cdps = allPlaces.filter(p => p.properties.place_type === 'cdp').length;
 
-  console.log('\n===================================');
-  console.log('Census Place Loading Complete');
-  console.log('===================================');
-  console.log(`Total places loaded: ${allPlaces.length.toLocaleString()}`);
-  console.log(`  Incorporated cities/towns: ${incorporated.toLocaleString()} (${((incorporated / allPlaces.length) * 100).toFixed(1)}%)`);
-  console.log(`  Census Designated Places: ${cdps.toLocaleString()} (${((cdps / allPlaces.length) * 100).toFixed(1)}%)`);
-  console.log(`\nOutput: ${outputPath}`);
-  console.log('===================================\n');
+  logger.info('\n===================================');
+  logger.info('Census Place Loading Complete');
+  logger.info('===================================');
+  logger.info(`Total places loaded: ${allPlaces.length.toLocaleString()}`);
+  logger.info(`  Incorporated cities/towns: ${incorporated.toLocaleString()} (${((incorporated / allPlaces.length) * 100).toFixed(1)}%)`);
+  logger.info(`  Census Designated Places: ${cdps.toLocaleString()} (${((cdps / allPlaces.length) * 100).toFixed(1)}%)`);
+  logger.info(`\nOutput: ${outputPath}`);
+  logger.info('===================================\n');
 }
 
-main().catch(console.error);
+main().catch(error => {
+  logger.error('Fatal error in main', { error: error instanceof Error ? error.message : String(error) });
+  process.exit(1);
+});

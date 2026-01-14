@@ -17,6 +17,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import type { SnapshotMetadata } from './types';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Snapshot download result
@@ -58,16 +59,24 @@ export class SyncService {
 
     // Check immediately, then on interval
     this.checkForUpdates().catch((error) => {
-      console.error('[SyncService] Initial check failed:', error);
+      logger.error('SyncService initial check failed', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     });
 
     this.syncTimer = setInterval(() => {
       this.checkForUpdates().catch((error) => {
-        console.error('[SyncService] Periodic check failed:', error);
+        logger.error('SyncService periodic check failed', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
       });
     }, this.checkIntervalMs);
 
-    console.log(`[SyncService] Started (checking every ${this.checkIntervalMs / 1000}s)`);
+    logger.info('SyncService started', {
+      checkIntervalSeconds: this.checkIntervalMs / 1000,
+    });
   }
 
   /**
@@ -77,7 +86,7 @@ export class SyncService {
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
       this.syncTimer = null;
-      console.log('[SyncService] Stopped');
+      logger.info('SyncService stopped');
     }
   }
 
@@ -85,7 +94,7 @@ export class SyncService {
    * Check for updates and download if available
    */
   async checkForUpdates(): Promise<boolean> {
-    console.log('[SyncService] Checking for updates...');
+    logger.info('SyncService checking for updates');
 
     try {
       // Step 1: Resolve IPNS to get latest CID
@@ -93,17 +102,23 @@ export class SyncService {
 
       // Step 2: Compare with current
       if (latestCID === this.currentCID) {
-        console.log('[SyncService] No updates available');
+        logger.debug('SyncService: No updates available', { currentCID: this.currentCID });
         return false;
       }
 
-      console.log(`[SyncService] New snapshot available: ${latestCID}`);
+      logger.info('SyncService: New snapshot available', {
+        latestCID,
+        currentCID: this.currentCID,
+      });
 
       // Step 3: Download new snapshot
       const downloadResult = await this.downloadSnapshot(latestCID);
 
       if (!downloadResult.success) {
-        console.error(`[SyncService] Download failed: ${downloadResult.error}`);
+        logger.error('SyncService download failed', {
+          cid: latestCID,
+          error: downloadResult.error,
+        });
         return false;
       }
 
@@ -111,10 +126,16 @@ export class SyncService {
       await this.swapDatabase(downloadResult.localPath);
 
       this.currentCID = latestCID;
-      console.log(`[SyncService] Successfully updated to ${latestCID}`);
+      logger.info('SyncService successfully updated', {
+        cid: latestCID,
+        districtCount: downloadResult.metadata.districtCount,
+      });
       return true;
     } catch (error) {
-      console.error('[SyncService] Update check failed:', error);
+      logger.error('SyncService update check failed', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return false;
     }
   }
@@ -140,7 +161,7 @@ export class SyncService {
 
       // Download from IPFS gateway
       const url = `${this.ipfsGateway}/ipfs/${cid}/shadow-atlas-v1.db`;
-      console.log(`[SyncService] Downloading from ${url}...`);
+      logger.info('SyncService downloading snapshot', { url, cid });
 
       // In production: Use fetch or ipfs-http-client
       // const response = await fetch(url);
@@ -203,10 +224,14 @@ export class SyncService {
       // 3. Verify Merkle root matches metadata
       // 4. Check R-tree index integrity
 
-      console.log(`[SyncService] Validating snapshot at ${dbPath}...`);
+      logger.info('SyncService validating snapshot', { dbPath });
       return true; // Mock validation
     } catch (error) {
-      console.error('[SyncService] Validation failed:', error);
+      logger.error('SyncService validation failed', {
+        dbPath,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return false;
     }
   }
@@ -227,9 +252,16 @@ export class SyncService {
       // Atomic rename (POSIX guarantees atomicity)
       await fs.rename(newSymlink, currentDbPath);
 
-      console.log(`[SyncService] Database swapped to ${newDbPath}`);
+      logger.info('SyncService database swapped', {
+        newDbPath,
+        currentDbPath,
+      });
     } catch (error) {
-      console.error('[SyncService] Database swap failed:', error);
+      logger.error('SyncService database swap failed', {
+        newDbPath,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw error;
     }
   }
@@ -243,7 +275,10 @@ export class SyncService {
       const data = await fs.readFile(metadataPath, 'utf-8');
       return JSON.parse(data) as SnapshotMetadata;
     } catch (error) {
-      console.error('[SyncService] Failed to load metadata:', error);
+      logger.error('SyncService failed to load metadata', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return null;
     }
   }
@@ -271,7 +306,10 @@ export class SyncService {
 
       return snapshots.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
-      console.error('[SyncService] Failed to list snapshots:', error);
+      logger.error('SyncService failed to list snapshots', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   }

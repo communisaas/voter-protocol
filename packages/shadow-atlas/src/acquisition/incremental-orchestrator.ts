@@ -38,6 +38,7 @@ import { ConflictResolver } from '../provenance/conflict-resolver.js';
 import { ProvenanceWriter } from '../provenance/provenance-writer.js';
 import { createHash } from 'crypto';
 import type { FeatureCollection } from 'geojson';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Refresh error (recoverable vs non-recoverable)
@@ -148,21 +149,19 @@ export class IncrementalOrchestrator {
     const errors: RefreshError[] = [];
     const boundariesUpdated: string[] = [];
 
-    console.log('='.repeat(80));
-    console.log('INCREMENTAL REFRESH - Event-Driven Boundary Updates');
-    console.log('='.repeat(80));
-    console.log(`Run ID: ${runId}`);
-    console.log(`Start time: ${new Date().toISOString()}`);
-    console.log('='.repeat(80));
+    logger.info('Starting incremental refresh', {
+      runId,
+      startTime: new Date().toISOString(),
+    });
 
     try {
       // 1. Check scheduled sources for changes
-      console.log('\n[1/4] Checking scheduled sources for changes...');
+      logger.info('Checking scheduled sources for changes', { step: '1/4' });
       const changes = await this.config.changeDetector.checkScheduledSources();
-      console.log(`   ✓ Found ${changes.length} changed sources`);
+      logger.info('Found changed sources', { changedSources: changes.length });
 
       if (changes.length === 0) {
-        console.log('   No changes detected - refresh complete');
+        logger.info('No changes detected - refresh complete');
         return {
           sourcesChecked: 0,
           sourcesChanged: 0,
@@ -174,12 +173,12 @@ export class IncrementalOrchestrator {
       }
 
       // 2. Download changed sources with concurrency control
-      console.log('\n[2/4] Downloading changed sources...');
+      logger.info('Downloading changed sources', { step: '2/4' });
       const downloadResults = await this.downloadChangedSources(changes, runId, errors);
-      console.log(`   ✓ Downloaded ${downloadResults.length} sources`);
+      logger.info('Downloaded changed sources', { downloadCount: downloadResults.length });
 
       // 3. Update affected tree branches (parallel with batching)
-      console.log('\n[3/4] Updating affected tree branches...');
+      logger.info('Updating affected tree branches', { step: '3/4' });
 
       for (let i = 0; i < downloadResults.length; i += this.maxConcurrentWrites) {
         const batch = downloadResults.slice(i, i + this.maxConcurrentWrites);
@@ -210,10 +209,10 @@ export class IncrementalOrchestrator {
 
         // Progress update
         const totalUpdated = boundariesUpdated.length;
-        console.log(`   Progress: ${totalUpdated} boundary branches updated`);
+        logger.info('Tree branch update progress', { branchesUpdated: totalUpdated });
       }
 
-      console.log(`   ✓ Updated ${boundariesUpdated.length} boundary branches`);
+      logger.info('Completed tree branch updates', { totalBranches: boundariesUpdated.length });
 
       // 4. Log completion event
       await this.logEvent(runId, null, 'UPDATE', {
@@ -224,15 +223,13 @@ export class IncrementalOrchestrator {
 
       const durationMs = Date.now() - startTime;
 
-      console.log('\n' + '='.repeat(80));
-      console.log('INCREMENTAL REFRESH COMPLETE');
-      console.log('='.repeat(80));
-      console.log(`Sources checked: ${changes.length}`);
-      console.log(`Sources changed: ${changes.length}`);
-      console.log(`Boundaries updated: ${boundariesUpdated.length}`);
-      console.log(`Errors: ${errors.length}`);
-      console.log(`Duration: ${(durationMs / 1000).toFixed(2)}s`);
-      console.log('='.repeat(80));
+      logger.info('Incremental refresh complete', {
+        sourcesChecked: changes.length,
+        sourcesChanged: changes.length,
+        boundariesUpdated: boundariesUpdated.length,
+        errors: errors.length,
+        durationSec: (durationMs / 1000).toFixed(2),
+      });
 
       return {
         sourcesChecked: changes.length,
@@ -272,21 +269,19 @@ export class IncrementalOrchestrator {
     const errors: RefreshError[] = [];
     const boundariesUpdated: string[] = [];
 
-    console.log('='.repeat(80));
-    console.log('FULL SNAPSHOT - Quarterly Batch Processing');
-    console.log('='.repeat(80));
-    console.log(`Run ID: ${runId}`);
-    console.log(`Start time: ${new Date().toISOString()}`);
-    console.log('='.repeat(80));
+    logger.info('Starting full snapshot', {
+      runId,
+      startTime: new Date().toISOString(),
+    });
 
     try {
       // 1. Get all municipalities
-      console.log('\n[1/3] Loading municipalities...');
+      logger.info('Loading municipalities', { step: '1/3' });
       const municipalities = await this.config.db.listMunicipalities(100000, 0);
-      console.log(`   ✓ Loaded ${municipalities.length} municipalities`);
+      logger.info('Loaded municipalities', { count: municipalities.length });
 
       // 2. Process municipalities with concurrency control
-      console.log('\n[2/3] Processing municipalities...');
+      logger.info('Processing municipalities', { step: '2/3' });
       let processed = 0;
 
       for (let i = 0; i < municipalities.length; i += this.maxConcurrentDownloads) {
@@ -302,7 +297,10 @@ export class IncrementalOrchestrator {
               processed++;
 
               if (processed % 100 === 0) {
-                console.log(`   Progress: ${processed}/${municipalities.length}`);
+                logger.info('Municipality processing progress', {
+                  processed,
+                  total: municipalities.length,
+                });
               }
             } catch (error) {
               errors.push({
@@ -316,24 +314,22 @@ export class IncrementalOrchestrator {
         );
       }
 
-      console.log(`   ✓ Processed ${processed} municipalities`);
+      logger.info('Processed municipalities', { count: processed });
 
       // 3. Compute snapshot hash
-      console.log('\n[3/3] Computing snapshot hash...');
+      logger.info('Computing snapshot hash', { step: '3/3' });
       const snapshotHash = await this.computeSnapshotHash(boundariesUpdated);
-      console.log(`   ✓ Snapshot hash: ${snapshotHash}`);
+      logger.info('Computed snapshot hash', { hash: snapshotHash });
 
       const durationMs = Date.now() - startTime;
 
-      console.log('\n' + '='.repeat(80));
-      console.log('FULL SNAPSHOT COMPLETE');
-      console.log('='.repeat(80));
-      console.log(`Municipalities processed: ${processed}`);
-      console.log(`Boundaries updated: ${boundariesUpdated.length}`);
-      console.log(`Errors: ${errors.length}`);
-      console.log(`Duration: ${(durationMs / 1000 / 60).toFixed(2)} minutes`);
-      console.log(`Snapshot hash: ${snapshotHash}`);
-      console.log('='.repeat(80));
+      logger.info('Full snapshot complete', {
+        municipalitiesProcessed: processed,
+        boundariesUpdated: boundariesUpdated.length,
+        errors: errors.length,
+        durationMinutes: (durationMs / 1000 / 60).toFixed(2),
+        snapshotHash,
+      });
 
       return {
         municipalitiesProcessed: processed,
@@ -370,16 +366,12 @@ export class IncrementalOrchestrator {
     const errors: RefreshError[] = [];
     const boundariesUpdated: string[] = [];
 
-    console.log('='.repeat(80));
-    console.log('FORCE CHECK ALL - Manual Verification');
-    console.log('='.repeat(80));
-    console.log(`Run ID: ${runId}`);
-    console.log('='.repeat(80));
+    logger.info('Starting force check all sources', { runId });
 
     try {
       // Check all sources (ignores schedule)
       const changes = await this.config.changeDetector.checkAllSources();
-      console.log(`   ✓ Found ${changes.length} changed sources`);
+      logger.info('Found changed sources (force check)', { changedSources: changes.length });
 
       // Download and update (parallel with batching)
       const downloadResults = await this.downloadChangedSources(changes, runId, errors);
@@ -488,9 +480,12 @@ export class IncrementalOrchestrator {
           break;
         }
 
-        console.warn(
-          `   Retry ${attempt}/${this.retryConfig.maxAttempts} for ${change.sourceId}: ${lastError.message}`
-        );
+        logger.warn('Retrying download', {
+          attempt,
+          maxAttempts: this.retryConfig.maxAttempts,
+          sourceId: change.sourceId,
+          error: lastError.message,
+        });
 
         await this.sleep(delayMs);
         delayMs = Math.min(
@@ -641,7 +636,7 @@ export class IncrementalOrchestrator {
 
       if (existingArtifact?.content_sha256 === result.contentHash) {
         // Content unchanged (same data, different checksum)
-        console.log(`   ⏭️  ${result.muniId}: Content unchanged (skip)`);
+        logger.info('Content unchanged, skipping', { muniId: result.muniId });
         return false;
       }
     }
@@ -676,9 +671,11 @@ export class IncrementalOrchestrator {
       changeType: result.changeType,
     });
 
-    console.log(
-      `   ✓ ${result.muniId}: Updated (${result.changeType}, ${result.geojson.features.length} features)`
-    );
+    logger.info('Updated tree branch', {
+      muniId: result.muniId,
+      changeType: result.changeType,
+      featureCount: result.geojson.features.length,
+    });
 
     return true;
   }
@@ -879,8 +876,8 @@ export async function main(): Promise<void> {
         await orchestrator.forceCheckAll();
         break;
       default:
-        console.error(`Unknown command: ${command}`);
-        console.error('Usage: incremental-orchestrator [incremental|full|force]');
+        logger.error('Unknown command', { command });
+        logger.error('Usage: incremental-orchestrator [incremental|full|force]');
         process.exit(1);
     }
   } finally {
@@ -891,7 +888,10 @@ export async function main(): Promise<void> {
 // Run if called directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('Fatal error:', error);
+    logger.error('Fatal error in orchestrator', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     process.exit(1);
   });
 }

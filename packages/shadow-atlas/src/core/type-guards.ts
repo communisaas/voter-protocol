@@ -10,7 +10,7 @@
 
 import type { Polygon, MultiPolygon, Geometry } from 'geojson';
 import type { TIGERLayerType, ExtractionScope } from './types.js';
-import { BoundaryType } from '../types/boundary.js';
+import { BoundaryType } from '../core/types/boundary.js';
 
 /**
  * Type guard for TIGER layer types

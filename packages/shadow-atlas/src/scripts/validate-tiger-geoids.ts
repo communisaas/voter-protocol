@@ -28,7 +28,7 @@ import {
   CANONICAL_SLDU_GEOIDS,
   CANONICAL_SLDL_GEOIDS,
   validateGEOIDCompleteness,
-} from '../validators/geoid-reference.js';
+} from '../validators/geoid/reference.js';
 import {
   EXPECTED_SLDU_BY_STATE,
   EXPECTED_SLDL_BY_STATE,
