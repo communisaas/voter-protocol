@@ -8,7 +8,14 @@ export default defineConfig({
         exclude: ['node_modules', 'dist'],
         testTimeout: 30000,
         pool: 'forks',
+        poolOptions: {
+            forks: {
+                singleFork: true, // Force all tests in same process to avoid directory conflicts
+            }
+        },
+        fileParallelism: false, // Run test files sequentially
         globals: true,
+        setupFiles: ['./src/__tests__/setup.ts'],
     },
     resolve: {
         alias: [
