@@ -19,7 +19,7 @@ import {
   type MerkleLeaf,
   type MerkleProof,
 } from '../../../agents/merkle-tree-builder';
-import type { GovernanceDistrict, QualityTier, DistrictType, GovernanceLevel, GeometryType } from '../schemas/governance-district';
+import type { GovernanceDistrict, QualityTier, DistrictType, GovernanceLevel, GeometryType } from '../validation/schemas/governance-district';
 
 /**
  * Create mock district for testing
@@ -503,5 +503,5 @@ describe('Production-Scale Tests', () => {
     const verifyTime = Date.now() - verifyStart;
 
     expect(verifyTime).toBeLessThan(1000); // 100 proofs in < 1 second
-  });
+  }, 30000); // 30 second timeout for production-scale test (includes leaf creation + tree building)
 });

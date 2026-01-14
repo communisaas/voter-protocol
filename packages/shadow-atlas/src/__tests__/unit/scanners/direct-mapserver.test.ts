@@ -11,8 +11,8 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { DirectMapServerScanner } from '../../../scanners/direct-mapserver.js';
-import type { CityInfo as CityTarget } from '../validators/geographic-validator.js';
+import { DirectMapServerScanner } from '../../../acquisition/scanners/direct-mapserver.js';
+import type { CityTarget } from '../../../validators/geographic-validator.js';
 
 /**
  * Soft-fail wrapper for network tests in CI
@@ -21,27 +21,26 @@ import type { CityInfo as CityTarget } from '../validators/geographic-validator.
  *
  * Handles both assertion errors and timeouts via Promise.race
  */
-const isCI = process.env.CI === 'true';
+/**
+ * Network test wrapper - skipped by default unless RUN_NETWORK_TESTS=true
+ * These tests require live network access to external GIS servers.
+ */
+const runNetworkTests = process.env.RUN_NETWORK_TESTS === 'true';
 
 function networkTest(name: string, fn: () => Promise<void>, timeout: number = 30000) {
-  // Use a longer Vitest timeout to let our own timeout handling work
   const vitestTimeout = timeout + 5000;
+
+  // Skip network tests by default
+  if (!runNetworkTests) {
+    return test.skip(`${name} (requires RUN_NETWORK_TESTS=true)`, async () => {});
+  }
 
   return test(name, async () => {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Network test timed out after ${timeout}ms`)), timeout);
     });
 
-    try {
-      await Promise.race([fn(), timeoutPromise]);
-    } catch (error) {
-      if (isCI) {
-        console.warn(`[SOFT-FAIL] Network test "${name}" failed in CI:`, error);
-        // Don't rethrow - test passes with warning in CI
-      } else {
-        throw error; // Fail locally
-      }
-    }
+    await Promise.race([fn(), timeoutPromise]);
   }, vitestTimeout);
 }
 
@@ -50,7 +49,7 @@ describe('DirectMapServerScanner', () => {
     test('generates comprehensive domain patterns', () => {
       const scanner = new DirectMapServerScanner();
 
-      const city: CityInfo as CityTarget = {
+      const city: CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',
@@ -74,7 +73,7 @@ describe('DirectMapServerScanner', () => {
     test('handles multi-word city names', () => {
       const scanner = new DirectMapServerScanner();
 
-      const city: CityInfo as CityTarget = {
+      const city: CityTarget = {
         name: 'Colorado Springs',
         state: 'CO',
         fips: '0816000',
@@ -92,7 +91,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('discovers Aurora CO GIS server (Type A failure resolution)', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 10000 });
 
-      const city: CityInfo as CityTarget = {
+      const city: CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',
@@ -119,7 +118,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('returns empty array for non-existent GIS server', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 2000 });
 
-      const city: CityInfo as CityTarget = {
+      const city: CityTarget = {
         name: 'Nonexistent City',
         state: 'XX',
         fips: '9999999',
@@ -238,7 +237,7 @@ describe('DirectMapServerScanner', () => {
     networkTest('scores council district layers highly', async () => {
       const scanner = new DirectMapServerScanner({ timeout: 10000 });
 
-      const city: CityInfo as CityTarget = {
+      const city: CityTarget = {
         name: 'Aurora',
         state: 'CO',
         fips: '0804000',
@@ -246,14 +245,15 @@ describe('DirectMapServerScanner', () => {
 
       const candidates = await scanner.search(city);
 
-      if (candidates.length > 0) {
-        const topCandidate = candidates[0];
+      // REAL ASSERTION: Must find candidates (no silent pass)
+      expect(candidates.length).toBeGreaterThan(0);
 
-        // Semantic validator should score council district layers ≥30 (medium confidence)
-        expect(topCandidate.score).toBeGreaterThanOrEqual(30);
+      const topCandidate = candidates[0];
 
-        console.log(`   ✅ Top candidate score: ${topCandidate.score} (≥30 threshold met)`);
-      }
+      // Semantic validator should score council district layers ≥30 (medium confidence)
+      expect(topCandidate.score).toBeGreaterThanOrEqual(30);
+
+      console.log(`   ✅ Top candidate score: ${topCandidate.score} (≥30 threshold met)`);
     }, 30000);
 
     test('rejects layers with negative keywords', () => {
