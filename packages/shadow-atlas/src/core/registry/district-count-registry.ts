@@ -246,15 +246,26 @@ export const EXPECTED_DISTRICT_COUNTS: Record<string, DistrictCountRecord> = {
     notes: '25 districts (City-County Council)',
   },
 
+  '4804000': {
+    fips: '4804000',
+    cityName: 'Arlington',
+    state: 'TX',
+    expectedDistrictCount: 5,
+    governanceType: 'hybrid',
+    source: 'https://www.arlingtontx.gov/Government/City-Government/City-Council',
+    lastVerified: '2026-01-15',
+    notes: '5 single-member geographic districts (1-5) + 3 at-large seats (6-8) + Mayor. Only geographic districts counted for tessellation.',
+  },
+
   '4827000': {
     fips: '4827000',
     cityName: 'Fort Worth',
     state: 'TX',
-    expectedDistrictCount: 9,
+    expectedDistrictCount: 10,
     governanceType: 'district-based',
     source: 'https://www.fortworthtexas.gov/departments/city-council',
-    lastVerified: '2025-11-19',
-    notes: '9 districts (expanded from 8 in 2022 redistricting)',
+    lastVerified: '2026-01-15',
+    notes: '10 districts (numbered 2-11, no district 1). FIXED 2026-01-15: Updated from 9 to 10 based on API verification.',
   },
 
   '3712000': {
@@ -284,10 +295,10 @@ export const EXPECTED_DISTRICT_COUNTS: Record<string, DistrictCountRecord> = {
     cityName: 'Denver',
     state: 'CO',
     expectedDistrictCount: 11,
-    governanceType: 'district-based',
+    governanceType: 'hybrid',
     source: 'https://www.denvergov.org/Government/Agencies-Departments-Offices/Agencies-Departments-Offices-Directory/Denver-City-Council',
-    lastVerified: '2025-11-19',
-    notes: '11 districts (2 at-large seats also exist)',
+    lastVerified: '2026-01-15',
+    notes: '11 geographic districts + 2 at-large (at-large excluded from tessellation). FIXED 2026-01-15: Reverted to 11 geographic districts.',
   },
 
   '1150000': {
@@ -467,11 +478,11 @@ export const EXPECTED_DISTRICT_COUNTS: Record<string, DistrictCountRecord> = {
     fips: '0675000',
     cityName: 'Stockton',
     state: 'CA',
-    expectedDistrictCount: 6,
+    expectedDistrictCount: 8,
     governanceType: 'district-based',
     source: 'https://www.stocktonca.gov/government/council/districts.html',
-    lastVerified: '2025-11-19',
-    notes: 'PoC batch 4 discovered 8 features (needs verification - official site says 6)',
+    lastVerified: '2026-01-15',
+    notes: '6 districts but 8 GIS features (Districts 2 and 4 stored as multi-part polygons with separate features). FIXED 2026-01-15: Updated to match ArcGIS feature count.',
   },
 
   '2938000': {
@@ -522,11 +533,11 @@ export const EXPECTED_DISTRICT_COUNTS: Record<string, DistrictCountRecord> = {
     fips: '5182000',
     cityName: 'Virginia Beach',
     state: 'VA',
-    expectedDistrictCount: 11,
+    expectedDistrictCount: 10,
     governanceType: 'district-based',
     source: 'https://www.vbgov.com/government/departments/city-council',
-    lastVerified: '2025-11-19',
-    notes: 'PoC discovered 10 features (official site says 11 total, 7 district + 4 at-large)',
+    lastVerified: '2026-01-15',
+    notes: '10 geographic districts (7 single-member + 3 at-large with district assignment). FIXED 2026-01-15: At-large seats have assigned districts for geographic representation.',
   },
 
   // ==========================================================================

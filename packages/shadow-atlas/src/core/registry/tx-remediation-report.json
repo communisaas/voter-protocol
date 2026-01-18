@@ -1,0 +1,204 @@
+{
+  "remediationReport": {
+    "analyst": "Claude Code",
+    "date": "2026-01-16",
+    "scope": "Texas cities with containment failures due to incorrect data sources",
+    "totalCities": 5,
+    "summary": "Analysis of 5 Texas cities in known-portals registry with 100% containment failure. Root cause: Houston/San Antonio metro district data incorrectly mapped to suburban cities.",
+    "cities": [
+      {
+        "cityFips": "4856348",
+        "cityName": "Pearland",
+        "state": "TX",
+        "currentEntry": {
+          "downloadUrl": "https://services.arcgis.com/su8ic9KbA7PYVxPS/arcgis/rest/services/City_Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 11,
+          "notes": "Pearland TX - 11 districts, bulk ingested from 'City Council Districts'"
+        },
+        "actualStructure": {
+          "type": "at-large",
+          "councilMembers": 7,
+          "districts": 0,
+          "description": "Mayor and 7 council members elected at-large for 3-year staggered terms. No geographic districts.",
+          "source": "https://www.pearlandtx.gov/government/city-council"
+        },
+        "diagnosis": {
+          "issue": "Wrong data source - registry contains Houston city council districts (11 districts A-K)",
+          "containmentFailure": "100% - 1897.86 sq km overflow (Houston-scale area)",
+          "rootCause": "Automated discovery selected Houston metro district data for Pearland"
+        },
+        "decision": "QUARANTINE",
+        "rationale": "Pearland uses at-large elections with no geographic council districts. The 11 districts (A-K) are Houston's council districts. City should be excluded from geographic tessellation validation.",
+        "action": "Move to quarantined-portals.ts; document as at-large city",
+        "sources": [
+          "https://www.pearlandtx.gov/government/city-council",
+          "https://ballotpedia.org/Pearland,_Texas"
+        ]
+      },
+      {
+        "cityFips": "4856000",
+        "cityName": "Pasadena",
+        "state": "TX",
+        "currentEntry": {
+          "downloadUrl": "https://services.arcgis.com/NummVBqZSIJKUeVR/arcgis/rest/services/City_Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 11,
+          "notes": "Pasadena TX - 11 districts, bulk ingested from 'City_Council_Districts'"
+        },
+        "actualStructure": {
+          "type": "hybrid",
+          "councilMembers": 8,
+          "districts": 6,
+          "atLarge": 2,
+          "description": "Mayor plus 8 councilmembers: 6 elected from districts (A-F) and 2 at-large",
+          "redistricting": "New boundaries adopted August 16, 2022",
+          "source": "https://www.pasadenatx.gov/406/City-Council"
+        },
+        "diagnosis": {
+          "issue": "Wrong data source - registry contains Houston districts (11) instead of Pasadena districts (6)",
+          "containmentFailure": "100% overflow",
+          "rootCause": "URL points to Houston data, not Pasadena's 6 actual districts"
+        },
+        "decision": "QUARANTINE",
+        "rationale": "Pasadena has 6 actual council districts (A-F), not 11. The 11-district data is Houston's. Correct data source needed.",
+        "action": "Move to quarantined-portals.ts; requires research for correct Pasadena district GIS source",
+        "futureAction": "Find Pasadena city GIS portal with correct 6-district boundaries",
+        "sources": [
+          "https://www.pasadenatx.gov/406/City-Council",
+          "https://www.pasadenatx.gov/852/Redistricting"
+        ]
+      },
+      {
+        "cityFips": "4827996",
+        "cityName": "Galena Park",
+        "state": "TX",
+        "currentEntry": {
+          "downloadUrl": "https://services.arcgis.com/NummVBqZSIJKUeVR/arcgis/rest/services/HOUCity_Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 11,
+          "notes": "Galena Park TX - 11 districts, bulk ingested from 'City_Council_Districts'"
+        },
+        "actualStructure": {
+          "type": "at-large-numbered",
+          "councilMembers": 4,
+          "districts": 0,
+          "description": "Mayor plus 4 commissioners (Positions 1-4). Numbered positions suggest at-large elections, not geographic districts.",
+          "source": "https://www.cityofgalenapark-tx.gov/2164/City-Council"
+        },
+        "diagnosis": {
+          "issue": "Wrong data source - URL explicitly references 'HOUCity_Council_Districts' (Houston data)",
+          "containmentFailure": "100% overflow",
+          "rootCause": "URL clearly shows Houston data (HOUCity prefix) mapped to Galena Park"
+        },
+        "decision": "QUARANTINE",
+        "rationale": "Galena Park has 4 commissioner positions (at-large), not 11 geographic districts. URL explicitly references Houston districts (HOUCity_Council_Districts). City uses numbered positions, not districts.",
+        "action": "Move to quarantined-portals.ts; document as at-large city",
+        "sources": [
+          "https://www.cityofgalenapark-tx.gov/2164/City-Council",
+          "https://ballotpedia.org/Galena_Park,_Texas"
+        ]
+      },
+      {
+        "cityFips": "4842388",
+        "cityName": "Leon Valley",
+        "state": "TX",
+        "currentEntry": {
+          "downloadUrl": "https://services.arcgis.com/g1fRTDLeMgspWrYp/arcgis/rest/services/CouncilDistricts/FeatureServer/2/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 10,
+          "notes": "Leon Valley TX - 10 districts, bulk ingested from 'CouncilDistricts'"
+        },
+        "actualStructure": {
+          "type": "at-large",
+          "councilMembers": 5,
+          "districts": 0,
+          "description": "Mayor and 5 council members elected at-large with 2-year staggered terms. No geographic districts.",
+          "source": "https://www.leonvalleytexas.gov/citycouncil"
+        },
+        "diagnosis": {
+          "issue": "Wrong data source - registry contains San Antonio districts (10) instead of at-large structure",
+          "containmentFailure": "100% overflow",
+          "rootCause": "URL domain (g1fRTDLeMgspWrYp) is San Antonio's ArcGIS organization, not Leon Valley"
+        },
+        "decision": "QUARANTINE",
+        "rationale": "Leon Valley uses at-large elections with no geographic districts. The 10 districts are San Antonio's council districts (Leon Valley is in San Antonio metro). ArcGIS organization ID matches San Antonio, not Leon Valley.",
+        "action": "Move to quarantined-portals.ts; document as at-large city",
+        "sources": [
+          "https://www.leonvalleytexas.gov/citycouncil",
+          "https://directory.tml.org/profile/city/1044"
+        ]
+      },
+      {
+        "cityFips": "4802272",
+        "cityName": "Alvin",
+        "state": "TX",
+        "currentEntry": {
+          "downloadUrl": "https://gisportal.fortbendcountytx.gov/arcgis/rest/services/InteractiveMap/Boundaries_Public/FeatureServer/6/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 97,
+          "notes": "Alvin TX - 97 districts, bulk ingested from 'City Council Districts'"
+        },
+        "actualStructure": {
+          "type": "hybrid",
+          "councilMembers": 7,
+          "districts": 5,
+          "atLarge": 2,
+          "description": "Mayor (at-large) plus 7 councilmembers: 5 from single-member districts (A-E) and 2 at-large positions",
+          "source": "https://www.alvin.gov/176/City-Council"
+        },
+        "diagnosis": {
+          "issue": "Wrong data source - registry points to Fort Bend County GIS portal, not city data",
+          "containmentFailure": "98.5% overflow",
+          "rootCause": "URL explicitly references Fort Bend County (fortbendcountytx.gov), returning county boundary data (97 features) instead of city districts (5)"
+        },
+        "decision": "QUARANTINE",
+        "rationale": "Alvin has 5 actual council districts (A-E), not 97. The URL points to Fort Bend County's GIS portal (fortbendcountytx.gov), which returns county-level boundary data. Diagnostic: 97 features vs 5 expected districts indicates county data, not city.",
+        "action": "Move to quarantined-portals.ts; requires research for correct Alvin city GIS source",
+        "futureAction": "Find Alvin city GIS portal with correct 5-district boundaries (Districts A-E)",
+        "sources": [
+          "https://www.alvin.gov/176/City-Council",
+          "https://directory.tml.org/profile/city/1280"
+        ]
+      }
+    ],
+    "patterns": {
+      "metro_bleeding": {
+        "description": "Large city's districts used for surrounding suburbs",
+        "examples": [
+          "Houston districts (11) used for Pearland, Pasadena, Galena Park",
+          "San Antonio districts (10) used for Leon Valley"
+        ],
+        "diagnostic": "URL domain/organization ID matches large city, not suburb"
+      },
+      "county_for_city": {
+        "description": "County-level data substituted for city districts",
+        "examples": [
+          "Fort Bend County (97 features) used for Alvin (5 districts)"
+        ],
+        "diagnostic": "Feature count >> expected district count; URL contains county domain"
+      },
+      "at_large_misclassified": {
+        "description": "At-large cities incorrectly assigned geographic district data",
+        "examples": [
+          "Pearland (at-large) given Houston districts",
+          "Galena Park (at-large) given Houston districts",
+          "Leon Valley (at-large) given San Antonio districts"
+        ],
+        "diagnostic": "City charter specifies at-large elections; registry shows large district count"
+      }
+    },
+    "recommendations": {
+      "immediate": [
+        "Quarantine all 5 TX entries to prevent serving incorrect data",
+        "Document at-large cities (Pearland, Galena Park, Leon Valley) for exclusion from tessellation",
+        "Research correct GIS sources for Pasadena (6 districts) and Alvin (5 districts)"
+      ],
+      "validation": [
+        "Add pre-validation check: Compare ArcGIS organization ID with expected city/county",
+        "Add sanity check: Reject if feature count > 3x expected districts",
+        "Cross-reference URL domain against city official website domain"
+      ],
+      "registry_policy": [
+        "Never use Houston organization ID (NummVBqZSIJKUeVR) for non-Houston cities",
+        "Never use San Antonio organization ID (g1fRTDLeMgspWrYp) for non-San Antonio cities",
+        "Flag all county-level URLs (e.g., fortbendcountytx.gov) for city-level entries"
+      ]
+    }
+  }
+}

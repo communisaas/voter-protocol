@@ -1,0 +1,258 @@
+{
+  "metadata": {
+    "investigation_date": "2026-01-16T23:00:00.000Z",
+    "investigator": "Manual verification via official government sources",
+    "total_entries_investigated": 14,
+    "source_document": "docs/feature-count-audit-results.md"
+  },
+  "entries": [
+    {
+      "fips": "0632548",
+      "cityName": "Hawthorne",
+      "state": "CA",
+      "feature_count_in_registry": 52,
+      "official_district_count": "At-large (no geographic districts)",
+      "decision": "QUARANTINE",
+      "reason": "SCAG Regional Council Districts data (52 features) used instead of city council. Hawthorne uses at-large elections with 4 council members + mayor elected citywide. No geographic council districts exist.",
+      "evidence": "City of Hawthorne website confirms at-large elections. URL contains 'Regional_Council_Districts_SCAG_Region' which is Southern California Association of Governments regional planning districts, NOT city council districts.",
+      "sources": [
+        "https://www.cityofhawthorne.org/government/elected-officials",
+        "https://ecode360.com/42636588"
+      ],
+      "action": "Move to quarantined-portals.ts with quarantineReason: 'SCAG regional planning districts (52 features) used for city with at-large elections. Add city to at-large-cities.ts'",
+      "notes": "URL explicitly references SCAG (Southern California Association of Governments) regional districts, not city council districts. This is regional planning data, completely wrong for municipal council."
+    },
+    {
+      "fips": "0614218",
+      "cityName": "Clovis",
+      "state": "CA",
+      "feature_count_in_registry": 42,
+      "official_district_count": 5,
+      "decision": "QUARANTINE",
+      "reason": "Registry shows 42 features but Clovis officially adopted 5-district map (Map 502) effective November 2026. The 42 features likely represent precinct data or old at-large boundaries.",
+      "evidence": "City of Clovis officially adopted 5-district map on March 10, 2025 for November 2026 elections. Districts 1, 4, 5 elect in 2026; Districts 2, 3 elect in 2028. Each district has ~24,000 residents.",
+      "sources": [
+        "https://www.clovisca.gov/government/clerk/districts.php",
+        "https://cityofclovis.com/council-selects-district-map/"
+      ],
+      "action": "Move to quarantined-portals.ts. Requires correct 5-district GeoJSON source from City of Clovis GIS.",
+      "notes": "City transitioned from 100+ years of at-large elections to 5 districts. The 42 features in registry do not match the official 5-district structure."
+    },
+    {
+      "fips": "5539225",
+      "cityName": "Kenosha",
+      "state": "WI",
+      "feature_count_in_registry": 34,
+      "official_district_count": 17,
+      "decision": "QUARANTINE",
+      "reason": "Registry shows 34 features but Kenosha officially has 17 aldermanic districts. The 34 features suggest duplicate ward/precinct data or combined precinct boundaries.",
+      "evidence": "Kenosha County Data Portal and Leaders of Kenosha website list 17 aldermanic districts with named representatives for each district. Digital maps issued October 16, 2024.",
+      "sources": [
+        "https://dataportal.kenoshacounty.org/datasets/kenoshacounty::city-aldermanic-districts",
+        "https://www.leadersofkenosha.org/city-representatives/"
+      ],
+      "action": "Move to quarantined-portals.ts. Requires correct 17-district GeoJSON source from Kenosha County Data Portal.",
+      "notes": "34 features is exactly 2x the official 17 districts - likely indicates ward subdivisions or voting precincts within districts."
+    },
+    {
+      "fips": "2604080",
+      "cityName": "Auburn",
+      "state": "MI",
+      "feature_count_in_registry": 27,
+      "official_district_count": "Unknown - likely commission-based",
+      "decision": "INVESTIGATE_FURTHER",
+      "reason": "Unable to find official ward/district information for Auburn, Michigan. City appears to use commission form of government rather than ward-based council. Population only 2,068 (2020 Census) - extremely unlikely to have 27 wards.",
+      "evidence": "Search results indicate Auburn MI has City Commission meetings but no specific ward structure documented. Other Auburn cities (ME, IN, AL, IL) have 4-5 wards, making 27 wards implausible for a city of 2,068 residents.",
+      "sources": [
+        "https://auburnmi.gov/",
+        "https://ballotpedia.org/Auburn,_Michigan"
+      ],
+      "action": "QUARANTINE pending direct contact with City of Auburn clerk's office to verify government structure. Likely wrong data or county-level boundaries.",
+      "notes": "City is very small (2,068 residents). 27 features is completely implausible for a city this size. Likely represents county commissioner districts or census tracts."
+    },
+    {
+      "fips": "2148006",
+      "cityName": "Louisville",
+      "state": "KY",
+      "feature_count_in_registry": 26,
+      "official_district_count": 26,
+      "decision": "KEEP",
+      "reason": "Louisville Metro Council officially has 26 districts. Registry feature count matches official government structure.",
+      "evidence": "Louisville Metro (consolidated city-county government) elects 26 council members from 26 districts. Official maps and district pages confirm 26 council districts covering Jefferson County.",
+      "sources": [
+        "https://louisvilleky.gov/government/metro-council/districts-1-26",
+        "https://apps.lojic.org/metrocouncildistricts/"
+      ],
+      "action": "KEEP - No changes needed. This is correct.",
+      "notes": "This entry is VALID. Louisville Metro has exactly 26 council districts. The high count is due to consolidated city-county government covering all of Jefferson County."
+    },
+    {
+      "fips": "45029",
+      "cityName": "Colleton County",
+      "state": "SC",
+      "feature_count_in_registry": 2,
+      "official_district_count": "5+ (exact count unclear)",
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features in registry but Colleton County Council likely has 5+ members based on South Carolina county government standards. Data is incomplete.",
+      "evidence": "County website references council members including Steven D. Murdaugh and Phillip M. Taylor, Sr., suggesting multiple seats. South Carolina counties typically have 5-7 council districts. 2 features indicates incomplete or wrong layer.",
+      "sources": [
+        "https://www.colletoncounty.org/county-council",
+        "https://ballotpedia.org/Colleton_County,_South_Carolina"
+      ],
+      "action": "QUARANTINE as incomplete data. Requires correct county council district GeoJSON from Colleton County GIS.",
+      "notes": "2 features cannot represent full county council structure. Likely represents partial data export or incorrect layer selection."
+    },
+    {
+      "fips": "45049",
+      "cityName": "Hampton County",
+      "state": "SC",
+      "feature_count_in_registry": 2,
+      "official_district_count": 5,
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features in registry but Hampton County Council officially has 5 members elected from districts. Data is incomplete.",
+      "evidence": "Hampton County uses Council-Administrator government with 5 council members elected for 4-year terms. Registry shows only 2 features - 60% of districts missing.",
+      "sources": [
+        "https://hamptoncountysc.org/2/County-Council",
+        "https://ballotpedia.org/Hampton_County,_South_Carolina"
+      ],
+      "action": "QUARANTINE as incomplete data (only 40% of districts present). Requires complete 5-district GeoJSON from Hampton County GIS.",
+      "notes": "Official website confirms 5-member council. 2 features represents only partial data."
+    },
+    {
+      "fips": "2240735",
+      "cityName": "Lafayette",
+      "state": "LA",
+      "feature_count_in_registry": 2,
+      "official_district_count": 5,
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features but Lafayette City Council officially has 5 districts. URL indicates 'North_Lafayette_City_Council_Districts_1' suggesting partial data extract (districts 1 and 5 only).",
+      "evidence": "Lafayette Consolidated Government has Lafayette City Council with 5 members elected from 5 single-member districts. URL name 'North_Lafayette_City_Council_Districts_1_and_5' confirms partial data.",
+      "sources": [
+        "https://www.lafayettela.gov/council/lafayette-city-council/default",
+        "https://pic.lafayettela.gov/DownloadablePDFMaps/CityCouncilDistrictMap_ArchE.pdf"
+      ],
+      "action": "QUARANTINE as incomplete data (40% coverage - only districts 1 and 5). Requires complete 5-district GeoJSON from Lafayette Consolidated Government GIS.",
+      "notes": "URL explicitly states 'Districts_1_and_5' confirming this is partial data, not complete city council coverage."
+    },
+    {
+      "fips": "3525800",
+      "cityName": "Farmington",
+      "state": "NM",
+      "feature_count_in_registry": 2,
+      "official_district_count": 4,
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features but Farmington officially has 4 city council districts. Data is incomplete (50% coverage).",
+      "evidence": "Farmington City Council has 4 councilors representing Districts 1-4 plus mayor. Official city maps show 4 council districts. Registry has only 50% of districts.",
+      "sources": [
+        "https://www.fmtn.org/141/City-Council",
+        "https://fmtn.org/DocumentCenter/View/1379/City-Council-Districts"
+      ],
+      "action": "QUARANTINE as incomplete data (only 50% of districts present). Requires complete 4-district GeoJSON from City of Farmington GIS.",
+      "notes": "City provides official council district maps showing 4 districts. Registry has only half the required data."
+    },
+    {
+      "fips": "4875428",
+      "cityName": "Victoria",
+      "state": "TX",
+      "feature_count_in_registry": 2,
+      "official_district_count": "6 (4 districts + 2 super districts)",
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features but Victoria has 6 council seats: 4 single-member districts (1-4) plus 2 'super districts' (5-6). URL indicates 'Super_CouncilDistricts' suggesting only the 2 super district polygons, missing the 4 base districts.",
+      "evidence": "Victoria uses unique system: Districts 1-4 are single-member districts, Super District 5 overlays Districts 1+2, Super District 6 overlays Districts 3+4. Registry likely has only the 2 super district polygons.",
+      "sources": [
+        "https://www.victoriatx.org/501/City-Council",
+        "https://en.wikipedia.org/wiki/Victoria,_Texas"
+      ],
+      "action": "QUARANTINE as incomplete data. Victoria's dual-layer district system (4 base + 2 super) requires all 6 district polygons for complete coverage. Current registry has only super districts.",
+      "notes": "URL name 'COVGIS.DBO.Super_CouncilDistricts' confirms this is only the 2 super districts. Requires both base districts (1-4) and super districts (5-6) for complete representation."
+    },
+    {
+      "fips": "08035",
+      "cityName": "Douglas County",
+      "state": "CO",
+      "feature_count_in_registry": 2,
+      "official_district_count": "6 (Castle Rock city wards)",
+      "decision": "QUARANTINE",
+      "reason": "Registry shows 2 features labeled 'Douglas County' but URL points to Castle Rock city data. Castle Rock (the county seat) has 6 council districts. Wrong jurisdiction or incomplete data.",
+      "evidence": "Douglas County is a county (not a city). The FIPS code 08035 is a county FIPS, but the URL points to Castle Rock city council districts. Castle Rock officially has 6 council districts plus at-large mayor.",
+      "sources": [
+        "https://www.crgov.com/2405/Election-Districts",
+        "https://ballotpedia.org/Douglas_County,_Colorado"
+      ],
+      "action": "QUARANTINE for wrong jurisdiction. County FIPS should not have city council districts. If intended for Castle Rock city, needs correct city FIPS (0816890) and complete 6-district data.",
+      "notes": "Jurisdictional mismatch: County FIPS with city council data. Castle Rock is a city within Douglas County and has its own city FIPS code."
+    },
+    {
+      "fips": "0908000",
+      "cityName": "Bridgeport",
+      "state": "CT",
+      "feature_count_in_registry": 2,
+      "official_district_count": 10,
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features but Bridgeport has 10 council districts (Districts 130-139) with 2 council members elected from each district (20 total councilmembers). URL indicates 'Council_District_130' suggesting single-district data.",
+      "evidence": "Bridgeport City Council has 20 members: 2 elected from each of 10 districts (numbered 130-139). Redistricting completed July 2023. Registry has only 20% of required districts.",
+      "sources": [
+        "https://www.bridgeportct.gov/government/departments/city-council",
+        "https://city-of-bridgeport-gis-hub-bridgeportct.hub.arcgis.com/documents/7e7d15b27beb420d90f441abe914bb79"
+      ],
+      "action": "QUARANTINE as incomplete data (only 20% coverage). URL 'Council_District_130' suggests single district extract. Requires complete 10-district GeoJSON from Bridgeport GIS Hub.",
+      "notes": "URL explicitly references 'District_130' indicating partial data. Bridgeport uses unique 130-139 numbering system for its 10 districts."
+    },
+    {
+      "fips": "1861092",
+      "cityName": "Portage",
+      "state": "IN",
+      "feature_count_in_registry": 37,
+      "official_district_count": 7,
+      "decision": "QUARANTINE",
+      "reason": "Registry shows 37 features but Portage officially has 7 city council members (district representatives + at-large). The 37 features likely represent voting precincts, not council districts.",
+      "evidence": "Portage City Council has 7 elected members representing districts. URL contains 'PRECINCT_N' field in layer metadata, confirming this is precinct data, not council districts. 37 features matches typical precinct count for a city of 37,926 residents.",
+      "sources": [
+        "https://www.portagein.gov/237/City-Council",
+        "https://www.portercountyin.gov/DocumentCenter/View/15710/Map-of-City-of-Portage-Council-Districts-PDF"
+      ],
+      "action": "QUARANTINE for wrong data layer (precincts instead of council districts). Requires 7-district council boundary GeoJSON from Porter County or City of Portage GIS.",
+      "notes": "Audit data shows 'PRECINCT_N' field present, confirming this is voting precinct data. 37 precincts vs 7 council districts matches typical precinct-to-district ratio."
+    },
+    {
+      "fips": "2031125",
+      "cityName": "Haysville",
+      "state": "KS",
+      "feature_count_in_registry": 2,
+      "official_district_count": 4,
+      "decision": "QUARANTINE",
+      "reason": "Only 2 features but Haysville officially has 4 wards with 2 council members elected from each ward (8 total councilmembers + mayor). Data is incomplete (50% coverage).",
+      "evidence": "Haysville City Council organized into 4 wards (I-IV) with 2 representatives per ward. City code defines ward boundaries. Registry shows only 50% of required wards.",
+      "sources": [
+        "https://www.haysvilleks.gov/mayor-and-council",
+        "https://haysvilleks.citycode.net/articleWards.htm"
+      ],
+      "action": "QUARANTINE as incomplete data (only 50% of wards present). URL indicates 'Council_District_1' suggesting single-district extract. Requires complete 4-ward GeoJSON from Sedgwick County GIS.",
+      "notes": "Haysville uses ward-based system with 4 wards. Registry has only half the required boundaries."
+    }
+  ],
+  "summary": {
+    "total_investigated": 14,
+    "decisions": {
+      "KEEP": 1,
+      "QUARANTINE": 12,
+      "INVESTIGATE_FURTHER": 1
+    },
+    "reasons": {
+      "wrong_data_layer": 3,
+      "incomplete_data": 7,
+      "at_large_elections": 1,
+      "wrong_jurisdiction": 1,
+      "valid": 1,
+      "unknown_structure": 1
+    }
+  },
+  "actions_required": [
+    "Move 12 entries from known-portals.ts to quarantined-portals.ts",
+    "Add Hawthorne, CA (0632548) to at-large-cities.ts",
+    "Flag Auburn, MI (2604080) for direct verification with city clerk",
+    "Keep Louisville, KY (2148006) - this entry is correct",
+    "Document all quarantined entries with detailed quarantine reasons",
+    "Update registry scripts to prevent partial data ingestion (require minimum feature counts or completeness validation)"
+  ]
+}

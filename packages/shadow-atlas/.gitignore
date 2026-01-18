@@ -47,6 +47,9 @@ test-*.js
 test-*.ts
 !src/__tests__/**
 
+# Analysis outputs (regeneratable)
+analysis-output/
+
 # Temp files
 :memory:/
 .temp-*

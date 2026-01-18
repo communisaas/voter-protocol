@@ -1,0 +1,213 @@
+{
+  "remediationReport": {
+    "generatedAt": "2026-01-16T20:30:00.000Z",
+    "generatedBy": "manual-remediation-ws-3",
+    "scope": "Non-CA/TX containment failures from WS-3 analysis",
+    "totalFailures": 21,
+    "quarantined": 20,
+    "exceptions": 1,
+    "summary": {
+      "description": "Remediated containment failures in AL, LA, MO, OH, MI, MN, OK, PA, SC, TN, NJ where registry contained county-level or regional district data instead of city council districts",
+      "methodology": "Manual review of each entry against WS-3 containment failure analysis, identifying wrong data sources (county commissioners, parish councils, regional districts) vs legitimate city-county consolidations"
+    },
+    "byState": {
+      "AL": {
+        "failures": 3,
+        "quarantined": 3,
+        "cities": [
+          {
+            "fips": "0159472",
+            "city": "Phenix City",
+            "reason": "County commissioner districts (10 features), not city council"
+          },
+          {
+            "fips": "0174976",
+            "city": "Tarrant",
+            "reason": "Birmingham/Jefferson County districts (9 features), separate city"
+          },
+          {
+            "fips": "0178552",
+            "city": "Vestavia Hills",
+            "reason": "Birmingham/Jefferson County districts (9 features), separate city"
+          }
+        ]
+      },
+      "LA": {
+        "failures": 2,
+        "quarantined": 1,
+        "exceptions": 1,
+        "cities": [
+          {
+            "fips": "2252040",
+            "city": "Morgan City",
+            "reason": "St. Mary Parish districts (8 features), not city council"
+          }
+        ],
+        "exceptedCities": [
+          {
+            "fips": "2205000",
+            "city": "Baton Rouge",
+            "reason": "City-Parish consolidated government (East Baton Rouge Parish Metro Council) - legitimate boundary includes parish",
+            "notes": "12 districts cover full parish; city and parish merged governance. 81.1% overflow is expected and correct."
+          }
+        ]
+      },
+      "MO": {
+        "failures": 4,
+        "quarantined": 4,
+        "cities": [
+          {
+            "fips": "2916228",
+            "city": "Cool Valley",
+            "reason": "St. Louis County districts (7 features), separate city"
+          },
+          {
+            "fips": "2917218",
+            "city": "Crestwood",
+            "reason": "St. Louis County districts (4 features), separate city"
+          },
+          {
+            "fips": "2910240",
+            "city": "Byrnes Mill",
+            "reason": "Jefferson County MO districts (7 features), not city council"
+          },
+          {
+            "fips": "2953102",
+            "city": "North Kansas City",
+            "reason": "Kansas City metro districts (4 features), separate city"
+          }
+        ]
+      },
+      "MI": {
+        "failures": 2,
+        "quarantined": 2,
+        "cities": [
+          {
+            "fips": "2646000",
+            "city": "Lansing",
+            "reason": "Ward districts positioned 100% outside city limits - wrong data source or misaligned boundaries"
+          },
+          {
+            "fips": "2604080",
+            "city": "Auburn",
+            "reason": "Bay County voting districts (27 features), not city wards"
+          }
+        ]
+      },
+      "MN": {
+        "failures": 2,
+        "quarantined": 2,
+        "cities": [
+          {
+            "fips": "2767612",
+            "city": "Waite Park",
+            "reason": "Stearns County districts (7 features), not city council"
+          },
+          {
+            "fips": "2755186",
+            "city": "Rogers",
+            "reason": "Hennepin County/Met Council districts (16 features), not city wards"
+          }
+        ]
+      },
+      "NJ": {
+        "failures": 1,
+        "quarantined": 1,
+        "cities": [
+          {
+            "fips": "3451000",
+            "city": "Newark",
+            "reason": "Voting/election precincts (6 features), not council wards. Newark has 5 wards, data shows 6 voting districts - wrong layer."
+          }
+        ]
+      },
+      "OH": {
+        "failures": 2,
+        "quarantined": 2,
+        "cities": [
+          {
+            "fips": "3904878",
+            "city": "Bedford",
+            "reason": "Cuyahoga County council districts (11 features), separate city"
+          },
+          {
+            "fips": "3957750",
+            "city": "Oakwood",
+            "reason": "Montgomery County districts (1 feature), not city council"
+          }
+        ]
+      },
+      "OK": {
+        "failures": 2,
+        "quarantined": 2,
+        "cities": [
+          {
+            "fips": "4038350",
+            "city": "Jenks",
+            "reason": "Tulsa County precinct data (13 features), city has 4 wards"
+          },
+          {
+            "fips": "4051800",
+            "city": "Nichols Hills",
+            "reason": "Oklahoma County districts (59 features), massive feature count mismatch"
+          }
+        ]
+      },
+      "PA": {
+        "failures": 1,
+        "quarantined": 1,
+        "cities": [
+          {
+            "fips": "4277272",
+            "city": "Trafford borough",
+            "reason": "Allegheny County districts (13 features), separate borough"
+          }
+        ]
+      },
+      "SC": {
+        "failures": 1,
+        "quarantined": 1,
+        "cities": [
+          {
+            "fips": "4568425",
+            "city": "Springdale",
+            "reason": "Charleston County districts (8 features), not city council"
+          }
+        ]
+      },
+      "TN": {
+        "failures": 2,
+        "quarantined": 2,
+        "cities": [
+          {
+            "fips": "4768540",
+            "city": "Signal Mountain",
+            "reason": "Hamilton County/Chattanooga districts (9 features), separate city"
+          },
+          {
+            "fips": "4761960",
+            "city": "Red Bank",
+            "reason": "Hamilton County/Chattanooga districts (9 features), separate city"
+          }
+        ]
+      }
+    },
+    "nextSteps": {
+      "immediate": [
+        "Verify Baton Rouge exception is correctly handled in containment validation logic",
+        "Compile TypeScript to verify no errors after quarantine",
+        "Update containment failure analysis to reflect remediation"
+      ],
+      "dataAcquisition": [
+        "Find correct city council ward data for quarantined cities",
+        "Prioritize high-population cities (Newark, Lansing) for replacement data",
+        "Verify which cities use at-large councils (no geographic districts)"
+      ],
+      "validation": [
+        "Re-run containment analysis after remediation",
+        "Verify quarantine count and summary statistics",
+        "Document restoration process for entries with correct data found"
+      ]
+    }
+  }
+}

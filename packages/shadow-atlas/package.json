@@ -47,7 +47,8 @@
         "audit:freshness:verbose": "tsx src/scripts/freshness-audit.ts --verbose",
         "report:comprehensive": "tsx src/scripts/comprehensive-report.ts",
         "report:comprehensive:full": "tsx src/scripts/comprehensive-report.ts --full",
-        "report:comprehensive:json": "tsx src/scripts/comprehensive-report.ts --json"
+        "report:comprehensive:json": "tsx src/scripts/comprehensive-report.ts --json",
+        "analyze:overlap-magnitude": "tsx scripts/overlap-magnitude-analysis.ts"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",

@@ -1,0 +1,180 @@
+{
+  "timestamp": "2026-01-16T20:59:24.131Z",
+  "operation": "single-feature-quarantine",
+  "summary": {
+    "totalProcessed": 21,
+    "successfullyQuarantined": 21,
+    "notFound": 0
+  },
+  "quarantinedEntries": [
+    {
+      "fips": "20177",
+      "cityName": "Shawnee County",
+      "state": "KS",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "40031",
+      "cityName": "Comanche County",
+      "state": "OK",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "40109",
+      "cityName": "Oklahoma County",
+      "state": "OK",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "42091",
+      "cityName": "Montgomery County",
+      "state": "PA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "48029",
+      "cityName": "Bexar County",
+      "state": "TX",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "2247560",
+      "cityName": "Madisonville",
+      "state": "LA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "3774440",
+      "cityName": "Wilmington",
+      "state": "NC",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "3957750",
+      "cityName": "Oakwood",
+      "state": "OH",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "4806128",
+      "cityName": "Baytown",
+      "state": "TX",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "08005",
+      "cityName": "Arapahoe County",
+      "state": "CO",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0454050",
+      "cityName": "Peoria",
+      "state": "AZ",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "08059",
+      "cityName": "Jefferson County",
+      "state": "CO",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0602252",
+      "cityName": "Antioch",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0608142",
+      "cityName": "Brentwood",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0646114",
+      "cityName": "Martinez",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0653070",
+      "cityName": "Oakley",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0668378",
+      "cityName": "San Ramon",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0633182",
+      "cityName": "Hemet",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0670000",
+      "cityName": "Santa Monica",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "0613756",
+      "cityName": "Claremont",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    },
+    {
+      "fips": "06065",
+      "cityName": "Riverside County",
+      "state": "CA",
+      "reason": "SINGLE_FEATURE - Only 1 feature, cannot tessellate",
+      "removedFrom": "known-portals.ts",
+      "addedTo": "quarantined-portals.ts"
+    }
+  ],
+  "notFoundEntries": []
+}

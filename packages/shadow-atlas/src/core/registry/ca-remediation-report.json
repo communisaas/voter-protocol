@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "generated": "2026-01-16T00:00:00.000Z",
+    "analyst": "GIS Data Curation Agent",
+    "scope": "13 California cities with containment failures",
+    "issue": "Registry points to wrong data sources (LA County, county-level, or other cities' districts)",
+    "total_cities_analyzed": 13,
+    "at_large_cities": 3,
+    "wrong_data_source": 10
+  },
+  "findings": [
+    {
+      "cityFips": "0622804",
+      "cityName": "Escondido",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - URL points to 'Crime_Free_Multi_Housing_Map' layer with 53 features instead of 4 city council districts",
+      "governance": "district-based",
+      "expected_districts": 4,
+      "actual_features": 53,
+      "notes": "Escondido has 4 council districts (established 2014). Registry URL is clearly wrong layer.",
+      "sources": [
+        "https://www.escondido.gov/965/Redistricting",
+        "https://cityofescondido.maps.arcgis.com/apps/webappviewer/index.html?id=0c7cb2fe4d5f4852b8988454aa040e2f"
+      ],
+      "correct_url_needed": true
+    },
+    {
+      "cityFips": "0622678",
+      "cityName": "Encinitas",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - 99.9% overflow indicates incorrect district boundaries",
+      "governance": "district-based",
+      "expected_districts": 4,
+      "actual_features": 4,
+      "notes": "Encinitas has 4 council districts (established 2017). Feature count matches but geometry is completely outside city boundary. URL may point to different city's districts.",
+      "sources": [
+        "https://www.encinitasca.gov/government/departments/city-clerk/city-council-redistricting",
+        "https://thecoastnews.com/encinitas-selects-new-map-following-controversy-free-process/"
+      ],
+      "correct_url_needed": true
+    },
+    {
+      "cityFips": "0632548",
+      "cityName": "Hawthorne",
+      "state": "CA",
+      "action": "ADD_TO_AT_LARGE_REGISTRY",
+      "reason": "At-large city - all council members elected citywide, no geographic districts",
+      "governance": "at-large",
+      "expected_districts": 0,
+      "actual_features": 52,
+      "notes": "Hawthorne has 5 council members (mayor + 4) all elected at-large. Registry URL points to 'Regional_Council_Districts_SCAG_Region' with 52 features (regional planning data, not city council districts).",
+      "sources": [
+        "https://ballotpedia.org/Hawthorne,_California",
+        "https://en.wikipedia.org/wiki/Hawthorne,_California"
+      ],
+      "correct_url_needed": false,
+      "should_be_in_governance_registry": true
+    },
+    {
+      "cityFips": "0670000",
+      "cityName": "Santa Monica",
+      "state": "CA",
+      "action": "ADD_TO_AT_LARGE_REGISTRY",
+      "reason": "At-large city - all 7 council members elected citywide, no geographic districts",
+      "governance": "at-large",
+      "expected_districts": 0,
+      "actual_features": 1,
+      "notes": "Santa Monica has 7 council members all elected at-large. Registry URL points to 'Council_District_11_shp' with 1 feature (likely LA City Council District 11, wrong city entirely).",
+      "sources": [
+        "https://www.santamonica.gov/topic-explainers/city-council",
+        "https://ballotpedia.org/Santa_Monica,_California"
+      ],
+      "correct_url_needed": false,
+      "should_be_in_governance_registry": true
+    },
+    {
+      "cityFips": "0611530",
+      "cityName": "Carson",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - URL points to 'LA_City_Council_Districts' with 15 features instead of Carson's districts",
+      "governance": "district-based",
+      "expected_districts": 4,
+      "actual_features": 15,
+      "notes": "Carson has district-based city council (number unclear from search, but definitely not 15). Registry URL explicitly mentions 'LA_City_Council_Districts' which is Los Angeles city data (15 districts), not Carson.",
+      "sources": [
+        "https://ci.carson.ca.us/government/DistrictInfo.aspx",
+        "https://www.arcgis.com/apps/View/index.html?appid=050da2e0b2d542a685da155f784dddaa"
+      ],
+      "correct_url_needed": true
+    },
+    {
+      "cityFips": "0683332",
+      "cityName": "Walnut",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - URL points to 'West_Covina_Council_Districts' with 5 features (different city entirely)",
+      "governance": "unknown",
+      "expected_districts": null,
+      "actual_features": 5,
+      "notes": "Registry URL explicitly mentions 'West_Covina_Council_Districts' - this is West Covina's data, not Walnut's. Could not confirm if Walnut has geographic districts or at-large elections from search results.",
+      "sources": [
+        "https://ballotpedia.org/Walnut,_California",
+        "https://www.cityofwalnut.org/my-government/walnut-city-council"
+      ],
+      "correct_url_needed": true,
+      "requires_additional_research": true
+    },
+    {
+      "cityFips": "0667112",
+      "cityName": "San Jacinto",
+      "state": "CA",
+      "action": "ADD_TO_AT_LARGE_REGISTRY",
+      "reason": "At-large city - all 5 council members elected citywide, no geographic districts",
+      "governance": "at-large",
+      "expected_districts": 0,
+      "actual_features": 5,
+      "notes": "San Jacinto has 5 council members all elected at-large. Registry URL points to 'Hemet_Council_Districts' with 5 features (Hemet is a different city, though adjacent to San Jacinto).",
+      "sources": [
+        "https://www.sanjacintoca.gov/city_departments/city-clerk/city-council",
+        "https://ballotpedia.org/San_Jacinto,_California"
+      ],
+      "correct_url_needed": false,
+      "should_be_in_governance_registry": true
+    },
+    {
+      "cityFips": "0656700",
+      "cityName": "Perris",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - URL returns 4 features but 100% overflow indicates incorrect geometry",
+      "governance": "district-based",
+      "expected_districts": 4,
+      "actual_features": 4,
+      "notes": "Perris has 4 council districts (established 2022). Feature count matches expected, but 100% overflow indicates the geometry is completely wrong. URL may point to outdated or incorrect district boundaries.",
+      "sources": [
+        "https://www.cityofperris.org/government/city-council/district-elections-information",
+        "https://ballotpedia.org/Perris,_California"
+      ],
+      "correct_url_needed": true
+    },
+    {
+      "cityFips": "0646842",
+      "cityName": "Menifee",
+      "state": "CA",
+      "action": "QUARANTINE",
+      "reason": "Wrong data source - URL points to 'Council_Districts_Perris' with 5 features (Perris has 4 districts, Menifee has 4 districts)",
+      "governance": "district-based",
+      "expected_districts": 4,
+      "actual_features": 5,
+      "notes": "Menifee has 4 council districts. Registry URL explicitly mentions 'Council_Districts_Perris' and returns 5 features. This is Perris city data, not Menifee.",
+      "sources": [
+        "https://www.cityofmenifee.us/89/City-Council",
+        "https://stories.opengov.com/menifeeca/published/eGijN9NSZ"
+      ],
+      "correct_url_needed": true
+    },
+    {
+      "cityFips": "0639003",
+      "cityName": "La Cañada Flintridge",
+      "state": "CA",
+      "action": "ADD_TO_AT_LARGE_REGISTRY",
+      "reason": "At-large city - all 5 council members elected citywide, no geographic districts",
+      "governance": "at-large",
+      "expected_districts": 0,
+      "actual_features": 7,
+      "notes": "La Cañada Flintridge has 5 council members all elected at-large. Registry URL points to 'Enriched Council_District' with 7 features (likely LA County or regional data).",
+      "sources": [
+        "https://lcf.ca.gov/city-clerk/city-council/",
+        "https://ballotpedia.org/La_Ca%C3%B1ada_Flintridge,_California"
+      ],
+      "correct_url_needed": false,
+      "should_be_in_governance_registry": true
+    }
+  ],
+  "summary": {
+    "actions": {
+      "QUARANTINE": 6,
+      "ADD_TO_AT_LARGE_REGISTRY": 4
+    },
+    "at_large_cities": [
+      "Hawthorne (0632548)",
+      "Santa Monica (0670000)",
+      "San Jacinto (0667112)",
+      "La Cañada Flintridge (0639003)"
+    ],
+    "wrong_data_cities": [
+      "Escondido (0622804) - Crime housing map, not council districts",
+      "Encinitas (0622678) - Wrong geometry, 99.9% overflow",
+      "Carson (0611530) - LA City Council districts (15) not Carson",
+      "Walnut (0683332) - West Covina districts not Walnut",
+      "Perris (0656700) - Wrong geometry despite correct count",
+      "Menifee (0646842) - Perris districts not Menifee"
+    ],
+    "pattern_analysis": {
+      "primary_issue": "Automated discovery selected wrong ArcGIS layers",
+      "common_patterns": [
+        "LA County/LA City data for unrelated cities",
+        "Adjacent city's districts (West Covina→Walnut, Perris→Menifee, Hemet→San Jacinto)",
+        "Regional planning districts instead of municipal council districts",
+        "Wrong layer types (crime maps, housing maps) with similar naming"
+      ]
+    }
+  },
+  "remediation_steps": {
+    "immediate": [
+      "Remove 6 quarantined entries from known-portals.ts",
+      "Add to quarantined-portals.ts with documented rationale",
+      "Add 4 at-large cities to governance-structures.ts",
+      "Remove 4 at-large city entries from known-portals.ts"
+    ],
+    "follow_up": [
+      "Research correct data sources for 6 quarantined district-based cities",
+      "Verify Walnut's governance structure (at-large vs district)",
+      "Add pre-validation checks for centroid distance and feature count ratio"
+    ]
+  }
+}

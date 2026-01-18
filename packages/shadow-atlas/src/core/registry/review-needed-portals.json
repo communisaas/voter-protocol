@@ -1,0 +1,267 @@
+{
+  "generatedAt": "2026-01-16T20:18:42.248Z",
+  "count": 26,
+  "note": "These entries have URLs that might indicate wrong data layers but require human review",
+  "entries": [
+    {
+      "fips": "34029",
+      "city": "Ocean County",
+      "state": "NJ",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services2.arcgis.com/7a7OULZOTqe87h9O/arcgis/rest/services/Election_Districts_Adopted_032012/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 50
+    },
+    {
+      "fips": "45041",
+      "city": "Florence County",
+      "state": "SC",
+      "pattern": "census",
+      "reason": "Census tract/block data - may not be council districts",
+      "url": "https://services1.arcgis.com/otEVSGO5ESloTE5q/arcgis/rest/services/Florence_County_Census_Information/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 9,
+      "confidence": 58
+    },
+    {
+      "fips": "45049",
+      "city": "Hampton County",
+      "state": "SC",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services1.arcgis.com/m0cnLGKdhwao8WvM/arcgis/rest/services/2022_Voting_Districts/FeatureServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 2,
+      "confidence": 58
+    },
+    {
+      "fips": "1310076",
+      "city": "Braselton",
+      "state": "GA",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services5.arcgis.com/OVFGXfRTCVcPwl55/arcgis/rest/services/BCGIS_Elections_Layers/FeatureServer/5/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 63
+    },
+    {
+      "fips": "1332048",
+      "city": "Garden City",
+      "state": "GA",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services2.arcgis.com/2SoNIbP3sKErGFHa/arcgis/rest/services/CCElections/FeatureServer/6/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "confidence": 80
+    },
+    {
+      "fips": "1360340",
+      "city": "Perry",
+      "state": "GA",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services3.arcgis.com/RxsJNr2SJZqc8NIv/arcgis/rest/services/ElectionDistrictsPublish/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 3,
+      "confidence": 63
+    },
+    {
+      "fips": "1362328",
+      "city": "Port Wentworth",
+      "state": "GA",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services2.arcgis.com/2SoNIbP3sKErGFHa/arcgis/rest/services/CCElections/FeatureServer/7/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 55
+    },
+    {
+      "fips": "1705573",
+      "city": "Berwyn",
+      "state": "IL",
+      "pattern": "precinct",
+      "reason": "Voting precinct data - may be valid or may be wrong layer",
+      "url": "https://services7.arcgis.com/DbKiZP6rBmETqLvl/arcgis/rest/services/City_Wards___Election_Precincts___Berwyn_WFL1/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "confidence": 55
+    },
+    {
+      "fips": "1706613",
+      "city": "Bloomington",
+      "state": "IL",
+      "pattern": "precinct",
+      "reason": "Voting precinct data - may be valid or may be wrong layer",
+      "url": "https://services3.arcgis.com/ZntpsilxOye7y1YF/arcgis/rest/services/Voter_Precincts_2023_WFL1/FeatureServer/6/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 9,
+      "confidence": 55
+    },
+    {
+      "fips": "1840788",
+      "city": "Lafayette",
+      "state": "IN",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services5.arcgis.com/iQpWpOwgM71J6wag/arcgis/rest/services/VOTING/FeatureServer/6/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "confidence": 88
+    },
+    {
+      "fips": "1882862",
+      "city": "West Lafayette",
+      "state": "IN",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services5.arcgis.com/iQpWpOwgM71J6wag/arcgis/rest/services/VOTING/FeatureServer/3/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "confidence": 55
+    },
+    {
+      "fips": "2604080",
+      "city": "Auburn",
+      "state": "MI",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services7.arcgis.com/NsdAMAHBh4C0qHfJ/arcgis/rest/services/Bay_County_Voting_Information_WFL1/FeatureServer/6/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 27,
+      "confidence": 55
+    },
+    {
+      "fips": "2767612",
+      "city": "Waite Park",
+      "state": "MN",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://sws.stcloudcity.com/arcgis/rest/services/STC_Election/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "confidence": 55
+    },
+    {
+      "fips": "2910240",
+      "city": "Byrnes Mill",
+      "state": "MO",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services1.arcgis.com/Ur3TPhgM56qvxaar/arcgis/rest/services/Voting_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "confidence": 63
+    },
+    {
+      "fips": "3146520",
+      "city": "Springfield",
+      "state": "NE",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services.arcgis.com/OiG7dbwhQEWoy77N/arcgis/rest/services/ElectionAdmin_BV_vw/FeatureServer/8/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 19,
+      "confidence": 55
+    },
+    {
+      "fips": "3611000",
+      "city": "Buffalo",
+      "state": "NY",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services3.arcgis.com/1DXLKHAAsac3wA0m/arcgis/rest/services/Site_Selection_3_29_21_1/FeatureServer/3/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 9,
+      "confidence": 63
+    },
+    {
+      "fips": "3947754",
+      "city": "Marion",
+      "state": "OH",
+      "pattern": "precinct",
+      "reason": "Voting precinct data - may be valid or may be wrong layer",
+      "url": "https://services3.arcgis.com/rsg9sodcnnTD4Ftk/arcgis/rest/services/Precincts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 21,
+      "confidence": 80
+    },
+    {
+      "fips": "4916270",
+      "city": "Cottonwood Heights",
+      "state": "UT",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services2.arcgis.com/3v8WCLenemzHlYhU/arcgis/rest/services/Election_map/FeatureServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 63
+    },
+    {
+      "fips": "5508850",
+      "city": "Boscobel",
+      "state": "WI",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services3.arcgis.com/OwVO8oKCUjTngz5f/arcgis/rest/services/Boscobel_NEW_Parks_and_Voting_Wards/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 9,
+      "confidence": 68
+    },
+    {
+      "fips": "5523800",
+      "city": "Elroy",
+      "state": "WI",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services3.arcgis.com/fG0wlSudAkEi5Jdl/arcgis/rest/services/Voting_View_Layer/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 5,
+      "confidence": 55
+    },
+    {
+      "fips": "5556900",
+      "city": "New Lisbon",
+      "state": "WI",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services7.arcgis.com/M6G5iEO3XfYCP7A8/arcgis/rest/services/Voting/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 55
+    },
+    {
+      "fips": "5585350",
+      "city": "West Bend",
+      "state": "WI",
+      "pattern": "election",
+      "reason": "Election district data - may or may not be council wards",
+      "url": "https://services5.arcgis.com/WwMTQE8lAPutDxr2/arcgis/rest/services/VotingElectionApp83/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "confidence": 55
+    },
+    {
+      "fips": "0618996",
+      "city": "Desert Hot Springs",
+      "state": "CA",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services9.arcgis.com/RW9zgSBVIaMvWfEq/arcgis/rest/services/DHS_Voting_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 88
+    },
+    {
+      "fips": "0645022",
+      "city": "Madera",
+      "state": "CA",
+      "pattern": "precinct",
+      "reason": "Voting precinct data - may be valid or may be wrong layer",
+      "url": "https://services6.arcgis.com/1t7wwtWWQetYRAXB/arcgis/rest/services/Annexation_2024_02_Precinct_Update/FeatureServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "confidence": 88
+    },
+    {
+      "fips": "0636770",
+      "city": "Irvine",
+      "state": "CA",
+      "pattern": "voting",
+      "reason": "Voting district data - may or may not be council wards",
+      "url": "https://services2.arcgis.com/3mkVbLdbLBFHrfbK/arcgis/rest/services/Voting_Districts/FeatureServer/21/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "confidence": 63
+    },
+    {
+      "fips": "0827425",
+      "city": "Fort Collins",
+      "state": "CO",
+      "pattern": "precinct",
+      "reason": "Voting precinct data - may be valid or may be wrong layer",
+      "url": "https://services1.arcgis.com/dLpFH5mwVvxSN4OE/arcgis/rest/services/District_Precinct/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 67,
+      "confidence": 63
+    }
+  ]
+}
