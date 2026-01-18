@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Golden Cities Regression Test Fixture - DO NOT MODIFY without justification",
+  "version": "1.0.0",
+  "description": "Cities that pass all 4 tessellation axioms. Used for regression testing.",
+  "lastUpdated": "2026-01-16",
+  "cities": [
+    {
+      "fips": "4805000",
+      "cityName": "Austin",
+      "state": "TX",
+      "expectedFeatureCount": 10,
+      "region": "Southwest",
+      "characteristics": ["large metro", "state capital", "high-growth"],
+      "confidence": 98,
+      "dateAdded": "2026-01-16",
+      "notes": "Top 10 US city. Clean tessellation with 10 council districts."
+    },
+    {
+      "fips": "5363000",
+      "cityName": "Seattle",
+      "state": "WA",
+      "expectedFeatureCount": 7,
+      "region": "Pacific Northwest",
+      "characteristics": ["large metro", "coastal", "tech hub"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Major West Coast city. 7 council districts with stable ArcGIS source."
+    },
+    {
+      "fips": "4260000",
+      "cityName": "Philadelphia",
+      "state": "PA",
+      "expectedFeatureCount": 10,
+      "region": "Northeast",
+      "characteristics": ["large metro", "historic"],
+      "confidence": 85,
+      "dateAdded": "2026-01-16",
+      "notes": "Top 10 US city. 10 council districts with 2024 redistricting data."
+    },
+    {
+      "fips": "4865000",
+      "cityName": "San Antonio",
+      "state": "TX",
+      "expectedFeatureCount": 10,
+      "region": "Southwest",
+      "characteristics": ["large metro"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Top 10 US city. 10 council districts (2022 redistricting)."
+    },
+    {
+      "fips": "4835000",
+      "cityName": "Houston",
+      "state": "TX",
+      "expectedFeatureCount": 11,
+      "region": "Southwest",
+      "characteristics": ["large metro", "high-growth"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Top 5 US city. 11 council districts (A-K)."
+    },
+    {
+      "fips": "1714000",
+      "cityName": "Chicago",
+      "state": "IL",
+      "expectedFeatureCount": 50,
+      "region": "Midwest",
+      "characteristics": ["large metro", "many wards"],
+      "confidence": 80,
+      "dateAdded": "2026-01-16",
+      "notes": "Third largest US city. 50 wards (2023+ boundaries)."
+    },
+    {
+      "fips": "1150000",
+      "cityName": "Washington",
+      "state": "DC",
+      "expectedFeatureCount": 8,
+      "region": "Northeast",
+      "characteristics": ["federal district", "unique governance"],
+      "confidence": 80,
+      "dateAdded": "2026-01-16",
+      "notes": "Federal district. 8 wards from 2022 redistricting."
+    },
+    {
+      "fips": "2622000",
+      "cityName": "Detroit",
+      "state": "MI",
+      "expectedFeatureCount": 7,
+      "region": "Midwest",
+      "characteristics": ["rust belt", "legacy city"],
+      "confidence": 90,
+      "dateAdded": "2026-01-16",
+      "notes": "Major Midwest city. 7 council districts (2026 boundaries)."
+    },
+    {
+      "fips": "2404000",
+      "cityName": "Baltimore",
+      "state": "MD",
+      "expectedFeatureCount": 14,
+      "region": "Mid-Atlantic",
+      "characteristics": ["coastal", "port city"],
+      "confidence": 85,
+      "dateAdded": "2026-01-16",
+      "notes": "Major Mid-Atlantic city. 14 council districts."
+    },
+    {
+      "fips": "2255000",
+      "cityName": "New Orleans",
+      "state": "LA",
+      "expectedFeatureCount": 5,
+      "region": "Southeast",
+      "characteristics": ["coastal", "unique governance"],
+      "confidence": 85,
+      "dateAdded": "2026-01-16",
+      "notes": "Louisiana major city. 5 council districts (A-E)."
+    },
+    {
+      "fips": "1304000",
+      "cityName": "Atlanta",
+      "state": "GA",
+      "expectedFeatureCount": 12,
+      "region": "Southeast",
+      "characteristics": ["large metro", "state capital", "high-growth"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Major Southeast hub. 12 council districts."
+    },
+    {
+      "fips": "0820000",
+      "cityName": "Denver",
+      "state": "CO",
+      "expectedFeatureCount": 11,
+      "region": "Mountain West",
+      "characteristics": ["state capital", "high-growth"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Colorado capital. 11 geographic districts (at-large excluded)."
+    },
+    {
+      "fips": "4055000",
+      "cityName": "Oklahoma City",
+      "state": "OK",
+      "expectedFeatureCount": 8,
+      "region": "Central",
+      "characteristics": ["state capital"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Oklahoma capital. 8 wards from ACOG official source."
+    },
+    {
+      "fips": "1571550",
+      "cityName": "Honolulu",
+      "state": "HI",
+      "expectedFeatureCount": 9,
+      "region": "Pacific",
+      "characteristics": ["island", "unique geography"],
+      "confidence": 100,
+      "dateAdded": "2026-01-16",
+      "notes": "Hawaii city-county. 9 council districts (I-IX). Authoritative state source."
+    },
+    {
+      "fips": "2758000",
+      "cityName": "St. Paul",
+      "state": "MN",
+      "expectedFeatureCount": 7,
+      "region": "Midwest",
+      "characteristics": ["state capital", "twin city"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Minnesota capital. 7 council wards."
+    },
+    {
+      "fips": "1836003",
+      "cityName": "Indianapolis",
+      "state": "IN",
+      "expectedFeatureCount": 25,
+      "region": "Midwest",
+      "characteristics": ["large metro", "consolidated city-county"],
+      "confidence": 85,
+      "dateAdded": "2026-01-16",
+      "notes": "Indiana capital. 25 city-county council districts."
+    },
+    {
+      "fips": "4752006",
+      "cityName": "Nashville",
+      "state": "TN",
+      "expectedFeatureCount": 35,
+      "region": "Southeast",
+      "characteristics": ["large metro", "state capital", "consolidated"],
+      "confidence": 95,
+      "dateAdded": "2026-01-16",
+      "notes": "Tennessee capital. 35 metro council districts."
+    },
+    {
+      "fips": "0816000",
+      "cityName": "Colorado Springs",
+      "state": "CO",
+      "expectedFeatureCount": 6,
+      "region": "Mountain West",
+      "characteristics": ["medium metro"],
+      "confidence": 85,
+      "dateAdded": "2026-01-16",
+      "notes": "Second largest Colorado city. 6 council districts (redrawn Nov 2024)."
+    }
+  ],
+  "selectionCriteria": {
+    "passRate": "100% on all 4 axioms (exclusivity, exhaustivity, containment, cardinality)",
+    "coverageRange": "85-115% (solid coverage within tessellation thresholds)",
+    "confidenceMinimum": 80,
+    "diversityRequirements": [
+      "Geographic distribution (all major US regions represented)",
+      "Size variation (medium cities to top 10 metros)",
+      "Governance types (standard districts, wards, consolidated city-county)",
+      "Feature count variation (5-50 districts)"
+    ]
+  },
+  "maintenancePolicy": {
+    "addingNewCities": "Cities must pass validation for 30+ days before golden status",
+    "removingCities": "Document reason in git commit. Common reasons: data source changed, redistricting",
+    "thresholdChanges": "Require explicit PR approval with justification for any tolerance changes"
+  }
+}
