@@ -6661,9 +6661,96 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
     discoveredBy: 'wave-g-texas-extraction',
     notes: 'Taylor TX - 4 single-member districts + at-large mayor. Open Data hub. REMEDIATED: Was quarantined.',
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAVE H EXTRACTIONS (2026-01-18)
+  // Extracted via specialized GIS expert subagents with deep domain knowledge
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // CALIFORNIA - City GIS and Regional Sources
+  '0622804': {
+    cityFips: '0622804',
+    cityName: 'Escondido',
+    state: 'CA',
+    portalType: 'regional-gis',
+    downloadUrl: 'https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 4,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 90,
+    discoveredBy: 'wave-h-ca-specialist',
+    notes: 'Escondido CA - 4 council districts. SANDAG regional consolidated dataset (filter by city if needed). REMEDIATED: Was quarantined (wrong layer - Crime_Free_Multi_Housing).',
+  },
+
+  '0665000': {
+    cityFips: '0665000',
+    cityName: 'San Bernardino',
+    state: 'CA',
+    portalType: 'municipal-gis',
+    downloadUrl: 'https://gisweb.sbcity.org/arcgis/rest/services/Wards/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 7,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 95,
+    discoveredBy: 'wave-h-ca-specialist',
+    notes: 'San Bernardino CA - 7 wards. City-operated MapServer (gisweb.sbcity.org). REMEDIATED: Was quarantined (topology error in old source).',
+  },
+
+  '0646842': {
+    cityFips: '0646842',
+    cityName: 'Menifee',
+    state: 'CA',
+    portalType: 'municipal-gis',
+    downloadUrl: 'https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 4,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 85,
+    discoveredBy: 'wave-h-ca-specialist',
+    notes: 'Menifee CA - 4 council districts. City ArcGIS Online. REMEDIATED: Was quarantined (wrong municipality - Perris data). NOTE: Service may return 13 features (subdivisions) - verify 4 main districts.',
+  },
+
+  // ARKANSAS - City MapServer
+  '0541000': {
+    cityFips: '0541000',
+    cityName: 'Little Rock',
+    state: 'AR',
+    portalType: 'municipal-gis',
+    downloadUrl: 'https://maps.littlerock.gov/server/rest/services/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 7,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 95,
+    discoveredBy: 'wave-h-metro-extraction',
+    notes: 'Little Rock AR - 7 wards. City-operated MapServer. REMEDIATED: Was quarantined (BPADD regional data - 20 features).',
+  },
+
+  // TEXAS - City MapServer
+  '4867496': {
+    cityFips: '4867496',
+    cityName: 'Sherman',
+    state: 'TX',
+    portalType: 'municipal-gis',
+    downloadUrl: 'https://maps.cityofsherman.com/arcgis/rest/services/BaseLayers/MapServer/10/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 7,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 95,
+    discoveredBy: 'wave-h-metro-extraction',
+    notes: 'Sherman TX - 4 districts + mayor + 2 at-large (7 total). City MapServer. REMEDIATED: Was quarantined (125M sq m topology error).',
+  },
+
+  // WISCONSIN - County Data Portal (correct aldermanic districts)
+  '5539225': {
+    cityFips: '5539225',
+    cityName: 'Kenosha',
+    state: 'WI',
+    portalType: 'county-gis',
+    downloadUrl: 'https://dataportal.kenoshacounty.org/datasets/kenoshacounty::city-aldermanic-districts/query?where=1%3D1&outFields=*&f=geojson',
+    featureCount: 17,
+    lastVerified: '2026-01-18T00:00:00.000Z',
+    confidence: 90,
+    discoveredBy: 'wave-h-midwest-expert',
+    notes: 'Kenosha WI - 17 aldermanic districts (1 alderperson each). County data portal. REMEDIATED: Was quarantined (34 features = voting wards, not aldermanic districts).',
+  },
 };
 
-export const PORTAL_COUNT = 497;
+export const PORTAL_COUNT = 503;
 
 /**
  * Check if a portal entry is stale (not verified in over 90 days)
