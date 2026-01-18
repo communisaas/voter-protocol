@@ -46,6 +46,7 @@ test-discovery-attempts/
 test-*.js
 test-*.ts
 !src/__tests__/**
+.shadow-atlas-test/
 
 # Analysis outputs (regeneratable)
 analysis-output/
