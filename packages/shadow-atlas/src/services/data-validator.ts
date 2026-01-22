@@ -108,6 +108,7 @@ const TIGERWEB_ENDPOINTS: Record<LegislativeLayerType, string> = {
   state_senate: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/1',
   state_house: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer/2',
   county: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1',
+  council_district: '', // Council districts not available from TIGERweb (municipal-level data)
 };
 
 // ============================================================================

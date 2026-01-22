@@ -29,12 +29,14 @@ import type { PortalType } from '../types/discovery.js';
  * - state_senate: State Senate/Upper chamber districts
  * - state_house: State House/Lower chamber districts
  * - county: County boundaries (for jurisdiction validation)
+ * - council_district: Municipal council districts (city/county level)
  */
 export type LegislativeLayerType =
   | 'congressional'
   | 'state_senate'
   | 'state_house'
-  | 'county';
+  | 'county'
+  | 'council_district';
 
 /**
  * Legislative district layer endpoint
@@ -70,6 +72,7 @@ export interface LegislativeLayer {
  * may be more authoritative than TIGER:
  * - state-redistricting-commission: Official map drawers (HIGHEST during gaps)
  * - state-gis: State GIS clearinghouses (HIGH during gaps)
+ * - municipal-agency: Municipal GIS departments (for council districts)
  *
  * @see tiger-authority-rules.ts for precedence logic
  */
@@ -78,7 +81,8 @@ export type StateAuthorityLevel =
   | 'state-gis'
   | 'federal-mandate'
   | 'arcgis-hub'
-  | 'tiger';
+  | 'tiger'
+  | 'municipal-agency';
 
 // ============================================================================
 // Portal Interface
@@ -2663,16 +2667,22 @@ export function getLegislativeStats(): {
       state_senate: 0,
       state_house: 0,
       county: 0,
+      council_district: 0,
     } as Record<LegislativeLayerType, number>,
     byAuthority: {
       'state-redistricting-commission': 0,
       'state-gis': 0,
+      'federal-mandate': 0,
+      'arcgis-hub': 0,
+      'tiger': 0,
+      'municipal-agency': 0,
     } as Record<StateAuthorityLevel, number>,
     totalExpectedDistricts: {
       congressional: 0,
       state_senate: 0,
       state_house: 0,
       county: 0,
+      council_district: 0,
     },
   };
 

@@ -444,6 +444,7 @@ export interface StateConfig {
     readonly state_senate: number;
     readonly state_house: number;
     readonly county?: number;
+    readonly council_district?: number;
   };
 }
 
