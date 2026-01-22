@@ -81,7 +81,8 @@ export type LegislativeLayerType =
   | 'congressional'
   | 'state_senate'
   | 'state_house'
-  | 'county';
+  | 'county'
+  | 'council_district';
 
 /**
  * Unified layer type across all sources

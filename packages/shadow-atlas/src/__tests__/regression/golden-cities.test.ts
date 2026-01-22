@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { TessellationProofValidator, type TessellationProof } from '../../validators/council/tessellation-proof.js';
 import { MunicipalBoundaryResolver } from '../../validators/council/municipal-boundary.js';
-import { KNOWN_PORTALS, type KnownPortal } from '../../core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../../core/registry/known-portals.generated.js';
 import { EXPECTED_DISTRICT_COUNTS } from '../../core/registry/district-count-registry.js';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 

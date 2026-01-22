@@ -37,8 +37,8 @@ import {
   type ResolutionResult,
 } from './municipal-boundary.js';
 import { EXPECTED_DISTRICT_COUNTS, type DistrictCountRecord, type GovernanceType } from '../../core/registry/district-count-registry.js';
-import { AT_LARGE_CITIES } from '../../core/registry/at-large-cities.js';
-import { QUARANTINED_PORTALS } from '../../core/registry/quarantined-portals.js';
+import { AT_LARGE_CITIES } from '../../core/registry/at-large-cities.generated.js';
+import { QUARANTINED_PORTALS } from '../../core/registry/quarantined-portals.generated.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FIPS CORRECTION REGISTRY

@@ -158,6 +158,7 @@ const CONSOLIDATED_CITY_COUNTIES: Record<string, { countyFips: string; name: str
   '0820000': { countyFips: '08031', name: 'Denver' },                  // Denver, CO
   '0667000': { countyFips: '06075', name: 'San Francisco' },           // San Francisco, CA
   '0203000': { countyFips: '02020', name: 'Anchorage' },               // Anchorage, AK
+  '2205000': { countyFips: '22033', name: 'Baton Rouge-East Baton Rouge Parish' }, // Baton Rouge, LA (City-Parish consolidated 2019, Metro Council covers entire parish)
   // NOTE: Honolulu REMOVED from consolidated city-counties
   // Honolulu County (15003) includes Northwestern Hawaiian Islands 1000km northwest of Oahu.
   // City council districts only cover Oahu island. Using county boundary causes 824km
@@ -192,6 +193,21 @@ interface AuthoritativeBoundaryConfig {
 }
 
 const AUTHORITATIVE_BOUNDARIES: Record<string, AuthoritativeBoundaryConfig> = {
+  // Honolulu, HI - TIGER County layer (Layer 82) instead of CDP or Incorporated Places
+  // Urban Honolulu (1571550) is just the urban core (~177 km²), but council districts
+  // cover all of Oahu island (~1,545 km²) which is coterminous with Honolulu County.
+  // Using county boundary (FIPS 15003) for tessellation validation.
+  // NOTE: County technically includes Northwestern Hawaiian Islands but those have
+  // negligible land area. The main Oahu geometry is what matters for validation.
+  '1571550': {
+    url: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/82/query?where=GEOID%3D%2715003%27&outFields=GEOID,NAME,AREALAND,AREAWATER&f=geojson&outSR=4326&returnGeometry=true',
+    name: 'Honolulu (City and County)',
+    landAreaSqM: 1556040330, // ~1,556 km² (Oahu island + minor outlying)
+    waterAreaSqM: 2980000000, // ~2,980 km² (Pacific Ocean within county)
+    nameField: 'NAME',
+    reason: 'Council districts cover all of Oahu (Honolulu County), not just Urban Honolulu CDP',
+  },
+
   // Portland, OR - City's own boundary from Portland Maps
   // TIGER shows 74.5% coverage because it includes annexed areas not yet in council districts
   '4159000': {

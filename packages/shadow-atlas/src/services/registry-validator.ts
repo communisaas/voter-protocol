@@ -6,7 +6,7 @@
  * SCALE: 1000+ registry entries (future)
  */
 
-import type { KnownPortal } from '../core/registry/known-portals.js';
+import type { KnownPortal } from '../core/registry/known-portals.generated.js';
 import { logger } from '../core/utils/logger.js';
 
 /**

@@ -211,3 +211,41 @@ export {
     type NormalizedSpecialDistrict,
     type GovernanceType,
 } from './providers/special-district-provider.js';
+
+// Registry Exports (generated from canonical NDJSON data)
+export {
+    KNOWN_PORTALS,
+    PORTAL_COUNT,
+    type KnownPortal,
+    type PortalType,
+    type DiscoveredBy,
+} from './core/registry/known-portals.generated.js';
+
+export {
+    QUARANTINED_PORTALS,
+    QUARANTINE_COUNT,
+    type QuarantinedPortal,
+} from './core/registry/quarantined-portals.generated.js';
+
+export {
+    AT_LARGE_CITIES,
+    AT_LARGE_COUNT,
+    type AtLargeCity,
+} from './core/registry/at-large-cities.generated.js';
+
+// Registry Utility Functions
+export {
+    // Known Portals utilities
+    isStale,
+    getPortal,
+    hasPortal,
+    // Quarantined Portals utilities
+    isQuarantined,
+    getQuarantinedPortal,
+    getQuarantineSummary,
+    // At-Large Cities utilities
+    isAtLargeCity,
+    getAtLargeCityInfo,
+    getAtLargeCitiesByState,
+    getAtLargeCityStats,
+} from './core/registry/registry-utils.js';

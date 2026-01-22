@@ -5,14 +5,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { AT_LARGE_CITIES, type AtLargeCity } from './at-large-cities.generated.js';
 import {
-  AT_LARGE_CITIES,
   isAtLargeCity,
   getAtLargeCityInfo,
   getAtLargeCitiesByState,
   getAtLargeCityStats,
-  type AtLargeCity,
-} from './at-large-cities.js';
+} from './registry-utils.js';
 
 describe('AT_LARGE_CITIES registry', () => {
   it('should contain Cambridge MA (proportional representation)', () => {
@@ -24,13 +23,13 @@ describe('AT_LARGE_CITIES registry', () => {
     expect(cambridge.councilSize).toBe(9);
   });
 
-  it('should contain Morrisville NC (at-large)', () => {
-    const morrisville = AT_LARGE_CITIES['3746060'];
-    expect(morrisville).toBeDefined();
-    expect(morrisville.cityName).toBe('Morrisville');
-    expect(morrisville.state).toBe('NC');
-    expect(morrisville.electionMethod).toBe('at-large');
-    expect(morrisville.councilSize).toBe(5);
+  it('should contain Santa Monica CA (at-large)', () => {
+    const santaMonica = AT_LARGE_CITIES['0670000'];
+    expect(santaMonica).toBeDefined();
+    expect(santaMonica.cityName).toBe('Santa Monica');
+    expect(santaMonica.state).toBe('CA');
+    expect(santaMonica.electionMethod).toBe('at-large');
+    expect(santaMonica.councilSize).toBe(7);
   });
 
   it('should contain Pearland TX (at-large)', () => {
@@ -74,8 +73,8 @@ describe('isAtLargeCity()', () => {
     expect(isAtLargeCity('2511000')).toBe(true);
   });
 
-  it('should return true for Morrisville NC', () => {
-    expect(isAtLargeCity('3746060')).toBe(true);
+  it('should return true for Santa Monica CA', () => {
+    expect(isAtLargeCity('0670000')).toBe(true);
   });
 
   it('should return false for non-at-large cities', () => {

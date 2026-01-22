@@ -51,7 +51,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
 import { CensusPlaceListLoader } from '../core/registry/census-place-list.js';
-import type { KnownPortal } from '../core/registry/known-portals.js';
+import type { KnownPortal } from '../core/registry/known-portals.generated.js';
 import * as https from 'https';
 import * as http from 'http';
 import { createWriteStream } from 'fs';

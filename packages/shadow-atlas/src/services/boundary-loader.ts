@@ -21,7 +21,7 @@ import type {
 } from '../core/types/boundary.js';
 import { extractBBox, BoundaryType as BT } from '../core/types/boundary.js';
 import type { BoundaryDataSource } from './boundary-resolver.js';
-import { KNOWN_PORTALS, type KnownPortal } from '../core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../core/registry/known-portals.generated.js';
 import type { ProvenanceRecord } from '../provenance-writer.js';
 import { logger } from '../core/utils/logger.js';
 
