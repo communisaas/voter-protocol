@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://voter-protocol.org/schemas/portal.v1.json",
+  "title": "Shadow Atlas Portal Entry",
+  "description": "Canonical schema for ArcGIS portal metadata with provenance tracking",
+  "type": "object",
+  "required": [
+    "cityFips",
+    "cityName",
+    "state",
+    "portalType",
+    "downloadUrl",
+    "featureCount",
+    "lastVerified",
+    "confidence",
+    "discoveredBy",
+    "status",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "cityFips": {
+      "type": "string",
+      "pattern": "^[0-9]{7}$",
+      "description": "7-digit FIPS code (2-digit state + 5-digit place)"
+    },
+    "cityName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Official Census place name"
+    },
+    "state": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "2-letter state abbreviation (ISO 3166-2:US)"
+    },
+    "portalType": {
+      "type": "string",
+      "enum": [
+        "municipal-gis",
+        "county-gis",
+        "state-gis",
+        "federal-gis",
+        "authoritative-api",
+        "third-party"
+      ],
+      "description": "Classification of data source authority"
+    },
+    "downloadUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Complete ArcGIS REST API query URL with parameters"
+    },
+    "featureCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of council district features returned by portal"
+    },
+    "lastVerified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last successful validation"
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Quality score: 90+ authoritative, 70-89 verified, <70 needs review"
+    },
+    "discoveredBy": {
+      "type": "string",
+      "enum": [
+        "authoritative",
+        "automated-discovery",
+        "manual-addition",
+        "remediation",
+        "community-submission"
+      ],
+      "description": "Origin classification for audit trail"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "quarantined",
+        "review-needed",
+        "deprecated",
+        "superseded"
+      ],
+      "description": "Lifecycle status for filtering production queries"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Human-readable context (remediation details, exceptions, etc.)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Extended metadata for specific portal types",
+      "properties": {
+        "districtType": {
+          "type": "string",
+          "enum": ["council", "ward", "district", "at-large"],
+          "description": "Type of electoral subdivision"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "ArcGIS service layer ID (extracted from URL)"
+        },
+        "spatialReference": {
+          "type": "integer",
+          "description": "EPSG code (e.g., 4326 for WGS84)"
+        },
+        "updateFrequency": {
+          "type": "string",
+          "enum": ["realtime", "daily", "monthly", "quarterly", "static"],
+          "description": "Expected data refresh cadence"
+        },
+        "supersededBy": {
+          "type": "string",
+          "pattern": "^[0-9]{7}$",
+          "description": "FIPS code of replacement entry (if status=superseded)"
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of initial discovery"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last modification"
+    }
+  },
+  "additionalProperties": false
+}

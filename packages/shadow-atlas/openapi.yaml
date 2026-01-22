@@ -1,0 +1,1272 @@
+openapi: 3.0.3
+info:
+  title: Shadow Atlas API
+  description: |
+    Free political geography API with cryptographic verification.
+
+    **Mission:** Kill Cicero's business model through superior developer experience.
+
+    ## Key Features
+    - **Zero-cost access**: Free forever, no credit card required
+    - **Cryptographic verification**: Merkle proofs on every response
+    - **Global coverage**: 190+ countries, 50 US states, 51K+ districts
+    - **Historical queries**: Point-in-time boundaries for any date
+    - **Bulk downloads**: Free GeoJSON/Shapefile/TopoJSON exports
+
+    ## Rate Limits
+    - **Public access**: 1000 requests/hour per IP
+    - **API key (free)**: 100,000 requests/hour
+
+    ## Caching
+    - Boundary data: 90-day CDN cache (immutable)
+    - ETags: SHA-256 content hashing
+    - Conditional requests: `If-None-Match` supported
+  version: 1.0.0
+  contact:
+    name: Shadow Atlas Support
+    email: api@shadow-atlas.vote
+    url: https://docs.shadow-atlas.vote
+  license:
+    name: CC0-1.0 (Public Domain)
+    url: https://creativecommons.org/publicdomain/zero/1.0/
+
+servers:
+  - url: https://api.shadow-atlas.vote/v1
+    description: Production server
+  - url: https://staging.shadow-atlas.vote/v1
+    description: Staging server
+
+security:
+  - ApiKeyAuth: []
+  - {}
+
+tags:
+  - name: Districts
+    description: District lookup and spatial queries
+  - name: Boundaries
+    description: Bulk boundary downloads
+  - name: Portals
+    description: GIS data source metadata
+  - name: Provenance
+    description: Audit trails and data lineage
+  - name: Snapshots
+    description: Quarterly IPFS snapshots
+  - name: Webhooks
+    description: Real-time update notifications
+  - name: Verification
+    description: Merkle proof verification
+
+paths:
+  /districts/lookup:
+    get:
+      tags:
+        - Districts
+      summary: Lookup districts by coordinates
+      description: |
+        Resolve geographic coordinates to all governing districts.
+
+        Returns council, county, congressional, and state legislative districts
+        with optional Merkle proofs for trustless verification.
+      operationId: lookupDistrict
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+          description: Latitude (WGS84)
+          example: 37.7749
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+          description: Longitude (WGS84)
+          example: -122.4194
+        - name: levels
+          in: query
+          required: false
+          schema:
+            type: string
+            default: all
+          description: Comma-separated district levels
+          example: council,county
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: ISO 8601 date for historical boundaries
+          example: "2024-11-05"
+        - name: include_geometry
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include full GeoJSON polygons
+        - name: include_proof
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Include Merkle proof
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json, geojson]
+            default: json
+          description: Response format
+      responses:
+        '200':
+          description: Successful district lookup
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: SHA-256 hash of response content
+            Cache-Control:
+              schema:
+                type: string
+              description: Cache control directives
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per hour
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Requests remaining
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Unix timestamp when rate limit resets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistrictLookupResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No districts found at coordinates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until rate limit reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /districts/batch:
+    post:
+      tags:
+        - Districts
+      summary: Batch district lookup
+      description: |
+        Lookup districts for multiple coordinates in a single request.
+
+        Maximum 1000 coordinates per request.
+      operationId: batchLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchLookupRequest'
+      responses:
+        '200':
+          description: Successful batch lookup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchLookupResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /districts/bbox:
+    get:
+      tags:
+        - Districts
+      summary: Bounding box query
+      description: Find all districts intersecting a bounding box
+      operationId: bboxQuery
+      parameters:
+        - name: min_lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Minimum latitude
+        - name: min_lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Minimum longitude
+        - name: max_lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Maximum latitude
+        - name: max_lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Maximum longitude
+        - name: levels
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated district levels
+        - name: include_geometry
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Districts within bounding box
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistrictListResponse'
+
+  /districts/radius:
+    get:
+      tags:
+        - Districts
+      summary: Radius query
+      description: Find all districts within radius of a point
+      operationId: radiusQuery
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Center latitude
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Center longitude
+        - name: radius_km
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            maximum: 100
+          description: Radius in kilometers
+        - name: levels
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated district levels
+      responses:
+        '200':
+          description: Districts within radius
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistrictListResponse'
+
+  /boundaries/download:
+    get:
+      tags:
+        - Boundaries
+      summary: Download boundary dataset
+      description: |
+        Download complete boundary datasets in multiple formats.
+
+        Supports GeoJSON, TopoJSON, Shapefile, KML, and CSV.
+      operationId: downloadBoundaries
+      parameters:
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [council, county, congressional, state_upper, state_lower]
+          description: District level
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+          description: Filter by state (2-letter code)
+          example: CA
+        - name: country
+          in: query
+          required: false
+          schema:
+            type: string
+            default: USA
+          description: Filter by country (ISO 3166-1 alpha-3)
+        - name: fips
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{7}$'
+          description: Filter by FIPS code
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [geojson, topojson, shapefile, kml, csv]
+            default: geojson
+          description: Output format
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Historical snapshot date
+        - name: compression
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gzip, zip, none]
+            default: gzip
+          description: Compression method
+      responses:
+        '200':
+          description: Boundary dataset file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename
+            ETag:
+              schema:
+                type: string
+              description: SHA-256 hash of file content
+            X-Shadow-Atlas-Version:
+              schema:
+                type: string
+              description: Snapshot version
+            X-Shadow-Atlas-CID:
+              schema:
+                type: string
+              description: IPFS CID
+            X-Shadow-Atlas-District-Count:
+              schema:
+                type: integer
+              description: Number of districts in file
+            X-Shadow-Atlas-Merkle-Root:
+              schema:
+                type: string
+              description: Merkle root hash
+          content:
+            application/geo+json:
+              schema:
+                type: object
+            application/json:
+              schema:
+                type: object
+            application/vnd.google-earth.kml+xml:
+              schema:
+                type: string
+            application/zip:
+              schema:
+                type: string
+                format: binary
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+
+  /portals/{fips}:
+    get:
+      tags:
+        - Portals
+      summary: Get portal metadata
+      description: Retrieve GIS data source metadata for a jurisdiction
+      operationId: getPortal
+      parameters:
+        - name: fips
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{7}$'
+          description: 7-digit Census PLACE FIPS code
+          example: "0667000"
+        - name: include_discovery
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include full discovery scan history
+      responses:
+        '200':
+          description: Portal metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalResponse'
+        '404':
+          description: FIPS code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /provenance/{district_id}:
+    get:
+      tags:
+        - Provenance
+      summary: Get provenance trail
+      description: Full audit trail for a district boundary
+      operationId: getProvenance
+      parameters:
+        - name: district_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique district identifier
+          example: 0667000-D5
+      responses:
+        '200':
+          description: Provenance trail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenanceResponse'
+
+  /snapshots:
+    get:
+      tags:
+        - Snapshots
+      summary: List snapshots
+      description: List available quarterly snapshots
+      operationId: listSnapshots
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of snapshots to return
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: List of snapshots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotListResponse'
+
+  /webhooks:
+    post:
+      tags:
+        - Webhooks
+      summary: Register webhook
+      description: Subscribe to real-time data update notifications
+      operationId: registerWebhook
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRegistration'
+      responses:
+        '201':
+          description: Webhook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '401':
+          description: API key required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify/proof:
+    post:
+      tags:
+        - Verification
+      summary: Verify Merkle proof
+      description: Verify a Merkle proof against a known root hash
+      operationId: verifyProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProofVerificationRequest'
+      responses:
+        '200':
+          description: Proof verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProofVerificationResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        Optional API key for higher rate limits.
+
+        Format: `Bearer <api_key>`
+
+  schemas:
+    DistrictLookupResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - coordinates
+            - timestamp
+            - districts
+            - snapshot
+          properties:
+            coordinates:
+              $ref: '#/components/schemas/Coordinates'
+            timestamp:
+              type: string
+              format: date-time
+            districts:
+              type: array
+              items:
+                $ref: '#/components/schemas/District'
+            merkle_proof:
+              $ref: '#/components/schemas/MerkleProof'
+            snapshot:
+              $ref: '#/components/schemas/SnapshotMetadata'
+        cache:
+          $ref: '#/components/schemas/CacheMetadata'
+        latency_ms:
+          type: number
+
+    District:
+      type: object
+      required:
+        - id
+        - name
+        - jurisdiction
+        - level
+        - district_type
+        - fips
+        - state
+        - country
+        - provenance
+      properties:
+        id:
+          type: string
+          example: 0667000-D5
+        name:
+          type: string
+          example: District 5
+        jurisdiction:
+          type: string
+          example: San Francisco
+        level:
+          type: string
+          enum: [council, county, congressional, state_upper, state_lower]
+        district_type:
+          type: string
+          example: supervisor_district
+        fips:
+          type: string
+          pattern: '^\d{7}$'
+          example: "0667000"
+        state:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: CA
+        country:
+          type: string
+          example: USA
+        representative:
+          $ref: '#/components/schemas/Representative'
+        geometry:
+          $ref: '#/components/schemas/GeoJSONGeometry'
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+        boundaries:
+          type: object
+          properties:
+            effectiveDate:
+              type: string
+              format: date
+            expirationDate:
+              type: string
+              format: date
+              nullable: true
+            redistrictingCycle:
+              type: string
+
+    Representative:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Dean Preston
+        party:
+          type: string
+          example: Democratic
+        office:
+          type: string
+          example: Board of Supervisors
+        contact:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            address:
+              type: string
+
+    GeoJSONGeometry:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum: [Polygon, MultiPolygon]
+        coordinates:
+          oneOf:
+            - type: array
+              items:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: number
+                  minItems: 2
+                  maxItems: 2
+            - type: array
+              items:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+                    minItems: 2
+                    maxItems: 2
+
+    Provenance:
+      type: object
+      required:
+        - source
+        - authority
+        - timestamp
+        - method
+        - responseHash
+      properties:
+        source:
+          type: string
+          format: uri
+          example: https://data.sfgov.org/api/geospatial/8nkz-x4ny
+        authority:
+          type: string
+          enum: [state-gis, federal, municipal, community]
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (milliseconds)
+        method:
+          type: string
+          example: ArcGIS REST API
+        responseHash:
+          type: string
+          pattern: '^sha256:[a-f0-9]{64}$'
+        effectiveDate:
+          type: string
+          format: date
+        license:
+          type: string
+          example: Public Domain
+
+    MerkleProof:
+      type: object
+      required:
+        - root
+        - leaf
+        - path
+        - depth
+        - index
+      properties:
+        root:
+          type: string
+          pattern: '^0x[a-f0-9]{64}$'
+        leaf:
+          type: string
+          pattern: '^0x[a-f0-9]{64}$'
+        path:
+          type: array
+          items:
+            type: object
+            required:
+              - position
+              - hash
+            properties:
+              position:
+                type: string
+                enum: [left, right]
+              hash:
+                type: string
+                pattern: '^0x[a-f0-9]{64}$'
+        depth:
+          type: integer
+          minimum: 0
+        index:
+          type: integer
+          minimum: 0
+
+    SnapshotMetadata:
+      type: object
+      required:
+        - cid
+        - version
+        - timestamp
+        - district_count
+      properties:
+        cid:
+          type: string
+          pattern: '^bafy[a-z0-9]{55,59}$'
+          example: bafybeibz7qxj2z4k5y3x6w8v9u0t1s2r3q4p5o6n7m8l9k0j1i2h3g4f5e6d7c8
+        version:
+          type: string
+          example: 2026-Q1
+        timestamp:
+          type: string
+          format: date-time
+        district_count:
+          type: integer
+          minimum: 0
+
+    Coordinates:
+      type: object
+      required:
+        - lat
+        - lon
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+
+    CacheMetadata:
+      type: object
+      properties:
+        hit:
+          type: boolean
+        age_seconds:
+          type: number
+        max_age_seconds:
+          type: number
+
+    BatchLookupRequest:
+      type: object
+      required:
+        - coordinates
+      properties:
+        coordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinates'
+          minItems: 1
+          maxItems: 1000
+        levels:
+          type: array
+          items:
+            type: string
+        date:
+          type: string
+          format: date
+        include_geometry:
+          type: boolean
+          default: false
+        include_proof:
+          type: boolean
+          default: false
+
+    BatchLookupResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - results
+            - snapshot
+          properties:
+            results:
+              type: array
+              items:
+                type: object
+                required:
+                  - coordinates
+                  - districts
+                properties:
+                  coordinates:
+                    $ref: '#/components/schemas/Coordinates'
+                  districts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/District'
+            snapshot:
+              $ref: '#/components/schemas/SnapshotMetadata'
+        latency_ms:
+          type: number
+
+    DistrictListResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - districts
+          properties:
+            districts:
+              type: array
+              items:
+                $ref: '#/components/schemas/District'
+            snapshot:
+              $ref: '#/components/schemas/SnapshotMetadata'
+
+    PortalResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - fips
+            - jurisdiction
+            - council_districts
+            - gis_portals
+          properties:
+            fips:
+              type: string
+              pattern: '^\d{7}$'
+            jurisdiction:
+              type: object
+              required:
+                - name
+                - state
+                - country
+              properties:
+                name:
+                  type: string
+                state:
+                  type: string
+                state_fips:
+                  type: string
+                country:
+                  type: string
+                population:
+                  type: integer
+                governance_type:
+                  type: string
+                  enum: [district-based, at-large, hybrid]
+            council_districts:
+              type: object
+              properties:
+                expected_count:
+                  type: integer
+                  nullable: true
+                actual_count:
+                  type: integer
+                district_type:
+                  type: string
+                last_redistricting:
+                  type: string
+                  format: date
+                next_redistricting:
+                  type: string
+                  format: date
+            gis_portals:
+              type: array
+              items:
+                type: object
+                required:
+                  - url
+                  - provider
+                  - authority
+                  - format
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                  provider:
+                    type: string
+                  authority:
+                    type: string
+                  format:
+                    type: string
+                  last_updated:
+                    type: string
+                    format: date-time
+                  feature_count:
+                    type: integer
+                  confidence:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+            provenance:
+              type: object
+              properties:
+                discovered_at:
+                  type: string
+                  format: date-time
+                last_verified:
+                  type: string
+                  format: date-time
+                validation_status:
+                  type: string
+                  enum: [verified, pending, quarantined]
+
+    ProvenanceResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - district_id
+            - current_version
+          properties:
+            district_id:
+              type: string
+            current_version:
+              type: object
+            history:
+              type: array
+              items:
+                type: object
+            legal_basis:
+              type: array
+              items:
+                type: object
+            changes:
+              type: array
+              items:
+                type: object
+
+    SnapshotListResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - snapshots
+          properties:
+            snapshots:
+              type: array
+              items:
+                type: object
+                required:
+                  - version
+                  - cid
+                  - merkle_root
+                  - timestamp
+                  - district_count
+                properties:
+                  version:
+                    type: string
+                  cid:
+                    type: string
+                  merkle_root:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  district_count:
+                    type: integer
+                  coverage:
+                    type: object
+                  ipfs_gateway:
+                    type: string
+                    format: uri
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                limit:
+                  type: integer
+                offset:
+                  type: integer
+                has_more:
+                  type: boolean
+
+    WebhookRegistration:
+      type: object
+      required:
+        - url
+        - events
+      properties:
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [snapshot.created, boundaries.updated, portal.discovered]
+        filters:
+          type: object
+          properties:
+            states:
+              type: array
+              items:
+                type: string
+            fips:
+              type: array
+              items:
+                type: string
+        secret:
+          type: string
+          description: Webhook signing secret
+
+    WebhookResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - webhook_id
+            - url
+            - events
+            - active
+            - created_at
+          properties:
+            webhook_id:
+              type: string
+            url:
+              type: string
+              format: uri
+            events:
+              type: array
+              items:
+                type: string
+            active:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+
+    ProofVerificationRequest:
+      type: object
+      required:
+        - leaf
+        - path
+        - root
+      properties:
+        leaf:
+          type: string
+          pattern: '^0x[a-f0-9]{64}$'
+        path:
+          type: array
+          items:
+            type: object
+            required:
+              - position
+              - hash
+            properties:
+              position:
+                type: string
+                enum: [left, right]
+              hash:
+                type: string
+                pattern: '^0x[a-f0-9]{64}$'
+        root:
+          type: string
+          pattern: '^0x[a-f0-9]{64}$'
+
+    ProofVerificationResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required:
+            - valid
+            - computed_root
+            - expected_root
+          properties:
+            valid:
+              type: boolean
+            computed_root:
+              type: string
+            expected_root:
+              type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - error
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - timestamp
+          properties:
+            code:
+              type: string
+              enum:
+                - INVALID_COORDINATES
+                - INVALID_PARAMETERS
+                - INVALID_DATE
+                - DISTRICT_NOT_FOUND
+                - PORTAL_NOT_FOUND
+                - SNAPSHOT_NOT_FOUND
+                - RATE_LIMIT_EXCEEDED
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+            message:
+              type: string
+            details:
+              type: object
+            timestamp:
+              type: string
+              format: date-time
+            request_id:
+              type: string
+            documentation_url:
+              type: string
+              format: uri

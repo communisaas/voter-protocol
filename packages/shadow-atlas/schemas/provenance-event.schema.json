@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://voter-protocol.org/schemas/provenance-event.v1.json",
+  "title": "Shadow Atlas Provenance Event",
+  "description": "Immutable audit log for portal lifecycle events",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "timestamp",
+    "actor",
+    "entityType",
+    "entityId"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique event identifier (UUID v4)"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "discovered",
+        "validated",
+        "quarantined",
+        "remediated",
+        "superseded",
+        "deprecated",
+        "reactivated",
+        "metadata-updated",
+        "verification-failed"
+      ],
+      "description": "Lifecycle event classification"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 event timestamp (UTC)"
+    },
+    "actor": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "automated-discovery",
+            "tessellation-validator",
+            "containment-validator",
+            "human-operator",
+            "remediation-script",
+            "community-submission"
+          ],
+          "description": "Actor classification for attribution"
+        },
+        "id": {
+          "type": "string",
+          "description": "Script name, username, or agent ID"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Semantic version of script/tool (e.g., v1.2.3)"
+        }
+      }
+    },
+    "entityType": {
+      "type": "string",
+      "enum": ["portal", "city", "state", "global"],
+      "description": "Scope of affected entity"
+    },
+    "entityId": {
+      "type": "string",
+      "description": "FIPS code for portal/city, state code, or 'global'"
+    },
+    "previousState": {
+      "type": "object",
+      "description": "State before this event (for rollback capability)",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["active", "quarantined", "review-needed", "deprecated", "superseded"]
+        },
+        "featureCount": {
+          "type": "integer"
+        },
+        "confidence": {
+          "type": "integer"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "newState": {
+      "type": "object",
+      "description": "State after this event",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["active", "quarantined", "review-needed", "deprecated", "superseded"]
+        },
+        "featureCount": {
+          "type": "integer"
+        },
+        "confidence": {
+          "type": "integer"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Human-readable event justification"
+    },
+    "validationResults": {
+      "type": "object",
+      "description": "Detailed validation metrics (for validation events)",
+      "properties": {
+        "tessellationScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Exclusivity + containment score (0-1)"
+        },
+        "exclusivityFailures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "districtA": {"type": "string"},
+              "districtB": {"type": "string"},
+              "overlapArea": {"type": "number"},
+              "overlapPercent": {"type": "number"}
+            }
+          }
+        },
+        "containmentFailures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "district": {"type": "string"},
+              "cityBoundary": {"type": "string"},
+              "containmentPercent": {"type": "number"},
+              "centroidDistance": {"type": "number"}
+            }
+          }
+        },
+        "geometryErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "district": {"type": "string"},
+              "errorType": {"type": "string"},
+              "message": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "remediationDetails": {
+      "type": "object",
+      "description": "Remediation-specific metadata",
+      "properties": {
+        "wave": {
+          "type": "string",
+          "pattern": "^Wave [A-Z]$",
+          "description": "Remediation batch identifier (e.g., 'Wave L')"
+        },
+        "strategy": {
+          "type": "string",
+          "enum": [
+            "wrong-service-correction",
+            "manual-portal-search",
+            "community-contribution",
+            "data-quality-fix",
+            "quarantine"
+          ],
+          "description": "Remediation approach classification"
+        },
+        "manualSteps": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Human intervention steps (if any)"
+        }
+      }
+    },
+    "references": {
+      "type": "object",
+      "description": "External references and documentation",
+      "properties": {
+        "commitHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "Git commit that triggered this event"
+        },
+        "issueUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "GitHub issue or discussion link"
+        },
+        "documentationUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Link to remediation docs or analysis"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
