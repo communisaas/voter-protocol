@@ -78,7 +78,6 @@ import type {
 } from './types.js';
 import type { ShadowAtlasConfig } from './config.js';
 import { getIPFSCredentials } from './config.js';
-import type { StateExtractionResult } from '../providers/state-batch-extractor.js';
 import type {
   BoundaryLayers,
   MerkleBoundaryInput,
@@ -87,7 +86,11 @@ import type {
   ProvenanceSource,
 } from './multi-layer-builder.js';
 import { MultiLayerMerkleTreeBuilder } from './multi-layer-builder.js';
-import { StateBatchExtractor } from '../providers/state-batch-extractor.js';
+import {
+  StateBatchExtractor,
+  type LayerExtractionResult,
+  type StateExtractionResult,
+} from '../providers/state-batch-extractor.js';
 // NOTE: state-batch-to-merkle.ts is DEPRECATED - uses SHA256 (NOT ZK-compatible)
 // The deprecated functions (integrateMultipleStates, incrementalUpdate) are no longer imported
 // Use buildAtlas() with MultiLayerMerkleTreeBuilder instead (uses Poseidon2, ZK-compatible)
@@ -97,6 +100,7 @@ import { UKBoundaryProvider } from '../providers/international/uk-provider.js';
 import { CanadaBoundaryProvider } from '../providers/international/canada-provider.js';
 import { AustraliaBoundaryProvider } from '../providers/international/australia-provider.js';
 import { NewZealandBoundaryProvider } from '../providers/international/nz-provider.js';
+import { LegalDescriptionProvider } from '../providers/legal-description-provider.js';
 import { SqlitePersistenceAdapter } from '../persistence/sqlite-adapter.js';
 import { MetricsStore, StructuredLogger, createMetricsStore, createLogger } from '../observability/metrics.js';
 import { ProvenanceWriter } from '../provenance/provenance-writer.js';
@@ -134,6 +138,7 @@ export class ShadowAtlasService {
   private readonly canadaProvider: CanadaBoundaryProvider;
   private readonly australiaProvider: AustraliaBoundaryProvider;
   private readonly nzProvider: NewZealandBoundaryProvider;
+  private readonly legalDescriptionProvider: LegalDescriptionProvider;
 
   // Persistence layer (SQLite when enabled, in-memory fallback for tests)
   private readonly persistenceAdapter: SqlitePersistenceAdapter | null;
@@ -192,6 +197,11 @@ export class ShadowAtlasService {
     this.nzProvider = new NewZealandBoundaryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
+    });
+
+    // Initialize Legal Description provider
+    this.legalDescriptionProvider = new LegalDescriptionProvider({
+      // Uses default directory internally unless configured otherwise
     });
 
     // Initialize SQLite persistence when enabled
@@ -683,7 +693,32 @@ export class ShadowAtlasService {
       try {
         this.log.info('Starting extraction', { state });
         const result = await this.extractor.extractState(state);
-        results.push(result);
+        let finalResult: StateExtractionResult = result;
+
+        // MERGE: Legal Description Boundaries (Golden Vectors)
+        try {
+          const legalDescLayers = await this.extractLegalDescriptions(state);
+          if (legalDescLayers.length > 0) {
+            const extraTotal = legalDescLayers.reduce((sum: number, l: LayerExtractionResult) => sum + l.featureCount, 0);
+            const extraSuccess = legalDescLayers.filter((l: LayerExtractionResult) => l.success).length;
+            const extraFailed = legalDescLayers.filter((l: LayerExtractionResult) => !l.success).length;
+
+            finalResult = {
+              ...result,
+              layers: [...result.layers, ...legalDescLayers],
+              summary: {
+                ...result.summary,
+                totalBoundaries: result.summary.totalBoundaries + extraTotal,
+                layersSucceeded: result.summary.layersSucceeded + extraSuccess,
+                layersFailed: result.summary.layersFailed + extraFailed,
+              }
+            };
+          }
+        } catch (ldError) {
+          this.log.warn('Failed to extract legal descriptions', { state, error: ldError });
+        }
+
+        results.push(finalResult);
 
         // Record metrics for each layer
         const durationMs = Date.now() - startTime;
@@ -692,10 +727,11 @@ export class ShadowAtlasService {
             state,
             layer.layerType,
             layer.success,
-            durationMs,
+            durationMs, // Approximate per layer
             layer.featureCount
           );
         }
+
 
         this.log.info('Extraction complete', {
           state,
@@ -2534,19 +2570,19 @@ export class ShadowAtlasService {
           totalBoundaries,
           countryRoots: countryRoots
             ? Object.fromEntries(
-                Array.from(countryRoots.entries()).map(([code, root]) => [
-                  code,
-                  `0x${root.toString(16)}`,
-                ])
-              )
+              Array.from(countryRoots.entries()).map(([code, root]) => [
+                code,
+                `0x${root.toString(16)}`,
+              ])
+            )
             : {},
           continentalRoots: continentalRoots
             ? Object.fromEntries(
-                Array.from(continentalRoots.entries()).map(([continent, root]) => [
-                  continent,
-                  `0x${root.toString(16)}`,
-                ])
-              )
+              Array.from(continentalRoots.entries()).map(([continent, root]) => [
+                continent,
+                `0x${root.toString(16)}`,
+              ])
+            )
             : {},
           metadata: {
             generatedAt: new Date().toISOString(),
@@ -3365,6 +3401,78 @@ export class ShadowAtlasService {
       return pkg.version ?? 'unknown';
     } catch {
       return 'unknown';
+    }
+  }
+  /**
+   * Extract legal descriptions for a specific state (Golden Vector reconstruction)
+   */
+  private async extractLegalDescriptions(state: string): Promise<LayerExtractionResult[]> {
+    try {
+      // 1. Download (List files)
+      // Level 'ward' maps to AdministrativeLevel (defined in discovery.ts)
+      const rawFiles = await this.legalDescriptionProvider.download({
+        level: 'ward',
+        region: state
+      });
+
+      if (rawFiles.length === 0) {
+        return [];
+      }
+
+      // 2. Transform (Reconstruct)
+      const boundaries = await this.legalDescriptionProvider.transform(rawFiles);
+
+      if (boundaries.length === 0) {
+        return [];
+      }
+
+      // 3. Wrap in LayerExtractionResult
+      // We map these to 'council_district' layer type (now included in LegislativeLayerType)
+      return [{
+        state,
+        layerType: 'council_district',
+        success: true,
+        featureCount: boundaries.length,
+        expectedCount: boundaries.length,
+        boundaries: boundaries.map(b => {
+          // Type guard: NormalizedBoundary.geometry is Geometry (includes Polygon | MultiPolygon)
+          // Reconstruction only produces Polygon | MultiPolygon, never Point/LineString
+          const geometry = b.geometry as import('geojson').Polygon | import('geojson').MultiPolygon;
+          const vintage = new Date().getFullYear();
+          const retrievedAt = new Date().toISOString();
+
+          return {
+            id: b.id,
+            name: b.name,
+            layerType: 'council_district' as const,
+            geometry,
+            state,
+            portalName: 'LegalDescriptionRegistry',
+            endpoint: 'local-file',
+            authority: 'municipal-agency' as const,
+            vintage,
+            retrievedAt,
+            properties: b.properties,
+            source: {
+              state,
+              portalName: 'LegalDescriptionRegistry',
+              endpoint: 'local-file',
+              authority: 'municipal-agency' as const,
+              vintage,
+              retrievedAt
+            }
+          };
+        }),
+        metadata: {
+          endpoint: 'local-file',
+          extractedAt: new Date().toISOString(),
+          durationMs: 0
+        }
+      }];
+
+    } catch (error) {
+      this.log.error('Legal description extraction failed', { state, error });
+      return [];
     }
   }
 }
