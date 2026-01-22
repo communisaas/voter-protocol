@@ -8,7 +8,7 @@
  * Run: npx tsx scripts/validate-boundary-downloads.ts
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 
 interface ValidationResult {
   cityFips: string;

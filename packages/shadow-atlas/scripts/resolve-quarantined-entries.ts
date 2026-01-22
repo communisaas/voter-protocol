@@ -18,9 +18,9 @@
  * - Tessellation proof passes
  */
 
-import { QUARANTINED_PORTALS, type QuarantinedPortal } from '../src/core/registry/quarantined-portals.js';
+import { QUARANTINED_PORTALS, type QuarantinedPortal } from '../src/core/registry/quarantined-portals.generated.js';
 import { EXPECTED_DISTRICT_COUNTS } from '../src/core/registry/district-count-registry.js';
-import { AT_LARGE_CITIES } from '../src/core/registry/at-large-cities.js';
+import { AT_LARGE_CITIES } from '../src/core/registry/at-large-cities.generated.js';
 
 interface ResolutionCategory {
   name: string;

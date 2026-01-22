@@ -8,9 +8,9 @@
  * - Tracks skip reasons separately from failures
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
-import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.js';
-import { isAtLargeCity } from '../src/core/registry/at-large-cities.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
+import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.generated.js';
+import { isAtLargeCity } from '../src/core/registry/registry-utils.js';
 import { TessellationProofValidator, type TessellationProof } from '../src/validators/council/tessellation-proof.js';
 import { MunicipalBoundaryResolver } from '../src/validators/council/municipal-boundary.js';
 import { EXPECTED_DISTRICT_COUNTS } from '../src/core/registry/district-count-registry.js';

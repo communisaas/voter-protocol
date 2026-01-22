@@ -8,7 +8,23 @@
  * Run: npx tsx scripts/validate-registry-coverage.ts
  */
 
-import { KNOWN_PORTALS, getRegistryStats } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
+import { isStale } from '../src/core/registry/registry-utils.js';
+
+/**
+ * Compute registry statistics from KNOWN_PORTALS
+ */
+function getRegistryStats(): { total: number; fresh: number; stale: number; avgConfidence: number } {
+  const portals = Object.values(KNOWN_PORTALS);
+  const staleCount = portals.filter(isStale).length;
+  const avgConfidence = portals.reduce((sum, p) => sum + p.confidence, 0) / portals.length;
+  return {
+    total: portals.length,
+    fresh: portals.length - staleCount,
+    stale: staleCount,
+    avgConfidence,
+  };
+}
 
 // Top 50 cities with FIPS codes
 const TOP_50_FIPS: Record<string, { rank: number; name: string; state: string }> = {

@@ -11,7 +11,7 @@
  * to detect wrong data types (PRECINCT, TRACT, BLOCK, etc.)
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 
 // ==============================================================================
 // Configuration

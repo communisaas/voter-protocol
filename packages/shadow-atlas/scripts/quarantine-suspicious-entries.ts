@@ -15,7 +15,7 @@
  * - Does NOT modify known-portals.ts (that's a separate step after review)
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

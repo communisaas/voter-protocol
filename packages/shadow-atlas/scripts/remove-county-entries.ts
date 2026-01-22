@@ -6,7 +6,7 @@
  * Safer approach than regex replacement.
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

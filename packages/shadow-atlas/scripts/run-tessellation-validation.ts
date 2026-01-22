@@ -21,8 +21,8 @@
  */
 
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
-import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
+import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.generated.js';
 import { TessellationProofValidator, type TessellationProof } from '../src/validators/council/tessellation-proof.js';
 import { MunicipalBoundaryResolver, type MunicipalBoundary } from '../src/validators/council/municipal-boundary.js';
 import { EXPECTED_DISTRICT_COUNTS, type DistrictCountRecord } from '../src/core/registry/district-count-registry.js';

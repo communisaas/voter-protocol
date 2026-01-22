@@ -36,7 +36,7 @@ import {
   type IngestionValidationResult,
   type BatchValidationSummary,
 } from '../src/validators/council/index.js';
-import { KNOWN_PORTALS } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
 
 // FIPS corrections for county → city mapping (must match ingestion-validator.ts)
 const FIPS_CORRECTIONS: Record<string, string> = {
@@ -335,7 +335,7 @@ function generateEntriesFile(entries: ValidatedEntry[]): string {
     ' * USAGE: Review and merge into known-portals.ts',
     ' */',
     '',
-    "import type { KnownPortal } from '../../core/registry/known-portals.js';",
+    "import type { KnownPortal } from '../../core/registry/known-portals.generated.js';",
     '',
     'export const VALIDATED_ENTRIES: Record<string, KnownPortal> = {',
   ];

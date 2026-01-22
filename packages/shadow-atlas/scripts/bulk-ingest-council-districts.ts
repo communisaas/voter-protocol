@@ -164,12 +164,9 @@ async function main(): Promise<void> {
   const dataPath = join(process.cwd(), 'src/agents/data/council-district-candidates.json');
   const data: CandidatesData = JSON.parse(readFileSync(dataPath, 'utf-8'));
 
-  // Load existing registry FIPS to skip
-  const registryPath = join(process.cwd(), 'src/core/registry/known-portals.ts');
-  const registryContent = readFileSync(registryPath, 'utf-8');
-  const existingFips = new Set(
-    [...registryContent.matchAll(/'(\d{5,10})':\s*\{/g)].map((m) => m[1])
-  );
+  // Load existing registry FIPS to skip (from generated file)
+  const { KNOWN_PORTALS } = await import('../src/core/registry/known-portals.generated.js');
+  const existingFips = new Set(Object.keys(KNOWN_PORTALS));
 
   console.log('═══════════════════════════════════════════════════════════════════');
   console.log('           BULK COUNCIL DISTRICT INGESTION');

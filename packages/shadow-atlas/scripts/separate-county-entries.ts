@@ -11,7 +11,7 @@
  * USAGE: npx tsx scripts/separate-county-entries.ts [--dry-run]
  */
 
-import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -88,7 +88,7 @@ async function main() {
  * VALIDATION: County tessellation (different from city tessellation)
  */
 
-import type { KnownPortal } from './known-portals.js';
+import type { KnownPortal } from './known-portals.generated.js';
 
 export const COUNTY_PORTALS: Record<string, KnownPortal> = {
 ${countyEntries.map(([fips, portal]) => {

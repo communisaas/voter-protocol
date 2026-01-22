@@ -1,5 +1,5 @@
 #!/usr/bin/env npx tsx
-import { KNOWN_PORTALS } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
 
 const portals = Object.values(KNOWN_PORTALS);
 const cities = portals.filter(p => /^\d{7}$/.test(p.cityFips));

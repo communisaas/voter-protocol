@@ -4,7 +4,7 @@
  * Identifies data quality issues in the registry
  */
 
-import { KNOWN_PORTALS } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
 
 const suspiciousPatterns = [
   { pattern: /pavement/i, label: 'pavement' },

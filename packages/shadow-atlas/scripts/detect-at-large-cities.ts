@@ -13,8 +13,8 @@
  * If confirmed at-large, entry moves from quarantine → at-large-cities.ts
  */
 
-import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.js';
-import { AT_LARGE_CITIES } from '../src/core/registry/at-large-cities.js';
+import { QUARANTINED_PORTALS } from '../src/core/registry/quarantined-portals.generated.js';
+import { AT_LARGE_CITIES } from '../src/core/registry/at-large-cities.generated.js';
 
 // Cities with "single-feature" pattern need at-large research
 const SINGLE_FEATURE_ENTRIES = Object.values(QUARANTINED_PORTALS)

@@ -22,7 +22,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as turf from '@turf/turf';
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import { KNOWN_PORTALS } from '../src/core/registry/known-portals.js';
+import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
 
 // =============================================================================
 // Types
