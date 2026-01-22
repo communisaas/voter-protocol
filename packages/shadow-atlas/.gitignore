@@ -55,3 +55,10 @@ analysis-output/
 :memory:/
 .temp-*
 *-debug.json
+
+# Temporary discovery outputs (root level only)
+/*.ndjson
+/DOWNLOAD-URLS.txt
+
+# Registry backups (source NDJSON is committed)
+data/registries/*.backup

@@ -48,7 +48,12 @@
         "report:comprehensive": "tsx src/scripts/comprehensive-report.ts",
         "report:comprehensive:full": "tsx src/scripts/comprehensive-report.ts --full",
         "report:comprehensive:json": "tsx src/scripts/comprehensive-report.ts --json",
-        "analyze:overlap-magnitude": "tsx scripts/overlap-magnitude-analysis.ts"
+        "analyze:overlap-magnitude": "tsx scripts/overlap-magnitude-analysis.ts",
+        "registry:extract": "tsx scripts/extract-registries-to-ndjson.ts",
+        "registry:generate": "tsx scripts/generate-registries-from-ndjson.ts",
+        "registry:roundtrip": "npm run registry:extract && npm run registry:generate",
+        "registry:verify": "tsx scripts/verify-registry-roundtrip.ts",
+        "registry:ci-check": "tsx scripts/ci-check-generated-files.ts"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",
@@ -61,6 +66,7 @@
         "jszip": "^3.10.1",
         "multiformats": "^13.4.2",
         "pako": "^2.1.0",
+        "pdf-parse": "^1.1.4",
         "shapefile": "^0.6.6",
         "zod": "^3.24.1"
     },
@@ -73,6 +79,7 @@
         "@types/better-sqlite3": "^7.6.11",
         "@types/node": "^24.3.2",
         "@types/pako": "^2.0.4",
+        "@types/pdf-parse": "^1.1.5",
         "tsx": "^4.7.0",
         "typescript": "^5.7.2",
         "vitest": "^2.1.8"
