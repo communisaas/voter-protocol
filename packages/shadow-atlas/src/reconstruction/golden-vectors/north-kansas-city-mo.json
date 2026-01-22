@@ -1,0 +1,215 @@
+{
+  "cityFips": "2951932",
+  "cityName": "North Kansas City",
+  "state": "MO",
+  "expectedWardCount": 4,
+  "metadata": {
+    "precisionLevel": "approximate",
+    "dataSource": "municipal_records",
+    "redistrictingDate": "2021-11-16",
+    "population": 4500,
+    "idealDistrictPopulation": 1117,
+    "notes": "Boundaries reconstructed from publicly available information. North Kansas City adopted new ward boundaries on November 16, 2021 based on 2020 Census data. The city is almost completely surrounded by Kansas City, MO, with a compact geographic footprint of approximately 1.9 square miles.",
+    "verificationStatus": "pending_human_verification",
+    "dataQualityWarning": "These are approximate boundaries based on the city's geographic center and typical ward configurations. Actual boundaries require official city maps or GIS data from North Kansas City City Hall."
+  },
+  "legalDescriptions": [
+    {
+      "cityFips": "2951932",
+      "cityName": "North Kansas City",
+      "state": "MO",
+      "wardId": "1",
+      "wardName": "Ward 1",
+      "segments": [
+        {
+          "index": 0,
+          "referenceType": "street_centerline",
+          "featureName": "To be determined from official city records",
+          "rawText": "Legal description pending - requires official city ordinance or redistricting plan",
+          "parseConfidence": "low"
+        }
+      ],
+      "source": {
+        "type": "web_page",
+        "source": "https://www.nkc.org/government/elected-officials/2021-redistricting",
+        "title": "North Kansas City 2021 Redistricting",
+        "effectiveDate": "2021-11-16",
+        "retrievedAt": "2026-01-19",
+        "notes": "Official redistricting page confirms 4 wards adopted November 16, 2021. Detailed boundary descriptions require direct access to city records."
+      },
+      "population": 1125,
+      "notes": "Ward boundaries require official city documentation"
+    },
+    {
+      "cityFips": "2951932",
+      "cityName": "North Kansas City",
+      "state": "MO",
+      "wardId": "2",
+      "wardName": "Ward 2",
+      "segments": [
+        {
+          "index": 0,
+          "referenceType": "street_centerline",
+          "featureName": "To be determined from official city records",
+          "rawText": "Legal description pending - requires official city ordinance or redistricting plan",
+          "parseConfidence": "low"
+        }
+      ],
+      "source": {
+        "type": "web_page",
+        "source": "https://www.nkc.org/government/elected-officials/2021-redistricting",
+        "title": "North Kansas City 2021 Redistricting",
+        "effectiveDate": "2021-11-16",
+        "retrievedAt": "2026-01-19",
+        "notes": "Official redistricting page confirms 4 wards adopted November 16, 2021. Detailed boundary descriptions require direct access to city records."
+      },
+      "population": 1125,
+      "notes": "Ward boundaries require official city documentation"
+    },
+    {
+      "cityFips": "2951932",
+      "cityName": "North Kansas City",
+      "state": "MO",
+      "wardId": "3",
+      "wardName": "Ward 3",
+      "segments": [
+        {
+          "index": 0,
+          "referenceType": "street_centerline",
+          "featureName": "To be determined from official city records",
+          "rawText": "Legal description pending - requires official city ordinance or redistricting plan",
+          "parseConfidence": "low"
+        }
+      ],
+      "source": {
+        "type": "web_page",
+        "source": "https://www.nkc.org/government/elected-officials/2021-redistricting",
+        "title": "North Kansas City 2021 Redistricting",
+        "effectiveDate": "2021-11-16",
+        "retrievedAt": "2026-01-19",
+        "notes": "Official redistricting page confirms 4 wards adopted November 16, 2021. Detailed boundary descriptions require direct access to city records."
+      },
+      "population": 1125,
+      "notes": "Ward boundaries require official city documentation"
+    },
+    {
+      "cityFips": "2951932",
+      "cityName": "North Kansas City",
+      "state": "MO",
+      "wardId": "4",
+      "wardName": "Ward 4",
+      "segments": [
+        {
+          "index": 0,
+          "referenceType": "street_centerline",
+          "featureName": "To be determined from official city records",
+          "rawText": "Legal description pending - requires official city ordinance or redistricting plan",
+          "parseConfidence": "low"
+        }
+      ],
+      "source": {
+        "type": "web_page",
+        "source": "https://www.nkc.org/government/elected-officials/2021-redistricting",
+        "title": "North Kansas City 2021 Redistricting",
+        "effectiveDate": "2021-11-16",
+        "retrievedAt": "2026-01-19",
+        "notes": "Official redistricting page confirms 4 wards adopted November 16, 2021. Detailed boundary descriptions require direct access to city records."
+      },
+      "population": 1125,
+      "notes": "Ward boundaries require official city documentation"
+    }
+  ],
+  "expectedPolygons": [
+    {
+      "type": "Feature",
+      "properties": {
+        "wardId": "1",
+        "wardName": "Ward 1",
+        "cityFips": "2951932",
+        "approximateData": true,
+        "notes": "Approximate boundary - northwest quadrant of city based on typical grid pattern"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-94.5750, 39.1450],
+            [-94.5690, 39.1450],
+            [-94.5690, 39.1367],
+            [-94.5750, 39.1367],
+            [-94.5750, 39.1450]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "wardId": "2",
+        "wardName": "Ward 2",
+        "cityFips": "2951932",
+        "approximateData": true,
+        "notes": "Approximate boundary - northeast quadrant of city based on typical grid pattern"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-94.5690, 39.1450],
+            [-94.5630, 39.1450],
+            [-94.5630, 39.1367],
+            [-94.5690, 39.1367],
+            [-94.5690, 39.1450]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "wardId": "3",
+        "wardName": "Ward 3",
+        "cityFips": "2951932",
+        "approximateData": true,
+        "notes": "Approximate boundary - southwest quadrant of city based on typical grid pattern"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-94.5750, 39.1367],
+            [-94.5690, 39.1367],
+            [-94.5690, 39.1284],
+            [-94.5750, 39.1284],
+            [-94.5750, 39.1367]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "wardId": "4",
+        "wardName": "Ward 4",
+        "cityFips": "2951932",
+        "approximateData": true,
+        "notes": "Approximate boundary - southeast quadrant of city based on typical grid pattern"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-94.5690, 39.1367],
+            [-94.5630, 39.1367],
+            [-94.5630, 39.1284],
+            [-94.5690, 39.1284],
+            [-94.5690, 39.1367]
+          ]
+        ]
+      }
+    }
+  ],
+  "verifiedAt": "2026-01-19T00:00:00.000Z",
+  "verificationSource": "Research from publicly available sources",
+  "notes": "IMPORTANT: This golden vector contains APPROXIMATE boundaries based on North Kansas City's geographic center (39.1367°N, 94.5690°W) and assumed quadrant division. These boundaries are placeholders and should NOT be used for production validation until verified against official city records. \n\nTo obtain accurate boundaries:\n1. Contact North Kansas City City Hall at 2010 Howell St, North Kansas City, MO 64116 (816-274-6000)\n2. Request the official 2021 Ward Map PDF and/or GIS shapefiles\n3. Request the ordinance or resolution text containing legal descriptions\n4. Visit https://www.nkc.org/government/government-resources/wards-and-zoning-maps\n\nKnown Information:\n- 4 wards adopted November 16, 2021\n- Based on 2020 Census data\n- Total population: ~4,500\n- Ideal district population: 1,117\n- City area: ~1.9 square miles\n- Nearly surrounded by Kansas City, MO\n- Ward boundaries required to meet 10% population deviation threshold per U.S. Constitution\n\nThis file serves as a template and documentation of the verification gap."
+}
