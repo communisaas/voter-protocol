@@ -12,7 +12,7 @@ import {
   isAtLargeCity,
   getAtLargeCityInfo,
   type AtLargeCity,
-} from '../src/core/registry/at-large-cities.js';
+} from '../src/core/registry/at-large-cities.generated.js';
 
 /**
  * EXAMPLE 1: Tessellation Validator Integration
@@ -335,7 +335,7 @@ function analyzeContainmentFailure(
  *
  * Generate reports on at-large cities for transparency
  */
-import { getAtLargeCityStats } from '../src/core/registry/at-large-cities.js';
+import { getAtLargeCityStats } from '../src/core/registry/at-large-cities.generated.js';
 
 function generateAtLargeReport(): string {
   const stats = getAtLargeCityStats();
