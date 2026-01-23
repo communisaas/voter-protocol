@@ -48,7 +48,8 @@ export type PortalType =
   | 'ordnance-survey'  // UK Ordnance Survey
   | 'eurogeographics'  // European data aggregator
   | 'municipal-gis'    // Direct municipal GIS server
-  | 'state-gis';       // State-level GIS clearinghouse (e.g., Hawaii Statewide GIS)
+  | 'state-gis'        // State-level GIS clearinghouse (e.g., Hawaii Statewide GIS)
+  | 'golden-vector';   // Reconstructed from legal descriptions/golden vector file
 
 /**
  * Authority level of data source

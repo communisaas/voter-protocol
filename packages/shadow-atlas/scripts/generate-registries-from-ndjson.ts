@@ -118,7 +118,8 @@ export type PortalType =
   | 'webmap-embedded'  // Extracted from ArcGIS webmap
   | 'curated-data'     // Manually digitized/curated
   | 'shapefile'        // Shapefile download
-  | 'kml';             // KML/KMZ file
+  | 'kml'              // KML/KMZ file
+  | 'golden-vector';   // Reconstructed from legal descriptions
 
 /**
  * Discovery source for portal entries.
@@ -140,6 +141,11 @@ export interface KnownPortal {
   readonly notes?: string;
   readonly webmapLayerName?: string;
   readonly authoritativeSource?: string;
+  // Golden vector specific fields
+  readonly sourceType?: 'golden-vector';
+  readonly goldenVectorPath?: string;
+  readonly expectedDistrictCount?: number;
+  readonly precisionLevel?: 'approximate' | 'precise';
 }
 
 export const KNOWN_PORTALS: Record<string, KnownPortal> = {\n`;
