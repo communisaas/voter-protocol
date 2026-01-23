@@ -4,11 +4,11 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-23T07:12:36.431Z
+ * !! Generated: 2026-01-23T07:35:36.797Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- * City entries: 510
+ * City entries: 519
  * Description: Verified municipal council district GIS sources with download URLs
  */
 
@@ -341,6 +341,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 70,
       "discoveredBy": "manual",
       "notes": "Phoenix City Council Districts - 8 districts, City open data portal"
+  },
+  '0470320': {
+      "cityFips": "0470320",
+      "cityName": "Surprise",
+      "state": "AZ",
+      "portalType": "county-gis",
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'Surprise'&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 80,
+      "discoveredBy": "wave-m-nv-az-specialist",
+      "notes": "Surprise AZ - 6 council districts. Maricopa County layer filtered. Same source as Buckeye AZ entry. 2023 redistricting completed."
   },
   '0477000': {
       "cityFips": "0477000",
@@ -2326,6 +2338,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "manual",
       "notes": "Atlanta City Council Districts - 12 districts, Official City Council District Boundaries (authoritative source). FIXED 2026-01-15."
   },
+  '1304204': {
+      "cityFips": "1304204",
+      "cityName": "Augusta",
+      "state": "GA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gismap.augustaga.gov/arcgis/rest/services/EnterpriseApps/Pictometry/MapServer/8/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-m-southeast-specialist",
+      "notes": "Augusta GA - 8 commission districts (plus 2 super districts). Augusta-Richmond County GIS MapServer. Fields: DISTRICTID, NAME, REPNAME, PARTY, SUPERDIST."
+  },
   '1310076': {
       "cityFips": "1310076",
       "cityName": "Braselton",
@@ -2541,6 +2565,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 63,
       "discoveredBy": "automated",
       "notes": "Sandy Springs GA - 6 districts, bulk ingested from \"Council District\""
+  },
+  '1369000': {
+      "cityFips": "1369000",
+      "cityName": "Savannah",
+      "state": "GA",
+      "portalType": "regional-gis",
+      "downloadUrl": "https://pub.sagis.org/arcgis/rest/services/OpenData/Boundaries/MapServer/7/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-m-southeast-specialist",
+      "notes": "Savannah GA - 6 aldermanic districts. SAGIS OpenData Boundaries MapServer. Fields: UNIT, ALDERMAN, FIPSSTCO. Updated 2023 with 2020 Census boundaries."
   },
   '1372122': {
       "cityFips": "1372122",
@@ -3818,6 +3854,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "wave-g-extraction",
       "notes": "Fernley NV - 5 city council wards. Municipal GIS hub. REMEDIATED: Was quarantined."
   },
+  '3231900': {
+      "cityFips": "3231900",
+      "cityName": "Henderson",
+      "state": "NV",
+      "portalType": "socrata",
+      "downloadUrl": "https://opendata.cityofhenderson.com/api/geospatial/ymwd-8i9n?method=export&format=GeoJSON",
+      "featureCount": 4,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-m-nv-az-specialist",
+      "notes": "Henderson NV - 4 city council wards. Socrata open data portal (dataset ID: ymwd-8i9n). Mayor at-large, 4 ward-based council members."
+  },
   '3240000': {
       "cityFips": "3240000",
       "cityName": "Las Vegas",
@@ -3974,6 +4022,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Gallup NM - 4 districts, bulk ingested from \"COG_COUNCIL_DISTRICTS\""
   },
+  '3539380': {
+      "cityFips": "3539380",
+      "cityName": "Las Cruces",
+      "state": "NM",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.donaanacounty.org/server/rest/services/CityCouncil/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-m-mountain-west-specialist",
+      "notes": "Las Cruces NM - 6 city council districts. Dona Ana County GIS server. State's second-largest city."
+  },
   '3563460': {
       "cityFips": "3563460",
       "cityName": "Rio Rancho",
@@ -4118,6 +4178,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Rome NY - 7 districts, bulk ingested from \"Rome_council_district_boundaries_2015\""
   },
+  '3673000': {
+      "cityFips": "3673000",
+      "cityName": "Syracuse",
+      "state": "NY",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services6.arcgis.com/bdPqSfflsdgFRVVM/arcgis/rest/services/Final_Proposed_Plan_Syracuse_District_Boundaries/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-m-northeast-specialist",
+      "notes": "Syracuse NY - 6 Common Council districts (2023 redistricting). FeatureServer hosted by City of Syracuse."
+  },
   '3676540': {
       "cityFips": "3676540",
       "cityName": "Utica",
@@ -4141,6 +4213,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 88,
       "discoveredBy": "automated",
       "notes": "Yonkers NY - 6 districts, bulk ingested from \"Yonkers_City_Council_Districts\""
+  },
+  '3710740': {
+      "cityFips": "3710740",
+      "cityName": "Cary",
+      "state": "NC",
+      "portalType": "arcgis",
+      "downloadUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 13,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-m-southeast-specialist",
+      "notes": "Cary NC - Town Council Districts. 13 features may include special districts. Fields: LABEL, District, CouncilRepFirst, CouncilRepLast, Rep_Type."
   },
   '3712000': {
       "cityFips": "3712000",
@@ -4202,6 +4286,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Goldsboro NC - 6 council districts (DISTRICTID=0 is Mayor at-large, excluded). Mayor+5 district seats."
   },
+  '3728000': {
+      "cityFips": "3728000",
+      "cityName": "Greensboro",
+      "state": "NC",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.greensboro-nc.gov/arcgis/rest/services/GreensboroExplorer/CouncilDistrictAssets/MapServer/13/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-m-southeast-specialist",
+      "notes": "Greensboro NC - 5 council districts. City GIS CouncilDistrict layer (ID:13). Fields: DISTRICT, MEMBER, ACRES."
+  },
   '3746060': {
       "cityFips": "3746060",
       "cityName": "Morrisville",
@@ -4249,6 +4345,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 88,
       "discoveredBy": "automated",
       "notes": "Shelby NC - 6 districts, bulk ingested from \"City Council Districts\""
+  },
+  '3775000': {
+      "cityFips": "3775000",
+      "cityName": "Winston-Salem",
+      "state": "NC",
+      "portalType": "county-gis",
+      "downloadUrl": "https://maps.co.forsyth.nc.us/arcgis/rest/services/Elections/VotingDistricts_and_Precincts_with_RegisteredVoters_Data/FeatureServer/9/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-m-southeast-specialist",
+      "notes": "Winston-Salem NC - 8 council wards. Forsyth County Elections service (layer 9). Fields: District Name, City Council Member, Party, Mayor."
   },
   '3903828': {
       "cityFips": "3903828",
@@ -6184,4 +6292,4 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
   },
 };
 
-export const PORTAL_COUNT = 510;
+export const PORTAL_COUNT = 519;
