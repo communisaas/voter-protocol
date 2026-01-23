@@ -4,11 +4,11 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-20T02:49:18.230Z
+ * !! Generated: 2026-01-23T02:29:04.036Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- * City entries: 493
+ * City entries: 495
  * Description: Verified municipal council district GIS sources with download URLs
  */
 
@@ -23,7 +23,8 @@ export type PortalType =
   | 'webmap-embedded'  // Extracted from ArcGIS webmap
   | 'curated-data'     // Manually digitized/curated
   | 'shapefile'        // Shapefile download
-  | 'kml';             // KML/KMZ file
+  | 'kml'              // KML/KMZ file
+  | 'golden-vector';   // Reconstructed from legal descriptions
 
 /**
  * Discovery source for portal entries.
@@ -45,6 +46,11 @@ export interface KnownPortal {
   readonly notes?: string;
   readonly webmapLayerName?: string;
   readonly authoritativeSource?: string;
+  // Golden vector specific fields
+  readonly sourceType?: 'golden-vector';
+  readonly goldenVectorPath?: string;
+  readonly expectedDistrictCount?: number;
+  readonly precisionLevel?: 'approximate' | 'precise';
 }
 
 export const KNOWN_PORTALS: Record<string, KnownPortal> = {
@@ -1119,6 +1125,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 63,
       "discoveredBy": "automated",
       "notes": "Orange CA - 6 districts, bulk ingested from \"OrangeCouncilDistricts\""
+  },
+  '0656700': {
+      "cityFips": "0656700",
+      "cityName": "Perris",
+      "state": "CA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services7.arcgis.com/LNp9QekVQ7pNnS4Q/arcgis/rest/services/Council_Districts_Perris/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 92,
+      "discoveredBy": "manual",
+      "notes": "Perris CA - 4 council districts + Mayor at-large (established 2022). City of Perris ArcGIS Hub. REMEDIATED: Was quarantined (old URL was Menifee/Riverside County org RjTKod25O4b8SbZx). Correct org: LNp9QekVQ7pNnS4Q."
   },
   '0657526': {
       "cityFips": "0657526",
@@ -3543,6 +3561,22 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Liberty MO - 4 districts, bulk ingested from \"CityWards\""
+  },
+  '2953102': {
+      "cityFips": "2953102",
+      "cityName": "North Kansas City",
+      "state": "MO",
+      "portalType": "golden-vector",
+      "downloadUrl": "file://src/reconstruction/golden-vectors/north-kansas-city-mo.json",
+      "featureCount": 4,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 75,
+      "discoveredBy": "golden-vector-resolution",
+      "notes": "North Kansas City MO - 4 wards (adopted Nov 16, 2021). GOLDEN VECTOR SOURCE: Approximate boundaries from reconstruction module. Official source: https://www.nkc.org/government/elected-officials/2021-redistricting. Contact City Hall (816-274-6000) for precise GIS data. RESOLVED from quarantine: Original discovery contained KC metro data.",
+      "sourceType": "golden-vector",
+      "goldenVectorPath": "src/reconstruction/golden-vectors/north-kansas-city-mo.json",
+      "expectedDistrictCount": 4,
+      "precisionLevel": "approximate"
   },
   '2965000': {
       "cityFips": "2965000",
@@ -5970,4 +6004,4 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
   },
 };
 
-export const PORTAL_COUNT = 493;
+export const PORTAL_COUNT = 495;

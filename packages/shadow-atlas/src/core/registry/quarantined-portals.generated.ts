@@ -4,12 +4,12 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/quarantined-portals.ndjson
- * !! Generated: 2026-01-20T02:49:18.242Z
+ * !! Generated: 2026-01-23T02:29:04.049Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * PURPOSE: Entries removed from known-portals due to data quality issues
- * Quarantined entries: 11
+ * Quarantined entries: 9
  * Description: Entries removed due to data quality issues, pending review
  */
 
@@ -61,21 +61,6 @@ export const QUARANTINED_PORTALS: Record<string, QuarantinedPortal> = {
       "quarantineReason": "CVRA TRANSITION: City has 5 districts (Map 502, March 2025) but no public ArcGIS REST endpoint found. Current URL is Fresno County City_Council_Districts service with 42 features covering multiple cities. Contact city planning for Map 502 GIS data.",
       "matchedPattern": "cvra_gis_unavailable",
       "quarantinedAt": "2026-01-16T23:30:00.000Z"
-  },
-  '0656700': {
-      "cityFips": "0656700",
-      "cityName": "Perris",
-      "state": "CA",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services.arcgis.com/RjTKod25O4b8SbZx/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
-      "featureCount": 4,
-      "lastVerified": "2026-01-15T00:00:00.000Z",
-      "confidence": 0,
-      "discoveredBy": "automated",
-      "notes": "Perris CA - 4 council districts (established 2022). Quarantined: 100% containment failure despite correct feature count.",
-      "quarantineReason": "CA/TX TRIAGE: Feature count correct (4) but geometry 100% outside city boundary. Possible outdated pre-2022 districts or wrong data source. Check cityofperris.org for current boundaries.",
-      "matchedPattern": "containment_failure_wrong_geometry",
-      "quarantinedAt": "2026-01-19T00:00:00.000Z"
   },
   '1861092': {
       "cityFips": "1861092",
@@ -129,12 +114,12 @@ export const QUARANTINED_PORTALS: Record<string, QuarantinedPortal> = {
       "portalType": "arcgis",
       "downloadUrl": "https://quarantined.invalid/county-data",
       "featureCount": 7,
-      "lastVerified": "2026-01-16T00:00:00.000Z",
+      "lastVerified": "2026-01-22T00:00:00.000Z",
       "confidence": 0,
       "discoveredBy": "automated",
-      "notes": "WS-3 remediation: Jefferson County MO districts (7 features), not city council.",
-      "quarantineReason": "CONTAINMENT FAILURE: URL contains Jefferson County district data instead of Byrnes Mill city council districts. 100% overflow - districts completely outside city boundary.",
-      "matchedPattern": "containment_failure",
+      "notes": "Byrnes Mill MO - WARD-BASED: 2 wards (Mayor + 4 aldermen, 2 per ward). Population ~2,900. Fourth-class city in Jefferson County. No public GIS endpoint - rural community without dedicated GIS infrastructure.",
+      "quarantineReason": "WARD GIS UNAVAILABLE: City has 2 wards but no public ArcGIS REST endpoint. Small fourth-class city without dedicated GIS. Original URL was Jefferson County district data (7 features). Ward boundaries defined in city ordinances but not digitized.",
+      "matchedPattern": "ward_gis_unavailable",
       "quarantinedAt": "2026-01-19T00:00:00.000Z"
   },
   '2916228': {
@@ -144,12 +129,12 @@ export const QUARANTINED_PORTALS: Record<string, QuarantinedPortal> = {
       "portalType": "arcgis",
       "downloadUrl": "https://quarantined.invalid/county-data",
       "featureCount": 7,
-      "lastVerified": "2026-01-16T00:00:00.000Z",
+      "lastVerified": "2026-01-22T00:00:00.000Z",
       "confidence": 0,
       "discoveredBy": "automated",
-      "notes": "WS-3 remediation: St. Louis County districts (7 features), separate city from county.",
-      "quarantineReason": "CONTAINMENT FAILURE: URL contains St. Louis County district data instead of Cool Valley city council districts. 100% overflow - districts completely outside city boundary.",
-      "matchedPattern": "containment_failure",
+      "notes": "Cool Valley MO - WARD-BASED: 4 wards (elections every 2 years, staggered terms). Population ~1,100. Fourth-class city under Revised Statutes of Missouri. No public GIS endpoint - small city operates via paper records and county GIS.",
+      "quarantineReason": "WARD GIS UNAVAILABLE: City has 4 wards but no public ArcGIS REST endpoint. Small fourth-class city without dedicated GIS infrastructure. Original URL was St. Louis County district data (7 features). Ward boundaries defined in city charter but not digitized.",
+      "matchedPattern": "ward_gis_unavailable",
       "quarantinedAt": "2026-01-19T00:00:00.000Z"
   },
   '2917218': {
@@ -159,27 +144,12 @@ export const QUARANTINED_PORTALS: Record<string, QuarantinedPortal> = {
       "portalType": "arcgis",
       "downloadUrl": "https://quarantined.invalid/county-data",
       "featureCount": 4,
-      "lastVerified": "2026-01-16T00:00:00.000Z",
+      "lastVerified": "2026-01-22T00:00:00.000Z",
       "confidence": 0,
       "discoveredBy": "automated",
-      "notes": "WS-3 remediation: St. Louis County districts via Sunset Hills (4 features), separate city.",
-      "quarantineReason": "CONTAINMENT FAILURE: URL contains St. Louis County district data instead of Crestwood city council districts. 100% overflow - districts completely outside city boundary.",
-      "matchedPattern": "containment_failure",
-      "quarantinedAt": "2026-01-19T00:00:00.000Z"
-  },
-  '2953102': {
-      "cityFips": "2953102",
-      "cityName": "North Kansas City",
-      "state": "MO",
-      "portalType": "arcgis",
-      "downloadUrl": "https://quarantined.invalid/metro-data",
-      "featureCount": 4,
-      "lastVerified": "2026-01-16T00:00:00.000Z",
-      "confidence": 0,
-      "discoveredBy": "automated",
-      "notes": "WS-3 remediation: Kansas City metro districts (4 features), separate city.",
-      "quarantineReason": "CONTAINMENT FAILURE: URL contains Kansas City metro district data instead of North Kansas City council districts. 100% overflow - districts completely outside city boundary.",
-      "matchedPattern": "containment_failure",
+      "notes": "Crestwood MO - WARD-BASED: 4 wards (2-year staggered terms). Population ~11,800. Fourth-class city. No public GIS endpoint - city uses St. Louis County GIS infrastructure but doesn't publish ward boundaries separately.",
+      "quarantineReason": "WARD GIS UNAVAILABLE: City has 4 wards but no public ArcGIS REST endpoint. Uses St. Louis County GIS infrastructure without dedicated ward layer. Original URL was county district data (4 features). Ward boundaries exist in municipal code but not published as GIS service.",
+      "matchedPattern": "ward_gis_unavailable",
       "quarantinedAt": "2026-01-19T00:00:00.000Z"
   },
   '3904878': {
@@ -199,4 +169,4 @@ export const QUARANTINED_PORTALS: Record<string, QuarantinedPortal> = {
   },
 };
 
-export const QUARANTINE_COUNT = 11;
+export const QUARANTINE_COUNT = 9;
