@@ -4,11 +4,11 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-23T03:17:22.027Z
+ * !! Generated: 2026-01-23T07:12:36.431Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- * City entries: 506
+ * City entries: 510
  * Description: Verified municipal council district GIS sources with download URLs
  */
 
@@ -2062,6 +2062,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Greenacres FL - 6 districts, bulk ingested from \"Council_Districts_22\""
   },
+  '1232000': {
+      "cityFips": "1232000",
+      "cityName": "Hollywood",
+      "state": "FL",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services1.arcgis.com/lfAczuQbfdRGdFQE/ArcGIS/rest/services/Commission_Districts/FeatureServer/17/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-l-fl-specialist",
+      "notes": "Hollywood FL - 6 commission districts. City Portal (services1.arcgis.com). Redistricted 12/7/2021 after 2020 census. Contains DISTRICT, Commissioner, Website, EMAIL fields."
+  },
   '1232275': {
       "cityFips": "1232275",
       "cityName": "Homestead",
@@ -2205,6 +2217,30 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 63,
       "discoveredBy": "automated",
       "notes": "Palm Springs FL - 4 districts, bulk ingested from \"Council District\""
+  },
+  '1255775': {
+      "cityFips": "1255775",
+      "cityName": "Pembroke Pines",
+      "state": "FL",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services6.arcgis.com/OlJkQnf39yF1a7pM/arcgis/rest/services/CC_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 92,
+      "discoveredBy": "wave-l-fl-specialist",
+      "notes": "Pembroke Pines FL - 4 commission districts. City GIS Portal (services6.arcgis.com). Contains DISTRICT, COMMISSION (commissioner name), POPULATION fields."
+  },
+  '1258050': {
+      "cityFips": "1258050",
+      "cityName": "Pompano Beach",
+      "state": "FL",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services.arcgis.com/HnPbdNoPBNAJ6Oel/arcgis/rest/services/CommissionDistrictsWNames/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-l-fl-specialist",
+      "notes": "Pompano Beach FL - 5 commission districts. Pompano Beach ArcGIS Portal. Contains NAME, REPNAME, DISTRICTID, DISTRICTURL, FY2022_Spending_By_District fields."
   },
   '1258575': {
       "cityFips": "1258575",
@@ -3805,6 +3841,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Reno NV - 5 districts, bulk ingested from \"Reno Wards\""
+  },
+  '3268400': {
+      "cityFips": "3268400",
+      "cityName": "Sparks",
+      "state": "NV",
+      "portalType": "county-gis",
+      "downloadUrl": "https://gis.washoecounty.us/arcgis/rest/services/Accela/AccelaWashoe/MapServer/104/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-22T00:00:00.000Z",
+      "confidence": 88,
+      "discoveredBy": "wave-l-sunbelt-specialist",
+      "notes": "Sparks NV - 5 city council wards. Washoe County MapServer layer 104. Contains SWARD, COUNCIL_MEMBER fields."
   },
   '3350260': {
       "cityFips": "3350260",
@@ -6136,4 +6184,4 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
   },
 };
 
-export const PORTAL_COUNT = 506;
+export const PORTAL_COUNT = 510;

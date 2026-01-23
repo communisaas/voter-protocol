@@ -4,12 +4,12 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/at-large-cities.ndjson
- * !! Generated: 2026-01-23T03:17:22.047Z
+ * !! Generated: 2026-01-23T07:12:36.462Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * PURPOSE: Cities with at-large voting (no geographic districts)
- * At-large cities: 63
+ * At-large cities: 70
  * Description: Cities with at-large voting (no geographic districts)
  */
 
@@ -118,6 +118,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Walnut official website; Ballotpedia; WS-F investigation 2026-01-18",
       "notes": "At-large council elections. Registry mistakenly contained West Covina city council district data (5 districts)."
+  },
+  '0807850': {
+      "cityName": "Boulder",
+      "state": "CO",
+      "councilSize": 9,
+      "electionMethod": "at-large",
+      "source": "City of Boulder; Wave-L Mountain West specialist",
+      "notes": "Council-Manager form. 9 council members elected at-large. University of Colorado flagship. No ward system."
   },
   '1212875': {
       "cityName": "Clearwater",
@@ -399,6 +407,22 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "WS-3 containment analysis (pending charter verification)",
       "notes": "Containment failure showed Tulsa County precincts (13 features). Small city likely at-large. Needs charter verification."
   },
+  '4105350': {
+      "cityName": "Beaverton",
+      "state": "OR",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Beaverton; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 4 council members elected at-large. Washington County suburb of Portland."
+  },
+  '4105800': {
+      "cityName": "Bend",
+      "state": "OR",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Bend; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Deschutes County, Central Oregon."
+  },
   '4131250': {
       "cityName": "Gresham",
       "state": "OR",
@@ -527,6 +551,38 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://www.roanokeva.gov/989/City-Council; Wave E mid-atlantic-specialist 2026-01-19",
       "notes": "At-large council system with 6 councilmembers + mayor. Largest city in Virginia without ward system. Roanoke County (separate jurisdiction) has 5 magisterial districts."
   },
+  '5305210': {
+      "cityName": "Bellevue",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Bellevue; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Tech hub in King County. One of wealthiest US cities."
+  },
+  '5323515': {
+      "cityName": "Federal Way",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Federal Way; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. King County city between Seattle and Tacoma."
+  },
+  '5335415': {
+      "cityName": "Kirkland",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Kirkland; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. King County lakeside city."
+  },
+  '5374060': {
+      "cityName": "Vancouver",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Vancouver; Wave-L Pacific NW specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members all elected at-large. Fourth largest city in Washington."
+  },
 };
 
-export const AT_LARGE_COUNT = 63;
+export const AT_LARGE_COUNT = 70;
