@@ -4,11 +4,11 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-23T07:35:36.797Z
+ * !! Generated: 2026-01-23T08:25:30.322Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- * City entries: 519
+ * City entries: 575
  * Description: Verified municipal council district GIS sources with download URLs
  */
 
@@ -2715,12 +2715,12 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "cityName": "Chicago",
       "state": "IL",
       "portalType": "socrata",
-      "downloadUrl": "https://data.cityofchicago.org/resource/p293-wvbd.geojson?$limit=100",
+      "downloadUrl": "https://data.cityofchicago.org/api/geospatial/p293-wvbd?method=export&format=GeoJSON",
       "featureCount": 50,
-      "lastVerified": "2026-01-17T21:51:15.986Z",
-      "confidence": 80,
-      "discoveredBy": "manual",
-      "notes": "Chicago City Council Wards - 50 wards (2023-), Socrata Resource API with $limit parameter"
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-cook",
+      "notes": "Chicago IL - 50 wards. Official Chicago Data Portal (Boundaries - Wards 2023-)."
   },
   '1728326': {
       "cityFips": "1728326",
@@ -2889,6 +2889,42 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 63,
       "discoveredBy": "automated",
       "notes": "Brownsburg IN - 5 districts, bulk ingested from \"Town_Council_Districts\""
+  },
+  '1810342': {
+      "cityFips": "1810342",
+      "cityName": "Carmel",
+      "state": "IN",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-carmel.opendata.arcgis.com/datasets/Carmel::city-council-districts/about",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Carmel IN - 5 districts. City Open Data Hub."
+  },
+  '1822000': {
+      "cityFips": "1822000",
+      "cityName": "Evansville",
+      "state": "IN",
+      "portalType": "county-gis",
+      "downloadUrl": "https://data-vce.opendata.arcgis.com/datasets/VCE::city-council-wards/about",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Evansville IN - 6 council wards. Vanderburgh County GIS."
+  },
+  '1823278': {
+      "cityFips": "1823278",
+      "cityName": "Fishers",
+      "state": "IN",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-fishers.opendata.arcgis.com/datasets/Fishers::city-council-districts/about",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Fishers IN - 6 council districts. City Open Data Hub."
   },
   '1827000': {
       "cityFips": "1827000",
@@ -3490,6 +3526,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Boston City Council Districts - 9 districts (4 at-large councilors elected separately). Official 2023-2032 boundaries passed by City Council May 24, 2023. Has councilmember metadata (Councilor field)."
   },
+  '2509000': {
+      "cityFips": "2509000",
+      "cityName": "Brockton",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27BROCKTON%27&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Brockton MA - 7 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
   '2513205': {
       "cityFips": "2513205",
       "cityName": "Chelsea",
@@ -3502,6 +3550,90 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Chelsea MA - 8 districts, bulk ingested from \"City_Council_Districts\""
   },
+  '2513660': {
+      "cityFips": "2513660",
+      "cityName": "Chicopee",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27CHICOPEE%27&outFields=*&f=geojson",
+      "featureCount": 9,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Chicopee MA - 9 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2523000': {
+      "cityFips": "2523000",
+      "cityName": "Fall River",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27FALL+RIVER%27&outFields=*&f=geojson",
+      "featureCount": 9,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Fall River MA - 9 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2529405': {
+      "cityFips": "2529405",
+      "cityName": "Haverhill",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27HAVERHILL%27&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Haverhill MA - 7 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2534550': {
+      "cityFips": "2534550",
+      "cityName": "Lawrence",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27LAWRENCE%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Lawrence MA - 6 wards (A-F) from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2537000': {
+      "cityFips": "2537000",
+      "cityName": "Lowell",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27LOWELL%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Lowell MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2537490': {
+      "cityFips": "2537490",
+      "cityName": "Lynn",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27LYNN%27&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Lynn MA - 7 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2537875': {
+      "cityFips": "2537875",
+      "cityName": "Malden",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27MALDEN%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Malden MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
   '2538715': {
       "cityFips": "2538715",
       "cityName": "Marlborough",
@@ -3513,6 +3645,126 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Marlborough MA - 7 districts, bulk ingested from \"City Wards\""
+  },
+  '2539835': {
+      "cityFips": "2539835",
+      "cityName": "Medford",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27MEDFORD%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Medford MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2545000': {
+      "cityFips": "2545000",
+      "cityName": "New Bedford",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27NEW+BEDFORD%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "New Bedford MA - 6 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2545560': {
+      "cityFips": "2545560",
+      "cityName": "Newton",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27NEWTON%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Newton MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2552490': {
+      "cityFips": "2552490",
+      "cityName": "Peabody",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27PEABODY%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Peabody MA - 6 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2555745': {
+      "cityFips": "2555745",
+      "cityName": "Quincy",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27QUINCY%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Quincy MA - 6 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2556585': {
+      "cityFips": "2556585",
+      "cityName": "Revere",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27REVERE%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Revere MA - 6 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2562535': {
+      "cityFips": "2562535",
+      "cityName": "Somerville",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27SOMERVILLE%27&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Somerville MA - 7 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2567000': {
+      "cityFips": "2567000",
+      "cityName": "Springfield",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27SPRINGFIELD%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Springfield MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer. Filter by TOWN field."
+  },
+  '2569170': {
+      "cityFips": "2569170",
+      "cityName": "Taunton",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27TAUNTON%27&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Taunton MA - 8 wards from MassGIS 2022 Wards/Precincts statewide layer."
+  },
+  '2572600': {
+      "cityFips": "2572600",
+      "cityName": "Waltham",
+      "state": "MA",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D%27WALTHAM%27&outFields=*&f=geojson",
+      "featureCount": 9,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-massgis",
+      "notes": "Waltham MA - 9 wards from MassGIS 2022 Wards/Precincts statewide layer."
   },
   '2582000': {
       "cityFips": "2582000",
@@ -3574,6 +3826,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "nemw-extraction",
       "notes": "Lansing MI - 4 wards. Updated boundaries from January 2023. REMEDIATED: Was quarantined with misaligned ward data."
   },
+  '2648000': {
+      "cityFips": "2648000",
+      "cityName": "Warren",
+      "state": "MI",
+      "portalType": "county-gis",
+      "downloadUrl": "https://data-maps.macombgov.org/arcgis/rest/services/Voting/CouncilDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Warren MI - 7 council districts. Macomb County GIS. 3rd largest city in MI."
+  },
   '2665440': {
       "cityFips": "2665440",
       "cityName": "Pontiac",
@@ -3598,6 +3862,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Bloomington MN - 4 districts, bulk ingested from \"Council Districts\""
   },
+  '2707966': {
+      "cityFips": "2707966",
+      "cityName": "Brooklyn Park",
+      "state": "MN",
+      "portalType": "county-gis",
+      "downloadUrl": "https://gis-hennepin.opendata.arcgis.com/datasets/HennepinGIS::city-council-wards/about",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Brooklyn Park MN - 5 wards. Hennepin County GIS."
+  },
   '2717000': {
       "cityFips": "2717000",
       "cityName": "Duluth",
@@ -3621,6 +3897,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 50,
       "discoveredBy": "automated",
       "notes": "Minneapolis MN City Council Districts"
+  },
+  '2754880': {
+      "cityFips": "2754880",
+      "cityName": "Rochester",
+      "state": "MN",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-rochmn.opendata.arcgis.com/datasets/RochMN::city-council-wards/about",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Rochester MN - 6 wards. City Open Data Hub."
   },
   '2758000': {
       "cityFips": "2758000",
@@ -3770,6 +4058,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "St. Louis MO - 14 districts, bulk ingested from \"wards_2020_CityofSTL\""
   },
+  '2971348': {
+      "cityFips": "2971348",
+      "cityName": "Springfield",
+      "state": "MO",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.springfieldmo.gov/arcgis/rest/services/Public/PoliticalBoundaries/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Springfield MO - 4 zones. City GIS MapServer."
+  },
   '3035600': {
       "cityFips": "3035600",
       "cityName": "Helena",
@@ -3914,53 +4214,221 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Nashua NH - 9 districts, bulk ingested from \"WARDS\""
   },
+  '3403580': {
+      "cityFips": "3403580",
+      "cityName": "Bayonne",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Bayonne+City%27&outFields=*&f=geojson",
+      "featureCount": 3,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Bayonne NJ - 3 wards from NJGIN statewide ward layer."
+  },
   '3410000': {
       "cityFips": "3410000",
       "cityName": "Camden",
       "state": "NJ",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services3.arcgis.com/JGF6qCAQFbROcocK/arcgis/rest/services/Wards_Camden_City/FeatureServer/19/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Camden+City%27&outFields=*&f=geojson",
       "featureCount": 4,
-      "lastVerified": "2026-01-15T00:00:00.000Z",
-      "confidence": 55,
-      "discoveredBy": "automated",
-      "notes": "Camden NJ - 4 districts, bulk ingested from \"Wards_CamdenCi_ExportFeature\""
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Camden NJ - 4 wards from NJGIN statewide ward layer."
+  },
+  '3413690': {
+      "cityFips": "3413690",
+      "cityName": "Clifton",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Clifton+City%27&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Clifton NJ - 5 wards from NJGIN statewide ward layer."
+  },
+  '3421480': {
+      "cityFips": "3421480",
+      "cityName": "East Orange",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27East+Orange+City%27&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "East Orange NJ - 5 wards from NJGIN statewide ward layer."
+  },
+  '3424780': {
+      "cityFips": "3424780",
+      "cityName": "Elizabeth",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Elizabeth+City%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Elizabeth NJ - 6 wards from NJGIN statewide ward layer."
   },
   '3436000': {
       "cityFips": "3436000",
       "cityName": "Jersey City",
       "state": "NJ",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services3.arcgis.com/IJBMHyTtKSFU51Oc/arcgis/rest/services/Jersey_City_Wards/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Jersey+City%27&outFields=*&f=geojson",
       "featureCount": 6,
-      "lastVerified": "2026-01-15T00:00:00.000Z",
-      "confidence": 55,
-      "discoveredBy": "automated",
-      "notes": "Jersey City NJ - 6 districts, bulk ingested from \"Jersey_City_Wards\""
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Jersey City NJ - 6 wards (A-F) from NJGIN statewide ward layer."
+  },
+  '3437680': {
+      "cityFips": "3437680",
+      "cityName": "Irvington",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Irvington+Township%27&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Irvington NJ - 4 wards (East, North, South, West) from NJGIN statewide ward layer."
   },
   '3451000': {
       "cityFips": "3451000",
       "cityName": "Newark",
       "state": "NJ",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/NJ_Newark_Wards_and_Demographics/FeatureServer/62/query?where=1%3D1&outFields=*&f=geojson",
-      "featureCount": 8,
-      "lastVerified": "2026-01-19T00:00:00.000Z",
-      "confidence": 88,
-      "discoveredBy": "nemw-extraction",
-      "notes": "Newark NJ - 5 wards with demographics. 8 features may include extra boundaries. REMEDIATED: Was quarantined with precinct data."
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Newark+City%27&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Newark NJ - 5 wards (Central, East, North, South, West) from NJGIN statewide ward layer."
+  },
+  '3453280': {
+      "cityFips": "3453280",
+      "cityName": "North Bergen",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27North+Bergen+Township%27&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "North Bergen NJ - 7 wards from NJGIN statewide ward layer."
+  },
+  '3454450': {
+      "cityFips": "3454450",
+      "cityName": "Old Bridge",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Old+Bridge+Township%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Old Bridge NJ - 6 wards from NJGIN statewide ward layer."
+  },
+  '3456550': {
+      "cityFips": "3456550",
+      "cityName": "Passaic",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Passaic+City%27&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Passaic NJ - 4 wards from NJGIN statewide ward layer."
   },
   '3457000': {
       "cityFips": "3457000",
       "cityName": "Paterson",
       "state": "NJ",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services3.arcgis.com/DvTqoyLKkslnGFR5/arcgis/rest/services/Paterson_Wards/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Paterson+City%27&outFields=*&f=geojson",
       "featureCount": 6,
-      "lastVerified": "2026-01-19T00:00:00.000Z",
-      "confidence": 92,
-      "discoveredBy": "nemw-extraction",
-      "notes": "Paterson NJ - 6 wards. Northeast/Midwest expansion."
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Paterson NJ - 6 wards from NJGIN statewide ward layer."
+  },
+  '3458200': {
+      "cityFips": "3458200",
+      "cityName": "Piscataway",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Piscataway+Township%27&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Piscataway NJ - 4 wards from NJGIN statewide ward layer."
+  },
+  '3473800': {
+      "cityFips": "3473800",
+      "cityName": "Toms River",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Toms+River+Township%27&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Toms River NJ - 4 wards from NJGIN statewide ward layer."
+  },
+  '3474000': {
+      "cityFips": "3474000",
+      "cityName": "Trenton",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Trenton+City%27&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Trenton NJ - 4 wards (East, North, South, West) from NJGIN statewide ward layer."
+  },
+  '3474630': {
+      "cityFips": "3474630",
+      "cityName": "Union City",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Union+City%27&outFields=*&f=geojson",
+      "featureCount": 10,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Union City NJ - 10 wards from NJGIN statewide ward layer."
+  },
+  '3476070': {
+      "cityFips": "3476070",
+      "cityName": "Vineland",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Vineland+City%27&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Vineland NJ - 6 wards from NJGIN statewide ward layer."
+  },
+  '3483020': {
+      "cityFips": "3483020",
+      "cityName": "Woodbridge",
+      "state": "NJ",
+      "portalType": "state-gis",
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D%27Woodbridge+Township%27&outFields=*&f=geojson",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-njgin",
+      "notes": "Woodbridge NJ - 5 wards from NJGIN statewide ward layer."
   },
   '3502000': {
       "cityFips": "3502000",
@@ -4358,6 +4826,42 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "wave-m-southeast-specialist",
       "notes": "Winston-Salem NC - 8 council wards. Forsyth County Elections service (layer 9). Fields: District Name, City Council Member, Party, Mayor."
   },
+  '3844856': {
+      "cityFips": "3844856",
+      "cityName": "Lorain",
+      "state": "OH",
+      "portalType": "county-gis",
+      "downloadUrl": "https://data-loraingis.opendata.arcgis.com/",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 75,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Lorain OH - 8 wards. Lorain County Open Data."
+  },
+  '3850584': {
+      "cityFips": "3850584",
+      "cityName": "Mentor",
+      "state": "OH",
+      "portalType": "county-gis",
+      "downloadUrl": "https://gis-lakeohgis.opendata.arcgis.com/",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 80,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Mentor OH - 4 wards. Lake County GIS Hub. Ward map adopted June 2024."
+  },
+  '3901000': {
+      "cityFips": "3901000",
+      "cityName": "Akron",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://agis.akronohio.gov/server/rest/services/Political/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Akron OH - 8 wards. City GIS MapServer."
+  },
   '3903828': {
       "cityFips": "3903828",
       "cityName": "Barberton",
@@ -4370,29 +4874,41 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "authoritative",
       "notes": "Barberton OH - 6 city wards (Ward 1-6). Found via Summit County GIS consolidated services. REMEDIATED: Was quarantined with Summit_County_Council_Districts (county data, 11 features). City has dedicated Political_Wards service."
   },
+  '3912000': {
+      "cityFips": "3912000",
+      "cityName": "Canton",
+      "state": "OH",
+      "portalType": "county-gis",
+      "downloadUrl": "https://arc-garc.opendata.arcgis.com/datasets/cantonga::city-of-canton-council-wards/about",
+      "featureCount": 9,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 80,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Canton OH - 9 wards. Stark County GARC Open Data."
+  },
   '3916000': {
       "cityFips": "3916000",
       "cityName": "Cleveland",
       "state": "OH",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services2.arcgis.com/wcHGmlrMexLSG26z/arcgis/rest/services/City Wards - 2021 (CPC)/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.cleveland-oh.gov/arcgis/rest/services/PublicWorks/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
       "featureCount": 17,
-      "lastVerified": "2026-01-15T00:00:00.000Z",
-      "confidence": 55,
-      "discoveredBy": "automated",
-      "notes": "Cleveland OH - 17 districts, bulk ingested from \"cle_wards_17\""
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Cleveland OH - 17 wards. City GIS with 2026 redistricting boundaries."
   },
   '3918000': {
       "cityFips": "3918000",
       "cityName": "Columbus",
       "state": "OH",
-      "portalType": "arcgis",
-      "downloadUrl": "https://hub.arcgis.com/api/download/v1/items/0eb8d9d2e3a447829cebae7c0719eb71/geojson?redirect=true&layers=3",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.columbus.gov/arcgis/rest/services/Applications/CSIR_Public/MapServer/37/query?where=1%3D1&outFields=*&f=geojson",
       "featureCount": 9,
-      "lastVerified": "2026-01-17T21:51:15.986Z",
-      "confidence": 80,
-      "discoveredBy": "manual",
-      "notes": "Columbus City Council Districts - 9 districts, ArcGIS Hub download API"
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Columbus OH - 9 council districts. City GIS MapServer layer 37."
   },
   '3921434': {
       "cityFips": "3921434",
@@ -4405,6 +4921,30 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Delaware OH - 4 districts, bulk ingested from \"City Wards\""
+  },
+  '3922694': {
+      "cityFips": "3922694",
+      "cityName": "Dublin",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-dublinohio.opendata.arcgis.com/datasets/ff0af920c18e4aa78459137b6efcd3d3_15",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Dublin OH - 4 council wards. City Open Data and OGRIP."
+  },
+  '3925914': {
+      "cityFips": "3925914",
+      "cityName": "Elyria",
+      "state": "OH",
+      "portalType": "county-gis",
+      "downloadUrl": "https://data-loraingis.opendata.arcgis.com/",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 75,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Elyria OH - 7 wards. Lorain County Open Data."
   },
   '3929428': {
       "cityFips": "3929428",
@@ -4430,6 +4970,42 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Lancaster OH - 6 districts, bulk ingested from \"Council Wards\""
   },
+  '3942000': {
+      "cityFips": "3942000",
+      "cityName": "Lakewood",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services.arcgis.com/city-of-lakewood/arcgis/rest/services/Wards/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Lakewood OH - 4 wards. City GIS Hub."
+  },
+  '3943554': {
+      "cityFips": "3943554",
+      "cityName": "Kettering",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://portal.ketteringoh.org/arcgis/rest/services/PoliticalBoundaries/CouncilDistricts/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Kettering OH - 4 districts + 2 at-large. ArcGIS Enterprise portal."
+  },
+  '3947138': {
+      "cityFips": "3947138",
+      "cityName": "Lima",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://colgis.cityhall.lima.oh.us/server/rest/services/CitywideMaps/LimaCommunityDevelopment/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 70,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Lima OH - 7 wards. City GIS MapServer."
+  },
   '3947754': {
       "cityFips": "3947754",
       "cityName": "Marion",
@@ -4441,6 +5017,30 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 80,
       "discoveredBy": "automated",
       "notes": "Marion OH - 21 districts, bulk ingested from \"City_Council_Wards_August2022\""
+  },
+  '3949840': {
+      "cityFips": "3949840",
+      "cityName": "Mansfield",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.mansfieldcity.com/",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 65,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Mansfield OH - 6 wards + 2 at-large. City GIS portal."
+  },
+  '3956882': {
+      "cityFips": "3956882",
+      "cityName": "Newark",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-newgin.opendata.arcgis.com/maps/0a1caa483cbf4733a493cc1c23d5c491",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Newark OH - 6 wards. NewGIN Open Data."
   },
   '3957008': {
       "cityFips": "3957008",
@@ -4458,13 +5058,25 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "cityFips": "3977000",
       "cityName": "Toledo",
       "state": "OH",
-      "portalType": "arcgis",
-      "downloadUrl": "https://services.arcgis.com/2snQ88YUjP9CNEbe/arcgis/rest/services/CouncilDistricts2022/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.toledo.oh.gov/portal/sharing/rest/content/items/toledo-council-districts/data?f=geojson",
       "featureCount": 6,
-      "lastVerified": "2026-01-15T00:00:00.000Z",
-      "confidence": 88,
-      "discoveredBy": "automated",
-      "notes": "Toledo OH - 6 districts, bulk ingested from \"City Council Districts\""
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 80,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Toledo OH - 6 council districts. City GIS portal."
+  },
+  '3983342': {
+      "cityFips": "3983342",
+      "cityName": "Warren",
+      "state": "OH",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://www.warren.org/city_ward_map.php",
+      "featureCount": 5,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 65,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Warren OH - 5 wards. City website. Trumbull County GIS may have shapefiles."
   },
   '3983622': {
       "cityFips": "3983622",
@@ -4477,6 +5089,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 85,
       "discoveredBy": "wave-g-extraction",
       "notes": "Westlake OH - 6 wards. Filtered from Cuyahoga County. REMEDIATED: Was quarantined with 11 features."
+  },
+  '3986000': {
+      "cityFips": "3986000",
+      "cityName": "Youngstown",
+      "state": "OH",
+      "portalType": "county-gis",
+      "downloadUrl": "https://www.arcgis.com/apps/instant/minimalist/index.html?appid=dd2daaa57d2545988ce611d3e16760c3",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 75,
+      "discoveredBy": "wave-n-ogrip",
+      "notes": "Youngstown OH - 7 wards. YSU Center for Applied GIS/Mahoning County. 2022 redistricting."
   },
   '4001700': {
       "cityFips": "4001700",
@@ -5113,6 +5737,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 82,
       "discoveredBy": "automated",
       "notes": "Memphis City Council Districts - 7 single-member geographic districts (6 super districts are in separate layer)."
+  },
+  '4751560': {
+      "cityFips": "4751560",
+      "cityName": "Murfreesboro",
+      "state": "TN",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-murfreesboro.opendata.arcgis.com/datasets/Murfreesboro::city-council-districts/about",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Murfreesboro TN - 6 council districts. City Open Data Hub."
   },
   '4752006': {
       "cityFips": "4752006",
@@ -5786,6 +6422,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Burlington VT - 8 districts, bulk ingested from \"City Wards 2024\""
   },
+  '5116000': {
+      "cityFips": "5116000",
+      "cityName": "Chesapeake",
+      "state": "VA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.cityofchesapeake.net/arcgis/rest/services/Voting/VotingDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 9,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Chesapeake VA - 9 borough/council districts. City GIS."
+  },
   '5147672': {
       "cityFips": "5147672",
       "cityName": "Lynchburg",
@@ -5797,6 +6445,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Lynchburg VA - 4 districts, bulk ingested from \"Ward Boundary Adjustment Scenario B\""
+  },
+  '5156000': {
+      "cityFips": "5156000",
+      "cityName": "Newport News",
+      "state": "VA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.nngov.com/arcgis/rest/services/Voting/CouncilDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Newport News VA - 7 council districts. City GIS."
   },
   '5167000': {
       "cityFips": "5167000",
@@ -6025,6 +6685,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Glendale WI - 12 districts, bulk ingested from \"Ward Boundaries\""
+  },
+  '5531000': {
+      "cityFips": "5531000",
+      "cityName": "Green Bay",
+      "state": "WI",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-greenbaywi.opendata.arcgis.com/datasets/GreenBayWI::aldermanic-districts/about",
+      "featureCount": 12,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-n-gap",
+      "notes": "Green Bay WI - 12 aldermanic districts. City Open Data Hub."
   },
   '5531175': {
       "cityFips": "5531175",
@@ -6292,4 +6964,4 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
   },
 };
 
-export const PORTAL_COUNT = 519;
+export const PORTAL_COUNT = 575;

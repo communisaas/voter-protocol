@@ -4,12 +4,12 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/at-large-cities.ndjson
- * !! Generated: 2026-01-23T07:12:36.462Z
+ * !! Generated: 2026-01-23T08:25:30.343Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * PURPOSE: Cities with at-large voting (no geographic districts)
- * At-large cities: 70
+ * At-large cities: 77
  * Description: Cities with at-large voting (no geographic districts)
  */
 
@@ -166,6 +166,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Palm Bay Charter; Wave-K FL specialist",
       "notes": "Council-Manager form. Mayor + 4 council members all elected at-large to designated seats. Non-partisan, 4-year terms."
+  },
+  '1269700': {
+      "cityName": "Sunrise",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Sunrise official website; Wave-N FL FGDL analysis",
+      "notes": "At-large commission. Mayor + 4 commissioners elected citywide. No geographic districts."
   },
   '1270600': {
       "cityName": "Tallahassee",
@@ -350,6 +358,54 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Springfield official website (springfieldne.org); municipal code research; WS-J investigation 2026-01-18",
       "notes": "Small Nebraska city with mayor-council government. At-large elections typical for NE cities under 5,000 population (NRS 32-554). Registry mistakenly contained Sarpy County ElectionAdmin data (19 features, 96.8% outside city boundary)."
+  },
+  '3407600': {
+      "cityName": "Brick Township",
+      "state": "NJ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township council. NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
+  },
+  '3413120': {
+      "cityName": "Cherry Hill Township",
+      "state": "NJ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township council. NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
+  },
+  '3422470': {
+      "cityName": "Edison Township",
+      "state": "NJ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township council. NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
+  },
+  '3429700': {
+      "cityName": "Hamilton Township",
+      "state": "NJ",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township council (Mercer County). NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
+  },
+  '3441310': {
+      "cityName": "Lakewood Township",
+      "state": "NJ",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township committee. NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
+  },
+  '3448000': {
+      "cityName": "Middletown Township",
+      "state": "NJ",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "NJGIN Ward Boundaries (ward code 00); Wave-N NJGIN analysis",
+      "notes": "At-large township committee. NJGIN statewide ward layer shows single ward code 00 indicating at-large representation."
   },
   '3654705': {
       "cityName": "Old Westbury",
@@ -585,4 +641,4 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
   },
 };
 
-export const AT_LARGE_COUNT = 70;
+export const AT_LARGE_COUNT = 77;
