@@ -60,6 +60,23 @@ export {
   type BatchValidationSummary,
 } from './ingestion-validator.js';
 
+// Tessellation provenance integration
+export {
+  TessellationProvenanceWriter,
+  tessellationProvenanceWriter,
+  validateAndRecord,
+  batchValidateAndRecord,
+  computeGeometryHash,
+  proofToRecord,
+  recordToCompact,
+  compactToRecord,
+  type TessellationProofRecord,
+  type CompactTessellationEntry,
+  type TessellationValidationFilter,
+  type AxiomResults,
+  type TessellationDiagnostics,
+} from '../../provenance/tessellation-provenance.js';
+
 // Legacy exports (for backwards compatibility during migration)
 export { CouncilDistrictValidator } from './validator.js';
 export { resolveFips, batchResolveFips } from './fips-resolver.js';

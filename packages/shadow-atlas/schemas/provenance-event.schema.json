@@ -164,6 +164,116 @@
         }
       }
     },
+    "tessellationProof": {
+      "type": "object",
+      "description": "Complete tessellation validation proof for council district boundaries",
+      "required": ["validated", "validatedAt", "geometryHash"],
+      "properties": {
+        "validated": {
+          "type": "boolean",
+          "description": "Binary validity - all four tessellation axioms passed"
+        },
+        "validatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when validation was performed"
+        },
+        "geometryHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of district geometry at validation time (for integrity verification)"
+        },
+        "axiomResults": {
+          "type": "object",
+          "description": "Individual axiom pass/fail status",
+          "required": ["exclusivity", "exhaustivity", "containment", "cardinality"],
+          "properties": {
+            "exclusivity": {
+              "type": "boolean",
+              "description": "No overlapping districts (voters in exactly one district)"
+            },
+            "exhaustivity": {
+              "type": "boolean",
+              "description": "Complete coverage of municipal boundary (no gaps)"
+            },
+            "containment": {
+              "type": "boolean",
+              "description": "All districts within city boundary"
+            },
+            "cardinality": {
+              "type": "boolean",
+              "description": "Expected number of districts matches actual"
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "object",
+          "description": "Quantitative measurements from validation",
+          "properties": {
+            "districtCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Actual number of district features"
+            },
+            "expectedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Expected number of districts from registry"
+            },
+            "totalOverlapArea": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Total pairwise overlap area in square meters"
+            },
+            "uncoveredArea": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Municipal area not covered by districts (sq meters)"
+            },
+            "outsideBoundaryArea": {
+              "type": "number",
+              "minimum": 0,
+              "description": "District area outside municipal boundary (sq meters)"
+            },
+            "municipalArea": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Total municipal boundary area (sq meters)"
+            },
+            "districtUnionArea": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Union of all district areas (sq meters)"
+            },
+            "coverageRatio": {
+              "type": "number",
+              "minimum": 0,
+              "description": "District union / municipal area ratio"
+            }
+          }
+        },
+        "failedAxiom": {
+          "type": ["string", "null"],
+          "enum": ["exclusivity", "exhaustivity", "containment", "cardinality", null],
+          "description": "Which axiom failed (null if all passed)"
+        },
+        "failureReason": {
+          "type": ["string", "null"],
+          "maxLength": 500,
+          "description": "Human-readable explanation of failure (null if passed)"
+        },
+        "problematicDistricts": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "District identifiers involved in validation failure"
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Semantic version of tessellation validator"
+        }
+      }
+    },
     "remediationDetails": {
       "type": "object",
       "description": "Remediation-specific metadata",
