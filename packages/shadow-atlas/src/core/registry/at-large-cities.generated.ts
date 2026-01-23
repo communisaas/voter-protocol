@@ -4,12 +4,12 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/at-large-cities.ndjson
- * !! Generated: 2026-01-23T02:29:04.051Z
+ * !! Generated: 2026-01-23T03:17:22.047Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * PURPOSE: Cities with at-large voting (no geographic districts)
- * At-large cities: 35
+ * At-large cities: 63
  * Description: Cities with at-large voting (no geographic districts)
  */
 
@@ -31,6 +31,38 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://vhal.org/government/city-leadership-2/; Wave F 2026-01-19",
       "notes": "Council-manager form. 4 council members + mayor, all elected at-large citywide. Jefferson County Birmingham suburb (~39k). No geographic districts."
   },
+  '0412000': {
+      "cityName": "Chandler",
+      "state": "AZ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Chandler; Wave-K Sun Belt specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Maricopa County."
+  },
+  '0427820': {
+      "cityName": "Gilbert",
+      "state": "AZ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "Town of Gilbert; Wave-K Sun Belt specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Maricopa County town."
+  },
+  '0465000': {
+      "cityName": "Scottsdale",
+      "state": "AZ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Scottsdale; Wave-K Sun Belt specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Maricopa County."
+  },
+  '0473000': {
+      "cityName": "Tempe",
+      "state": "AZ",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Tempe; Wave-K Sun Belt specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Home of Arizona State University."
+  },
   '0632548': {
       "cityName": "Hawthorne",
       "state": "CA",
@@ -39,6 +71,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Hawthorne Municipal Code, Chapter 2; WS-2 investigation",
       "notes": "At-large elections for all council positions. Registry mistakenly contained SCAG (Southern California Association of Governments) regional planning districts (52 features), not city council districts."
   },
+  '0636000': {
+      "cityName": "Huntington Beach",
+      "state": "CA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "Ballotpedia 2024; Voice of OC; Wave-K CA specialist",
+      "notes": "All 7 council seats elected citywide. No CVRA challenge filed. 2024 election swept by conservative slate."
+  },
   '0639003': {
       "cityName": "La Cañada Flintridge",
       "state": "CA",
@@ -46,6 +86,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of La Cañada Flintridge official website",
       "notes": "At-large council elections. Registry contained \"Enriched Council_District\" analysis layer (7 features) which is NOT council district data - likely census/demographic enrichment."
+  },
+  '0640130': {
+      "cityName": "Lancaster",
+      "state": "CA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "AV Press Feb 2024; Ballotpedia; Wave-K CA specialist",
+      "notes": "Currently at-large. CVRA study initiated Feb 2024 but no transition implemented. Elections held in April of even years."
   },
   '0667112': {
       "cityName": "San Jacinto",
@@ -71,6 +119,54 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Walnut official website; Ballotpedia; WS-F investigation 2026-01-18",
       "notes": "At-large council elections. Registry mistakenly contained West Covina city council district data (5 districts)."
   },
+  '1212875': {
+      "cityName": "Clearwater",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Clearwater; Wave-K FL specialist",
+      "notes": "Mayor + 4 council members. Largest Gulf Coast city allowing plurality winners (no runoff). 2024 ballot considered runoffs but NOT districts."
+  },
+  '1214400': {
+      "cityName": "Coral Springs",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Coral Springs; Wave-K FL specialist",
+      "notes": "5-member commission with numbered seats (1-5). All seats elected citywide. Broward County city."
+  },
+  '1230000': {
+      "cityName": "Hialeah",
+      "state": "FL",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Hialeah Charter; Wave-K FL specialist",
+      "notes": "Strong Mayor/Council form. 7 council members elected at-large by group numbers. All elections citywide."
+  },
+  '1245975': {
+      "cityName": "Miramar",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Miramar; Wave-K FL specialist",
+      "notes": "Commission-Manager form since 1991. Mayor + 4 commissioners elected at-large by seat number."
+  },
+  '1254000': {
+      "cityName": "Palm Bay",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Palm Bay Charter; Wave-K FL specialist",
+      "notes": "Council-Manager form. Mayor + 4 council members all elected at-large to designated seats. Non-partisan, 4-year terms."
+  },
+  '1270600': {
+      "cityName": "Tallahassee",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Tallahassee; Ballotpedia; Wave-K FL specialist",
+      "notes": "State capital. 5 commissioners (4 + mayor) all elected citywide. Charter Review Committee debated districts in 2024 but no change made."
+  },
   '1278325': {
       "cityName": "Winter Springs",
       "state": "FL",
@@ -87,6 +183,22 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Milton official website; At-large research 2026-01-16",
       "notes": "At-large voting: all registered voters cast ballots for all council seats. Councilmembers must live in their district but are elected citywide. Mayor also elected at-large."
   },
+  '1723074': {
+      "cityName": "Elgin",
+      "state": "IL",
+      "councilSize": 9,
+      "electionMethod": "at-large",
+      "source": "City of Elgin; Wave-K Midwest specialist",
+      "notes": "Council-Manager form. 8 council members + mayor elected at-large. Kane/Cook Counties."
+  },
+  '1753234': {
+      "cityName": "Naperville",
+      "state": "IL",
+      "councilSize": 9,
+      "electionMethod": "at-large",
+      "source": "City of Naperville; Wave-K Midwest specialist",
+      "notes": "Council-Manager form. 8 council members + mayor elected at-large. DuPage/Will Counties."
+  },
   '1869354': {
       "cityName": "Sheridan",
       "state": "IN",
@@ -94,6 +206,46 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "Ballotpedia Town Council Member, At Large elections",
       "notes": "Town council has 7 members elected at-large. No geographic districts exist. Registry mistakenly contained township redistricting data."
+  },
+  '1902305': {
+      "cityName": "Ankeny",
+      "state": "IA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Ankeny; Wave-K Iowa-Plains specialist",
+      "notes": "Mayor + 6 council members elected at-large. Des Moines suburb, one of fastest-growing cities in Iowa."
+  },
+  '1916860': {
+      "cityName": "Council Bluffs",
+      "state": "IA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Council Bluffs; Wave-K Iowa-Plains specialist",
+      "notes": "Council-Manager form. Mayor + 4 council members elected at-large."
+  },
+  '1938595': {
+      "cityName": "Iowa City",
+      "state": "IA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Iowa City; Wave-K Iowa-Plains specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members (4 at-large + 2 district seats - hybrid but primarily at-large)."
+  },
+  '1973335': {
+      "cityName": "Sioux City",
+      "state": "IA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Sioux City; Wave-K Iowa-Plains specialist",
+      "notes": "Council-Manager form. Mayor + 4 council members elected at-large."
+  },
+  '1982425': {
+      "cityName": "Urbandale",
+      "state": "IA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Urbandale; Wave-K Iowa-Plains specialist",
+      "notes": "Council-Manager form. Mayor + 4 council members elected at-large. Des Moines suburb."
   },
   '2038900': {
       "cityName": "Lawrence",
@@ -143,6 +295,30 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://auburnmi.gov/city-commission/; Wave F 2026-01-19",
       "notes": "City Commission structure. 6 commissioners + mayor elected at-large citywide. Non-partisan elections. Bay County (~2k population)."
   },
+  '2648000': {
+      "cityName": "Livonia",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Livonia; Wave-K Midwest specialist",
+      "notes": "Mayor + 6 council members elected at-large. Wayne County suburb of Detroit."
+  },
+  '2674900': {
+      "cityName": "Sterling Heights",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Sterling Heights Charter; Wave-K Midwest specialist",
+      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Macomb County's largest city."
+  },
+  '2686180': {
+      "cityName": "Westland",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Westland; Wave-K Midwest specialist",
+      "notes": "Mayor-Council form. Mayor + 6 council members elected at-large. Wayne County."
+  },
   '2755186': {
       "cityName": "Rogers",
       "state": "MN",
@@ -183,6 +359,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://www.wilmingtonnc.gov/Government/City-Mayor-Council; Ballotpedia",
       "notes": "Non-partisan city council. All council members and mayor elected at-large (citywide). No geographic districts or wards."
   },
+  '3825700': {
+      "cityName": "Fargo",
+      "state": "ND",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Fargo; Wave-K Iowa-Plains specialist",
+      "notes": "Commission form. 5 commissioners (including mayor) elected at-large. Largest city in North Dakota."
+  },
   '3885080': {
       "cityName": "Williston",
       "state": "ND",
@@ -190,6 +374,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Williston; Wave E great-plains-specialist 2026-01-19",
       "notes": "5 commissioners elected at-large. City commission structure typical of North Dakota cities."
+  },
+  '3921000': {
+      "cityName": "Dayton",
+      "state": "OH",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Dayton; Wave-K Midwest specialist",
+      "notes": "Commission-Manager form. 5 commissioners elected at-large. Mayor selected by commission."
   },
   '3957750': {
       "cityName": "Oakwood",
@@ -263,6 +455,30 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "Town Council page (signalmountaintn.gov); Municipal GIS research 2026-01-19",
       "notes": "5-member council elected city-wide at-large. No ward boundaries. Quarantine showed Hamilton County/Chattanooga districts (9 features)."
   },
+  '4801000': {
+      "cityName": "Abilene",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Abilene; Wave-K TX specialist",
+      "notes": "Council-Manager form. Mayor + 6 councilmembers elected at-large."
+  },
+  '4803000': {
+      "cityName": "Amarillo",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Amarillo; Wave-K TX specialist",
+      "notes": "Council-Manager form. 5 councilmembers + mayor elected at-large. One of few comparable US cities with pure at-large and 5 members."
+  },
+  '4827684': {
+      "cityName": "Frisco",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Frisco; Wave-K TX specialist",
+      "notes": "Mayor + 6 council members elected at-large. Fastest growing large city in Texas."
+  },
   '4827996': {
       "cityName": "Galena Park",
       "state": "TX",
@@ -287,6 +503,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "Pearland City Charter, Article III",
       "notes": "At-large council. Registry mistakenly contained Houston city council districts (11 districts A-K)."
   },
+  '4863500': {
+      "cityName": "Round Rock",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Round Rock; Wave-K TX specialist",
+      "notes": "Mayor + 6 council members elected at-large to designated Place positions."
+  },
   '5101000': {
       "cityName": "Alexandria",
       "state": "VA",
@@ -305,4 +529,4 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
   },
 };
 
-export const AT_LARGE_COUNT = 35;
+export const AT_LARGE_COUNT = 63;

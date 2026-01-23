@@ -4,11 +4,11 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-23T02:29:04.036Z
+ * !! Generated: 2026-01-23T03:17:22.027Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- * City entries: 495
+ * City entries: 506
  * Description: Verified municipal council district GIS sources with download URLs
  */
 
@@ -1126,6 +1126,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Orange CA - 6 districts, bulk ingested from \"OrangeCouncilDistricts\""
   },
+  '0654652': {
+      "cityFips": "0654652",
+      "cityName": "Oxnard",
+      "state": "CA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://maps.oxnard.org/arcgis/rest/services/CityCouncilDistricts/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-k-ca-specialist",
+      "notes": "Oxnard CA - 6 council districts. City MapServer. CVRA transition completed 2017."
+  },
   '0656700': {
       "cityFips": "0656700",
       "cityName": "Perris",
@@ -1414,6 +1426,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Santa Ana CA - 6 districts, bulk ingested from \"Council Ward Boundary\""
   },
+  '0670098': {
+      "cityFips": "0670098",
+      "cityName": "Santa Rosa",
+      "state": "CA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 92,
+      "discoveredBy": "wave-k-ca-specialist",
+      "notes": "Santa Rosa CA - 7 council districts. Official city GIS FeatureServer."
+  },
   '0670224': {
       "cityFips": "0670224",
       "cityName": "Santee",
@@ -1473,6 +1497,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 85,
       "discoveredBy": "manual",
       "notes": "Stockton City Council Districts - 6 districts (1-6). Data has 8 features because Districts 2 and 4 have multi-part polygons stored as separate features. FIXED 2026-01-15: Changed to ArcGIS FeatureServer. Socrata was returning null geometry."
+  },
+  '0677000': {
+      "cityFips": "0677000",
+      "cityName": "Sunnyvale",
+      "state": "CA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://sunnyvale-geohub-cityofsunnyvale.hub.arcgis.com/datasets/c104aeaa742047ceae81fa8e3c96563e",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 88,
+      "discoveredBy": "wave-k-ca-specialist",
+      "notes": "Sunnyvale CA - 6 council districts. City GeoHub dataset (CouncilDistricts 2022). Boundaries valid Nov 2022 - Dec 2031."
   },
   '0678120': {
       "cityFips": "0678120",
@@ -1990,6 +2026,30 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Estero FL - 7 districts, bulk ingested from \"EsteroCouncilDistrict_(2)\""
   },
+  '1224000': {
+      "cityFips": "1224000",
+      "cityName": "Fort Lauderdale",
+      "state": "FL",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.fortlauderdale.gov/server/rest/services/CityCommissionDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 95,
+      "discoveredBy": "wave-k-fl-specialist",
+      "notes": "Fort Lauderdale FL - 4 commission districts. Dedicated city FeatureServer. Mayor at-large."
+  },
+  '1225175': {
+      "cityFips": "1225175",
+      "cityName": "Gainesville",
+      "state": "FL",
+      "portalType": "arcgis",
+      "downloadUrl": "https://hub.arcgis.com/datasets/dbe71f4544714cb6bae0d7a7cf711ac4_0",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-k-fl-specialist",
+      "notes": "Gainesville FL - HYBRID: 4 geographic districts + 2 at-large seats + mayor (7 total). Only 4 district commissioners need boundaries."
+  },
   '1227322': {
       "cityFips": "1227322",
       "cityName": "Greenacres",
@@ -2050,6 +2110,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "authoritative",
       "notes": "Lake City FL - 4 council districts (Districts 10, 12, 13, 14). MULTI-PART POLYGONS: 13 features for 4 districts (District 13=6 parts, District 12=5 parts, Districts 10/14=1 part each). Columbia County Supervisor of Elections maintains authoritative election district boundaries. Feature count is legitimate, not county data bleeding. REMEDIATED: Was quarantined as \"county_for_city\" pattern."
   },
+  '1238250': {
+      "cityFips": "1238250",
+      "cityName": "Lakeland",
+      "state": "FL",
+      "portalType": "arcgis",
+      "downloadUrl": "https://geohub-lakelandflorida.opendata.arcgis.com/datasets/lakeland-commissioner-districts-1",
+      "featureCount": 4,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 85,
+      "discoveredBy": "wave-k-fl-specialist",
+      "notes": "Lakeland FL - HYBRID: 4 quadrant districts (NE, NW, SE, SW) + 2 at-large + mayor. All 7 elected citywide but 4 must reside in districts."
+  },
   '1245000': {
       "cityFips": "1245000",
       "cityName": "Miami",
@@ -2109,6 +2181,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Orange City FL - 5 districts, bulk ingested from \"Council Districts (2021)\""
+  },
+  '1253000': {
+      "cityFips": "1253000",
+      "cityName": "Orlando",
+      "state": "FL",
+      "portalType": "county-gis",
+      "downloadUrl": "https://ocgis4.ocfl.net/arcgis/rest/services/Public_Dynamic/MapServer/151/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-k-fl-specialist",
+      "notes": "Orlando FL - 6 commissioner districts. Orange County MapServer layer 151. Fields: COMMISSIONERDISTRICTID, COMMISSIONERNAME."
   },
   '1254450': {
       "cityFips": "1254450",
@@ -2758,6 +2842,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "automated",
       "notes": "Goshen IN - 38 districts, bulk ingested from \"Goshen_City_Council\""
   },
+  '1829000': {
+      "cityFips": "1829000",
+      "cityName": "Fort Wayne",
+      "state": "IN",
+      "portalType": "county-gis",
+      "downloadUrl": "https://maps.cityoffortwayne.org/arcgis/rest/services/Elections/MapServer/7/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 88,
+      "discoveredBy": "wave-k-midwest-specialist",
+      "notes": "Fort Wayne IN - 6 council districts. City Elections MapServer layer 7."
+  },
   '1831000': {
       "cityFips": "1831000",
       "cityName": "Hammond",
@@ -2901,6 +2997,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Whitestown IN - 5 districts, bulk ingested from \"TownCouncilDistricts_2020\""
+  },
+  '1919000': {
+      "cityFips": "1919000",
+      "cityName": "Davenport",
+      "state": "IA",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://gis.davenportiowa.com/arcgis/rest/services/Elections/MapServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 8,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 88,
+      "discoveredBy": "wave-k-iowa-plains-specialist",
+      "notes": "Davenport IA - 8 wards. City Elections MapServer layer 1."
   },
   '2017800': {
       "cityFips": "2017800",
@@ -3625,6 +3733,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "confidence": 55,
       "discoveredBy": "automated",
       "notes": "Grand Island NE - 5 districts, bulk ingested from \"Grand Island City Council\""
+  },
+  '3128000': {
+      "cityFips": "3128000",
+      "cityName": "Lincoln",
+      "state": "NE",
+      "portalType": "county-gis",
+      "downloadUrl": "https://gis.lincoln.ne.gov/arcgis/rest/services/Elections/MapServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 7,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 88,
+      "discoveredBy": "wave-k-iowa-plains-specialist",
+      "notes": "Lincoln NE - 7 council districts (4 NW, 4 NE, 4 SE, 4 SW quadrant-based). City Elections MapServer layer 2."
   },
   '3137000': {
       "cityFips": "3137000",
@@ -5774,6 +5894,18 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
       "discoveredBy": "wave-h-midwest-expert",
       "notes": "Kenosha WI - 17 aldermanic districts (1 alderperson each). County data portal. REMEDIATED: Was quarantined (34 features = voting wards, not aldermanic districts)."
   },
+  '5548000': {
+      "cityFips": "5548000",
+      "cityName": "Madison",
+      "state": "WI",
+      "portalType": "municipal-gis",
+      "downloadUrl": "https://data-cityofmadison.opendata.arcgis.com/datasets/alder-districts",
+      "featureCount": 20,
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "confidence": 90,
+      "discoveredBy": "wave-k-midwest-specialist",
+      "notes": "Madison WI - 20 alder districts (unique structure). City open data portal. Shapefile download available."
+  },
   '5548500': {
       "cityFips": "5548500",
       "cityName": "Manitowoc",
@@ -6004,4 +6136,4 @@ export const KNOWN_PORTALS: Record<string, KnownPortal> = {
   },
 };
 
-export const PORTAL_COUNT = 495;
+export const PORTAL_COUNT = 506;
