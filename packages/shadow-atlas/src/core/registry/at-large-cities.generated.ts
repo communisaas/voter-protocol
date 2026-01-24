@@ -4,12 +4,12 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/at-large-cities.ndjson
- * !! Generated: 2026-01-23T08:25:30.343Z
+ * !! Generated: 2026-01-24T06:47:59.470Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * PURPOSE: Cities with at-large voting (no geographic districts)
- * At-large cities: 77
+ * At-large cities: 138
  * Description: Cities with at-large voting (no geographic districts)
  */
 
@@ -63,6 +63,22 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Tempe; Wave-K Sun Belt specialist",
       "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Home of Arizona State University."
   },
+  '0616378': {
+      "cityName": "Coronado",
+      "state": "CA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Coronado official website; SANDAG verification 2026-01-23",
+      "notes": "5-member council elected at-large. Island city in San Diego Bay (~24k pop). NOT in SANDAG Council_Districts layer."
+  },
+  '0618506': {
+      "cityName": "Del Mar",
+      "state": "CA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Del Mar official website; Ballotpedia; SANDAG verification 2026-01-23",
+      "notes": "5-member council elected at-large. Small coastal city (~4k pop). No political districts. NOT in SANDAG Council_Districts layer."
+  },
   '0632548': {
       "cityName": "Hawthorne",
       "state": "CA",
@@ -87,6 +103,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of La Cañada Flintridge official website",
       "notes": "At-large council elections. Registry contained \"Enriched Council_District\" analysis layer (7 features) which is NOT council district data - likely census/demographic enrichment."
   },
+  '0640004': {
+      "cityName": "La Mesa",
+      "state": "CA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of La Mesa official website; Ballotpedia; SANDAG verification 2026-01-23",
+      "notes": "Mayor + 4 council members elected at-large citywide. San Diego County. NOT in SANDAG Council_Districts layer (only district-based cities included)."
+  },
   '0640130': {
       "cityName": "Lancaster",
       "state": "CA",
@@ -94,6 +118,14 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "AV Press Feb 2024; Ballotpedia; Wave-K CA specialist",
       "notes": "Currently at-large. CVRA study initiated Feb 2024 but no transition implemented. Elections held in April of even years."
+  },
+  '0641124': {
+      "cityName": "Lemon Grove",
+      "state": "CA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Lemon Grove official website; Ballotpedia; SANDAG verification 2026-01-23",
+      "notes": "Mayor + 4 council members elected at-large. General Law city incorporated 1977. San Diego County. NOT in SANDAG Council_Districts layer."
   },
   '0667112': {
       "cityName": "San Jacinto",
@@ -127,6 +159,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Boulder; Wave-L Mountain West specialist",
       "notes": "Council-Manager form. 9 council members elected at-large. University of Colorado flagship. No ward system."
   },
+  '1207300': {
+      "cityName": "Boca Raton",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Boca Raton; Wave-S South Florida",
+      "notes": "5-member council (Mayor + Seats A-D) elected at-large. 3-year terms. Council-Manager since 1957.",
+      "discoveredBy": "wave-s-south-florida"
+  },
   '1212875': {
       "cityName": "Clearwater",
       "state": "FL",
@@ -143,6 +184,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Coral Springs; Wave-K FL specialist",
       "notes": "5-member commission with numbered seats (1-5). All seats elected citywide. Broward County city."
   },
+  '1217100': {
+      "cityName": "Delray Beach",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "City of Delray Beach; Wave-S South Florida",
+      "notes": "5 commission seats elected at-large citywide. 3-year terms. Non-partisan.",
+      "discoveredBy": "wave-s-south-florida"
+  },
   '1230000': {
       "cityName": "Hialeah",
       "state": "FL",
@@ -150,6 +200,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Hialeah Charter; Wave-K FL specialist",
       "notes": "Strong Mayor/Council form. 7 council members elected at-large by group numbers. All elections citywide."
+  },
+  '1236075': {
+      "cityName": "Jupiter",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large-with-residency",
+      "source": "Town of Jupiter; Wave-S South Florida",
+      "notes": "5 members with residency districts but all elected at-large townwide. 3-year terms.",
+      "discoveredBy": "wave-s-south-florida"
   },
   '1245975': {
       "cityName": "Miramar",
@@ -160,12 +219,13 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "notes": "Commission-Manager form since 1991. Mayor + 4 commissioners elected at-large by seat number."
   },
   '1254000': {
-      "cityName": "Palm Bay",
+      "cityName": "Palm Beach Gardens",
       "state": "FL",
       "councilSize": 5,
       "electionMethod": "at-large",
-      "source": "City of Palm Bay Charter; Wave-K FL specialist",
-      "notes": "Council-Manager form. Mayor + 4 council members all elected at-large to designated seats. Non-partisan, 4-year terms."
+      "source": "City of Palm Beach Gardens; Wave-S South Florida",
+      "notes": "5 at-large (Groups 1-5). Council-Manager form. 3-year overlapping terms.",
+      "discoveredBy": "wave-s-south-florida"
   },
   '1269700': {
       "cityName": "Sunrise",
@@ -182,6 +242,24 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Tallahassee; Ballotpedia; Wave-K FL specialist",
       "notes": "State capital. 5 commissioners (4 + mayor) all elected citywide. Charter Review Committee debated districts in 2024 but no change made."
+  },
+  '1276582': {
+      "cityName": "Wellington",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Village of Wellington; Wave-S South Florida",
+      "notes": "5-member council elected at-large. 4-year staggered terms. Council-Manager form.",
+      "discoveredBy": "wave-s-south-florida"
+  },
+  '1276600': {
+      "cityName": "West Palm Beach",
+      "state": "FL",
+      "councilSize": 5,
+      "electionMethod": "at-large-with-residency",
+      "source": "City of West Palm Beach; Wave-S South Florida",
+      "notes": "5 commissioners elected at-large but must reside in respective districts. 2-year terms. Palm Beach County.",
+      "discoveredBy": "wave-s-south-florida"
   },
   '1278325': {
       "cityName": "Winter Springs",
@@ -287,6 +365,17 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://townofmadisonville.org/mayor-and-council; NOLA.com",
       "notes": "Town council seats go to top 5 vote-getters (at-large plurality system). No geographic ward or district structure."
   },
+  '2431175': {
+      "cityFips": "2431175",
+      "cityName": "Gaithersburg",
+      "state": "MD",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "source": "City of Gaithersburg official website",
+      "notes": "Council-Manager form. All council members serve at-large. Nonpartisan elections. Mayor also elected at-large.",
+      "discoveredBy": "wave-q-gap"
+  },
   '2467675': {
       "cityName": "Rockville",
       "state": "MD",
@@ -311,6 +400,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://auburnmi.gov/city-commission/; Wave F 2026-01-19",
       "notes": "City Commission structure. 6 commissioners + mayor elected at-large citywide. Non-partisan elections. Bay County (~2k population)."
   },
+  '2621000': {
+      "cityName": "Dearborn",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Dearborn; Wave-S Midwest",
+      "notes": "Mayor + 7 council at-large. Nov 2025 ward proposal defeated. Wayne County.",
+      "discoveredBy": "wave-s-midwest"
+  },
   '2648000': {
       "cityName": "Livonia",
       "state": "MI",
@@ -326,6 +424,24 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Sterling Heights Charter; Wave-K Midwest specialist",
       "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Macomb County's largest city."
+  },
+  '2674960': {
+      "cityName": "Southfield",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Southfield; Wave-S Midwest",
+      "notes": "7 council at-large. 4-year terms. Low vote-getter gets 2-year term. Oakland County.",
+      "discoveredBy": "wave-s-midwest"
+  },
+  '2679000': {
+      "cityName": "Taylor",
+      "state": "MI",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Taylor; Wave-S Midwest",
+      "notes": "7 council at-large. 4-year terms. Chairperson is highest vote-getter. Wayne County.",
+      "discoveredBy": "wave-s-midwest"
   },
   '2686180': {
       "cityName": "Westland",
@@ -455,6 +571,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://oakwoodohio.gov/departments/city-council/; Dayton Daily News",
       "notes": "Council/manager government. 5 council members elected at-large, non-partisan, 4-year terms. Mayor selected by council. Note: Separate Oakwood Village in Cuyahoga County uses wards."
   },
+  '3971682': {
+      "cityName": "Shaker Heights",
+      "state": "OH",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Shaker Heights; Wave-S Midwest",
+      "notes": "Mayor + 7 council at-large non-partisan. Charter since 1931. Cuyahoga County.",
+      "discoveredBy": "wave-s-midwest"
+  },
   '4038350': {
       "cityName": "Jenks",
       "state": "OK",
@@ -543,6 +668,24 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Abilene; Wave-K TX specialist",
       "notes": "Council-Manager form. Mayor + 6 councilmembers elected at-large."
   },
+  '4801600': {
+      "cityName": "Alamo Heights",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small enclave city in San Antonio metro.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4801924': {
+      "cityName": "Allen",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Allen; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year staggered terms. Council-Manager since 1979. Collin County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
   '4803000': {
       "cityName": "Amarillo",
       "state": "TX",
@@ -550,6 +693,114 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Amarillo; Wave-K TX specialist",
       "notes": "Council-Manager form. 5 councilmembers + mayor elected at-large. One of few comparable US cities with pure at-large and 5 members."
+  },
+  '4803084': {
+      "cityName": "Anna",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Anna; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large by place. 3-year terms. Council-Manager. Collin County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4805384': {
+      "cityName": "Balcones Heights",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small San Antonio enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4806472': {
+      "cityName": "Bedford",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Bedford; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 2-year mayoral terms. Council-Manager. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4813276': {
+      "cityName": "Castle Hills",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. San Antonio area.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4813492': {
+      "cityName": "Celina",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Celina; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large by place. 3-year terms. Home Rule since 1876. Collin/Denton counties.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4814716': {
+      "cityName": "China Grove",
+      "state": "TX",
+      "councilSize": 4,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-4 at-large council. Small Bexar County city.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4814920': {
+      "cityName": "Cibolo",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-7 at-large council. Fast-growing suburb.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4815976': {
+      "cityName": "Colleyville",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Colleyville; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year staggered terms. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4816468': {
+      "cityName": "Converse",
+      "state": "TX",
+      "councilSize": 6,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-6 at-large council. Northeast Bexar County.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4823272': {
+      "cityName": "Elmendorf",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small city south of San Antonio.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4824768': {
+      "cityName": "Euless",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Euless; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year terms, place-based. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4825168': {
+      "cityName": "Fair Oaks Ranch",
+      "state": "TX",
+      "councilSize": 6,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-6 at-large council. Hill Country suburb spanning Bexar/Kendall/Comal counties.",
+      "discoveredBy": "wave-r-bexar"
   },
   '4827684': {
       "cityName": "Frisco",
@@ -567,6 +818,78 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "City of Galena Park official website; Quarantine investigation 2026-01-17",
       "notes": "Commission form government. Mayor + 4 commissioners elected at-large to numbered positions (Position 1-4). Quarantine correctly blocked Houston council data (11 districts) mistakenly mapped to this city."
   },
+  '4830644': {
+      "cityName": "Grapevine",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Grapevine; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year terms. Home Rule since 1965. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4831100': {
+      "cityName": "Grey Forest",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small Hill Country enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4833146': {
+      "cityName": "Helotes",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Northwest San Antonio suburb.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4833968': {
+      "cityName": "Hill Country Village",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small enclave city.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4834628': {
+      "cityName": "Hollywood Park",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. San Antonio enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4835576': {
+      "cityName": "Hurst",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Hurst; Wave-S North Texas",
+      "notes": "7 council at-large by place (Place 3 is Mayor). 2-year mayoral terms. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4838632': {
+      "cityName": "Keller",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Keller; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year terms. Majority vote required. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4839448': {
+      "cityName": "Kirby",
+      "state": "TX",
+      "councilSize": 6,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-6 at-large council. East San Antonio suburb.",
+      "discoveredBy": "wave-r-bexar"
+  },
   '4842388': {
       "cityName": "Leon Valley",
       "state": "TX",
@@ -574,6 +897,51 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Leon Valley city charter; Quarantine investigation 2026-01-17",
       "notes": "City charter specifies mayor and 5 councilmembers elected at-large. No geographic districts."
+  },
+  '4843096': {
+      "cityName": "Live Oak",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Northeast San Antonio.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4846452': {
+      "cityName": "Mansfield",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Mansfield; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large by place. 3-year staggered terms. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4850256': {
+      "cityName": "Murphy",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Murphy; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large by place. 3-year terms. Collin County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4852356': {
+      "cityName": "North Richland Hills",
+      "state": "TX",
+      "councilSize": 8,
+      "electionMethod": "at-large",
+      "source": "City of North Richland Hills; Wave-S North Texas",
+      "notes": "Mayor + 7 council at-large. Council-Manager form since 1964. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4853988': {
+      "cityName": "Olmos Park",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Affluent San Antonio enclave.",
+      "discoveredBy": "wave-r-bexar"
   },
   '4856348': {
       "cityName": "Pearland",
@@ -583,6 +951,24 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "Pearland City Charter, Article III",
       "notes": "At-large council. Registry mistakenly contained Houston city council districts (11 districts A-K)."
   },
+  '4858016': {
+      "cityName": "Plano",
+      "state": "TX",
+      "councilSize": 8,
+      "electionMethod": "at-large",
+      "source": "City of Plano; Wave-S North Texas",
+      "notes": "Mayor + 7 council at-large. Places 1-4 have residency requirements but all voters vote citywide. 4th largest DFW city.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4859696': {
+      "cityName": "Prosper",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "Town of Prosper; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year terms. Home Rule Town. Collin/Denton counties.",
+      "discoveredBy": "wave-s-north-texas"
+  },
   '4863500': {
       "cityName": "Round Rock",
       "state": "TX",
@@ -590,6 +976,114 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Round Rock; Wave-K TX specialist",
       "notes": "Mayor + 6 council members elected at-large to designated Place positions."
+  },
+  '4864172': {
+      "cityName": "St. Hedwig",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Small east Bexar city.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4865381': {
+      "cityName": "Sandy Oaks",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Incorporated 2014. FIPS estimated.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4866128': {
+      "cityName": "Schertz",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-7 at-large council. Spans Bexar/Comal/Guadalupe counties.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4866704': {
+      "cityName": "Selma",
+      "state": "TX",
+      "councilSize": 6,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-6 at-large council. Spans Bexar/Comal/Guadalupe counties.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4867268': {
+      "cityName": "Shavano Park",
+      "state": "TX",
+      "councilSize": 4,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-4 at-large council (plus mayor). Affluent enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4868708': {
+      "cityName": "Somerset",
+      "state": "TX",
+      "councilSize": 3,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-3 at-large council. Small southwest Bexar city.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4868936': {
+      "cityName": "Southlake",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Southlake; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year staggered terms. 2-term limit. Tarrant County.",
+      "discoveredBy": "wave-s-north-texas"
+  },
+  '4872296': {
+      "cityName": "Terrell Hills",
+      "state": "TX",
+      "councilSize": 4,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-4 at-large council (plus mayor). San Antonio enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4874408': {
+      "cityName": "Universal City",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Adjacent to Joint Base San Antonio-Randolph.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4875764': {
+      "cityName": "Von Ormy",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Incorporated 2008. Southwest Bexar.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4879672': {
+      "cityName": "Windcrest",
+      "state": "TX",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "Bexar County GIS CityCouncilDistricts layer; Wave-R extraction 2026-01-23",
+      "notes": "Place 1-5 at-large council. Northeast San Antonio enclave.",
+      "discoveredBy": "wave-r-bexar"
+  },
+  '4880356': {
+      "cityName": "Wylie",
+      "state": "TX",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Wylie; Wave-S North Texas",
+      "notes": "Mayor + 6 council at-large. 3-year terms. Spans Collin/Dallas/Rockwall counties.",
+      "discoveredBy": "wave-s-north-texas"
   },
   '5101000': {
       "cityName": "Alexandria",
@@ -599,6 +1093,17 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://www.alexandriava.gov/Council; Wave E mid-atlantic-specialist 2026-01-19",
       "notes": "At-large council system with 6 councilmembers + mayor elected city-wide. No geographic districts. Historical ward system replaced in 1922."
   },
+  '5103000': {
+      "cityFips": "5103000",
+      "cityName": "Arlington",
+      "state": "VA",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "lastVerified": "2026-01-23T00:00:00.000Z",
+      "source": "https://www.vpap.org/offices/arlington-county-county-board-at-large/elections/",
+      "notes": "Arlington County Board - 5 members elected at-large countywide with ranked choice voting. No geographic districts.",
+      "discoveredBy": "wave-q-mi-va"
+  },
   '5168000': {
       "cityName": "Roanoke",
       "state": "VA",
@@ -607,6 +1112,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "source": "https://www.roanokeva.gov/989/City-Council; Wave E mid-atlantic-specialist 2026-01-19",
       "notes": "At-large council system with 6 councilmembers + mayor. Largest city in Virginia without ward system. Roanoke County (separate jurisdiction) has 5 magisterial districts."
   },
+  '5303180': {
+      "cityName": "Auburn",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Auburn WA; Wave-S King County",
+      "notes": "7 council at-large by position. Strong mayor form. King County. NOTE: Different from Auburn MI.",
+      "discoveredBy": "wave-s-king-county"
+  },
   '5305210': {
       "cityName": "Bellevue",
       "state": "WA",
@@ -614,6 +1128,15 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "electionMethod": "at-large",
       "source": "City of Bellevue; Wave-L Pacific NW specialist",
       "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Tech hub in King County. One of wealthiest US cities."
+  },
+  '5308850': {
+      "cityName": "Burien",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Burien; Wave-S King County",
+      "notes": "7 council at-large. Council-Manager. King County.",
+      "discoveredBy": "wave-s-king-county"
   },
   '5323515': {
       "cityName": "Federal Way",
@@ -624,12 +1147,40 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
       "notes": "Council-Manager form. Mayor + 6 council members elected at-large. King County city between Seattle and Tacoma."
   },
   '5335415': {
-      "cityName": "Kirkland",
+      "cityName": "Kent",
       "state": "WA",
       "councilSize": 7,
       "electionMethod": "at-large",
-      "source": "City of Kirkland; Wave-L Pacific NW specialist",
-      "notes": "Council-Manager form. Mayor + 6 council members elected at-large. King County lakeside city."
+      "source": "City of Kent; Wave-S King County",
+      "notes": "7 council at-large. 4-year terms. 'Kent for Districts' campaign 2024 not yet implemented. King County.",
+      "discoveredBy": "wave-s-king-county"
+  },
+  '5357535': {
+      "cityName": "Renton",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Renton; Wave-S King County",
+      "notes": "7 council at-large. 4-year staggered terms. Council-Manager. King County.",
+      "discoveredBy": "wave-s-king-county"
+  },
+  '5357745': {
+      "cityName": "Redmond",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Redmond; Wave-S King County",
+      "notes": "7 council at-large. Microsoft HQ city. Council-Manager. King County.",
+      "discoveredBy": "wave-s-king-county"
+  },
+  '5362602': {
+      "cityName": "Sammamish",
+      "state": "WA",
+      "councilSize": 7,
+      "electionMethod": "at-large",
+      "source": "City of Sammamish; Wave-S King County",
+      "notes": "7 council at-large. Incorporated 1999. Council-Manager. King County.",
+      "discoveredBy": "wave-s-king-county"
   },
   '5374060': {
       "cityName": "Vancouver",
@@ -641,4 +1192,4 @@ export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
   },
 };
 
-export const AT_LARGE_COUNT = 77;
+export const AT_LARGE_COUNT = 138;
