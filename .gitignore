@@ -201,9 +201,10 @@ packages/crypto/services/shadow-atlas/data/census-tiger-2023-counties.geojson
 # Build artifacts
 *.tar.gz
 
-# Yarn berry
+# Yarn berry (project uses npm, not yarn)
 .yarn/
 .yarnrc.yml
+yarn.lock
 
 # TIGER cache data
 packages/crypto/packages/
@@ -211,3 +212,13 @@ packages/crypto/data/tiger-cache/
 
 # Archive - large data files
 .archive/
+
+# Test artifacts and temporary test output
+.shadow-atlas-test/
+test-output/
+analysis-output/
+
+# Noir prover development profiler
+packages/noir-prover/profiler.html
+packages/noir-prover/serve-profiler.js
+packages/noir-prover/profiler-entry.ts
