@@ -23,20 +23,26 @@
 
 import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
 import { BoundaryType } from './core/types.js';
+import {
+  AUTHORITY_LEVELS,
+  type CircuitDepth,
+  CIRCUIT_DEPTHS,
+  selectDepthForJurisdiction,
+  getCapacityForDepth,
+  validateDepthForCount,
+} from './core/constants.js';
 
 // Re-export for public API compatibility
-export type { BoundaryType };
+export type { BoundaryType, CircuitDepth };
 
-/**
- * Authority levels for provenance tracking
- */
-export const AUTHORITY_LEVELS = {
-  FEDERAL_MANDATE: 5,      // US Census TIGER (Congressional, State, County)
-  STATE_OFFICIAL: 4,       // State GIS clearinghouse
-  MUNICIPAL_OFFICIAL: 3,   // Official city/county GIS
-  COMMUNITY_VERIFIED: 2,   // Community sources with validation
-  UNVERIFIED: 1,           // Unverified sources
-} as const;
+// Re-export constants for backward compatibility and public API
+export {
+  AUTHORITY_LEVELS,
+  CIRCUIT_DEPTHS,
+  selectDepthForJurisdiction,
+  getCapacityForDepth,
+  validateDepthForCount,
+};
 
 /**
  * Provenance source metadata for cryptographic commitment
@@ -80,26 +86,56 @@ export interface MerkleLeafInput {
 
 /**
  * Merkle proof for ZK circuit verification
+ *
+ * DEPTH-AWARE (v2.1.0):
+ * The `depth` field indicates which circuit variant to use for verification.
+ * The proof's siblings array length MUST equal depth for valid verification.
+ *
+ * Depth → Circuit mapping:
+ * - 18: UltraPlonkVerifier_18 (~262K capacity)
+ * - 20: UltraPlonkVerifier_20 (~1M capacity)
+ * - 22: UltraPlonkVerifier_22 (~4M capacity)
+ * - 24: UltraPlonkVerifier_24 (~16M capacity)
  */
 export interface MerkleProof {
   readonly root: bigint;
   readonly leaf: bigint;
   readonly siblings: readonly bigint[];
   readonly pathIndices: readonly number[];  // 0 = left, 1 = right
+  /**
+   * Circuit depth used to build this tree
+   * MUST match the verifier contract depth for on-chain verification
+   */
+  readonly depth: CircuitDepth;
 }
 
 /**
  * Configuration for parallel tree construction
+ *
+ * MULTI-DEPTH SUPPORT (v2.1.0):
+ * The `depth` field now accepts only valid CircuitDepth values (18, 20, 22, 24).
+ * This ensures the tree depth matches a compiled circuit for proof verification.
+ *
+ * To select depth automatically:
+ * - By address count: Use selectDepthForSize() from poseidon-utils
+ * - By country: Use selectDepthForJurisdiction() from constants
  */
 export interface MerkleTreeConfig {
   /** Max concurrent hash operations per batch (default: 64) */
   readonly batchSize?: number;
-  /** Tree depth override (default: 12, max capacity 4096) */
-  readonly depth?: number;
+  /**
+   * Circuit-compatible tree depth (default: 20)
+   * Valid values: 18, 20, 22, 24
+   */
+  readonly depth?: CircuitDepth;
+  /**
+   * Optional: ISO 3166-1 alpha-3 country code for automatic depth selection
+   * If provided and depth is not set, uses selectDepthForJurisdiction()
+   */
+  readonly countryCode?: string;
 }
 
-const DEFAULT_TREE_DEPTH = 12;
-const DEFAULT_BATCH_SIZE = 64;
+import { DEFAULT_TREE_DEPTH, DEFAULT_BATCH_SIZE } from './core/constants.js';
 const PADDING_LEAF = 'PADDING';
 
 /**
@@ -155,7 +191,23 @@ export class ShadowAtlasMerkleTree {
     addresses: readonly string[],
     config: MerkleTreeConfig = {}
   ): Promise<ShadowAtlasMerkleTree> {
-    const depth = config.depth ?? DEFAULT_TREE_DEPTH;
+    // Determine depth: explicit > country-based > default
+    let depth: CircuitDepth;
+    if (config.depth !== undefined) {
+      depth = config.depth;
+    } else if (config.countryCode) {
+      depth = selectDepthForJurisdiction(config.countryCode);
+    } else {
+      depth = DEFAULT_TREE_DEPTH as CircuitDepth;
+    }
+
+    // Validate depth is a valid CircuitDepth
+    if (!CIRCUIT_DEPTHS.includes(depth)) {
+      throw new Error(
+        `Invalid circuit depth: ${depth}. Valid values: ${CIRCUIT_DEPTHS.join(', ')}`
+      );
+    }
+
     const batchSize = config.batchSize ?? DEFAULT_BATCH_SIZE;
     const capacity = 2 ** depth;
 
@@ -324,7 +376,8 @@ export class ShadowAtlasMerkleTree {
       root: this.root,
       leaf: leafHash,
       siblings,
-      pathIndices
+      pathIndices,
+      depth: this.depth as CircuitDepth,
     };
   }
 
@@ -509,11 +562,13 @@ export async function exportToIPFS(
     })),
     metadata: {
       depth: tree.getDepth(),
+      circuitDepth: tree.getDepth() as CircuitDepth, // Explicit circuit binding
       capacity: tree.getCapacity(),
       addressCount: tree.getAddressCount(),
       generatedAt: new Date().toISOString(),
       hashFunction: 'poseidon2',
       implementation: 'noir-stdlib',
+      verifierContract: `UltraPlonkVerifier_${tree.getDepth()}`, // On-chain verifier reference
     },
   };
 

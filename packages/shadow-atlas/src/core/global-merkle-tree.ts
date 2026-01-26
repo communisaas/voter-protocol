@@ -27,7 +27,7 @@
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
  */
 
-import { hash_pair, hash_single } from '@voter-protocol/crypto/circuits';
+import { hash_single } from '@voter-protocol/crypto/circuits';
 import type { Polygon, MultiPolygon } from 'geojson';
 import {
   getCountryByCode,
@@ -36,6 +36,12 @@ import {
 } from '../core/registry/iso-3166-countries.js';
 import { BoundaryType } from '../core/types.js';
 import { logger } from '../core/utils/logger.js';
+import { AUTHORITY_LEVELS, type AuthorityLevel } from './constants.js';
+import { hashPair } from './utils/poseidon-utils.js';
+
+// Re-export for backward compatibility
+export { AUTHORITY_LEVELS };
+export type { AuthorityLevel };
 
 // ============================================================================
 // Type Definitions
@@ -52,20 +58,6 @@ export type GlobalBoundaryType =
   | 'electorate'                       // Australia federal electorates
   | 'wahlkreis'                        // Germany Bundestag constituencies
   | 'circonscription';                 // France circonscriptions législatives
-
-/**
- * Authority levels for provenance tracking
- * Higher number = more authoritative
- */
-export const GLOBAL_AUTHORITY_LEVELS = {
-  FEDERAL_MANDATE: 5,      // US Census TIGER, national statistical agencies
-  STATE_OFFICIAL: 4,       // State GIS clearinghouse, provincial agencies
-  MUNICIPAL_OFFICIAL: 3,   // Official city/county GIS
-  COMMUNITY_VERIFIED: 2,   // Community sources with validation
-  UNVERIFIED: 1,           // Unverified sources
-} as const;
-
-export type AuthorityLevel = typeof GLOBAL_AUTHORITY_LEVELS[keyof typeof GLOBAL_AUTHORITY_LEVELS];
 
 /**
  * Continental region enumeration
@@ -554,11 +546,11 @@ export class GlobalMerkleTreeBuilder {
 
     // Compute six-element Poseidon hash (iterative hash_pair)
     // Hierarchy: country → region → type → id → geometry → authority
-    let hash = await this.hashPair(countryHash, regionHash);
-    hash = await this.hashPair(hash, typeHash);
-    hash = await this.hashPair(hash, idHash);
-    hash = await this.hashPair(hash, geometryHash);
-    hash = await this.hashPair(hash, authority);
+    let hash = await hashPair(countryHash, regionHash);
+    hash = await hashPair(hash, typeHash);
+    hash = await hashPair(hash, idHash);
+    hash = await hashPair(hash, geometryHash);
+    hash = await hashPair(hash, authority);
 
     return {
       id: district.id,
@@ -602,12 +594,12 @@ export class GlobalMerkleTreeBuilder {
           // Pair exists: hash together
           const left = currentLayer[i];
           const right = currentLayer[i + 1];
-          nextLayer.push(await this.hashPair(left, right));
+          nextLayer.push(await hashPair(left, right));
         } else {
           // Odd element: hash with itself (Bitcoin/Ethereum standard)
           // SECURITY: Prevents structural ambiguity and ensures domain separation
           const element = currentLayer[i];
-          nextLayer.push(await this.hashPair(element, element));
+          nextLayer.push(await hashPair(element, element));
         }
       }
 
@@ -673,7 +665,7 @@ export class GlobalMerkleTreeBuilder {
       // Multiple chunks: iterative hashing
       let hash = chunks[0];
       for (let i = 1; i < chunks.length; i++) {
-        hash = await this.hashPair(hash, chunks[i]);
+        hash = await hashPair(hash, chunks[i]);
       }
       return hash;
     }
@@ -727,10 +719,10 @@ export class GlobalMerkleTreeBuilder {
       const latPositive = latNormalized + 90_000_000;
 
       // Hash coordinate pair (lon, lat)
-      const coordHash = await this.hashPair(BigInt(lonPositive), BigInt(latPositive));
+      const coordHash = await hashPair(BigInt(lonPositive), BigInt(latPositive));
 
       // Iteratively hash into accumulator
-      hash = await this.hashPair(hash, coordHash);
+      hash = await hashPair(hash, coordHash);
     }
 
     return hash;
@@ -754,23 +746,6 @@ export class GlobalMerkleTreeBuilder {
     } else {
       throw new Error(`Unsupported geometry type: ${(geometry as { type: string }).type}`);
     }
-  }
-
-  /**
-   * Hash two values using Poseidon hash_pair
-   *
-   * SECURITY: Non-commutative (hash_pair(a, b) ≠ hash_pair(b, a))
-   * This prevents sibling swap attacks.
-   *
-   * @param left - Left value
-   * @param right - Right value
-   * @returns Poseidon hash
-   */
-  private async hashPair(left: bigint, right: bigint): Promise<bigint> {
-    const leftHex = '0x' + left.toString(16).padStart(64, '0');
-    const rightHex = '0x' + right.toString(16).padStart(64, '0');
-    const hashHex = await hash_pair(leftHex, rightHex);
-    return BigInt(hashHex);
   }
 
   /**
@@ -1188,12 +1163,12 @@ export class GlobalMerkleTreeBuilder {
         if (i + 1 < currentLayer.length) {
           const left = currentLayer[i];
           const right = currentLayer[i + 1];
-          nextLayer.push(await this.hashPair(left, right));
+          nextLayer.push(await hashPair(left, right));
         } else {
           // Odd element: hash with itself (Bitcoin/Ethereum standard)
           // SECURITY: Must match buildMerkleRoot behavior for consistent tree structure
           const element = currentLayer[i];
-          nextLayer.push(await this.hashPair(element, element));
+          nextLayer.push(await hashPair(element, element));
         }
       }
 
@@ -1218,8 +1193,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.districtProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? await this.hashPair(hash, sibling)
-        : await this.hashPair(sibling, hash);
+        ? await hashPair(hash, sibling)
+        : await hashPair(sibling, hash);
     }
 
     if (hash !== proof.districtProof.countryRoot) {
@@ -1233,8 +1208,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.countryProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? await this.hashPair(hash, sibling)
-        : await this.hashPair(sibling, hash);
+        ? await hashPair(hash, sibling)
+        : await hashPair(sibling, hash);
     }
 
     return hash === proof.countryProof.globalRoot;
@@ -1314,8 +1289,8 @@ export class GlobalMerkleTreeBuilder {
       const isLeft = proof.continentalProof.pathIndices[i] === 0;
 
       hash = isLeft
-        ? await this.hashPair(hash, sibling)
-        : await this.hashPair(sibling, hash);
+        ? await hashPair(hash, sibling)
+        : await hashPair(sibling, hash);
     }
 
     return hash === proof.continentalProof.globalRoot;

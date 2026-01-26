@@ -421,6 +421,7 @@ export class ShadowAtlasAPI {
           leaf: merkleProof.leaf,
           siblings: merkleProof.siblings,
           pathIndices: merkleProof.pathIndices,
+          depth: merkleProof.depth,
         },
         latencyMs: result.latencyMs,
         cacheHit: result.cacheHit,

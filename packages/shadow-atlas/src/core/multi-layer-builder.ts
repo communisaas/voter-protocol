@@ -37,12 +37,11 @@ import {
   computeLeafHashesBatch,
   type BoundaryType,
   type MerkleLeafInput,
-  AUTHORITY_LEVELS,
 } from '../merkle-tree.js';
-import { hash_pair } from '@voter-protocol/crypto/circuits';
 import { getHasher } from '@voter-protocol/crypto/poseidon2';
 import { sha256 } from '@noble/hashes/sha256';
 import { logger } from './utils/logger.js';
+import { hashPair } from './utils/poseidon-utils.js';
 
 /**
  * Provenance source metadata for cryptographic commitment
@@ -294,9 +293,9 @@ export class MultiLayerMerkleTreeBuilder {
 
       // Hash pair (order matters: left always before right)
       if (isLeftChild) {
-        computedHash = await this.hashPair(computedHash, sibling);
+        computedHash = await hashPair(computedHash, sibling);
       } else {
-        computedHash = await this.hashPair(sibling, computedHash);
+        computedHash = await hashPair(sibling, computedHash);
       }
     }
 
@@ -529,7 +528,7 @@ export class MultiLayerMerkleTreeBuilder {
       // SECURITY: This matches global-merkle-tree.ts behavior where odd elements use hash(x, x)
       if (currentLayer.length % 2 === 1) {
         const oddElement = currentLayer[currentLayer.length - 1];
-        const selfHash = await this.hashPair(oddElement, oddElement);
+        const selfHash = await hashPair(oddElement, oddElement);
         nextLayer.push(selfHash);
       }
 
@@ -548,16 +547,6 @@ export class MultiLayerMerkleTreeBuilder {
     });
 
     return tree;
-  }
-
-  /**
-   * Hash two child hashes using Poseidon
-   */
-  private async hashPair(left: bigint, right: bigint): Promise<bigint> {
-    const leftHex = '0x' + left.toString(16).padStart(64, '0');
-    const rightHex = '0x' + right.toString(16).padStart(64, '0');
-    const hashHex = await hash_pair(leftHex, rightHex);
-    return BigInt(hashHex);
   }
 
   /**

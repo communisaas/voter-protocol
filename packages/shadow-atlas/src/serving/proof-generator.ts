@@ -17,12 +17,12 @@
  * Clients don't trust server - they verify cryptographically.
  */
 
-import { ShadowAtlasMerkleTree, createShadowAtlasMerkleTree, type MerkleProof } from '../merkle-tree.js';
+import { ShadowAtlasMerkleTree, createShadowAtlasMerkleTree, type MerkleProof, type CircuitDepth } from '../merkle-tree.js';
 import type { DistrictBoundary } from './types';
 import {
   DistrictProver,
   type DistrictProof,
-  type CircuitDepth,
+  type CircuitDepth as CryptoCircuitDepth,
 } from '@voter-protocol/crypto/district-prover';
 import { logger } from '../core/utils/logger.js';
 
@@ -97,7 +97,8 @@ export class ZKProofService {
     const start = Date.now();
 
     // Get singleton prover instance for this depth
-    this.prover = await DistrictProver.getInstance(this.depth);
+    // Cast to crypto's CircuitDepth (same values, different type definitions)
+    this.prover = await DistrictProver.getInstance(this.depth as CryptoCircuitDepth);
 
     logger.info('DistrictProver initialized', { duration: Date.now() - start });
   }
@@ -193,7 +194,7 @@ export class ProofService {
   private constructor(
     merkleTree: ShadowAtlasMerkleTree,
     districtMap: Map<string, number>,
-    circuitDepth: CircuitDepth = 14
+    circuitDepth: CircuitDepth = 20
   ) {
     this.merkleTree = merkleTree;
     this.districtMap = districtMap;
@@ -222,7 +223,7 @@ export class ProofService {
     });
 
     // Use provided depth or default to 14 (municipal level)
-    const circuitDepth: CircuitDepth = zkConfig?.depth ?? 14;
+    const circuitDepth: CircuitDepth = zkConfig?.depth ?? 20;
     const service = new ProofService(merkleTree, districtMap, circuitDepth);
 
     // Initialize ZK service if config provided
@@ -295,6 +296,7 @@ export class ProofService {
       leaf,
       siblings,
       pathIndices,
+      depth: this.circuitDepth,
     };
   }
 
@@ -521,6 +523,7 @@ export interface CompactProof {
   readonly l: string; // leaf (hex)
   readonly s: readonly string[]; // siblings (hex array)
   readonly p: readonly number[]; // path indices
+  readonly d: CircuitDepth; // depth (18, 20, 22, 24)
 }
 
 /**
@@ -532,6 +535,7 @@ export function toCompactProof(proof: MerkleProof): CompactProof {
     l: '0x' + proof.leaf.toString(16),
     s: proof.siblings.map((s) => '0x' + s.toString(16)),
     p: proof.pathIndices as number[],
+    d: proof.depth,
   };
 }
 
@@ -544,5 +548,6 @@ export function fromCompactProof(compact: CompactProof): MerkleProof {
     leaf: BigInt(compact.l),
     siblings: compact.s.map((s) => BigInt(s)),
     pathIndices: compact.p,
+    depth: compact.d,
   };
 }

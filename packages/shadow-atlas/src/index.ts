@@ -44,7 +44,7 @@ export {
 // Global Merkle Tree (for multi-country support)
 export {
     GlobalMerkleTreeBuilder,
-    GLOBAL_AUTHORITY_LEVELS,
+    AUTHORITY_LEVELS as GLOBAL_AUTHORITY_LEVELS, // Backward compat alias
     REGION_NAMES,
     type GlobalBoundaryType,
     type AuthorityLevel,

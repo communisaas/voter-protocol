@@ -19,8 +19,8 @@ import type {
   GlobalMerkleTree,
   GlobalBoundaryType,
   AuthorityLevel,
-  GLOBAL_AUTHORITY_LEVELS,
 } from './global-merkle-tree.js';
+import { AUTHORITY_LEVELS } from './constants.js';
 import type { MerkleBoundaryInput } from '../core/multi-layer-builder.js';
 import type { MultiLayerMerkleTree } from '../core/multi-layer-builder.js';
 import { BoundaryType } from '../core/types/boundary.js';
