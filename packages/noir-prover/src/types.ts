@@ -2,6 +2,20 @@
  * Type definitions for NoirProver
  */
 
+/**
+ * Supported Merkle tree depths for circuit selection
+ * - 18: Small municipal (~260K leaves)
+ * - 20: State/large municipal (~1M leaves)
+ * - 22: Federal (~4M leaves)
+ * - 24: National (~16M leaves)
+ */
+export type CircuitDepth = 18 | 20 | 22 | 24;
+
+/**
+ * Default circuit depth when not specified
+ */
+export const DEFAULT_CIRCUIT_DEPTH: CircuitDepth = 20;
+
 export interface ProverConfig {
     /** Circuit name (default: 'district_membership') */
     circuitName?: string;
@@ -13,6 +27,15 @@ export interface ProverConfig {
      * Requires COOP/COEP headers for multithreading in browsers
      */
     threads?: number;
+    /**
+     * Merkle tree depth for circuit selection (default: 20)
+     * Different depths support different tree sizes:
+     * - 18: ~260K leaves (small municipal)
+     * - 20: ~1M leaves (state/large municipal)
+     * - 22: ~4M leaves (federal)
+     * - 24: ~16M leaves (national)
+     */
+    depth?: CircuitDepth;
 }
 
 export interface CircuitInputs {
