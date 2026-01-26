@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { VOTERClient } from '../src/client';
 import { NEARAccountManager } from '../src/account/near-account';
 import { ChainSignatureManager } from '../src/account/chain-signatures';
-import { Halo2Prover } from '../src/zk/halo2-prover';
+import { NoirProverAdapter } from '../src/zk/noir-prover';
 import { ShadowAtlas } from '../src/zk/shadow-atlas';
 
 describe('VOTERClient', () => {
@@ -140,11 +140,11 @@ describe('ChainSignatureManager', () => {
   });
 });
 
-describe('Halo2Prover', () => {
-  let prover: Halo2Prover;
+describe('NoirProverAdapter', () => {
+  let prover: NoirProverAdapter;
 
   beforeEach(() => {
-    prover = new Halo2Prover();
+    prover = new NoirProverAdapter();
   });
 
   describe('Initialization', () => {
@@ -243,33 +243,6 @@ describe('Utility Functions', () => {
       expect(getReputationTier(50)).toBe(ReputationTier.EMERGING);
       expect(getReputationTier(30)).toBe(ReputationTier.NOVICE);
       expect(getReputationTier(10)).toBe(ReputationTier.UNTRUSTED);
-    });
-  });
-
-  describe('isValidAddress', () => {
-    it('should validate Ethereum addresses', async () => {
-      const { isValidAddress } = await import('../src/utils/format');
-
-      expect(isValidAddress('0x1234567890123456789012345678901234567890')).toBe(true);
-      expect(isValidAddress('0xABCDEF1234567890123456789012345678901234')).toBe(true);
-      expect(isValidAddress('invalid')).toBe(false);
-      expect(isValidAddress('0x123')).toBe(false);
-    });
-  });
-
-  describe('shortenAddress', () => {
-    it('should shorten valid addresses', async () => {
-      const { shortenAddress } = await import('../src/utils/format');
-
-      const address = '0x1234567890123456789012345678901234567890';
-      expect(shortenAddress(address)).toBe('0x1234...7890');
-      expect(shortenAddress(address, 6)).toBe('0x123456...567890');
-    });
-
-    it('should return original string for invalid addresses', async () => {
-      const { shortenAddress } = await import('../src/utils/format');
-
-      expect(shortenAddress('invalid')).toBe('invalid');
     });
   });
 });

@@ -38,18 +38,3 @@ export function getReputationTier(score: number): ReputationTier {
 export function isConnectedWallet(addressType: string): boolean {
   return addressType === 'connected' || addressType === 'certified';
 }
-
-/**
- * Validate Ethereum address format
- */
-export function isValidAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
-}
-
-/**
- * Shorten address for display (0x1234...5678)
- */
-export function shortenAddress(address: string, chars: number = 4): string {
-  if (!isValidAddress(address)) return address;
-  return `${address.slice(0, chars + 2)}...${address.slice(-chars)}`;
-}

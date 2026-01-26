@@ -22,8 +22,7 @@
     "build": "node ./scripts/check-env.js && tsc && vite build",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@near-js/accounts": "^2.3.3",
