@@ -21,6 +21,14 @@ import "openzeppelin/security/Pausable.sol";
 /// - Spam mitigated by: rate limits (60s), gas costs, ZK proof generation time
 /// - Action namespaces are user-defined (typically hash of template/campaign ID)
 ///
+/// HYBRID 24-SLOT DISTRICT APPROACH:
+/// The ZK circuit supports 24 district slots per proof using a hybrid allocation:
+/// - Slots 0-19: 20 defined district types (federal, state, county, city, school, etc.)
+/// - Slots 20-21: Reserved for future defined district types
+/// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
+/// This approach balances circuit efficiency with coverage for edge cases.
+/// Empty slots use bytes32(0) and are skipped during verification.
+///
 /// CAMPAIGN INTEGRATION (Phase 1.5):
 /// - Optional CampaignRegistry records participation metrics
 /// - Actions work without campaigns (backwards compatible)
@@ -37,6 +45,10 @@ import "openzeppelin/security/Pausable.sol";
 /// - Guardians must be humans in different legal jurisdictions
 /// - NOT LLM agents, NOT VPN-separated keys from same person
 contract DistrictGate is Pausable, TimelockGovernance {
+    /// @notice Maximum district slots in proof (hybrid: 20 defined + 4 overflow)
+    /// @dev Slots 0-19: Defined district types, Slots 20-21: Reserved, Slots 22-23: Overflow
+    uint8 public constant MAX_DISTRICT_SLOTS = 24;
+
     /// @notice Address of the ZK verifier contract (upgradeable with timelock)
     address public verifier;
 
