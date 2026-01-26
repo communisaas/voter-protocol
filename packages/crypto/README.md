@@ -155,7 +155,6 @@ const pii = await decompressPII(compressed);
 
 - [TEST_STRATEGY.md](../../TEST_STRATEGY.md) - Testing philosophy and WASM Poseidon validation
 - [COMPRESSION-STRATEGY.md](../../COMPRESSION-STRATEGY.md) - Compression analysis
-- [DAY-2-SECURITY-FIXES.md](../../DAY-2-SECURITY-FIXES.md) - Security audit findings
 
 ## License
 

@@ -11,9 +11,10 @@
  * 4. No server trust - proving happens 100% client-side
  *
  * CIRCUIT DEPTHS:
- * - DEPTH=14: Municipal (city council, ~16K leaves)
+ * - DEPTH=18: Municipal (city council, ~262K leaves)
  * - DEPTH=20: State (congressional districts, ~1M leaves)
  * - DEPTH=22: Federal (national boundaries, ~4M leaves)
+ * - DEPTH=24: Large-scale (mega-regions, ~16M leaves)
  *
  * PERFORMANCE:
  * - Singleton pattern: Backend initialized once, reused for all proofs
@@ -31,15 +32,16 @@ import { UltraHonkBackend } from '@aztec/bb.js';
 import type { CompiledCircuit, InputMap } from '@noir-lang/noir_js';
 import type { ProofData } from '@aztec/bb.js';
 
-// Import compiled district_membership circuits (build script generates 3 variants)
-import districtCircuit14 from './noir/district_membership/target/district_membership_14.json';
+// Import compiled district_membership circuits (build script generates 4 variants)
+import districtCircuit18 from './noir/district_membership/target/district_membership_18.json';
 import districtCircuit20 from './noir/district_membership/target/district_membership_20.json';
 import districtCircuit22 from './noir/district_membership/target/district_membership_22.json';
+import districtCircuit24 from './noir/district_membership/target/district_membership_24.json';
 
 /**
- * Supported Merkle tree depths
+ * Supported Merkle tree depths (even values 18-24)
  */
-export type CircuitDepth = 14 | 20 | 22;
+export type CircuitDepth = 18 | 20 | 22 | 24;
 
 /**
  * Private witness inputs (never leave browser)
@@ -96,8 +98,8 @@ export interface VerificationConfig {
  *
  * USAGE:
  * ```typescript
- * // Municipal authority (depth 14)
- * const prover = await DistrictProver.getInstance(14);
+ * // Municipal authority (depth 18)
+ * const prover = await DistrictProver.getInstance(18);
  * const proof = await prover.generateProof(witness);
  * const isValid = await prover.verifyProof(proof, verificationConfig);
  * ```
@@ -126,7 +128,7 @@ export class DistrictProver {
    * First call initializes the Noir circuit + Barretenberg backend, subsequent calls
    * return cached instance. Uses promise-based locking to prevent double initialization.
    *
-   * @param depth - Merkle tree depth (14=municipal, 20=state, 22=federal)
+   * @param depth - Merkle tree depth (18=municipal, 20=state, 22=federal, 24=mega-region)
    */
   static async getInstance(depth: CircuitDepth): Promise<DistrictProver> {
     const cachedInstance = DistrictProver.instances.get(depth);
@@ -151,8 +153,8 @@ export class DistrictProver {
     // Select circuit based on depth
     let circuit: CompiledCircuit;
     switch (depth) {
-      case 14:
-        circuit = districtCircuit14 as unknown as CompiledCircuit;
+      case 18:
+        circuit = districtCircuit18 as unknown as CompiledCircuit;
         break;
       case 20:
         circuit = districtCircuit20 as unknown as CompiledCircuit;
@@ -160,8 +162,11 @@ export class DistrictProver {
       case 22:
         circuit = districtCircuit22 as unknown as CompiledCircuit;
         break;
+      case 24:
+        circuit = districtCircuit24 as unknown as CompiledCircuit;
+        break;
       default:
-        throw new Error(`Unsupported circuit depth: ${depth}. Must be 14, 20, or 22.`);
+        throw new Error(`Unsupported circuit depth: ${depth}. Must be 18, 20, 22, or 24.`);
     }
 
     const noir = new Noir(circuit);
