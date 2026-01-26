@@ -1,0 +1,139 @@
+# Shadow Atlas CLI Configuration
+# ================================
+#
+# Copy this file to .shadow-atlasrc and customize as needed.
+# Configuration is loaded from (in order of precedence):
+#   1. Command-line options (--timeout, --concurrency, etc.)
+#   2. Environment variables (SHADOW_ATLAS_*)
+#   3. Config file (.shadow-atlasrc or --config path)
+#   4. Default values
+#
+# File format: YAML
+# Supported names: .shadow-atlasrc, .shadow-atlasrc.yaml, .shadow-atlasrc.yml, .shadow-atlasrc.json
+
+# Configuration schema version (required)
+version: 1
+
+# ============================================================================
+# Path Configuration
+# ============================================================================
+# All paths are relative to the config file location unless absolute.
+
+paths:
+  # Directory containing NDJSON registry source files
+  data: ./data/registries
+
+  # Directory for generated TypeScript registry files
+  generated: ./src/core/registry
+
+  # Cache directory for TIGER downloads and other cached data
+  cache: ./data/cache
+
+  # Audit log directory (append-only NDJSON logs)
+  audit: ./data/audit
+
+  # Migration scripts and history
+  migrations: ./data/migrations
+
+  # Registry snapshots for rollback capability
+  snapshots: ./data/snapshots
+
+# ============================================================================
+# Default Operation Settings
+# ============================================================================
+
+defaults:
+  # Default timeout for network operations (milliseconds)
+  # Can be overridden with --timeout flag
+  timeout: 30000
+
+  # Maximum concurrent operations for batch processing
+  # Can be overridden with --concurrency flag
+  concurrency: 5
+
+  validation:
+    # Default validation tier: structure | sanity | full
+    # - structure: HTTP fetch + GeoJSON structure (~1-2s)
+    # - sanity: + Centroid proximity + count ratio (~10ms additional)
+    # - full: + Tessellation proof with 4 axioms (~500-2000ms additional)
+    tier: full
+
+    # Default coverage set for registry validation: top50 | top100 | all
+    coverage: top50
+
+# ============================================================================
+# External Service Configuration
+# ============================================================================
+
+services:
+  # Census TIGER Web Services
+  tiger:
+    baseUrl: https://tigerweb.geo.census.gov/arcgis/rest/services
+    vintage: 2024
+    timeout: 60000
+
+  # ArcGIS Online / Hub
+  arcgis:
+    baseUrl: https://www.arcgis.com
+    timeout: 30000
+
+# ============================================================================
+# Audit Logging Configuration
+# ============================================================================
+# Audit logs provide provenance tracking for all registry mutations.
+
+audit:
+  # Enable/disable audit logging
+  # Can be disabled per-run with --no-audit flag (use sparingly)
+  enabled: true
+
+  # Audit log retention period in days
+  # Old entries can be exported and archived
+  retention_days: 365
+
+  # Audit log file name (stored in paths.audit directory)
+  file_name: audit.ndjson
+
+# ============================================================================
+# Environment Variables
+# ============================================================================
+# The following environment variables can override configuration:
+#
+# SHADOW_ATLAS_CONFIG        - Path to config file
+# SHADOW_ATLAS_VERBOSE       - Enable verbose output (true/false)
+# SHADOW_ATLAS_JSON          - Output as JSON (true/false)
+# SHADOW_ATLAS_DRY_RUN       - Dry run mode (true/false)
+# SHADOW_ATLAS_NO_AUDIT      - Disable audit logging (true/false)
+# SHADOW_ATLAS_TIMEOUT       - Operation timeout (milliseconds)
+# SHADOW_ATLAS_CONCURRENCY   - Parallel operations limit
+# SHADOW_ATLAS_DATA_DIR      - Override paths.data
+# SHADOW_ATLAS_GENERATED_DIR - Override paths.generated
+# SHADOW_ATLAS_CACHE_DIR     - Override paths.cache
+# SHADOW_ATLAS_AUDIT_DIR     - Override paths.audit
+# SHADOW_ATLAS_MIGRATIONS_DIR - Override paths.migrations
+# SHADOW_ATLAS_SNAPSHOTS_DIR - Override paths.snapshots
+
+# ============================================================================
+# Exit Codes Reference
+# ============================================================================
+# The CLI uses the following exit codes:
+#
+#   0 - Success
+#   1 - Validation warnings (non-blocking)
+#   2 - Validation errors (blocking)
+#   3 - Configuration error
+#   4 - Network/service error
+#   5 - Data integrity error
+#  10 - User cancelled
+# 127 - Unknown command
+
+# ============================================================================
+# Quick Start
+# ============================================================================
+# 1. Copy this file: cp .shadow-atlasrc.example .shadow-atlasrc
+# 2. Test the CLI: npx tsx bin/shadow-atlas.ts --help
+# 3. Run basic commands:
+#    - npx tsx bin/shadow-atlas.ts registry list --limit 10
+#    - npx tsx bin/shadow-atlas.ts registry stats
+#    - npx tsx bin/shadow-atlas.ts validate registry --coverage top50
+#    - npx tsx bin/shadow-atlas.ts diagnose health --quick

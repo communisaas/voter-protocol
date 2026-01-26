@@ -1,0 +1,32 @@
+{
+  "version": "1.0.0",
+  "description": "Test example for field mapping validation",
+  "fields": {
+    "oldName": "newName"
+  },
+  "transforms": {
+    "constant": {
+      "type": "constant",
+      "value": "test-value"
+    },
+    "lookup": {
+      "type": "lookup",
+      "sourceField": "id",
+      "lookupTable": {
+        "1": "one",
+        "2": "two",
+        "3": "three"
+      },
+      "defaultValue": "unknown"
+    },
+    "concat": {
+      "type": "concat",
+      "sourceFields": ["constant", "newName"],
+      "separator": "-"
+    }
+  },
+  "validation": {
+    "requiredFields": ["newName", "constant"],
+    "skipInvalid": false
+  }
+}

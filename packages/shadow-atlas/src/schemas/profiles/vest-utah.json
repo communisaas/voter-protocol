@@ -1,0 +1,98 @@
+{
+  "version": "1.0.0",
+  "description": "Utah VEST 2020 field mapping - non-standard CountyID and vistapre fields",
+  "source": {
+    "name": "Utah VEST 2020 Redistricting Data",
+    "url": "https://redistrictingdatahub.org/dataset/utah-election-results-precinct-level-2020/",
+    "notes": "CountyID is sequential 1-29 (not FIPS). Utah counties use odd FIPS codes 001-057."
+  },
+  "fields": {
+    "vistapre": "localPrecinct"
+  },
+  "transforms": {
+    "stateFips": {
+      "type": "constant",
+      "value": "49"
+    },
+    "countyFips": {
+      "type": "lookup",
+      "sourceField": "CountyID",
+      "lookupTable": {
+        "1": "001",
+        "2": "003",
+        "3": "005",
+        "4": "007",
+        "5": "009",
+        "6": "011",
+        "7": "013",
+        "8": "015",
+        "9": "017",
+        "10": "019",
+        "11": "021",
+        "12": "023",
+        "13": "025",
+        "14": "027",
+        "15": "029",
+        "16": "031",
+        "17": "033",
+        "18": "035",
+        "19": "037",
+        "20": "039",
+        "21": "041",
+        "22": "043",
+        "23": "045",
+        "24": "047",
+        "25": "049",
+        "26": "051",
+        "27": "053",
+        "28": "055",
+        "29": "057"
+      },
+      "defaultValue": "000"
+    },
+    "countyName": {
+      "type": "lookup",
+      "sourceField": "CountyID",
+      "lookupTable": {
+        "1": "Beaver",
+        "2": "Box Elder",
+        "3": "Cache",
+        "4": "Carbon",
+        "5": "Daggett",
+        "6": "Davis",
+        "7": "Duchesne",
+        "8": "Emery",
+        "9": "Garfield",
+        "10": "Grand",
+        "11": "Iron",
+        "12": "Juab",
+        "13": "Kane",
+        "14": "Millard",
+        "15": "Morgan",
+        "16": "Piute",
+        "17": "Rich",
+        "18": "Salt Lake",
+        "19": "San Juan",
+        "20": "Sanpete",
+        "21": "Sevier",
+        "22": "Summit",
+        "23": "Tooele",
+        "24": "Uintah",
+        "25": "Utah",
+        "26": "Wasatch",
+        "27": "Washington",
+        "28": "Wayne",
+        "29": "Weber"
+      }
+    },
+    "GEOID": {
+      "type": "concat",
+      "sourceFields": ["stateFips", "countyFips", "localPrecinct"],
+      "separator": ""
+    }
+  },
+  "validation": {
+    "requiredFields": ["GEOID", "countyFips", "localPrecinct"],
+    "skipInvalid": false
+  }
+}
