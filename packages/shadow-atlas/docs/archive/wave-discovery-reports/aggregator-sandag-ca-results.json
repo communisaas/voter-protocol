@@ -1,0 +1,239 @@
+{
+  "extractionDate": "2026-01-24T05:07:45.342806+00:00",
+  "aggregatorName": "SANDAG (San Diego Association of Governments)",
+  "endpoint": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0",
+  "totalFeatures": 62,
+  "totalCities": 14,
+  "newCitiesCount": 2,
+  "duplicatesCount": 12,
+  "cities": [
+    {
+      "cityName": "Carlsbad",
+      "cityNameUpper": "CARLSBAD",
+      "fips": "0611194",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27CARLSBAD%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Chula Vista",
+      "cityNameUpper": "CHULA VISTA",
+      "fips": "0613392",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27CHULA%20VISTA%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "El Cajon",
+      "cityNameUpper": "EL CAJON",
+      "fips": "0621712",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27EL%20CAJON%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Encinitas",
+      "cityNameUpper": "ENCINITAS",
+      "fips": "0622678",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27ENCINITAS%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Escondido",
+      "cityNameUpper": "ESCONDIDO",
+      "fips": "0622804",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27ESCONDIDO%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Imperial Beach",
+      "cityNameUpper": "IMPERIAL BEACH",
+      "fips": "0636294",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27IMPERIAL%20BEACH%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "National City",
+      "cityNameUpper": "NATIONAL CITY",
+      "fips": "0650398",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27NATIONAL%20CITY%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Oceanside",
+      "cityNameUpper": "OCEANSIDE",
+      "fips": "0653322",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27OCEANSIDE%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Poway",
+      "cityNameUpper": "POWAY",
+      "fips": "0658520",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27POWAY%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "San Diego",
+      "cityNameUpper": "SAN DIEGO",
+      "fips": "0666000",
+      "districtCount": 9,
+      "featureCount": 9,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SAN%20DIEGO%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "San Marcos",
+      "cityNameUpper": "SAN MARCOS",
+      "fips": "0668196",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SAN%20MARCOS%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Santee",
+      "cityNameUpper": "SANTEE",
+      "fips": "0670224",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SANTEE%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Solana Beach",
+      "cityNameUpper": "SOLANA BEACH",
+      "fips": "0672506",
+      "districtCount": 4,
+      "featureCount": 5,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SOLANA%20BEACH%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Vista",
+      "cityNameUpper": "VISTA",
+      "fips": "0682996",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27VISTA%27&outFields=*&outSR=4326&f=geojson"
+    }
+  ],
+  "newCities": [
+    {
+      "cityName": "Imperial Beach",
+      "cityNameUpper": "IMPERIAL BEACH",
+      "fips": "0636294",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27IMPERIAL%20BEACH%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "National City",
+      "cityNameUpper": "NATIONAL CITY",
+      "fips": "0650398",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27NATIONAL%20CITY%27&outFields=*&outSR=4326&f=geojson"
+    }
+  ],
+  "duplicates": [
+    {
+      "cityName": "Carlsbad",
+      "cityNameUpper": "CARLSBAD",
+      "fips": "0611194",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27CARLSBAD%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Chula Vista",
+      "cityNameUpper": "CHULA VISTA",
+      "fips": "0613392",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27CHULA%20VISTA%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "El Cajon",
+      "cityNameUpper": "EL CAJON",
+      "fips": "0621712",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27EL%20CAJON%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Encinitas",
+      "cityNameUpper": "ENCINITAS",
+      "fips": "0622678",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27ENCINITAS%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Escondido",
+      "cityNameUpper": "ESCONDIDO",
+      "fips": "0622804",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27ESCONDIDO%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Oceanside",
+      "cityNameUpper": "OCEANSIDE",
+      "fips": "0653322",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27OCEANSIDE%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Poway",
+      "cityNameUpper": "POWAY",
+      "fips": "0658520",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27POWAY%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "San Diego",
+      "cityNameUpper": "SAN DIEGO",
+      "fips": "0666000",
+      "districtCount": 9,
+      "featureCount": 9,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SAN%20DIEGO%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "San Marcos",
+      "cityNameUpper": "SAN MARCOS",
+      "fips": "0668196",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SAN%20MARCOS%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Santee",
+      "cityNameUpper": "SANTEE",
+      "fips": "0670224",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SANTEE%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Solana Beach",
+      "cityNameUpper": "SOLANA BEACH",
+      "fips": "0672506",
+      "districtCount": 4,
+      "featureCount": 5,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27SOLANA%20BEACH%27&outFields=*&outSR=4326&f=geojson"
+    },
+    {
+      "cityName": "Vista",
+      "cityNameUpper": "VISTA",
+      "fips": "0682996",
+      "districtCount": 4,
+      "featureCount": 4,
+      "downloadUrl": "https://geo.sandag.org/server/rest/services/Hosted/Council_Districts/FeatureServer/0/query?where=jur_name%3D%27VISTA%27&outFields=*&outSR=4326&f=geojson"
+    }
+  ]
+}

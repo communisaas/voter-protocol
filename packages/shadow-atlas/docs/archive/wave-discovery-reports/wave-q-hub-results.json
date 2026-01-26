@@ -1,0 +1,120 @@
+{
+  "wave": "Q",
+  "type": "hub-candidate-resolution",
+  "timestamp": "2026-01-23T20:00:00.000Z",
+  "summary": {
+    "candidatesReceived": 6,
+    "resolved": 5,
+    "falsePositives": 1,
+    "duplicates": 5,
+    "netNewPortals": 0
+  },
+  "candidates": [
+    {
+      "rank": 1,
+      "confidence": 85,
+      "serviceName": "Council District Assets - Facilities",
+      "url": "https://services1.arcgis.com/A7KFW0gHh8qBaXk3/arcgis/rest/services/CityFacilities_CouncilAssets/FeatureServer",
+      "owner": "18870_greensboro",
+      "providedFips": "3728000",
+      "city": "Greensboro",
+      "state": "NC",
+      "resolution": "DUPLICATE",
+      "districtLayerId": 3,
+      "districtLayerName": "CouncilDistrictDemographics",
+      "featureCount": 5,
+      "districtField": "DISTRICT",
+      "notes": "Already in registry with higher confidence (95) via wave-m-southeast-specialist using municipal GIS endpoint. This Hub candidate points to same city via different service."
+    },
+    {
+      "rank": 2,
+      "confidence": 75,
+      "serviceName": "City wards",
+      "url": "https://services5.arcgis.com/RVMSajYQji1bjmZ4/arcgis/rest/services/City_wards/FeatureServer",
+      "owner": "hopegis",
+      "providedFips": "0533190",
+      "city": "Hope",
+      "state": "AR",
+      "resolution": "DUPLICATE",
+      "districtLayerId": 1,
+      "districtLayerName": "City Wards",
+      "featureCount": 7,
+      "districtField": "LABEL",
+      "notes": "Already in registry (confidence 85) via hub-triage. Same URL and layer."
+    },
+    {
+      "rank": 3,
+      "confidence": 75,
+      "serviceName": "Voting Wards Public View",
+      "url": "https://services7.arcgis.com/ad8q99MFlcZQ8ixH/arcgis/rest/services/Voting_Wards_Public_View/FeatureServer",
+      "owner": "RM_Suamico",
+      "providedFips": "5578650",
+      "correctFips": "5577975",
+      "city": "Suamico",
+      "state": "WI",
+      "resolution": "DUPLICATE",
+      "districtLayerId": 1,
+      "districtLayerName": "Wards",
+      "featureCount": 9,
+      "districtField": "WardID",
+      "notes": "Already in registry (confidence 80) via hub-triage. Candidate provided wrong FIPS 5578650 (which is Superior, WI). Correct FIPS is 5577975."
+    },
+    {
+      "rank": 4,
+      "confidence": 70,
+      "serviceName": "boundaries",
+      "url": "https://services2.arcgis.com/pc4beVTMEhYHqerq/arcgis/rest/services/boundaries/FeatureServer",
+      "owner": "erose_GrantsPassOregon",
+      "providedFips": "4130550",
+      "city": "Grants Pass",
+      "state": "OR",
+      "resolution": "DUPLICATE",
+      "districtLayerId": 2,
+      "districtLayerName": "City Council Wards",
+      "featureCount": 4,
+      "districtField": "DISTRICTID",
+      "notes": "Already in registry (confidence 80) via automated discovery using regulatory_boundaries service. This is an alternative endpoint for the same city."
+    },
+    {
+      "rank": 5,
+      "confidence": 70,
+      "serviceName": "Administrative Boundaries and Elections",
+      "url": "https://services1.arcgis.com/j8dqo2DJE7mVUBU1/arcgis/rest/services/Administrative_Boundaries_and_Elections/FeatureServer",
+      "owner": "WorcesterGIS",
+      "providedFips": "2582000",
+      "city": "Worcester",
+      "state": "MA",
+      "resolution": "DUPLICATE",
+      "districtLayerId": 3,
+      "districtLayerName": "Council Districts",
+      "featureCount": 5,
+      "districtField": "Council_District",
+      "notes": "Already in registry (confidence 88) via automated discovery using City_Council_Districts service layer 7. This is an alternative endpoint with same data."
+    },
+    {
+      "rank": 6,
+      "confidence": 70,
+      "serviceName": "Muncie, IN - Geographical Boundaries",
+      "url": "https://services6.arcgis.com/eVA2BCtRxhBWjuqd/arcgis/rest/services/MuncieIN_GegraphicalBoundaries/FeatureServer",
+      "owner": "z_gullion",
+      "providedFips": "1851876",
+      "city": "Muncie",
+      "state": "IN",
+      "resolution": "FALSE_POSITIVE",
+      "layersChecked": [1, 2, 3, 4],
+      "layersFound": [
+        "Delaware County, IN - County Boundary",
+        "Delaware County, IN - Township Boundaries",
+        "Muncie, IN - City Limits",
+        "Muncie, IN - Neighborhoods"
+      ],
+      "notes": "FALSE POSITIVE - Service contains only administrative boundaries (county, township, city limits, neighborhoods). No council district or ward layer present. Owner account has no other services with council data."
+    }
+  ],
+  "verificationDetails": {
+    "allCandidatesQueried": true,
+    "layerFieldsInspected": true,
+    "featureDataSampled": true,
+    "existingRegistryChecked": true
+  }
+}

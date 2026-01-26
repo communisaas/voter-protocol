@@ -1,0 +1,89 @@
+{
+  "wave": "wave-q-ohio",
+  "extractedAt": "2026-01-23T00:00:00.000Z",
+  "targets": [
+    {
+      "cityName": "Columbus",
+      "state": "OH",
+      "fips": "3918000",
+      "expectedDistricts": 13,
+      "actualDistricts": 13,
+      "sourceUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0",
+      "downloadUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1=1&outFields=*&f=geojson",
+      "status": "DUPLICATE_UPGRADED",
+      "notes": "Already in registry with 9 districts (old boundaries). New portal shows 13 districts after 2024 redistricting. UPGRADE recommended.",
+      "existingEntries": [
+        {
+          "downloadUrl": "https://hub.arcgis.com/api/download/v1/items/0eb8d9d2e3a447829cebae7c0719eb71/geojson?redirect=true&layers=3",
+          "featureCount": 9,
+          "confidence": 80,
+          "discoveredBy": "manual"
+        },
+        {
+          "downloadUrl": "https://gis.columbus.gov/arcgis/rest/services/Applications/CSIR_Public/MapServer/37/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 9,
+          "confidence": 95,
+          "discoveredBy": "wave-n-ogrip"
+        }
+      ]
+    },
+    {
+      "cityName": "Cleveland",
+      "state": "OH",
+      "fips": "3916000",
+      "expectedDistricts": 15,
+      "actualDistricts": 15,
+      "sourceUrl": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Wards_1_2_25_Topocleaned_pop20/FeatureServer/0",
+      "downloadUrl": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Wards_1_2_25_Topocleaned_pop20/FeatureServer/0/query?where=1=1&outFields=*&f=geojson",
+      "status": "DUPLICATE_UPGRADED",
+      "notes": "Already in registry with 17 wards (old boundaries). New portal shows 15 wards after 2026 redistricting. UPGRADE recommended - this is the authoritative 2026 redistricting data.",
+      "existingEntries": [
+        {
+          "downloadUrl": "https://services2.arcgis.com/wcHGmlrMexLSG26z/arcgis/rest/services/City Wards - 2021 (CPC)/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 17,
+          "confidence": 55,
+          "discoveredBy": "automated"
+        },
+        {
+          "downloadUrl": "https://gis.cleveland-oh.gov/arcgis/rest/services/PublicWorks/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 17,
+          "confidence": 90,
+          "discoveredBy": "wave-n-ogrip"
+        }
+      ]
+    },
+    {
+      "cityName": "Toledo",
+      "state": "OH",
+      "fips": "3977000",
+      "expectedDistricts": 6,
+      "actualDistricts": 6,
+      "sourceUrl": "https://gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1",
+      "downloadUrl": "https://gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1/query?where=1=1&outFields=*&f=geojson",
+      "status": "DUPLICATE_VERIFIED",
+      "notes": "Already in registry with 6 districts. Count matches. New URL is the authoritative city GIS MapServer endpoint.",
+      "existingEntries": [
+        {
+          "downloadUrl": "https://services.arcgis.com/2snQ88YUjP9CNEbe/arcgis/rest/services/CouncilDistricts2022/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "featureCount": 6,
+          "confidence": 88,
+          "discoveredBy": "automated"
+        },
+        {
+          "downloadUrl": "https://gis.toledo.oh.gov/portal/sharing/rest/content/items/toledo-council-districts/data?f=geojson",
+          "featureCount": 6,
+          "confidence": 80,
+          "discoveredBy": "wave-n-ogrip"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalCities": 3,
+    "netNew": 0,
+    "duplicatesWithUpgrade": 2,
+    "duplicatesVerified": 1,
+    "errors": 0
+  },
+  "recommendation": "Columbus and Cleveland have updated district counts (13 and 15 respectively) compared to existing registry entries (9 and 17). These represent 2024/2026 redistricting changes. Consider updating existing entries or adding as higher-confidence alternatives."
+}

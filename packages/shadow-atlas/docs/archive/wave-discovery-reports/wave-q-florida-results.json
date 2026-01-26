@@ -1,0 +1,104 @@
+{
+  "wave": "Wave-Q",
+  "region": "Florida",
+  "extractionDate": "2026-01-23T00:00:00.000Z",
+  "specialist": "claude-opus-4-5",
+  "summary": {
+    "totalTargets": 5,
+    "alreadyInRegistry": 3,
+    "netNew": 2,
+    "endpointIssues": 0
+  },
+  "targets": [
+    {
+      "name": "Tampa FL",
+      "fips": "1271000",
+      "status": "NEW",
+      "endpoint": "https://services.arcgis.com/apTfC6SUmnNfnxuF/ArcGIS/rest/services/City_of_Tampa_Municipal_Districts/FeatureServer/0",
+      "featureCount": 4,
+      "expectedCount": 7,
+      "notes": "Tampa has 7 council members: 3 at-large (districts 1-3) + 4 geographic districts (4-7). Only geographic districts have boundaries. Layer contains districts 4, 5, 6, 7 with representative names.",
+      "districtField": "DISTRICTID",
+      "verified": true
+    },
+    {
+      "name": "St. Petersburg FL",
+      "fips": "1263000",
+      "status": "EXISTING",
+      "endpoint": "https://services1.arcgis.com/sQOueNHZBxRJjRN3/arcgis/rest/services/Speed_limit_and_pedestrian_AF_WFL1/FeatureServer/7",
+      "featureCount": 8,
+      "expectedCount": 8,
+      "notes": "Already in registry. 8 council districts with representative info. Endpoint name is misleading but layer 7 is correct council district data.",
+      "districtField": "DISTRICTID",
+      "verified": true
+    },
+    {
+      "name": "Miami-Dade County FL",
+      "fips": "12086",
+      "status": "NEW",
+      "endpoint": "https://gisweb.miamidade.gov/arcgis/rest/services/MD_CommissionDistrict/MapServer/2",
+      "featureCount": 13,
+      "expectedCount": 13,
+      "notes": "County-level commission districts. 13 commissioners. Layer 2 is 'Commission District Boundary Fill' with polygon geometries. Field ID contains district number, COMMNAME contains commissioner name.",
+      "districtField": "ID",
+      "verified": true
+    },
+    {
+      "name": "Orange County FL (Orlando)",
+      "fips": "1253000",
+      "status": "EXISTING",
+      "endpoint": "https://ocgis4.ocfl.net/arcgis/rest/services/Public_Dynamic/MapServer/151",
+      "featureCount": 6,
+      "expectedCount": 6,
+      "notes": "Already in registry as Orlando. County commission districts covering Orlando metro. 6 districts with commissioner names.",
+      "districtField": "COMMISSIONERDISTRICTID",
+      "verified": true
+    },
+    {
+      "name": "Gainesville FL",
+      "fips": "1225175",
+      "status": "EXISTING",
+      "endpoint": "https://services.arcgis.com/cNo3jpluyt69V8Ek/arcgis/rest/services/GainesvilleCommissionDistricts/FeatureServer/0",
+      "featureCount": 4,
+      "expectedCount": 4,
+      "notes": "Already in registry. HYBRID system: 4 geographic districts + 2 at-large + mayor. Layer has 7 features but only 4 unique district IDs (1-4). Multi-part geometries.",
+      "districtField": "WD",
+      "verified": true
+    }
+  ],
+  "netNewCities": [
+    {
+      "cityName": "Tampa",
+      "state": "FL",
+      "fips": "1271000",
+      "portalType": "arcgis",
+      "downloadUrl": "https://services.arcgis.com/apTfC6SUmnNfnxuF/ArcGIS/rest/services/City_of_Tampa_Municipal_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 4,
+      "confidence": 95,
+      "notes": "Tampa FL - HYBRID: 4 geographic council districts (4-7) + 3 at-large (1-3). Fields: DISTRICTID, NAME, REPNAME. Official city portal."
+    },
+    {
+      "cityName": "Miami-Dade County",
+      "state": "FL",
+      "fips": "12086",
+      "portalType": "county-gis",
+      "downloadUrl": "https://gisweb.miamidade.gov/arcgis/rest/services/MD_CommissionDistrict/MapServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 13,
+      "confidence": 95,
+      "notes": "Miami-Dade County FL - 13 commission districts. County-level (not Miami city). Fields: ID, COMMNAME. Layer 2 = Commission District Boundary Fill."
+    }
+  ],
+  "registryUpdates": {
+    "stPetersburg": {
+      "action": "VERIFY_EXISTING",
+      "currentUrl": "https://services1.arcgis.com/sQOueNHZBxRJjRN3/arcgis/rest/services/Speed_limit_and_pedestrian_AF_WFL1/FeatureServer/7/query?where=1%3D1&outFields=*&f=geojson",
+      "notes": "Existing entry works but service name is confusing. Layer 7 is correctly City_Council_Districts with 8 features."
+    },
+    "gainesville": {
+      "action": "UPDATE_URL",
+      "currentUrl": "https://hub.arcgis.com/datasets/dbe71f4544714cb6bae0d7a7cf711ac4_0",
+      "suggestedUrl": "https://services.arcgis.com/cNo3jpluyt69V8Ek/arcgis/rest/services/GainesvilleCommissionDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "notes": "Direct FeatureServer URL is better than Hub datasets URL for programmatic access."
+    }
+  }
+}

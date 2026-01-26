@@ -1,0 +1,295 @@
+{
+  "extractionDate": "2026-01-24T05:08:00.922306Z",
+  "aggregator": "HGAC (Houston-Galveston Area Council)",
+  "endpoint": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15",
+  "totalFeatures": 97,
+  "totalCities": 20,
+  "cities": [
+    {
+      "cityName": "Alvin",
+      "districtCount": 5,
+      "fips": "4802272",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Alvin%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ]
+    },
+    {
+      "cityName": "Baytown",
+      "districtCount": 6,
+      "fips": "4806128",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Baytown%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "cityName": "Clute",
+      "districtCount": 5,
+      "fips": "4815652",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Clute%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ]
+    },
+    {
+      "cityName": "El Campo",
+      "districtCount": 4,
+      "fips": "4822864",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27El%20Campo%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Freeport",
+      "districtCount": 4,
+      "fips": "4827420",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Freeport%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    {
+      "cityName": "Fulshear",
+      "districtCount": 5,
+      "fips": "4827876",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Fulshear%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    },
+    {
+      "cityName": "Galveston",
+      "districtCount": 6,
+      "fips": "4828068",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Galveston%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "cityName": "Hitchcock",
+      "districtCount": 4,
+      "fips": "4834220",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Hitchcock%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Houston",
+      "districtCount": 11,
+      "fips": "4835000",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Houston%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K"
+      ]
+    },
+    {
+      "cityName": "Huntsville",
+      "districtCount": 4,
+      "fips": "4835528",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Huntsville%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Iowa Colony",
+      "districtCount": 3,
+      "fips": "4836092",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Iowa%20Colony%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    {
+      "cityName": "Katy",
+      "districtCount": 2,
+      "fips": "4838476",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Katy%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "cityName": "La Marque",
+      "districtCount": 4,
+      "fips": "4841116",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27La%20Marque%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    {
+      "cityName": "La Porte",
+      "districtCount": 6,
+      "fips": "4841440",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27La%20Porte%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "cityName": "Missouri City",
+      "districtCount": 4,
+      "fips": "4848804",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Missouri%20City%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    {
+      "cityName": "Pasadena",
+      "districtCount": 8,
+      "fips": "4856000",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Pasadena%27&outFields=*&f=geojson",
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
+    },
+    {
+      "cityName": "Rosenberg",
+      "districtCount": 4,
+      "fips": "4863284",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Rosenberg%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Sugar Land",
+      "districtCount": 4,
+      "fips": "4870808",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Sugar%20Land%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Texas City",
+      "districtCount": 4,
+      "fips": "4872392",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Texas%20City%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    {
+      "cityName": "Wharton",
+      "districtCount": 4,
+      "fips": "4878136",
+      "downloadUrl": "https://gis.h-gac.com/arcgis/rest/services/Open_Data/Boundaries/MapServer/15/query?where=CITY%3D%27Wharton%27&outFields=*&f=geojson",
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    }
+  ],
+  "newCities": [
+    "Clute",
+    "El Campo",
+    "Freeport",
+    "Fulshear",
+    "Galveston",
+    "Hitchcock",
+    "Houston",
+    "Huntsville",
+    "Iowa Colony",
+    "Katy",
+    "La Marque",
+    "La Porte",
+    "Missouri City",
+    "Rosenberg",
+    "Sugar Land",
+    "Texas City",
+    "Wharton"
+  ],
+  "existingCities": [
+    "Alvin",
+    "Baytown",
+    "Pasadena"
+  ],
+  "summary": {
+    "newCitiesCount": 17,
+    "existingCitiesCount": 3,
+    "totalNewDistricts": 78
+  }
+}

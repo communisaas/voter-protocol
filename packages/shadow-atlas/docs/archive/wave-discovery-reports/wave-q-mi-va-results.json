@@ -1,0 +1,161 @@
+{
+  "_meta": {
+    "wave": "Q",
+    "discoveryDate": "2026-01-23T00:00:00.000Z",
+    "focus": "Michigan and Virginia coverage gap analysis",
+    "discoveredBy": "wave-q-specialist"
+  },
+  "summary": {
+    "targetCities": 12,
+    "alreadyInRegistry": 9,
+    "newAtLargeCities": 1,
+    "newPortalsDiscovered": 1,
+    "netNewPortals": 1
+  },
+  "michigan": {
+    "targetCount": 6,
+    "status": "complete",
+    "cities": [
+      {
+        "cityName": "Detroit",
+        "fips": "2622000",
+        "population": 639000,
+        "status": "already_in_registry",
+        "featureCount": 7,
+        "existingEndpoint": "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/city_council_districts_2026/FeatureServer/0",
+        "notes": "Detroit City Council Districts 2026 - 7 single-member districts. New boundaries effective January 1, 2026."
+      },
+      {
+        "cityName": "Grand Rapids",
+        "fips": "2634000",
+        "population": 198000,
+        "status": "already_in_registry",
+        "featureCount": 7,
+        "existingEndpoint": "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/city_council_districts_2026/FeatureServer/0",
+        "notes": "Grand Rapids MI - 3 city council wards (2026 boundaries)."
+      },
+      {
+        "cityName": "Warren",
+        "fips": "2686000",
+        "population": 139000,
+        "status": "already_in_registry",
+        "featureCount": 7,
+        "existingEndpoint": "https://data-maps.macombgov.org/arcgis/rest/services/Voting/CouncilDistricts/FeatureServer/0",
+        "notes": "Warren MI - 7 council districts. Macomb County GIS. 3rd largest city in MI."
+      },
+      {
+        "cityName": "Sterling Heights",
+        "fips": "2676460",
+        "population": 134000,
+        "status": "at_large",
+        "councilSize": 7,
+        "electionMethod": "at-large",
+        "source": "City of Sterling Heights Charter; Wave-K Midwest specialist",
+        "notes": "Council-Manager form. Mayor + 6 council members elected at-large. Macomb County's largest city."
+      },
+      {
+        "cityName": "Ann Arbor",
+        "fips": "2603000",
+        "population": 123000,
+        "status": "new_portal",
+        "featureCount": 5,
+        "wardCount": 5,
+        "precinctCount": 47,
+        "endpoint": "https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/Wards_and_Precincts/FeatureServer/0",
+        "notes": "Ann Arbor has 5 wards with 2 council members each (10 total councilmembers + mayor). Layer contains 47 precincts with WARD field - can dissolve by WARD for district boundaries."
+      },
+      {
+        "cityName": "Lansing",
+        "fips": "2646000",
+        "population": 118000,
+        "status": "already_in_registry",
+        "featureCount": 4,
+        "existingEndpoint": "https://services9.arcgis.com/1bWTvtvBCBaErVYC/arcgis/rest/services/Lansing_Ward_Boundaries_01032023/FeatureServer/0",
+        "notes": "Lansing MI - 4 wards. 8-member council (4 ward + 4 at-large). Proposed charter may expand to 5 wards by 2029."
+      }
+    ]
+  },
+  "virginia": {
+    "targetCount": 6,
+    "status": "complete",
+    "cities": [
+      {
+        "cityName": "Virginia Beach",
+        "fips": "5182000",
+        "population": 459000,
+        "status": "already_in_registry",
+        "featureCount": 10,
+        "existingEndpoint": "https://services.arcgis.com/2DbqGRRQS9wbBetw/arcgis/rest/services/VB_city_Districts_WFL1/FeatureServer/0",
+        "notes": "Virginia Beach City Council Districts - 10 districts (7 single-member + 3 at-large)."
+      },
+      {
+        "cityName": "Norfolk",
+        "fips": "5157000",
+        "population": 238000,
+        "status": "already_in_registry",
+        "featureCount": 5,
+        "existingEndpoint": "https://gisshare.norfolk.gov/pubserver/rest/services/OpenData/Maps/FeatureServer/7",
+        "notes": "Norfolk VA - 5 wards with ward representatives. Official city OpenData portal endpoint verified."
+      },
+      {
+        "cityName": "Chesapeake",
+        "fips": "5116000",
+        "population": 249000,
+        "status": "already_in_registry",
+        "featureCount": 9,
+        "existingEndpoint": "https://gis.cityofchesapeake.net/arcgis/rest/services/Voting/VotingDistricts/FeatureServer/0",
+        "notes": "Chesapeake VA - 9 borough/council districts. City GIS."
+      },
+      {
+        "cityName": "Richmond",
+        "fips": "5167000",
+        "population": 226000,
+        "status": "already_in_registry",
+        "featureCount": 9,
+        "existingEndpoint": "https://services1.arcgis.com/k3vhq11XkBNeeOfM/arcgis/rest/services/RIchmond_Abatement_for_2022/FeatureServer/21",
+        "notes": "Richmond VA - 9 districts."
+      },
+      {
+        "cityName": "Newport News",
+        "fips": "5156000",
+        "population": 186000,
+        "status": "already_in_registry",
+        "featureCount": 7,
+        "existingEndpoint": "https://gis.nngov.com/arcgis/rest/services/Voting/CouncilDistricts/FeatureServer/0",
+        "notes": "Newport News VA - 7 council districts. City GIS."
+      },
+      {
+        "cityName": "Arlington",
+        "fips": "5103000",
+        "population": 238000,
+        "status": "new_at_large",
+        "councilSize": 5,
+        "electionMethod": "at-large",
+        "source": "https://www.vpap.org/offices/arlington-county-county-board-at-large/elections/; vote.arlingtonva.gov",
+        "notes": "Arlington County Board - 5 members elected at-large countywide. Uses ranked choice voting. No geographic districts."
+      }
+    ]
+  },
+  "newPortals": [
+    {
+      "cityName": "Ann Arbor",
+      "state": "MI",
+      "fips": "2603000",
+      "endpoint": "https://services.arcgis.com/G3nmNsarwQblLhip/arcgis/rest/services/Wards_and_Precincts/FeatureServer/0",
+      "featureCount": 47,
+      "wardCount": 5,
+      "notes": "Precinct layer with WARD field. Dissolve by WARD for 5 ward boundaries."
+    }
+  ],
+  "newAtLargeCities": [
+    {
+      "cityName": "Arlington",
+      "state": "VA",
+      "fips": "5103000",
+      "councilSize": 5,
+      "electionMethod": "at-large",
+      "source": "https://www.vpap.org/offices/arlington-county-county-board-at-large/elections/",
+      "notes": "County Board elected at-large with RCV. No geographic districts."
+    }
+  ]
+}

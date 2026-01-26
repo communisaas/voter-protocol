@@ -1,0 +1,4579 @@
+{
+  "searchTerms": [
+    "council districts",
+    "city council districts",
+    "ward boundaries",
+    "aldermanic districts",
+    "councilmanic districts",
+    "commission districts",
+    "municipal wards"
+  ],
+  "totalFound": 220,
+  "datasets": [
+    {
+      "id": "514eb780e5b84360a6044d8c72c71846",
+      "name": "Community Council Districts",
+      "url": "https://services1.arcgis.com/RpVCghfSj7XHqAKQ/arcgis/rest/services/Community_Council_Districts/FeatureServer",
+      "owner": "chvandev",
+      "orgId": "RpVCghfSj7XHqAKQ",
+      "extent": {
+        "coordinates": [
+          [
+            -86.0456,
+            35.0861
+          ],
+          [
+            -85.7958,
+            35.2911
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 85
+    },
+    {
+      "id": "69bb2cd05f514bf4b5850a2f5681507f",
+      "name": "Council District Assets - Facilities ",
+      "url": "https://services1.arcgis.com/A7KFW0gHh8qBaXk3/arcgis/rest/services/CityFacilities_CouncilAssets/FeatureServer",
+      "owner": "18870_greensboro",
+      "orgId": "A7KFW0gHh8qBaXk3",
+      "extent": {
+        "coordinates": [
+          [
+            -80.0162,
+            35.9627
+          ],
+          [
+            -79.612,
+            36.2161
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 85
+    },
+    {
+      "id": "e245b3e7de6c4ca7ac70d4a5d7276c9a",
+      "name": "Snow Wards WFL1",
+      "url": "https://services6.arcgis.com/wv9mHoqblhTsnqdG/arcgis/rest/services/Snow_Wards_WFL1/FeatureServer",
+      "owner": "PVD_DPWGIS",
+      "orgId": "wv9mHoqblhTsnqdG",
+      "extent": {
+        "coordinates": [
+          [
+            -71.9001,
+            41.1455
+          ],
+          [
+            -71.1174,
+            42.0189
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 75
+    },
+    {
+      "id": "07cedf2324bf479e89ccb4143728a936",
+      "name": "City wards",
+      "url": "https://services5.arcgis.com/RVMSajYQji1bjmZ4/arcgis/rest/services/City_wards/FeatureServer",
+      "owner": "hopegis",
+      "orgId": "RVMSajYQji1bjmZ4",
+      "extent": {
+        "coordinates": [
+          [
+            -93.6243,
+            33.6265
+          ],
+          [
+            -93.5535,
+            33.7022
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 75
+    },
+    {
+      "id": "e9b1a59038644b5e8d432dd23c18c6af",
+      "name": "Voting Wards Public View",
+      "url": "https://services7.arcgis.com/ad8q99MFlcZQ8ixH/arcgis/rest/services/Voting_Wards_Public_View/FeatureServer",
+      "owner": "RM_Suamico",
+      "extent": {
+        "coordinates": [
+          [
+            -88.131,
+            44.5903
+          ],
+          [
+            -87.9942,
+            44.6777
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 75
+    },
+    {
+      "id": "9b1d8842e74341e3a7c24d75e59dabf0",
+      "name": "boundaries",
+      "url": "https://services2.arcgis.com/pc4beVTMEhYHqerq/arcgis/rest/services/boundaries/FeatureServer",
+      "owner": "erose_GrantsPassOregon",
+      "orgId": "pc4beVTMEhYHqerq",
+      "extent": {
+        "coordinates": [
+          [
+            -124.0406,
+            41.9724
+          ],
+          [
+            -123.2288,
+            42.8059
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 70
+    },
+    {
+      "id": "832eb152ba5446b9b45ea48d13ee05d6",
+      "name": "OpenData AdminBoundary",
+      "url": "https://services2.arcgis.com/CnkB6jCzAsyli34z/arcgis/rest/services/OpenData_AdminBoundary/FeatureServer",
+      "owner": "opendatascripts_cityofpg",
+      "orgId": "CnkB6jCzAsyli34z",
+      "extent": {
+        "coordinates": [
+          [
+            -122.8979,
+            53.8129
+          ],
+          [
+            -122.603,
+            54.0392
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 70
+    },
+    {
+      "id": "b925401cdf8549bd9d67a8843c915755",
+      "name": "City Boundaries",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/City_Boundaries/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -90.2552,
+            38.2341
+          ],
+          [
+            -89.6994,
+            38.6604
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 70
+    },
+    {
+      "id": "9baab63b52df417a9b2a168e3f288b1b",
+      "name": "Park Boundaries",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Park_Boundaries/FeatureServer",
+      "owner": "SeattleParks_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4349,
+            47.4965
+          ],
+          [
+            -122.2469,
+            47.7356
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 70
+    },
+    {
+      "id": "521f10cffbb2473290ab34421933579c",
+      "name": "Permit Boundaries v9.1",
+      "url": "https://services7.arcgis.com/qC17rByPyj7HLuIV/arcgis/rest/services/Permit_Boundaries/FeatureServer",
+      "owner": "ConnectAllAZ_Creator",
+      "orgId": "qC17rByPyj7HLuIV",
+      "extent": {
+        "coordinates": [
+          [
+            -114.8162,
+            31.3321
+          ],
+          [
+            -109.0451,
+            37.0039
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "98a1a2da4d3843cebcc0f77d44f31184",
+      "name": "Maryland Municipal Boundaries",
+      "url": "https://mdgeodata.md.gov/imap/rest/services/Boundaries/MD_PoliticalBoundaries/FeatureServer",
+      "owner": "marshall.stevenson1",
+      "orgId": "njFNhDsUCentVYJW",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -79.4873,
+            37.8865
+          ],
+          [
+            -75.0488,
+            39.7235
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "43103ad258c14cd3bfe8f0479140ce66",
+      "name": "PABC ProjectSPACE Boundaries WFL1",
+      "url": "https://services8.arcgis.com/UpsBWZbubqjtr1rD/arcgis/rest/services/PABC_ProjectSPACE_Boundaries_WFL1/FeatureServer",
+      "owner": "Kristen.Misage_PABC",
+      "extent": {
+        "coordinates": [
+          [
+            -76.6537,
+            39.2715
+          ],
+          [
+            -76.5622,
+            39.3681
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "9a9536a5510b45bebab3f323786284f4",
+      "name": "Muncie, IN - Geographical Boundaries",
+      "url": "https://services6.arcgis.com/eVA2BCtRxhBWjuqd/arcgis/rest/services/MuncieIN_GegraphicalBoundaries/FeatureServer",
+      "owner": "z_gullion",
+      "extent": {
+        "coordinates": [
+          [
+            -85.5851,
+            40.0774
+          ],
+          [
+            -85.2064,
+            40.379
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "513f7e8476744e8a84040f4480a7acd2",
+      "name": "MID Boundary",
+      "url": "https://services6.arcgis.com/1t7wwtWWQetYRAXB/arcgis/rest/services/MID_Boundary/FeatureServer",
+      "owner": "erik.rodriguez",
+      "extent": {
+        "coordinates": [
+          [
+            -120.5447,
+            36.7627
+          ],
+          [
+            -119.0193,
+            37.7749
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "41f6c8eb7d2d47e5b59bfa70406e2fe9",
+      "name": "FEW LS LC Boundaries WFL1",
+      "url": "https://services7.arcgis.com/bVDwIPEhcSKXbxw1/arcgis/rest/services/FEW_LS_LC_Boundaries_WFL1/FeatureServer",
+      "owner": "gisjmoore",
+      "extent": {
+        "coordinates": [
+          [
+            -105.0161,
+            40.5429
+          ],
+          [
+            -102.6374,
+            42.1128
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "c50338da0c7843c29c9933fe03172036",
+      "name": "Do you need to approve your boundary?",
+      "url": "https://services5.arcgis.com/mSDBiLWaIfH92NqI/arcgis/rest/services/NC_Municipal_Boundary_Pilot_ViewOnly/FeatureServer",
+      "owner": "luca.venegoni_nconemap",
+      "orgId": "mSDBiLWaIfH92NqI",
+      "extent": {
+        "coordinates": [
+          [
+            -84.0103,
+            33.7405
+          ],
+          [
+            -75.5334,
+            36.5324
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "0af01336deea41c49c50db44f0f6cb78",
+      "name": "Health Zones and RHA Boundaries Jan 1st 2023",
+      "url": "https://services7.arcgis.com/BuriUAtfp8cZMlDt/arcgis/rest/services/Health_Zones_and_RHA_Boundaries_Jan_1st_2023_8f2b9_b716e_95a08/FeatureServer",
+      "owner": "GNBRTD_Service",
+      "orgId": "BuriUAtfp8cZMlDt",
+      "extent": {
+        "coordinates": [
+          [
+            -69.0909,
+            44.4447
+          ],
+          [
+            -63.6388,
+            48.0931
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "f8c9e6408472443388f78c6f85f2675a",
+      "name": "Health Zones and RHA Boundaries Jan 1st 2023",
+      "url": "https://services7.arcgis.com/BuriUAtfp8cZMlDt/arcgis/rest/services/Health_Zones_and_RHA_Boundaries_Jan_1st_2023_5455f_fcbc3_f5d97/FeatureServer",
+      "owner": "GNBRTD_Service",
+      "orgId": "BuriUAtfp8cZMlDt",
+      "extent": {
+        "coordinates": [
+          [
+            -69.0909,
+            44.4447
+          ],
+          [
+            -63.6388,
+            48.0931
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "998ba96984a246e8953e4913a00396f3",
+      "name": "Health Zones and RHA Boundaries Jan 1st 2023",
+      "url": "https://services7.arcgis.com/BuriUAtfp8cZMlDt/arcgis/rest/services/Health_Zones_and_RHA_Boundaries_Jan_1st_2023_3db9c_5c717_054a4/FeatureServer",
+      "owner": "GNBRTD_Service",
+      "orgId": "BuriUAtfp8cZMlDt",
+      "extent": {
+        "coordinates": [
+          [
+            -69.0909,
+            44.4447
+          ],
+          [
+            -63.6388,
+            48.0931
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 70
+    },
+    {
+      "id": "f14e934ee09441b6b7acc72667a9ebb9",
+      "name": "Administrative Boundaries and Elections",
+      "url": "https://services1.arcgis.com/j8dqo2DJE7mVUBU1/arcgis/rest/services/Administrative_Boundaries_and_Elections/FeatureServer",
+      "owner": "WorcesterGIS",
+      "orgId": "j8dqo2DJE7mVUBU1",
+      "extent": {
+        "coordinates": [
+          [
+            -71.8836,
+            42.2098
+          ],
+          [
+            -71.7316,
+            42.3413
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 70
+    },
+    {
+      "id": "81ba951c23b844a08acaa610408cd771",
+      "name": "Municipal Boundaries ISTC view",
+      "url": "https://services.arcgis.com/91hXl6NfvLGEi8x5/arcgis/rest/services/Idaho_City_Taxing_Districts/FeatureServer",
+      "owner": "gis_valley_county_2016",
+      "orgId": "ikurHvtarxfN6u3u",
+      "extent": {
+        "coordinates": [
+          [
+            -117.2489,
+            41.9835
+          ],
+          [
+            -110.8023,
+            48.7562
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 70
+    },
+    {
+      "id": "85a9d9e620df41ffaddf60644f329f2a",
+      "name": "Municipal Boundaries",
+      "url": "https://services.arcgis.com/91hXl6NfvLGEi8x5/arcgis/rest/services/Idaho_City_Taxing_Districts/FeatureServer",
+      "owner": "gis_valley_county_2016",
+      "orgId": "ikurHvtarxfN6u3u",
+      "extent": {
+        "coordinates": [
+          [
+            -117.2489,
+            41.9835
+          ],
+          [
+            -110.8023,
+            48.7562
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 70
+    },
+    {
+      "id": "2510c75f82164d1ea81e7642e41cf5ca",
+      "name": "PoliticalBoundaries mso",
+      "url": "https://services.arcgis.com/HfwHS0BxZBQ1E5DY/arcgis/rest/services/PoliticalBoundaries_mso/FeatureServer",
+      "owner": "svcgisdatainterop",
+      "orgId": "HfwHS0BxZBQ1E5DY",
+      "extent": {
+        "coordinates": [
+          [
+            -114.1201,
+            46.789
+          ],
+          [
+            -113.8509,
+            46.957
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 70
+    },
+    {
+      "id": "2ab235b4b491440ba7a54a6bdd26bcfc",
+      "name": "YearEndBoundary Stats",
+      "url": "https://services1.arcgis.com/7r2Wl09a1Apy459r/arcgis/rest/services/YearEndBoundary_Stats/FeatureServer",
+      "owner": "FranklinCountyAuditor",
+      "orgId": "7r2Wl09a1Apy459r",
+      "extent": {
+        "coordinates": [
+          [
+            -83.2584,
+            39.7929
+          ],
+          [
+            -82.7619,
+            40.1445
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 70
+    },
+    {
+      "id": "068597fd865343a6a2db7e44a243c17c",
+      "name": "Administrative Boundaries view",
+      "url": "https://services6.arcgis.com/oiVuijfxaA4YgJMi/arcgis/rest/services/Administrative_Boundaries_view/FeatureServer",
+      "owner": "countygp",
+      "orgId": "oiVuijfxaA4YgJMi",
+      "extent": {
+        "coordinates": [
+          [
+            -119.7027,
+            49.0045
+          ],
+          [
+            -107.8479,
+            59.8666
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 70
+    },
+    {
+      "id": "561d5aa0529e43f7856354065ddd5972",
+      "name": "PPACG Regional Transportation Projects",
+      "url": "https://services1.arcgis.com/0plDVQODvYjBRQXP/arcgis/rest/services/PPACG_Regional_Transportation_Projects/FeatureServer",
+      "owner": "PPACG_GIS1",
+      "orgId": "0plDVQODvYjBRQXP",
+      "extent": {
+        "coordinates": [
+          [
+            -105.0718,
+            38.5227
+          ],
+          [
+            -104.1636,
+            39.1257
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "e061e046ad36474ca7f9db75ffc688d8",
+      "name": "Tuscaloosa City Land Use Cases",
+      "url": "https://services1.arcgis.com/DADyRNMb7tdzKmmq/arcgis/rest/services/Tuscaloosa_City_Land_Use_Cases/FeatureServer",
+      "owner": "lhocutt@tuscaloosa.com",
+      "orgId": "DADyRNMb7tdzKmmq",
+      "extent": {
+        "coordinates": [
+          [
+            -87.5843,
+            33.1881
+          ],
+          [
+            -87.3702,
+            33.2181
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "21e8b89af74d40af8091afd0a9986403",
+      "name": "Tuscaloosa City Zoning Districts",
+      "url": "https://services1.arcgis.com/DADyRNMb7tdzKmmq/arcgis/rest/services/Tuscaloosa_City_Zoning_Districts/FeatureServer",
+      "owner": "lhocutt@tuscaloosa.com",
+      "orgId": "DADyRNMb7tdzKmmq",
+      "extent": {
+        "coordinates": [
+          [
+            -87.6638,
+            33.1066
+          ],
+          [
+            -87.2454,
+            33.4577
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "724dac85202a401d9f341551d8570b09",
+      "name": "Properties & Records",
+      "url": "https://gisportal.indepmo.org/giscoi/rest/services/Cadastral/Properties_and_Records/FeatureServer",
+      "owner": "COI_AGO",
+      "orgId": "sbDzK061dd6DNPHv",
+      "extent": {
+        "coordinates": [
+          [
+            -94.6397,
+            38.7984
+          ],
+          [
+            -94.1121,
+            39.2002
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0c14f6ca55cc4de59d10eca8c1cea304",
+      "name": "Tuscaloosa Administrative Areas",
+      "url": "https://services1.arcgis.com/DADyRNMb7tdzKmmq/arcgis/rest/services/Tuscaloosa_Administrative_Areas/FeatureServer",
+      "owner": "lhocutt@tuscaloosa.com",
+      "orgId": "DADyRNMb7tdzKmmq",
+      "extent": {
+        "coordinates": [
+          [
+            -87.6724,
+            33.0766
+          ],
+          [
+            -87.2454,
+            33.4721
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "31a78346add6458097dd0a78b55e4db2",
+      "name": "HireDevice Status Change",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/HireDevice_Status_Change/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "a89fa6e2b7304613a2599bf0671994c1",
+      "name": "HireDevice Trip",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/HireDevice_Trip/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "363fa953fc014ea393b2d5b01ec1710f",
+      "name": "Traffic Signal Detector Count",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/Traffic_Signal_Detector_Count/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "6c183f7c9bb247f0804e69599d84021e",
+      "name": "HireDevice Route",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/HireDevice_Route/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1ab4324a65bd41c2b037ddd625471d93",
+      "name": "Pedestrian Count",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/Pedestrian_Count/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9ff64b7dd9f2474684fc0bbf9cd42c13",
+      "name": "Cycling Count",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/Cycling_Count/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bfb1096c9e274a90b4c7ac73a87537d5",
+      "name": "Traffic Route Stats",
+      "url": "https://services1.arcgis.com/R6s0QqCMQdwKY6yp/arcgis/rest/services/Traffic_Route_Stats/FeatureServer",
+      "owner": "HamiltonCityCouncil",
+      "orgId": "R6s0QqCMQdwKY6yp",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "caaad749e8f1432389f9100f332a7d97",
+      "name": "FF Full Rem Projects AGO",
+      "url": "https://services.arcgis.com/9Jk4Zl9KofTtvg3x/arcgis/rest/services/FF_Full_Rem_Projects_AGO/FeatureServer",
+      "owner": "FNAI_GIS_Web_Admin",
+      "orgId": "9Jk4Zl9KofTtvg3x",
+      "extent": {
+        "coordinates": [
+          [
+            -87.5555,
+            24.5743
+          ],
+          [
+            -80.1113,
+            30.9982
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "78e8791c3d604bba9c3cad701b7abf38",
+      "name": "ParkRecreationFacilities public",
+      "url": "https://services.arcgis.com/7ww0md22RA7aTw3W/arcgis/rest/services/Park_and_Recreation_Facilities_public_6adb1f809058485fba4999b59f3f9733/FeatureServer",
+      "owner": "dentarthurdent74",
+      "orgId": "7ww0md22RA7aTw3W",
+      "extent": {
+        "coordinates": [
+          [
+            -76.6859,
+            38.8472
+          ],
+          [
+            -76.3783,
+            39.08
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "621b088a06a84f16b412e25b8d127804",
+      "name": "Administration City Public",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/621b088a06a84f16b412e25b8d127804/rest/services/Administration_City/FeatureServer",
+      "owner": "realy_mtjuliet",
+      "orgId": "SXlSqsMsFxtSuzjx",
+      "extent": {
+        "coordinates": [
+          [
+            -86.5844,
+            36.1239
+          ],
+          [
+            -86.4448,
+            36.2853
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b00d10994eb34eec8d0f51682be2a731",
+      "name": "Street Tree List (from DataSF, pulled daily)",
+      "url": "https://services.arcgis.com/Zs2aNLFN00jrS4gG/arcgis/rest/services/Street_Tree_List_from_DataSF_pulled_daily_/FeatureServer",
+      "owner": "vll_sfgis",
+      "orgId": "Zs2aNLFN00jrS4gG",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f81b5f0adb8c4d6a95282bec1ce10378",
+      "name": "Active Parcels (from DataSF, pulled daily)",
+      "url": "https://services.arcgis.com/Zs2aNLFN00jrS4gG/arcgis/rest/services/Active_Parcels_from_DataSF_pulled_daily_/FeatureServer",
+      "owner": "vll_sfgis",
+      "orgId": "Zs2aNLFN00jrS4gG",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "2adaacba7f924d0aa938dd469e8bda71",
+      "name": "Parcel Join Output",
+      "url": "https://services3.arcgis.com/Nefdxa42x2DnAd5Z/arcgis/rest/services/Parcel_Join_Output/FeatureServer",
+      "owner": "Townofmountainvillage",
+      "orgId": "Nefdxa42x2DnAd5Z",
+      "extent": {
+        "coordinates": [
+          [
+            -107.8804,
+            37.8825
+          ],
+          [
+            -107.8137,
+            37.9483
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f481d3903443407da62d48fc9f9e3959",
+      "name": "SPR Capital Project Sites public",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/SPR_Capital_Project_Sites_public/FeatureServer",
+      "owner": "SeattleParks_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4236,
+            47.2948
+          ],
+          [
+            -122.1143,
+            47.735
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bccf8a3426e94a1dbd2c4ac5ab523b8e",
+      "name": "UndergroundUtilities",
+      "url": "https://services6.arcgis.com/mfr5GsRh8UYwsJgO/arcgis/rest/services/UndergroundUtilities/FeatureServer",
+      "owner": "nathanheick@lacsd.org",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -119.1535,
+            33.5014
+          ],
+          [
+            -117.4441,
+            35.0235
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "048b389adf244cdb93c4cf4aef4d3222",
+      "name": "HCFCDMowingStatus2 0",
+      "url": "https://services2.arcgis.com/nLl0k0Mja5hnSeSl/arcgis/rest/services/HCFCDMowingStatus2_0/FeatureServer",
+      "owner": "publisher.mowing",
+      "orgId": "nLl0k0Mja5hnSeSl",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -95.9914,
+            29.49
+          ],
+          [
+            -94.8861,
+            30.2102
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1ca00bccdfbb4ceeae4ef0034d3683b0",
+      "name": "Treasurer Tax Summary",
+      "url": "https://services.arcgis.com/i14SLLmXo7Hn9vNc/arcgis/rest/services/TreasurerTaxSummary/FeatureServer",
+      "owner": "lc.ago.user",
+      "orgId": "i14SLLmXo7Hn9vNc",
+      "extent": {
+        "coordinates": [
+          [
+            -91.8262,
+            41.8671
+          ],
+          [
+            -91.3715,
+            42.2916
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0d70e85f1a744f5ba4c128d6d6f544d7",
+      "name": "Treasurer Tax Percentile",
+      "url": "https://services.arcgis.com/i14SLLmXo7Hn9vNc/arcgis/rest/services/TreasurerTaxPercentile/FeatureServer",
+      "owner": "lc.ago.user",
+      "orgId": "i14SLLmXo7Hn9vNc",
+      "extent": {
+        "coordinates": [
+          [
+            -91.8351,
+            41.8596
+          ],
+          [
+            -91.3635,
+            42.299
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f8c9f1a19fcb4f05a7cd5eb77f2a026b",
+      "name": "Needs Inventory",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/NeedsInventory/FeatureServer",
+      "owner": "gisWebService_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -96.9895,
+            32.6221
+          ],
+          [
+            -96.5062,
+            33.0073
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f73ecb5e90f94ea9818d9d79df6de424",
+      "name": "TIF Parcels",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/TIFparcels/FeatureServer",
+      "owner": "dallascrm_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -96.9983,
+            32.649
+          ],
+          [
+            -96.7022,
+            32.9936
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "13e63094ba834f0fa6a9b0dfdca29e7b",
+      "name": "PV1 DistrictManagement",
+      "url": "https://services3.arcgis.com/H1fomogcAqX4720J/arcgis/rest/services/PV1_DistrictManagement/FeatureServer",
+      "owner": "nickn@grandisland.com",
+      "orgId": "H1fomogcAqX4720J",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -99.4268,
+            40.6585
+          ],
+          [
+            -97.5982,
+            42.0889
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1c1da7411ae64b1e99a0669e692afb3c",
+      "name": "FBCAD Public Data",
+      "url": "https://services2.arcgis.com/D4saGHECICkCeoJm/arcgis/rest/services/FBCAD_Public_Data/FeatureServer",
+      "owner": "shaunencarnacion",
+      "extent": {
+        "coordinates": [
+          [
+            -96.0924,
+            29.2683
+          ],
+          [
+            -95.4173,
+            29.7783
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0c75f58d5263465db16b085cf93910f5",
+      "name": "egCSS",
+      "url": "https://services1.arcgis.com/KHqZAAIdlp1670Ft/arcgis/rest/services/egCSS/FeatureServer",
+      "owner": "energov_nhcgov",
+      "orgId": "KHqZAAIdlp1670Ft",
+      "extent": {
+        "coordinates": [
+          [
+            -78.1949,
+            33.9796
+          ],
+          [
+            -77.5519,
+            34.3361
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "ec1aece81b1e438181e7807a36d10550",
+      "name": "Zoning",
+      "url": "https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/Zoning_View/FeatureServer",
+      "owner": "mdawson@douglas.co.us_dougco",
+      "orgId": "seTexOicoRXDvRsJ",
+      "extent": {
+        "coordinates": [
+          [
+            -105.3293,
+            39.1266
+          ],
+          [
+            -104.6577,
+            39.5688
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0f002729ab364191ae5a0073eeb8eec0_0",
+      "name": "Tornado Damage - Residential",
+      "url": "https://gis.greenecountyohio.gov/webgis/rest/services/Layers/TornadoDamageAssessment/MapServer/0",
+      "owner": "GreeneCo2019",
+      "orgId": "pqnSvb0IQVVHEYRu",
+      "recordCount": 1061,
+      "extent": {
+        "coordinates": [
+          [
+            -84.0986,
+            39.6745
+          ],
+          [
+            -83.6794,
+            39.7732
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9f6e0aa9a96441d5a7aca590ca476a75_1",
+      "name": "Tornado Damage - Commercial",
+      "url": "https://gis.greenecountyohio.gov/webgis/rest/services/Layers/TornadoDamageAssessment/MapServer/1",
+      "owner": "GreeneCo2019",
+      "orgId": "pqnSvb0IQVVHEYRu",
+      "recordCount": 383,
+      "extent": {
+        "coordinates": [
+          [
+            -84.0974,
+            39.6762
+          ],
+          [
+            -83.6799,
+            39.7755
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "181111e5a844433e9632b301151d048b_2",
+      "name": "Tornado Damage - Public",
+      "url": "https://gis.greenecountyohio.gov/webgis/rest/services/Layers/TornadoDamageAssessment/MapServer/2",
+      "owner": "GreeneCo2019",
+      "orgId": "pqnSvb0IQVVHEYRu",
+      "recordCount": 2,
+      "extent": {
+        "coordinates": [
+          [
+            -84.0638,
+            39.755
+          ],
+          [
+            -84.048,
+            39.7574
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f48a0362cbbe4e2f9620d25600f4d7e1",
+      "name": "Voting WFL1",
+      "url": "https://services.arcgis.com/rr5PkYU3R3HXxyDH/arcgis/rest/services/Voting_WFL1/FeatureServer",
+      "owner": "GC_Manager",
+      "orgId": "rr5PkYU3R3HXxyDH",
+      "extent": {
+        "coordinates": [
+          [
+            -110.4552,
+            32.426
+          ],
+          [
+            -109.0995,
+            33.65
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b92fade4f8e64ae291cd12108583b54e",
+      "name": "Slidell Permitting Web Map WFL1",
+      "url": "https://services7.arcgis.com/NbYh5dTYeFoc2wlO/arcgis/rest/services/Slidell_Permitting_Web_Map_WFL1/FeatureServer",
+      "owner": "mminer_cos",
+      "orgId": "NbYh5dTYeFoc2wlO",
+      "extent": {
+        "coordinates": [
+          [
+            -89.96,
+            30.2165
+          ],
+          [
+            -89.7219,
+            30.3853
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "5172f573c11544a496cdb15cf3e67ed0",
+      "name": "Public Basemap",
+      "url": "https://services7.arcgis.com/S4q5OFlKdQkzQMZw/arcgis/rest/services/Public_Basemap/FeatureServer",
+      "owner": "HCOHSEM_AGO_Admin",
+      "orgId": "S4q5OFlKdQkzQMZw",
+      "extent": {
+        "coordinates": [
+          [
+            -96.8742,
+            28.2797
+          ],
+          [
+            -94.3534,
+            31.0581
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "5d324265518e4fb09ceae06513e50328",
+      "name": "EPH Food District Map WFL1",
+      "url": "https://services5.arcgis.com/7KHJ4f28UDLgUq2U/arcgis/rest/services/EPH_Food_District_Map_WFL1/FeatureServer",
+      "owner": "Wayne.Quan_AHS",
+      "orgId": "7KHJ4f28UDLgUq2U",
+      "extent": {
+        "coordinates": [
+          [
+            -122.913,
+            30.7141
+          ],
+          [
+            116.459,
+            60.0952
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "dd7f56ce095848099e611221e06578b3",
+      "name": "MapAutomationProjectsMapService-2026-2031 view",
+      "url": "https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services/MapAutomationProjectsMapServiceV4_view/FeatureServer",
+      "owner": "angel.veitia_fdot6",
+      "orgId": "O1JpcwDW8sjYuddV",
+      "extent": {
+        "coordinates": [
+          [
+            -81.7886,
+            24.5504
+          ],
+          [
+            -80.1193,
+            25.9721
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "7bf8b42ff59545a0a614e1922cf741c8",
+      "name": "Zoning Districts and Overlay Districts",
+      "url": "https://maps.burlingtonvt.gov/arcgis/rest/services/Zoning_Districts_and_Overlay_Districts/FeatureServer",
+      "owner": "BurlingtonOpenData",
+      "orgId": "1bO0c7PxQdsGidPK",
+      "extent": {
+        "coordinates": [
+          [
+            -73.2869,
+            44.4425
+          ],
+          [
+            -73.1495,
+            44.5452
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f161a98b347b4cf29d371a6d7697912a",
+      "name": "Montana Cadastral Framework",
+      "url": "https://services.arcgis.com/qnjIrwR8z5Izc0ij/arcgis/rest/services/Montana_Cadastral_Framework/FeatureServer",
+      "owner": "MontanaStateLibrary",
+      "orgId": "qnjIrwR8z5Izc0ij",
+      "extent": {
+        "coordinates": [
+          [
+            -115.6136,
+            44.2377
+          ],
+          [
+            -103.6111,
+            49.0354
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b1fa77f6e79f4ccbbc34e737e1bc113d",
+      "name": "Planning Office Data Service2",
+      "url": "https://services2.arcgis.com/tcv2cMrq63AgvbHF/arcgis/rest/services/PlanningOfficeDataService2/FeatureServer",
+      "owner": "SCC.Planning.Office",
+      "orgId": "tcv2cMrq63AgvbHF",
+      "recordCount": null,
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "cbb8aa0433ad4115b125986f26a8480c",
+      "name": "D4 Design Projects Construction Studies",
+      "url": "https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services/D4_Design_Projects_Construction_Studies_v2_2018_1/FeatureServer",
+      "owner": "harry.plendl@dot.state.fl.us_fdot",
+      "orgId": "O1JpcwDW8sjYuddV",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -80.7642,
+            25.7733
+          ],
+          [
+            -80.0263,
+            27.8643
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "c77826ed581d4277b88cb77934a6c812",
+      "name": "CD daily",
+      "url": "https://services.arcgis.com/SzoH1oFM2apCSkx3/arcgis/rest/services/CD_daily/FeatureServer",
+      "owner": "adeq_gisnp",
+      "orgId": "SzoH1oFM2apCSkx3",
+      "extent": {
+        "coordinates": [
+          [
+            -115.0277,
+            31.2771
+          ],
+          [
+            -108.9144,
+            37.0394
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "d938aedefce34059ac5709ddb8f6c1cf",
+      "name": "LD daily",
+      "url": "https://services.arcgis.com/SzoH1oFM2apCSkx3/arcgis/rest/services/LD_daily/FeatureServer",
+      "owner": "adeq_gisnp",
+      "orgId": "SzoH1oFM2apCSkx3",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -115.0277,
+            31.2771
+          ],
+          [
+            -108.9144,
+            37.0394
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "664b314e8a2e4c18b559ce25df7ceac1",
+      "name": "ESD Covered Employment by Sector by Year by 2010 Census Tract",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/ESD_Covered_Employment_by_Sector_by_Year/FeatureServer",
+      "owner": "Planning_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4308,
+            47.4933
+          ],
+          [
+            -122.242,
+            47.7357
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0eaaa953e65745ce9dcb2686d2991e70",
+      "name": "CDP within Supervisorial Districts",
+      "url": "https://services1.arcgis.com/pWmBUdSlVpXStHU6/arcgis/rest/services/CDP_within_Supervisorial_Districts/FeatureServer",
+      "owner": "Joseph.Rocha1",
+      "orgId": "pWmBUdSlVpXStHU6",
+      "extent": {
+        "coordinates": [
+          [
+            -117.669,
+            33.4179
+          ],
+          [
+            -114.4341,
+            34.0797
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "af41b0c085084ee396b3227a4fb3b1e7",
+      "name": "Hydrants",
+      "url": "https://services7.arcgis.com/VfOwt1fngp5cVBlk/arcgis/rest/services/Hydrants/FeatureServer",
+      "owner": "kfewell@eloyaz.gov",
+      "orgId": "VfOwt1fngp5cVBlk",
+      "extent": {
+        "coordinates": [
+          [
+            -111.6882,
+            32.6619
+          ],
+          [
+            -111.4962,
+            32.8353
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "5ad2196d002f40efb9eb266f50cbb146",
+      "name": "Huboldt-Toiyabe LTAs (Buffer Included)",
+      "url": "https://services1.arcgis.com/gGHDlz6USftL5Pau/arcgis/rest/services/HT_Attribute_Report_262LTAsOnFSlandsPlusBuffer_20190802/FeatureServer",
+      "owner": "TEUI_usfs",
+      "orgId": "gGHDlz6USftL5Pau",
+      "extent": {
+        "coordinates": [
+          [
+            -120.0239,
+            35.8527
+          ],
+          [
+            -113.9146,
+            42.0027
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "e6a747ae69e845a9b525fbdd2d15f35c",
+      "name": "TIF Districts",
+      "url": "https://services1.arcgis.com/0n2NelSAfR7gTkr1/arcgis/rest/services/TIF_Districts/FeatureServer",
+      "owner": "emichaels@southbendin.gov_SouthBend",
+      "orgId": "0n2NelSAfR7gTkr1",
+      "extent": {
+        "coordinates": [
+          [
+            -86.3597,
+            41.621
+          ],
+          [
+            -86.1972,
+            41.7609
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f80d4027d05a42cbb0cdae6b54ebd5b6",
+      "name": "Web CommunityServices",
+      "url": "https://portal.tnrd.ca/ags/rest/services/Web_CommunityServices/FeatureServer",
+      "owner": "njung@tnrd.ca_TNRD",
+      "orgId": "Byd0XH4lLctQNFNt",
+      "extent": {
+        "coordinates": [
+          [
+            -122.6774,
+            49.6095
+          ],
+          [
+            -118.7877,
+            52.8769
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "063428674e8b4e288c5f9e6491793ee2",
+      "name": "GetItDone analysis map",
+      "url": "https://services6.arcgis.com/bPJVxtr0aiwrFwuB/arcgis/rest/services/GetItDone_analysis_map/FeatureServer",
+      "owner": "kmanske",
+      "extent": {
+        "coordinates": [
+          [
+            -117.2848,
+            32.5359
+          ],
+          [
+            -116.9047,
+            33.1133
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f78c6759a9db4e6287f6029710eae138",
+      "name": "LEHD 2021 Workplace Area Characteristics",
+      "url": "https://services1.arcgis.com/Ug5xGQbHsD8zuZzM/arcgis/rest/services/LEHD%202021%20WAC%20GeoSplitJoined/FeatureServer",
+      "owner": "opendata@arc",
+      "orgId": "Ug5xGQbHsD8zuZzM",
+      "extent": {
+        "coordinates": [
+          [
+            -85.6054,
+            30.3294
+          ],
+          [
+            -80.6346,
+            35.0059
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9a08d934f3da4b159891a94e3f4d8142",
+      "name": "Conveyances v2",
+      "url": "https://services6.arcgis.com/4eayr5bMRXDQMLIR/arcgis/rest/services/Conveyances_v2/FeatureServer",
+      "owner": "Administrator_LWDD",
+      "orgId": "4eayr5bMRXDQMLIR",
+      "extent": {
+        "coordinates": [
+          [
+            -80.6772,
+            26.3145
+          ],
+          [
+            -80.0313,
+            26.7896
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "c4fcf0bdf932478e81a194b9da7228cf",
+      "name": "LEHD Job Flows (Statewide, 2010 - 2022)",
+      "url": "https://services1.arcgis.com/Ug5xGQbHsD8zuZzM/arcgis/rest/services/LEHD%202022%20Job%20Flows%202010%202022%20GeoSplitJoined/FeatureServer",
+      "owner": "bhuang_arc",
+      "orgId": "Ug5xGQbHsD8zuZzM",
+      "extent": {
+        "coordinates": [
+          [
+            -85.6054,
+            30.3294
+          ],
+          [
+            -80.6346,
+            35.0059
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "53d8e2a4743241c3bdb417463da78b27",
+      "name": "Taxing Districts Misc",
+      "url": "https://services6.arcgis.com/toubSXwoan3LMhOW/arcgis/rest/services/Taxing_Districts_Misc/FeatureServer",
+      "owner": "hansberryb",
+      "orgId": "toubSXwoan3LMhOW",
+      "extent": {
+        "coordinates": [
+          [
+            -123.783,
+            45.0565
+          ],
+          [
+            -122.8577,
+            45.4474
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "dfae82b57a064e149a2a4761608d9a9d",
+      "name": "Maintenance Eligibility (View)",
+      "url": "https://services3.arcgis.com/TCnvslgqrzhT2ZXG/arcgis/rest/services/MHFD_MaintenanceEligibility_PublicView/FeatureServer",
+      "owner": "bzivkovich@mhfd",
+      "orgId": "TCnvslgqrzhT2ZXG",
+      "extent": {
+        "coordinates": [
+          [
+            -105.284,
+            39.4367
+          ],
+          [
+            -104.4844,
+            40.0811
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bc40d0013f244d6a903c0e8e6496d323",
+      "name": "Districts",
+      "url": "https://services3.arcgis.com/DgjqnJA1rgO92Soi/arcgis/rest/services/Districts/FeatureServer",
+      "owner": "oit_gis_COOIT",
+      "orgId": "DgjqnJA1rgO92Soi",
+      "extent": {
+        "coordinates": [
+          [
+            -109.0422,
+            36.9383
+          ],
+          [
+            -101.8409,
+            40.9974
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "15aaf0b8528a43f880c5f8d783e96017",
+      "name": "Tax Districts 2024",
+      "url": "https://services3.arcgis.com/DgjqnJA1rgO92Soi/arcgis/rest/services/TaxDistricts2024/FeatureServer",
+      "owner": "oit_gis_COOIT",
+      "orgId": "DgjqnJA1rgO92Soi",
+      "extent": {
+        "coordinates": [
+          [
+            -109.0604,
+            36.9909
+          ],
+          [
+            -102.0415,
+            41.0035
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9e5be3aedc46454b93ea46f620f6f248",
+      "name": "OEDIT Additional Reference Layers for EZ Redesignation",
+      "url": "https://services3.arcgis.com/DgjqnJA1rgO92Soi/arcgis/rest/services/OEDIT_Additional_Reference_Layers_for_EZ_Redesignation/FeatureServer",
+      "owner": "oit_gis_COOIT",
+      "orgId": "DgjqnJA1rgO92Soi",
+      "extent": {
+        "coordinates": [
+          [
+            -109.0602,
+            36.9925
+          ],
+          [
+            -102.0415,
+            41.0035
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b14cb5a4c5ff44028ca9c90d93d30d99",
+      "name": "Tax Districts 2023",
+      "url": "https://services3.arcgis.com/DgjqnJA1rgO92Soi/arcgis/rest/services/Tax_Districts_ExB_WFL1/FeatureServer",
+      "owner": "oit_gis_COOIT",
+      "orgId": "DgjqnJA1rgO92Soi",
+      "extent": {
+        "coordinates": [
+          [
+            -109.0604,
+            36.9909
+          ],
+          [
+            -102.0415,
+            41.0035
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "d4940a5f20084b87bb2ca55999dba6fa",
+      "name": "Parcels and Zoning",
+      "url": "https://services3.arcgis.com/Nefdxa42x2DnAd5Z/arcgis/rest/services/Parcels_and_Zoning/FeatureServer",
+      "owner": "Townofmountainvillage",
+      "orgId": "Nefdxa42x2DnAd5Z",
+      "extent": {
+        "coordinates": [
+          [
+            -107.8817,
+            37.9162
+          ],
+          [
+            -107.8315,
+            37.9479
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "4297ab5d906b421eb28724fcd82ee323",
+      "name": "Sedgwick County Voter Districts",
+      "url": "https://services7.arcgis.com/McLat6HlPl45bNBv/arcgis/rest/services/Sedgwick_County_Voter_Districts/FeatureServer",
+      "owner": "SedgwickCounty-GIS",
+      "extent": {
+        "coordinates": [
+          [
+            -97.8104,
+            37.4742
+          ],
+          [
+            -97.1454,
+            37.9126
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "3eb2ac020e0e47b8a508cabd4f57b627",
+      "name": "Zoning Land Use Downtown Innovation District ",
+      "url": "https://services.arcgis.com/HnPbdNoPBNAJ6Oel/arcgis/rest/services/Zoning_Land_Use_Downtown_Innovation_District_/FeatureServer",
+      "owner": "case753",
+      "orgId": "HnPbdNoPBNAJ6Oel",
+      "extent": {
+        "coordinates": [
+          [
+            -80.1956,
+            26.2064
+          ],
+          [
+            -80.0809,
+            26.2976
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "7ef09e8f395d4bb1be5142e8c4072df5",
+      "name": "OpenGovData",
+      "url": "https://services3.arcgis.com/afQpMaliVrwHS7Ud/arcgis/rest/services/OpenGovData/FeatureServer",
+      "owner": "madlineamlin",
+      "orgId": "afQpMaliVrwHS7Ud",
+      "extent": {
+        "coordinates": [
+          [
+            -120.7084,
+            37.5949
+          ],
+          [
+            -119.1611,
+            38.4467
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "5435e8bb800a4263af852877037062b4",
+      "name": "Voting Districts WFL1",
+      "url": "https://services5.arcgis.com/LshPANqVGJG22RSY/arcgis/rest/services/Voting_Districts_WFL1/FeatureServer",
+      "owner": "tongis",
+      "extent": {
+        "coordinates": [
+          [
+            -72.7624,
+            41.6469
+          ],
+          [
+            -72.7004,
+            41.7243
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "cff0726b647a480eaf0ef6cf313d18da",
+      "name": "cityavedc City Ave District Demographics",
+      "url": "https://services3.arcgis.com/VD72qPpX2GMcUVU8/arcgis/rest/services/cityavedc_City_Ave_District_Demographics/FeatureServer",
+      "owner": "cityavedc",
+      "extent": null,
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bd694fb459584e1c9323bed7717c1b6d",
+      "name": "Night Districts",
+      "url": "https://services5.arcgis.com/LshPANqVGJG22RSY/arcgis/rest/services/Speed_Limits_WFL1/FeatureServer",
+      "owner": "tongis",
+      "extent": {
+        "coordinates": [
+          [
+            -72.7649,
+            41.6469
+          ],
+          [
+            -72.7004,
+            41.7243
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bc6a43ec36e5474090a8266d591d5183",
+      "name": "Day Districts",
+      "url": "https://services5.arcgis.com/LshPANqVGJG22RSY/arcgis/rest/services/Speed_Limits_WFL1/FeatureServer",
+      "owner": "tongis",
+      "extent": {
+        "coordinates": [
+          [
+            -72.7649,
+            41.6469
+          ],
+          [
+            -72.7004,
+            41.7243
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "18903d43c42c4049a5d4bd0582fc66e9",
+      "name": "District 6 Updates",
+      "url": "https://services9.arcgis.com/eqiFesEwDvzbHHo3/arcgis/rest/services/District_6_Updates/FeatureServer",
+      "owner": "mvaldez_GD",
+      "extent": {
+        "coordinates": [
+          [
+            -98.7073,
+            29.4086
+          ],
+          [
+            -98.567,
+            29.5222
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "768c54f37b4541f58995d5ec7648a8c8",
+      "name": "Zoning (public view)",
+      "url": "https://services.arcgis.com/0H6bQdxd9223gQB5/arcgis/rest/services/Zoning_Collab/FeatureServer",
+      "owner": "comadmin_comgis",
+      "orgId": "0H6bQdxd9223gQB5",
+      "extent": {
+        "coordinates": [
+          [
+            -102.2686,
+            31.9143
+          ],
+          [
+            -102.0195,
+            32.13
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9467923b8324488687aa15aafa5daf24",
+      "name": "Planning and Zoning Areas",
+      "url": "https://services1.arcgis.com/j8dqo2DJE7mVUBU1/arcgis/rest/services/Planning_and_Zoning_Areas/FeatureServer",
+      "owner": "WorcesterGIS",
+      "orgId": "j8dqo2DJE7mVUBU1",
+      "extent": {
+        "coordinates": [
+          [
+            -71.8836,
+            42.2098
+          ],
+          [
+            -71.7316,
+            42.3413
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "council districts",
+      "confidence": 60
+    },
+    {
+      "id": "eaa39d2d474b4e51b268108025485710",
+      "name": "TrafficSignalLights",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/TrafficSignalLights/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "extent": {
+        "coordinates": [
+          [
+            -89.987,
+            38.5682
+          ],
+          [
+            -89.8531,
+            38.6167
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b08fce5ee42d4ce996253417a4857302",
+      "name": "PublicWorksInfrastructure",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/PublicWorksInfrastructure/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "extent": {
+        "coordinates": [
+          [
+            -90.0589,
+            38.5313
+          ],
+          [
+            -89.8013,
+            38.651
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "576c7bb3ee7a4ff3b9a50bf98cb57c58",
+      "name": "StormMultiFtr",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/StormMultiFtr/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "extent": {
+        "coordinates": [
+          [
+            -90.0392,
+            38.5479
+          ],
+          [
+            -89.802,
+            38.6574
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "d21b8938354b45a8b8b70300ae52138b",
+      "name": "Bld FloorPlans",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/Bld_FloorPlans/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "extent": {
+        "coordinates": [
+          [
+            -89.9464,
+            38.5586
+          ],
+          [
+            -89.8389,
+            38.6044
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0542451079e74d958a5b7a4c4282fede",
+      "name": "Parcels",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/Parcels/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -90.0651,
+            38.5148
+          ],
+          [
+            -89.7049,
+            38.6583
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "a309bc8b26904ea3b2dec85a22fc1398",
+      "name": "BuildingFootprints",
+      "url": "https://services.arcgis.com/K8hCj4l2z1EMabnx/arcgis/rest/services/BuildingFootprints/FeatureServer",
+      "owner": "OFallonMapsandApps",
+      "orgId": "K8hCj4l2z1EMabnx",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -90.0255,
+            38.5449
+          ],
+          [
+            -89.7883,
+            38.6518
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1336ff4bce70452ca6d6e83acce8c57e",
+      "name": "City of Steinbach Parcels",
+      "url": "https://services9.arcgis.com/JWu2NYK2XmDorcYN/arcgis/rest/services/City_of_Steinbach_Parcels/FeatureServer",
+      "owner": "MEastley",
+      "extent": {
+        "coordinates": [
+          [
+            -96.759,
+            49.494
+          ],
+          [
+            -96.6431,
+            49.5689
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "853c0a0c09fa4c58b0e402e3cdec809a",
+      "name": "OpenData",
+      "url": "https://services.arcgis.com/0J4ZNc4NaTguvRy0/arcgis/rest/services/OpenData/FeatureServer",
+      "owner": "ccgisadmin",
+      "orgId": "0J4ZNc4NaTguvRy0",
+      "extent": {
+        "coordinates": [
+          [
+            -98.0158,
+            27.3983
+          ],
+          [
+            -96.8806,
+            28.2465
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "785f04debd8f482692ff65ceff569eb3",
+      "name": "Permits and Code Enforcement Data public view",
+      "url": "https://services.arcgis.com/oNvpY90qsPDizwkN/arcgis/rest/services/Permits_and_Code_Enforcement_Data_(public_view)/FeatureServer",
+      "owner": "CityOfVancouverGISAdmin",
+      "orgId": "oNvpY90qsPDizwkN",
+      "extent": {
+        "coordinates": [
+          [
+            -126.8637,
+            45.1518
+          ],
+          [
+            -122.3479,
+            45.704
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "fac1c840dd2748118cdaefded2f6c6f6",
+      "name": "City of Hope Service Area   Patient Distributions WFL1",
+      "url": "https://services6.arcgis.com/36kDHd7w200YWXNd/arcgis/rest/services/City_of_Hope_Service_Area___Patient_Distributions_WFL1/FeatureServer",
+      "owner": "jyang_bricoh",
+      "extent": {
+        "coordinates": [
+          [
+            -120.2709,
+            32.5011
+          ],
+          [
+            -113.9108,
+            36.3193
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1d8e84a3826d4115bd706b38341a19dd",
+      "name": "City of Hope Service Area   Population Density WFL1",
+      "url": "https://services6.arcgis.com/36kDHd7w200YWXNd/arcgis/rest/services/City_of_Hope_Service_Area___Population_Density_WFL1/FeatureServer",
+      "owner": "jyang_bricoh",
+      "extent": {
+        "coordinates": [
+          [
+            -118.9517,
+            32.75
+          ],
+          [
+            -114.1312,
+            35.8092
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "f117faa4cd2146699e5bac3d46565e95",
+      "name": "City of Hope Service Area   Urban Definition WFL1",
+      "url": "https://services6.arcgis.com/36kDHd7w200YWXNd/arcgis/rest/services/City_of_Hope_Service_Area___Urban_Definition_WFL1/FeatureServer",
+      "owner": "jyang_bricoh",
+      "extent": {
+        "coordinates": [
+          [
+            -119.4131,
+            32.7083
+          ],
+          [
+            -113.9599,
+            36.3126
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "9696fedf9a6a4b908fa31f3750443b2e",
+      "name": "City of Publicly Available EVSE WFL1",
+      "url": "https://services1.arcgis.com/UWYHeuuJISiGmgXx/arcgis/rest/services/City_of_Publicly_Available_EVSE_WFL1/FeatureServer",
+      "owner": "devin.young_dgs",
+      "orgId": "UWYHeuuJISiGmgXx",
+      "extent": {
+        "coordinates": [
+          [
+            -76.7122,
+            39.1971
+          ],
+          [
+            -76.5286,
+            39.3728
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "eba8dbe868ab45cbb8596b6114618cd8",
+      "name": "WashUT ParcelsLicensesMeters",
+      "url": "https://services7.arcgis.com/B9LRGJ5x7H5vvidb/arcgis/rest/services/WashUT_ParcelsLicensesMeters/FeatureServer",
+      "owner": "cmccullockJUB",
+      "extent": {
+        "coordinates": [
+          [
+            -113.5336,
+            37.0222
+          ],
+          [
+            -113.423,
+            37.1929
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "3583f02d4165413f9be10a33cf2df59b",
+      "name": "Cedar City Utilities",
+      "url": "https://services9.arcgis.com/VNuhornHiZVI8AVM/arcgis/rest/services/Cedar_City_Utilities/FeatureServer",
+      "owner": "CedarCityGIS",
+      "extent": null,
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b1d3caf4e99649ed9f1eadea4aa1569c",
+      "name": "Permits",
+      "url": "https://services3.arcgis.com/DLryYCwhA8W7Jq7Q/arcgis/rest/services/Permits/FeatureServer",
+      "owner": "tlane_seatac",
+      "orgId": "DLryYCwhA8W7Jq7Q",
+      "extent": {
+        "coordinates": [
+          [
+            -122.3237,
+            47.3958
+          ],
+          [
+            11.5126,
+            1.3446
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "25767cf3e63c400e87d3fd7112cfbaa9",
+      "name": "Cleveland Parks and Recreation System",
+      "url": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Parks_and_Recreation_System/FeatureServer",
+      "owner": "jrauschenbach_ago",
+      "orgId": "dty2kHktVXHrqO8i",
+      "extent": {
+        "coordinates": [
+          [
+            -81.834,
+            41.4225
+          ],
+          [
+            -81.5018,
+            41.5817
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "25f6cdc173774df594b4db4f8aa98926",
+      "name": "Census 2020 Analysis",
+      "url": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Census_2020_Cleveland/FeatureServer",
+      "owner": "alazaridis_ago",
+      "orgId": "dty2kHktVXHrqO8i",
+      "extent": {
+        "coordinates": [
+          [
+            -81.9719,
+            41.2755
+          ],
+          [
+            -81.3712,
+            41.634
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "d1fc3cb80d5a4628b406318f7ed3d741",
+      "name": "City Cemetery Records",
+      "url": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cemeteries_public_65acc8aeda5349ee82d4d534f6be584a/FeatureServer",
+      "owner": "dsohrabian_ClevelandGIS",
+      "orgId": "dty2kHktVXHrqO8i",
+      "extent": {
+        "coordinates": [
+          [
+            -81.8287,
+            41.3667
+          ],
+          [
+            -81.5172,
+            41.6427
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bfa2bc0d1b404dec8bce53ba4d9c809e",
+      "name": "Development Tracker",
+      "url": "https://services3.arcgis.com/PwS5hVLYsEN2U36s/arcgis/rest/services/Development_Tracker/FeatureServer",
+      "owner": "theablock",
+      "orgId": "PwS5hVLYsEN2U36s",
+      "extent": {
+        "coordinates": [
+          [
+            -125.029,
+            49.6488
+          ],
+          [
+            -124.9335,
+            49.7272
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "b048bb55c5f4449291e9a552cb7e8f20",
+      "name": "Pecos City Limits ETJ Annexations Map WFL1",
+      "url": "https://services8.arcgis.com/HqkR3CySve4NGHdL/arcgis/rest/services/Pecos_City_Limits_ETJ_Annexations_Map_WFL1/FeatureServer",
+      "owner": "lchavez@pecostx.gov_TOPC",
+      "extent": {
+        "coordinates": [
+          [
+            -103.6601,
+            31.2663
+          ],
+          [
+            -103.3542,
+            31.5256
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "80366132bded40e8a4b250d584ec569b",
+      "name": "City of Dinuba Addresses Authoritative",
+      "url": "https://services6.arcgis.com/AEktkJZn4D4r3skv/arcgis/rest/services/City_of_Dinuba_Addresses_gdb/FeatureServer",
+      "owner": "dinubaAGOLAdmin",
+      "orgId": "AEktkJZn4D4r3skv",
+      "extent": {
+        "coordinates": [
+          [
+            -119.4577,
+            36.5164
+          ],
+          [
+            -119.3226,
+            36.5753
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "df550d1e33af46b3ae22ee2f0e1ed93e",
+      "name": "OpenSpace",
+      "url": "https://swidrdc.org/arcgis/rest/services/COMPASSData/OpenSpace/FeatureServer",
+      "owner": "COMPASS_GIS",
+      "orgId": "2S9FP4vfcUQQ8G1T",
+      "extent": {
+        "coordinates": [
+          [
+            -117.0315,
+            43.1065
+          ],
+          [
+            -115.9737,
+            43.8558
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "678076b3a773440a824f713ebebf4553",
+      "name": "Community Development",
+      "url": "https://services1.arcgis.com/eQ2vvbCvmxlIgo3a/arcgis/rest/services/Community_Development/FeatureServer",
+      "owner": "Open_Data_Publisher",
+      "extent": {
+        "coordinates": [
+          [
+            -123.022,
+            45.591
+          ],
+          [
+            -122.834,
+            45.483
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "1dd8e04e4d9448d7b4675b5a0d5d1b89",
+      "name": "Transportation",
+      "url": "https://services1.arcgis.com/eQ2vvbCvmxlIgo3a/arcgis/rest/services/Transportation/FeatureServer",
+      "owner": "Open_Data_Publisher",
+      "extent": null,
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "51d745dc5da24637b63cec3d11acf381",
+      "name": "Reference Data",
+      "url": "https://services1.arcgis.com/eQ2vvbCvmxlIgo3a/arcgis/rest/services/Reference_Data/FeatureServer",
+      "owner": "Open_Data_Publisher",
+      "extent": null,
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "2f745bcd88e34dbfb8086c9b1bfcd580",
+      "name": "City of Seattle Retail Cannabis Business Zoning Review",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Retail_Cannabis_Locations_and_Analysis_Layers/FeatureServer",
+      "owner": "City_Seattle_GIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4118,
+            47.3042
+          ],
+          [
+            -122.0686,
+            47.7797
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "de675ade27594f539e51a3d80d024ec4",
+      "name": "Building Inspection",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/Building_Inspection/FeatureServer",
+      "owner": "dallascrm_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -97.0145,
+            32.5549
+          ],
+          [
+            -96.4627,
+            33.0235
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "d6cb9de98ee840fb8b6504f0b2e234f5",
+      "name": "SPU Street Sweeping Routes",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/SPU_Street_Sweeping/FeatureServer",
+      "owner": "PublicUtilities_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4128,
+            47.4972
+          ],
+          [
+            -122.2433,
+            47.7357
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "bf36bd11b499489d8cc1d491b72eb712",
+      "name": "SDOT Bike Facilities",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/SDOT_Bike_Facilities/FeatureServer",
+      "owner": "Transportation_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4269,
+            47.434
+          ],
+          [
+            -122.2251,
+            47.7801
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "059afc783bf449b1af60aa6aa90b5170",
+      "name": "Right-of-Way Permits",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/ROW/FeatureServer",
+      "owner": "dallascrm_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -97.0078,
+            32.606
+          ],
+          [
+            -96.4529,
+            33.0309
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "ab1ba4920c45472bab563fd86f4726e8",
+      "name": "Traffic Control Permits",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/Traffic_Control_Permits/FeatureServer",
+      "owner": "dallascrm_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -97.0078,
+            32.606
+          ],
+          [
+            -96.4529,
+            33.0309
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "c599cc4b87bd411787ab88cd4e99fbda",
+      "name": "Parking Features",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Parking_Features/FeatureServer",
+      "owner": "Transportation_SeattleCityGIS",
+      "orgId": "ZOyb2t4B0UYuYNYH",
+      "extent": {
+        "coordinates": [
+          [
+            -122.4256,
+            47.4934
+          ],
+          [
+            -122.2433,
+            47.7357
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "2769708c889d4fb68f909d8fa203bedc",
+      "name": "E911 Address",
+      "url": "https://services.arcgis.com/i14SLLmXo7Hn9vNc/arcgis/rest/services/E911Address/FeatureServer",
+      "owner": "lc.ago.user",
+      "orgId": "i14SLLmXo7Hn9vNc",
+      "extent": {
+        "coordinates": [
+          [
+            -91.8428,
+            41.86
+          ],
+          [
+            -91.3637,
+            42.2987
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "97cdd09e533c479bab050cad2bbf5db8",
+      "name": "Street Pavement V23 feature layer",
+      "url": "https://services6.arcgis.com/96XBo0KviQ3nV6zg/arcgis/rest/services/Street_Pavement_V23_0_WFL1/FeatureServer",
+      "owner": "gsa_collab",
+      "orgId": "96XBo0KviQ3nV6zg",
+      "extent": {
+        "coordinates": [
+          [
+            -102.5003,
+            31.7756
+          ],
+          [
+            -102.25,
+            32.0086
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "24d381e0761b4313ba5121b4d5156e44",
+      "name": "Neighborhood Empowerment Zones NEZs",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/Neighborhood_Empowerment_Zones_NEZs/FeatureServer",
+      "owner": "dallascrm_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -96.9922,
+            32.631
+          ],
+          [
+            -96.6745,
+            32.9344
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "e0dee9d51e3444d39f9555d41a80898c",
+      "name": "Street Lights",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/StreetLights/FeatureServer",
+      "owner": "gisWebService_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -96.9823,
+            32.6345
+          ],
+          [
+            -96.5881,
+            33.0081
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "867cdbbbd480467ab8e28ca25dd43a4b",
+      "name": "Public Cannabis Map Dispensary Buffers",
+      "url": "https://services6.arcgis.com/yCArG7wGXGyWLqav/arcgis/rest/services/Public_Cannabis_Map_Dispensary_Buffers/FeatureServer",
+      "owner": "arcgis_clb",
+      "orgId": "yCArG7wGXGyWLqav",
+      "extent": {
+        "coordinates": [
+          [
+            -118.2195,
+            33.7573
+          ],
+          [
+            -118.0686,
+            33.8845
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "4932195b0eca4170aeb1cf62b33a7116",
+      "name": "Cannabis BusinessLicenses",
+      "url": "https://services6.arcgis.com/yCArG7wGXGyWLqav/arcgis/rest/services/Cannabis_BusinessLicenses/FeatureServer",
+      "owner": "arcgis_clb",
+      "orgId": "yCArG7wGXGyWLqav",
+      "extent": {
+        "coordinates": [
+          [
+            -118.2219,
+            33.7602
+          ],
+          [
+            -118.0723,
+            33.8816
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "city council districts",
+      "confidence": 60
+    },
+    {
+      "id": "0fee607a47e6469f82884a924667bb5d",
+      "name": "Ada County R2R Interactive App Layers",
+      "url": "https://services1.arcgis.com/WHM6qC35aMtyAAlN/arcgis/rest/services/Ridge_to_Rivers_Trails_Assessment_Map_WFL1/FeatureServer",
+      "owner": "Boise_GIS",
+      "orgId": "WHM6qC35aMtyAAlN",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -116.2148,
+            43.6317
+          ],
+          [
+            -116.1846,
+            43.6433
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "1c4a9741235949e493a626a9e4c36c43",
+      "name": "ParcelViewer TCAs Subdivisions",
+      "url": "https://services3.arcgis.com/4LOAHoFXfea6Y3Et/arcgis/rest/services/ParcelViewer_TCAs_Subdivisions/FeatureServer",
+      "owner": "JQAdams@JACKSONGOV.ORG_jacksoncomo",
+      "orgId": "4LOAHoFXfea6Y3Et",
+      "extent": {
+        "coordinates": [
+          [
+            -94.6082,
+            38.8337
+          ],
+          [
+            -94.1045,
+            39.2366
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "5fc044cefd9c41f7b2180c4866abb209",
+      "name": "TMWA Public map",
+      "url": "https://services3.arcgis.com/foAW3BZJcmE4cdAG/arcgis/rest/services/TMWA_Public_map/FeatureServer",
+      "owner": "tmwa_arcgis_online",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -120.0045,
+            39.1641
+          ],
+          [
+            -119.2832,
+            40.8868
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "ea739ecf758e427ea3a9effcb563e1af",
+      "name": "Alberta Flood Hazard Identification Program Mapping - 2024",
+      "url": "https://services.arcgis.com/wjcPoefzjpzCgffS/arcgis/rest/services/AlbertaFloodMapping_gdb/FeatureServer",
+      "owner": "EsriCanadaContent",
+      "orgId": "wjcPoefzjpzCgffS",
+      "extent": {
+        "coordinates": [
+          [
+            -119.1946,
+            49.0634
+          ],
+          [
+            -108.8964,
+            58.4893
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "863e83e5c73a4da0b80caf5c433d4f9f",
+      "name": "AxisGISDataSync",
+      "url": "https://services1.arcgis.com/3WqUflJyxCOQjBCT/arcgis/rest/services/AxisGISDataSync/FeatureServer",
+      "owner": "CAI_YorkME",
+      "orgId": "3WqUflJyxCOQjBCT",
+      "extent": {
+        "coordinates": [
+          [
+            -81.0772,
+            42.3107
+          ],
+          [
+            -70.558,
+            43.2745
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "72f8d0c1912b4ea48f3a068bb704d2cb",
+      "name": "Capital Development",
+      "url": "https://services1.arcgis.com/eQ2vvbCvmxlIgo3a/arcgis/rest/services/Capital_Development/FeatureServer",
+      "owner": "Open_Data_Publisher",
+      "extent": null,
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "eccefcd211594e77aeec8c227f2542cc",
+      "name": "Subdivisions",
+      "url": "https://services6.arcgis.com/rHMUPKWdiOvdGXkw/arcgis/rest/services/Subdivisions/FeatureServer",
+      "owner": "j_jones",
+      "orgId": "rHMUPKWdiOvdGXkw",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -121.9484,
+            38.7357
+          ],
+          [
+            -121.4114,
+            39.3043
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "a4f77490ea4440e4937908499a0257b7",
+      "name": "Lots Blocks Subdivisions OD",
+      "url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Lots_Blocks_Subdivisions_OD/FeatureServer",
+      "owner": "WrightCountySurveyorDept",
+      "orgId": "CiQCvRGImIxsaFnM",
+      "extent": null,
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "f92d28f1079f45608f6e3b0dae613a28",
+      "name": "FriscoMunBnd ODH",
+      "url": "https://services6.arcgis.com/OGXLcOSnuy0GwFwi/arcgis/rest/services/FriscoMunBnd_ODH/FeatureServer",
+      "owner": "FriscoTexas",
+      "orgId": "OGXLcOSnuy0GwFwi",
+      "extent": {
+        "coordinates": [
+          [
+            -96.9238,
+            33.0791
+          ],
+          [
+            -96.7309,
+            33.2219
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "074759c8eb1c4327908b3484644fb860",
+      "name": "Unitization Drilling Units",
+      "url": "https://services5.arcgis.com/ajRlmtxbNBjZggOT/arcgis/rest/services/Unitization_DrillingUnits_AGOL_Hosted/FeatureServer",
+      "owner": "ODNR_GISAPPDEV",
+      "orgId": "ajRlmtxbNBjZggOT",
+      "extent": {
+        "coordinates": [
+          [
+            -84.3154,
+            38.5521
+          ],
+          [
+            -80.5005,
+            41.6235
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "4d80a28b571340b9934d73bb8328e568",
+      "name": "Well Pads",
+      "url": "https://services5.arcgis.com/ajRlmtxbNBjZggOT/arcgis/rest/services/Well_Pads/FeatureServer",
+      "owner": "ODNR_GISAPPDEV",
+      "orgId": "ajRlmtxbNBjZggOT",
+      "extent": {
+        "coordinates": [
+          [
+            -82.4652,
+            39.4553
+          ],
+          [
+            -80.5049,
+            41.482
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "796ec3ca457c45e78bf5ae8ebd3bbf89",
+      "name": "CadastralReference",
+      "url": "https://services2.arcgis.com/fxB2C8mQfjMb1848/arcgis/rest/services/CadastralReference/FeatureServer",
+      "owner": "FaribaultCountyMN",
+      "orgId": "fxB2C8mQfjMb1848",
+      "extent": {
+        "coordinates": [
+          [
+            -94.2497,
+            43.4994
+          ],
+          [
+            -93.6468,
+            43.8485
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "86d4a1bf97194e3889756a6fa528d13b",
+      "name": "Oudt Environment",
+      "url": "https://services5.arcgis.com/G8Pqo3DzH8fIDN8F/arcgis/rest/services/Oudt_Environment/FeatureServer",
+      "owner": "GardenRouteGIS",
+      "orgId": "G8Pqo3DzH8fIDN8F",
+      "extent": null,
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "45aa71e1b33d4047a084f9545c36bd68",
+      "name": "NewPropSearch",
+      "url": "https://services2.arcgis.com/x5zvhhxfUuRDntRe/arcgis/rest/services/NewPropSearch/FeatureServer",
+      "owner": "hcopropappr",
+      "extent": {
+        "coordinates": [
+          [
+            -82.7024,
+            28.4345
+          ],
+          [
+            -82.0411,
+            28.7157
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "20dca48c14d34df1a12f5d2d5e4b4ffe",
+      "name": "Alcohol Service",
+      "url": "https://services2.arcgis.com/rwnOSbfKSwyTBcwN/arcgis/rest/services/Alcohol_service/FeatureServer",
+      "owner": "gisWebService_DallasGIS",
+      "orgId": "rwnOSbfKSwyTBcwN",
+      "extent": {
+        "coordinates": [
+          [
+            -97.379,
+            32.6068
+          ],
+          [
+            -96.4567,
+            33.0596
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "cb653e56270e4a0186b7d07ea885b128",
+      "name": "Sedgwick County Recreation",
+      "url": "https://services7.arcgis.com/McLat6HlPl45bNBv/arcgis/rest/services/Sedgwick_County_Recreation/FeatureServer",
+      "owner": "SedgwickCounty-GIS",
+      "extent": {
+        "coordinates": [
+          [
+            -97.8103,
+            37.4822
+          ],
+          [
+            -97.1503,
+            37.8699
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "769f028b623e494b8201f0935fd8f1df",
+      "name": "Sedgwick County Public Safety",
+      "url": "https://services7.arcgis.com/McLat6HlPl45bNBv/arcgis/rest/services/Sedgwick_County_Public_Safety/FeatureServer",
+      "owner": "SedgwickCounty-GIS",
+      "extent": {
+        "coordinates": [
+          [
+            -97.8106,
+            37.4575
+          ],
+          [
+            -97.1454,
+            37.9126
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "c0eeee697cd74f0a825c0a842d0a878d",
+      "name": "Parcel",
+      "url": "https://services2.arcgis.com/hQZvdtFxRzJpMtdS/arcgis/rest/services/Parcel/FeatureServer",
+      "owner": "Admin_GrantCoWA",
+      "orgId": "hQZvdtFxRzJpMtdS",
+      "extent": {
+        "coordinates": [
+          [
+            -120.0425,
+            46.6287
+          ],
+          [
+            -118.9526,
+            47.962
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "8ec61bb649314a56bdfda742b45fbe43",
+      "name": "Sedgwick County Land Records",
+      "url": "https://services7.arcgis.com/McLat6HlPl45bNBv/arcgis/rest/services/Sedgwick_County_Land_Records/FeatureServer",
+      "owner": "SedgwickCounty-GIS",
+      "extent": {
+        "coordinates": [
+          [
+            -97.8104,
+            37.4743
+          ],
+          [
+            -97.1455,
+            37.9126
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "0006a13eecc2451daf2aa15e4b8e9488",
+      "name": "L1 UIEF 2D VR WFL1",
+      "url": "https://services.arcgis.com/WLhB60Nqwp4NnHz3/arcgis/rest/services/L1_UIEF_2D_VR_WFL1/FeatureServer",
+      "owner": "ryal0912_ui_uidaho",
+      "orgId": "WLhB60Nqwp4NnHz3",
+      "extent": {
+        "coordinates": [
+          [
+            -116.9542,
+            46.7661
+          ],
+          [
+            -116.709,
+            46.9285
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "f0468fb69aed423cbdb7fa8290e5adf5",
+      "name": "Shellfish",
+      "url": "https://services6.arcgis.com/DZHaqZm9cxOD4CWM/arcgis/rest/services/Shellfish/FeatureServer",
+      "owner": "robert.sayers@dec.ny.gov_nysdec",
+      "orgId": "DZHaqZm9cxOD4CWM",
+      "extent": {
+        "coordinates": [
+          [
+            -74.418,
+            40.4814
+          ],
+          [
+            -71.4569,
+            41.2946
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "2c489b2c87a04478adcea5a62575f03b",
+      "name": "DC OL DCPIAdvanced AGOLX",
+      "url": "https://services2.arcgis.com/CfhoRi2v351nuUH7/arcgis/rest/services/DC_OL_DCPIAdvanced_AGOLX/FeatureServer",
+      "owner": "GIS_DakotaCounty",
+      "orgId": "CfhoRi2v351nuUH7",
+      "extent": {
+        "coordinates": [
+          [
+            -94.0228,
+            44.4568
+          ],
+          [
+            -92.7284,
+            45.4157
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "db9109089cfa4f1892226c568504ade6",
+      "name": "Fenelon Falls SP F3 Land Use AppID 0000",
+      "url": "https://services3.arcgis.com/RQBDTPtsbT0jebs7/arcgis/rest/services/AGOL_Fenelon_Falls_SP_F3_Land_Use/FeatureServer",
+      "owner": "ckl_agol_admin",
+      "extent": {
+        "coordinates": [
+          [
+            -78.7482,
+            44.5225
+          ],
+          [
+            -78.7166,
+            44.5518
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "a6d4625cefd34bffa08b0709c03e5b00",
+      "name": "CKLOP Schedule A AppID 0000",
+      "url": "https://services3.arcgis.com/RQBDTPtsbT0jebs7/arcgis/rest/services/CKLOP_Schedule_A_AGOL/FeatureServer",
+      "owner": "ckl_agol_admin",
+      "extent": {
+        "coordinates": [
+          [
+            -79.7905,
+            43.9421
+          ],
+          [
+            -78.4204,
+            44.9854
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "c45eaa330d2d42c4b64a7a7d1509c17f",
+      "name": "County daily",
+      "url": "https://services.arcgis.com/SzoH1oFM2apCSkx3/arcgis/rest/services/County_daily/FeatureServer",
+      "owner": "adeq_gisnp",
+      "orgId": "SzoH1oFM2apCSkx3",
+      "extent": {
+        "coordinates": [
+          [
+            -114.7658,
+            31.2771
+          ],
+          [
+            -108.9143,
+            37.0211
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "582fb9e35073471caba2b041ec7d40ef",
+      "name": "OpenGov",
+      "url": "https://services1.arcgis.com/3WqUflJyxCOQjBCT/arcgis/rest/services/OpenGov/FeatureServer",
+      "owner": "CAI_YorkME",
+      "orgId": "3WqUflJyxCOQjBCT",
+      "extent": {
+        "coordinates": [
+          [
+            -81.0772,
+            42.3107
+          ],
+          [
+            -70.558,
+            43.2745
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "6d180b12b62346309d8f532992064363",
+      "name": "Sheriff Tools Feature Layer",
+      "url": "https://services7.arcgis.com/qyyoWTywHfayX67L/arcgis/rest/services/Sheriff_gdb/FeatureServer",
+      "owner": "Cerro_Gordo_GIS",
+      "extent": {
+        "coordinates": [
+          [
+            -93.4901,
+            42.9151
+          ],
+          [
+            -93.12,
+            43.247
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "faefadda90e248aaae6fcaac7305adef",
+      "name": "EmergencyResponse WebMap WFL1 (view)",
+      "url": "https://services.arcgis.com/su8ic9KbA7PYVxPS/arcgis/rest/services/EmergencyResponse_WebMap_WFL1_(view)/FeatureServer",
+      "owner": "JGuerraPct2",
+      "orgId": "su8ic9KbA7PYVxPS",
+      "extent": {
+        "coordinates": [
+          [
+            -98.6864,
+            27.6651
+          ],
+          [
+            -94.1613,
+            32.608
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "99e37e95d46e46179c702caab192d487",
+      "name": "ISGS ILMINES",
+      "url": "https://services9.arcgis.com/9NSsJKjbseNHCAQD/arcgis/rest/services/ISGS_ILMINES/FeatureServer",
+      "owner": "amyers76_PRI",
+      "orgId": "9NSsJKjbseNHCAQD",
+      "extent": {
+        "coordinates": [
+          [
+            -91.2007,
+            37.3951
+          ],
+          [
+            -87.5075,
+            41.5822
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "bb2f021a8003447499b1071e9b651ba0",
+      "name": "CityLimits",
+      "url": "https://services2.arcgis.com/d53H8HWVL7iicQLS/arcgis/rest/services/CityLimits/FeatureServer",
+      "owner": "sdhenderson",
+      "extent": {
+        "coordinates": [
+          [
+            -88.0288,
+            30.1861
+          ],
+          [
+            -87.3889,
+            30.5131
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "f457c48b51a344f5b6166924c13b7c28",
+      "name": "CAGIS Basedata",
+      "url": "https://services.arcgis.com/Y326xMQHGOTpLU5T/arcgis/rest/services/CAGIS_Basedata/FeatureServer",
+      "owner": "rhermann",
+      "extent": {
+        "coordinates": [
+          [
+            -84.3948,
+            39.1322
+          ],
+          [
+            -84.2536,
+            39.2669
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "ward boundaries",
+      "confidence": 60
+    },
+    {
+      "id": "8d14888667c24439994e1c92d26ffc55",
+      "name": "Public Safety",
+      "url": "https://services5.arcgis.com/RjM4BJrv5ZkqP4XC/arcgis/rest/services/Public_Safety/FeatureServer",
+      "owner": "friedlandere_cityofreno",
+      "extent": {
+        "coordinates": [
+          [
+            -120.2579,
+            38.4176
+          ],
+          [
+            -117.0186,
+            41.9984
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "29681d2979594dedaba3ac41692643cf",
+      "name": "Special District Areas Hub",
+      "url": "https://services5.arcgis.com/RjM4BJrv5ZkqP4XC/arcgis/rest/services/Special_District_Areas_Hub/FeatureServer",
+      "owner": "gisadmin_cityofreno",
+      "extent": {
+        "coordinates": [
+          [
+            -120.0023,
+            39.3749
+          ],
+          [
+            -119.6565,
+            39.9936
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "d15e1783d7634d4898d9fcd8f6af149e",
+      "name": "Districts",
+      "url": "https://services1.arcgis.com/BajuNXbtZNiBKFkx/arcgis/rest/services/Districts/FeatureServer",
+      "owner": "yavgis_developers",
+      "orgId": "BajuNXbtZNiBKFkx",
+      "extent": {
+        "coordinates": [
+          [
+            -113.3317,
+            33.8749
+          ],
+          [
+            -111.4524,
+            35.5383
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "67a9101337494b16ba7c68c7d8c853e7",
+      "name": "MOHCD Affordable Housing Portfolio (from DataSF, pulled weekly)",
+      "url": "https://services.arcgis.com/Zs2aNLFN00jrS4gG/arcgis/rest/services/MOHCD_Affordable_Housing_Portfolio_from_DataSF_pulled_weekly_/FeatureServer",
+      "owner": "vll_sfgis",
+      "orgId": "Zs2aNLFN00jrS4gG",
+      "extent": null,
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "da334654e8164518842deef105bc289d",
+      "name": "CharlesPoint District",
+      "url": "https://services5.arcgis.com/9xAoCS1av5nYn2hG/arcgis/rest/services/CharlesPoint_District/FeatureServer",
+      "owner": "amber.d.miller_WVPTD",
+      "extent": {
+        "coordinates": [
+          [
+            -80.3226,
+            39.2885
+          ],
+          [
+            -80.2071,
+            39.4178
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "b3654aef0e48412d8057bbee5e78ccac",
+      "name": "Landscape Service Intervals",
+      "url": "https://services1.arcgis.com/wsz3l3tjYd5awPqD/arcgis/rest/services/Landscape_Service_Intervals/FeatureServer",
+      "owner": "melendrezd@cityofmerced.gov_merced",
+      "extent": {
+        "coordinates": [
+          [
+            -120.5185,
+            37.2742
+          ],
+          [
+            -120.4245,
+            37.363
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "ec22bbb9cf9e4d6fbbccfbd0143dfa8e",
+      "name": "OCP Zoning RDNO",
+      "url": "https://services9.arcgis.com/04wUduAOPwyQh4Za/arcgis/rest/services/OCP_Zoning_RDNO/FeatureServer",
+      "owner": "RDNO_AGOL",
+      "orgId": "04wUduAOPwyQh4Za",
+      "extent": {
+        "coordinates": [
+          [
+            -119.7388,
+            49.7871
+          ],
+          [
+            -118.1711,
+            50.9449
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "7c8c1200d7454430836d0d8fb2bd7b83",
+      "name": "District 1 Governor Locations",
+      "url": "https://services1.arcgis.com/pVwj3MUE2AATHEob/arcgis/rest/services/District_1_Governor_Locations/FeatureServer",
+      "owner": "chris.hernandez_bestwestern",
+      "extent": {
+        "coordinates": [
+          [
+            -113.5764,
+            33.3515
+          ],
+          [
+            -93.2622,
+            44.8041
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "5c2d3ee43cce49d4a3e7bffb9c90edfc",
+      "name": "Voters",
+      "url": "https://services2.arcgis.com/x5zvhhxfUuRDntRe/arcgis/rest/services/Voters/FeatureServer",
+      "owner": "hcopropappr",
+      "extent": {
+        "coordinates": [
+          [
+            -82.6867,
+            28.432
+          ],
+          [
+            -82.0546,
+            28.6969
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "f07f4e38ca874202bb4992dcfe2da87d",
+      "name": "BCPL Statewide Loan Location",
+      "url": "https://services6.arcgis.com/rtTk5VDiRrt3nxS0/arcgis/rest/services/BCPL_Statewide_Loan_Location/FeatureServer",
+      "owner": "bcplckf",
+      "orgId": "rtTk5VDiRrt3nxS0",
+      "extent": null,
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "06e237f2e8994598921b3777e69e2538",
+      "name": "BCPL Loan Location",
+      "url": "https://services6.arcgis.com/rtTk5VDiRrt3nxS0/arcgis/rest/services/BCPL_Loan_Location/FeatureServer",
+      "owner": "bcplckf",
+      "orgId": "rtTk5VDiRrt3nxS0",
+      "extent": null,
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "432b489dce46437da0bb431ab2a54713",
+      "name": "Public Health District Map WFL1",
+      "url": "https://services1.arcgis.com/Oknk0tvfHOElpgGU/arcgis/rest/services/Public_Health_District_Map_WFL1/FeatureServer",
+      "owner": "Town-of-Brookline.MA",
+      "orgId": "Oknk0tvfHOElpgGU",
+      "extent": {
+        "coordinates": [
+          [
+            -71.179,
+            42.2946
+          ],
+          [
+            -71.1055,
+            42.3519
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "f9515af670024c82b00440853758d432",
+      "name": "Henrico Community Forestry Inventory",
+      "url": "https://services.arcgis.com/LxWK4CxNTBBlLshT/arcgis/rest/services/Henrico_Community_Forestry_Inventory/FeatureServer",
+      "owner": "cow003@henrico.gov",
+      "orgId": "LxWK4CxNTBBlLshT",
+      "extent": {
+        "coordinates": [
+          [
+            -77.6538,
+            37.3795
+          ],
+          [
+            -77.2239,
+            37.6893
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "a721c53de53c44b6b980272601f7f07c",
+      "name": "Capital District Transportation Authority",
+      "url": "https://services6.arcgis.com/EbVsqZ18sv1kVJ3k/arcgis/rest/services/CDTA/FeatureServer",
+      "owner": "NYSGIS_GPO",
+      "orgId": "EbVsqZ18sv1kVJ3k",
+      "extent": {
+        "coordinates": [
+          [
+            -74.235,
+            42.4672
+          ],
+          [
+            -73.4514,
+            43.5597
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "aldermanic districts",
+      "confidence": 60
+    },
+    {
+      "id": "3f150e37c2ed4281b827cf7d3bf2e4b2",
+      "name": "MainsOut",
+      "url": "https://services1.arcgis.com/2AMmryypyA0xa1To/arcgis/rest/services/MainsOut/FeatureServer",
+      "owner": "jkasprz@wsscwater.com",
+      "orgId": "2AMmryypyA0xa1To",
+      "extent": {
+        "coordinates": [
+          [
+            -77.3188,
+            38.6263
+          ],
+          [
+            -76.6918,
+            39.327
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "commission districts",
+      "confidence": 60
+    },
+    {
+      "id": "6ac34a5bc6554d25b137ef432d506f08",
+      "name": "PPL&C Permits Geolocated",
+      "url": "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/PPLC_Permits_Geolocated/FeatureServer",
+      "owner": "opendata_HRM",
+      "orgId": "11XBiaBYA9Ep0yNJ",
+      "extent": {
+        "coordinates": [
+          [
+            -64.2274,
+            44.4295
+          ],
+          [
+            -62.1653,
+            45.2789
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "commission districts",
+      "confidence": 60
+    },
+    {
+      "id": "c9270e07bca54893a95570795ae99eee",
+      "name": "CampusServices",
+      "url": "https://services9.arcgis.com/1rOwFRpAwrxe0rBl/arcgis/rest/services/CampusServices/FeatureServer",
+      "owner": "maps_umd_gis",
+      "extent": {
+        "coordinates": [
+          [
+            -77.2019,
+            38.9712
+          ],
+          [
+            -76.9218,
+            41.315
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "commission districts",
+      "confidence": 60
+    },
+    {
+      "id": "17e8378f03114d139e68e6a045fcf748",
+      "name": "15 Minute City Points of Interest",
+      "url": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Fifteen_Minute_Neighborhood_POI/FeatureServer",
+      "owner": "MMoss_ClevelandGIS",
+      "orgId": "dty2kHktVXHrqO8i",
+      "extent": {
+        "coordinates": [
+          [
+            -82.2287,
+            40.9862
+          ],
+          [
+            -81.0849,
+            41.7155
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "commission districts",
+      "confidence": 60
+    },
+    {
+      "id": "3c8174c2f3454013a1b75f4d89d69abe",
+      "name": "15 Minute City Walksheds",
+      "url": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Fifteen_Minute_Neighborhood_Walksheds/FeatureServer",
+      "owner": "MMoss_ClevelandGIS",
+      "orgId": "dty2kHktVXHrqO8i",
+      "extent": {
+        "coordinates": [
+          [
+            -81.9749,
+            41.2682
+          ],
+          [
+            -81.373,
+            41.6178
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "commission districts",
+      "confidence": 60
+    },
+    {
+      "id": "ceb5b3199fb446d9b135513c209c2ba5",
+      "name": "Oudt Elevation",
+      "url": "https://services5.arcgis.com/G8Pqo3DzH8fIDN8F/arcgis/rest/services/Oudt_Elevation/FeatureServer",
+      "owner": "GardenRouteGIS",
+      "orgId": "G8Pqo3DzH8fIDN8F",
+      "extent": null,
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "9d18cbdb46574294bd5ef79c9fe5a290",
+      "name": "Sidewalk Vending Restrictions",
+      "url": "https://services6.arcgis.com/yCArG7wGXGyWLqav/arcgis/rest/services/Sidewalk_Vending_Buffers/FeatureServer",
+      "owner": "sandra.martinez_longbeachca",
+      "orgId": "yCArG7wGXGyWLqav",
+      "extent": {
+        "coordinates": [
+          [
+            -118.2554,
+            33.7323
+          ],
+          [
+            -118.0633,
+            33.8857
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "6dd18d61fd7e4c7f833a9c30f0c1eaca",
+      "name": "Roadway Atlas",
+      "url": "https://services8.arcgis.com/8uR4EgOk3nsP1tP5/arcgis/rest/services/Roadway_Atlas/FeatureServer",
+      "owner": "jfiacco_Greenacres",
+      "orgId": "8uR4EgOk3nsP1tP5",
+      "extent": {
+        "coordinates": [
+          [
+            -80.364,
+            26.5879
+          ],
+          [
+            -80.08,
+            26.6934
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "72638d3aa0824228a7f97b235016d12d",
+      "name": "Tualatin Land Use Data",
+      "url": "https://services7.arcgis.com/cw66lBk1O7OM8APn/arcgis/rest/services/Tualatin_Land_Use_Data/FeatureServer",
+      "owner": "CityofTualatin",
+      "orgId": "cw66lBk1O7OM8APn",
+      "extent": {
+        "coordinates": [
+          [
+            -122.9523,
+            45.234
+          ],
+          [
+            -122.623,
+            45.4826
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "bf138af7aab346d4b4e7f92c0c834901",
+      "name": "Cities",
+      "url": "https://services1.arcgis.com/Ur3TPhgM56qvxaar/arcgis/rest/services/Cities/FeatureServer",
+      "owner": "SKjeffcomo",
+      "orgId": "Ur3TPhgM56qvxaar",
+      "extent": {
+        "coordinates": [
+          [
+            -90.7794,
+            38.0032
+          ],
+          [
+            -90.2486,
+            38.5016
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "1a7e8cd099a847c8a2e26b2edee9fdba",
+      "name": "Municipal Garages Offices",
+      "url": "https://services3.arcgis.com/KQcdsE7S72bcD7R8/arcgis/rest/services/Municipal_Garages_Offices/FeatureServer",
+      "owner": "UCLG_Admin",
+      "orgId": "KQcdsE7S72bcD7R8",
+      "extent": {
+        "coordinates": [
+          [
+            -76.3896,
+            44.3264
+          ],
+          [
+            -75.3854,
+            45.0256
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "b53b1f99441d4efe97864a0187c633d6",
+      "name": "Jurisdictions Hub",
+      "url": "https://services5.arcgis.com/RjM4BJrv5ZkqP4XC/arcgis/rest/services/Jurisdictions_Hub/FeatureServer",
+      "owner": "gisadmin_cityofreno",
+      "extent": {
+        "coordinates": [
+          [
+            -120.0023,
+            39.3749
+          ],
+          [
+            -119.6565,
+            39.9936
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "1f73c9ad861a4fd9998c097d3544c08e",
+      "name": "Buildings",
+      "url": "https://services2.arcgis.com/11XBiaBYA9Ep0yNJ/arcgis/rest/services/Buildings/FeatureServer",
+      "owner": "opendata_HRM",
+      "orgId": "11XBiaBYA9Ep0yNJ",
+      "extent": {
+        "coordinates": [
+          [
+            -64.1662,
+            44.4171
+          ],
+          [
+            -62.1512,
+            45.2889
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "5cee965665aa4794b0dceac7e8cd1698",
+      "name": "ReferenceFeatures",
+      "url": "https://services2.arcgis.com/2rIG17xLqeJd2jOX/arcgis/rest/services/ReferenceFeatures/FeatureServer",
+      "owner": "evansone_CODB",
+      "orgId": "2rIG17xLqeJd2jOX",
+      "extent": {
+        "coordinates": [
+          [
+            -81.4906,
+            28.8201
+          ],
+          [
+            -80.7895,
+            29.4271
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "0552e6295836412f9eb49246ae47b80a",
+      "name": "COWstorm",
+      "url": "https://services2.arcgis.com/cEct75q6PZi92VC0/arcgis/rest/services/COWstorm/FeatureServer",
+      "owner": "giswill",
+      "extent": {
+        "coordinates": [
+          [
+            -104.0562,
+            45.8346
+          ],
+          [
+            -96.2553,
+            48.9773
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "ce8569af99ec42abb7a0069b6a741c34",
+      "name": "CSO Locations Map WFL1",
+      "url": "https://services5.arcgis.com/w1CjlfkUGYWS5MJd/arcgis/rest/services/CSO_Locations_Map_WFL1/FeatureServer",
+      "owner": "EFaust@idem.IN.gov_IndianaDEM",
+      "orgId": "w1CjlfkUGYWS5MJd",
+      "extent": {
+        "coordinates": [
+          [
+            -87.9108,
+            37.8892
+          ],
+          [
+            -84.8531,
+            41.7208
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "c38098fac47540a8a8d276d8bd4fdb7c",
+      "name": "Director Districts 2023",
+      "url": "https://services2.arcgis.com/p0kPTvyvhLmiT5Ha/arcgis/rest/services/DirectorDistricts09062018/FeatureServer",
+      "owner": "SarahEasonEAA",
+      "orgId": "p0kPTvyvhLmiT5Ha",
+      "extent": {
+        "coordinates": [
+          [
+            -100.1127,
+            29.0816
+          ],
+          [
+            -97.5705,
+            30.0748
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "aaf4c751a0c341b3a2823f0034ce3b2c",
+      "name": "FCEO Jurisdictions",
+      "url": "https://services1.arcgis.com/7r2Wl09a1Apy459r/arcgis/rest/services/FCEO_Jurisdictions/FeatureServer",
+      "owner": "FCEO_Ohio",
+      "orgId": "7r2Wl09a1Apy459r",
+      "extent": {
+        "coordinates": [
+          [
+            -83.3749,
+            39.7467
+          ],
+          [
+            -82.624,
+            40.2532
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "a7722d49843146348221218b491e71eb",
+      "name": "GO Bond Streets & ROW Public",
+      "url": "https://gisportal.indepmo.org/giscoi/rest/services/CapitalPlanning/GO_Bond_Streets___Public/FeatureServer",
+      "owner": "EBarr@indepmo.org_independence",
+      "orgId": "sbDzK061dd6DNPHv",
+      "extent": {
+        "coordinates": [
+          [
+            -94.4787,
+            39.0262
+          ],
+          [
+            -94.2486,
+            39.1497
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "22db36e805094d50b93821114242cc7e",
+      "name": "Carte concernées contigües WFL1",
+      "url": "https://services1.arcgis.com/niuNnVx0H92jOc5F/arcgis/rest/services/Carte_concern%C3%A9es_contig%C3%BCes_WFL1/FeatureServer",
+      "owner": "yvesc",
+      "orgId": "niuNnVx0H92jOc5F",
+      "extent": {
+        "coordinates": [
+          [
+            -71.52,
+            46.5714
+          ],
+          [
+            -70.9926,
+            46.8436
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "4ef1ea11b3ef49a2a20f014a7fe664ea",
+      "name": "City Limits & ETJ",
+      "url": "https://services7.arcgis.com/SQVxkeGOcRYhZqOD/arcgis/rest/services/City_Limits_ETJ_082321/FeatureServer",
+      "owner": "CityOfTaylorGIS",
+      "orgId": "SQVxkeGOcRYhZqOD",
+      "extent": {
+        "coordinates": [
+          [
+            -97.5227,
+            30.4612
+          ],
+          [
+            -97.3434,
+            30.6422
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "e1c80cc114d5414eb774ab77589630c9",
+      "name": "WHCRWA MUDs",
+      "url": "https://services6.arcgis.com/Lw5x4Y4uh2Oasz3C/arcgis/rest/services/WHCRWA_MUDs_from_zip/FeatureServer",
+      "owner": "GF_AEC_SUB_8",
+      "orgId": "Lw5x4Y4uh2Oasz3C",
+      "extent": {
+        "coordinates": [
+          [
+            -95.9063,
+            29.6588
+          ],
+          [
+            -95.1374,
+            30.0489
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "473283fedb4d40b2aba7f63f506049ef",
+      "name": "WaconiaElections",
+      "url": "https://services.arcgis.com/wMZT8kNwa6tOxhKg/arcgis/rest/services/WaconiaElections/FeatureServer",
+      "owner": "waconia_admin",
+      "orgId": "wMZT8kNwa6tOxhKg",
+      "extent": {
+        "coordinates": [
+          [
+            -93.8292,
+            44.8184
+          ],
+          [
+            -93.7501,
+            44.8623
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "f4a88ddb93324ec2b9f83ce8233071ec",
+      "name": "Sandoval County Parcels",
+      "url": "https://services3.arcgis.com/CkhxOCyQmitz4nLa/arcgis/rest/services/Sandoval_County_Parcels/FeatureServer",
+      "owner": "SCMapping",
+      "orgId": "CkhxOCyQmitz4nLa",
+      "extent": {
+        "coordinates": [
+          [
+            -107.6126,
+            35.1933
+          ],
+          [
+            -106.2447,
+            36.2277
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "a6d35aba66314acaba68ce6d9197eeb7",
+      "name": "Planning District GeoEnrichment",
+      "url": "https://services5.arcgis.com/fXXSUzHD5JjcOt1v/arcgis/rest/services/Planning_District_GeoEnrichment/FeatureServer",
+      "owner": "mbindl",
+      "orgId": "fXXSUzHD5JjcOt1v",
+      "extent": {
+        "coordinates": [
+          [
+            -120.2657,
+            38.7252
+          ],
+          [
+            -119.8569,
+            39.3325
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "d5f89ac0cca04349922a6984a08f3252",
+      "name": "OpenData Address",
+      "url": "https://services2.arcgis.com/CnkB6jCzAsyli34z/arcgis/rest/services/OpenData_Address/FeatureServer",
+      "owner": "opendatascripts_cityofpg",
+      "orgId": "CnkB6jCzAsyli34z",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -122.8986,
+            53.8151
+          ],
+          [
+            -122.6038,
+            54.0391
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "528264d32e064ebfb823f38a085679ae",
+      "name": "Mountain Village Comprehensive Plan",
+      "url": "https://services3.arcgis.com/Nefdxa42x2DnAd5Z/arcgis/rest/services/Mountain_Village_Comprehensive_Plan/FeatureServer",
+      "owner": "Townofmountainvillage",
+      "orgId": "Nefdxa42x2DnAd5Z",
+      "extent": {
+        "coordinates": [
+          [
+            -107.8814,
+            37.9166
+          ],
+          [
+            -107.8319,
+            37.9477
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "15de99a5fe904f5e857d8ba56e944f97",
+      "name": "Web Tax Parcel",
+      "url": "https://gis.waukeshacounty.gov/host/rest/services/Web_Tax_Parcel/FeatureServer",
+      "owner": "waukco",
+      "orgId": "5mNcDbMaBDRgBsIc",
+      "extent": {
+        "coordinates": [
+          [
+            -88.546,
+            42.8423
+          ],
+          [
+            -88.0561,
+            43.192
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "14086ca566594021a3dccda8cda833b6",
+      "name": "DAC Census Tracts in the CMWD Service Area",
+      "url": "https://services3.arcgis.com/iySljGn2o0mtZdB7/arcgis/rest/services/DAC_Census_Tracts_in_the_CMWD_Service_Area/FeatureServer",
+      "owner": "AspenGIS1",
+      "extent": {
+        "coordinates": [
+          [
+            -119.5776,
+            33.213
+          ],
+          [
+            -118.6375,
+            34.9081
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "69f3e684ad6849de855d053ca6cf480a",
+      "name": "Ontario Road Network Composite Service",
+      "url": "https://services1.arcgis.com/TJH5KDher0W13Kgo/arcgis/rest/services/Ontario_Road_Network_Composite_Service/FeatureServer",
+      "owner": "OntarioProvincialMapping",
+      "orgId": "TJH5KDher0W13Kgo",
+      "extent": {
+        "coordinates": [
+          [
+            -95.1534,
+            41.6766
+          ],
+          [
+            -74.3439,
+            56.0828
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "c7ec4164dd634895b9351d168e8ac7c6",
+      "name": "Illinois Protected Natural Lands",
+      "url": "https://services5.arcgis.com/vxriHwYuGDCBCbeh/arcgis/rest/services/Illinois_Protected_Natural_Lands/FeatureServer",
+      "owner": "PrairieState",
+      "orgId": "vxriHwYuGDCBCbeh",
+      "extent": {
+        "coordinates": [
+          [
+            -91.5796,
+            36.967
+          ],
+          [
+            -87.406,
+            42.507
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "0d0d541f3a0245b892ebd715c32328b1",
+      "name": "Transit",
+      "url": "https://gisportal.indepmo.org/giscoi/rest/services/Transit/Transit/FeatureServer",
+      "owner": "COI_AGO",
+      "orgId": "sbDzK061dd6DNPHv",
+      "extent": {
+        "coordinates": [
+          [
+            -94.6394,
+            38.7959
+          ],
+          [
+            -94.105,
+            39.2139
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "3b05ea32167c4cc5a8b61ac8827b0991",
+      "name": "Sanitary for JULIE",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/3b05ea32167c4cc5a8b61ac8827b0991/rest/services/Sewers/Sanitary_JULIE/FeatureServer",
+      "owner": "DanvilleILGIS",
+      "orgId": "5SgLK7rhBciydlkM",
+      "extent": {
+        "coordinates": [
+          [
+            -87.6641,
+            40.1018
+          ],
+          [
+            -87.5322,
+            40.2044
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "74585bd415f24551904e7a64f8feb776",
+      "name": "Storm for JULIE",
+      "url": "https://utility.arcgis.com/usrsvcs/servers/74585bd415f24551904e7a64f8feb776/rest/services/Sewers/Storm_JULIE/FeatureServer",
+      "owner": "DanvilleILGIS",
+      "orgId": "5SgLK7rhBciydlkM",
+      "extent": {
+        "coordinates": [
+          [
+            -87.6641,
+            40.1018
+          ],
+          [
+            -87.5322,
+            40.2044
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "ac3ac7eac4e2494699cb768164ff06ec",
+      "name": "WestStPaul Public",
+      "url": "https://services8.arcgis.com/CjVb8BH1EIcrgkMg/arcgis/rest/services/WestStPaul_Public/FeatureServer",
+      "owner": "RRPDGIS",
+      "orgId": "CjVb8BH1EIcrgkMg",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -97.3313,
+            49.8741
+          ],
+          [
+            -96.8835,
+            50.1647
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "3bbcfae0d635442f9223a4f5a4d7a7e2",
+      "name": "StClements Public",
+      "url": "https://services8.arcgis.com/CjVb8BH1EIcrgkMg/arcgis/rest/services/StClements_Public/FeatureServer",
+      "owner": "RRPDGIS",
+      "orgId": "CjVb8BH1EIcrgkMg",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -97.0721,
+            49.951
+          ],
+          [
+            -96.1939,
+            50.6026
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "f59da745905041759a4d3b4d9bf9a53c",
+      "name": "StAndrews Public",
+      "url": "https://services8.arcgis.com/CjVb8BH1EIcrgkMg/arcgis/rest/services/StAndrews_Public/FeatureServer",
+      "owner": "RRPDGIS",
+      "orgId": "CjVb8BH1EIcrgkMg",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -97.2066,
+            49.9625
+          ],
+          [
+            -96.7486,
+            50.6004
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "95a1873e1fc849908c0e630ffab233a1",
+      "name": "EastStPaul Public",
+      "url": "https://services8.arcgis.com/CjVb8BH1EIcrgkMg/arcgis/rest/services/EastStPaul_Public/FeatureServer",
+      "owner": "RRPDGIS",
+      "orgId": "CjVb8BH1EIcrgkMg",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -97.1908,
+            49.8817
+          ],
+          [
+            -96.8574,
+            50.1221
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "d549ddd8a26f47eeaeee83a57674d802",
+      "name": "Dunnottar Public",
+      "url": "https://services8.arcgis.com/CjVb8BH1EIcrgkMg/arcgis/rest/services/Dunnottar_Public/FeatureServer",
+      "owner": "RRPDGIS",
+      "orgId": "CjVb8BH1EIcrgkMg",
+      "recordCount": null,
+      "extent": {
+        "coordinates": [
+          [
+            -97.0488,
+            50.3581
+          ],
+          [
+            -96.9018,
+            50.5097
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "4967c9ab2e1e48a48bd678d0d0736410",
+      "name": "Community Development Initial Layers",
+      "url": "https://services7.arcgis.com/ITFBFLQBvUvHAQ7d/arcgis/rest/services/Community_Development_Initial_Layers/FeatureServer",
+      "owner": "acoppernoll_vilwaunakee",
+      "orgId": "ITFBFLQBvUvHAQ7d",
+      "extent": {
+        "coordinates": [
+          [
+            -89.4819,
+            43.1336
+          ],
+          [
+            -89.3619,
+            43.2069
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    },
+    {
+      "id": "d463e89709e04cabbdf1f8e324cd8d16",
+      "name": "ESMV publique",
+      "url": "https://services3.arcgis.com/0lL78GhXbg1Po7WO/arcgis/rest/services/ESMV_publique/FeatureServer",
+      "owner": "deb_dap",
+      "extent": {
+        "coordinates": [
+          [
+            -84.3815,
+            44.5047
+          ],
+          [
+            -53.4881,
+            62.7895
+          ]
+        ],
+        "type": "envelope"
+      },
+      "matchedTerm": "municipal wards",
+      "confidence": 60
+    }
+  ],
+  "discoveredAt": "2026-01-24T03:11:40.815Z"
+}

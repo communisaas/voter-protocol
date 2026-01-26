@@ -1,0 +1,173 @@
+{
+  "discoveryWave": "wave-p-florida-aggregators",
+  "timestamp": "2026-01-23T00:00:00.000Z",
+  "verifiedPortals": [
+    {
+      "cityName": "Fort Lauderdale",
+      "state": "FL",
+      "cityFips": "1224000",
+      "status": "REGISTRY_VERIFIED_BUT_NOW_BLOCKED",
+      "registryUrl": "https://gis.fortlauderdale.gov/server/rest/services/CityCommissionDistricts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "municipal-gis",
+      "expectedFeatureCount": 4,
+      "actualFeatureCount": null,
+      "verificationError": "Token Required (error 499) - portal now requires authentication",
+      "lastSuccessfulVerification": "2026-01-23T00:00:00.000Z",
+      "discoveredBy": "wave-k-fl-specialist",
+      "recommendation": "QUARANTINE - portal requires authentication token, not publicly accessible",
+      "notes": "Fort Lauderdale FeatureServer/0 endpoint returned error 499. Service metadata also blocked. May need alternative discovery method or direct city contact."
+    },
+    {
+      "cityName": "Hollywood",
+      "state": "FL",
+      "cityFips": "1232000",
+      "status": "REGISTRY_VERIFIED_WORKING",
+      "registryUrl": "https://services1.arcgis.com/lfAczuQbfdRGdFQE/ArcGIS/rest/services/Commission_Districts/FeatureServer/17/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "municipal-gis",
+      "expectedFeatureCount": 6,
+      "actualFeatureCount": 6,
+      "verificationTimestamp": "2026-01-23T00:00:00.000Z",
+      "fields": [
+        "OBJECTID",
+        "DISTRICT",
+        "Commissioner",
+        "Website",
+        "CURRENT_TERM",
+        "EMAIL",
+        "FIRSTELECTED",
+        "GlobalID",
+        "created_user",
+        "created_date"
+      ],
+      "discoveredBy": "wave-l-fl-specialist",
+      "notes": "Hollywood FL - 6 commission districts. ArcGIS Online hosted service. Redistricted 12/7/2021. Contains commissioner contact info."
+    },
+    {
+      "cityName": "Cape Coral",
+      "state": "FL",
+      "cityFips": "1210275",
+      "status": "REGISTRY_VERIFIED_BETTER_URL_FOUND",
+      "registryUrl": "https://services.arcgis.com/ZbVPNfkTF89LEyGa/arcgis/rest/services/City_of_Cape_Coral_Wayfinding_Survey_Map_WFL1/FeatureServer/9/query?where=1%3D1&outFields=*&f=geojson",
+      "newUrl": "https://capeims.capecoral.gov/arcgis/rest/services/IMS/City_of_Cape_Coral_IMS_AGOL/FeatureServer/25/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "municipal-gis",
+      "expectedFeatureCount": 7,
+      "actualFeatureCount": 7,
+      "verificationTimestamp": "2026-01-23T00:00:00.000Z",
+      "layerName": "Council Districts",
+      "fields": [
+        "DISTRICT",
+        "POPULATION",
+        "created_user",
+        "created_date",
+        "last_edited_user",
+        "last_edited_date",
+        "District_Page",
+        "Shape__Area",
+        "OBJECTID_1",
+        "COUNCIL_NAME",
+        "GlobalID"
+      ],
+      "lastEdited": "2024-11-22T00:00:00.000Z",
+      "sampleData": {
+        "district": "1",
+        "councilName": "William E. Steinke",
+        "population": 27706,
+        "districtPage": "http://www.capecoral.net/government/city_government/city_council/district_1.php"
+      },
+      "discoveredBy": "automated (original), wave-p-florida (new URL)",
+      "recommendation": "UPDATE_REGISTRY - use official city FeatureServer instead of ArcGIS Online wayfinding service",
+      "notes": "Cape Coral - Official city IMS server is more authoritative than wayfinding survey. Layer 25 in City_of_Cape_Coral_IMS_AGOL. Last edited Nov 2024."
+    },
+    {
+      "cityName": "Orlando",
+      "state": "FL",
+      "cityFips": "1253000",
+      "countyFips": "12095",
+      "status": "REGISTRY_VERIFIED_WORKING",
+      "registryUrl": "https://ocgis4.ocfl.net/arcgis/rest/services/Public_Dynamic/MapServer/151/query?where=1%3D1&outFields=*&f=geojson",
+      "portalType": "county-gis",
+      "expectedFeatureCount": 6,
+      "actualFeatureCount": 6,
+      "verificationTimestamp": "2026-01-23T00:00:00.000Z",
+      "layerName": "Orlando Commission Districts",
+      "fields": [
+        "OBJECTID",
+        "COMMISSIONERDISTRICTID",
+        "COMMISSIONERNAME",
+        "SHAPE_Length",
+        "SHAPE_Area"
+      ],
+      "sampleData": {
+        "districtId": "6",
+        "commissionerName": "Samuel B. Ings"
+      },
+      "discoveredBy": "wave-k-fl-specialist",
+      "notes": "Orlando FL (Orange County) - 6 commissioner districts. MapServer layer 151 on Orange County GIS. Contains commissioner names."
+    }
+  ],
+  "summary": {
+    "totalPortalsVerified": 4,
+    "alreadyInRegistry": 4,
+    "newPortals": 0,
+    "workingPortals": 3,
+    "blockedPortals": 1,
+    "updatesNeeded": 1,
+    "recommendations": [
+      {
+        "action": "QUARANTINE",
+        "cityFips": "1224000",
+        "reason": "Fort Lauderdale portal now requires authentication token"
+      },
+      {
+        "action": "UPDATE",
+        "cityFips": "1210275",
+        "field": "downloadUrl",
+        "from": "https://services.arcgis.com/ZbVPNfkTF89LEyGa/arcgis/rest/services/City_of_Cape_Coral_Wayfinding_Survey_Map_WFL1/FeatureServer/9/query?where=1%3D1&outFields=*&f=geojson",
+        "to": "https://capeims.capecoral.gov/arcgis/rest/services/IMS/City_of_Cape_Coral_IMS_AGOL/FeatureServer/25/query?where=1%3D1&outFields=*&f=geojson",
+        "reason": "Official city FeatureServer is more authoritative than ArcGIS Online wayfinding service"
+      },
+      {
+        "action": "UPDATE",
+        "cityFips": "1210275",
+        "field": "confidence",
+        "from": 63,
+        "to": 95,
+        "reason": "Official city portal with current data (last edited Nov 2024)"
+      }
+    ]
+  },
+  "technicalNotes": [
+    "Fort Lauderdale GIS portal (gis.fortlauderdale.gov) now returns error 499 'Token Required' for both metadata and query endpoints",
+    "Hollywood uses ArcGIS Online (services1.arcgis.com) rather than self-hosted infrastructure",
+    "Cape Coral has official city IMS server (capeims.capecoral.gov) which is more authoritative",
+    "Orange County GIS (ocgis4.ocfl.net) serves Orlando city commission districts as MapServer layer 151",
+    "All working portals verified with feature counts matching expected values",
+    "Regional aggregators list from regional-aggregators.ts had one URL mismatch (Hollywood MapServer/35 returns 404)"
+  ],
+  "dataQuality": {
+    "capeCoral": {
+      "lastEditDate": "2024-11-22",
+      "hasPopulation": true,
+      "hasCouncilNames": true,
+      "hasDistrictPages": true,
+      "dataCompleteness": "high"
+    },
+    "hollywood": {
+      "hasCommissionerNames": true,
+      "hasEmails": true,
+      "hasWebsites": true,
+      "redistrictingDate": "2021-12-07",
+      "dataCompleteness": "high"
+    },
+    "orlando": {
+      "hasCommissionerNames": true,
+      "hasGeometry": true,
+      "dataCompleteness": "medium"
+    },
+    "fortLauderdale": {
+      "accessible": false,
+      "authenticationRequired": true,
+      "dataCompleteness": "unknown"
+    }
+  }
+}

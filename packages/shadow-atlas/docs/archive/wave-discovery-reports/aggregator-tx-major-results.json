@@ -1,0 +1,129 @@
+{
+  "aggregator": {
+    "name": "TX Major City Council Districts 2025",
+    "endpoint": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11",
+    "city_field": "City",
+    "district_field": "District",
+    "status": "active",
+    "verified": true
+  },
+  "summary": {
+    "total_features": 55,
+    "total_cities": 5,
+    "cities_extracted": 5,
+    "new_cities": 5,
+    "existing_cities": 0
+  },
+  "cities": [
+    {
+      "name": "Austin",
+      "fips": "4805000",
+      "state": "TX",
+      "district_count": 10,
+      "districts": [
+        "District 1",
+        "District 2",
+        "District 3",
+        "District 4",
+        "District 5",
+        "District 6",
+        "District 7",
+        "District 8",
+        "District 9",
+        "District 10"
+      ],
+      "where_clause": "City = 'Austin'",
+      "download_url": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11/query?where=City%20%3D%20%27Austin%27&outFields=*&f=geojson",
+      "status": "new"
+    },
+    {
+      "name": "Dallas",
+      "fips": "4819000",
+      "state": "TX",
+      "district_count": 14,
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "where_clause": "City = 'Dallas'",
+      "download_url": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11/query?where=City%20%3D%20%27Dallas%27&outFields=*&f=geojson",
+      "status": "new"
+    },
+    {
+      "name": "Fort Worth",
+      "fips": "4827000",
+      "state": "TX",
+      "district_count": 10,
+      "districts": [
+        "District 2",
+        "District 3",
+        "District 4",
+        "District 5",
+        "District 6",
+        "District 7",
+        "District 8",
+        "District 9",
+        "District 10",
+        "District 11"
+      ],
+      "where_clause": "City = 'Fort Worth'",
+      "download_url": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11/query?where=City%20%3D%20%27Fort%20Worth%27&outFields=*&f=geojson",
+      "status": "new"
+    },
+    {
+      "name": "Houston",
+      "fips": "4835000",
+      "state": "TX",
+      "district_count": 11,
+      "districts": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K"
+      ],
+      "where_clause": "City = 'Houston'",
+      "download_url": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11/query?where=City%20%3D%20%27Houston%27&outFields=*&f=geojson",
+      "status": "new"
+    },
+    {
+      "name": "San Antonio",
+      "fips": "4865000",
+      "state": "TX",
+      "district_count": 10,
+      "districts": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10"
+      ],
+      "where_clause": "City = 'San Antonio'",
+      "download_url": "https://services7.arcgis.com/ZodPOMBKsdAsTqF4/arcgis/rest/services/TX_Major_City_Council_Districts_25/FeatureServer/11/query?where=City%20%3D%20%27San%20Antonio%27&outFields=*&f=geojson",
+      "status": "new"
+    }
+  ]
+}

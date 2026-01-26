@@ -1,0 +1,268 @@
+================================================================================
+AT-LARGE CITY DETECTION RESEARCH - FINDINGS REPORT
+================================================================================
+Date: 2026-01-16
+Mission: Identify cities with at-large voting vs. wrong data sources
+
+SUMMARY
+-------
+Researched 8 cities with low coverage or exclusivity failures.
+Result: Only 1 confirmed at-large city (Milton, GA).
+Most low-coverage issues are due to wrong data sources, not at-large voting.
+
+CITIES RESEARCHED
+-----------------
+
+HIGH PRIORITY (Very Low Coverage):
+  ✓ Sheridan, IN (4.2% coverage)
+  ✓ Bridgeport, CT (10.6% coverage)
+
+MEDIUM PRIORITY (Moderate Coverage):
+  ✓ Meridian, ID (40.0% coverage)
+  ✓ Lafayette, LA (44.1% coverage)
+  ✓ Farmington, NM (45.3% coverage)
+
+EXCLUSIVITY FAILURES:
+  ✓ Chattahoochee Hills, GA
+  ✓ Milton, GA
+  ✓ Big Bear Lake, CA
+
+================================================================================
+CONFIRMED AT-LARGE: 1 CITY
+================================================================================
+
+✅ MILTON, GA (FIPS: 1351670) - ADDED TO REGISTRY
+   Council Size: 6 councilmembers + mayor
+   Election Method: At-large (all voters vote for all seats)
+   Key Detail: Councilmembers must reside in districts BUT elected citywide
+   Source: https://www.miltonga.gov/government/mayor-city-council
+   Status: ✅ Added to src/core/registry/at-large-cities.ts
+
+================================================================================
+HAS DISTRICTS (WRONG DATA IN REGISTRY): 5 CITIES
+================================================================================
+
+❌ SHERIDAN, IN (FIPS: 1869354)
+   Coverage: 4.2% - INDICATES WRONG DATA SOURCE
+   Actual Structure: 4 town council districts (Sheridan 1-4)
+   NOT AT-LARGE: Each district elects its own representative
+   Source: Hamilton County 2023 official district map
+   URL: https://www.hamiltoncounty.in.gov/DocumentCenter/View/18183/
+
+   ACTION REQUIRED:
+   - Remove wrong data (likely county/state boundaries)
+   - Source correct Sheridan town council district boundaries
+   - Expected: 4 districts
+
+---
+
+❌ BRIDGEPORT, CT (FIPS: 0908000)
+   Coverage: 10.6% - INDICATES WRONG DATA SOURCE
+   Actual Structure: 10 city council districts, 2 members each (20 total)
+   NOT AT-LARGE: District-based elections
+   Districts: Numbered 130-139
+   Recent redistricting: July 2023
+   Source: https://www.bridgeportct.gov/government/departments/city-council
+
+   ACTION REQUIRED:
+   - Remove wrong data (likely state legislative districts)
+   - Source correct Bridgeport city council districts
+   - Expected: 10 districts (130-139)
+
+---
+
+❌ LAFAYETTE, LA (FIPS: 2240735)
+   Coverage: 44.1% - SUGGESTS OVERLAPPING/PARTIAL DATA
+   Actual Structure: 5 city council single-member districts
+   NOT AT-LARGE: District-based elections
+   Complexity: Separate city + parish councils (city residents vote for both)
+   Source: https://lafayettala.gov/council/default
+
+   ACTION REQUIRED:
+   - Ensure only CITY council districts in registry (not parish)
+   - Remove any parish council district overlap
+   - Expected: 5 city council districts only
+
+---
+
+❌ FARMINGTON, NM (FIPS: 3526190)
+   Coverage: 45.3% - INDICATES WRONG DATA SOURCE
+   Actual Structure: 4 city council districts
+   NOT AT-LARGE: Councilors represent their specific districts
+   Official map: Available at city document center
+   Source: https://www.fmtn.org/141/City-Council
+
+   ACTION REQUIRED:
+   - Remove wrong data (likely county/regional districts)
+   - Source official city council district map
+   - Map URL: https://fmtn.org/DocumentCenter/View/1379/
+   - Expected: 4 districts
+
+---
+
+❌ CHATTAHOOCHEE HILLS, GA (FIPS: 1315828)
+   Issues: Exclusivity failures in small city
+   Actual Structure: 5 city council districts + at-large mayor
+   NOT AT-LARGE: Council members elected BY district
+   Source: https://www.chatthillsga.us/government/mayor_and_city_council.php
+
+   ACTION REQUIRED:
+   - Remove wrong data (likely county/regional data)
+   - Source correct city council district boundaries
+   - Expected: 5 districts
+
+================================================================================
+FORMERLY AT-LARGE (TRANSITIONED TO DISTRICTS): 2 CITIES
+================================================================================
+
+⚠️  MERIDIAN, ID (FIPS: 1652120) - TRANSITIONED 2023
+   Coverage: 40.0% - MAY REFLECT OUTDATED AT-LARGE DATA
+   Former Structure: At-large elections (all councilmembers citywide)
+   Current Structure: 6 geographic districts (since November 2023)
+   Reason: Idaho law requires cities over 100,000 to use districts
+   Population: 117,635 (2020 census)
+   Source: https://meridiancity.org/city-council/city-council-districts/
+
+   ACTION REQUIRED:
+   - Verify registry has post-2023 district boundaries
+   - If data predates 2023, it reflects old at-large structure
+   - Expected: 6 districts created 2022-2023
+
+---
+
+⚠️  BIG BEAR LAKE, CA (FIPS: 0606210) - TRANSITIONED 2018
+   Issues: Exclusivity failures
+   Former Structure: At-large elections
+   Current Structure: By-district elections (since 2018)
+   Recent redistricting: April 2022 (Ordinance No. 2022-502)
+   Source: https://www.citybigbearlake.com/index.php/en/government-main/city-council
+
+   ACTION REQUIRED:
+   - Verify registry has post-2022 redistricting boundaries
+   - If data predates 2018, it reflects old at-large structure
+   - Expected: 4-5 districts (post-2022 map)
+
+================================================================================
+KEY INSIGHTS
+================================================================================
+
+1. AT-LARGE VOTING IS RARE
+   - Only 1 of 8 researched cities confirmed at-large
+   - Most low-coverage cities have districts but wrong data
+
+2. DISTRICT RESIDENCY ≠ AT-LARGE VOTING
+   - Milton, GA: District residency BUT at-large voting
+   - Key distinction: Do ALL voters vote for ALL seats? (Yes = at-large)
+
+3. STATE LAWS DRIVING TRANSITIONS
+   - Idaho: Cities over 100k must use districts (Meridian 2023)
+   - California: CVRA pressure (Big Bear Lake 2018)
+
+4. COMMON WRONG DATA SOURCES
+   - County boundaries instead of city boundaries
+   - State legislative districts instead of city council
+   - Regional planning districts instead of electoral districts
+   - Overlapping jurisdictions (city + county)
+   - Outdated pre-transition data
+
+================================================================================
+REGISTRY CHANGES
+================================================================================
+
+ADDED:
+  ✅ Milton, GA (FIPS: 1351670)
+     - 6 councilmembers
+     - True at-large voting
+     - Added to src/core/registry/at-large-cities.ts
+
+NO CHANGES:
+  - Gresham, OR (4131250) - Remains "pending verification"
+  - Jenks, OK (4038350) - Remains "pending verification"
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+IMMEDIATE ACTIONS (Wrong Data Sources):
+
+1. Sheridan, IN - Source town council district boundaries (4 districts)
+2. Bridgeport, CT - Source city council districts 130-139 (10 districts)
+3. Lafayette, LA - Ensure only city districts, not parish (5 districts)
+4. Farmington, NM - Source official district map (4 districts)
+5. Chattahoochee Hills, GA - Source city district boundaries (5 districts)
+6. Meridian, ID - Verify post-2023 boundaries (6 districts)
+7. Big Bear Lake, CA - Verify post-2022 boundaries (4-5 districts)
+
+VERIFICATION PENDING:
+- Gresham, OR - Charter research needed
+- Jenks, OK - Charter research needed
+
+================================================================================
+FILES CREATED/MODIFIED
+================================================================================
+
+CREATED:
+  ✅ analysis-output/at-large-research.json
+     - Structured research findings with all sources
+
+  ✅ analysis-output/at-large-research-summary.md
+     - Comprehensive human-readable report with sources
+
+  ✅ analysis-output/at-large-research-findings.txt
+     - This summary document
+
+MODIFIED:
+  ✅ src/core/registry/at-large-cities.ts
+     - Added Milton, GA (FIPS: 1351670)
+     - Verified TypeScript compilation successful
+
+================================================================================
+SOURCES (Primary - Official Government Sites)
+================================================================================
+
+City of Milton, GA:
+  https://www.miltonga.gov/government/mayor-city-council
+
+Hamilton County, IN - Sheridan Districts:
+  https://www.hamiltoncounty.in.gov/DocumentCenter/View/18183/
+
+City of Bridgeport, CT:
+  https://www.bridgeportct.gov/government/departments/city-council
+
+Lafayette Consolidated Government:
+  https://lafayettala.gov/council/default
+
+City of Farmington, NM:
+  https://www.fmtn.org/141/City-Council
+
+City of Meridian, ID:
+  https://meridiancity.org/city-council/city-council-districts/
+
+City of Big Bear Lake, CA:
+  https://www.citybigbearlake.com/index.php/en/government-main/city-council
+
+Chattahoochee Hills, GA:
+  https://www.chatthillsga.us/government/mayor_and_city_council.php
+
+Census Bureau GEOIDs:
+  https://www.census.gov/programs-surveys/geography/guidance/geo-identifiers.html
+
+================================================================================
+RESEARCH METHODOLOGY
+================================================================================
+
+1. Web search for city charters, municipal codes, official websites
+2. Prioritized .gov sources over third-party sites
+3. Cross-referenced multiple sources for verification
+4. Documented transition dates for formerly at-large cities
+5. Verified FIPS codes against Census standards
+
+LIMITATIONS:
+- Some city charters not available online (paywall/restricted)
+- Transition dates may be approximate based on available sources
+- Some cities have district maps but not detailed charter language online
+
+================================================================================
+STATUS: RESEARCH COMPLETE
+Next Steps: Source correct district boundaries for 7 cities with wrong data
+================================================================================

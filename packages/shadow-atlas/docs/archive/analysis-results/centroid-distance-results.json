@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-01-17T00:04:57.211Z",
+  "results": [
+    {
+      "fips": "2646000",
+      "city": "Lansing",
+      "state": "MI",
+      "portalUrl": "https://services9.arcgis.com/1bWTvtvBCBaErVYC/arcgis/rest/services/Lansing_Ward_Boundaries_01032023/FeatureServer/0",
+      "districtCentroid": [
+        -94.89445667162798,
+        39.24642651202356
+      ],
+      "cityCentroid": [
+        -84.54920444350417,
+        42.71581591079576
+      ],
+      "distanceKm": 949.393335891875,
+      "classification": "WRONG_SOURCE",
+      "error": null,
+      "districtCount": 4
+    },
+    {
+      "fips": "3451000",
+      "city": "Newark",
+      "state": "NJ",
+      "portalUrl": "https://services9.arcgis.com/QHXEWAb0pE2rvfbb/arcgis/rest/services/TEST_2_City_of_Newark_Pocket_Park_Suggestions/FeatureServer/6",
+      "districtCentroid": [
+        -74.18425064950233,
+        40.73943869452389
+      ],
+      "cityCentroid": [
+        -74.19344358436736,
+        40.73806450427315
+      ],
+      "distanceKm": 0.7894500142979528,
+      "classification": "LIKELY_VALID",
+      "error": null,
+      "districtCount": 5
+    },
+    {
+      "fips": "3746060",
+      "city": "Morrisville",
+      "state": "NC",
+      "portalUrl": "https://services1.arcgis.com/a7CWfuGP5ZnLYE7I/arcgis/rest/services/MorrisvilleTownCouncilDistricts/FeatureServer/0",
+      "districtCentroid": [
+        -78.8405897880636,
+        35.83392730330317
+      ],
+      "cityCentroid": [
+        -78.02192679411849,
+        34.26395050642897
+      ],
+      "distanceKm": 189.8127697924552,
+      "classification": "WRONG_SOURCE",
+      "error": null,
+      "districtCount": 4
+    },
+    {
+      "fips": "4038350",
+      "city": "Jenks",
+      "state": "OK",
+      "portalUrl": "https://services6.arcgis.com/4Mu2JOJIDuTmmPXb/arcgis/rest/services/City_of_Jenks_Master_Map_2025_WFL1/FeatureServer/330",
+      "districtCentroid": null,
+      "cityCentroid": [
+        -97.28130884228631,
+        35.55502544484328
+      ],
+      "distanceKm": null,
+      "classification": "ERROR",
+      "error": "Failed to compute district centroid",
+      "districtCount": 13
+    },
+    {
+      "fips": "4856348",
+      "city": "Pearland",
+      "state": "TX",
+      "portalUrl": "https://services.arcgis.com/su8ic9KbA7PYVxPS/arcgis/rest/services/City_Council_Districts/FeatureServer/0",
+      "districtCentroid": [
+        -95.42868326131092,
+        29.77245967067931
+      ],
+      "cityCentroid": [
+        -95.32896969774916,
+        29.554036585282876
+      ],
+      "distanceKm": 26.128751849828483,
+      "classification": "EDGE_CASE",
+      "error": null,
+      "districtCount": 11
+    },
+    {
+      "fips": "2511000",
+      "city": "Cambridge",
+      "state": "MA",
+      "portalUrl": "https://services.arcgis.com/sFnw0xNflSi8J0uh/arcgis/rest/services/1993_City_Council_Districts/FeatureServer/0",
+      "districtCentroid": [
+        -71.08192848225504,
+        42.32165075925889
+      ],
+      "cityCentroid": [
+        -71.10694264491471,
+        42.37591938774877
+      ],
+      "distanceKm": 6.374931241279141,
+      "classification": "LIKELY_VALID",
+      "error": null,
+      "districtCount": 10
+    },
+    {
+      "fips": "4131250",
+      "city": "Gresham",
+      "state": "OR",
+      "portalUrl": "https://services8.arcgis.com/tblHe99qQFMcNzpC/arcgis/rest/services/Metro_Council_Districts_2013_2021/FeatureServer/0",
+      "districtCentroid": [
+        -122.70865065327708,
+        45.469675270551505
+      ],
+      "cityCentroid": [
+        -122.44579683717322,
+        45.503870270350504
+      ],
+      "distanceKm": 20.84080717254542,
+      "classification": "EDGE_CASE",
+      "error": null,
+      "districtCount": 6
+    },
+    {
+      "fips": "0622804",
+      "city": "Escondido",
+      "state": "CA",
+      "portalUrl": "https://services.arcgis.com/2j08Y1PuezhQEfCz/arcgis/rest/services/escondido_city_council_election_districts_2018/FeatureServer/0",
+      "districtCentroid": [
+        -117.07202780793098,
+        33.13821651678406
+      ],
+      "cityCentroid": [
+        -117.08378848751597,
+        33.12290950914516
+      ],
+      "distanceKm": 2.023938781207136,
+      "classification": "LIKELY_VALID",
+      "error": null,
+      "districtCount": 3
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "likelyValid": 3,
+    "edgeCase": 2,
+    "wrongSource": 2,
+    "error": 1,
+    "thresholds": {
+      "valid": 10,
+      "edgeCase": 50
+    }
+  }
+}

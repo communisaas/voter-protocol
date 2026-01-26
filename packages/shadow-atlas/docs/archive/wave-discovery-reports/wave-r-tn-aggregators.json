@@ -1,0 +1,291 @@
+{
+  "wave": "R",
+  "state": "TN",
+  "focus": "Regional GIS Aggregators",
+  "discoveryDate": "2026-01-23",
+  "summary": {
+    "totalMunicipalities": 345,
+    "aggregatorsFound": 7,
+    "bulkExtractionPotential": "MODERATE",
+    "keyFinding": "Tennessee lacks a statewide municipal council district aggregator. The Comptroller maintains city boundaries for all 345 municipalities but NOT council/ward districts. Council districts are maintained at county/city level only."
+  },
+  "statewideSources": [
+    {
+      "name": "TN STS GIS - City Boundaries",
+      "type": "MapServer",
+      "url": "https://tnmap.tn.gov/arcgis/rest/services/ADMINISTRATIVE_BOUNDARIES/COUNTY_BOUNDARIES_AND_CITY_BOUNDARIES/MapServer",
+      "layers": [
+        {
+          "id": 0,
+          "name": "City Boundaries",
+          "geometryType": "esriGeometryPolygon",
+          "fields": ["OBJECTID", "NAME", "Shape"],
+          "source": "Tennessee Comptroller - Office of Local Government",
+          "note": "All 345 TN municipalities but NO council districts"
+        },
+        {
+          "id": 1,
+          "name": "County Boundaries",
+          "source": "Tele Atlas"
+        }
+      ],
+      "openDataPortal": "https://tn-tnmap.opendata.arcgis.com/datasets/tnmap::tn-city-boundaries",
+      "bulkExtractionValue": "LOW - Only municipal boundaries, not council districts"
+    },
+    {
+      "name": "TN STS GIS - Voting Districts",
+      "type": "MapServer",
+      "url": "https://tnmap.tn.gov/arcgis/rest/services/ADMINISTRATIVE_BOUNDARIES/VOTING_DISTRICTS/MapServer",
+      "layers": [
+        {
+          "id": 0,
+          "name": "VOTING DISTRICTS",
+          "fields": ["County", "District", "VTD", "NAME", "Total_pop", "White", "Black", "Hispanic", "Other"],
+          "source": "Comptroller of the Treasury - Office of Local Government"
+        }
+      ],
+      "note": "State voting precincts by county, NOT municipal council districts",
+      "bulkExtractionValue": "LOW - State voting precincts only"
+    },
+    {
+      "name": "TN Comptroller Municipal Boundaries Dashboard",
+      "type": "Interactive Dashboard",
+      "url": "https://tncot.cc/cities",
+      "description": "Explore boundaries for all 345 cities and towns with annexation/deannexation history since 2016",
+      "contact": "cities@cot.tn.gov",
+      "note": "Visualization only - no direct council district data",
+      "bulkExtractionValue": "NONE - Dashboard only, not data service"
+    }
+  ],
+  "regionalAggregators": [
+    {
+      "name": "Greater Nashville Regional Council (GNRC)",
+      "region": "Middle Tennessee - 13 counties, 52 municipalities",
+      "counties": ["Cheatham", "Davidson", "Dickson", "Houston", "Humphreys", "Montgomery", "Robertson", "Rutherford", "Stewart", "Sumner", "Trousdale", "Williamson", "Wilson"],
+      "openDataPortal": "https://data-gnrc.opendata.arcgis.com",
+      "note": "Regional planning data but council districts not found in search. Focus is transportation/land use planning.",
+      "bulkExtractionValue": "LOW - No council district layers discovered"
+    },
+    {
+      "name": "East Tennessee Development District (ETDD)",
+      "region": "East Tennessee - 16 counties, 57 municipalities",
+      "website": "https://www.etdd.org/gis/",
+      "contact": "ecraig@etdd.org",
+      "services": ["Thematic maps", "Topographic maps", "Zoning maps", "Transportation planning"],
+      "note": "No public REST services discovered. Contact required for data access.",
+      "bulkExtractionValue": "UNKNOWN - Requires direct contact"
+    }
+  ],
+  "countyAggregators": [
+    {
+      "name": "Shelby County ReGIS",
+      "region": "Memphis metro - 7+ municipalities",
+      "municipalities": ["Memphis", "Arlington", "Bartlett", "Collierville", "Germantown", "Lakeland", "Millington"],
+      "restServicesRoot": "https://gis.shelbycountytn.gov/arcgis/rest/services",
+      "electionDistrictsUrl": "https://scgis.shelbycountytn.gov/serverlow/rest/services/Election/ElectionDistricts/MapServer",
+      "zoningUrl": "https://gis.shelbycountytn.gov/arcgis/rest/services/Zoning/Zoning/MapServer",
+      "zoningLayers": [
+        {"id": 0, "name": "Shelby County Zoning"},
+        {"id": 1, "name": "Arlington Zoning"},
+        {"id": 2, "name": "Bartlett Zoning"},
+        {"id": 3, "name": "Collierville Zoning"},
+        {"id": 4, "name": "Germantown Zoning"},
+        {"id": 5, "name": "Lakeland Zoning"},
+        {"id": 6, "name": "Millington Zoning"}
+      ],
+      "note": "Zoning service covers multiple municipalities. Election districts service exists but SSL issues prevent direct access.",
+      "bulkExtractionValue": "MODERATE - Multi-city zoning available, election districts need investigation"
+    },
+    {
+      "name": "Davidson County / Nashville MetroGIS",
+      "region": "Nashville-Davidson consolidated city-county",
+      "restServicesRoot": "https://maps.nashville.gov/arcgis/rest/services",
+      "politicalDistrictsUrl": "https://maps.nashville.gov/arcgis/rest/services/Elections/PoliticalDistricts/MapServer",
+      "layers": [
+        {
+          "id": 0,
+          "name": "Council Districts",
+          "geometryType": "esriGeometryPolygon",
+          "fields": ["OBJECTID", "DISTRICT", "Representative", "DistrictName", "FirstName", "LastName", "Email", "BusinessPhone", "Website"],
+          "displayField": "DISTRICT",
+          "note": "Nashville Metro Council - 35 single-member districts + 5 at-large"
+        },
+        {"id": 1, "name": "School Board Districts"},
+        {"id": 2, "name": "State Senate Districts"},
+        {"id": 3, "name": "State House Districts"},
+        {"id": 4, "name": "US Congressional Districts"}
+      ],
+      "openDataHub": "https://datanashvillegov-nashville.hub.arcgis.com",
+      "bulkExtractionValue": "HIGH - Well-structured council district data for consolidated city-county"
+    },
+    {
+      "name": "Hamilton County GIS (Chattanooga)",
+      "region": "Chattanooga metro",
+      "municipalities": ["Chattanooga", "Red Bank", "Signal Mountain", "Soddy-Daisy", "Collegedale", "East Ridge"],
+      "restServicesRoot": "https://mapsdev.hamiltontn.gov/hcwa03/rest/services",
+      "politicalUrl": "https://mapsdev.hamiltontn.gov/hcwa03/rest/services/Live_Political/MapServer",
+      "layers": [
+        {"id": 0, "name": "Voting_Precincts"},
+        {"id": 1, "name": "Senate_Districts"},
+        {"id": 2, "name": "House_Districts"},
+        {"id": 3, "name": "Commission_Districts"},
+        {
+          "id": 4,
+          "name": "Council_Districts",
+          "fields": ["OBJECTID", "COUNCIL", "REP_COUNCIL"],
+          "note": "Chattanooga City Council districts - 9 districts"
+        }
+      ],
+      "geocortexViewer": "https://gismaps.hamiltontn.gov/electionmap",
+      "bulkExtractionValue": "MODERATE - Council districts layer present, may cover only Chattanooga"
+    },
+    {
+      "name": "Knox County KGIS",
+      "region": "Knoxville metro",
+      "municipalities": ["Knoxville", "Farragut"],
+      "website": "https://www.kgis.org",
+      "mapsPortal": "https://www.kgis.org/kgismaps/",
+      "knownServices": [
+        {
+          "name": "CityWards",
+          "url": "https://www.kgis.org/arcgis/rest/services/Maps_Cached/CityWards108/MapServer",
+          "note": "Knoxville City Wards (6 districts) - cached tile service"
+        },
+        {
+          "name": "DynamicLayers",
+          "url": "https://www.kgis.org/arcgis/rest/services/Maps/DynamicLayers/MapServer",
+          "note": "Contains Jurisdiction Boundaries, Knoxville City Boundary, Knox County Boundary, Farragut Boundary"
+        }
+      ],
+      "accessNote": "REST services require authentication (401 errors on direct access). May need KGIS portal login.",
+      "contact": "KGIS Office - 865-215-2641, 606 Main St Suite 150, Knoxville, TN 37902",
+      "bulkExtractionValue": "LOW - Authentication required, limited to Knoxville/Farragut"
+    },
+    {
+      "name": "Montgomery County GIS (Clarksville)",
+      "region": "Clarksville-Montgomery County",
+      "municipalities": ["Clarksville"],
+      "planningCommission": "https://www.cmcrpc.com/maps/",
+      "clarksvilleWardsApp": "https://www.arcgis.com/apps/webappviewer/index.html?id=35defc901f754475b758aedb768fcce5",
+      "note": "Clarksville has 12 wards. GIS maintained through tri-party partnership (County, City, Austin Peay State University)",
+      "contact": "https://montgomerytn.gov/assessor/gis",
+      "bulkExtractionValue": "LOW - Single city, visualization app only"
+    }
+  ],
+  "individualCityPortals": [
+    {
+      "city": "Memphis",
+      "featureServerUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0",
+      "openDataPortal": "https://geoconnect-memegis.opendata.arcgis.com/datasets/city-council-districts",
+      "memphisDataHub": "https://data.memphistn.gov/Good-Government/City-Council-Districts-Boundaries/d874-nrqr",
+      "districts": 13,
+      "fields": ["OBJECTID_1", "LABEL", "District", "CouncilRepFirst", "CouncilRepLast", "Rep_Type"],
+      "lastEdited": "2025-01-10",
+      "note": "Single-member districts (1-6) + Super Districts (7-9) + district positions"
+    },
+    {
+      "city": "Nashville",
+      "featureServerUrl": "https://maps.nashville.gov/arcgis/rest/services/Elections/PoliticalDistricts/MapServer/0",
+      "openDataPortal": "https://datanashvillegov-nashville.hub.arcgis.com/datasets/Nashville::council-districts-current-1",
+      "districts": 40,
+      "note": "35 single-member districts + 5 at-large (consolidated city-county)"
+    },
+    {
+      "city": "Chattanooga",
+      "featureServerUrl": "https://mapsdev.hamiltontn.gov/hcwa03/rest/services/Live_Political/MapServer/4",
+      "councilDistrictGISPage": "https://chattanooga.gov/stay-informed/zoning-maps/council-district-gis-map",
+      "districts": 9,
+      "fields": ["OBJECTID", "COUNCIL", "REP_COUNCIL"]
+    },
+    {
+      "city": "Knoxville",
+      "note": "6 wards. KGIS services require authentication. Contact KGIS for data access.",
+      "kgisPortal": "https://www.kgis.org/kgismaps/"
+    },
+    {
+      "city": "Clarksville",
+      "wards": 12,
+      "wardMapApp": "https://www.arcgis.com/apps/webappviewer/index.html?id=35defc901f754475b758aedb768fcce5",
+      "planningCommission": "https://www.cmcrpc.com/maps/"
+    }
+  ],
+  "gapAnalysis": {
+    "majorGap": "No statewide aggregator for municipal council/ward districts exists. Tennessee Comptroller maintains city boundaries but not internal governance districts.",
+    "coveredByAggregators": [
+      "Nashville-Davidson (single consolidated city-county)",
+      "Memphis (via MEMEGIS/Shelby County)",
+      "Chattanooga (via Hamilton County)",
+      "Shelby County municipalities zoning (7 cities)"
+    ],
+    "requireIndividualCollection": [
+      "Knoxville (auth required)",
+      "Clarksville (single city)",
+      "Germantown, Bartlett, Collierville, etc. (no council district layers found)",
+      "All other 335+ municipalities"
+    ],
+    "estimatedBulkCoverage": "4-5 major cities via aggregators, ~340 requiring individual outreach"
+  },
+  "recommendations": [
+    {
+      "priority": 1,
+      "action": "Extract Nashville Council Districts from MapServer",
+      "url": "https://maps.nashville.gov/arcgis/rest/services/Elections/PoliticalDistricts/MapServer/0",
+      "effort": "LOW",
+      "cities": 1
+    },
+    {
+      "priority": 2,
+      "action": "Extract Memphis Council Districts from FeatureServer",
+      "url": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0",
+      "effort": "LOW",
+      "cities": 1
+    },
+    {
+      "priority": 3,
+      "action": "Extract Chattanooga Council Districts from Hamilton County",
+      "url": "https://mapsdev.hamiltontn.gov/hcwa03/rest/services/Live_Political/MapServer/4",
+      "effort": "LOW",
+      "cities": 1
+    },
+    {
+      "priority": 4,
+      "action": "Contact KGIS for Knoxville ward data access",
+      "contact": "865-215-2641 or kgis.org",
+      "effort": "MEDIUM",
+      "cities": 1
+    },
+    {
+      "priority": 5,
+      "action": "Investigate Shelby County Election Districts service",
+      "url": "https://scgis.shelbycountytn.gov/serverlow/rest/services/Election/ElectionDistricts/MapServer",
+      "note": "SSL issues - may contain multi-city council district data",
+      "effort": "MEDIUM",
+      "potentialCities": 7
+    },
+    {
+      "priority": 6,
+      "action": "Contact TN Comptroller Geographic Services about council district data",
+      "contact": "cities@cot.tn.gov",
+      "note": "They maintain all municipal boundaries and assist with redistricting - may have council district data not publicly exposed",
+      "effort": "MEDIUM",
+      "potentialCities": 345
+    }
+  ],
+  "sourceLinks": {
+    "tnStsGis": "https://www.tn.gov/finance/sts-gis.html",
+    "tnmap": "https://tnmap.tn.gov/",
+    "tnOpenData": "https://tn-tnmap.opendata.arcgis.com/",
+    "comptrollerGeoServices": "https://comptroller.tn.gov/office-functions/pa/gisredistricting.html",
+    "comptrollerMunicipalBoundaries": "https://comptroller.tn.gov/office-functions/pa/gisredistricting/municipal-boundaries.html",
+    "comptrollerDashboard": "https://tncot.cc/cities",
+    "gnrc": "https://data-gnrc.opendata.arcgis.com",
+    "shelbyCountyRegis": "https://gis.shelbycountytn.gov/",
+    "nashvilleOpenData": "https://datanashvillegov-nashville.hub.arcgis.com",
+    "memphisOpenData": "https://data.memphistn.gov/",
+    "memegis": "https://geoconnect-memegis.opendata.arcgis.com",
+    "hamiltonCountyGis": "https://gis.hamiltontn.gov/",
+    "kgis": "https://www.kgis.org/",
+    "etdd": "https://www.etdd.org/gis/",
+    "cmcrpc": "https://www.cmcrpc.com/maps/"
+  }
+}

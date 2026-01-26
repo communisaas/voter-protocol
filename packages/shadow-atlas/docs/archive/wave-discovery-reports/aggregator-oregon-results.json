@@ -1,0 +1,319 @@
+{
+  "_schema": "aggregator-extraction-results-v1",
+  "_extraction_date": "2026-01-23T20:00:00.000Z",
+  "_operator": "GIS Extraction Specialist",
+  "_state": "OR",
+  "_summary": {
+    "total_endpoints_verified": 4,
+    "total_features": 21,
+    "cities_already_in_registry": 4,
+    "new_cities_discovered": 0,
+    "regional_only": 1
+  },
+  "endpoints": [
+    {
+      "aggregator_id": "portland-or",
+      "name": "Portland City Council Districts",
+      "endpoint_url": "https://www.portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12",
+      "verification_status": "VERIFIED",
+      "verification_date": "2026-01-23T20:00:00.000Z",
+      "metadata": {
+        "layer_name": "Portland City Council Districts Boundaries",
+        "layer_type": "Feature Layer",
+        "geometry_type": "esriGeometryPolygon",
+        "feature_count": 4,
+        "spatial_reference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "max_record_count": 2000
+      },
+      "fields": {
+        "district_field": "DISTRICT",
+        "district_field_type": "esriFieldTypeString",
+        "district_values": ["1", "2", "3", "4"],
+        "additional_fields": [
+          "pop_total",
+          "Ideal_pop",
+          "Diff_Ideal",
+          "DDeviation",
+          "ODeviation"
+        ]
+      },
+      "city_data": {
+        "city_name": "Portland",
+        "state": "OR",
+        "fips": "4159000",
+        "district_count": 4,
+        "portal_type": "municipal-gis",
+        "confidence": 95
+      },
+      "download_url": "https://www.portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12/query?where=1%3D1&outFields=*&f=geojson",
+      "registry_status": "ALREADY_EXISTS",
+      "registry_notes": "Portland already in registry with FIPS 4159000. Existing entry uses different endpoint (COP_OpenData_Boundary). This Auditor_ElectionsMap endpoint is preferred source.",
+      "extraction_notes": "Portland 2024 charter reform - 4 geographic districts with 3 councilors each (12 total). Includes population balancing fields."
+    },
+    {
+      "aggregator_id": "eugene-or",
+      "name": "Eugene City Council Wards",
+      "endpoint_url": "https://gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1",
+      "verification_status": "VERIFIED",
+      "verification_date": "2026-01-23T20:00:00.000Z",
+      "metadata": {
+        "layer_name": "Wards",
+        "layer_type": "Feature Layer",
+        "geometry_type": "esriGeometryPolygon",
+        "feature_count": 8,
+        "spatial_reference": {
+          "wkid": 2914,
+          "latestWkid": 2914,
+          "description": "NAD_1983_HARN_StatePlane_Oregon_North_FIPS_3601_Feet_Intl"
+        },
+        "max_record_count": 1000
+      },
+      "fields": {
+        "district_field": "ward_number",
+        "district_field_type": "esriFieldTypeSmallInteger",
+        "district_values": [1, 2, 3, 4, 5, 6, 7, 8],
+        "alternate_district_field": "ward",
+        "alternate_district_values": ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"],
+        "city_field": "wardcity",
+        "city_value": "EUG",
+        "additional_fields": [
+          "councilor"
+        ]
+      },
+      "city_data": {
+        "city_name": "Eugene",
+        "state": "OR",
+        "fips": "4123850",
+        "district_count": 8,
+        "portal_type": "municipal-gis",
+        "confidence": 95
+      },
+      "download_url": "https://gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "registry_status": "ALREADY_EXISTS",
+      "registry_notes": "Eugene already in registry with FIPS 4123850. Existing entry uses different endpoint (EugWards FeatureServer). This PWE/Boundaries MapServer endpoint is authoritative source.",
+      "extraction_notes": "Eugene wards E1-E8 with councilor names included. Ward-based election system."
+    },
+    {
+      "aggregator_id": "hillsboro-or",
+      "name": "Hillsboro City Council Wards",
+      "endpoint_url": "https://gis.hillsboro-oregon.gov/public/rest/services/public/Council_Wards/MapServer/0",
+      "verification_status": "VERIFIED",
+      "verification_date": "2026-01-23T20:00:00.000Z",
+      "metadata": {
+        "layer_name": "Council_Wards",
+        "layer_type": "Feature Layer",
+        "geometry_type": "esriGeometryPolygon",
+        "feature_count": 3,
+        "spatial_reference": {
+          "wkid": 4326,
+          "latestWkid": 4326,
+          "description": "GCS_WGS_1984"
+        },
+        "max_record_count": 1000,
+        "description": "City of Hillsboro Council Wards. Contains ward boundaries and council members. Updated upon notices of annexations or requests from City Managers Office. Feature class is in Landbase Topology."
+      },
+      "fields": {
+        "district_field": "WARD",
+        "district_field_type": "esriFieldTypeString",
+        "district_values": ["1", "2", "3"],
+        "district_domain": {
+          "type": "codedValue",
+          "name": "D_LU_CouncilWard",
+          "description": "Council Ward District Domain",
+          "coded_values": [
+            {"name": "1", "code": "1"},
+            {"name": "2", "code": "2"},
+            {"name": "3", "code": "3"}
+          ]
+        },
+        "additional_fields": [
+          "NAME_1",
+          "NAME_2",
+          "IN_OUT"
+        ]
+      },
+      "city_data": {
+        "city_name": "Hillsboro",
+        "state": "OR",
+        "fips": "4134100",
+        "district_count": 3,
+        "portal_type": "municipal-gis",
+        "confidence": 95
+      },
+      "download_url": "https://gis.hillsboro-oregon.gov/public/rest/services/public/Council_Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "registry_status": "ALREADY_EXISTS",
+      "registry_notes": "Hillsboro already in registry with FIPS 4134100. Using same endpoint. Boundaries adopted January 2023 per Ordinance 6433.",
+      "extraction_notes": "Hillsboro 3 wards with dual council members (NAME_1 and NAME_2 fields). In topology with landbase features."
+    },
+    {
+      "aggregator_id": "oregon-metro",
+      "name": "Oregon Metro Council Districts",
+      "endpoint_url": "https://gis.oregonmetro.gov/arcgis/rest/services/OpenData/BoundaryDataWebMerc/MapServer/2",
+      "verification_status": "VERIFIED",
+      "verification_date": "2026-01-23T20:00:00.000Z",
+      "metadata": {
+        "layer_name": "Metro Council District Boundaries",
+        "layer_type": "Feature Layer",
+        "geometry_type": "esriGeometryPolygon",
+        "feature_count": 6,
+        "spatial_reference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "max_record_count": 1000,
+        "description": "Six districts representing individual Metro council districts and constituency areas. Metro councilors are elected by their respective district every four years in nonpartisan races."
+      },
+      "fields": {
+        "district_field": "DISTRICT",
+        "district_field_type": "esriFieldTypeSmallInteger",
+        "district_values": [1, 2, 3, 4, 5, 6],
+        "additional_fields": [
+          "NAME",
+          "EMAIL"
+        ],
+        "councilor_names": [
+          {"district": 1, "name": "Ashton Simpson", "email": "ashton.simpson@oregonmetro.gov"},
+          {"district": 2, "name": "Christine Lewis", "email": "christine.lewis@oregonmetro.gov"},
+          {"district": 3, "name": "Gerritt Rosenthal", "email": "gerritt.rosenthal@oregonmetro.gov"},
+          {"district": 4, "name": "Juan Carlos Gonzalez", "email": "juancarlos.gonzalez@oregonmetro.gov"},
+          {"district": 5, "name": "Mary Nolan", "email": "mary.nolan@oregonmetro.gov"},
+          {"district": 6, "name": "Duncan Hwang", "email": "duncan.hwang@oregonmetro.gov"}
+        ]
+      },
+      "entity_type": "REGIONAL_GOVERNMENT",
+      "entity_data": {
+        "entity_name": "Metro",
+        "jurisdiction_type": "regional_government",
+        "state": "OR",
+        "coverage_area": "Portland metropolitan region (Clackamas, Multnomah, Washington counties)",
+        "district_count": 6,
+        "portal_type": "regional-cog",
+        "confidence": 95
+      },
+      "download_url": "https://gis.oregonmetro.gov/arcgis/rest/services/OpenData/BoundaryDataWebMerc/MapServer/2/query?where=1%3D1&outFields=*&f=geojson",
+      "registry_status": "REGIONAL_ONLY",
+      "registry_notes": "Oregon Metro is a regional government entity (not a city). These are Metro Council districts covering the Portland metro area, NOT city council districts. Should NOT be added to city council portal registry but may be useful for regional governance research.",
+      "extraction_notes": "Metro Council Districts adopted December 2021. Regional government covering Clackamas, Multnomah, and Washington counties. 6 councilors elected by district. Includes current councilor contact information."
+    }
+  ],
+  "cross_reference_analysis": {
+    "existing_oregon_cities_in_registry": [
+      {
+        "fips": "4101000",
+        "city_name": "Albany",
+        "district_count": 3,
+        "source": "Wave automated bulk ingest",
+        "endpoint": "https://services1.arcgis.com/rTbYoZX7yR1PY1BP/arcgis/rest/services/City_Council_Wards/FeatureServer/7"
+      },
+      {
+        "fips": "4115800",
+        "city_name": "Corvallis",
+        "district_count": 9,
+        "source": "Wave automated bulk ingest",
+        "endpoint": "https://services1.arcgis.com/CD5mKowwN6nIaqd8/arcgis/rest/services/Corvallis_boundary_inside_of_Oregon_WFL1/FeatureServer/0"
+      },
+      {
+        "fips": "4130550",
+        "city_name": "Grants Pass",
+        "district_count": 4,
+        "source": "Wave automated bulk ingest",
+        "endpoint": "https://services2.arcgis.com/pc4beVTMEhYHqerq/arcgis/rest/services/regulatory_boundaries/FeatureServer/2"
+      },
+      {
+        "fips": "4141650",
+        "city_name": "Lebanon",
+        "district_count": 3,
+        "source": "Wave automated bulk ingest",
+        "endpoint": "https://services1.arcgis.com/K1vRaK7vKFsLv6fj/arcgis/rest/services/City_Council_Wards/FeatureServer/0"
+      },
+      {
+        "fips": "4152100",
+        "city_name": "Newberg",
+        "district_count": 6,
+        "source": "Wave automated bulk ingest",
+        "endpoint": "https://services.arcgis.com/LJLnwUl0uTPWJE9B/arcgis/rest/services/City_Council_District_view/FeatureServer/1"
+      },
+      {
+        "fips": "4159000",
+        "city_name": "Portland",
+        "district_count": 4,
+        "source": "Manual entry",
+        "endpoint": "https://www.portlandmaps.com/od/rest/services/COP_OpenData_Boundary/MapServer/1413",
+        "note": "Older endpoint - should update to Auditor_ElectionsMap/MapServer/12"
+      },
+      {
+        "fips": "4134100",
+        "city_name": "Hillsboro",
+        "district_count": 3,
+        "source": "Wave-E PNW specialist",
+        "endpoint": "https://gis.hillsboro-oregon.gov/public/rest/services/public/Council_Wards/MapServer/0",
+        "note": "Same endpoint as verified in this extraction"
+      },
+      {
+        "fips": "4123850",
+        "city_name": "Eugene",
+        "district_count": 8,
+        "source": "Wave-E PNW specialist",
+        "endpoint": "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugWards/FeatureServer/0",
+        "note": "Older endpoint - should update to PWE/Boundaries/MapServer/1"
+      }
+    ],
+    "new_cities_discovered": [],
+    "endpoint_updates_recommended": [
+      {
+        "fips": "4159000",
+        "city_name": "Portland",
+        "current_endpoint": "https://www.portlandmaps.com/od/rest/services/COP_OpenData_Boundary/MapServer/1413",
+        "recommended_endpoint": "https://www.portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12",
+        "reason": "Auditor_ElectionsMap is the official source for council district boundaries with better metadata"
+      },
+      {
+        "fips": "4123850",
+        "city_name": "Eugene",
+        "current_endpoint": "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugWards/FeatureServer/0",
+        "recommended_endpoint": "https://gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1",
+        "reason": "PWE/Boundaries is the authoritative city GIS source with councilor information"
+      }
+    ]
+  },
+  "oregon_state_analysis": {
+    "statewide_aggregator_exists": false,
+    "statewide_notes": "Oregon does NOT have a statewide council district aggregator. Individual cities maintain their own portals. Metro (regional government) has Metro Council Districts (regional, not city council).",
+    "total_oregon_cities_in_registry": 8,
+    "coverage_assessment": "Good coverage for major OR cities with council districts. Albany, Corvallis, Eugene, Grants Pass, Hillsboro, Lebanon, Newberg, and Portland all verified.",
+    "at_large_cities_known": [
+      "Gresham (pop 114,247) - At-large with 7 numbered positions",
+      "Beaverton (pop 97,494) - At-large with 6 councilors",
+      "Bend - Likely at-large",
+      "Salem - 8 wards, endpoint needs confirmation via data.cityofsalem.net"
+    ],
+    "regional_entities": [
+      {
+        "name": "Metro",
+        "type": "Regional government",
+        "coverage": "Portland metro area (Clackamas, Multnomah, Washington counties)",
+        "districts": 6,
+        "note": "NOT city council - regional government entity"
+      }
+    ]
+  },
+  "recommendations": {
+    "update_existing_entries": [
+      "Update Portland FIPS 4159000 to use Auditor_ElectionsMap endpoint",
+      "Update Eugene FIPS 4123850 to use PWE/Boundaries endpoint"
+    ],
+    "no_new_cities_to_add": true,
+    "investigation_targets": [
+      "Salem OR - 8 wards mentioned in regional-aggregators.ts but needs endpoint verification"
+    ],
+    "data_quality_notes": [
+      "All 4 verified endpoints have high confidence (95%)",
+      "All endpoints return correct feature counts",
+      "All endpoints have proper field naming and metadata",
+      "Portland and Eugene have alternate endpoints - recommend updating to authoritative sources"
+    ]
+  }
+}

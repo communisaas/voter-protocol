@@ -1,0 +1,366 @@
+{
+  "wave": "R",
+  "focus": "COG/MPO Regional Aggregators",
+  "discoveryDate": "2026-01-23",
+  "summary": {
+    "description": "Investigation of major Council of Governments (COG) and Metropolitan Planning Organization (MPO) GIS portals for multi-city council district data",
+    "totalOrganizationsInvestigated": 6,
+    "organizationsWithUsefulData": 4,
+    "potentialCityCoverage": "700+ municipalities across multiple services"
+  },
+  "findings": [
+    {
+      "organization": "DVRPC",
+      "fullName": "Delaware Valley Regional Planning Commission",
+      "region": "Philadelphia Metro (SE PA + Southern NJ)",
+      "coverage": {
+        "counties": 9,
+        "municipalities": 352,
+        "states": ["PA", "NJ"]
+      },
+      "dataPortals": {
+        "openDataHub": "https://dvrpc-dvrpcgis.opendata.arcgis.com",
+        "gisPage": "https://dvrpc.org/webmaps"
+      },
+      "services": [
+        {
+          "name": "DVRPC_Municipal_Boundaries",
+          "type": "FeatureServer",
+          "url": "https://services1.arcgis.com/LWtWv6q6BJyKidj8/arcgis/rest/services/DVRPC_Municipal_Boundaries/FeatureServer/0",
+          "featureCount": 352,
+          "geometryType": "esriGeometryPolygon",
+          "keyFields": {
+            "municipalityName": "MUN_NAME",
+            "municipalityLabel": "MUN_LABEL",
+            "municipalityType": "MUN_TYPE",
+            "countyName": "CO_NAME",
+            "stateName": "STATE_NAME",
+            "geoid": "GEOID"
+          },
+          "dataContent": "Municipal boundaries for 9-county region covering parts of PA and NJ",
+          "councilDistrictData": false,
+          "notes": "Contains municipal boundaries only - no council district data at COG level"
+        }
+      ],
+      "assessment": {
+        "hasCouncilDistrictData": false,
+        "hasMunicipalBoundaries": true,
+        "usefulness": "MEDIUM",
+        "notes": "DVRPC provides excellent regional municipal boundaries but does NOT aggregate council district data from member cities. Individual city portals must be used for council districts."
+      }
+    },
+    {
+      "organization": "SCAG",
+      "fullName": "Southern California Association of Governments",
+      "region": "Southern California (6 counties)",
+      "coverage": {
+        "counties": 6,
+        "cities": 191,
+        "population": "19 million"
+      },
+      "dataPortals": {
+        "openDataHub": "https://gisdata-scag.opendata.arcgis.com",
+        "regionalDataPlatform": "https://hub.scag.ca.gov",
+        "gisPage": "https://scag.ca.gov/data-tools-geographic-information-systems"
+      },
+      "services": [
+        {
+          "name": "City_Boundaries",
+          "type": "MapServer",
+          "url": "https://maps.scag.ca.gov/scaggis/rest/services/OpenData/City_Boundaries/MapServer/0",
+          "featureCount": 201,
+          "geometryType": "esriGeometryPolygon",
+          "keyFields": {
+            "cityName": "CITY",
+            "cityId": "CITY_ID",
+            "county": "COUNTY",
+            "countyId": "COUNTY_ID"
+          },
+          "dataContent": "2019 city boundaries for 191 cities and 6 county unincorporated areas",
+          "councilDistrictData": false,
+          "lastUpdated": "2021-07-06",
+          "dataSource": "County LAFCOs"
+        },
+        {
+          "name": "Regional_Council_Districts",
+          "type": "FeatureServer",
+          "hubUrl": "https://gisdata-scag.opendata.arcgis.com/datasets/regional-council-districts-scag-region",
+          "dataContent": "SCAG Board Regional Council Districts - NOT city council districts",
+          "councilDistrictData": false,
+          "notes": "This is SCAG's own regional governance districts, not city-level council districts"
+        }
+      ],
+      "assessment": {
+        "hasCouncilDistrictData": false,
+        "hasMunicipalBoundaries": true,
+        "usefulness": "MEDIUM",
+        "notes": "SCAG provides comprehensive city boundaries for 191 cities but does NOT aggregate city council district data. The 'Regional Council Districts' layer refers to SCAG's own governance structure, not city councils."
+      }
+    },
+    {
+      "organization": "NCTCOG",
+      "fullName": "North Central Texas Council of Governments",
+      "region": "Dallas-Fort Worth Metro (16 counties)",
+      "coverage": {
+        "counties": 16,
+        "cities": 265,
+        "urbanCenters": ["Dallas", "Fort Worth"]
+      },
+      "dataPortals": {
+        "openDataHub": "https://data-nctcoggis.hub.arcgis.com",
+        "arcgisOpenData": "https://data-nctcoggis.opendata.arcgis.com",
+        "gisPage": "https://www.nctcog.org/regional-data/geographic-information-systems-gis",
+        "geospatialServer": "https://geospatial.nctcog.org/server/rest/services"
+      },
+      "services": [
+        {
+          "name": "Cities",
+          "type": "FeatureServer",
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/6",
+          "featureCount": 265,
+          "geometryType": "esriGeometryPolygon",
+          "keyFields": {
+            "cityName": "CITY",
+            "type": "TYPE",
+            "fipsCode": "FIPSCODE",
+            "geoid": "GEOID",
+            "areaSqMi": "AREA_SQ_MI",
+            "updateYear": "UPDATE_YEAR"
+          },
+          "dataContent": "Jurisdictional boundaries for cities, towns, and Census Designated Places across 16-county region",
+          "councilDistrictData": false,
+          "maxRecordCount": 2000
+        },
+        {
+          "name": "City Limits (2020 Census)",
+          "type": "FeatureServer",
+          "hubUrl": "https://data-nctcoggis.opendata.arcgis.com/datasets/dde7be69466146a6992efcf8d42209f6",
+          "dataContent": "City limits from 2020 Census",
+          "councilDistrictData": false
+        }
+      ],
+      "additionalLayers": [
+        {
+          "name": "Counties",
+          "layerId": 5,
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/5"
+        },
+        {
+          "name": "Texas Senate Districts",
+          "layerId": 2,
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/2"
+        },
+        {
+          "name": "Texas House Districts",
+          "layerId": 3,
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/3"
+        },
+        {
+          "name": "U.S. Congressional Districts",
+          "layerId": 1,
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/1"
+        },
+        {
+          "name": "Independent School Districts",
+          "layerId": 0,
+          "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/0"
+        }
+      ],
+      "assessment": {
+        "hasCouncilDistrictData": false,
+        "hasMunicipalBoundaries": true,
+        "usefulness": "HIGH",
+        "notes": "NCTCOG has excellent regional boundary data including 265 cities but does NOT aggregate city council district data. However, they do have state legislative and congressional district data. Individual Texas city GIS portals are needed for council districts."
+      }
+    },
+    {
+      "organization": "ARC",
+      "fullName": "Atlanta Regional Commission",
+      "region": "Metro Atlanta (11 counties)",
+      "coverage": {
+        "counties": 11,
+        "countyNames": ["Cherokee", "Clayton", "Cobb", "DeKalb", "Douglas", "Fayette", "Forsyth", "Fulton", "Gwinnett", "Henry", "Rockdale"]
+      },
+      "dataPortals": {
+        "openDataHub": "https://opendata.atlantaregional.com",
+        "arcgisPortal": "https://arc-garc.opendata.arcgis.com",
+        "gisPage": "https://atlantaregional.org/atlanta-region/regional-data-resources/interactive-data-mapping-tools/"
+      },
+      "services": [
+        {
+          "name": "City of Atlanta Council Districts",
+          "type": "MapServer/FeatureServer",
+          "url": "https://gis.atlantaga.gov/dpcd/rest/services/AdministrativeArea/GeopoliticalArea/MapServer/4",
+          "featureCount": 12,
+          "geometryType": "esriGeometryPolygon",
+          "dataContent": "Atlanta City Council Districts (12 districts)",
+          "councilDistrictData": true,
+          "notes": "This is City of Atlanta data hosted on ARC hub - only covers Atlanta itself, not other cities in the region"
+        },
+        {
+          "name": "Atlanta Neighborhoods, NPUs, and City Council Districts",
+          "type": "Composite Map",
+          "hubUrl": "https://arc-garc.opendata.arcgis.com/maps/2ef16d3579b543ea9b953ee25be9c4e5",
+          "dataContent": "Combined Atlanta administrative boundaries",
+          "councilDistrictData": true,
+          "notes": "Atlanta-only data"
+        }
+      ],
+      "cityOfAtlantaGIS": {
+        "baseUrl": "https://gis.atlantaga.gov/dpcd/rest/services/AdministrativeArea/GeopoliticalArea/MapServer",
+        "layers": [
+          {"id": 0, "name": "Atlanta City Limits"},
+          {"id": 1, "name": "Neighborhood"},
+          {"id": 2, "name": "NPU"},
+          {"id": 3, "name": "Land Lot Index"},
+          {"id": 4, "name": "Council Districts"},
+          {"id": 5, "name": "Quadrants"},
+          {"id": 6, "name": "USPS Zip"},
+          {"id": 7, "name": "County"}
+        ]
+      },
+      "assessment": {
+        "hasCouncilDistrictData": true,
+        "councilDistrictScope": "Atlanta only",
+        "hasMunicipalBoundaries": true,
+        "usefulness": "LOW for multi-city aggregation",
+        "notes": "ARC hosts Atlanta's council district data but does NOT aggregate council districts from other cities in the 11-county region. Only useful for Atlanta specifically."
+      }
+    },
+    {
+      "organization": "CMAP",
+      "fullName": "Chicago Metropolitan Agency for Planning",
+      "region": "Northeastern Illinois (7 counties)",
+      "coverage": {
+        "counties": 7,
+        "countyNames": ["Cook", "DuPage", "Kane", "Kendall", "Lake", "McHenry", "Will"],
+        "municipalities": 284
+      },
+      "dataPortals": {
+        "dataHub": "https://datahub.cmap.illinois.gov",
+        "boundariesSearch": "https://datahub.cmap.illinois.gov/search?categories=boundaries",
+        "arcgisPortal": "https://cmapgis.maps.arcgis.com",
+        "arcgisOpenData": "https://cmap-cmapgis.opendata.arcgis.com/search"
+      },
+      "services": [
+        {
+          "name": "Chicago Metropolitan Planning Area (MPA) Boundary",
+          "type": "FeatureLayer",
+          "hubUrl": "https://datahub.cmap.illinois.gov/datasets/CMAPGIS::chicago-metropolitan-planning-area-mpa-boundary",
+          "dataContent": "Regional planning boundary approved March 2013",
+          "councilDistrictData": false
+        },
+        {
+          "name": "Illinois EPA Municipal Boundaries (alternative)",
+          "type": "MapServer",
+          "url": "https://geoservices.epa.illinois.gov/arcgis/rest/services/Political/PoliticalBoundaries/MapServer/1",
+          "dataContent": "2012 IL Dept of Revenue Municipal Boundaries - statewide, not CMAP-specific",
+          "councilDistrictData": false,
+          "notes": "This is Illinois EPA data, not CMAP, but covers the region"
+        }
+      ],
+      "assessment": {
+        "hasCouncilDistrictData": false,
+        "hasMunicipalBoundaries": true,
+        "usefulness": "MEDIUM",
+        "notes": "CMAP provides regional planning data for 284 municipalities but does NOT aggregate city council district data. They focus on regional planning boundaries (MPA, facility planning areas) rather than municipal governance boundaries."
+      }
+    },
+    {
+      "organization": "MetroGIS",
+      "fullName": "MetroGIS (Metropolitan Council)",
+      "region": "Minneapolis-St. Paul Metro (7 counties)",
+      "coverage": {
+        "counties": 7,
+        "majorCities": ["Minneapolis", "St. Paul"]
+      },
+      "dataPortals": {
+        "mainSite": "https://metrogis.org",
+        "metCouncil": "https://metrocouncil.org/Data-and-Maps/MetroGIS.aspx",
+        "mnGeospatialCommons": "https://gisdata.mn.gov",
+        "arcgisServer": "https://gis.metc.state.mn.us/arcgis/rest/services"
+      },
+      "services": [
+        {
+          "name": "MetroGIS E911 Districts",
+          "type": "FeatureServer/MapServer",
+          "url": "https://gis.metc.state.mn.us/arcgis/rest/services/MetroGIS/E911Districts_V1_1/FeatureServer",
+          "dataContent": "Emergency services districts - NOT council districts",
+          "councilDistrictData": false
+        }
+      ],
+      "individualCityData": {
+        "stPaul": {
+          "name": "St. Paul Council Ward",
+          "hubUrl": "https://information-stpaul.hub.arcgis.com/datasets/council-ward/about",
+          "featureCount": 7,
+          "notes": "St. Paul has 7 council wards"
+        },
+        "minneapolis": {
+          "name": "Minneapolis City Council Wards",
+          "openDataUrl": "https://opendata.minneapolismn.gov/datasets/city-council-wards/about",
+          "notes": "Minneapolis council ward data available through city's own open data portal"
+        }
+      },
+      "assessment": {
+        "hasCouncilDistrictData": false,
+        "councilDistrictScope": "None at regional level",
+        "hasMunicipalBoundaries": false,
+        "usefulness": "LOW",
+        "notes": "MetroGIS focuses on emergency services (E911) and regional infrastructure data. They do NOT aggregate city council district data. Minneapolis and St. Paul maintain their own separate GIS portals with council ward data."
+      }
+    }
+  ],
+  "keyFindings": {
+    "majorInsight": "COGs/MPOs generally do NOT aggregate city council district data - they focus on regional planning boundaries, transportation, and occasionally state/federal legislative districts",
+    "councilDistrictSources": [
+      "Individual city GIS portals remain the primary source for council district data",
+      "ARC hosts Atlanta's council districts but not other cities in the region",
+      "State geospatial clearinghouses (like NJGIN, MassGIS, PASDA) are better aggregators than COGs"
+    ],
+    "valuableForOtherPurposes": [
+      "NCTCOG: Excellent for Texas state legislative districts",
+      "SCAG: Best source for Southern California city boundaries (191 cities)",
+      "DVRPC: Good regional municipal boundaries across PA/NJ",
+      "CMAP: Regional planning area boundaries for Chicago metro"
+    ]
+  },
+  "recommendations": {
+    "forCouncilDistrictDiscovery": [
+      "Continue using individual city GIS portals",
+      "State geospatial clearinghouses are more productive than COGs",
+      "County GIS departments sometimes aggregate city data better than regional COGs"
+    ],
+    "cogUseCases": [
+      "Use COGs for regional municipal boundary data",
+      "Use COGs for state/federal legislative district data in their regions",
+      "Use COGs for transportation and planning zone data"
+    ]
+  },
+  "servicesDiscovered": [
+    {
+      "url": "https://services1.arcgis.com/LWtWv6q6BJyKidj8/arcgis/rest/services/DVRPC_Municipal_Boundaries/FeatureServer/0",
+      "org": "DVRPC",
+      "type": "Municipal Boundaries",
+      "featureCount": 352
+    },
+    {
+      "url": "https://maps.scag.ca.gov/scaggis/rest/services/OpenData/City_Boundaries/MapServer/0",
+      "org": "SCAG",
+      "type": "City Boundaries",
+      "featureCount": 201
+    },
+    {
+      "url": "https://geospatial.nctcog.org/server/rest/services/Boundaries/Boundaries/FeatureServer/6",
+      "org": "NCTCOG",
+      "type": "City Limits",
+      "featureCount": 265
+    },
+    {
+      "url": "https://gis.atlantaga.gov/dpcd/rest/services/AdministrativeArea/GeopoliticalArea/MapServer/4",
+      "org": "ARC (City of Atlanta)",
+      "type": "Council Districts",
+      "featureCount": 12
+    }
+  ]
+}

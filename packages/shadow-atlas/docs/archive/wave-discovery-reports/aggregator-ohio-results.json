@@ -1,0 +1,108 @@
+{
+  "aggregatorId": "ohio-verified-cities",
+  "state": "OH",
+  "executionDate": "2026-01-23T00:00:00Z",
+  "summary": {
+    "totalCitiesVerified": 3,
+    "totalDistrictsVerified": 34,
+    "newCitiesDiscovered": 0,
+    "existingCitiesUpdated": 3,
+    "failedCities": 0
+  },
+  "cities": [
+    {
+      "cityFips": "3918000",
+      "cityName": "Columbus",
+      "state": "OH",
+      "verifiedEndpoint": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0",
+      "downloadUrl": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 13,
+      "expectedFeatureCount": 13,
+      "districtField": "District",
+      "districtLabelField": "LABEL",
+      "representativeFields": ["CouncilRepFirst", "CouncilRepLast", "Rep_Type"],
+      "spatialReference": "NAD83 Ohio State Plane South (WKID 102729)",
+      "lastVerified": "2026-01-23T00:00:00Z",
+      "confidence": 95,
+      "status": "existing-updated",
+      "notes": "Verified ArcGIS Online hosted FeatureServer. 13 council districts (matches regional-aggregators.ts). Previous registry had old endpoint with only 9 features - NEW ENDPOINT PROVIDES COMPLETE DATA.",
+      "registryComparison": {
+        "existsInRegistry": true,
+        "registryFeatureCount": 9,
+        "newFeatureCount": 13,
+        "endpointChanged": true,
+        "oldEndpoint": "https://gis.columbus.gov/arcgis/rest/services/Applications/CSIR_Public/MapServer/37/query?where=1%3D1&outFields=*&f=geojson",
+        "newEndpoint": "https://services1.arcgis.com/vdNDkVykv9vEWFX4/arcgis/rest/services/Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson"
+      }
+    },
+    {
+      "cityFips": "3916000",
+      "cityName": "Cleveland",
+      "state": "OH",
+      "verifiedEndpoint": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Wards_1_2_25_Topocleaned_pop20/FeatureServer/0",
+      "downloadUrl": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Wards_1_2_25_Topocleaned_pop20/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 15,
+      "expectedFeatureCount": 15,
+      "districtField": "Ward",
+      "districtLabelField": "NAME",
+      "representativeFields": ["CouncilMember", "Email", "Phone"],
+      "spatialReference": "Web Mercator (WKID 102100)",
+      "lastVerified": "2026-01-23T00:00:00Z",
+      "confidence": 95,
+      "status": "existing-updated",
+      "notes": "Verified 2026 redistricting boundaries. 15 wards (reduced from 17 per Ord. 1-2025, effective 2026). Matches regional-aggregators.ts. Previous registry had old endpoint with 17 wards - NEW ENDPOINT PROVIDES 2026 BOUNDARIES.",
+      "registryComparison": {
+        "existsInRegistry": true,
+        "registryFeatureCount": 17,
+        "newFeatureCount": 15,
+        "endpointChanged": true,
+        "oldEndpoint": "https://gis.cleveland-oh.gov/arcgis/rest/services/PublicWorks/Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson",
+        "newEndpoint": "https://services3.arcgis.com/dty2kHktVXHrqO8i/arcgis/rest/services/Cleveland_Wards_1_2_25_Topocleaned_pop20/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson"
+      }
+    },
+    {
+      "cityFips": "3977000",
+      "cityName": "Toledo",
+      "state": "OH",
+      "verifiedEndpoint": "https://gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1",
+      "downloadUrl": "https://gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1/query?where=1%3D1&outFields=*&f=geojson",
+      "featureCount": 6,
+      "expectedFeatureCount": 6,
+      "districtField": "District",
+      "districtLabelField": "Name",
+      "representativeFields": ["Name", "Email"],
+      "spatialReference": "NAD83 Ohio State Plane North (WKID 102722)",
+      "lastVerified": "2026-01-23T00:00:00Z",
+      "confidence": 90,
+      "status": "existing-same",
+      "notes": "Verified official City of Toledo MapServer layer (not FeatureServer, but supports query operations). 6 council districts. Matches regional-aggregators.ts. Previous registry endpoint not working - NEW ENDPOINT VERIFIED.",
+      "registryComparison": {
+        "existsInRegistry": true,
+        "registryFeatureCount": 6,
+        "newFeatureCount": 6,
+        "endpointChanged": true,
+        "oldEndpoint": "https://gis.toledo.oh.gov/portal/sharing/rest/content/items/toledo-council-districts/data?f=geojson",
+        "newEndpoint": "https://gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1/query?where=1%3D1&outFields=*&f=geojson"
+      }
+    }
+  ],
+  "discoveryMethod": "regional-aggregators-verification",
+  "discoveredBy": "wave-p-ohio",
+  "extractionNotes": [
+    "All three Ohio cities from regional-aggregators.ts were verified successfully",
+    "All endpoints working and returning expected feature counts",
+    "All cities already exist in known-portals.generated.ts registry",
+    "Columbus: Updated endpoint provides complete 13 districts (previous had only 9)",
+    "Cleveland: Updated endpoint provides 2026 redistricting with 15 wards (previous had 17)",
+    "Toledo: Updated endpoint verified (previous endpoint not working)",
+    "No NEW cities discovered - this is a verification and update operation",
+    "All download URLs generated in GeoJSON format for compatibility"
+  ],
+  "recommendations": [
+    "UPDATE known-portals.generated.ts entry for Columbus (3918000) with new endpoint and featureCount: 13",
+    "UPDATE known-portals.generated.ts entry for Cleveland (3916000) with new endpoint and featureCount: 15",
+    "UPDATE known-portals.generated.ts entry for Toledo (3977000) with new endpoint",
+    "Consider running extraction to verify geometry quality and completeness",
+    "These verified endpoints should replace the old ones in the registry"
+  ]
+}

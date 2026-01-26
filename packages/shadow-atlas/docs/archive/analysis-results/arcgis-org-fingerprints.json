@@ -1,0 +1,460 @@
+{
+  "metadata": {
+    "analysisDate": "2026-01-16",
+    "purpose": "Detect metro area data bleeding via ArcGIS organization ID fingerprinting",
+    "methodology": "Extract org IDs from services.arcgis.com URLs to identify regional vs city-specific portals"
+  },
+
+  "orgIdMap": {
+    "uFAr0LUPy14bDaLg": {
+      "cities": ["San Jacinto, CA"],
+      "layerName": "Hemet_Council_Districts",
+      "suspectedSource": "City of Hemet",
+      "severity": "HIGH",
+      "reason": "San Jacinto using Hemet's portal - wrong municipality"
+    },
+    "xOaE01KwGK9Fvnfr": {
+      "cities": ["Poway, CA"],
+      "layerName": "SDRVC_AGOL_110723",
+      "suspectedSource": "San Diego Regional VC or County",
+      "severity": "HIGH",
+      "reason": "SDRVC acronym suggests regional/county data, not city-specific"
+    },
+    "ibgDyuD2DLBge82s": {
+      "cities": ["Clovis, CA"],
+      "layerName": "City_Council_Districts",
+      "suspectedSource": "Unclear - needs investigation",
+      "severity": "MEDIUM",
+      "reason": "42 districts for a city that typically has 5-7 suggests regional data"
+    },
+    "LNp9QekVQ7pNnS4Q": {
+      "cities": ["Menifee, CA"],
+      "layerName": "Council_Districts_Perris",
+      "suspectedSource": "City of Perris",
+      "severity": "HIGH",
+      "reason": "Menifee explicitly using Perris council districts"
+    },
+    "RjTKod25O4b8SbZx": {
+      "cities": ["Perris, CA"],
+      "layerName": "Council_Districts",
+      "suspectedSource": "City of Perris (legitimate)",
+      "severity": "NONE",
+      "reason": "This appears correct - Perris using own data"
+    },
+    "bLT9wzACSnOhnxN5": {
+      "cities": ["Escondido, CA"],
+      "layerName": "Crime_Free_Multi_Housing_Map_WFL1",
+      "suspectedSource": "Unknown - crime housing layer",
+      "severity": "MEDIUM",
+      "reason": "53 districts unusual, crime housing layer not primary council data"
+    },
+    "ay9ePoQ2UfAX3U38": {
+      "cities": ["Encinitas, CA"],
+      "layerName": "Council_District",
+      "suspectedSource": "City of Encinitas (possible)",
+      "severity": "LOW",
+      "reason": "4 districts reasonable, layer name appropriate"
+    },
+    "DEoxb4q3EJppiDKC": {
+      "cities": ["La Cañada Flintridge, CA"],
+      "layerName": "Enriched Council_District",
+      "suspectedSource": "Unknown analytics platform",
+      "severity": "MEDIUM",
+      "reason": "7 districts unusual, 'Enriched' prefix suggests derived/regional data"
+    },
+    "WV8ogNubjFL2BKPt": {
+      "cities": ["Walnut, CA"],
+      "layerName": "West_Covina_Council_Districts",
+      "suspectedSource": "City of West Covina",
+      "severity": "HIGH",
+      "reason": "Walnut explicitly using West Covina's districts"
+    },
+    "vXZW4vAaPRr14z2s": {
+      "cities": ["Buda, TX"],
+      "layerName": "Single_Member_Districts",
+      "suspectedSource": "City of Buda (possible)",
+      "severity": "LOW",
+      "reason": "3 districts reasonable for small city"
+    },
+    "6vRbgYSxztFGZwla": {
+      "cities": ["Missouri City, TX"],
+      "layerName": "Missouri_City_Zone_Lookup_WFL1",
+      "suspectedSource": "City of Missouri City (possible)",
+      "severity": "LOW",
+      "reason": "Layer name matches city, 4 districts reasonable"
+    },
+    "kFBW8xGuknyS8WK0": {
+      "cities": ["Port Arthur, TX"],
+      "layerName": "Rehab_Map1",
+      "suspectedSource": "Unknown - rehab/housing program",
+      "severity": "MEDIUM",
+      "reason": "Rehab map not primary council district source"
+    },
+    "k1eQaOGZAVVR0bMw": {
+      "cities": ["Terrell, TX"],
+      "layerName": "Council_Districts",
+      "suspectedSource": "City of Terrell (possible)",
+      "severity": "LOW",
+      "reason": "4 districts reasonable"
+    },
+    "H65mZknxx42pSkN4": {
+      "cities": ["Winter Springs, FL"],
+      "layerName": "BWCF_Jurisdiction_Reference_WFL1",
+      "suspectedSource": "Regional jurisdiction reference",
+      "severity": "HIGH",
+      "reason": "73 districts - clearly regional/county data, BWCF acronym suggests multi-city"
+    },
+    "r24cv1JRnR3HZXVQ": {
+      "cities": ["Jacksonville Beach, FL"],
+      "layerName": "Jax_VZAP_WFL1",
+      "suspectedSource": "Jacksonville metro (main city)",
+      "severity": "HIGH",
+      "reason": "'Jax' indicates Jacksonville main city, not Jacksonville Beach"
+    },
+    "3wwljqzg0lhG1rav": {
+      "cities": ["Overland Park, KS"],
+      "layerName": "DisplayMapWGS1",
+      "suspectedSource": "Unknown",
+      "severity": "MEDIUM",
+      "reason": "Generic layer name, 4 wards could be correct"
+    },
+    "T7YR8Q3OOFw14uBe": {
+      "cities": ["DeQuincy, LA"],
+      "layerName": "City_Council_Districts",
+      "suspectedSource": "Unknown",
+      "severity": "HIGH",
+      "reason": "22 districts for small city extremely unusual"
+    },
+    "82iS1Pc7dgs3LFZv": {
+      "cities": ["Baton Rouge, LA"],
+      "layerName": "Council_District",
+      "suspectedSource": "City of Baton Rouge (possible)",
+      "severity": "LOW",
+      "reason": "12 districts matches consolidated city-parish"
+    },
+    "VjAUDGF6sTvUJATh": {
+      "cities": ["Annapolis, MD"],
+      "layerName": "AACC_Footprint_by_Council_District_BA",
+      "suspectedSource": "Anne Arundel Community College or County",
+      "severity": "HIGH",
+      "reason": "AACC suggests county/regional data, not city-specific"
+    },
+    "vdNDkVykv9vEWFX4": {
+      "cities": ["Penn Hills municipality, PA"],
+      "layerName": "Council_Districts",
+      "suspectedSource": "Penn Hills (possible)",
+      "severity": "MEDIUM",
+      "reason": "13 districts high for township"
+    },
+    "j0tW7lFR4lVCayaI": {
+      "cities": ["Old Westbury, NY"],
+      "layerName": "CitizenServeMapCouncilDist",
+      "suspectedSource": "Unknown platform/vendor",
+      "severity": "MEDIUM",
+      "reason": "CitizenServe suggests third-party platform, 6 districts for village unusual"
+    },
+    "YvJkKP3I2NydFmVT": {
+      "cities": ["Barberton, OH"],
+      "layerName": "Summit_County_Council_Districts_Wilson",
+      "suspectedSource": "Summit County",
+      "severity": "HIGH",
+      "reason": "Explicitly labeled Summit_County - wrong jurisdiction level"
+    },
+    "Nei44UM1ZYstxSRm": {
+      "cities": ["Sand Springs, OK"],
+      "layerName": "Council_District_Ward_Boundaries",
+      "suspectedSource": "City of Sand Springs (possible)",
+      "severity": "LOW",
+      "reason": "7 districts reasonable"
+    },
+    "QSBMiYcWqQVP5NZq": {
+      "cities": ["Bluffton, IN"],
+      "layerName": "City_Council_Districts",
+      "suspectedSource": "Unknown",
+      "severity": "LOW",
+      "reason": "5 districts reasonable"
+    },
+    "QWaOgwdmpqI9HUzf": {
+      "cities": ["Knoxville, TN"],
+      "layerName": "Knoxville_City_Council_Districts",
+      "suspectedSource": "City of Knoxville (legitimate)",
+      "severity": "NONE",
+      "reason": "Explicit city name match, 6 districts correct"
+    },
+    "m9zYNmX49ddkBsgd": {
+      "cities": ["Bremerton, WA"],
+      "layerName": "sgc_ci_bremerton",
+      "suspectedSource": "City of Bremerton (likely)",
+      "severity": "LOW",
+      "reason": "City name in layer, 10 districts reasonable"
+    },
+    "maPS0LX4n9AZQoiS": {
+      "cities": ["Goose Creek, SC"],
+      "layerName": "Political_Districts",
+      "suspectedSource": "County or regional",
+      "severity": "HIGH",
+      "reason": "Layer 94 'County Council Districts' - wrong jurisdiction"
+    },
+    "nZwqO8atLsfAXkOG": {
+      "cities": ["Bluffton, SC"],
+      "layerName": "Join_Features_to_Beaufort_County_Council_District_Outlines",
+      "suspectedSource": "Beaufort County",
+      "severity": "HIGH",
+      "reason": "Explicitly Beaufort County Council - wrong jurisdiction level"
+    },
+    "OgBd08QAzCh94Piz": {
+      "cities": ["Shell Lake, WI"],
+      "layerName": "Aldermanic_Districts",
+      "suspectedSource": "City of Shell Lake (possible)",
+      "severity": "LOW",
+      "reason": "4 districts reasonable for small city"
+    },
+    "NybqoDIlkNhsZunt": {
+      "cities": ["Opelika, AL"],
+      "layerName": "LEE_HB_7_WFL1",
+      "suspectedSource": "Lee County or state legislature",
+      "severity": "HIGH",
+      "reason": "LEE prefix suggests Lee County, HB_7 suggests state house bill data"
+    },
+    "wyoDVuo3QgawYe6R": {
+      "cities": ["Little Rock, AR"],
+      "layerName": "Commercial_BPADD_City_Wards",
+      "suspectedSource": "BPADD regional planning district",
+      "severity": "HIGH",
+      "reason": "BPADD suggests regional planning district, 20 wards seems high"
+    }
+  },
+
+  "suspectedMetroBleeding": [
+    {
+      "city": "San Jacinto, CA",
+      "state": "CA",
+      "cityFips": "0667112",
+      "orgId": "uFAr0LUPy14bDaLg",
+      "likelySource": "City of Hemet",
+      "evidence": "Layer named 'Hemet_Council_Districts'",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Walnut, CA",
+      "state": "CA",
+      "cityFips": "0683332",
+      "orgId": "WV8ogNubjFL2BKPt",
+      "likelySource": "City of West Covina",
+      "evidence": "Layer named 'West_Covina_Council_Districts'",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Menifee, CA",
+      "state": "CA",
+      "cityFips": "0646898",
+      "orgId": "LNp9QekVQ7pNnS4Q",
+      "likelySource": "City of Perris",
+      "evidence": "Layer named 'Council_Districts_Perris'",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Poway, CA",
+      "state": "CA",
+      "cityFips": "0658520",
+      "orgId": "xOaE01KwGK9Fvnfr",
+      "likelySource": "San Diego Regional/County",
+      "evidence": "Layer acronym 'SDRVC' suggests regional data",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Jacksonville Beach, FL",
+      "state": "FL",
+      "cityFips": "1235050",
+      "orgId": "r24cv1JRnR3HZXVQ",
+      "likelySource": "City of Jacksonville (main city)",
+      "evidence": "Layer prefix 'Jax_' indicates Jacksonville proper",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Winter Springs, FL",
+      "state": "FL",
+      "cityFips": "1278325",
+      "orgId": "H65mZknxx42pSkN4",
+      "likelySource": "Multi-city jurisdiction reference",
+      "evidence": "73 districts and 'BWCF_Jurisdiction_Reference' indicates regional data",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Barberton, OH",
+      "state": "OH",
+      "cityFips": "3903828",
+      "orgId": "YvJkKP3I2NydFmVT",
+      "likelySource": "Summit County",
+      "evidence": "Layer explicitly named 'Summit_County_Council_Districts'",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Goose Creek, SC",
+      "state": "SC",
+      "cityFips": "4529815",
+      "orgId": "maPS0LX4n9AZQoiS",
+      "likelySource": "Berkeley County or regional",
+      "evidence": "Layer labeled 'County Council Districts' in Political_Districts service",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Bluffton, SC",
+      "state": "SC",
+      "cityFips": "4507210",
+      "orgId": "nZwqO8atLsfAXkOG",
+      "likelySource": "Beaufort County",
+      "evidence": "Layer explicitly references 'Beaufort_County_Council'",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Annapolis, MD",
+      "state": "MD",
+      "cityFips": "2401600",
+      "orgId": "VjAUDGF6sTvUJATh",
+      "likelySource": "Anne Arundel County",
+      "evidence": "AACC_Footprint suggests county-level data",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Opelika, AL",
+      "state": "AL",
+      "cityFips": "0157048",
+      "orgId": "NybqoDIlkNhsZunt",
+      "likelySource": "Lee County",
+      "evidence": "LEE prefix indicates Lee County data",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "Little Rock, AR",
+      "state": "AR",
+      "cityFips": "0541000",
+      "orgId": "wyoDVuo3QgawYe6R",
+      "likelySource": "BPADD Regional Planning District",
+      "evidence": "BPADD acronym and 'Municipal_Wards_in_Pulaski_County' suggests county data",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    },
+    {
+      "city": "La Cañada Flintridge, CA",
+      "state": "CA",
+      "cityFips": "0639003",
+      "orgId": "DEoxb4q3EJppiDKC",
+      "likelySource": "Regional analytics platform",
+      "evidence": "'Enriched' prefix suggests derived/aggregated data, 7 districts unusual",
+      "severity": "MEDIUM",
+      "action": "INVESTIGATE"
+    },
+    {
+      "city": "Clovis, CA",
+      "state": "CA",
+      "cityFips": "0614218",
+      "orgId": "ibgDyuD2DLBge82s",
+      "likelySource": "Regional or incorrect data",
+      "evidence": "42 districts for typical 5-7 district city suggests regional aggregation",
+      "severity": "MEDIUM",
+      "action": "INVESTIGATE"
+    },
+    {
+      "city": "Escondido, CA",
+      "state": "CA",
+      "cityFips": "0622804",
+      "orgId": "bLT9wzACSnOhnxN5",
+      "likelySource": "Housing program data",
+      "evidence": "53 districts from crime housing layer not authoritative",
+      "severity": "MEDIUM",
+      "action": "INVESTIGATE"
+    },
+    {
+      "city": "DeQuincy, LA",
+      "state": "LA",
+      "cityFips": "2220575",
+      "orgId": "T7YR8Q3OOFw14uBe",
+      "likelySource": "Regional or incorrect data",
+      "evidence": "22 districts for small city extremely unusual",
+      "severity": "HIGH",
+      "action": "QUARANTINE"
+    }
+  ],
+
+  "nonSelfHostedPortals": {
+    "description": "Cities using services.arcgis.com instead of their own GIS servers",
+    "note": "Self-hosted servers (gis.cityname.gov or similar) are more trustworthy than shared ArcGIS Online orgs",
+    "comparison": {
+      "selfHosted": ["Noblesville, IN uses gis1.hamiltoncounty.in.gov"],
+      "sharedHosting": "All failing cities use services.arcgis.com/* pattern indicating shared hosting"
+    }
+  },
+
+  "recommendations": {
+    "quarantine": [
+      "San Jacinto, CA - Using Hemet data",
+      "Walnut, CA - Using West Covina data",
+      "Menifee, CA - Using Perris data",
+      "Poway, CA - Using San Diego regional data",
+      "Jacksonville Beach, FL - Using Jacksonville main city data",
+      "Winter Springs, FL - Using regional jurisdiction data (73 districts)",
+      "Barberton, OH - Using Summit County data",
+      "Goose Creek, SC - Using county data",
+      "Bluffton, SC - Using Beaufort County data",
+      "Annapolis, MD - Using Anne Arundel County data",
+      "Opelika, AL - Using Lee County data",
+      "Little Rock, AR - Using regional planning district data",
+      "DeQuincy, LA - 22 districts for small city (data quality issue)"
+    ],
+
+    "investigate": [
+      "La Cañada Flintridge, CA - Enriched/derived data source",
+      "Clovis, CA - 42 districts suggests regional aggregation",
+      "Escondido, CA - 53 districts from non-authoritative crime housing layer",
+      "Port Arthur, TX - Using rehab map layer not primary council data",
+      "Old Westbury, NY - Third-party CitizenServe platform, 6 districts for village"
+    ],
+
+    "needsCorrectSource": [
+      "All quarantined cities need authoritative city-specific GIS sources",
+      "Priority: CA cities (8 issues), FL cities (2 issues), SC cities (2 issues)",
+      "Search pattern: Look for city.gov domains or official municipal GIS portals",
+      "Verification: District count should match known city council size"
+    ],
+
+    "patternDetected": {
+      "suburbanCitiesUsingMetroData": "San Jacinto→Hemet, Walnut→West Covina, Menifee→Perris, Jacksonville Beach→Jacksonville",
+      "countiesBleedingIntoCities": "Barberton→Summit County, Goose Creek→County, Bluffton→Beaufort County, Opelika→Lee County",
+      "regionalDataMislabeled": "Poway→SDRVC regional, Winter Springs→73 district regional, Little Rock→BPADD regional"
+    }
+  },
+
+  "successfulCities": {
+    "knoxville_tn": {
+      "orgId": "QWaOgwdmpqI9HUzf",
+      "evidence": "Explicit city name in layer, correct district count",
+      "pattern": "Good example of city-specific portal"
+    },
+    "bremerton_wa": {
+      "orgId": "m9zYNmX49ddkBsgd",
+      "evidence": "City name in layer code (sgc_ci_bremerton)",
+      "pattern": "City-specific with coded identifier"
+    }
+  },
+
+  "nextSteps": [
+    "1. Quarantine 13 HIGH severity cities immediately",
+    "2. Manual investigation of 5 MEDIUM severity cities",
+    "3. Search for authoritative sources: city.gov/gis, official open data portals",
+    "4. Verify district counts against known city council sizes",
+    "5. Build allowlist of trusted org IDs vs suspicious regional IDs",
+    "6. Consider requiring self-hosted GIS servers (not services.arcgis.com) for production"
+  ]
+}

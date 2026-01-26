@@ -1,0 +1,80 @@
+OVERLAP MAGNITUDE VISUALIZATION
+================================================================================================
+
+Each city visualized by overlap magnitude (log scale):
+
+Legend:
+  • = 1,000 sq m (0.001 sq km)
+  █ = 1M sq m (1 sq km)
+  ████████████████████ = 1B sq m (1000 sq km)
+
+================================================================================================
+CATASTROPHIC (>100M sq m)
+================================================================================================
+
+Buckeye, AZ            ████████████████████████████████████████████ (457M sq m)
+                       WRONG LAYER: Maricopa County data (76 districts)
+
+Fernley, NV            ██████████████████████████████ (297M sq m)
+                       WRONG LAYER: Complete data corruption
+
+Glendale, AZ           █████████████ (134M sq m)
+                       BROKEN: Massive district overlaps
+
+Sherman, TX            ████████████ (125M sq m)
+                       BROKEN: Complete tessellation failure
+
+Elk Grove, CA          █████████ (90M sq m)
+                       WRONG GRANULARITY: 26 districts (too many)
+
+Carson, CA             ████████ (83M sq m)
+                       WRONG LAYER: LA County districts, not Carson
+
+================================================================================================
+SEVERE (10M-100M sq m)
+================================================================================================
+
+Milton, GA             ██████ (57M sq m) - Major boundary errors
+La Porte, TX           █████ (51M sq m) - Overlapping definitions
+Ocala, FL              █████ (46M sq m) - Complete district overlap
+Odessa, TX             █████ (46M sq m) - Incorrect boundaries
+Menifee, CA            ████ (41M sq m) - Using Perris data (WRONG CITY)
+Littleton, CO          ███ (34M sq m) - Data quality issue
+San Bernardino, CA     ███ (34M sq m) - Ward boundary errors
+Macomb, IL             ███ (30M sq m) - Overlapping council districts
+Taylor, TX             ██ (24M sq m) - Tessellation failure
+Kenosha, WI            ██ (23M sq m) - 34 aldermanic district overlaps
+Goldsboro, NC          ██ (22M sq m) - Elected district errors
+Little Elm, TX         █ (15M sq m) - Council overlaps
+DeSoto, TX             █ (14M sq m) - Incorrect data
+
+================================================================================================
+MODERATE (150K-10M sq m) - Still clearly wrong
+================================================================================================
+
+Big Bear Lake, CA      ▓ (4M sq m) - Council district overlaps
+Haysville, KS          ▓ (3.7M sq m) - Only 2 districts, complete overlap
+Bossier City, LA       ░ (204K sq m) - MPC layer overlaps
+Chattahoochee Hills GA ░ (192K sq m) - WRONG GRANULARITY: 50 districts
+
+================================================================================================
+EDGE ROUNDING (<1K sq m) - Would be tolerance-fixable
+================================================================================================
+
+(NONE FOUND)
+
+================================================================================================
+
+SCALE REFERENCE:
+  • 1,000 sq m = 0.001 sq km = ~32m × 32m (city block)
+  • 10,000 sq m = 0.01 sq km = ~100m × 100m (large building)
+  • 150,000 sq m = 0.15 sq km = ~387m × 387m (CURRENT TOLERANCE)
+  • 1M sq m = 1 sq km = ~1000m × 1000m (small neighborhood)
+  • 10M sq m = 10 sq km = ~3km × 3km (mid-size district)
+  • 100M sq m = 100 sq km = ~10km × 10km (large city area)
+  • 1B sq m = 1000 sq km = ~32km × 32km (metropolitan area)
+
+VERDICT: 100% TRUE TOPOLOGY ERRORS
+- Zero cases attributable to edge rounding
+- Zero cases fixable by tolerance adjustment
+- All require source data correction

@@ -1,0 +1,2521 @@
+{
+  "aggregatorId": "njgin-nj",
+  "cities": [
+    {
+      "cityName": "Absecon City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Absecon%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Atlantic City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Atlantic%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Bayonne City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Bayonne%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Belleville Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Belleville%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Berkeley Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Berkeley%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Bloomfield Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Bloomfield%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Boonton Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Boonton%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Bridgeton City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Bridgeton%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Brigantine City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Brigantine%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Camden City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Camden%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "City of Orange Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'City%2520of%2520Orange%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Clark Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Clark%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Clifton City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Clifton%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Denville Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Denville%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Dover Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Dover%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "East Orange City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'East%2520Orange%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Egg Harbor City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Egg%2520Harbor%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Elizabeth City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Elizabeth%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Englewood City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Englewood%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Franklin Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Franklin%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Garfield City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Garfield%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Gloucester City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Gloucester%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Hackensack City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Hackensack%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Harrison Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Harrison%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Hawthorne Borough",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Hawthorne%2520Borough'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Hillside Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Hillside%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Hoboken City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Hoboken%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Irvington Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Irvington%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Jersey City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Jersey%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Kearny Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Kearny%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Lincoln Park Borough",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Lincoln%2520Park%2520Borough'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Linden City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 10,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Linden%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Linwood City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Linwood%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Lower Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Lower%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Millville City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Millville%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Monroe Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Monroe%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Montclair Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Montclair%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Morristown Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Morristown%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Mullica Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Mullica%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "New Brunswick City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'New%2520Brunswick%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Newark City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Newark%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "North Bergen Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'North%2520Bergen%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "North Wildwood City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'North%2520Wildwood%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Northfield City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Northfield%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Nutley Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Nutley%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Ocean City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Ocean%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Old Bridge Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Old%2520Bridge%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Passaic City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Passaic%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Paterson City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Paterson%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Perth Amboy City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Perth%2520Amboy%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Phillipsburg Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Phillipsburg%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Piscataway Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Piscataway%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Plainfield City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Plainfield%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Pleasantville City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Pleasantville%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Port Republic City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Port%2520Republic%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Rahway City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Rahway%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Rockaway Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Rockaway%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Roselle Borough",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Roselle%2520Borough'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Roselle Park Borough",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Roselle%2520Park%2520Borough'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Roxbury Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Roxbury%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Salem City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Salem%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Secaucus Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Secaucus%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Somers Point City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Somers%2520Point%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "South Amboy City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'South%2520Amboy%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Summit City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 2,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Summit%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Toms River Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Toms%2520River%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Trenton City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Trenton%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Union City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 10,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Union%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Vineland City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Vineland%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Wayne Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Wayne%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Weehawken Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Weehawken%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "West New York Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'West%2520New%2520York%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "West Orange Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'West%2520Orange%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Westfield Town",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Westfield%2520Town'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Winslow Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Winslow%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Woodbridge Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Woodbridge%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Woodbury City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Woodbury%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Bordentown City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Bordentown%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Burlington City",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Burlington%2520City'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Delran Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Delran%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "Florence Township",
+      "state": "NJ",
+      "fips": null,
+      "districtCount": 3,
+      "downloadUrl": "https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Ward_Boundaries_for_New_Jersey/FeatureServer/0/query?where=MUN_NAME%3D'Florence%2520Township'&outFields=*&f=geojson",
+      "confidence": 95
+    }
+  ],
+  "failures": [
+    {
+      "cityName": "Aberdeen Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Alexandria Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Allamuchy Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Allendale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Allenhurst Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Allentown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Alloway Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Alpha Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Alpine Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Andover Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Andover Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Asbury Park City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Atlantic Highlands Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Audubon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Audubon Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Avalon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Avon-by-the-Sea Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Barnegat Light Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Barnegat Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Barrington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bass River Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bay Head Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Beach Haven Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Beachwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bedminster Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bellmawr Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Belmar Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Belvidere Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bergenfield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Berkeley Heights Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Berlin Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Berlin Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bernards Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bernardsville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bethlehem Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Blairstown Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bloomingdale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bloomsbury Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bogota Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Boonton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bound Brook Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bradley Beach Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Branchburg Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Branchville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Brick Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bridgewater Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Brielle Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Brooklawn Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Buena Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Buena Vista Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Butler Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Byram Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Caldwell Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Califon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cape May City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cape May Point Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Carlstadt Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Carneys Point Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Carteret Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cedar Grove Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chatham Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chatham Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cherry Hill Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chesilhurst Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chester Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chester Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Clayton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Clementon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cliffside Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Clinton Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Clinton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Closter Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Collingswood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Colts Neck Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Commercial Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Corbin City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cranbury Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cranford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cresskill Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Deal Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Deerfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Delaware Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Demarest Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Dennis Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Deptford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Downe Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Dumont Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Dunellen Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Eagleswood Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Amwell Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Brunswick Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Greenwich Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Hanover Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Newark Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Rutherford Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "East Windsor Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Eatontown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Edgewater Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Edison Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Egg Harbor Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Elk Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Elmer Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Elmwood Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Elsinboro Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Emerson Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Englewood Cliffs Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Englishtown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Essex Fells Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Estell Manor City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ewing Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fair Haven Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fair Lawn Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fairview Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fanwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Far Hills Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Farmingdale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Flemington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Florham Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Folsom Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fort Lee Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Frankford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Franklin Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Franklin Lakes Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fredon Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Freehold Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Freehold Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Frelinghuysen Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Frenchtown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Galloway Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Garwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Gibbsboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Glassboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Glen Gardner Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Glen Ridge Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Glen Rock Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Gloucester Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Green Brook Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Green Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Guttenberg Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hackettstown Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Haddon Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Haddon Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Haddonfield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Haledon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hamburg Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hammonton Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hampton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hampton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hanover Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Harding Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hardwick Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hardyston Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Harmony Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Harrington Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Harrison Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Harvey Cedars Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hasbrouck Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Haworth Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hazlet Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Helmetta Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hi-Nella Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "High Bridge Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Highland Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Highlands Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hightstown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hillsborough Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hillsdale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ho-Ho-Kus Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Holland Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Holmdel Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hopatcong Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hope Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hopewell Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Howell Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Independence Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Interlaken Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Island Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Jackson Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Jamesburg Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Jefferson Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Keansburg Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Kenilworth Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Keyport Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Kingwood Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Kinnelon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Knowlton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lacey Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lafayette Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lake Como Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lakehurst Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lakewood Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lambertville City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Laurel Springs Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lavallette Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lawnside Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lebanon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lebanon Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Leonia Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Liberty Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lindenwold Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Little Egg Harbor Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Little Falls Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Little Ferry Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Little Silver Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Livingston Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Loch Arbour Village",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lodi Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Logan Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Long Beach Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Long Branch City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Long Hill Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Longport Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lopatcong Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lower Alloways Creek Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lyndhurst Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Madison Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Magnolia Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mahwah Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Manalapan Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Manasquan Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Manchester Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mannington Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mantoloking Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mantua Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Manville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Maple Shade Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Maplewood Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Margate City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Marlboro Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Matawan Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Maurice River Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Maywood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mendham Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mendham Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Merchantville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Metuchen Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Middle Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Middlesex Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Middletown Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Midland Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Milford Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Millburn Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Millstone Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Millstone Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Milltown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mine Hill Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Monmouth Beach Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Montague Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Montgomery Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Montvale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Montville Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Moonachie Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Morris Plains Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Morris Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mount Ephraim Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mountain Lakes Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mountainside Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mount Arlington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mount Olive Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "National Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Neptune City Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Neptune Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Netcong Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "New Milford Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "New Providence Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Newfield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Newton Town",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Arlington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Brunswick Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Caldwell Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Haledon Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Plainfield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Northvale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Norwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oakland Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oaklyn Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ocean Gate Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oceanport Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ogdensburg Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Old Tappan Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oldmans Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oradell Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Oxford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Palisades Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Paramus Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Park Ridge Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Parsippany-Troy Hills Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Paulsboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Peapack-Gladstone Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pennington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Penns Grove Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pennsauken Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pennsville Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pequannock Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pilesgrove Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pine Beach Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pine Hill Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pine Valley Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pitman Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pittsgrove Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Plainsboro Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Plumsted Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pohatcong Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Point Pleasant Beach Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Point Pleasant Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pompton Lakes Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Princeton",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Prospect Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Quinton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ramsey Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Randolph Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Raritan Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Raritan Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Readington Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Red Bank Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ridgefield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ridgefield Park Village",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ridgewood Village",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ringwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "River Edge Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "River Vale Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Riverdale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Robbinsville Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rochelle Park Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rockaway Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rockleigh Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rocky Hill Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Roosevelt Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Roseland Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rumson Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Runnemede Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Rutherford Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Saddle Brook Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Saddle River Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sandyston Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sayreville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Scotch Plains Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sea Bright Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sea Girt Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sea Isle City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Seaside Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Seaside Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Shiloh Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ship Bottom Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Shrewsbury Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Shrewsbury Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Somerdale Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Somerville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Bound Brook Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Brunswick Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Hackensack Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Harrison Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Orange Village Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Plainfield Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South River Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "South Toms River Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sparta Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Spotswood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Spring Lake Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Spring Lake Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stafford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stanhope Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stillwater Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stockton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stone Harbor Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stow Creek Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Stratford Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Surf City Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Sussex Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Swedesboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tavistock Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Teaneck Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tenafly Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Teterboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tewksbury Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tinton Falls Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Totowa Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tuckerton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Union Beach Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Upper Deerfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Upper Freehold Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Upper Pittsgrove Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Upper Saddle River Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Upper Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ventnor City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Vernon Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Verona Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Victory Gardens Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Voorhees Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Waldwick Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wall Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wallington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Walpack Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wanaque Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wantage Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Warren Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Washington Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Watchung Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Waterford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wenonah Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Amwell Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Caldwell Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Cape May Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Deptford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Long Branch Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Milford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Wildwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "West Windsor Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Westville Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Westwood Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Weymouth Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wharton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "White Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wildwood City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wildwood Crest Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Winfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wood-Ridge Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodbine Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodbury Heights Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodcliff Lake Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodland Park Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodlynne Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodstown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woolwich Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wyckoff Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hamilton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mansfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Washington Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Greenwich Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hopewell Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Union Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Springfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Ocean Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lawrence Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fairfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Beverly City",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Burlington Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Bordentown Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Chesterfield Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Cinnaminson Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Delanco Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Eastampton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Edgewater Park Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Evesham Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Fieldsboro Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Hainesport Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Lumberton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Medford Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Medford Lakes Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Moorestown Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mount Holly Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Mount Laurel Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "New Hanover Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "North Hanover Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Palmyra Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pemberton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Pemberton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Riverside Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Riverton Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Shamong Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Southampton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Tabernacle Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Willingboro Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Woodland Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Wrightstown Borough",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "Westampton Township",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    }
+  ],
+  "totalFeatures": 829,
+  "extractedAt": "2026-01-24T03:14:16.830Z"
+}

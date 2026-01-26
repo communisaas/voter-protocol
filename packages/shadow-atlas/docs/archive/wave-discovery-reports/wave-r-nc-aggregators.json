@@ -1,0 +1,284 @@
+{
+  "state": "NC",
+  "discoveryDate": "2026-01-23",
+  "summary": "North Carolina lacks a single statewide council district aggregator. Council districts are maintained individually by municipalities. However, several county-level and regional sources provide multi-city coverage.",
+  "aggregatorsFound": [
+    {
+      "name": "NCDOT Municipal Boundaries",
+      "type": "statewide",
+      "url": "https://gis11.services.ncdot.gov/arcgis/rest/services/NCDOT_CityBdy_Poly/MapServer/0",
+      "description": "Statewide municipal boundary polygons for all NC incorporated municipalities. Based on Powell Bill Program maps. Does NOT contain council district data, but useful as a base layer for municipality identification.",
+      "coverage": "All ~550 NC municipalities",
+      "hasCouncilDistricts": false,
+      "fields": ["MunicipalBoundaryName", "CountyName1-4", "Division", "TownCode", "CensusType", "CensusPopulation", "IncorporatedDate", "PowellBillParticipate"],
+      "maxRecordCount": 2000,
+      "spatialReference": "NAD 1983 State Plane NC (EPSG 2264)",
+      "lastUpdated": "2023-05-22",
+      "bulkPotential": "HIGH - Use as reference layer to identify all municipalities, then cross-reference with individual city portals"
+    },
+    {
+      "name": "Mecklenburg County Open Mapping",
+      "type": "county",
+      "url": "https://maps.mecknc.gov/openmapping/",
+      "arcgisHub": "https://mecklenburg-county-data-dashboard-meckgov.hub.arcgis.com/",
+      "description": "Mecklenburg County GIS provides open data for the Charlotte metro area. Contains Charlotte council districts and potentially other incorporated municipalities.",
+      "coverage": ["Charlotte", "Cornelius", "Davidson", "Huntersville", "Matthews", "Mint Hill", "Pineville"],
+      "hasCouncilDistricts": true,
+      "charlotteCouncilService": "https://gis.charlottenc.gov/arcgis/rest/services/PLN/CouncilDistricts/MapServer",
+      "bulkPotential": "MEDIUM - Charlotte has 7 districts. Other towns in county may have separate council data."
+    },
+    {
+      "name": "Wake County Open Data",
+      "type": "county",
+      "url": "https://data-wake.opendata.arcgis.com/",
+      "description": "Wake County open data portal covering Raleigh and surrounding municipalities. Contains Raleigh city council districts.",
+      "coverage": ["Raleigh", "Cary", "Apex", "Holly Springs", "Wake Forest", "Garner", "Fuquay-Varina", "Morrisville", "Knightdale", "Wendell", "Zebulon", "Rolesville"],
+      "hasCouncilDistricts": true,
+      "raleighOpenData": "https://data-ral.opendata.arcgis.com/",
+      "caryOpenData": "https://data.townofcary.org/",
+      "bulkPotential": "MEDIUM - Raleigh has 5 districts. Cary has 4 districts (separate portal). Other towns may have at-large councils."
+    },
+    {
+      "name": "Guilford County GIS",
+      "type": "county",
+      "url": "https://gisdv.guilfordcountync.gov/Guilford/",
+      "description": "Guilford County GIS covers Greensboro and High Point area. Council districts available through city-specific services.",
+      "coverage": ["Greensboro", "High Point", "Burlington", "Gibsonville", "Pleasant Garden", "Stokesdale", "Summerfield", "Jamestown", "Oak Ridge", "Sedalia", "Whitsett"],
+      "hasCouncilDistricts": true,
+      "greensboroCouncilService": "https://gis.greensboro-nc.gov/arcgis/rest/services/GISDivision/CouncilDistricts_MS/MapServer",
+      "highPointWards": "https://hub.arcgis.com/maps/HighPoint::ward-boundaries",
+      "bulkPotential": "MEDIUM - Greensboro has 5 districts. High Point has wards. Smaller towns may be at-large."
+    },
+    {
+      "name": "Forsyth County MapForsyth",
+      "type": "county",
+      "url": "https://www.mapforsyth.org/",
+      "arcgisServer": "https://maps.co.forsyth.nc.us/arcgis/rest/services",
+      "description": "Forsyth County GIS covers Winston-Salem area. Winston-Salem has 8 wards.",
+      "coverage": ["Winston-Salem", "Kernersville", "Clemmons", "Lewisville", "Walkertown", "Rural Hall", "King", "Tobaccoville", "Bethania"],
+      "hasCouncilDistricts": true,
+      "winstonSalemWards": "Ward layer available through MapForsyth - search for Wards_WS",
+      "bulkPotential": "MEDIUM - Winston-Salem has 8 wards. County-city consolidated services."
+    },
+    {
+      "name": "Durham County Open Data",
+      "type": "county",
+      "url": "https://live-durhamnc.opendata.arcgis.com/",
+      "description": "Durham County/City consolidated open data portal. Contains city council wards.",
+      "coverage": ["Durham"],
+      "hasCouncilDistricts": true,
+      "councilWardsDataset": "https://live-durhamnc.opendata.arcgis.com/datasets/city-council-wards",
+      "bulkPotential": "LOW - Single city, but Durham has 3 wards plus at-large seats."
+    },
+    {
+      "name": "Fayetteville/Cumberland County",
+      "type": "city",
+      "url": "https://data.fayettevillenc.gov/",
+      "arcgisHub": "https://hub.arcgis.com/maps/faync::city-of-fayetteville-council-districts/about",
+      "description": "City of Fayetteville open data and ArcGIS Hub with council districts.",
+      "coverage": ["Fayetteville"],
+      "hasCouncilDistricts": true,
+      "bulkPotential": "LOW - Single city with 9 districts."
+    },
+    {
+      "name": "Greenville Open Data",
+      "type": "city",
+      "url": "https://gis-cognc.opendata.arcgis.com/",
+      "description": "City of Greenville (Pitt County) open data portal with council districts.",
+      "coverage": ["Greenville"],
+      "hasCouncilDistricts": true,
+      "councilDistrictsMap": "https://gis-cognc.opendata.arcgis.com/maps/city-council-districts-1",
+      "bulkPotential": "LOW - Single city with 5 districts."
+    },
+    {
+      "name": "New Bern GIS",
+      "type": "city",
+      "url": "https://gis-newbern.opendata.arcgis.com/",
+      "description": "City of New Bern open data with aldermanic ward boundaries.",
+      "coverage": ["New Bern"],
+      "hasCouncilDistricts": true,
+      "wardsDataset": "https://gis-newbern.opendata.arcgis.com/datasets/new-bern-wards",
+      "bulkPotential": "LOW - Single city with 6 wards."
+    },
+    {
+      "name": "Asheville Open Data",
+      "type": "city",
+      "url": "https://data-avl.opendata.arcgis.com/",
+      "arcgisServer": "https://gis.ashevillenc.gov/server/rest/services",
+      "description": "City of Asheville open data and ArcGIS server. Council districts not found in current Boundaries folder.",
+      "coverage": ["Asheville"],
+      "hasCouncilDistricts": false,
+      "notes": "Asheville may use at-large council system. Boundaries folder contains city limits but no council districts.",
+      "bulkPotential": "LOW"
+    },
+    {
+      "name": "Wilmington/New Hanover County",
+      "type": "city",
+      "url": "https://wilmingtonnc.maps.arcgis.com/",
+      "gisServer": "https://gis.wilmingtonnc.gov/",
+      "description": "City of Wilmington ArcGIS Online portal and GIS server.",
+      "coverage": ["Wilmington"],
+      "hasCouncilDistricts": "unknown",
+      "notes": "Gallery and zoning maps available. Council districts require further exploration.",
+      "bulkPotential": "LOW"
+    },
+    {
+      "name": "Cabarrus County Open Data",
+      "type": "county",
+      "url": "https://gis-cabarrus.opendata.arcgis.com/",
+      "description": "Cabarrus County (Concord, Kannapolis area) open data portal.",
+      "coverage": ["Concord", "Kannapolis", "Harrisburg", "Mt Pleasant", "Midland", "Locust"],
+      "hasCouncilDistricts": "unknown",
+      "notes": "Data portal available but specific council district layers not confirmed.",
+      "bulkPotential": "MEDIUM - Multiple municipalities in county."
+    }
+  ],
+  "regionalCOGs": [
+    {
+      "name": "Triangle J Council of Governments (TJCOG)",
+      "url": "https://www.tjcog.org/data-resources-regional-data-center/gis-mapping",
+      "counties": ["Chatham", "Durham", "Johnston", "Lee", "Moore", "Orange", "Wake"],
+      "gisCapability": "GIS analysis and web applications for member governments",
+      "hasRegionalCouncilData": false,
+      "notes": "TJCOG provides GIS services to local governments but does not appear to maintain a regional council districts aggregator. Data is maintained by individual municipalities."
+    },
+    {
+      "name": "Centralina Regional Council",
+      "url": "https://centralina.org/",
+      "counties": ["Anson", "Cabarrus", "Gaston", "Iredell", "Lincoln", "Mecklenburg", "Rowan", "Stanly", "Union"],
+      "gisCapability": "Regional planning and collaboration platform",
+      "hasRegionalCouncilData": false,
+      "notes": "Centralina serves as a regional connector but does not aggregate municipal council district data. CRTPO (Charlotte Regional TPO) has transportation data but not political boundaries."
+    },
+    {
+      "name": "Piedmont Triad Regional Council (PTRC)",
+      "url": "https://www.ptrc.org/data-resources/gis-mapping",
+      "counties": ["Alamance", "Caswell", "Davidson", "Davie", "Forsyth", "Guilford", "Montgomery", "Randolph", "Rockingham", "Stokes", "Surry", "Yadkin"],
+      "gisCapability": "GIS analysis, map production, web-based GIS applications",
+      "hasRegionalCouncilData": false,
+      "notes": "PTRC provides GIS services to 78 member communities but does not maintain aggregated council district data. Individual municipalities maintain their own data."
+    },
+    {
+      "name": "Land of Sky Regional Council",
+      "url": "https://www.landofsky.org/gis.html",
+      "counties": ["Buncombe", "Henderson", "Madison", "Transylvania"],
+      "gisCapability": "GIS & Technical Services for member governments",
+      "hasRegionalCouncilData": false,
+      "notes": "Western NC regional council. GIS services available but no aggregated council data."
+    }
+  ],
+  "stateResources": [
+    {
+      "name": "NC OneMap",
+      "url": "https://data-nconemap.opendata.arcgis.com/",
+      "description": "Statewide geospatial data clearinghouse. 37 priority data themes. Does NOT include council district data.",
+      "hasCouncilDistricts": false,
+      "useful": ["Parcels", "Imagery", "Transportation", "Demographics", "Municipal Boundaries (via NCDOT)"]
+    },
+    {
+      "name": "NC General Assembly Redistricting",
+      "url": "https://www.ncleg.gov/Redistricting/BaseData2011",
+      "description": "State legislative and congressional district data. Does NOT include municipal council districts.",
+      "hasCouncilDistricts": false,
+      "useful": ["VTDs", "Census Blocks", "Congressional Districts", "NC House/Senate Districts"]
+    },
+    {
+      "name": "NC State Board of Elections",
+      "url": "https://www.ncsbe.gov/results-data/voting-maps-redistricting",
+      "description": "Voting precinct and district maps. Data at VTD level, not municipal council level.",
+      "hasCouncilDistricts": false,
+      "notes": "VTD geography has no inherent relationship with municipal boundaries."
+    },
+    {
+      "name": "NCSU Libraries GIS Archive",
+      "url": "https://www.lib.ncsu.edu/gis/cities.html",
+      "description": "Directory of 43 NC cities with GIS data. Useful for identifying which cities have GIS portals.",
+      "hasCouncilDistricts": false,
+      "useful": ["Directory of city GIS portals", "Links to county data"]
+    }
+  ],
+  "estimatedTotalCities": {
+    "incorporatedMunicipalities": 552,
+    "citiesWithGISPortals": 43,
+    "citiesWithKnownCouncilDistrictData": 12,
+    "citiesLikelyWithDistricts": 25,
+    "notes": "Most smaller municipalities use at-large council systems. Cities over 50,000 population typically have district-based councils."
+  },
+  "knownDistrictedCities": [
+    {"city": "Charlotte", "districts": 7, "type": "district", "source": "Mecklenburg/Charlotte GIS"},
+    {"city": "Raleigh", "districts": 5, "type": "district", "source": "Wake/Raleigh Open Data"},
+    {"city": "Greensboro", "districts": 5, "type": "district", "source": "Guilford/Greensboro GIS"},
+    {"city": "Durham", "districts": 3, "type": "ward", "source": "Durham Open Data"},
+    {"city": "Winston-Salem", "districts": 8, "type": "ward", "source": "Forsyth/MapForsyth"},
+    {"city": "Fayetteville", "districts": 9, "type": "district", "source": "Fayetteville Open Data"},
+    {"city": "Cary", "districts": 4, "type": "district", "source": "Cary Open Data"},
+    {"city": "High Point", "districts": 6, "type": "ward", "source": "High Point GIS Hub"},
+    {"city": "Greenville", "districts": 5, "type": "district", "source": "Greenville Open Data"},
+    {"city": "New Bern", "districts": 6, "type": "ward", "source": "New Bern GIS"},
+    {"city": "Wilmington", "districts": "unknown", "type": "unknown", "source": "Wilmington GIS - needs verification"},
+    {"city": "Asheville", "districts": "unknown", "type": "possibly at-large", "source": "Asheville GIS - needs verification"}
+  ],
+  "recommendations": [
+    {
+      "priority": 1,
+      "action": "Use NCDOT Municipal Boundaries as master reference",
+      "description": "Query https://gis11.services.ncdot.gov/arcgis/rest/services/NCDOT_CityBdy_Poly/MapServer/0 to get complete list of all 552 NC municipalities with population data. Filter by CensusPopulation > 10000 to identify cities likely to have districted councils.",
+      "estimatedCities": 50
+    },
+    {
+      "priority": 2,
+      "action": "Harvest major county open data portals",
+      "description": "The 5 largest counties (Mecklenburg, Wake, Guilford, Forsyth, Durham) contain the majority of NC's urban population and have well-maintained open data portals with council district layers.",
+      "portals": [
+        "https://gis.charlottenc.gov/arcgis/rest/services/PLN/CouncilDistricts/MapServer",
+        "https://data-ral.opendata.arcgis.com/",
+        "https://gis.greensboro-nc.gov/arcgis/rest/services/GISDivision/CouncilDistricts_MS/MapServer",
+        "https://www.mapforsyth.org/",
+        "https://live-durhamnc.opendata.arcgis.com/"
+      ],
+      "estimatedCities": 15
+    },
+    {
+      "priority": 3,
+      "action": "Query NCSU Libraries city directory",
+      "description": "Cross-reference the 43 cities in NCSU Libraries GIS archive with population data. Programmatically check each city's GIS portal for council district layers.",
+      "url": "https://www.lib.ncsu.edu/gis/cities.html",
+      "estimatedCities": 20
+    },
+    {
+      "priority": 4,
+      "action": "Search ArcGIS Hub for remaining cities",
+      "description": "Many NC cities publish to ArcGIS Hub. Search for '[CityName] NC council districts' or '[CityName] NC wards' patterns.",
+      "searchPattern": "site:hub.arcgis.com OR site:opendata.arcgis.com \"north carolina\" (council OR ward) districts",
+      "estimatedCities": 10
+    },
+    {
+      "priority": 5,
+      "action": "Accept at-large gap",
+      "description": "Most NC municipalities under 10,000 population use at-large council systems without geographic districts. These cities do not require district boundary harvesting.",
+      "notes": "Approximately 500+ of NC's 552 municipalities are small towns with at-large councils."
+    }
+  ],
+  "keyFindings": [
+    "No statewide aggregator exists for municipal council districts in NC",
+    "Council districts are maintained at municipal level, not state or regional level",
+    "Regional COGs (TJCOG, Centralina, PTRC) provide GIS services but do not aggregate council data",
+    "County-level open data portals are the best source for multi-city coverage",
+    "NCDOT Municipal Boundaries is an excellent reference for identifying all municipalities",
+    "Approximately 10-15% of NC municipalities have districted council systems (larger cities)",
+    "Most small towns use at-large council systems with no district boundaries to harvest"
+  ],
+  "serviceEndpoints": {
+    "ncdotMunicipalBoundaries": "https://gis11.services.ncdot.gov/arcgis/rest/services/NCDOT_CityBdy_Poly/MapServer/0",
+    "charlotteCouncilDistricts": "https://gis.charlottenc.gov/arcgis/rest/services/PLN/CouncilDistricts/MapServer",
+    "greensboroCouncilDistricts": "https://gis.greensboro-nc.gov/arcgis/rest/services/GISDivision/CouncilDistricts_MS/MapServer",
+    "durhamCouncilWards": "https://live-durhamnc.opendata.arcgis.com/datasets/city-council-wards",
+    "raleighOpenData": "https://data-ral.opendata.arcgis.com/",
+    "caryCouncilDistricts": "https://data.townofcary.org/explore/dataset/council-districts/",
+    "fayettevilleCouncilDistricts": "https://hub.arcgis.com/maps/faync::city-of-fayetteville-council-districts/",
+    "greenvilleCouncilDistricts": "https://gis-cognc.opendata.arcgis.com/maps/city-council-districts-1",
+    "newBernWards": "https://gis-newbern.opendata.arcgis.com/datasets/new-bern-wards",
+    "highPointWards": "https://hub.arcgis.com/maps/HighPoint::ward-boundaries",
+    "winstonSalemMapForsyth": "https://www.mapforsyth.org/"
+  }
+}

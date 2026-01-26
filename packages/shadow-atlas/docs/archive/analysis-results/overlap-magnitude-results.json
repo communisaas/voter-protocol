@@ -1,0 +1,3144 @@
+{
+  "results": [
+    {
+      "city": "Ocala, FL",
+      "fips": "1250750",
+      "districtCount": 6,
+      "maxOverlapSqM": 45820687.74585516,
+      "totalOverlapSqM": 123974877.60781094,
+      "overlapPairs": [
+        {
+          "district1": "District 3",
+          "district2": "District 2",
+          "overlapAreaSqM": 796.6644887474183
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 1",
+          "overlapAreaSqM": 270698.1875463516
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 3",
+          "overlapAreaSqM": 743.535644667731
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 2",
+          "overlapAreaSqM": 24.88627017538947
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 5",
+          "overlapAreaSqM": 10062.410319353012
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 1",
+          "overlapAreaSqM": 20963760.735381458
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 2",
+          "overlapAreaSqM": 18.292467419493267
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 1",
+          "overlapAreaSqM": 33943579.68847431
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 1",
+          "overlapAreaSqM": 45820687.74585516
+        },
+        {
+          "district1": "District 5",
+          "district2": "District 1",
+          "overlapAreaSqM": 22964505.461363293
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 45820688 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Chattahoochee Hills, GA",
+      "fips": "1315552",
+      "districtCount": 50,
+      "maxOverlapSqM": 192232.65779019386,
+      "totalOverlapSqM": 225601.95236354132,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.3176470246597802
+        },
+        {
+          "district1": "",
+          "district2": "",
+          "overlapAreaSqM": 16.098238392303585
+        },
+        {
+          "district1": "",
+          "district2": "unknown",
+          "overlapAreaSqM": 82.01046207599613
+        },
+        {
+          "district1": "",
+          "district2": "",
+          "overlapAreaSqM": 7.571268089445408
+        },
+        {
+          "district1": "",
+          "district2": "unknown",
+          "overlapAreaSqM": 18.32011863195406
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.7627083679355392
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 22060.210070800043
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 13.831460734752461
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.7976129384470093
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.13952616664503004
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 22.308127376090326
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 243.85429572232735
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 61.32125190639142
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 0.9255764648560135
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 29.19257512110747
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 15.542277728745622
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.4900063725140915
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 192232.65779019386
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 1.9295387053702207
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 38.409949572105816
+        },
+        {
+          "district1": "unknown",
+          "district2": "",
+          "overlapAreaSqM": 57.866670577899654
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 9956.791655913821
+        },
+        {
+          "district1": "",
+          "district2": "",
+          "overlapAreaSqM": 25.68422826885835
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 159.94266983564015
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 118.74320967629453
+        },
+        {
+          "district1": "",
+          "district2": "",
+          "overlapAreaSqM": 99.43603659551704
+        },
+        {
+          "district1": "",
+          "district2": "unknown",
+          "overlapAreaSqM": 137.64271187246146
+        },
+        {
+          "district1": "",
+          "district2": "",
+          "overlapAreaSqM": 0.5722225097544847
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 196.58245590553636
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 192233 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Milton, GA",
+      "fips": "1351670",
+      "districtCount": 6,
+      "maxOverlapSqM": 56795990.62356675,
+      "totalOverlapSqM": 101302824.21738434,
+      "overlapPairs": [
+        {
+          "district1": "2",
+          "district2": "3",
+          "overlapAreaSqM": 1.0472584411571964
+        },
+        {
+          "district1": "2",
+          "district2": "3",
+          "overlapAreaSqM": 1.0472584411571964
+        },
+        {
+          "district1": "2",
+          "district2": "2",
+          "overlapAreaSqM": 56795990.62356675
+        },
+        {
+          "district1": "3",
+          "district2": "1",
+          "overlapAreaSqM": 1.0211642921408461
+        },
+        {
+          "district1": "3",
+          "district2": "3",
+          "overlapAreaSqM": 9688258.817576205
+        },
+        {
+          "district1": "3",
+          "district2": "1",
+          "overlapAreaSqM": 1.0211642921408461
+        },
+        {
+          "district1": "3",
+          "district2": "2",
+          "overlapAreaSqM": 1.0472584411571964
+        },
+        {
+          "district1": "1",
+          "district2": "3",
+          "overlapAreaSqM": 1.0211642921408461
+        },
+        {
+          "district1": "1",
+          "district2": "1",
+          "overlapAreaSqM": 34818566.50255045
+        },
+        {
+          "district1": "3",
+          "district2": "1",
+          "overlapAreaSqM": 1.0211642921408461
+        },
+        {
+          "district1": "3",
+          "district2": "2",
+          "overlapAreaSqM": 1.0472584411571964
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 56795991 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Macomb, IL",
+      "fips": "1745889",
+      "districtCount": 8,
+      "maxOverlapSqM": 29545628.165912095,
+      "totalOverlapSqM": 175254284.35897362,
+      "overlapPairs": [
+        {
+          "district1": "4",
+          "district2": "At-Large 1",
+          "overlapAreaSqM": 3528214.9683887265
+        },
+        {
+          "district1": "4",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 3528214.9683887265
+        },
+        {
+          "district1": "4",
+          "district2": "Mayor",
+          "overlapAreaSqM": 3528214.9683887265
+        },
+        {
+          "district1": "2",
+          "district2": "At-Large 1",
+          "overlapAreaSqM": 7951162.137632614
+        },
+        {
+          "district1": "2",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 7951162.137632614
+        },
+        {
+          "district1": "2",
+          "district2": "Mayor",
+          "overlapAreaSqM": 7951162.137632614
+        },
+        {
+          "district1": "5",
+          "district2": "At-Large 1",
+          "overlapAreaSqM": 4759403.328552358
+        },
+        {
+          "district1": "5",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 4759403.328552358
+        },
+        {
+          "district1": "5",
+          "district2": "Mayor",
+          "overlapAreaSqM": 4759403.328552358
+        },
+        {
+          "district1": "3",
+          "district2": "At-Large 1",
+          "overlapAreaSqM": 5569726.366119096
+        },
+        {
+          "district1": "3",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 5569726.366119096
+        },
+        {
+          "district1": "3",
+          "district2": "Mayor",
+          "overlapAreaSqM": 5569726.366119096
+        },
+        {
+          "district1": "1",
+          "district2": "At-Large 1",
+          "overlapAreaSqM": 7063959.819719654
+        },
+        {
+          "district1": "1",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 7063959.819719654
+        },
+        {
+          "district1": "1",
+          "district2": "Mayor",
+          "overlapAreaSqM": 7063959.819719654
+        },
+        {
+          "district1": "At-Large 1",
+          "district2": "At-Large 2",
+          "overlapAreaSqM": 29545628.165912095
+        },
+        {
+          "district1": "At-Large 1",
+          "district2": "Mayor",
+          "overlapAreaSqM": 29545628.165912095
+        },
+        {
+          "district1": "At-Large 2",
+          "district2": "Mayor",
+          "overlapAreaSqM": 29545628.165912095
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 29545628 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Portage, IN",
+      "fips": "1861092",
+      "districtCount": 37,
+      "maxOverlapSqM": 75475327.58892752,
+      "totalOverlapSqM": 225465348.5158269,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 23052.739644328314
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3734221.4455637597
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3727333.9668370984
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 8.639972825406115
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.17471600631083317
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.6422227773292194
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2278153.882625065
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2281871.0452354467
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 565.1449893633271
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 12068.167350662596
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 207.81004087072384
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 20754507.809829522
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 20726594.624492306
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 12.310494322847305
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.17471600631083317
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1437003.739146062
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1437003.739146062
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 29.211677794355108
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1883936.2375589022
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1883936.2375589022
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3074030.1208835742
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3074030.1208835742
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1183357.8730079804
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1183357.8730079804
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 251.72596529537722
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1017923.2653544844
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1017923.2653544844
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 11.99961101383812
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 10.16286541811587
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1147829.6302327984
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1147829.6302327984
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1865.7210661705062
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.46058519241517243
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 360.5321255257217
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2517028.1361317737
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2517296.5464203283
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 7011342.783869198
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 7014108.550351964
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 676.1588596111418
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 32.63792790294521
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1738179.815587725
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1738179.815587725
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 33.10274145421763
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1140.6984537570568
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1014646.5974887562
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1014646.5974887562
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1323612.2210886716
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1323612.2210886716
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 8.70404748016269
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1008200.1955017047
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1008200.1955017047
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4.712876355298061
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1456626.6928355184
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1456626.6928355184
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 27.297378507291732
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1085106.9967178064
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1085106.9967178064
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1936.8499664334154
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 845.2377959456387
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1210170.653387505
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1210842.5551540628
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1187.126346171387
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2660903.3588947468
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2660903.3588947468
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1903376.596383672
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1908898.9106289847
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1264.5576338718583
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1579046.3773216163
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1579513.2467608142
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 318960.66628456226
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 318960.66628456226
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4640939.249753099
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4640939.249753099
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1446476.3601781474
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1451054.086142526
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1003225.9896054098
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1010438.6329068656
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 916976.6691830143
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 919785.6878186032
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 989867.1084186772
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 996773.9261366578
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.243907375773333
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 299855.0849279537
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 298633.02900793066
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4198179.027381665
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4199145.236449121
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 137732.077175372
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 139423.46303571135
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 75475327.58892752
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 12.310494322847305
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 5.24362316164798
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.17471600631083317
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.9368435188462814
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 12.310494322847305
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.17471600631083317
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 75475328 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Haysville, KS",
+      "fips": "2031125",
+      "districtCount": 2,
+      "maxOverlapSqM": 3724374.045170599,
+      "totalOverlapSqM": 3724374.045170599,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3724374.045170599
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 3724374 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Bossier City, LA",
+      "fips": "2208920",
+      "districtCount": 5,
+      "maxOverlapSqM": 204179.130483679,
+      "totalOverlapSqM": 204300.09368419187,
+      "overlapPairs": [
+        {
+          "district1": "3",
+          "district2": "2",
+          "overlapAreaSqM": 6.984742471437087
+        },
+        {
+          "district1": "4",
+          "district2": "5",
+          "overlapAreaSqM": 0.22889552773693583
+        },
+        {
+          "district1": "4",
+          "district2": "2",
+          "overlapAreaSqM": 113.74956251370551
+        },
+        {
+          "district1": "5",
+          "district2": "2",
+          "overlapAreaSqM": 204179.130483679
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 204179 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Fernley, NV",
+      "fips": "3224900",
+      "districtCount": 6,
+      "maxOverlapSqM": 297469595.4748583,
+      "totalOverlapSqM": 424084687.9284319,
+      "overlapPairs": [
+        {
+          "district1": "WARD 4",
+          "district2": "WARD 3",
+          "overlapAreaSqM": 215.24113585975294
+        },
+        {
+          "district1": "WARD 4",
+          "district2": "WARD 1",
+          "overlapAreaSqM": 491.89494404330355
+        },
+        {
+          "district1": "WARD 4",
+          "district2": "WARD 2",
+          "overlapAreaSqM": 2092.275075060165
+        },
+        {
+          "district1": "WARD 4",
+          "district2": "WARD 5",
+          "overlapAreaSqM": 31.65499682198177
+        },
+        {
+          "district1": "WARD 4",
+          "district2": "MAYOR ",
+          "overlapAreaSqM": 3512254.885042204
+        },
+        {
+          "district1": "WARD 3",
+          "district2": "WARD 1",
+          "overlapAreaSqM": 465.45891814280213
+        },
+        {
+          "district1": "WARD 3",
+          "district2": "WARD 2",
+          "overlapAreaSqM": 123.7574978569831
+        },
+        {
+          "district1": "WARD 3",
+          "district2": "MAYOR ",
+          "overlapAreaSqM": 2637605.594577178
+        },
+        {
+          "district1": "WARD 1",
+          "district2": "WARD 2",
+          "overlapAreaSqM": 804.7390547904548
+        },
+        {
+          "district1": "WARD 1",
+          "district2": "WARD 5",
+          "overlapAreaSqM": 40.013490689289185
+        },
+        {
+          "district1": "WARD 1",
+          "district2": "MAYOR ",
+          "overlapAreaSqM": 113677443.94875745
+        },
+        {
+          "district1": "WARD 2",
+          "district2": "WARD 5",
+          "overlapAreaSqM": 585.2170836538256
+        },
+        {
+          "district1": "WARD 2",
+          "district2": "MAYOR ",
+          "overlapAreaSqM": 297469595.4748583
+        },
+        {
+          "district1": "WARD 5",
+          "district2": "MAYOR ",
+          "overlapAreaSqM": 6782937.772999855
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 297469595 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Goldsboro, NC",
+      "fips": "3726880",
+      "districtCount": 7,
+      "maxOverlapSqM": 21507776.249176264,
+      "totalOverlapSqM": 77652212.91465384,
+      "overlapPairs": [
+        {
+          "district1": "District 1",
+          "district2": "Mayor",
+          "overlapAreaSqM": 18776643.605752923
+        },
+        {
+          "district1": "District 2",
+          "district2": "Mayor",
+          "overlapAreaSqM": 12333351.706263049
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 5",
+          "overlapAreaSqM": 19.931858882517215
+        },
+        {
+          "district1": "District 3",
+          "district2": "Mayor",
+          "overlapAreaSqM": 8476887.000919743
+        },
+        {
+          "district1": "District 4",
+          "district2": "Mayor",
+          "overlapAreaSqM": 21507776.249176264
+        },
+        {
+          "district1": "District 5",
+          "district2": "Mayor",
+          "overlapAreaSqM": 9597294.009884622
+        },
+        {
+          "district1": "District 6",
+          "district2": "Mayor",
+          "overlapAreaSqM": 6960240.410798349
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 21507776 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "DeSoto, TX",
+      "fips": "4820092",
+      "districtCount": 7,
+      "maxOverlapSqM": 13940944.546194162,
+      "totalOverlapSqM": 55882400.660370454,
+      "overlapPairs": [
+        {
+          "district1": "Place No. 2",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 7545537.7269612895
+        },
+        {
+          "district1": "Place No. 3",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 8005974.33601422
+        },
+        {
+          "district1": "Place No. 4",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 13940944.546194162
+        },
+        {
+          "district1": "Place No. 5",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 7784916.865857677
+        },
+        {
+          "district1": "Place No. 6",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 10891558.64249191
+        },
+        {
+          "district1": "Place No. 7",
+          "district2": "Place No. 1",
+          "overlapAreaSqM": 7713468.542851195
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 13940945 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "La Porte, TX",
+      "fips": "4841440",
+      "districtCount": 9,
+      "maxOverlapSqM": 51215958.37789032,
+      "totalOverlapSqM": 153647622.94341934,
+      "overlapPairs": [
+        {
+          "district1": "1",
+          "district2": "unknown",
+          "overlapAreaSqM": 11688317.73060296
+        },
+        {
+          "district1": "1",
+          "district2": "unknown",
+          "overlapAreaSqM": 11688317.73060296
+        },
+        {
+          "district1": "2",
+          "district2": "unknown",
+          "overlapAreaSqM": 3413660.971308369
+        },
+        {
+          "district1": "2",
+          "district2": "unknown",
+          "overlapAreaSqM": 3413660.971308369
+        },
+        {
+          "district1": "3",
+          "district2": "unknown",
+          "overlapAreaSqM": 2803384.5685432847
+        },
+        {
+          "district1": "3",
+          "district2": "unknown",
+          "overlapAreaSqM": 2803384.5685432847
+        },
+        {
+          "district1": "6",
+          "district2": "unknown",
+          "overlapAreaSqM": 6790188.156622911
+        },
+        {
+          "district1": "6",
+          "district2": "unknown",
+          "overlapAreaSqM": 6790188.156622911
+        },
+        {
+          "district1": "5",
+          "district2": "unknown",
+          "overlapAreaSqM": 9428874.057022665
+        },
+        {
+          "district1": "5",
+          "district2": "unknown",
+          "overlapAreaSqM": 9428874.057022665
+        },
+        {
+          "district1": "4",
+          "district2": "unknown",
+          "overlapAreaSqM": 17091406.798664328
+        },
+        {
+          "district1": "4",
+          "district2": "unknown",
+          "overlapAreaSqM": 17091406.798664328
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 51215958.37789032
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 51215958 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Little Elm, TX",
+      "fips": "4843012",
+      "districtCount": 7,
+      "maxOverlapSqM": 15175376.332915481,
+      "totalOverlapSqM": 90930842.67920153,
+      "overlapPairs": [
+        {
+          "district1": "District 2",
+          "district2": "Mayor",
+          "overlapAreaSqM": 50693.05328577079
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 1 (At large)",
+          "overlapAreaSqM": 50693.05328577079
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 6 (At large)",
+          "overlapAreaSqM": 50693.05328577079
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 3",
+          "overlapAreaSqM": 5.769930610321934
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 5",
+          "overlapAreaSqM": 223.91337491289377
+        },
+        {
+          "district1": "District 4",
+          "district2": "Mayor",
+          "overlapAreaSqM": 125021.8894031469
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 1 (At large)",
+          "overlapAreaSqM": 125021.8894031469
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 6 (At large)",
+          "overlapAreaSqM": 125021.8893665313
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 3",
+          "overlapAreaSqM": 24.23107890129448
+        },
+        {
+          "district1": "Mayor",
+          "district2": "District 1 (At large)",
+          "overlapAreaSqM": 15175376.332915481
+        },
+        {
+          "district1": "Mayor",
+          "district2": "District 6 (At large)",
+          "overlapAreaSqM": 15175042.496425828
+        },
+        {
+          "district1": "Mayor",
+          "district2": "District 3",
+          "overlapAreaSqM": 7636330.592553457
+        },
+        {
+          "district1": "Mayor",
+          "district2": "District 5",
+          "overlapAreaSqM": 7321808.1062409505
+        },
+        {
+          "district1": "District 1 (At large)",
+          "district2": "District 6 (At large)",
+          "overlapAreaSqM": 15175292.933156434
+        },
+        {
+          "district1": "District 1 (At large)",
+          "district2": "District 3",
+          "overlapAreaSqM": 7636330.592553457
+        },
+        {
+          "district1": "District 1 (At large)",
+          "district2": "District 5",
+          "overlapAreaSqM": 7321852.631905766
+        },
+        {
+          "district1": "District 6 (At large)",
+          "district2": "District 3",
+          "overlapAreaSqM": 7636330.592553457
+        },
+        {
+          "district1": "District 6 (At large)",
+          "district2": "District 5",
+          "overlapAreaSqM": 7321824.085720126
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 5",
+          "overlapAreaSqM": 3255.5727620233733
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 15175376 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Odessa, TX",
+      "fips": "4853388",
+      "districtCount": 6,
+      "maxOverlapSqM": 46005067.518386215,
+      "totalOverlapSqM": 136915014.9605128,
+      "overlapPairs": [
+        {
+          "district1": "1",
+          "district2": "At Large",
+          "overlapAreaSqM": 29560240.89459724
+        },
+        {
+          "district1": "1",
+          "district2": "5",
+          "overlapAreaSqM": 6.833949879008005
+        },
+        {
+          "district1": "3",
+          "district2": "At Large",
+          "overlapAreaSqM": 13284619.753225295
+        },
+        {
+          "district1": "At Large",
+          "district2": "5",
+          "overlapAreaSqM": 24784081.173345532
+        },
+        {
+          "district1": "At Large",
+          "district2": "4",
+          "overlapAreaSqM": 23280998.787008632
+        },
+        {
+          "district1": "At Large",
+          "district2": "2",
+          "overlapAreaSqM": 46005067.518386215
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 46005068 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Sherman, TX",
+      "fips": "4867496",
+      "districtCount": 7,
+      "maxOverlapSqM": 125016159.58053273,
+      "totalOverlapSqM": 750096963.1368989,
+      "overlapPairs": [
+        {
+          "district1": "District 4",
+          "district2": "District 1",
+          "overlapAreaSqM": 6.217665089800157
+        },
+        {
+          "district1": "District 4",
+          "district2": "Mayor",
+          "overlapAreaSqM": 53050925.18008575
+        },
+        {
+          "district1": "District 4",
+          "district2": "Council-at-Large, Place #1",
+          "overlapAreaSqM": 53050925.17567441
+        },
+        {
+          "district1": "District 4",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 53050925.17567441
+        },
+        {
+          "district1": "District 1",
+          "district2": "Mayor",
+          "overlapAreaSqM": 25913051.636784066
+        },
+        {
+          "district1": "District 1",
+          "district2": "Council-at-Large, Place #1",
+          "overlapAreaSqM": 25913051.637954663
+        },
+        {
+          "district1": "District 1",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 25913051.637954663
+        },
+        {
+          "district1": "District 2",
+          "district2": "Mayor",
+          "overlapAreaSqM": 26817163.846046902
+        },
+        {
+          "district1": "District 2",
+          "district2": "Council-at-Large, Place #1",
+          "overlapAreaSqM": 26817163.846046902
+        },
+        {
+          "district1": "District 2",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 26817163.846046902
+        },
+        {
+          "district1": "District 3",
+          "district2": "Mayor",
+          "overlapAreaSqM": 19235018.818670057
+        },
+        {
+          "district1": "District 3",
+          "district2": "Council-at-Large, Place #1",
+          "overlapAreaSqM": 19235018.818670057
+        },
+        {
+          "district1": "District 3",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 19235018.731398787
+        },
+        {
+          "district1": "Mayor",
+          "district2": "Council-at-Large, Place #1",
+          "overlapAreaSqM": 125016159.58053273
+        },
+        {
+          "district1": "Mayor",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 125016159.49325706
+        },
+        {
+          "district1": "Council-at-Large, Place #1",
+          "district2": "Council-at-Large, Place #2",
+          "overlapAreaSqM": 125016159.49443646
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 125016160 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Taylor, TX",
+      "fips": "4871948",
+      "districtCount": 5,
+      "maxOverlapSqM": 24252615.359509148,
+      "totalOverlapSqM": 59040566.515870556,
+      "overlapPairs": [
+        {
+          "district1": "District 3",
+          "district2": "District 4",
+          "overlapAreaSqM": 2.323262390201005
+        },
+        {
+          "district1": "District 3",
+          "district2": "District 2",
+          "overlapAreaSqM": 43.322617057193
+        },
+        {
+          "district1": "District 3",
+          "district2": "At Large",
+          "overlapAreaSqM": 6333920.420143437
+        },
+        {
+          "district1": "District 1",
+          "district2": "District 4",
+          "overlapAreaSqM": 2475.263870923324
+        },
+        {
+          "district1": "District 1",
+          "district2": "District 2",
+          "overlapAreaSqM": 62.25426607443258
+        },
+        {
+          "district1": "District 1",
+          "district2": "At Large",
+          "overlapAreaSqM": 20713260.30862192
+        },
+        {
+          "district1": "District 4",
+          "district2": "District 2",
+          "overlapAreaSqM": 10.643692956925229
+        },
+        {
+          "district1": "District 4",
+          "district2": "At Large",
+          "overlapAreaSqM": 7738176.619886649
+        },
+        {
+          "district1": "District 2",
+          "district2": "At Large",
+          "overlapAreaSqM": 24252615.359509148
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 24252615 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Kenosha, WI",
+      "fips": "5539225",
+      "districtCount": 34,
+      "maxOverlapSqM": 23332393.28851393,
+      "totalOverlapSqM": 74243470.04261208,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.996903712583816
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 394956.77814298164
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2416800.8127870215
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 207863.4526359446
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 604.1220305546906
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 183689.61576698403
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 66809.4066764256
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2085951.569848387
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 468035.27338480426
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 29.595511324333913
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.4269621208912189
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2.2579873551439156
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1225717.2215920503
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 728353.8228308916
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 36280.21776369672
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 191305.69219388175
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.2382338354289906
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2868817.5552920173
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 166946.1627542071
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 60291.08657534094
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 505531.75928841124
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 78.87908012600084
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 748827.4849047636
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3168832.956777915
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3.472282201307266
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 18.121440420550933
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 753.4840554812134
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1989646.3084149263
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 917988.1749359134
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 17.60942008182502
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 600647.0492014743
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 76.12813174873358
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3.4823653285245886
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 775134.8213009704
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1754894.5936363633
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 213898.19896964758
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 20.2763833827511
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 16.541064648180946
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 630394.850834005
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 16.971289319656936
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1191436.4463049257
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2996.1566649888523
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 7.793692705217479
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 73.50368430623112
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 5.308583853140113
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 3038537.087422217
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 16.6023615799325
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 28.607694838622617
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.5163650873539982
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 750122.9814312757
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2663541.8871116354
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 9.450241882719348
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 138102.81823181326
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 12.064407155302812
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 6.02835530155005
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 85089.42493863565
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1460067.0457897047
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 539103.4935378146
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 238937.17330290168
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1377848.018217179
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 647632.343149854
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 823534.8377787803
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 84679.71592322702
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 8.160369369458145
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1678270.8920202714
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 27.705125798994946
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 78.62768306089086
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 657831.3220902818
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.10819610302796318
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 26.001642984993243
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 21663.2988816837
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4506683.777692497
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 190110.84812392018
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 184146.58969392112
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 73373.57228844656
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 270417.77378509584
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 239596.64660660794
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2201881.044606226
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.8213816478429861
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.965201893548851
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 43336.658408485724
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1525162.1680454465
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 528932.4171401405
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.6942830606017659
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 87.7057321765146
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 23332393.28851393
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 312042.6786918816
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 617531.3321977075
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2405346.386291165
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.9126900947403178
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.0318521491123502
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 75.63331215667444
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 89.14973751426456
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 718.9876262590722
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 897.0838512740396
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 4.956241466774505
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 11.312841235960061
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2.2403447231622895
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1558.082631200999
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 2.7474235409815186
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 1.21683377280694
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 61.970052355598526
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 0.12045852828951062
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 42.337179692293894
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 23332393 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Buckeye, AZ",
+      "fips": "0407940",
+      "districtCount": 76,
+      "maxOverlapSqM": 457241064.58068806,
+      "totalOverlapSqM": 3859678313.5723376,
+      "overlapPairs": [
+        {
+          "district1": "1",
+          "district2": "1",
+          "overlapAreaSqM": 79952169.11180647
+        },
+        {
+          "district1": "2",
+          "district2": "3",
+          "overlapAreaSqM": 545.0033072494682
+        },
+        {
+          "district1": "2",
+          "district2": "2",
+          "overlapAreaSqM": 457241064.58068806
+        },
+        {
+          "district1": "2",
+          "district2": "3",
+          "overlapAreaSqM": 545.0033072494682
+        },
+        {
+          "district1": "3",
+          "district2": "2",
+          "overlapAreaSqM": 545.0033072494682
+        },
+        {
+          "district1": "3",
+          "district2": "3",
+          "overlapAreaSqM": 23105957.059294086
+        },
+        {
+          "district1": "4",
+          "district2": "4",
+          "overlapAreaSqM": 447914760.0415506
+        },
+        {
+          "district1": "5",
+          "district2": "5",
+          "overlapAreaSqM": 19609777.066062193
+        },
+        {
+          "district1": "6",
+          "district2": "6",
+          "overlapAreaSqM": 79192976.86693375
+        },
+        {
+          "district1": "BARREL",
+          "district2": "BARREL",
+          "overlapAreaSqM": 16754730.976216737
+        },
+        {
+          "district1": "CACTUS",
+          "district2": "CACTUS",
+          "overlapAreaSqM": 14951545.403331421
+        },
+        {
+          "district1": "CHOLLA",
+          "district2": "CHOLLA",
+          "overlapAreaSqM": 29773535.455291487
+        },
+        {
+          "district1": "OCOTILLO",
+          "district2": "OCOTILLO",
+          "overlapAreaSqM": 16282182.195439944
+        },
+        {
+          "district1": "SAHUARO",
+          "district2": "SAHUARO",
+          "overlapAreaSqM": 25956699.915894166
+        },
+        {
+          "district1": "YUCCA",
+          "district2": "YUCCA",
+          "overlapAreaSqM": 133630439.83536597
+        },
+        {
+          "district1": "1",
+          "district2": "1",
+          "overlapAreaSqM": 50528359.41130948
+        },
+        {
+          "district1": "2",
+          "district2": "2",
+          "overlapAreaSqM": 49679646.358430855
+        },
+        {
+          "district1": "3",
+          "district2": "3",
+          "overlapAreaSqM": 36905445.04186206
+        },
+        {
+          "district1": "4",
+          "district2": "4",
+          "overlapAreaSqM": 34473059.66891372
+        },
+        {
+          "district1": "5",
+          "district2": "5",
+          "overlapAreaSqM": 125045551.05950789
+        },
+        {
+          "district1": "6",
+          "district2": "6",
+          "overlapAreaSqM": 109115927.50248346
+        },
+        {
+          "district1": "ACACIA",
+          "district2": "ACACIA",
+          "overlapAreaSqM": 20173286.492735058
+        },
+        {
+          "district1": "IRONWOOD",
+          "district2": "IRONWOOD",
+          "overlapAreaSqM": 17668526.965062574
+        },
+        {
+          "district1": "MESQUITE",
+          "district2": "MESQUITE",
+          "overlapAreaSqM": 358639644.57785136
+        },
+        {
+          "district1": "PALO VERDE",
+          "district2": "PALO VERDE",
+          "overlapAreaSqM": 18784086.039132953
+        },
+        {
+          "district1": "PINE",
+          "district2": "PINE",
+          "overlapAreaSqM": 16723254.46228042
+        },
+        {
+          "district1": "WILLOW",
+          "district2": "WILLOW",
+          "overlapAreaSqM": 37029387.00572031
+        },
+        {
+          "district1": "1",
+          "district2": "1",
+          "overlapAreaSqM": 282569457.5861798
+        },
+        {
+          "district1": "2",
+          "district2": "2",
+          "overlapAreaSqM": 286904150.1364629
+        },
+        {
+          "district1": "3",
+          "district2": "3",
+          "overlapAreaSqM": 126242666.9719319
+        },
+        {
+          "district1": "4",
+          "district2": "4",
+          "overlapAreaSqM": 76274426.7451524
+        },
+        {
+          "district1": "5",
+          "district2": "5",
+          "overlapAreaSqM": 72842560.3985628
+        },
+        {
+          "district1": "6",
+          "district2": "6",
+          "overlapAreaSqM": 191701605.26046532
+        },
+        {
+          "district1": "7",
+          "district2": "8",
+          "overlapAreaSqM": 17.772282890801236
+        },
+        {
+          "district1": "7",
+          "district2": "7",
+          "overlapAreaSqM": 148514781.1552893
+        },
+        {
+          "district1": "7",
+          "district2": "8",
+          "overlapAreaSqM": 17.772282890801236
+        },
+        {
+          "district1": "8",
+          "district2": "7",
+          "overlapAreaSqM": 17.772282890801236
+        },
+        {
+          "district1": "8",
+          "district2": "8",
+          "overlapAreaSqM": 169206844.84076965
+        },
+        {
+          "district1": "ACACIA",
+          "district2": "ACACIA",
+          "overlapAreaSqM": 187051060.35424113
+        },
+        {
+          "district1": "COTTONWOOD",
+          "district2": "COTTONWOOD",
+          "overlapAreaSqM": 22807286.081981927
+        },
+        {
+          "district1": "MESQUITE",
+          "district2": "MESQUITE",
+          "overlapAreaSqM": 29710435.20801111
+        },
+        {
+          "district1": "MULBERRY",
+          "district2": "MULBERRY",
+          "overlapAreaSqM": 15089587.150386615
+        },
+        {
+          "district1": "PALM",
+          "district2": "PALM",
+          "overlapAreaSqM": 13629288.625738028
+        },
+        {
+          "district1": "PALO VERDE",
+          "district2": "PALO VERDE",
+          "overlapAreaSqM": 17999898.86163821
+        },
+        {
+          "district1": "2",
+          "district2": "3",
+          "overlapAreaSqM": 545.0033072494682
+        },
+        {
+          "district1": "7",
+          "district2": "8",
+          "overlapAreaSqM": 17.772282890801236
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 457241065 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Littleton, CO",
+      "fips": "0845255",
+      "districtCount": 6,
+      "maxOverlapSqM": 34208350.644249216,
+      "totalOverlapSqM": 102553296.91511051,
+      "overlapPairs": [
+        {
+          "district1": "District 4",
+          "district2": "At Large",
+          "overlapAreaSqM": 12142395.914916191
+        },
+        {
+          "district1": "District 4",
+          "district2": "At Large",
+          "overlapAreaSqM": 12142395.914916191
+        },
+        {
+          "district1": "District 2",
+          "district2": "At Large",
+          "overlapAreaSqM": 5709277.366115762
+        },
+        {
+          "district1": "District 2",
+          "district2": "At Large",
+          "overlapAreaSqM": 5709277.366115762
+        },
+        {
+          "district1": "District 3",
+          "district2": "At Large",
+          "overlapAreaSqM": 8445373.398086738
+        },
+        {
+          "district1": "District 3",
+          "district2": "At Large",
+          "overlapAreaSqM": 8445373.398086738
+        },
+        {
+          "district1": "District 1",
+          "district2": "At Large",
+          "overlapAreaSqM": 7875426.456311953
+        },
+        {
+          "district1": "District 1",
+          "district2": "At Large",
+          "overlapAreaSqM": 7875426.456311953
+        },
+        {
+          "district1": "At Large",
+          "district2": "At Large",
+          "overlapAreaSqM": 34208350.644249216
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 34208351 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Carson, CA",
+      "fips": "0611530",
+      "districtCount": 15,
+      "maxOverlapSqM": 83135704.53427918,
+      "totalOverlapSqM": 8729248976.099302,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 83135704.53427918
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 83135705 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Big Bear Lake, CA",
+      "fips": "0606434",
+      "districtCount": 6,
+      "maxOverlapSqM": 3995667.9617414987,
+      "totalOverlapSqM": 16696999.98270373,
+      "overlapPairs": [
+        {
+          "district1": "City of Big Bear Lake",
+          "district2": "City of Big Bear Lake, City Council, District 1",
+          "overlapAreaSqM": 3903871.7641830025
+        },
+        {
+          "district1": "City of Big Bear Lake",
+          "district2": "City of Big Bear Lake, City Council, District 2",
+          "overlapAreaSqM": 2949882.8610441852
+        },
+        {
+          "district1": "City of Big Bear Lake",
+          "district2": "City of Big Bear Lake, City Council, District 3",
+          "overlapAreaSqM": 1923825.8401369364
+        },
+        {
+          "district1": "City of Big Bear Lake",
+          "district2": "City of Big Bear Lake, City Council, District 4",
+          "overlapAreaSqM": 3995667.9617414987
+        },
+        {
+          "district1": "City of Big Bear Lake",
+          "district2": "City of Big Bear Lake, City Council, District 5",
+          "overlapAreaSqM": 3923751.5555981062
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 3995668 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Elk Grove, CA",
+      "fips": "0622020",
+      "districtCount": 26,
+      "maxOverlapSqM": 90114954.48768488,
+      "totalOverlapSqM": 92780063.23226616,
+      "overlapPairs": [
+        {
+          "district1": "Unincorporated",
+          "district2": "7",
+          "overlapAreaSqM": 1472.6195332153216
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "1",
+          "overlapAreaSqM": 8263.533007682014
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "3",
+          "overlapAreaSqM": 6265.364634806074
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "2",
+          "overlapAreaSqM": 3375.8319006650304
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "6",
+          "overlapAreaSqM": 7041.211264912089
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "8",
+          "overlapAreaSqM": 3468.0572007472656
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "5",
+          "overlapAreaSqM": 1917.8145860094771
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "City of Rancho Cordova",
+          "overlapAreaSqM": 90114954.48768488
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "City of Isleton",
+          "overlapAreaSqM": 1182423.0808319498
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "City of Galt",
+          "overlapAreaSqM": 1201957.7376241055
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "1",
+          "overlapAreaSqM": 22911.38870291308
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "4",
+          "overlapAreaSqM": 131157.0991519542
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "3",
+          "overlapAreaSqM": 20972.6870162067
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "2",
+          "overlapAreaSqM": 17622.84724148708
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "2",
+          "overlapAreaSqM": 6553.245954107427
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "1",
+          "overlapAreaSqM": 9294.969417555589
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "4",
+          "overlapAreaSqM": 4364.401627088325
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "3",
+          "overlapAreaSqM": 16249.37155783291
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "1",
+          "overlapAreaSqM": 5079.1753312625515
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "2",
+          "overlapAreaSqM": 596.4111635594807
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "3",
+          "overlapAreaSqM": 4728.885435325394
+        },
+        {
+          "district1": "Unincorporated",
+          "district2": "5",
+          "overlapAreaSqM": 5404.318976884762
+        },
+        {
+          "district1": "8",
+          "district2": "3",
+          "overlapAreaSqM": 1006.8038904949718
+        },
+        {
+          "district1": "1",
+          "district2": "3",
+          "overlapAreaSqM": 0.2076559767317382
+        },
+        {
+          "district1": "1",
+          "district2": "4",
+          "overlapAreaSqM": 2452.44986374758
+        },
+        {
+          "district1": "2",
+          "district2": "4",
+          "overlapAreaSqM": 525.4224276937724
+        },
+        {
+          "district1": "3",
+          "district2": "4",
+          "overlapAreaSqM": 3.8085830767449385
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 90114954 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Menifee, CA",
+      "fips": "0646842",
+      "districtCount": 5,
+      "maxOverlapSqM": 40852280.16186483,
+      "totalOverlapSqM": 82110835.09751576,
+      "overlapPairs": [
+        {
+          "district1": "District 4",
+          "district2": "Mayor (At-Large)",
+          "overlapAreaSqM": 40852280.16186483
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 3",
+          "overlapAreaSqM": 0.12061685860927944
+        },
+        {
+          "district1": "District 2",
+          "district2": "District 1",
+          "overlapAreaSqM": 0.2416417549017252
+        },
+        {
+          "district1": "District 2",
+          "district2": "Mayor (At-Large)",
+          "overlapAreaSqM": 6838094.508636438
+        },
+        {
+          "district1": "District 3",
+          "district2": "Mayor (At-Large)",
+          "overlapAreaSqM": 5325212.36530907
+        },
+        {
+          "district1": "District 1",
+          "district2": "Mayor (At-Large)",
+          "overlapAreaSqM": 29095247.699446805
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 40852280 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "Glendale, AZ",
+      "fips": "0427820",
+      "districtCount": 7,
+      "maxOverlapSqM": 134122807.3714433,
+      "totalOverlapSqM": 237839106.9393656,
+      "overlapPairs": [
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 288.2099101509477
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 16257337.45237944
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 14940899.266246386
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 16778833.495797455
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 25950344.813737843
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 29788596.32985102
+        },
+        {
+          "district1": "unknown",
+          "district2": "unknown",
+          "overlapAreaSqM": 134122807.3714433
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 134122807 sq m overlap indicates wrong layer or duplicate districts"
+    },
+    {
+      "city": "San Bernardino, CA",
+      "fips": "0665000",
+      "districtCount": 8,
+      "maxOverlapSqM": 34275942.63141565,
+      "totalOverlapSqM": 161496600.0426037,
+      "overlapPairs": [
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 1",
+          "overlapAreaSqM": 25010784.55431165
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 2",
+          "overlapAreaSqM": 9782276.523194112
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 3",
+          "overlapAreaSqM": 25086490.87537282
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 4",
+          "overlapAreaSqM": 34275942.63141565
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 5",
+          "overlapAreaSqM": 31389916.371707235
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 6",
+          "overlapAreaSqM": 23587103.65257725
+        },
+        {
+          "district1": "City of San Bernardino",
+          "district2": "City of San Bernardino, City Council, Ward 7",
+          "overlapAreaSqM": 12364085.434024986
+        }
+      ],
+      "classification": "TOPOLOGY_ERROR",
+      "recommendation": "Fix source data - 34275943 sq m overlap indicates wrong layer or duplicate districts"
+    }
+  ],
+  "summary": {
+    "edgeRounding": 0,
+    "ambiguous": 0,
+    "topologyError": 24
+  },
+  "recommendation": "100% are true topology errors - focus on fixing source data quality"
+}

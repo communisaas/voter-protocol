@@ -1,0 +1,1569 @@
+{
+  "aggregatorId": "massgis-ma",
+  "cities": [
+    {
+      "cityName": "FITCHBURG",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'FITCHBURG'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "GARDNER",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'GARDNER'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "LEOMINSTER",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'LEOMINSTER'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "WORCESTER",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 10,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'WORCESTER'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "QUINCY",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'QUINCY'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "CAMBRIDGE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 11,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'CAMBRIDGE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "EVERETT",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'EVERETT'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "LOWELL",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'LOWELL'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "MELROSE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'MELROSE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "MEDFORD",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'MEDFORD'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "MARLBOROUGH",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'MARLBOROUGH'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "NEWTON",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'NEWTON'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "SOMERVILLE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'SOMERVILLE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "MALDEN",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'MALDEN'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "WALTHAM",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 9,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'WALTHAM'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "WOBURN",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'WOBURN'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "NORTH ADAMS",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'NORTH%2520ADAMS'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "PITTSFIELD",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'PITTSFIELD'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "NEW BEDFORD",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'NEW%2520BEDFORD'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "TAUNTON",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'TAUNTON'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "FALL RIVER",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 9,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'FALL%2520RIVER'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "ATTLEBORO",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'ATTLEBORO'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "GLOUCESTER",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 5,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'GLOUCESTER'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "SALEM",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'SALEM'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "LYNN",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'LYNN'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "PEABODY",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'PEABODY'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "LAWRENCE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'LAWRENCE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "NEWBURYPORT",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'NEWBURYPORT'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "HAVERHILL",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'HAVERHILL'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "CHELSEA",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 4,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'CHELSEA'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "BOSTON",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 22,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'BOSTON'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "REVERE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'REVERE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "BEVERLY",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'BEVERLY'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "NORTHAMPTON",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'NORTHAMPTON'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "CHICOPEE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 9,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'CHICOPEE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "SPRINGFIELD",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'SPRINGFIELD'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "HOLYOKE",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'HOLYOKE'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "BROCKTON",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 7,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'BROCKTON'&outFields=*&f=geojson",
+      "confidence": 95
+    },
+    {
+      "cityName": "WESTFIELD",
+      "state": "MA",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services6.arcgis.com/hNDcO07QfnsUMldG/arcgis/rest/services/WARDSPRECINCTS2022_POLY/FeatureServer/0/query?where=TOWN%3D'WESTFIELD'&outFields=*&f=geojson",
+      "confidence": 95
+    }
+  ],
+  "failures": [
+    {
+      "cityName": "NANTUCKET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST TISBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TISBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "OAK BLUFFS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GOSNOLD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EDGARTOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHILMARK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AQUINNAH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ATHOL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AUBURN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BARRE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ASHBURNHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BLACKSTONE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHARLTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CLINTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DOUGLAS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DUDLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GRAFTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HARVARD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOLDEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LANCASTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LEICESTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LUNENBURG",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MILFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MILLBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTHBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MENDON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHREWSBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTHBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "OXFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROYALSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "RUTLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOUTHBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SPENCER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STERLING",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOUTHBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST BOYLSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STURBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SUTTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TEMPLETON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "UPTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "UXBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEBSTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTMINSTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WINCHENDON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PRINCETON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PHILLIPSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PETERSHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PAXTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "OAKHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTH BROOKFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST BROOKFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WARREN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEW BRAINTREE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MILLVILLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HUBBARDSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BELLINGHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BRAINTREE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOPEDALE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HARDWICK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EAST BROOKFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BROOKFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BOYLSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BOLTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BERLIN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FOXBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BROOKLINE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CANTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "COHASSET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DEDHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FRANKLIN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MEDFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MEDWAY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MILLIS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOLBROOK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORWOOD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MILTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEEDHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORFOLK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PLAINVILLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "RANDOLPH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WALPOLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WELLESLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHARON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STOUGHTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LINCOLN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LEXINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOUTH HADLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOUTHAMPTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOLLISTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GROTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHELMSFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BELMONT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WARE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FRAMINGHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BEDFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AMHERST",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AYER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ASHLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SUNDERLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHELBURNE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHUTESBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROWE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BURLINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ARLINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GREENFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MONTAGUE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ORANGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BILLERICA",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTHFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEW SALEM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MONROE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LEYDEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LEVERETT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HEATH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ACTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DRACUT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WHATELY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WENDELL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WARWICK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WORTHINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WILLIAMSBURG",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTHAMPTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PLAINFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PELHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MIDDLEFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HUNTINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HATFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HADLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GOSHEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CONCORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CUMMINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHESTERFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BELCHERTOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HUDSON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EASTHAMPTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LITTLETON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GRANBY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOPKINTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TEWKSBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEYMOUTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STOW",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SUDBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WRENTHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MAYNARD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DOVER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AVON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STONEHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WAYLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WATERTOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHIRLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "READING",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ASHBY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BOXBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PEPPERELL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CARLISLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DUNSTABLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHERBORN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WAKEFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTWOOD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTH READING",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TYNGSBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NATICK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WINCHESTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WILMINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TOWNSEND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOMERSET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SWANSEA",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WASHINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TYRINGHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "STOCKBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SAVOY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DARTMOUTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DIGHTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FREETOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MANSFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SHEFFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SANDISFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "RICHMOND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EASTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PERU",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "OTIS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MOUNT WASHINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEW MARLBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEW ASHFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MONTEREY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FAIRHAVEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WESTPORT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WALES",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LENOX",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LEE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LANESBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HINSDALE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HANCOCK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FLORIDA",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EGREMONT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CLARKSBURG",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHESHIRE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BECKET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ALFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTH ATTLEBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TOLLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "RUSSELL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ACUSHNET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "YARMOUTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WELLFLEET",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TRURO",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PROVINCETOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EASTHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ADAMS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "RAYNHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BERKLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "REHOBOTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DALTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GREAT BARRINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SEEKONK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WILLIAMSTOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WINDSOR",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST STOCKBRIDGE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HAMILTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GROVELAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BARNSTABLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BOURNE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SAUGUS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "METHUEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MERRIMAC",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MARBLEHEAD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BREWSTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHATHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DENNIS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SALISBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LYNNFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "FALMOUTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GEORGETOWN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HARWICH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DANVERS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MASHPEE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ORLEANS",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SANDWICH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BOXFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ANDOVER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HAWLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GILL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ERVING",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DEERFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CONWAY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "COLRAIN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHARLEMONT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BUCKLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BERNARDSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "IPSWICH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ASHFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORTH ANDOVER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NEWBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AMESBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST NEWBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROWLEY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MANCHESTER-BY-THE-SEA",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NAHANT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ESSEX",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WENHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "TOPSFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SWAMPSCOTT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROCKLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SCITUATE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MIDDLETON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WINTHROP",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PLYMOUTH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WAREHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST BRIDGEWATER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WHITMAN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROCKPORT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BRIDGEWATER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HINGHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HULL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "KINGSTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LAKEVILLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MARSHFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MATTAPOISETT",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LONGMEADOW",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WEST SPRINGFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MIDDLEBOROUGH",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "NORWELL",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EAST LONGMEADOW",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PEMBROKE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "LUDLOW",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CARVER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "DUXBURY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MONSON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "EAST BRIDGEWATER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PALMER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HALIFAX",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MONTGOMERY",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HOLLAND",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HAMPDEN",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "GRANVILLE",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "SOUTHWICK",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HANOVER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "CHESTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BRIMFIELD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "BLANDFORD",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "WILBRAHAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "HANSON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "AGAWAM",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ROCHESTER",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "PLYMPTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "MARION",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    },
+    {
+      "cityName": "ABINGTON",
+      "reason": "Only 1 district(s) - likely at-large or data issue"
+    }
+  ],
+  "totalFeatures": 2256,
+  "extractedAt": "2026-01-24T03:09:36.234Z"
+}

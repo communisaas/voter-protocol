@@ -1,0 +1,410 @@
+{
+  "timestamp": "2026-01-16T20:26:55.768Z",
+  "config": {
+    "waterThreshold": 10,
+    "limit": 100
+  },
+  "stats": {
+    "totalCities": 100,
+    "coastalCities": 26,
+    "inlandCities": 74,
+    "coastalPassed": 16,
+    "coastalFailed": 10,
+    "inlandPassed": 30,
+    "inlandFailed": 44,
+    "coastalPassRate": 61.53846153846154,
+    "inlandPassRate": 40.54054054054054,
+    "avgWaterPercentCoastal": 31.298483008185205,
+    "avgWaterPercentInland": 2.6401930785572834,
+    "avgCoverageDifferenceCoastal": 3.4066390472713124,
+    "avgCoverageDifferenceInland": 0.037011627718095984,
+    "failedByAxiom": {
+      "containment": {
+        "coastal": 4,
+        "inland": 11
+      },
+      "exhaustivity": {
+        "coastal": 6,
+        "inland": 30
+      },
+      "exclusivity": {
+        "coastal": 0,
+        "inland": 3
+      }
+    }
+  },
+  "highWaterCities": [
+    {
+      "fips": "15003",
+      "cityName": "Honolulu County",
+      "state": "HI",
+      "waterPercentage": 72.26551639358682,
+      "landOnlyCoverageRatio": 0.36350720513524737,
+      "totalCoverageRatio": 0.10081684621636594,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "1235050",
+      "cityName": "Jacksonville Beach",
+      "state": "FL",
+      "waterPercentage": 66.69198793839536,
+      "landOnlyCoverageRatio": 116.21085170824729,
+      "totalCoverageRatio": 38.70752450387649,
+      "validationPassed": false,
+      "failedAxiom": "containment"
+    },
+    {
+      "fips": "22051",
+      "cityName": "Jefferson Parish",
+      "state": "LA",
+      "waterPercentage": 53.13908581643118,
+      "landOnlyCoverageRatio": 1.7275789610638823,
+      "totalCoverageRatio": 0.8095592943975358,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "15009",
+      "cityName": "Maui County",
+      "state": "HI",
+      "waterPercentage": 51.568783662278115,
+      "landOnlyCoverageRatio": 1.0136997448323708,
+      "totalCoverageRatio": 0.4909471164347003,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "22045",
+      "cityName": "Iberia Parish",
+      "state": "LA",
+      "waterPercentage": 44.75589287261732,
+      "landOnlyCoverageRatio": 1.7964623498912655,
+      "totalCoverageRatio": 0.9924395850770269,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "22109",
+      "cityName": "Terrebonne Parish",
+      "state": "LA",
+      "waterPercentage": 40.93460253062067,
+      "landOnlyCoverageRatio": 1.693222947278393,
+      "totalCoverageRatio": 1.000108863852722,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "25009",
+      "cityName": "Essex County",
+      "state": "MA",
+      "waterPercentage": 40.552800465792814,
+      "landOnlyCoverageRatio": 0.017092700685056146,
+      "totalCoverageRatio": 0.010161131882030125,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "45013",
+      "cityName": "Beaufort County",
+      "state": "SC",
+      "waterPercentage": 37.62834138821577,
+      "landOnlyCoverageRatio": 0.4344635882571512,
+      "totalCoverageRatio": 0.2709821460602582,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "1077580",
+      "cityName": "Wilmington",
+      "state": "DE",
+      "waterPercentage": 36.6191870937511,
+      "landOnlyCoverageRatio": 1.540468059995511,
+      "totalCoverageRatio": 0.976361178986277,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "1245000",
+      "cityName": "Miami",
+      "state": "FL",
+      "waterPercentage": 35.80323662838095,
+      "landOnlyCoverageRatio": 1.5569295255079987,
+      "totalCoverageRatio": 0.9994983633532412,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "45019",
+      "cityName": "Charleston County",
+      "state": "SC",
+      "waterPercentage": 32.83172709591556,
+      "landOnlyCoverageRatio": 1.49287722382285,
+      "totalCoverageRatio": 1.0027398478202514,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "34029",
+      "cityName": "Ocean County",
+      "state": "NJ",
+      "waterPercentage": 31.322015463686864,
+      "landOnlyCoverageRatio": 0.08422079323608733,
+      "totalCoverageRatio": 0.05784114335504032,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "22089",
+      "cityName": "St. Charles Parish",
+      "state": "LA",
+      "waterPercentage": 30.023365036692272,
+      "landOnlyCoverageRatio": 1.481033343820376,
+      "totalCoverageRatio": 1.0363772966900549,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "24003",
+      "cityName": "Anne Arundel County",
+      "state": "MD",
+      "waterPercentage": 29.43058074754863,
+      "landOnlyCoverageRatio": 0.5302416845315401,
+      "totalCoverageRatio": 0.3741884774083231,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "22057",
+      "cityName": "Lafourche Parish",
+      "state": "LA",
+      "waterPercentage": 27.153763382860046,
+      "landOnlyCoverageRatio": 1.3799451773416493,
+      "totalCoverageRatio": 1.0052381290731094,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "12081",
+      "cityName": "Manatee County",
+      "state": "FL",
+      "waterPercentage": 22.95181580994628,
+      "landOnlyCoverageRatio": 0.019425655198467513,
+      "totalCoverageRatio": 0.014967114597439995,
+      "validationPassed": false,
+      "failedAxiom": "exhaustivity"
+    },
+    {
+      "fips": "22103",
+      "cityName": "St. Tammany Parish",
+      "state": "LA",
+      "waterPercentage": 22.846757285328987,
+      "landOnlyCoverageRatio": 1.2974844844243787,
+      "totalCoverageRatio": 1.0010513534531387,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "15001",
+      "cityName": "Hawaii County",
+      "state": "HI",
+      "waterPercentage": 20.79631463467099,
+      "landOnlyCoverageRatio": 1.0030981104666465,
+      "totalCoverageRatio": 0.7944906713195632,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "25005",
+      "cityName": "Bristol County",
+      "state": "MA",
+      "waterPercentage": 19.96851371892598,
+      "landOnlyCoverageRatio": 14.611155736570982,
+      "totalCoverageRatio": 11.693525098820166,
+      "validationPassed": false,
+      "failedAxiom": "containment"
+    },
+    {
+      "fips": "1207525",
+      "cityName": "Bonita Springs",
+      "state": "FL",
+      "waterPercentage": 17.38420861862508,
+      "landOnlyCoverageRatio": 1.2132448546136194,
+      "totalCoverageRatio": 1.0023318380328534,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "1235000",
+      "cityName": "Jacksonville",
+      "state": "FL",
+      "waterPercentage": 16.960546897360846,
+      "landOnlyCoverageRatio": 1.1146183266907053,
+      "totalCoverageRatio": 0.9255729626657494,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "1249450",
+      "cityName": "North Miami",
+      "state": "FL",
+      "waterPercentage": 15.832813723987357,
+      "landOnlyCoverageRatio": 1.198195590970709,
+      "totalCoverageRatio": 1.008487515003287,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "10003",
+      "cityName": "New Castle County",
+      "state": "DE",
+      "waterPercentage": 13.701429330260023,
+      "landOnlyCoverageRatio": 5.832740077249808,
+      "totalCoverageRatio": 5.033571317547671,
+      "validationPassed": false,
+      "failedAxiom": "containment"
+    },
+    {
+      "fips": "1210275",
+      "cityName": "Cape Coral",
+      "state": "FL",
+      "waterPercentage": 11.172415698850333,
+      "landOnlyCoverageRatio": 1.127309691839592,
+      "totalCoverageRatio": 1.001361966853844,
+      "validationPassed": true,
+      "failedAxiom": null
+    },
+    {
+      "fips": "25021",
+      "cityName": "Norfolk County",
+      "state": "MA",
+      "waterPercentage": 10.857479871214464,
+      "landOnlyCoverageRatio": 0.2258757443385372,
+      "totalCoverageRatio": 0.20135133086302467,
+      "validationPassed": false,
+      "failedAxiom": "containment"
+    },
+    {
+      "fips": "1150000",
+      "cityName": "Washington",
+      "state": "DC",
+      "waterPercentage": 10.567376106871556,
+      "landOnlyCoverageRatio": 1.12011757211144,
+      "totalCoverageRatio": 1.001750535427266,
+      "validationPassed": true,
+      "failedAxiom": null
+    }
+  ],
+  "failedCoastal": [
+    {
+      "fips": "15003",
+      "cityName": "Honolulu County",
+      "state": "HI",
+      "waterPercentage": 72.26551639358682,
+      "landAreaSqMi": 600.7905557863588,
+      "waterAreaSqMi": 1565.4316977530398,
+      "districtAreaSqMi": 218.39169580555122,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 36.35% below threshold - missing 990408459 sq meters"
+    },
+    {
+      "fips": "1235050",
+      "cityName": "Jacksonville Beach",
+      "state": "FL",
+      "waterPercentage": 66.69198793839536,
+      "landAreaSqMi": 7.315745864459604,
+      "waterAreaSqMi": 14.648176362207083,
+      "districtAreaSqMi": 850.1690577899384,
+      "failedAxiom": "containment",
+      "failureReason": "99.0% of districts outside municipal boundary (2180506508 sq m)"
+    },
+    {
+      "fips": "25009",
+      "cityName": "Essex County",
+      "state": "MA",
+      "waterPercentage": 40.552800465792814,
+      "landAreaSqMi": 492.5138467823017,
+      "waterAreaSqMi": 335.9757215091344,
+      "districtAreaSqMi": 8.418391766295485,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 1.71% below threshold - missing 1253801419 sq meters"
+    },
+    {
+      "fips": "45013",
+      "cityName": "Beaufort County",
+      "state": "SC",
+      "waterPercentage": 37.62834138821577,
+      "landAreaSqMi": 576.0216367797843,
+      "waterAreaSqMi": 347.50941819035455,
+      "districtAreaSqMi": 250.26042722910253,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 43.45% below threshold - missing 843717624 sq meters"
+    },
+    {
+      "fips": "34029",
+      "cityName": "Ocean County",
+      "state": "NJ",
+      "waterPercentage": 31.322015463686864,
+      "landAreaSqMi": 628.291026058808,
+      "waterAreaSqMi": 286.5451187418629,
+      "districtAreaSqMi": 52.91516859778803,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 8.42% below threshold - missing 1490216566 sq meters"
+    },
+    {
+      "fips": "24003",
+      "cityName": "Anne Arundel County",
+      "state": "MD",
+      "waterPercentage": 29.43058074754863,
+      "landAreaSqMi": 414.8079879134575,
+      "waterAreaSqMi": 172.9933463012184,
+      "districtAreaSqMi": 219.94848626837046,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 53.02% below threshold - missing 504683771 sq meters"
+    },
+    {
+      "fips": "12081",
+      "cityName": "Manatee County",
+      "state": "FL",
+      "waterPercentage": 22.95181580994628,
+      "landAreaSqMi": 742.7683024014011,
+      "waterAreaSqMi": 221.26259619735688,
+      "districtAreaSqMi": 14.428760934800668,
+      "failedAxiom": "exhaustivity",
+      "failureReason": "Coverage 1.94% below threshold - missing 1886390672 sq meters"
+    },
+    {
+      "fips": "25005",
+      "cityName": "Bristol County",
+      "state": "MA",
+      "waterPercentage": 19.96851371892598,
+      "landAreaSqMi": 553.11805189831,
+      "waterAreaSqMi": 138.00750080695354,
+      "districtAreaSqMi": 8081.693996994958,
+      "failedAxiom": "containment",
+      "failureReason": "92.8% of districts outside municipal boundary (19430635199 sq m)"
+    },
+    {
+      "fips": "10003",
+      "cityName": "New Castle County",
+      "state": "DE",
+      "waterPercentage": 13.701429330260023,
+      "landAreaSqMi": 426.3381525319808,
+      "waterAreaSqMi": 67.68874643434641,
+      "districtAreaSqMi": 2486.719628733926,
+      "failedAxiom": "containment",
+      "failureReason": "80.2% of districts outside municipal boundary (5162280275 sq m)"
+    },
+    {
+      "fips": "25021",
+      "cityName": "Norfolk County",
+      "state": "MA",
+      "waterPercentage": 10.857479871214464,
+      "landAreaSqMi": 396.1032043391707,
+      "waterAreaSqMi": 48.245018895840445,
+      "districtAreaSqMi": 89.47010611498987,
+      "failedAxiom": "containment",
+      "failureReason": "100.0% of districts outside municipal boundary (231718775 sq m)"
+    }
+  ]
+}

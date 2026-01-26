@@ -1,0 +1,163 @@
+═══════════════════════════════════════════════════════════════════════════════
+  OREGON GIS AGGREGATOR VERIFICATION - QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+Date: 2026-01-23
+Operator: GIS Extraction Specialist
+Mission: Verify Oregon city council/ward portals from regional-aggregators.ts
+
+───────────────────────────────────────────────────────────────────────────────
+  VERIFICATION RESULTS
+───────────────────────────────────────────────────────────────────────────────
+
+✅ Portland      - 4 districts  - VERIFIED (update endpoint recommended)
+✅ Eugene        - 8 wards      - VERIFIED (update endpoint recommended)
+✅ Hillsboro     - 3 wards      - VERIFIED (endpoint OK)
+⚠️  Oregon Metro - 6 districts  - VERIFIED (regional govt, NOT city)
+
+Total Features Verified: 21 (4 + 8 + 3 + 6)
+New Cities Discovered: 0 (all already in registry)
+
+───────────────────────────────────────────────────────────────────────────────
+  DOWNLOAD URLS
+───────────────────────────────────────────────────────────────────────────────
+
+Portland (FIPS 4159000):
+https://www.portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12/query?where=1%3D1&outFields=*&f=geojson
+
+Eugene (FIPS 4123850):
+https://gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1/query?where=1%3D1&outFields=*&f=geojson
+
+Hillsboro (FIPS 4134100):
+https://gis.hillsboro-oregon.gov/public/rest/services/public/Council_Wards/MapServer/0/query?where=1%3D1&outFields=*&f=geojson
+
+Oregon Metro (REGIONAL - NOT CITY):
+https://gis.oregonmetro.gov/arcgis/rest/services/OpenData/BoundaryDataWebMerc/MapServer/2/query?where=1%3D1&outFields=*&f=geojson
+
+───────────────────────────────────────────────────────────────────────────────
+  FIELD MAPPING
+───────────────────────────────────────────────────────────────────────────────
+
+Portland:
+  District Field: DISTRICT (string: "1", "2", "3", "4")
+  Extra Fields: pop_total, Ideal_pop, Diff_Ideal
+
+Eugene:
+  District Field: ward_number (int: 1-8)
+  Alternate Field: ward (string: "E1"-"E8")
+  City Field: wardcity ("EUG")
+  Extra Fields: councilor
+
+Hillsboro:
+  District Field: WARD (string: "1", "2", "3")
+  Extra Fields: NAME_1, NAME_2 (dual council members)
+
+Oregon Metro:
+  District Field: DISTRICT (int: 1-6)
+  Extra Fields: NAME (councilor), EMAIL
+
+───────────────────────────────────────────────────────────────────────────────
+  REGISTRY STATUS
+───────────────────────────────────────────────────────────────────────────────
+
+Oregon Cities Already in Registry (8 total):
+
+FIPS      City          Districts  Status
+─────────────────────────────────────────────────────────────────────────────
+4101000   Albany        3          ✅ OK
+4115800   Corvallis     9          ✅ OK
+4123850   Eugene        8          ⚠️  Update endpoint
+4130550   Grants Pass   4          ✅ OK
+4134100   Hillsboro     3          ✅ OK (verified)
+4141650   Lebanon       3          ✅ OK
+4152100   Newberg       6          ✅ OK
+4159000   Portland      4          ⚠️  Update endpoint
+
+───────────────────────────────────────────────────────────────────────────────
+  ACTION ITEMS
+───────────────────────────────────────────────────────────────────────────────
+
+1. UPDATE Portland (4159000):
+   OLD: https://www.portlandmaps.com/od/rest/services/COP_OpenData_Boundary/MapServer/1413
+   NEW: https://www.portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12
+   REASON: Auditor_ElectionsMap is official source
+
+2. UPDATE Eugene (4123850):
+   OLD: https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugWards/FeatureServer/0
+   NEW: https://gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1
+   REASON: PWE/Boundaries is authoritative city source
+
+3. DO NOT ADD Oregon Metro:
+   Reason: Regional government entity, NOT city council
+
+───────────────────────────────────────────────────────────────────────────────
+  OUTPUT FILES
+───────────────────────────────────────────────────────────────────────────────
+
+📁 /packages/shadow-atlas/.shadow-atlas/wave-discovery/
+
+  📄 aggregator-oregon-results.json (14KB, 319 lines)
+     → Comprehensive verification data with metadata and recommendations
+
+  📄 aggregator-oregon-portals.ndjson (422B, 1 line)
+     → Schema header only (no new cities discovered)
+
+  📄 OREGON-VERIFICATION-SUMMARY.md (9.9KB)
+     → Detailed human-readable report
+
+  📄 OREGON-CURL-VERIFICATION.md (9.0KB)
+     → Exact curl commands and responses
+
+  📄 OREGON-QUICK-REFERENCE.txt (this file)
+     → Quick reference card
+
+───────────────────────────────────────────────────────────────────────────────
+  KEY FINDINGS
+───────────────────────────────────────────────────────────────────────────────
+
+✅ All 4 endpoints verified successfully
+✅ All feature counts match expected values (4, 8, 3, 6)
+✅ All field names are clean and well-documented
+✅ All endpoints support GeoJSON export
+⚠️  2 endpoints need updating in registry (Portland, Eugene)
+⚠️  Oregon Metro is regional govt, NOT city council
+❌ No statewide Oregon aggregator exists
+📊 8 Oregon cities already in registry with good coverage
+
+───────────────────────────────────────────────────────────────────────────────
+  OREGON STATE NOTES
+───────────────────────────────────────────────────────────────────────────────
+
+No Statewide Aggregator: Oregon does NOT have a statewide council district
+aggregator. Individual cities maintain their own GIS portals.
+
+At-Large Cities (no geographic districts):
+  • Gresham (114,247 pop) - 7 at-large positions
+  • Beaverton (97,494 pop) - 6 at-large councilors
+  • Bend - Likely at-large
+
+Investigation Targets:
+  • Salem - 8 wards mentioned, needs endpoint verification
+
+Regional Entities:
+  • Metro - Regional govt (Clackamas, Multnomah, Washington counties)
+            6 districts, NOT city council
+
+───────────────────────────────────────────────────────────────────────────────
+  CONFIDENCE SCORES
+───────────────────────────────────────────────────────────────────────────────
+
+Portland:    95% ✅ (official Auditor source)
+Eugene:      95% ✅ (authoritative city GIS)
+Hillsboro:   95% ✅ (in production topology)
+Oregon Metro: 95% ✅ (official regional govt source)
+
+───────────────────────────────────────────────────────────────────────────────
+
+Mission Status: ✅ COMPLETE
+
+All verified Oregon endpoints already exist in registry.
+No new portal entries created.
+Endpoint updates recommended for Portland and Eugene.
+
+═══════════════════════════════════════════════════════════════════════════════

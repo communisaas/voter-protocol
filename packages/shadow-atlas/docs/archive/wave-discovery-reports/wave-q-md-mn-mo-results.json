@@ -1,0 +1,211 @@
+{
+  "_schema": "wave-discovery-results-v1",
+  "_wave": "Q",
+  "_timestamp": "2026-01-23T00:00:00.000Z",
+  "_focus": "MD, MN, MO coverage gap closure",
+  "_summary": {
+    "targetCities": 14,
+    "alreadyInRegistry": 9,
+    "atLargeCities": 2,
+    "newPortalsDiscovered": 2,
+    "pendingInvestigation": 1,
+    "netNewPortals": 2
+  },
+  "maryland": {
+    "targetCount": 4,
+    "results": [
+      {
+        "city": "Baltimore",
+        "fips": "2404000",
+        "population": 585000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 14,
+          "portalType": "arcgis",
+          "downloadUrl": "https://services1.arcgis.com/UWYHeuuJISiGmgXx/arcgis/rest/services/Council_District/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+          "lastVerified": "2025-11-19"
+        },
+        "notes": "Critical gap already resolved - Baltimore has 14 council districts in registry"
+      },
+      {
+        "city": "Frederick",
+        "fips": "2430325",
+        "population": 78000,
+        "status": "NEW_PORTAL_FOUND",
+        "discoveredEndpoint": {
+          "serviceUrl": "https://spires.cityoffrederick.com/arcgis/rest/services/elections/featureserver/0",
+          "featureCount": 5,
+          "portalType": "arcgis",
+          "layerName": "Election Districts"
+        },
+        "notes": "5 council districts (new Feb 2025) + 2 at-large. City ArcGIS FeatureServer discovered."
+      },
+      {
+        "city": "Rockville",
+        "fips": "2467675",
+        "population": 68000,
+        "status": "AT_LARGE",
+        "existingAtLargeEntry": true,
+        "notes": "At-large council system (6 councilmembers + mayor elected city-wide). Already in at-large-cities.ndjson."
+      },
+      {
+        "city": "Gaithersburg",
+        "fips": "2431175",
+        "population": 69000,
+        "status": "AT_LARGE",
+        "notes": "At-large council system confirmed. All council members serve at-large, nonpartisan. No GIS district data needed."
+      }
+    ]
+  },
+  "minnesota": {
+    "targetCount": 5,
+    "results": [
+      {
+        "city": "Minneapolis",
+        "fips": "2743000",
+        "population": 429000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 13,
+          "portalType": "arcgis",
+          "lastVerified": "2025-11-20"
+        },
+        "notes": "13 council districts already in registry"
+      },
+      {
+        "city": "St. Paul",
+        "fips": "2758000",
+        "population": 311000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 7,
+          "portalType": "arcgis",
+          "lastVerified": "2025-11-20"
+        },
+        "notes": "7 council wards already in registry"
+      },
+      {
+        "city": "Rochester",
+        "fips": "2754880",
+        "population": 121000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 6,
+          "portalType": "municipal-gis",
+          "lastVerified": "2026-01-23"
+        },
+        "notes": "6 wards already in registry (added Wave-N)"
+      },
+      {
+        "city": "Duluth",
+        "fips": "2717000",
+        "population": 90000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 5,
+          "portalType": "arcgis",
+          "lastVerified": "2026-01-15"
+        },
+        "notes": "5 council districts already in registry"
+      },
+      {
+        "city": "Bloomington",
+        "fips": "2706616",
+        "population": 89000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 4,
+          "portalType": "arcgis",
+          "lastVerified": "2026-01-15"
+        },
+        "notes": "4 council districts already in registry (note: FIPS 2706616 not 2707966)"
+      }
+    ]
+  },
+  "missouri": {
+    "targetCount": 5,
+    "results": [
+      {
+        "city": "Kansas City",
+        "fips": "2938000",
+        "population": 508000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 6,
+          "portalType": "socrata",
+          "lastVerified": "2026-01-15"
+        },
+        "notes": "6 council districts already in registry (Socrata)"
+      },
+      {
+        "city": "St. Louis",
+        "fips": "2965000",
+        "population": 301000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 14,
+          "portalType": "arcgis",
+          "lastVerified": "2026-01-15"
+        },
+        "notes": "14 wards already in registry"
+      },
+      {
+        "city": "Springfield",
+        "fips": "2970000",
+        "population": 169000,
+        "status": "ALREADY_IN_REGISTRY",
+        "existingEntry": {
+          "featureCount": 4,
+          "portalType": "municipal-gis",
+          "lastVerified": "2026-01-23"
+        },
+        "notes": "4 zones already in registry (added Wave-N, note: FIPS 2971348 used in registry)"
+      },
+      {
+        "city": "Columbia",
+        "fips": "2915670",
+        "population": 126000,
+        "status": "NEW_PORTAL_FOUND",
+        "discoveredEndpoint": {
+          "serviceUrl": "https://gis.gocolumbiamo.com/arcgis/rest/services/Open_Data/Wards/MapServer/0",
+          "featureCount": 6,
+          "portalType": "arcgis",
+          "layerName": "Wards"
+        },
+        "notes": "6 wards discovered via City Open Data portal. MapServer endpoint."
+      },
+      {
+        "city": "Independence",
+        "fips": "2935000",
+        "population": 123000,
+        "status": "PENDING_INVESTIGATION",
+        "councilStructure": {
+          "totalMembers": 7,
+          "districtMembers": 4,
+          "atLargeMembers": 2,
+          "mayor": 1
+        },
+        "notes": "4 council districts confirmed but NO public GIS endpoint found. City uses PDF maps and embedded viewer only. Jackson County Election Board has PDF maps. Neighborhood Council Districts (different from City Council) available at ArcGIS but wrong data layer. Recommend manual digitization or FOIA request."
+      }
+    ]
+  },
+  "searchMethodology": {
+    "sources": [
+      "ArcGIS Hub search",
+      "City official GIS portals",
+      "State GIS clearinghouses (MSDIS)",
+      "County GIS portals (Jackson County, Frederick County)",
+      "Web search for city open data portals"
+    ],
+    "endpointsVerified": [
+      "https://spires.cityoffrederick.com/arcgis/rest/services/elections/featureserver/0",
+      "https://gis.gocolumbiamo.com/arcgis/rest/services/Open_Data/Wards/MapServer/0"
+    ]
+  },
+  "recommendations": [
+    "Add Frederick MD portal entry (5 districts, new 2025 boundaries)",
+    "Add Columbia MO portal entry (6 wards)",
+    "Add Gaithersburg MD to at-large-cities.ndjson",
+    "Independence MO requires manual digitization or data request - no public GIS endpoint exists"
+  ]
+}

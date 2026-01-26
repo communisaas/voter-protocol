@@ -1,0 +1,129 @@
+{
+  "aggregator": "washington",
+  "timestamp": "2026-01-23T00:00:00Z",
+  "verified_portals": [
+    {
+      "city": "Seattle",
+      "state": "WA",
+      "fips": "5363000",
+      "url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Seattle_City_Council_Districts/FeatureServer/0",
+      "portal_type": "FeatureServer",
+      "layer_id": 0,
+      "verified": true,
+      "expected_districts": 7,
+      "actual_count": 7,
+      "count_match": true,
+      "layer_name": "Seattle City Council District 2024",
+      "fields": [
+        "OBJECTID",
+        "C_DISTRICT",
+        "SE_ANNO_CAD_DATA",
+        "AREA_ACRES",
+        "AREA_SQMI",
+        "DISPLAY_NAME",
+        "GlobalID",
+        "Shape__Area",
+        "Shape__Length"
+      ],
+      "key_fields": {
+        "district_id": "C_DISTRICT",
+        "display_name": "DISPLAY_NAME"
+      },
+      "download_url": "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Seattle_City_Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "in_existing_registry": false
+    },
+    {
+      "city": "Tacoma",
+      "state": "WA",
+      "fips": "5370000",
+      "url": "https://services3.arcgis.com/SCwJH1pD8WSn5T5y/arcgis/rest/services/City_Council_Districts/FeatureServer/0",
+      "portal_type": "FeatureServer",
+      "layer_id": 0,
+      "verified": true,
+      "expected_districts": 5,
+      "actual_count": 5,
+      "count_match": true,
+      "layer_name": "City Council Districts",
+      "fields": [
+        "objectid_1",
+        "objectid",
+        "dist_id",
+        "district",
+        "councilmember",
+        "councilmember_email",
+        "councilmember_photo",
+        "phonenumber",
+        "supportstaff",
+        "supportstaff_email",
+        "webpage",
+        "globalid",
+        "district_text",
+        "Shape__Area",
+        "Shape__Length"
+      ],
+      "key_fields": {
+        "district_id": "dist_id",
+        "district_name": "district",
+        "councilmember": "councilmember",
+        "councilmember_email": "councilmember_email"
+      },
+      "download_url": "https://services3.arcgis.com/SCwJH1pD8WSn5T5y/arcgis/rest/services/City_Council_Districts/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+      "in_existing_registry": false,
+      "notes": "Rich metadata including councilmember contact information"
+    },
+    {
+      "city": "Everett",
+      "state": "WA",
+      "fips": "5322640",
+      "url": "https://gismaps.everettwa.gov/manarcgis/rest/services/Boundaries/Boundaries/MapServer/7",
+      "portal_type": "MapServer",
+      "layer_id": 7,
+      "verified": true,
+      "expected_districts": 6,
+      "actual_count": 6,
+      "count_match": true,
+      "layer_name": "City Council Districts",
+      "fields": [
+        "OBJECTID_1",
+        "DISTRICT",
+        "MEMBERS",
+        "NAME",
+        "POPULATION",
+        "MINCVAP",
+        "COMMENTS",
+        "GlobalID",
+        "Shape"
+      ],
+      "key_fields": {
+        "district_id": "DISTRICT",
+        "name": "NAME",
+        "members": "MEMBERS",
+        "population": "POPULATION"
+      },
+      "download_url": "https://gismaps.everettwa.gov/manarcgis/rest/services/Boundaries/Boundaries/MapServer/7/query?where=1%3D1&outFields=*&f=geojson",
+      "in_existing_registry": false,
+      "notes": "Includes population and MINCVAP (Minority Citizen Voting Age Population) data"
+    }
+  ],
+  "summary": {
+    "total_portals_verified": 3,
+    "total_districts": 18,
+    "all_counts_match": true,
+    "new_cities": 3,
+    "existing_cities": 0,
+    "portal_types": {
+      "FeatureServer": 2,
+      "MapServer": 1
+    },
+    "service_providers": {
+      "ArcGIS Online": 1,
+      "ArcGIS Server (City-hosted)": 2
+    }
+  },
+  "validation": {
+    "all_endpoints_accessible": true,
+    "all_counts_verified": true,
+    "all_fields_retrieved": true,
+    "ready_for_integration": true
+  }
+}

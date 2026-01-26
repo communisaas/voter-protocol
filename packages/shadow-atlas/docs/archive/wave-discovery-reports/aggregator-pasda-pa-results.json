@@ -1,0 +1,270 @@
+{
+  "aggregator": "PASDA Pennsylvania",
+  "timestamp": "2026-01-24T05:09:20.953819Z",
+  "discoveredBy": "wave-p-pasda-pa",
+  "totalLayersQueried": 6,
+  "totalCitiesDiscovered": 14,
+  "newCitiesFound": 11,
+  "existingCitiesVerified": 3,
+  "layers": [
+    {
+      "name": "CityPhilly Layer 29",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/CityPhilly/MapServer/29",
+      "type": "council_districts",
+      "cities": [
+        "Philadelphia"
+      ],
+      "totalFeatures": 10
+    },
+    {
+      "name": "PittsburghCity Layer 10",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/PittsburghCity/MapServer/10",
+      "type": "council_districts",
+      "cities": [
+        "Pittsburgh"
+      ],
+      "totalFeatures": 9
+    },
+    {
+      "name": "AlleghenyCounty Layer 14",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/AlleghenyCounty/MapServer/14",
+      "type": "county_council",
+      "cities": [
+        "Allegheny County (county-level, not city-specific)"
+      ],
+      "totalFeatures": 13,
+      "note": "Skipped - county-level data"
+    },
+    {
+      "name": "LehighCounty Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "type": "wards",
+      "cities": [
+        "Allentown",
+        "Bethlehem",
+        "Fountain Hill",
+        "Salisbury",
+        "Slatington"
+      ],
+      "totalFeatures": 33,
+      "note": "Multi-municipality ward dataset"
+    },
+    {
+      "name": "BerksCounty Layer 3",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/BerksCounty/MapServer/3",
+      "type": "wards",
+      "cities": [
+        "Reading"
+      ],
+      "totalFeatures": 205,
+      "note": "County-wide dataset, Reading has 19 wards"
+    },
+    {
+      "name": "YorkCounty Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "type": "voting_districts",
+      "cities": [
+        "York",
+        "Dallastown",
+        "Hanover",
+        "Red Lion",
+        "West York",
+        "Wrightsville"
+      ],
+      "totalFeatures": 161,
+      "note": "County-wide dataset with wards for 6 municipalities (plus 2 townships)"
+    }
+  ],
+  "portals": [
+    {
+      "layer": "Philadelphia Layer 29",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/CityPhilly/MapServer/29",
+      "city": "Philadelphia",
+      "cityFips": "4260000",
+      "districtType": "council",
+      "featureCount": 10,
+      "notes": "City council districts",
+      "existing": true
+    },
+    {
+      "layer": "Pittsburgh Layer 10",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/PittsburghCity/MapServer/10",
+      "city": "Pittsburgh",
+      "cityFips": "4261000",
+      "districtType": "council",
+      "featureCount": 9,
+      "notes": "City council districts",
+      "existing": true
+    },
+    {
+      "layer": "Allegheny County Layer 14",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/AlleghenyCounty/MapServer/14",
+      "city": "Allegheny County",
+      "cityFips": null,
+      "districtType": "county_council",
+      "featureCount": 13,
+      "notes": "County council districts - not a city portal",
+      "existing": false,
+      "skip": true,
+      "reason": "County-level data, not city-specific"
+    },
+    {
+      "layer": "Berks County Layer 3",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/BerksCounty/MapServer/3",
+      "city": "Reading",
+      "cityFips": "4263624",
+      "districtType": "ward",
+      "featureCount": 19,
+      "filter": "MUNI_NAME='READING'",
+      "notes": "Reading city wards - extracted from county-wide dataset",
+      "existing": false
+    },
+    {
+      "layer": "Lehigh County Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "city": "Allentown",
+      "cityFips": "4202000",
+      "districtType": "ward",
+      "featureCount": 19,
+      "filter": "MUNI_WARD LIKE '02%'",
+      "notes": "Allentown wards - extracted from Lehigh County dataset",
+      "existing": true
+    },
+    {
+      "layer": "Lehigh County Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "city": "Bethlehem",
+      "cityFips": "4206088",
+      "districtType": "ward",
+      "featureCount": 4,
+      "filter": "MUNI_WARD LIKE '03%'",
+      "notes": "Bethlehem wards in Lehigh County (city spans Lehigh and Northampton counties)",
+      "existing": false
+    },
+    {
+      "layer": "Lehigh County Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "city": "Fountain Hill",
+      "cityFips": "4227008",
+      "districtType": "ward",
+      "featureCount": 2,
+      "filter": "MUNI_WARD LIKE '08%'",
+      "notes": "Fountain Hill wards - extracted from Lehigh County dataset",
+      "existing": false
+    },
+    {
+      "layer": "Lehigh County Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "city": "Salisbury",
+      "cityFips": "4267584",
+      "districtType": "ward",
+      "featureCount": 5,
+      "filter": "MUNI_WARD LIKE '17%'",
+      "notes": "Salisbury wards - extracted from Lehigh County dataset",
+      "existing": false
+    },
+    {
+      "layer": "Lehigh County Layer 6",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/LehighCounty/MapServer/6",
+      "city": "Slatington",
+      "cityFips": "4271144",
+      "districtType": "ward",
+      "featureCount": 3,
+      "filter": "MUNI_WARD LIKE '18%'",
+      "notes": "Slatington wards - extracted from Lehigh County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "York",
+      "cityFips": "4287048",
+      "districtType": "ward",
+      "featureCount": 11,
+      "filter": "MUNI_NAME='YORK CITY'",
+      "notes": "York wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "Dallastown",
+      "cityFips": "4218072",
+      "districtType": "ward",
+      "featureCount": 2,
+      "filter": "MUNI_NAME='DALLASTOWN BORO'",
+      "notes": "Dallastown wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "Hanover",
+      "cityFips": "4232448",
+      "districtType": "ward",
+      "featureCount": 5,
+      "filter": "MUNI_NAME='HANOVER BORO'",
+      "notes": "Hanover wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "Red Lion",
+      "cityFips": "4263840",
+      "districtType": "ward",
+      "featureCount": 3,
+      "filter": "MUNI_NAME='RED LION BORO'",
+      "notes": "Red Lion wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "West York",
+      "cityFips": "4284288",
+      "districtType": "ward",
+      "featureCount": 2,
+      "filter": "MUNI_NAME='WEST YORK BORO'",
+      "notes": "West York wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "Wrightsville",
+      "cityFips": "4286640",
+      "districtType": "ward",
+      "featureCount": 3,
+      "filter": "MUNI_NAME='WRIGHTSVILLE BORO'",
+      "notes": "Wrightsville wards - extracted from York County dataset",
+      "existing": false
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "Spring Garden Township",
+      "cityFips": null,
+      "districtType": "ward",
+      "featureCount": 5,
+      "filter": "MUNI_NAME='SPRING GARDEN TOWNSHIP'",
+      "notes": "Township (MCD) - not a Census place, has ward structure",
+      "existing": false,
+      "skip": true,
+      "reason": "Township (MCD) - not a Census place, no FIPS code available"
+    },
+    {
+      "layer": "York County Layer 26",
+      "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/YorkCounty/MapServer/26",
+      "city": "York Township",
+      "cityFips": null,
+      "districtType": "ward",
+      "featureCount": 5,
+      "filter": "MUNI_NAME='YORK TOWNSHIP'",
+      "notes": "Township (MCD) - not a Census place, has ward structure",
+      "existing": false,
+      "skip": true,
+      "reason": "Township (MCD) - not a Census place, no FIPS code available"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "aggregatorId": "maricopa-county-az",
+  "cities": [
+    {
+      "cityName": "BUCKEYE",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'BUCKEYE'&outFields=*&f=geojson",
+      "confidence": 90
+    },
+    {
+      "cityName": "GLENDALE",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'GLENDALE'&outFields=*&f=geojson",
+      "confidence": 90
+    },
+    {
+      "cityName": "MESA",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'MESA'&outFields=*&f=geojson",
+      "confidence": 90
+    },
+    {
+      "cityName": "PEORIA",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'PEORIA'&outFields=*&f=geojson",
+      "confidence": 90
+    },
+    {
+      "cityName": "PHOENIX",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 8,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'PHOENIX'&outFields=*&f=geojson",
+      "confidence": 90
+    },
+    {
+      "cityName": "SURPRISE",
+      "state": "AZ",
+      "fips": null,
+      "districtCount": 6,
+      "downloadUrl": "https://services.arcgis.com/ykpntM6e3tHvzKRJ/arcgis/rest/services/Maricopa_County_City_Council_Districts/FeatureServer/0/query?where=Juris%3D'SURPRISE'&outFields=*&f=geojson",
+      "confidence": 90
+    }
+  ],
+  "failures": [],
+  "totalFeatures": 76,
+  "extractedAt": "2026-01-24T03:14:49.000Z"
+}

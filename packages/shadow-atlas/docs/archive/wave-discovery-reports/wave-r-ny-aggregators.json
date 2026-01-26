@@ -1,0 +1,360 @@
+{
+  "wave": "R",
+  "region": "New York State",
+  "focus": "Regional GIS Aggregators for Council Districts/Wards",
+  "discoveryDate": "2026-01-23",
+  "investigator": "Claude Opus 4.5",
+  "summary": {
+    "stateAggregator": "NYS GIS Clearinghouse does NOT contain city council districts - only state/county/municipal boundaries",
+    "regionalAggregators": "No regional aggregator found with multi-city council district data",
+    "conclusion": "Council district data is city-specific - no bulk extraction source exists for NY State",
+    "recommendation": "Extract from individual city portals"
+  },
+  "stateResources": {
+    "nysGisClearinghouse": {
+      "url": "https://gis.ny.gov/",
+      "dataPortal": "https://data.gis.ny.gov/",
+      "restServices": "https://gisservices.its.ny.gov/arcgis/rest/services/",
+      "civilBoundaries": {
+        "url": "https://gisservices.its.ny.gov/arcgis/rest/services/NYS_Civil_Boundaries/FeatureServer",
+        "layers": [
+          {"id": 0, "name": "State"},
+          {"id": 1, "name": "State_Shoreline"},
+          {"id": 2, "name": "Counties"},
+          {"id": 3, "name": "Counties_Shoreline"},
+          {"id": 4, "name": "Cities"},
+          {"id": 5, "name": "Towns"},
+          {"id": 6, "name": "Cities_Towns"},
+          {"id": 7, "name": "Villages"},
+          {"id": 8, "name": "Indian_Territories"}
+        ],
+        "hasCouncilDistricts": false,
+        "note": "Only contains city/town/village boundaries - NO council districts or wards"
+      }
+    }
+  },
+  "countyAggregators": {
+    "westchesterCounty": {
+      "name": "Westchester County GeoHub",
+      "portalUrl": "https://gis.westchestergov.com/",
+      "mapServerUrl": "https://giswww.westchestergov.com/arcgis/rest/services/MappingWestchesterCounty/MapServer",
+      "datahubBoundaries": "https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer",
+      "electionDistrictsLayer": {
+        "layerId": 0,
+        "url": "https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer/0",
+        "fields": ["DISTRICT", "WARD", "ED"],
+        "note": "Contains election districts with WARD field for Yonkers only",
+        "coverage": "All Westchester County municipalities",
+        "dataDate": "April 2023",
+        "hasCouncilDistricts": false,
+        "hasWards": true,
+        "wardsFor": ["Yonkers"],
+        "limitation": "No explicit city name field - requires geographic cross-reference"
+      },
+      "municipalBoundaries": {
+        "layerId": 163,
+        "url": "https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer/163",
+        "note": "45 municipal jurisdictions"
+      },
+      "countyLegislativeDistricts": {
+        "layerId": 160,
+        "note": "County legislature - not city councils"
+      },
+      "bulkExtractionPotential": "LOW - Only Yonkers wards, other cities not included"
+    },
+    "broomeCounty": {
+      "name": "Broome County GIS",
+      "portalUrl": "https://gis.broomecountyny.gov/",
+      "note": "Has election mapper and district data",
+      "binghamtonCouncilPdf": "https://gis.broomecountyny.gov/Website/GISWeb/maps/CCD2.pdf",
+      "hasFeatureServer": false,
+      "bulkExtractionPotential": "LOW - PDF maps, no REST services found"
+    },
+    "albanyCounty": {
+      "name": "Albany County NY Open Data",
+      "portalUrl": "https://albany-county-ny-open-data-albcountygis.hub.arcgis.com/",
+      "municipalitiesLayer": "https://albany-county-ny-open-data-albcountygis.hub.arcgis.com/datasets/AlbCountyGIS::albany-county-municipalities-1",
+      "hasCouncilDistricts": false,
+      "bulkExtractionPotential": "LOW - Municipal boundaries only, no council data"
+    },
+    "monroeCounty": {
+      "name": "Monroe County GIS",
+      "portalUrl": "https://www.monroecounty.gov/gis",
+      "note": "Provides shapefile downloads, supports City of Rochester",
+      "hasCouncilDistricts": false,
+      "bulkExtractionPotential": "LOW - No council district REST services found"
+    },
+    "erieCounty": {
+      "name": "Erie County GIS",
+      "portalUrl": "https://www3.erie.gov/gis/",
+      "arcgisOnline": "https://www.arcgis.com/apps/webappviewer/index.html?id=66e6b18a741948918ff55873edd333d9",
+      "mapServer": "http://gis2.erie.gov/arcgis/rest/services/",
+      "note": "Service timed out during testing",
+      "hasCouncilDistricts": false,
+      "bulkExtractionPotential": "UNKNOWN - Server not responding"
+    },
+    "onondagaCounty": {
+      "name": "Syracuse-Onondaga County Planning Agency",
+      "portalUrl": "http://www.ongov.net/planning/gis.html",
+      "webGis": "https://spatial.vhb.com/onondaga/",
+      "hasCouncilDistricts": false,
+      "note": "County-managed GIS, Syracuse data available separately",
+      "bulkExtractionPotential": "LOW"
+    }
+  },
+  "regionalPlanningCommissions": {
+    "capitalDistrictRPC": {
+      "name": "Capital District Regional Planning Commission",
+      "url": "https://cdrpc.org/",
+      "coverage": ["Albany", "Rensselaer", "Saratoga", "Schenectady"],
+      "hasCouncilDistricts": false,
+      "note": "Focus on regional planning, land use, watershed - not political boundaries",
+      "bulkExtractionPotential": "NONE"
+    },
+    "geneseeFingerLakesRPC": {
+      "name": "Genesee/Finger Lakes Regional Planning Council",
+      "url": "https://www.gflrpc.org/",
+      "coverage": ["Genesee", "Livingston", "Monroe", "Ontario", "Orleans", "Seneca", "Wayne", "Wyoming", "Yates"],
+      "hasCouncilDistricts": false,
+      "note": "Focus on watershed, flood mitigation, land use analysis",
+      "bulkExtractionPotential": "NONE"
+    },
+    "centralNYRPDB": {
+      "name": "Central NY Regional Planning & Development Board",
+      "url": "https://www.cnyrpdb.org/",
+      "coverage": ["Cayuga", "Cortland", "Madison", "Onondaga", "Oswego"],
+      "hasCouncilDistricts": false,
+      "note": "Focus on stormwater, environmental management",
+      "bulkExtractionPotential": "NONE"
+    }
+  },
+  "citySpecificPortals": {
+    "buffalo": {
+      "city": "Buffalo",
+      "population": 278349,
+      "councilDistricts": 9,
+      "districtNames": ["Delaware", "Ellicott", "Fillmore", "Lovejoy", "Masten", "Niagara", "North", "South", "University"],
+      "openDataPortal": "https://data.buffalony.gov/",
+      "gisPage": "https://www.buffalony.gov/543/GIS-Maps",
+      "arcgisPortal": "https://www.arcgis.com/home/item.html?id=d613a9a7129a41bea60e4d3edbbb6e1c",
+      "councilDistrictsMap": "https://www.arcgis.com/apps/Embed/index.html?webmap=cc25c01cbf694da281ca8c2fa0921308",
+      "featureServer": null,
+      "note": "Shapefile downloads reportedly discontinued as of Sept 2021",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "rochester": {
+      "city": "Rochester",
+      "population": 211328,
+      "councilDistricts": 5,
+      "openDataPortal": "https://data.cityofrochester.gov/",
+      "arcgisHub": "https://dataroc-rochesterny.hub.arcgis.com/",
+      "councilDistrictsPage": "https://data.cityofrochester.gov/datasets/city-of-rochester-city-council-districts-beginning-2023/explore",
+      "arcServer": "https://maps.cityofrochester.gov/arcssl/rest/services",
+      "featureServer": null,
+      "note": "New districts as of 2023 redistricting",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "syracuse": {
+      "city": "Syracuse",
+      "population": 148620,
+      "councilDistricts": 5,
+      "openDataPortal": "https://data.syr.gov/",
+      "arcgisHub": "https://data-syr.opendata.arcgis.com/",
+      "councilDistrictsPage": "https://data-syr.opendata.arcgis.com/datasets/881e71dbbea84de28b3fb0b840bc2067_0/explore",
+      "wardsPage": "https://data.syr.gov/datasets/eb20b0f2e077444284a04a917f2644c7_0/explore",
+      "featureServer": null,
+      "note": "Has both Wards and Common Council Districts datasets",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "albany": {
+      "city": "Albany",
+      "population": 99224,
+      "councilDistricts": 15,
+      "label": "Wards",
+      "arcgisHub": "https://city-albanyny-gis.hub.arcgis.com/",
+      "commonCouncilWards": "https://hub.arcgis.com/maps/albanyny-GIS::common-council-wards-in-albany-new-york/about",
+      "cityWardsPage": "https://city-albanyny-gis.hub.arcgis.com/datasets/city-wards-in-albany-new-york",
+      "viewerApp": "https://www.arcgis.com/apps/View/index.html?appid=d3ddc0d9b8034d1898026ce309525890",
+      "featureServer": null,
+      "note": "15 wards, each represented by a Council Member",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "yonkers": {
+      "city": "Yonkers",
+      "population": 211569,
+      "councilDistricts": 6,
+      "officialPage": "https://www.yonkersny.gov/669/Council-Districts",
+      "westchesterGisLayer": "https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer/0",
+      "note": "Ward boundaries available in Westchester County Election Districts layer",
+      "fieldName": "WARD",
+      "extractionStatus": "AVAILABLE_VIA_COUNTY"
+    },
+    "schenectady": {
+      "city": "Schenectady",
+      "population": 67465,
+      "openDataPortal": "https://www.cityofschenectady.com/605/Open-Data-Portal",
+      "arcgisHub": "https://hub.arcgis.com/documents/e76b1f7a3a9a47d0a4b8835f8079c1af",
+      "countyMaps": "https://www.schenectadycountyny.gov/boe/election-district-maps",
+      "featureServer": null,
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "troy": {
+      "city": "Troy",
+      "population": 51401,
+      "arcgisHub": "https://cityoftroy.maps.arcgis.com/",
+      "councilDistrictMap": "https://www.arcgis.com/apps/mapviewer/index.html?webmap=38a07bda8ff94f79b5f03c4444d54c3f",
+      "note": "Unofficial council district map on ArcGIS",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "utica": {
+      "city": "Utica",
+      "population": 65284,
+      "councilDistricts": 6,
+      "officialPage": "https://www.cityofutica.com/government/common-council/council-districts/index",
+      "gisOnline": "https://www.arcgis.com/apps/webappviewer/index.html?id=627ec49e026a4c55a46a6e5ebe5e9cda",
+      "arcgisItem": "https://www.arcgis.com/home/item.html?id=5879208085024eccb8193bced73a910a",
+      "pdfMap": "https://cityofutica.com/Assets/Maps/2020/2020%20Council%20Districts.pdf",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "binghamton": {
+      "city": "Binghamton",
+      "population": 47969,
+      "councilDistricts": 7,
+      "broomeCountyGis": "https://gis.broomecountyny.gov/",
+      "councilDistrictPdf": "https://gis.broomecountyny.gov/Website/GISWeb/maps/CCD2.pdf",
+      "note": "PDF map only - no FeatureServer found",
+      "extractionStatus": "PDF_ONLY"
+    },
+    "niagaraFalls": {
+      "city": "Niagara Falls",
+      "population": 48671,
+      "gisPage": "https://niagarafallsusa.org/business/gis.php",
+      "communityBoundaries": "https://arc-gis-hub-home-arcgishub.hub.arcgis.com/maps/6be6ac15139a46f8bd437ce6efed67a0_0/about",
+      "note": "Community boundaries available - council districts unclear",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "newRochelle": {
+      "city": "New Rochelle",
+      "population": 81885,
+      "councilDistricts": 6,
+      "officialPage": "https://www.newrochelleny.gov/820/Council-Districts",
+      "note": "6 districts, district-based elections since 1993",
+      "extractionStatus": "NEEDS_INVESTIGATION"
+    },
+    "mountVernon": {
+      "city": "Mount Vernon",
+      "population": 73893,
+      "councilMembers": 5,
+      "electionType": "at-large",
+      "note": "No council districts - all members elected at-large citywide",
+      "extractionStatus": "NOT_APPLICABLE"
+    },
+    "whitePlains": {
+      "city": "White Plains",
+      "population": 59599,
+      "councilMembers": 7,
+      "electionType": "at-large",
+      "note": "No council districts - Mayor and 6 council members elected at-large",
+      "extractionStatus": "NOT_APPLICABLE"
+    }
+  },
+  "extractionPriority": {
+    "high": [
+      {
+        "city": "Buffalo",
+        "population": 278349,
+        "districts": 9,
+        "reason": "Largest upstate city, has ArcGIS portal"
+      },
+      {
+        "city": "Yonkers",
+        "population": 211569,
+        "districts": 6,
+        "reason": "Available via Westchester County aggregator"
+      },
+      {
+        "city": "Rochester",
+        "population": 211328,
+        "districts": 5,
+        "reason": "Has open data portal with 2023 districts"
+      },
+      {
+        "city": "Syracuse",
+        "population": 148620,
+        "districts": 5,
+        "reason": "Has both wards and council districts datasets"
+      }
+    ],
+    "medium": [
+      {
+        "city": "Albany",
+        "population": 99224,
+        "districts": 15,
+        "reason": "Has ArcGIS Hub with wards data"
+      },
+      {
+        "city": "New Rochelle",
+        "population": 81885,
+        "districts": 6,
+        "reason": "District-based elections"
+      },
+      {
+        "city": "Schenectady",
+        "population": 67465,
+        "reason": "Has open data portal"
+      },
+      {
+        "city": "Utica",
+        "population": 65284,
+        "districts": 6,
+        "reason": "Has ArcGIS item"
+      }
+    ],
+    "low": [
+      {
+        "city": "Troy",
+        "population": 51401,
+        "reason": "Unofficial map only"
+      },
+      {
+        "city": "Niagara Falls",
+        "population": 48671,
+        "reason": "Council districts unclear"
+      },
+      {
+        "city": "Binghamton",
+        "population": 47969,
+        "districts": 7,
+        "reason": "PDF only - no REST services"
+      }
+    ],
+    "notApplicable": [
+      {
+        "city": "Mount Vernon",
+        "population": 73893,
+        "reason": "At-large elections - no districts"
+      },
+      {
+        "city": "White Plains",
+        "population": 59599,
+        "reason": "At-large elections - no districts"
+      }
+    ]
+  },
+  "keyFindings": {
+    "noStateAggregator": "NYS GIS Clearinghouse contains state/county/municipal boundaries but NO city council districts",
+    "noRegionalAggregator": "Regional planning commissions focus on land use/environmental planning, not political boundaries",
+    "countyLimitations": "County GIS portals have county legislative districts, not city council districts",
+    "westchesterException": "Westchester County has Yonkers ward data in their Election Districts layer, but no other cities",
+    "citySpecificData": "Council district data must be extracted from individual city open data portals",
+    "formatVariation": "Cities use different formats: ArcGIS Hub, REST services, PDF maps, or no public data"
+  },
+  "nextSteps": [
+    "Investigate Buffalo ArcGIS portal for FeatureServer endpoint",
+    "Extract Yonkers wards from Westchester County Election Districts layer",
+    "Query Rochester's new 2023 council districts from DataROC",
+    "Extract Syracuse wards and council districts from data.syr.gov",
+    "Query Albany wards from city-albanyny-gis hub",
+    "Investigate remaining medium-priority cities for REST endpoints"
+  ]
+}

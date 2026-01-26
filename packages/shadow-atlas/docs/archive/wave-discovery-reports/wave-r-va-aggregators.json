@@ -1,0 +1,252 @@
+{
+  "wave": "R",
+  "state": "VA",
+  "focus": "Virginia Regional GIS Aggregators - Council Districts",
+  "discoveredAt": "2026-01-23",
+  "summary": {
+    "totalAggregators": 6,
+    "totalCitiesCovered": 8,
+    "bulkExtractionPotential": "MODERATE - No true statewide aggregator found; Virginia council districts are maintained at individual city level",
+    "keyFindings": [
+      "VGIN (Virginia Geographic Information Network) does NOT maintain council district data - only city/county/town boundaries",
+      "No regional PDC aggregator (HRGEO, NVRC) was found to contain council district data",
+      "Virginia's 38 independent cities each maintain their own council district data",
+      "12 Virginia cities use district-based council elections: Covington, Emporia, Franklin, Fredericksburg, Hopewell, Lynchburg, Newport News, Norfolk, Petersburg, Richmond, Suffolk, Winchester",
+      "Several larger cities have accessible FeatureServer/MapServer endpoints"
+    ]
+  },
+  "statewideSources": {
+    "VGIN_AdminBoundaries": {
+      "url": "https://gismaps.vdem.virginia.gov/arcgis/rest/services/VA_Base_Layers/VA_Admin_Boundaries/FeatureServer",
+      "alternateUrl": "https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VA_Base_Layers/VA_Admin_Boundaries/FeatureServer",
+      "layers": [
+        {"id": 0, "name": "Virginia Towns"},
+        {"id": 1, "name": "Virginia Cities and Counties"}
+      ],
+      "councilDistrictData": false,
+      "notes": "Contains only city, county, and town boundaries - NO council districts or wards"
+    },
+    "VGIN_Jurisdictions": {
+      "url": "https://services.arcgis.com/p5v98VHDX9Atv3l7/arcgis/rest/services/VA_Jurisdictions/FeatureServer",
+      "layers": [
+        {"id": 0, "name": "JURISDICTIONS", "description": "All 96 counties, 40 cities, and 118 towns"}
+      ],
+      "councilDistrictData": false,
+      "notes": "Jurisdiction-level only, no intra-city political subdivisions"
+    }
+  },
+  "regionalAggregators": {
+    "HRGEO_HamptonRoads": {
+      "portalUrl": "https://www.hrgeo.org/",
+      "organization": "Hampton Roads Planning District Commission (HRPDC)",
+      "coverage": ["Virginia Beach", "Norfolk", "Newport News", "Hampton", "Chesapeake", "Portsmouth", "Suffolk", "and 10 other localities"],
+      "councilDistrictData": false,
+      "notes": "Regional parcels and land use data available, but NO aggregated council district layer. Each city maintains separately."
+    },
+    "NVRC_NorthernVirginia": {
+      "portalUrl": "https://www.novaregion.org/",
+      "organization": "Northern Virginia Regional Commission",
+      "coverage": ["Arlington", "Fairfax", "Loudoun", "Prince William", "Alexandria", "Falls Church", "Manassas", "Manassas Park"],
+      "councilDistrictData": false,
+      "status": "Portal returned 404 during investigation",
+      "notes": "Regional planning focus - no council district aggregation found"
+    }
+  },
+  "cityPortals": [
+    {
+      "city": "Virginia Beach",
+      "state": "VA",
+      "fips": "51810",
+      "population": 459470,
+      "councilStructure": "10 districts + At-Large",
+      "services": [
+        {
+          "name": "Virginia Beach Voting Information MapServer",
+          "url": "https://geo.vbgov.com/mapservices/rest/services/Basemaps/Voting_Information/MapServer",
+          "type": "MapServer",
+          "layers": [
+            {"id": 0, "name": "Polling Locations", "geometry": "Point"},
+            {"id": 1, "name": "Precinct Boundaries", "geometry": "Polygon"},
+            {"id": 2, "name": "Council Districts", "geometry": "Polygon"},
+            {"id": 3, "name": "Former Council Districts", "geometry": "Polygon"},
+            {"id": 4, "name": "State House Districts", "geometry": "Polygon"},
+            {"id": 5, "name": "State Senate Districts", "geometry": "Polygon"},
+            {"id": 6, "name": "U.S. Congressional Districts", "geometry": "Polygon"}
+          ],
+          "councilDistrictLayer": 2,
+          "fields": ["OBJECTID", "District", "DistrictName"],
+          "spatialReference": "EPSG:3857",
+          "verified": true
+        }
+      ],
+      "openDataPortal": "https://data.virginiabeach.gov/",
+      "notes": "District boundaries imposed by U.S. District Court, currently under appeal"
+    },
+    {
+      "city": "Norfolk",
+      "state": "VA",
+      "fips": "51710",
+      "population": 238005,
+      "councilStructure": "7 wards (Super Wards for some elections)",
+      "services": [
+        {
+          "name": "Norfolk OpenData Maps FeatureServer",
+          "url": "https://gisshare.norfolk.gov/pubserver/rest/services/OpenData/Maps/FeatureServer",
+          "type": "FeatureServer",
+          "layers": [
+            {"id": 5, "name": "Polling Locations", "geometry": "Point"},
+            {"id": 6, "name": "Precincts", "geometry": "Polygon"},
+            {"id": 7, "name": "Wards", "geometry": "Polygon"},
+            {"id": 8, "name": "Super Wards", "geometry": "Polygon"},
+            {"id": 11, "name": "City Limits", "geometry": "Polygon"},
+            {"id": 12, "name": "Civic Leagues", "geometry": "Polygon"}
+          ],
+          "councilDistrictLayer": 7,
+          "fields": ["WARD", "WARD_REP", "WEBSITE", "WARD_SBM", "WEBSITE_SBM"],
+          "spatialReference": "WKID:2284 (Virginia State Plane)",
+          "verified": true
+        }
+      ],
+      "openDataPortal": "https://norfolkgisdata-orf.opendata.arcgis.com/",
+      "notes": "Includes Ward representatives and school board member info"
+    },
+    {
+      "city": "Lynchburg",
+      "state": "VA",
+      "fips": "51680",
+      "population": 82168,
+      "councilStructure": "4 wards",
+      "services": [
+        {
+          "name": "Lynchburg Political Boundaries MapServer",
+          "url": "https://mapviewer.lynchburgva.gov/arcgis/rest/services/Administrative/PoliticalBoundaries/MapServer",
+          "type": "MapServer",
+          "layers": [
+            {"id": 1, "name": "Polling Locations", "geometry": "Point"},
+            {"id": 2, "name": "Voting Precincts", "geometry": "Polygon"},
+            {"id": 3, "name": "Ward Labels", "geometry": "Point"},
+            {"id": 4, "name": "Wards", "geometry": "Polygon"},
+            {"id": 6, "name": "Virginia House of Delegates Districts - 2020", "geometry": "Polygon"},
+            {"id": 7, "name": "Virginia State Senate Districts - 2020", "geometry": "Polygon"},
+            {"id": 8, "name": "US Congressional District - 2020", "geometry": "Polygon"}
+          ],
+          "councilDistrictLayer": 4,
+          "featureCount": 4,
+          "fields": ["OBJECTID", "Designation", "Population_2020", "ElectedOfficial", "Email", "Link", "Legal_Name"],
+          "spatialReference": "WKID:2284 (Virginia State Plane)",
+          "verified": true
+        }
+      ],
+      "openDataPortal": "https://data-cityoflynchburg.opendata.arcgis.com/",
+      "notes": "Ward I, II, III, IV - includes 2020 population and elected official contact info"
+    },
+    {
+      "city": "Richmond",
+      "state": "VA",
+      "fips": "51760",
+      "population": 226610,
+      "councilStructure": "9 districts",
+      "services": [
+        {
+          "name": "Richmond GeoHub Council Districts",
+          "portalUrl": "https://richmond-geo-hub-cor.hub.arcgis.com/datasets/council-districts-3/explore",
+          "lookupApp": "https://cor.maps.arcgis.com/apps/instant/lookup/index.html?appid=40a004098051476dba45d659d2d02595",
+          "type": "Hub Dataset",
+          "featureServiceUrl": "NEEDS_VERIFICATION",
+          "notes": "Service URL not directly exposed in Hub - requires API inspection"
+        }
+      ],
+      "openDataPortal": "https://richmond-geo-hub-cor.hub.arcgis.com/",
+      "notes": "2023 redistricted boundaries available; direct FeatureServer URL needs verification"
+    },
+    {
+      "city": "Chesapeake",
+      "state": "VA",
+      "fips": "51550",
+      "population": 249422,
+      "councilStructure": "At-large (uses 6 boroughs for administrative purposes)",
+      "services": [
+        {
+          "name": "Chesapeake Boroughs",
+          "portalUrl": "https://public-chesva.opendata.arcgis.com/datasets/chesva::boroughs",
+          "virginiaOpenDataUrl": "https://data.virginia.gov/dataset/boroughs/resource/859e2201-9b33-4de0-bf50-f4a85b703d48",
+          "type": "Hub Dataset",
+          "featureServiceUrl": "NEEDS_VERIFICATION",
+          "notes": "6 boroughs: Deep Creek, Great Bridge, South Norfolk, Western Branch, Washington, Butts Road"
+        }
+      ],
+      "openDataPortal": "https://public-chesva.opendata.arcgis.com/",
+      "notes": "At-large council elections - boroughs are administrative, not electoral"
+    },
+    {
+      "city": "Fredericksburg",
+      "state": "VA",
+      "fips": "51630",
+      "population": 29036,
+      "councilStructure": "4 wards",
+      "services": [
+        {
+          "name": "FXBG GeoHub",
+          "portalUrl": "https://data-fredericksburg.opendata.arcgis.com/",
+          "type": "Hub Portal",
+          "searchKeywords": ["election", "population", "ward", "precinct"],
+          "featureServiceUrl": "NEEDS_VERIFICATION"
+        }
+      ],
+      "openDataPortal": "https://data-fredericksburg.opendata.arcgis.com/",
+      "gisContact": "gis@fredericksburg.gov",
+      "notes": "Ward-based elections confirmed; GIS portal available but specific service URL needs verification"
+    }
+  ],
+  "citiesWithDistrictElections": {
+    "description": "Virginia cities that elect council members by district/ward (per Virginia Constitution Article VII, Section 5)",
+    "cities": [
+      {"name": "Covington", "status": "NOT_FOUND", "notes": "Small city - no open GIS portal found"},
+      {"name": "Emporia", "status": "NOT_FOUND", "notes": "Small city - no open GIS portal found"},
+      {"name": "Franklin", "status": "NOT_FOUND", "notes": "Small city - no open GIS portal found"},
+      {"name": "Fredericksburg", "status": "PORTAL_FOUND", "notes": "See cityPortals above"},
+      {"name": "Hopewell", "status": "NOT_FOUND", "notes": "Part of Crater PDC - no portal found"},
+      {"name": "Lynchburg", "status": "VERIFIED", "notes": "See cityPortals above"},
+      {"name": "Newport News", "status": "PORTAL_FOUND", "portalUrl": "https://geohub.nnva.gov/", "notes": "GeoHub available, needs service URL verification"},
+      {"name": "Norfolk", "status": "VERIFIED", "notes": "See cityPortals above"},
+      {"name": "Petersburg", "status": "NOT_FOUND", "notes": "Part of Crater PDC - no dedicated GIS portal found"},
+      {"name": "Richmond", "status": "PORTAL_FOUND", "notes": "See cityPortals above"},
+      {"name": "Suffolk", "status": "PORTAL_FOUND", "portalUrl": "https://suffolkgis.suffolk-va.net/", "notes": "GIS portal exists, needs service URL verification"},
+      {"name": "Winchester", "status": "NOT_FOUND", "notes": "No open GIS portal found"}
+    ]
+  },
+  "otherNotableCities": {
+    "description": "Large Virginia cities with at-large council elections",
+    "cities": [
+      {"name": "Alexandria", "openDataPortal": "https://cityofalexandria-alexgis.opendata.arcgis.com/", "councilStructure": "At-large"},
+      {"name": "Arlington", "openDataPortal": "https://gisdata-arlgis.opendata.arcgis.com/", "councilStructure": "At-large (County Board)"},
+      {"name": "Roanoke", "openDataPortal": "https://open-data-portal-roanokeva.hub.arcgis.com/", "councilStructure": "At-large"},
+      {"name": "Charlottesville", "openDataPortal": "https://data-charlottesville.opendata.arcgis.com/", "councilStructure": "At-large"},
+      {"name": "Danville", "openDataPortal": "https://data-danvillegis.opendata.arcgis.com/", "councilStructure": "Unknown"}
+    ]
+  },
+  "extractionStrategy": {
+    "phase1_verified": [
+      "Virginia Beach - MapServer Layer 2",
+      "Norfolk - FeatureServer Layer 7",
+      "Lynchburg - MapServer Layer 4"
+    ],
+    "phase2_needsVerification": [
+      "Richmond - Extract service URL from GeoHub API",
+      "Chesapeake - Verify boroughs FeatureServer URL",
+      "Fredericksburg - Verify wards FeatureServer URL",
+      "Newport News - Verify council districts service URL"
+    ],
+    "phase3_manualResearch": [
+      "Small district-election cities: Covington, Emporia, Franklin, Hopewell, Petersburg, Winchester",
+      "May require direct contact with city clerks or manual boundary creation"
+    ]
+  },
+  "recommendations": [
+    "Virginia lacks a statewide council district aggregator - extraction must be city-by-city",
+    "Focus on the 12 cities with district elections as priority",
+    "3 services verified and ready for extraction: Virginia Beach, Norfolk, Lynchburg",
+    "Consider contacting VGIN about establishing a council district data standard",
+    "HRGEO (Hampton Roads) could be approached to aggregate council districts for the region"
+  ]
+}

@@ -1,0 +1,294 @@
+{
+  "discovery_date": "2026-01-23",
+  "wave": "R",
+  "focus": "High-population county GIS portals with multi-city council district data",
+  "summary": {
+    "total_counties_searched": 15,
+    "confirmed_multi_city_portals": 4,
+    "promising_leads": 8,
+    "needs_verification": 3
+  },
+  "confirmed_aggregators": [
+    {
+      "county": "Bexar County",
+      "state": "TX",
+      "population_rank": "high",
+      "cities_covered": ["San Antonio", "multiple incorporated cities"],
+      "portal_url": "https://gis-bexar.opendata.arcgis.com/",
+      "rest_services_base": "https://maps.bexar.org/arcgis/rest/services/",
+      "key_layers": [
+        {
+          "name": "CityCouncilDistricts",
+          "type": "MapServer",
+          "url": "https://maps.bexar.org/arcgis/rest/services/CityCouncilDistricts/MapServer",
+          "layer_id": 0,
+          "description": "All Bexar County incorporated cities council districts",
+          "multi_city": true,
+          "city_field": "City",
+          "fields": ["City", "Name", "Contact", "Address", "Phone", "Twitter", "Facebook"],
+          "last_updated": "2018-01",
+          "notes": "Based on 2012 Redistricting Plan. Updates quarterly."
+        },
+        {
+          "name": "LocalJurisdictions",
+          "type": "MapServer",
+          "url": "https://maps.bexar.org/arcgis/rest/services/LocalJurisdictions/MapServer",
+          "layer_id": 0,
+          "layer_name": "Cities",
+          "description": "Incorporated municipal boundaries in Bexar County"
+        }
+      ],
+      "priority": "HIGH",
+      "notes": "Confirmed multi-city council district aggregator. City field allows filtering by municipality."
+    },
+    {
+      "county": "King County",
+      "state": "WA",
+      "population_rank": "high",
+      "cities_covered": ["Seattle", "multiple municipalities"],
+      "portal_url": "https://gis-kingcounty.opendata.arcgis.com/",
+      "rest_services_base": "https://gismaps.kingcounty.gov/arcgis/rest/services/",
+      "key_layers": [
+        {
+          "name": "KingCo_Electoral_Districts",
+          "type": "MapServer",
+          "url": "https://gismaps.kingcounty.gov/arcgis/rest/services/Districts/KingCo_Electoral_Districts/MapServer",
+          "layers": [
+            {"id": 1, "name": "King County Council districts"},
+            {"id": 4, "name": "Seattle City Council districts", "description": "Shows Seattle City Council boundaries approved by voters in 2013", "fields": ["OBJECTID", "NAME", "SCCDST"]},
+            {"id": 6, "name": "School districts"},
+            {"id": 7, "name": "Sewer districts"}
+          ],
+          "multi_city": true,
+          "notes": "Contains Seattle city council but not other municipal councils directly"
+        },
+        {
+          "name": "district___base",
+          "type": "MapServer",
+          "url": "https://gisdata.kingcounty.gov/arcgis/rest/services/OpenDataPortal/district___base/MapServer",
+          "layers": [
+            {"id": "citydst_area", "name": "City boundaries"},
+            {"id": "kccdst_area", "name": "King County Council district"},
+            {"id": "mundst_area", "name": "Municipal district"},
+            {"id": "sccdst_area", "name": "Small city council district"}
+          ],
+          "multi_city": true,
+          "description": "Legislatively or local government-defined boundaries, primarily intra-county. Includes jurisdictional, legislative, congressional, council, and judicial boundaries."
+        }
+      ],
+      "priority": "HIGH",
+      "notes": "Extensive district data. sccdst_area layer may contain small city council districts."
+    },
+    {
+      "county": "Fulton County / Atlanta Region",
+      "state": "GA",
+      "population_rank": "high",
+      "cities_covered": ["Atlanta"],
+      "portal_url": "https://gisdata.fultoncountyga.gov/",
+      "regional_portal": "https://opendata.atlantaregional.com/",
+      "rest_services_base": "https://gis.atlantaga.gov/dpcd/rest/services/",
+      "key_layers": [
+        {
+          "name": "GeopoliticalArea",
+          "type": "MapServer",
+          "url": "https://gis.atlantaga.gov/dpcd/rest/services/AdministrativeArea/GeopoliticalArea/MapServer",
+          "layers": [
+            {"id": 0, "name": "Atlanta City Limits", "description": "Boundaries of the City of Atlanta as defined by ordinance"},
+            {"id": 1, "name": "Neighborhood", "visible": false},
+            {"id": 2, "name": "NPU", "description": "25 citizen advisory councils"},
+            {"id": 4, "name": "Council Districts", "description": "Area governed by each member of the City Council"}
+          ],
+          "max_record_count": 2000,
+          "notes": "Atlanta-specific. ARC regional portal may have multi-city data."
+        }
+      ],
+      "regional_resources": [
+        {
+          "name": "ARC Open Data Hub",
+          "url": "https://opendata.atlantaregional.com/",
+          "coverage": "11 counties, 75 municipalities",
+          "notes": "Atlanta Regional Commission covers Cherokee, Clayton, Cobb, DeKalb, Douglas, Fayette, Forsyth, Fulton, Gwinnett, Henry and Rockdale counties"
+        }
+      ],
+      "priority": "MEDIUM",
+      "notes": "City of Atlanta well-covered. ARC regional portal worth exploring for other municipalities."
+    },
+    {
+      "county": "Sacramento County / SACOG Region",
+      "state": "CA",
+      "population_rank": "high",
+      "cities_covered": ["Sacramento", "West Sacramento", "Elk Grove", "other SACOG cities"],
+      "portal_url": "https://data-sacramentocounty.opendata.arcgis.com/",
+      "regional_portal": "https://data-sacog.opendata.arcgis.com/",
+      "rest_services_base": "https://mapservices.gis.saccounty.net/arcgis/rest/services/",
+      "key_layers": [
+        {
+          "name": "CITY_of_SACRAMENTO",
+          "type": "MapServer",
+          "url": "https://mapservices.gis.saccounty.net/arcgis/rest/services/CITY_of_SACRAMENTO/MapServer",
+          "layers": [
+            {"id": 5, "name": "Sacramento City Council Districts", "fields": ["DISTNUM", "COUNCIL"]}
+          ],
+          "notes": "City of Sacramento only"
+        }
+      ],
+      "regional_resources": [
+        {
+          "name": "SACOG Open Data Portal",
+          "url": "https://data-sacog.opendata.arcgis.com/",
+          "council_districts_url": "https://data.sacog.org/datasets/28bd505c8e674a49ba5f782d0d806033_0/about",
+          "notes": "Sacramento Area Council of Governments. May contain multiple city council district layers."
+        }
+      ],
+      "priority": "MEDIUM",
+      "notes": "SACOG regional portal aggregates multiple jurisdictions. Worth exploring for multi-city data."
+    }
+  ],
+  "promising_leads": [
+    {
+      "county": "Cuyahoga County",
+      "state": "OH",
+      "cities": ["Cleveland", "suburbs"],
+      "portal_url": "https://data-cuyahoga.opendata.arcgis.com/",
+      "new_portal": "https://geospatial.gis.cuyahogacounty.gov/",
+      "municipal_boundaries": "https://data-cuyahoga.opendata.arcgis.com/datasets/cuyahoga::cuyahoga-municipal-boundaries/about",
+      "contact": "gis@cuyahogacounty.us",
+      "notes": "Site transitioning to new location. Municipal boundaries available. Council districts need verification."
+    },
+    {
+      "county": "Wayne County",
+      "state": "MI",
+      "cities": ["Detroit", "suburbs"],
+      "portal_url": "https://data-wayne.opendata.arcgis.com/",
+      "contact": "GISSuppt@waynecounty.com",
+      "categories": ["Legislative Boundaries", "Parcel Data"],
+      "regional_portal": "https://maps-semcog.opendata.arcgis.com/",
+      "notes": "SEMCOG regional portal covers 7 SE Michigan counties including Wayne. Municipal data available."
+    },
+    {
+      "county": "Palm Beach County",
+      "state": "FL",
+      "cities": ["West Palm Beach", "Boca Raton", "others"],
+      "portal_url": "https://opendata2-pbcgov.opendata.arcgis.com/",
+      "rest_base": "http://maps.co.palm-beach.fl.us/arcgis/rest/services/",
+      "municipal_boundaries": "https://opendata2-pbcgov.opendata.arcgis.com/datasets/PBCGOV::municipal-boundaries/explore",
+      "folders": ["CSD", "PZB", "Parcels"],
+      "notes": "Municipal boundaries layer covers all cities in county. REST services require folder exploration."
+    },
+    {
+      "county": "Broward County",
+      "state": "FL",
+      "cities": ["Fort Lauderdale", "Hollywood", "Pembroke Pines"],
+      "portal_url": "https://geohub-bcgis.opendata.arcgis.com/",
+      "fort_lauderdale_rest": "https://gis.fortlauderdale.gov/arcgis/rest/services/GeneralPurpose/gisdata/MapServer",
+      "contact": "BCGIS@broward.org",
+      "notes": "GeoHub portal. Fort Lauderdale has own REST services. County aggregator needs exploration."
+    },
+    {
+      "county": "Tarrant County",
+      "state": "TX",
+      "cities": ["Fort Worth", "Arlington", "others"],
+      "portal_url": "https://data-tarrantcounty.opendata.arcgis.com/",
+      "rest_base": "https://mapit.tarrantcounty.com/arcgis/rest/services",
+      "folders": ["Elections", "GeoData", "Census"],
+      "notes": "REST services have Elections and GeoData folders. Individual city data may be in GeoData folder."
+    },
+    {
+      "county": "Collin County",
+      "state": "TX",
+      "cities": ["Plano", "McKinney", "Frisco", "Allen"],
+      "portal_url": "https://data-collin.hub.arcgis.com/",
+      "interactive_map": "https://gis.collincountytx.gov/",
+      "contact": "gis@co.collin.tx.us",
+      "categories": ["Boundaries", "Voting"],
+      "notes": "Hub portal with boundary data. ETJ (Extra-Territorial Jurisdiction) data available."
+    },
+    {
+      "county": "Travis County",
+      "state": "TX",
+      "cities": ["Austin area"],
+      "portal_url": "https://tnr-traviscountytx.opendata.arcgis.com/",
+      "city_of_austin_gis": "https://www.austintexas.gov/department/gis-data",
+      "regional_portal": "https://www.capcog.org/what-we-do/data-maps/gis-open-data/",
+      "notes": "CAPCOG regional portal may have multi-city data. Travis County TNR portal for transportation/natural resources."
+    },
+    {
+      "county": "Duval County / Jacksonville",
+      "state": "FL",
+      "cities": ["Jacksonville"],
+      "rest_base": "https://maps.coj.net/coj/rest/services/",
+      "parcel_service": "https://maps.coj.net/coj/rest/services/CityBiz/Parcels/MapServer",
+      "notes": "Jacksonville consolidated city-county. Council districts likely in REST services."
+    }
+  ],
+  "needs_verification": [
+    {
+      "county": "Alameda County",
+      "state": "CA",
+      "cities": ["Oakland", "Berkeley", "Fremont", "Hayward"],
+      "portal_url": "https://data.acgov.org/",
+      "notes": "County has Board of Supervisors districts. Individual city council districts managed at municipal level. No county-aggregated city council data found."
+    },
+    {
+      "county": "Contra Costa County",
+      "state": "CA",
+      "cities": ["Richmond", "Concord", "Antioch"],
+      "portal_url": "https://contra-costa-gis-cocogis.hub.arcgis.com/",
+      "rest_base": "https://gis.cccounty.us/arcgis/rest/services/",
+      "notes": "REST services require authentication. Public downloads at gis.cccounty.us/Downloads/"
+    },
+    {
+      "county": "Fresno County",
+      "state": "CA",
+      "cities": ["Fresno", "Clovis"],
+      "county_portal": "https://gisportal.co.fresno.ca.us/portal/",
+      "city_hub": "https://gis-cityoffresno.hub.arcgis.com/",
+      "notes": "County and City of Fresno have separate portals. County-aggregated city data needs verification."
+    }
+  ],
+  "extraction_candidates": [
+    {
+      "priority": 1,
+      "county": "Bexar County, TX",
+      "endpoint": "https://maps.bexar.org/arcgis/rest/services/CityCouncilDistricts/MapServer/0",
+      "reason": "Confirmed multi-city council districts with City field. High value.",
+      "cities_expected": ["San Antonio", "other incorporated cities"]
+    },
+    {
+      "priority": 2,
+      "county": "King County, WA",
+      "endpoint": "https://gismaps.kingcounty.gov/arcgis/rest/services/Districts/KingCo_Electoral_Districts/MapServer/4",
+      "reason": "Seattle City Council districts confirmed. Check sccdst_area for other cities.",
+      "cities_expected": ["Seattle"]
+    },
+    {
+      "priority": 3,
+      "county": "Atlanta, GA",
+      "endpoint": "https://gis.atlantaga.gov/dpcd/rest/services/AdministrativeArea/GeopoliticalArea/MapServer/4",
+      "reason": "City of Atlanta council districts confirmed.",
+      "cities_expected": ["Atlanta"]
+    },
+    {
+      "priority": 4,
+      "county": "Sacramento County, CA",
+      "endpoint": "https://mapservices.gis.saccounty.net/arcgis/rest/services/CITY_of_SACRAMENTO/MapServer/5",
+      "reason": "Sacramento City Council Districts confirmed. SACOG may have additional cities.",
+      "cities_expected": ["Sacramento"]
+    },
+    {
+      "priority": 5,
+      "county": "Palm Beach County, FL",
+      "endpoint": "http://maps.co.palm-beach.fl.us/arcgis/rest/services/",
+      "reason": "Municipal boundaries confirmed. Explore CSD and PZB folders for council data.",
+      "cities_expected": ["West Palm Beach", "Boca Raton", "others"]
+    }
+  ],
+  "next_steps": [
+    "Query Bexar County CityCouncilDistricts/0 for full city list and feature count",
+    "Explore King County sccdst_area layer for small city councils",
+    "Check SACOG portal for additional Sacramento region city council data",
+    "Explore Palm Beach County REST folders (CSD, PZB) for council district services",
+    "Verify Tarrant County GeoData folder contents",
+    "Check SEMCOG portal for Wayne County municipal boundaries and council data"
+  ]
+}

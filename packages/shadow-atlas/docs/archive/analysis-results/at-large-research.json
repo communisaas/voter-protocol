@@ -1,0 +1,117 @@
+{
+  "research_date": "2026-01-16",
+  "methodology": "Web search of city charters, municipal codes, and official government websites",
+  "confirmed_at_large": [
+    {
+      "city": "Milton, GA",
+      "fips": "1351670",
+      "councilSize": 6,
+      "electionMethod": "at-large",
+      "source": "City of Milton official website (miltonga.gov)",
+      "notes": "6 councilmembers elected at-large (all voters vote for all seats). Council members must reside in their district but are elected citywide. Mayor elected at-large.",
+      "url": "https://www.miltonga.gov/government/mayor-city-council",
+      "evidence": "City has district residency requirements but at-large voting. All registered voters cast ballots for all Council seats."
+    }
+  ],
+  "has_districts": [
+    {
+      "city": "Sheridan, IN",
+      "fips": "1869354",
+      "councilSize": 5,
+      "districts": 4,
+      "notes": "Has 4 town council districts (Sheridan 1-4) per Hamilton County 2023 map. Each district elects representatives. NOT at-large.",
+      "source": "Hamilton County, IN - Sheridan Town Council Districts Map 2023",
+      "url": "https://www.hamiltoncounty.in.gov/DocumentCenter/View/18183/Sheridan-Town-Council-Districts-Map-2023-PDF",
+      "recommendation": "Low coverage (4.2%) indicates wrong data layer, not at-large voting. Need to source correct Sheridan town council district boundaries."
+    },
+    {
+      "city": "Bridgeport, CT",
+      "fips": "0908000",
+      "councilSize": 20,
+      "districts": 10,
+      "notes": "Has 10 city council districts, with 2 members elected per district. Recent redistricting completed July 2023.",
+      "source": "City of Bridgeport official website",
+      "url": "https://www.bridgeportct.gov/government/departments/city-council",
+      "recommendation": "Low coverage (10.6%) indicates wrong data source. Need correct Bridgeport city council district boundaries (not state legislative districts)."
+    },
+    {
+      "city": "Lafayette, LA",
+      "fips": "2240735",
+      "councilSize": 5,
+      "districts": 5,
+      "notes": "Has 5 city council single-member districts. Voters in city limits vote for both parish and city council. Recent redistricting after 2020 census.",
+      "source": "Lafayette Consolidated Government, The Current LA",
+      "url": "https://lafayettela.gov/council/default",
+      "recommendation": "Coverage 44.1% suggests partial data or overlap with parish council districts. Need city council district boundaries only."
+    },
+    {
+      "city": "Farmington, NM",
+      "fips": "3526190",
+      "councilSize": 4,
+      "districts": 4,
+      "notes": "Has 4 city council districts. Councilors represent their districts. District map available at city document center.",
+      "source": "City of Farmington official website",
+      "url": "https://www.fmtn.org/141/City-Council",
+      "recommendation": "Coverage 45.3% suggests wrong data layer. Need correct Farmington city council district boundaries."
+    },
+    {
+      "city": "Chattahoochee Hills, GA",
+      "fips": "1315828",
+      "councilSize": 5,
+      "districts": 5,
+      "notes": "Has 5 city council districts. Only the mayor is elected at-large; council members elected by district.",
+      "source": "City of Chattahoochee Hills official website",
+      "url": "https://www.chatthillsga.us/government/mayor_and_city_council.php",
+      "recommendation": "Exclusivity failures likely due to wrong data source, not at-large voting. Need correct district boundaries."
+    }
+  ],
+  "formerly_at_large": [
+    {
+      "city": "Meridian, ID",
+      "fips": "1652120",
+      "councilSize": 6,
+      "districts": 6,
+      "notes": "TRANSITIONED from at-large to district elections in 2023. Previously elected at-large, now has 6 geographic districts as of November 2023 election.",
+      "source": "City of Meridian official website",
+      "url": "https://meridiancity.org/city-council/city-council-districts/",
+      "reason": "Idaho state law requiring cities over 100,000 population to use district elections (law passed 2020)",
+      "transition_date": "2023",
+      "recommendation": "Coverage 40.0% suggests data may still reflect at-large structure or wrong data source. Need current 2023+ district boundaries."
+    },
+    {
+      "city": "Big Bear Lake, CA",
+      "fips": "0606210",
+      "councilSize": 5,
+      "districts": 4,
+      "notes": "TRANSITIONED from at-large to by-district elections in 2018 via Ordinance No. 2018-459. New district map adopted April 2022 (Ordinance No. 2022-502).",
+      "source": "City of Big Bear Lake official website",
+      "url": "https://www.citybigbearlake.com/index.php/en/government-main/city-council",
+      "transition_date": "2018",
+      "recommendation": "Exclusivity failures suggest data reflects pre-2018 at-large structure or wrong source. Need current district boundaries (post-2022 redistricting)."
+    }
+  ],
+  "summary": {
+    "confirmed_at_large_count": 1,
+    "has_districts_count": 5,
+    "formerly_at_large_count": 2,
+    "key_findings": [
+      "Milton, GA confirmed at-large with 6 council seats elected citywide",
+      "Sheridan, IN has 4 districts - low coverage indicates wrong data source",
+      "Bridgeport, CT has 10 districts - needs correct city council boundaries",
+      "Meridian, ID and Big Bear Lake, CA both transitioned from at-large to district elections (2023 and 2018 respectively)",
+      "Lafayette and Farmington both have district systems - coverage issues indicate data source problems",
+      "Most low-coverage cities have districts but wrong data layers in registry"
+    ],
+    "registry_additions": [
+      "Add Milton, GA (1351670) to at-large registry"
+    ],
+    "data_source_issues": [
+      "Sheridan, IN: Need town council district boundaries (not county/state data)",
+      "Bridgeport, CT: Need city council districts (not state legislative districts)",
+      "Meridian, ID: Need post-2023 district boundaries reflecting new structure",
+      "Lafayette, LA: Need city council districts separate from parish council",
+      "Farmington, NM: Need city council district boundaries from official source",
+      "Big Bear Lake, CA: Need post-2022 district boundaries"
+    ]
+  }
+}
