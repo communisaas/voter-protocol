@@ -10,7 +10,7 @@ import type {
   QualityTier,
   DistrictType,
   GovernanceLevel,
-} from './governance-district.js';
+} from '../src/validation/schemas/governance-district.js';
 
 import {
   validateGovernanceDistrict,
@@ -18,8 +18,8 @@ import {
   QualityTier as QT,
   DistrictType as DT,
   GovernanceLevel as GL,
-} from './governance-district.js';
-import { logger } from '../../core/utils/logger.js';
+} from '../src/validation/schemas/governance-district.js';
+import { logger } from '../src/core/utils/logger.js';
 
 /**
  * Example 1: Load and filter dataset

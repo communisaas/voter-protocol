@@ -5,7 +5,7 @@
  * when Census TIGER is stale during redistricting cycles.
  */
 
-import { primaryComparator, PrimarySourceComparator } from './primary-comparator.js';
+import { primaryComparator, PrimarySourceComparator } from '../src/provenance/primary-comparator.js';
 
 /**
  * Example 1: Check single state for freshness

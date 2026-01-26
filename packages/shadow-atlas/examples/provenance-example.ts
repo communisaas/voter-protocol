@@ -7,12 +7,12 @@
  * 3. Provenance logging
  */
 
-import { SourceRegistry } from './source-registry.js';
-import { ConflictResolver } from './conflict-resolver.js';
-import { ProvenanceWriter } from './provenance-writer.js';
-import { BoundaryType } from '../core/types.js';
-import type { SourceClaim } from './conflict-resolver.js';
-import type { CompactDiscoveryEntry } from './provenance-writer.js';
+import { SourceRegistry } from '../src/provenance/source-registry.js';
+import { ConflictResolver } from '../src/provenance/conflict-resolver.js';
+import { ProvenanceWriter } from '../src/provenance/provenance-writer.js';
+import { BoundaryType } from '../src/core/types.js';
+import type { SourceClaim } from '../src/provenance/conflict-resolver.js';
+import type { CompactDiscoveryEntry } from '../src/provenance/provenance-writer.js';
 
 /**
  * Example: Congressional District Resolution

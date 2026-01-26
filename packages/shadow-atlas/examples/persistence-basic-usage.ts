@@ -5,8 +5,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { ShadowAtlasRepository } from '../repository';
-import { SQLiteAdapter } from '../adapters/sqlite';
+import { ShadowAtlasRepository } from '../src/persistence/repository';
+import { SQLiteAdapter } from '../src/persistence/adapters/sqlite';
 import type {
   JobId,
   JobInsert,
@@ -14,8 +14,8 @@ import type {
   FailureInsert,
   SnapshotInsert,
   ValidationResultInsert,
-} from '../schema.types';
-import { nowISO8601 } from '../schema.types';
+} from '../src/persistence/schema.types';
+import { nowISO8601 } from '../src/persistence/schema.types';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -28,7 +28,7 @@ async function example1_createJob(): Promise<void> {
 
   // Initialize database
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, '../schema.sql'),
+    path.join(__dirname, '../src/persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');
@@ -84,7 +84,7 @@ async function example2_recordExtraction(): Promise<void> {
   console.log('Example 2: Record successful extraction\n');
 
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, '../schema.sql'),
+    path.join(__dirname, '../src/persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');
@@ -155,7 +155,7 @@ async function example3_handleFailure(): Promise<void> {
   console.log('Example 3: Handle extraction failure\n');
 
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, '../schema.sql'),
+    path.join(__dirname, '../src/persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');
@@ -225,7 +225,7 @@ async function example4_createSnapshot(): Promise<void> {
   console.log('Example 4: Create Merkle tree snapshot\n');
 
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, '../schema.sql'),
+    path.join(__dirname, '../src/persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');
@@ -288,7 +288,7 @@ async function example5_queryAnalytics(): Promise<void> {
   console.log('Example 5: Query analytics views\n');
 
   const schemaSQL = await fs.readFile(
-    path.join(__dirname, '../schema.sql'),
+    path.join(__dirname, '../src/persistence/schema.sql'),
     'utf-8'
   );
   const adapter = new SQLiteAdapter(':memory:');

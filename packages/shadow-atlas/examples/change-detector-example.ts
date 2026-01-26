@@ -5,9 +5,9 @@
  * Shows how to avoid wasteful batch scraping.
  */
 
-import { ChangeDetector } from './change-detector.js';
-import { SQLiteAdapter } from '../db/sqlite-adapter.js';
-import type { CanonicalSource } from './change-detector.js';
+import { ChangeDetector } from '../src/acquisition/change-detector.js';
+import { SQLiteAdapter } from '../src/db/sqlite-adapter.js';
+import type { CanonicalSource } from '../src/acquisition/change-detector.js';
 
 /**
  * Example 1: Daily Scheduled Check

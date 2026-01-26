@@ -15,9 +15,9 @@ import {
   fetchGeoJSON,
   createHTTPClient,
   type HTTPClientConfig,
-} from './http-client.js';
+} from '../src/core/http-client.js';
 import type { FeatureCollection } from 'geojson';
-import { logger } from './utils/logger.js';
+import { logger } from '../src/core/utils/logger.js';
 
 // ============================================================================
 // Example 1: Simple JSON Fetch (Most Common)

@@ -19,7 +19,7 @@ import {
   verifyAuditLogIntegrity,
   generateCorrelationId,
   type SecurityEvent,
-} from './audit-logger';
+} from '../src/security/audit-logger';
 
 const DEMO_LOG_DIR = join(process.cwd(), 'demo-logs');
 

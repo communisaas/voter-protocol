@@ -7,8 +7,8 @@
  * Run with: npx tsx src/reconstruction/demo-contiguous-selection.ts
  */
 
-import { matchSegment, SimpleStreetNetworkQuery, getDefaultMatcherConfig } from './segment-matcher';
-import { createMockStreetSegment } from './test-utils';
+import { matchSegment, SimpleStreetNetworkQuery, getDefaultMatcherConfig } from '../src/reconstruction/segment-matcher';
+import { createMockStreetSegment } from '../src/reconstruction/test-utils';
 import type { Position } from 'geojson';
 
 console.log('='.repeat(80));

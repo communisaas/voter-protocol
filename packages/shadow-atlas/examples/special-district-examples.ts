@@ -5,7 +5,7 @@
  * These examples show how to integrate special districts into the Shadow Atlas resolution pipeline.
  */
 
-import { BoundaryType, PRECISION_RANK } from './types.js';
+import { BoundaryType, PRECISION_RANK } from '../src/core/types.js';
 import {
   isSpecialDistrict,
   isElectedSpecialDistrict,
@@ -14,8 +14,8 @@ import {
   getCivicParticipationPriority,
   getSpecialDistrictDescription,
   SCHOOL_DISTRICT_TYPES,
-} from './special-district-types.js';
-import { logger } from './utils/logger.js';
+} from '../src/core/special-district-types.js';
+import { logger } from '../src/core/utils/logger.js';
 
 // ============================================================================
 // Example 1: Basic Type Usage

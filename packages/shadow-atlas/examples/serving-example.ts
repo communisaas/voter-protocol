@@ -9,11 +9,11 @@
  * 5. Sync updates
  */
 
-import { DistrictLookupService } from './district-service';
-import { ProofService } from './proof-generator';
-import { SyncService } from './sync-service';
-import { ShadowAtlasAPI } from './api';
-import type { DistrictBoundary } from './types';
+import { DistrictLookupService } from '../src/serving/district-service';
+import { ProofService } from '../src/serving/proof-generator';
+import { SyncService } from '../src/serving/sync-service';
+import { ShadowAtlasAPI } from '../src/serving/api';
+import type { DistrictBoundary } from '../src/serving/types';
 
 /**
  * Example 1: Basic lookup service

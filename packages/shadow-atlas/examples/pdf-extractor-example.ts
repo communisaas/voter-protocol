@@ -12,7 +12,7 @@ import {
   extractLegalDescriptionsFromPDFUrl,
   type PDFExtractionResult,
   type LegalDescriptionsExtraction,
-} from './pdf-extractor';
+} from '../src/reconstruction/pdf-extractor';
 
 // =============================================================================
 // Example 1: Extract text from local PDF file
