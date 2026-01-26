@@ -375,7 +375,7 @@ src/core/http-client.ts (~500 lines)
     └── createHTTPClient() - factory function
 
 src/core/index.ts (updated barrel exports)
-src/core/http-client.examples.ts (usage examples)
+examples/http-client-examples.ts (usage examples - moved to examples/)
 ```
 
 **WS-D: Provider Config - Files Created:**

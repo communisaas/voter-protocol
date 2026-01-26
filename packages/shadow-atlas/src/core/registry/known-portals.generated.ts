@@ -17,6 +17,7 @@ export type PortalType =
   | 'municipal-gis'    // City-operated GIS portal
   | 'regional-gis'     // Regional council operated GIS
   | 'county-gis'       // County-operated GIS portal
+  | 'county-planning'  // County planning commission GIS
   | 'state-gis'        // State-operated GIS portal
   | 'socrata'          // Socrata open data platform
   | 'geojson'          // Direct GeoJSON file
@@ -46,6 +47,7 @@ export interface KnownPortal {
   readonly notes?: string;
   readonly webmapLayerName?: string;
   readonly authoritativeSource?: string;
+  readonly wardCount?: number;
   // Golden vector specific fields
   readonly sourceType?: 'golden-vector';
   readonly goldenVectorPath?: string;

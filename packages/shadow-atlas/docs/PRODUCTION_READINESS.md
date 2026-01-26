@@ -194,7 +194,7 @@ primary_region = "iad"
 
 ---
 
-## Non-Blocking: Communique Integration
+## Non-Blocking: Communique Integration (external repo)
 
 ### Integration Points
 
@@ -227,7 +227,7 @@ primary_region = "iad"
 
 ### Caching Strategy
 
-Communique can cache Shadow Atlas responses in Prisma:
+Communique (external repo) can cache Shadow Atlas responses in Prisma:
 ```prisma
 model DistrictCache {
   id          String   @id @default(cuid())
@@ -276,7 +276,7 @@ model DistrictCache {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              COMMUNIQUE (SvelteKit)                          │
+│                         COMMUNIQUE (SvelteKit - external repo)               │
 │                                                                             │
 │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │
 │   │  Frontend   │───▶│  Server     │───▶│  Prisma     │                    │

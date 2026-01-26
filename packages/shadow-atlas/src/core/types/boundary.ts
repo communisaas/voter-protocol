@@ -19,8 +19,12 @@ export { extractBBox };  // Re-export for backward compatibility
 /**
  * Boundary Type Enumeration
  *
- * Ordered by precision rank (finest → coarsest).
- * Used for hierarchical resolution fallback.
+ * This is a CLASSIFICATION SYSTEM for Shadow Atlas boundaries.
+ * BoundaryType can have 50+ values that MAP to 24 circuit slots.
+ *
+ * CIRCUIT SLOT MAPPING:
+ * The ZK circuit has 24 fixed slots (0-23). Multiple BoundaryTypes
+ * can map to the same slot. Use `boundaryTypeToSlot()` for mapping.
  *
  * US COVERAGE STRATEGY:
  * - Tier 0: City council districts (finest civic representation)
@@ -38,81 +42,196 @@ export { extractBBox };  // Re-export for backward compatibility
  * - Congressional: Census TIGER/Line CD files (FREE, 435 districts)
  */
 export enum BoundaryType {
-  // Finest grain: Local civic representation
-  CITY_COUNCIL_DISTRICT = 'city_council_district',
-  CITY_COUNCIL_WARD = 'city_council_ward',
-
-  // Incorporated places (Census PLACE with LSAD = city/town/village)
-  CITY_LIMITS = 'city_limits',
-
-  // Unincorporated communities (Census PLACE with LSAD = CDP)
-  CDP = 'cdp',
-
-  // County subdivision (townships, boroughs in some states)
-  COUNTY_SUBDIVISION = 'county_subdivision',
-
-  // County (universal US fallback)
-  COUNTY = 'county',
-
-  // Federal representation
+  // ===========================================================================
+  // SLOT 0: CONGRESSIONAL (Federal House districts)
+  // ===========================================================================
   CONGRESSIONAL_DISTRICT = 'congressional_district',
 
-  // State legislative (optional enhancement)
+  // ===========================================================================
+  // SLOT 1: FEDERAL_SENATE (State-wide for US Senate representation)
+  // ===========================================================================
+  STATE_PROVINCE = 'state_province',
+
+  // ===========================================================================
+  // SLOT 2: STATE_SENATE (State upper chamber)
+  // ===========================================================================
   STATE_LEGISLATIVE_UPPER = 'state_legislative_upper',
+
+  // ===========================================================================
+  // SLOT 3: STATE_HOUSE (State lower chamber / Assembly)
+  // ===========================================================================
   STATE_LEGISLATIVE_LOWER = 'state_legislative_lower',
 
-  // Coarsest grain
-  STATE_PROVINCE = 'state_province',
-  COUNTRY = 'country',
+  // ===========================================================================
+  // SLOT 4: COUNTY (County-level governance)
+  // ===========================================================================
+  COUNTY = 'county',
+  COUNTY_SUBDIVISION = 'county_subdivision',  // Townships, boroughs in some states
+  SUPERVISOR_DISTRICT = 'supervisor_district', // County supervisor districts
 
-  // Special districts
-  VOTING_DISTRICT = 'voting_district',
+  // ===========================================================================
+  // SLOT 5: CITY (Municipal governance - city limits)
+  // ===========================================================================
+  CITY_LIMITS = 'city_limits',
+  CDP = 'cdp',                               // Census Designated Places (unincorporated)
+  TOWNSHIP = 'township',                     // Civil townships (New England, Midwest)
+  BOROUGH = 'borough',                       // Borough (PA, AK, NJ)
+  VILLAGE = 'village',                       // Village (various states)
+
+  // ===========================================================================
+  // SLOT 6: CITY_COUNCIL (City council / ward districts)
+  // ===========================================================================
+  CITY_COUNCIL_DISTRICT = 'city_council_district',
+  CITY_COUNCIL_WARD = 'city_council_ward',
+  ALDERMANIC_DISTRICT = 'aldermanic_district', // Aldermanic wards (Chicago-style)
+
+  // ===========================================================================
+  // SLOT 7: SCHOOL_UNIFIED (Unified school districts - K-12)
+  // ===========================================================================
   SCHOOL_DISTRICT_UNIFIED = 'school_district_unified',
+
+  // ===========================================================================
+  // SLOT 8: SCHOOL_ELEMENTARY (Elementary school districts)
+  // ===========================================================================
   SCHOOL_DISTRICT_ELEMENTARY = 'school_district_elementary',
+
+  // ===========================================================================
+  // SLOT 9: SCHOOL_SECONDARY (Secondary / High school districts)
+  // ===========================================================================
   SCHOOL_DISTRICT_SECONDARY = 'school_district_secondary',
 
-  // Special Districts - Public Safety (often elected)
-  FIRE_DISTRICT = 'fire_district',
+  // ===========================================================================
+  // SLOT 10: SCHOOL_BOARD (School board trustee areas)
+  // ===========================================================================
+  SCHOOL_BOARD_DISTRICT = 'school_board_district',
 
-  // Special Districts - Cultural/Educational (often elected)
+  // ===========================================================================
+  // SLOT 11: VOTING_PRECINCT (Electoral precincts / polling places)
+  // ===========================================================================
+  VOTING_DISTRICT = 'voting_district',
+  VOTING_PRECINCT = 'voting_precinct',
+  ELECTION_DISTRICT = 'election_district',
+
+  // ===========================================================================
+  // SLOT 12: FIRE_EMS (Fire protection and emergency services)
+  // ===========================================================================
+  FIRE_DISTRICT = 'fire_district',
+  EMERGENCY_SERVICES_DISTRICT = 'emergency_services_district',
+  EMS_DISTRICT = 'ems_district',
+
+  // ===========================================================================
+  // SLOT 13: WATER (Water and sewer districts)
+  // ===========================================================================
+  WATER_DISTRICT = 'water_district',
+  SEWER_DISTRICT = 'sewer_district',
+  SANITATION_DISTRICT = 'sanitation_district',
+  IRRIGATION_DISTRICT = 'irrigation_district',
+  FLOOD_CONTROL_DISTRICT = 'flood_control_district',
+  DRAINAGE_DISTRICT = 'drainage_district',
+
+  // ===========================================================================
+  // SLOT 14: UTILITY (General utility districts)
+  // ===========================================================================
+  UTILITY_DISTRICT = 'utility_district',
+  PUBLIC_UTILITY_DISTRICT = 'public_utility_district',
+  POWER_DISTRICT = 'power_district',
+  ELECTRIC_DISTRICT = 'electric_district',
+  GAS_DISTRICT = 'gas_district',
+
+  // ===========================================================================
+  // SLOT 15: TRANSIT (Public transportation districts)
+  // ===========================================================================
+  TRANSIT_DISTRICT = 'transit_district',
+  TRANSPORTATION_DISTRICT = 'transportation_district',
+  METRO_TRANSIT_DISTRICT = 'metro_transit_district',
+  PORT_DISTRICT = 'port_district',
+  AIRPORT_DISTRICT = 'airport_district',
+
+  // ===========================================================================
+  // SLOT 16: LIBRARY (Library districts - often elected boards)
+  // ===========================================================================
   LIBRARY_DISTRICT = 'library_district',
 
-  // Special Districts - Healthcare (sometimes elected)
+  // ===========================================================================
+  // SLOT 17: HOSPITAL (Hospital / Healthcare districts)
+  // ===========================================================================
   HOSPITAL_DISTRICT = 'hospital_district',
+  HEALTHCARE_DISTRICT = 'healthcare_district',
+  AMBULANCE_DISTRICT = 'ambulance_district',
 
-  // Special Districts - Utilities (usually appointed, lower priority)
-  WATER_DISTRICT = 'water_district',
-  UTILITY_DISTRICT = 'utility_district',
+  // ===========================================================================
+  // SLOT 18: PARK_REC (Parks and recreation districts)
+  // ===========================================================================
+  PARK_DISTRICT = 'park_district',
+  RECREATION_DISTRICT = 'recreation_district',
+  OPEN_SPACE_DISTRICT = 'open_space_district',
 
-  // Special Districts - Transportation (usually appointed)
-  TRANSIT_DISTRICT = 'transit_district',
+  // ===========================================================================
+  // SLOT 19: JUDICIAL (Judicial districts / court jurisdictions)
+  // ===========================================================================
+  JUDICIAL_DISTRICT = 'judicial_district',
+  COURT_DISTRICT = 'court_district',
+  JUSTICE_COURT_DISTRICT = 'justice_court_district',
+  SUPERIOR_COURT_DISTRICT = 'superior_court_district',
 
-  // Tribal and Indigenous Governance (sovereign representation)
+  // ===========================================================================
+  // SLOT 20: CONSERVATION (Conservation / soil / environmental districts)
+  // ===========================================================================
+  CONSERVATION_DISTRICT = 'conservation_district',
+  SOIL_CONSERVATION_DISTRICT = 'soil_conservation_district',
+  RESOURCE_CONSERVATION_DISTRICT = 'resource_conservation_district',
+  WATERSHED_DISTRICT = 'watershed_district',
+  GROUNDWATER_DISTRICT = 'groundwater_district',
+
+  // ===========================================================================
+  // SLOT 21: TRIBAL (Tribal and indigenous governance)
+  // ===========================================================================
   TRIBAL_AREA = 'tribal_area',                    // AIANNH - American Indian/Alaska Native/Native Hawaiian Areas
   ALASKA_NATIVE_CORP = 'alaska_native_corp',      // ANRC - Alaska Native Regional Corporations
+  TRIBAL_SUBDIVISION = 'tribal_subdivision',      // Tribal subdivisions
+  TRIBAL_BLOCK_GROUP = 'tribal_block_group',      // TBG - Tribal Block Groups
+  TRIBAL_TRACT = 'tribal_tract',                  // TTRACT - Tribal Census Tracts
 
-  // Metropolitan and Urban Planning (regional coordination)
+  // ===========================================================================
+  // SLOT 22: OVERFLOW_1 (Rare/miscellaneous special districts - Group A)
+  // ===========================================================================
+  CEMETERY_DISTRICT = 'cemetery_district',
+  MOSQUITO_DISTRICT = 'mosquito_district',
+  PEST_CONTROL_DISTRICT = 'pest_control_district',
+  WEED_DISTRICT = 'weed_district',
+  LIGHTING_DISTRICT = 'lighting_district',
+  STREET_DISTRICT = 'street_district',
+  ROAD_DISTRICT = 'road_district',
+  COMMUNITY_SERVICES_DISTRICT = 'community_services_district',
+  IMPROVEMENT_DISTRICT = 'improvement_district',
+
+  // ===========================================================================
+  // SLOT 23: OVERFLOW_2 (Rare/miscellaneous special districts - Group B)
+  // ===========================================================================
+  ASSESSMENT_DISTRICT = 'assessment_district',
+  BUSINESS_IMPROVEMENT_DISTRICT = 'business_improvement_district',
+  TAX_INCREMENT_DISTRICT = 'tax_increment_district',
+  REDEVELOPMENT_DISTRICT = 'redevelopment_district',
+  HOUSING_AUTHORITY_DISTRICT = 'housing_authority_district',
+  LEVEE_DISTRICT = 'levee_district',
+  RECLAMATION_DISTRICT = 'reclamation_district',
+
+  // ===========================================================================
+  // REFERENCE LAYERS (Not mapped to circuit slots - for analysis only)
+  // These do NOT have elected governance and are used for geographic reference
+  // ===========================================================================
   METRO_AREA = 'metro_area',                      // CBSA/CSA - Core Based Statistical Areas
   METRO_DIVISION = 'metro_division',              // METDIV - Metropolitan Divisions
   URBAN_AREA = 'urban_area',                      // UAC - Urban Areas
   NECTA = 'necta',                                // New England City and Town Areas
   NECTA_DIVISION = 'necta_division',              // NECTA Divisions
-
-  // Reference and Analysis Layers
   ZIP_CODE_AREA = 'zip_code_area',                // ZCTA - ZIP Code Tabulation Areas
   CENSUS_TRACT = 'census_tract',                  // TRACT - Census Tracts
   BLOCK_GROUP = 'block_group',                    // BG - Block Groups
   PUMA = 'puma',                                  // Public Use Microdata Areas
-
-  // Tribal Census Infrastructure (demographic analysis)
-  TRIBAL_BLOCK_GROUP = 'tribal_block_group',      // TBG - Tribal Block Groups
-  TRIBAL_TRACT = 'tribal_tract',                  // TTRACT - Tribal Census Tracts
-
-  // Minor Civil Divisions (New England governance)
   SUBMINOR_CIVIL_DIVISION = 'subminor_civil_division',  // SUBMCD - Subminor Civil Divisions
-
-  // Estates (US Virgin Islands only)
   ESTATE = 'estate',                              // ESTATE - Estates in USVI
+  COUNTRY = 'country',                            // National boundary (top level)
 }
 
 /**
@@ -127,71 +246,169 @@ export enum BoundaryType {
  * 3. Fall back to city limits or CDP
  * 4. Fall back to county (guaranteed)
  * 5. Congressional district available in parallel (federal representation)
+ *
+ * NOTE: All boundary types must be included here for TypeScript to be satisfied.
+ * The precision rank is used for resolution priority, NOT circuit slot mapping.
+ * Use `boundaryTypeToSlot()` from authority-mapper.ts for circuit slot mapping.
  */
 export const PRECISION_RANK: Record<BoundaryType, number> = {
-  // Tier 0: Finest civic representation
+  // ===========================================================================
+  // Tier 0: Finest civic representation (sub-municipal)
+  // ===========================================================================
   [BoundaryType.CITY_COUNCIL_DISTRICT]: 0,
-  [BoundaryType.CITY_COUNCIL_WARD]: 1,
+  [BoundaryType.CITY_COUNCIL_WARD]: 0.1,
+  [BoundaryType.ALDERMANIC_DISTRICT]: 0.2,
+  [BoundaryType.SCHOOL_BOARD_DISTRICT]: 0.3,
 
-  // Tier 1: Incorporated/unincorporated place boundaries
-  [BoundaryType.CITY_LIMITS]: 2,
-  [BoundaryType.CDP]: 3,
+  // ===========================================================================
+  // Tier 1: Municipal boundaries
+  // ===========================================================================
+  [BoundaryType.CITY_LIMITS]: 1,
+  [BoundaryType.CDP]: 1.1,
+  [BoundaryType.TOWNSHIP]: 1.2,
+  [BoundaryType.BOROUGH]: 1.3,
+  [BoundaryType.VILLAGE]: 1.4,
 
-  // Tier 1.5: Special districts (between CDP and COUNTY)
-  // School districts (highest priority special districts - elected)
-  [BoundaryType.SCHOOL_DISTRICT_UNIFIED]: 3.5,
-  [BoundaryType.SCHOOL_DISTRICT_ELEMENTARY]: 3.6,
-  [BoundaryType.SCHOOL_DISTRICT_SECONDARY]: 3.7,
+  // ===========================================================================
+  // Tier 2: School districts (highest priority special districts - elected)
+  // ===========================================================================
+  [BoundaryType.SCHOOL_DISTRICT_UNIFIED]: 2,
+  [BoundaryType.SCHOOL_DISTRICT_ELEMENTARY]: 2.1,
+  [BoundaryType.SCHOOL_DISTRICT_SECONDARY]: 2.2,
 
-  // Special Districts - Public Safety/Cultural (often elected)
-  [BoundaryType.FIRE_DISTRICT]: 3.8,
-  [BoundaryType.LIBRARY_DISTRICT]: 3.9,
-  [BoundaryType.HOSPITAL_DISTRICT]: 4.0,
+  // ===========================================================================
+  // Tier 3: Special Districts - Public Safety (often elected)
+  // ===========================================================================
+  [BoundaryType.FIRE_DISTRICT]: 3,
+  [BoundaryType.EMERGENCY_SERVICES_DISTRICT]: 3.1,
+  [BoundaryType.EMS_DISTRICT]: 3.2,
 
-  // Special Districts - Utilities/Infrastructure (usually appointed)
-  [BoundaryType.WATER_DISTRICT]: 4.1,
-  [BoundaryType.UTILITY_DISTRICT]: 4.2,
-  [BoundaryType.TRANSIT_DISTRICT]: 4.3,
+  // ===========================================================================
+  // Tier 4: Special Districts - Cultural/Healthcare (often elected)
+  // ===========================================================================
+  [BoundaryType.LIBRARY_DISTRICT]: 4,
+  [BoundaryType.HOSPITAL_DISTRICT]: 4.1,
+  [BoundaryType.HEALTHCARE_DISTRICT]: 4.2,
+  [BoundaryType.AMBULANCE_DISTRICT]: 4.3,
+  [BoundaryType.PARK_DISTRICT]: 4.4,
+  [BoundaryType.RECREATION_DISTRICT]: 4.5,
+  [BoundaryType.OPEN_SPACE_DISTRICT]: 4.6,
 
-  // Voting districts (electoral infrastructure)
-  [BoundaryType.VOTING_DISTRICT]: 4.4,
+  // ===========================================================================
+  // Tier 5: Special Districts - Utilities/Infrastructure
+  // ===========================================================================
+  [BoundaryType.WATER_DISTRICT]: 5,
+  [BoundaryType.SEWER_DISTRICT]: 5.1,
+  [BoundaryType.SANITATION_DISTRICT]: 5.2,
+  [BoundaryType.IRRIGATION_DISTRICT]: 5.3,
+  [BoundaryType.FLOOD_CONTROL_DISTRICT]: 5.4,
+  [BoundaryType.DRAINAGE_DISTRICT]: 5.5,
+  [BoundaryType.UTILITY_DISTRICT]: 5.6,
+  [BoundaryType.PUBLIC_UTILITY_DISTRICT]: 5.7,
+  [BoundaryType.POWER_DISTRICT]: 5.8,
+  [BoundaryType.ELECTRIC_DISTRICT]: 5.9,
+  [BoundaryType.GAS_DISTRICT]: 5.95,
+  [BoundaryType.TRANSIT_DISTRICT]: 5.96,
+  [BoundaryType.TRANSPORTATION_DISTRICT]: 5.97,
+  [BoundaryType.METRO_TRANSIT_DISTRICT]: 5.98,
+  [BoundaryType.PORT_DISTRICT]: 5.99,
+  [BoundaryType.AIRPORT_DISTRICT]: 5.995,
 
-  [BoundaryType.COUNTY_SUBDIVISION]: 4.5,
-  [BoundaryType.SUBMINOR_CIVIL_DIVISION]: 4.6,
+  // ===========================================================================
+  // Tier 6: Electoral infrastructure
+  // ===========================================================================
+  [BoundaryType.VOTING_DISTRICT]: 6,
+  [BoundaryType.VOTING_PRECINCT]: 6.1,
+  [BoundaryType.ELECTION_DISTRICT]: 6.2,
 
-  // Tier 2: County (universal US fallback)
-  [BoundaryType.COUNTY]: 5,
+  // ===========================================================================
+  // Tier 7: County subdivisions
+  // ===========================================================================
+  [BoundaryType.COUNTY_SUBDIVISION]: 7,
+  [BoundaryType.SUPERVISOR_DISTRICT]: 7.1,
+  [BoundaryType.SUBMINOR_CIVIL_DIVISION]: 7.2,
 
-  // Tier 2.5: Tribal and Indigenous Governance (sovereign nations)
-  [BoundaryType.TRIBAL_AREA]: 5.5,
-  [BoundaryType.ALASKA_NATIVE_CORP]: 5.6,
-  [BoundaryType.ESTATE]: 5.7,  // USVI estates (county-equivalent)
+  // ===========================================================================
+  // Tier 8: County (universal US fallback)
+  // ===========================================================================
+  [BoundaryType.COUNTY]: 8,
 
-  // Federal/State representation (parallel track, not fallback)
-  [BoundaryType.CONGRESSIONAL_DISTRICT]: 6,
-  [BoundaryType.STATE_LEGISLATIVE_UPPER]: 7,
-  [BoundaryType.STATE_LEGISLATIVE_LOWER]: 8,
+  // ===========================================================================
+  // Tier 9: Judicial / Conservation districts
+  // ===========================================================================
+  [BoundaryType.JUDICIAL_DISTRICT]: 9,
+  [BoundaryType.COURT_DISTRICT]: 9.1,
+  [BoundaryType.JUSTICE_COURT_DISTRICT]: 9.2,
+  [BoundaryType.SUPERIOR_COURT_DISTRICT]: 9.3,
+  [BoundaryType.CONSERVATION_DISTRICT]: 9.4,
+  [BoundaryType.SOIL_CONSERVATION_DISTRICT]: 9.5,
+  [BoundaryType.RESOURCE_CONSERVATION_DISTRICT]: 9.6,
+  [BoundaryType.WATERSHED_DISTRICT]: 9.7,
+  [BoundaryType.GROUNDWATER_DISTRICT]: 9.8,
 
-  // Tier 3: Metropolitan and Regional Planning
-  [BoundaryType.METRO_DIVISION]: 8.5,  // Finer than metro area
-  [BoundaryType.METRO_AREA]: 9,
-  [BoundaryType.NECTA_DIVISION]: 9.3,
-  [BoundaryType.NECTA]: 9.5,
-  [BoundaryType.URBAN_AREA]: 9.7,
+  // ===========================================================================
+  // Tier 10: Tribal and Indigenous Governance (sovereign nations)
+  // ===========================================================================
+  [BoundaryType.TRIBAL_AREA]: 10,
+  [BoundaryType.ALASKA_NATIVE_CORP]: 10.1,
+  [BoundaryType.TRIBAL_SUBDIVISION]: 10.2,
+  [BoundaryType.ESTATE]: 10.3,  // USVI estates (county-equivalent)
 
-  // Tier 4: State/Province
-  [BoundaryType.STATE_PROVINCE]: 10,
+  // ===========================================================================
+  // Tier 11: Federal/State representation (parallel track, not fallback)
+  // ===========================================================================
+  [BoundaryType.CONGRESSIONAL_DISTRICT]: 11,
+  [BoundaryType.STATE_LEGISLATIVE_UPPER]: 11.1,
+  [BoundaryType.STATE_LEGISLATIVE_LOWER]: 11.2,
 
-  // Tier 5: Reference and Analysis Layers (demographic, not civic)
-  [BoundaryType.PUMA]: 11,            // Public Use Microdata Areas
-  [BoundaryType.ZIP_CODE_AREA]: 12,   // ZIP codes (mail delivery)
-  [BoundaryType.CENSUS_TRACT]: 13,    // Demographic analysis
-  [BoundaryType.TRIBAL_TRACT]: 13.5,  // Tribal census tracts
-  [BoundaryType.BLOCK_GROUP]: 14,     // Fine demographic unit
-  [BoundaryType.TRIBAL_BLOCK_GROUP]: 14.5,  // Tribal block groups
+  // ===========================================================================
+  // Tier 12: Overflow / Miscellaneous special districts
+  // ===========================================================================
+  [BoundaryType.CEMETERY_DISTRICT]: 12,
+  [BoundaryType.MOSQUITO_DISTRICT]: 12.1,
+  [BoundaryType.PEST_CONTROL_DISTRICT]: 12.2,
+  [BoundaryType.WEED_DISTRICT]: 12.3,
+  [BoundaryType.LIGHTING_DISTRICT]: 12.4,
+  [BoundaryType.STREET_DISTRICT]: 12.5,
+  [BoundaryType.ROAD_DISTRICT]: 12.6,
+  [BoundaryType.COMMUNITY_SERVICES_DISTRICT]: 12.7,
+  [BoundaryType.IMPROVEMENT_DISTRICT]: 12.8,
+  [BoundaryType.ASSESSMENT_DISTRICT]: 12.9,
+  [BoundaryType.BUSINESS_IMPROVEMENT_DISTRICT]: 12.95,
+  [BoundaryType.TAX_INCREMENT_DISTRICT]: 12.96,
+  [BoundaryType.REDEVELOPMENT_DISTRICT]: 12.97,
+  [BoundaryType.HOUSING_AUTHORITY_DISTRICT]: 12.98,
+  [BoundaryType.LEVEE_DISTRICT]: 12.99,
+  [BoundaryType.RECLAMATION_DISTRICT]: 12.995,
 
-  // Tier 6: Country (coarsest)
-  [BoundaryType.COUNTRY]: 15,
+  // ===========================================================================
+  // Tier 13: Metropolitan and Regional Planning
+  // ===========================================================================
+  [BoundaryType.METRO_DIVISION]: 13,
+  [BoundaryType.METRO_AREA]: 13.1,
+  [BoundaryType.NECTA_DIVISION]: 13.2,
+  [BoundaryType.NECTA]: 13.3,
+  [BoundaryType.URBAN_AREA]: 13.4,
+
+  // ===========================================================================
+  // Tier 14: State/Province
+  // ===========================================================================
+  [BoundaryType.STATE_PROVINCE]: 14,
+
+  // ===========================================================================
+  // Tier 15: Reference and Analysis Layers (demographic, not civic)
+  // ===========================================================================
+  [BoundaryType.PUMA]: 15,
+  [BoundaryType.ZIP_CODE_AREA]: 15.1,
+  [BoundaryType.CENSUS_TRACT]: 15.2,
+  [BoundaryType.TRIBAL_TRACT]: 15.3,
+  [BoundaryType.BLOCK_GROUP]: 15.4,
+  [BoundaryType.TRIBAL_BLOCK_GROUP]: 15.5,
+
+  // ===========================================================================
+  // Tier 16: Country (coarsest)
+  // ===========================================================================
+  [BoundaryType.COUNTRY]: 16,
 };
 
 /**

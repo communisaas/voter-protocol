@@ -210,9 +210,54 @@ kubectl get events -n shadow-atlas-production --sort-by='.lastTimestamp'
 - **Scraping**: Configured via pod annotations
 - **Dashboards**: Grafana (optional)
 
+## Operations & Incident Response
+
+### Production Operations
+
+For **24/7 production support**, **on-call procedures**, and **incident response**, see the comprehensive operations suite:
+
+- **[docs/operations/README.md](../docs/operations/README.md)** - Main operations guide
+- **[docs/operations/on-call-guide.md](../docs/operations/on-call-guide.md)** - On-call engineer handbook
+- **[docs/operations/README.md](../docs/operations/README.md)** - Complete runbook catalog
+
+### Operational Scripts
+
+Quick health checks and diagnostics:
+
+```bash
+# Daily health check (5 minutes)
+docs/operations/ops-scripts/health-check.sh
+
+# Comprehensive diagnostics for incidents
+docs/operations/ops-scripts/metrics-snapshot.sh
+
+# Test all external providers
+docs/operations/ops-scripts/provider-health-check.sh
+
+# Emergency backup before risky operations
+docs/operations/ops-scripts/emergency-backup.sh
+
+# Rollback to previous snapshot
+docs/operations/ops-scripts/rollback.sh
+```
+
+### Incident Response Runbooks
+
+For production incidents, consult:
+
+- **[docs/operations/runbooks/incident-response.md](../docs/operations/runbooks/incident-response.md)** - Master incident response
+- **[docs/operations/runbooks/common-incidents/data-corruption.md](../docs/operations/runbooks/common-incidents/data-corruption.md)** - Database/Merkle corruption (P0)
+- **[docs/operations/runbooks/common-incidents/high-latency.md](../docs/operations/runbooks/common-incidents/high-latency.md)** - Performance issues (P1)
+- **[docs/operations/runbooks/common-incidents/upstream-failure.md](../docs/operations/runbooks/common-incidents/upstream-failure.md)** - Provider outages (P1)
+- **[docs/operations/runbooks/common-incidents/ipfs-unavailable.md](../docs/operations/runbooks/common-incidents/ipfs-unavailable.md)** - IPFS/Storacha issues (P1)
+
+### Maintenance Procedures
+
+- **[docs/operations/runbooks/maintenance/quarterly-update.md](../docs/operations/runbooks/maintenance/quarterly-update.md)** - Quarterly data refresh procedure (12-24 hours)
+
 ## Troubleshooting
 
-### Common Issues
+### Common Deployment Issues
 
 **Pod CrashLoopBackOff**:
 ```bash
@@ -241,6 +286,10 @@ kubectl set env deployment/shadow-atlas \
 kubectl rollout restart deployment/shadow-atlas \
   -n shadow-atlas-production
 ```
+
+### Production Incidents
+
+For production incidents (data corruption, high latency, provider outages), see the **Operations & Incident Response** section above.
 
 ## Resources
 

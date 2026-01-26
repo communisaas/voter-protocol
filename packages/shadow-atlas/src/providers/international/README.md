@@ -478,21 +478,17 @@ All UN member states + autonomous regions.
 - ✅ Comprehensive interfaces for all data structures
 - ✅ Type guards for runtime validation
 
-**See `/CLAUDE.md` for complete TypeScript standards.**
-
 ## Resources
 
 - **[GLOBAL_SCALING_SPEC.md](./GLOBAL_SCALING_SPEC.md)**: Complete expansion roadmap with data sources
 - **[base-provider.ts](./base-provider.ts)**: Abstract base class and interfaces
 - **[international-providers.ts](../registry/international-providers.ts)**: Provider registry
-- **[CLAUDE.md](/CLAUDE.md)**: Project standards and type safety requirements
 
 ## Contact
 
 For questions about international provider architecture:
 - See `GLOBAL_SCALING_SPEC.md` for expansion roadmap
 - Review existing providers (UK, Canada, Australia) for implementation patterns
-- Follow TypeScript standards in `/CLAUDE.md` for type safety
 
 ---
 

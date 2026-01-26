@@ -517,3 +517,485 @@ export const EXPECTED_COVERAGE = {
   tier4: { cities: 5000, expectedDistrictCoverage: 0.50 },
   tier5: { cities: 19495, expectedDistrictCoverage: 0.40 },
 };
+
+// ============================================================================
+// Programmatic Hub Discovery (Prong 2 Strategy)
+// ============================================================================
+
+/**
+ * Hub API v3 dataset response
+ */
+interface HubDataset {
+  readonly id: string;
+  readonly attributes: {
+    readonly name: string;
+    readonly url: string | null;
+    readonly slug: string;
+    readonly owner: string;
+    readonly orgId: string | null;
+    readonly type: string;
+    readonly source: string | null;
+    readonly extent: { readonly coordinates: readonly number[][] } | null;
+    readonly recordCount: number | null;
+    readonly created: number | null;
+    readonly modified: number | null;
+    readonly tags: readonly string[] | null;
+  };
+}
+
+interface HubApiResponse {
+  readonly data: readonly HubDataset[];
+  readonly meta?: {
+    readonly total?: number;
+    readonly next?: string;
+  };
+}
+
+/**
+ * Type guard for Hub API response
+ */
+function isHubApiResponse(data: unknown): data is HubApiResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'data' in data &&
+    Array.isArray((data as HubApiResponse).data)
+  );
+}
+
+/**
+ * Discovered dataset from Hub API
+ */
+export interface HubDiscoveredDataset {
+  readonly id: string;
+  readonly name: string;
+  readonly url: string;
+  readonly owner: string;
+  readonly orgId: string | null;
+  readonly recordCount: number | null;
+  readonly extent: { readonly coordinates: readonly number[][] } | null;
+  readonly matchedTerm: string;
+  readonly confidence: number;
+}
+
+/**
+ * Hub discovery result
+ */
+export interface HubDiscoveryResult {
+  readonly searchTerms: readonly string[];
+  readonly totalFound: number;
+  readonly datasets: readonly HubDiscoveredDataset[];
+  readonly discoveredAt: string;
+}
+
+/**
+ * Programmatic Hub Discovery
+ *
+ * Searches ArcGIS Hub API for council district datasets across all organizations.
+ * Unlike city-specific searches, this finds datasets that may cover multiple cities.
+ *
+ * STRATEGY:
+ * 1. Query Hub API with multiple search terms
+ * 2. Filter to Feature Services in US
+ * 3. Score datasets by name matching and record count
+ * 4. Deduplicate by dataset ID
+ *
+ * @param existingFips - Set of FIPS already in registry (to avoid duplicates)
+ * @param maxResults - Maximum datasets to return (default: 500)
+ * @returns Hub discovery result
+ */
+export async function discoverFromHub(
+  existingFips?: Set<string>,
+  maxResults: number = 500
+): Promise<HubDiscoveryResult> {
+  const hubApiUrl = 'https://hub.arcgis.com/api/v3/datasets';
+
+  const searchTerms = [
+    'council districts',
+    'city council districts',
+    'ward boundaries',
+    'aldermanic districts',
+    'councilmanic districts',
+    'commission districts',
+    'municipal wards',
+  ];
+
+  const allDatasets: Map<string, HubDiscoveredDataset> = new Map();
+
+  for (const term of searchTerms) {
+    try {
+      const params = new URLSearchParams({
+        q: term,
+        'filter[type]': 'Feature Service',
+        'page[size]': '100',
+        sort: '-modified',
+      });
+
+      const response = await fetch(`${hubApiUrl}?${params.toString()}`, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'VOTER-Protocol/1.0 (Hub Discovery)',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data: unknown = await response.json();
+
+      if (!isHubApiResponse(data)) {
+        continue;
+      }
+
+      // Process datasets
+      for (const dataset of data.data) {
+        // Skip if already found
+        if (allDatasets.has(dataset.id)) {
+          continue;
+        }
+
+        // Skip if no URL
+        if (!dataset.attributes.url) {
+          continue;
+        }
+
+        // Filter for US datasets (rough extent check)
+        const extent = dataset.attributes.extent;
+        if (extent) {
+          const coords = extent.coordinates;
+          if (coords && coords.length > 0) {
+            // Check if roughly in US bounds (-130 to -60 longitude, 20 to 55 latitude)
+            const firstCoord = coords[0];
+            if (firstCoord && firstCoord.length >= 2) {
+              const lon = firstCoord[0];
+              const lat = firstCoord[1];
+              if (lon !== undefined && lat !== undefined) {
+                if (lon < -130 || lon > -60 || lat < 20 || lat > 55) {
+                  continue; // Outside US bounds
+                }
+              }
+            }
+          }
+        }
+
+        // Calculate confidence based on name matching
+        const nameLower = dataset.attributes.name.toLowerCase();
+        let confidence = 60; // Base confidence
+
+        if (nameLower.includes('council district')) confidence += 25;
+        if (nameLower.includes('city council')) confidence += 20;
+        if (nameLower.includes('ward')) confidence += 15;
+        if (nameLower.includes('boundary') || nameLower.includes('boundaries')) confidence += 10;
+
+        // Negative signals
+        if (nameLower.includes('school')) confidence -= 30;
+        if (nameLower.includes('police')) confidence -= 25;
+        if (nameLower.includes('fire')) confidence -= 25;
+        if (nameLower.includes('utility')) confidence -= 20;
+        if (nameLower.includes('water')) confidence -= 15;
+        if (nameLower.includes('sewer')) confidence -= 15;
+
+        // Skip low confidence
+        if (confidence < 50) {
+          continue;
+        }
+
+        allDatasets.set(dataset.id, {
+          id: dataset.id,
+          name: dataset.attributes.name,
+          url: dataset.attributes.url,
+          owner: dataset.attributes.owner,
+          orgId: dataset.attributes.orgId,
+          recordCount: dataset.attributes.recordCount,
+          extent: dataset.attributes.extent,
+          matchedTerm: term,
+          confidence: Math.min(100, confidence),
+        });
+      }
+    } catch (error) {
+      // Continue to next search term on error
+    }
+
+    // Small delay between searches to be respectful
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  // Sort by confidence and take top results
+  const sortedDatasets = Array.from(allDatasets.values())
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, maxResults);
+
+  return {
+    searchTerms,
+    totalFound: sortedDatasets.length,
+    datasets: sortedDatasets,
+    discoveredAt: new Date().toISOString(),
+  };
+}
+
+// ============================================================================
+// Regional Aggregator Extraction (Prong 1 Strategy)
+// ============================================================================
+
+import type {
+  RegionalAggregator,
+  AggregatorExtractionResult,
+  ExtractedCity,
+  ExtractionFailure,
+} from '../core/registry/regional-aggregators.js';
+import { getAggregatorById, buildCityDownloadUrl } from '../core/registry/regional-aggregators.js';
+
+/**
+ * ArcGIS query response for feature enumeration
+ */
+interface ArcGISQueryResponse {
+  readonly features?: readonly ArcGISFeature[];
+  readonly exceededTransferLimit?: boolean;
+}
+
+interface ArcGISFeature {
+  readonly attributes: Record<string, unknown>;
+  readonly geometry?: unknown;
+}
+
+/**
+ * Type guard for ArcGIS query response
+ */
+function isArcGISQueryResponse(data: unknown): data is ArcGISQueryResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    ('features' in data || 'exceededTransferLimit' in data)
+  );
+}
+
+/**
+ * Extract cities from a regional aggregator
+ *
+ * Queries a multi-city layer, enumerates unique municipalities,
+ * and generates per-city download URLs.
+ *
+ * STRATEGY:
+ * 1. Query aggregator for all features (or paginate if exceeds limit)
+ * 2. Group features by city field
+ * 3. Count districts per city
+ * 4. Generate download URLs with WHERE clauses
+ * 5. Cross-reference with existing registry
+ *
+ * @param aggregatorId - Aggregator ID from registry
+ * @param existingFips - Set of FIPS already in registry (optional)
+ * @returns Extraction result with cities and failures
+ */
+export async function extractFromAggregator(
+  aggregatorId: string,
+  existingFips?: Set<string>
+): Promise<AggregatorExtractionResult> {
+  const aggregator = getAggregatorById(aggregatorId);
+
+  if (!aggregator) {
+    throw new Error(`Aggregator not found: ${aggregatorId}`);
+  }
+
+  const cities: ExtractedCity[] = [];
+  const failures: ExtractionFailure[] = [];
+  let totalFeatures = 0;
+
+  try {
+    // Query aggregator for all features
+    const features = await queryAggregatorFeatures(aggregator);
+    totalFeatures = features.length;
+
+    // Group by city
+    const cityGroups = groupFeaturesByCity(features, aggregator);
+
+    // Process each city
+    for (const [cityName, cityFeatures] of cityGroups) {
+      try {
+        // Skip if city name is empty or invalid
+        if (!cityName || cityName.trim() === '') {
+          failures.push({
+            cityName: '(empty)',
+            reason: 'Empty city name in source data',
+          });
+          continue;
+        }
+
+        // Count districts
+        const districtCount = countUniqueDistricts(cityFeatures, aggregator);
+
+        // Skip if only 1 district (likely at-large or data issue)
+        if (districtCount <= 1) {
+          failures.push({
+            cityName,
+            reason: `Only ${districtCount} district(s) - likely at-large or data issue`,
+          });
+          continue;
+        }
+
+        // Generate download URL
+        const downloadUrl = buildCityDownloadUrl(aggregator, cityName);
+
+        // Determine state (from aggregator config)
+        const state = aggregator.states[0] ?? 'Unknown';
+
+        cities.push({
+          cityName: cityName.trim(),
+          state,
+          fips: null, // Will be resolved later via FIPS lookup
+          districtCount,
+          downloadUrl,
+          confidence: aggregator.confidence,
+        });
+      } catch (error) {
+        failures.push({
+          cityName,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  } catch (error) {
+    throw new Error(
+      `Failed to extract from aggregator ${aggregatorId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+
+  return {
+    aggregatorId,
+    cities,
+    failures,
+    totalFeatures,
+    extractedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Query all features from an aggregator endpoint
+ */
+async function queryAggregatorFeatures(
+  aggregator: RegionalAggregator
+): Promise<readonly ArcGISFeature[]> {
+  const allFeatures: ArcGISFeature[] = [];
+  let offset = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  // Build base URL (ensure it's a query endpoint)
+  let baseUrl = aggregator.endpointUrl;
+  if (!baseUrl.includes('/query')) {
+    baseUrl = baseUrl.replace(/\/$/, '') + '/query';
+  }
+
+  while (hasMore) {
+    const params = new URLSearchParams({
+      where: '1=1',
+      outFields: [aggregator.cityField, aggregator.districtField].join(','),
+      returnGeometry: 'false',
+      resultOffset: String(offset),
+      resultRecordCount: String(pageSize),
+      f: 'json',
+    });
+
+    const response = await fetch(`${baseUrl}?${params.toString()}`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'VOTER-Protocol/1.0 (Aggregator Extraction)',
+      },
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data: unknown = await response.json();
+
+    if (!isArcGISQueryResponse(data)) {
+      throw new Error('Invalid ArcGIS response structure');
+    }
+
+    if (data.features) {
+      allFeatures.push(...data.features);
+    }
+
+    // Check if we need to paginate
+    if (data.exceededTransferLimit || (data.features && data.features.length === pageSize)) {
+      offset += pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allFeatures;
+}
+
+/**
+ * Group features by city name
+ */
+function groupFeaturesByCity(
+  features: readonly ArcGISFeature[],
+  aggregator: RegionalAggregator
+): Map<string, ArcGISFeature[]> {
+  const groups = new Map<string, ArcGISFeature[]>();
+
+  // Try primary field first, then aliases
+  const fieldsToTry = [
+    aggregator.cityField,
+    ...(aggregator.cityFieldAliases ?? []),
+  ];
+
+  for (const feature of features) {
+    let cityName: string | null = null;
+
+    // Find the first field that has a value
+    for (const field of fieldsToTry) {
+      const value = feature.attributes[field];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        cityName = String(value).trim();
+        break;
+      }
+    }
+
+    if (!cityName) {
+      continue;
+    }
+
+    if (!groups.has(cityName)) {
+      groups.set(cityName, []);
+    }
+    groups.get(cityName)!.push(feature);
+  }
+
+  return groups;
+}
+
+/**
+ * Count unique districts in a city's features
+ */
+function countUniqueDistricts(
+  features: readonly ArcGISFeature[],
+  aggregator: RegionalAggregator
+): number {
+  const districtIds = new Set<string>();
+
+  // Try primary field first, then aliases
+  const fieldsToTry = [
+    aggregator.districtField,
+    ...(aggregator.districtFieldAliases ?? []),
+  ];
+
+  for (const feature of features) {
+    for (const field of fieldsToTry) {
+      const value = feature.attributes[field];
+      if (value !== undefined && value !== null) {
+        districtIds.add(String(value).trim());
+        break;
+      }
+    }
+  }
+
+  return districtIds.size;
+}

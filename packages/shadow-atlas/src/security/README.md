@@ -469,5 +469,5 @@ MIT License - See LICENSE file for details
 
 - **[SECURITY_AUDIT.md](../SECURITY_AUDIT.md)** - Complete security audit report
 - **[ARCHITECTURE_ACTUAL.md](../ARCHITECTURE_ACTUAL.md)** - Shadow Atlas architecture
-- **[TECHNICAL.md](/TECHNICAL.md)** - VOTER Protocol technical documentation
+- **[ARCHITECTURE.md](/ARCHITECTURE.md)** - VOTER Protocol technical documentation
 - **[SECURITY.md](/SECURITY.md)** - VOTER Protocol security model

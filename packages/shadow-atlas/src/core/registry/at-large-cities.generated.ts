@@ -14,12 +14,15 @@
  */
 
 export interface AtLargeCity {
+  readonly cityFips?: string;
   readonly cityName: string;
   readonly state: string;
   readonly councilSize: number;
-  readonly electionMethod: 'at-large' | 'proportional';
+  readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
   readonly source: string;
   readonly notes?: string;
+  readonly discoveredBy?: string;
+  readonly lastVerified?: string;
 }
 
 export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {

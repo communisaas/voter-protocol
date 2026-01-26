@@ -302,3 +302,25 @@ export type {
   RedistrictingGapWarning,
   ValidationResult,
 } from './validators.js';
+
+// ============================================================================
+// Circuit Slot Mapping Types (HYBRID 24-SLOT Architecture)
+// ============================================================================
+
+export {
+  // Constants
+  CIRCUIT_SLOT_NAMES,
+  CIRCUIT_SLOT_COUNT,
+  NO_CIRCUIT_SLOT,
+  // Types
+  type CircuitSlotIndex,
+  type CircuitSlotName,
+  type CircuitSlotMetadata,
+  // Functions
+  boundaryTypeToSlot,
+  getSlotName,
+  getSlotIndex,
+  hasCircuitSlot,
+  getBoundaryTypesForSlot,
+  getAllCircuitSlotMetadata,
+} from '../utils/authority-mapper.js';

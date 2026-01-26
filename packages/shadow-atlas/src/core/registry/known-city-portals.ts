@@ -95,6 +95,88 @@ export const KNOWN_CITY_PORTALS: Readonly<Record<string, KnownCityPortal>> = {
         cityName: 'San Jose',
         arcgis: 'geo.sanjoseca.gov/server',
     },
+    // =========================================================================
+    // Ohio Cities (verified 2026-01-23)
+    // =========================================================================
+    '3918000': {  // Columbus, OH (FIPS 39-18000)
+        cityName: 'Columbus',
+        arcgis: 'opendata.columbus.gov',
+        datasetId: 'Council_Districts', // services1.arcgis.com/vdNDkVykv9vEWFX4
+    },
+    '3916000': {  // Cleveland, OH (FIPS 39-16000)
+        cityName: 'Cleveland',
+        arcgis: 'opendatacle-clevelandgis.hub.arcgis.com',
+        datasetId: 'Cleveland_Wards_1_2_25_Topocleaned_pop20', // services3.arcgis.com/dty2kHktVXHrqO8i
+    },
+    '3977000': {  // Toledo, OH (FIPS 39-77000)
+        cityName: 'Toledo',
+        arcgis: 'data.toledo.gov',
+        // Council Districts at gis.toledo.oh.gov/arcgis/rest/services/DistrictsZipsTEI_MapService/MapServer/1
+    },
+    '3915000': {  // Cincinnati, OH (FIPS 39-15000)
+        cityName: 'Cincinnati',
+        arcgis: 'data-cagisportal.opendata.arcgis.com',
+        // Note: Cincinnati city council is AT-LARGE (no district boundaries)
+        // Community Councils are neighborhood orgs, not government districts
+    },
+    // =========================================================================
+    // Washington State Cities (verified 2026-01-23)
+    // =========================================================================
+    // Note: Seattle already defined above (5363000)
+    '5370000': {  // Tacoma, WA (FIPS 53-70000)
+        cityName: 'Tacoma',
+        arcgis: 'data.tacoma.gov',
+        datasetId: 'City_Council_Districts', // services3.arcgis.com/SCwJH1pD8WSn5T5y
+        // 5 districts, field: dist_id
+    },
+    '5357535': {  // Spokane, WA (FIPS 53-57535)
+        cityName: 'Spokane',
+        arcgis: 'data-spokane.opendata.arcgis.com',
+        // 3 districts
+    },
+    '5322640': {  // Everett, WA (FIPS 53-22640)
+        cityName: 'Everett',
+        arcgis: 'data.everettwa.gov',
+        // MapServer at gismaps.everettwa.gov/manarcgis/rest/services/Boundaries/Boundaries/MapServer/7
+        // 5 districts + possible at-large
+    },
+    // AT-LARGE (no district boundaries):
+    // - Bellevue (5305210): At-large council
+    // - Kent (5335415): At-large with 7 numbered positions
+    // - Federal Way (5323515): At-large with 7 positions
+    // - Renton (5357745): Investigating - likely at-large
+
+    // =========================================================================
+    // Oregon State Cities (verified 2026-01-23)
+    // =========================================================================
+    '4159000': {  // Portland, OR (FIPS 41-59000)
+        cityName: 'Portland',
+        arcgis: 'gis-pdx.opendata.arcgis.com',
+        // MapServer at portlandmaps.com/arcgis/rest/services/Public/Auditor_ElectionsMap/MapServer/12
+        // 4 districts (new 2024 charter), 3 councilors per district
+    },
+    '4123850': {  // Eugene, OR (FIPS 41-23850)
+        cityName: 'Eugene',
+        arcgis: 'gis-eugene-pwe.opendata.arcgis.com',
+        // MapServer at gis.eugene-or.gov/arcgis/rest/services/PWE/Boundaries/MapServer/1
+        // 8 wards
+    },
+    '4164900': {  // Salem, OR (FIPS 41-64900)
+        cityName: 'Salem',
+        arcgis: 'data.cityofsalem.net',
+        datasetId: '0f6dd26ba1ae49f5bedec30dcba0b1e8', // ArcGIS item ID
+        // 8 wards
+    },
+    '4134100': {  // Hillsboro, OR (FIPS 41-34100)
+        cityName: 'Hillsboro',
+        arcgis: 'hbgis.hillsboro-oregon.gov',
+        // MapServer at gis.hillsboro-oregon.gov/public/rest/services/public/Council_Wards/MapServer/0
+        // 3 wards
+    },
+    // AT-LARGE (no district boundaries):
+    // - Gresham (4131250): At-large with 7 numbered positions
+    // - Beaverton (4105350): At-large with 6 councilors
+    // - Bend (4105800): Investigating - likely at-large
 } as const;
 
 /**

@@ -5,6 +5,7 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "module",
+    "bin": "./bin/shadow-atlas.ts",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
         "test": "vitest",
@@ -53,7 +54,11 @@
         "registry:generate": "tsx scripts/generate-registries-from-ndjson.ts",
         "registry:roundtrip": "npm run registry:extract && npm run registry:generate",
         "registry:verify": "tsx scripts/verify-registry-roundtrip.ts",
-        "registry:ci-check": "tsx scripts/ci-check-generated-files.ts"
+        "registry:ci-check": "tsx scripts/ci-check-generated-files.ts",
+        "discover:hub": "tsx src/scripts/wave-discovery.ts hub",
+        "discover:aggregator": "tsx src/scripts/wave-discovery.ts aggregator",
+        "discover:aggregators": "tsx src/scripts/wave-discovery.ts aggregators",
+        "discover:gaps": "tsx src/scripts/wave-discovery.ts gaps"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",
@@ -62,12 +67,14 @@
         "@turf/helpers": "^7.2.0",
         "@turf/turf": "^7.2.0",
         "better-sqlite3": "^11.10.0",
+        "commander": "^12.1.0",
         "dotenv": "^16.4.7",
         "jszip": "^3.10.1",
         "multiformats": "^13.4.2",
         "pako": "^2.1.0",
         "pdf-parse": "^1.1.4",
         "shapefile": "^0.6.6",
+        "yaml": "^2.6.1",
         "zod": "^3.24.1"
     },
     "peerDependencies": {

@@ -23,10 +23,10 @@ RUN_BENCHMARKS=true npm run test:performance
 RUN_BENCHMARKS=true node --expose-gc node_modules/.bin/vitest run --config vitest.performance.config.ts
 
 # Run specific performance test category
-npm run test:atlas:performance -- --grep="Load Testing"
-npm run test:atlas:performance -- --grep="Latency"
-npm run test:atlas:performance -- --grep="Memory"
-npm run test:atlas:performance -- --grep="Throughput"
+npm run test:performance -- --grep="Load Testing"
+npm run test:performance -- --grep="Latency"
+npm run test:performance -- --grep="Memory"
+npm run test:performance -- --grep="Throughput"
 ```
 
 ### Performance Baselines
@@ -121,14 +121,14 @@ Performance tests use production-scale datasets:
 ```bash
 node --expose-gc --max-old-space-size=4096 \
   node_modules/vitest/vitest.mjs run \
-  --config vitest.shadow-atlas.config.ts \
+  --config vitest.performance.config.ts \
   __tests__/performance/memory-profiling.test.ts
 ```
 
 **CPU profiling:**
 ```bash
 node --prof node_modules/vitest/vitest.mjs run \
-  --config vitest.shadow-atlas.config.ts \
+  --config vitest.performance.config.ts \
   __tests__/performance/latency-benchmarks.test.ts
 ```
 

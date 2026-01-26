@@ -356,9 +356,9 @@ const atlas = await createProductionService();
 
 ### Production Operations
 
-- **[docs/OPERATIONAL-RUNBOOKS.md](docs/OPERATIONAL-RUNBOOKS.md)** - 7 production recovery runbooks
-- **[docs/QUARTERLY-AUTOMATION.md](docs/QUARTERLY-AUTOMATION.md)** - GitHub Actions workflow
-- **[docs/FAILURE-RESOLUTION-PLAYBOOK.md](docs/FAILURE-RESOLUTION-PLAYBOOK.md)** - Discovery failure patterns
+- **[docs/operations/README.md](../../../docs/operations/README.md)** - Operations guide and runbook index
+- **[docs/operations/on-call-guide.md](../../../docs/operations/on-call-guide.md)** - On-call engineer handbook
+- **[docs/operations/runbooks/](../../../docs/operations/runbooks/)** - Incident response and maintenance procedures
 
 ### Validation & Testing
 
