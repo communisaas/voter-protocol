@@ -2,10 +2,13 @@
 #
 # Build District Membership Circuits - Multi-Depth Compilation
 #
-# Compiles the district_membership Noir circuit at 3 different Merkle depths:
-# - DEPTH=14: Municipal (city council, ~16K leaves)
+# Compiles the district_membership Noir circuit at 4 different Merkle depths:
+# - DEPTH=18: Municipal (city council, ~262K leaves)
 # - DEPTH=20: State (congressional districts, ~1M leaves)
 # - DEPTH=22: Federal (national boundaries, ~4M leaves)
+# - DEPTH=24: Large-scale (mega-regions, ~16M leaves)
+#
+# NOTE: Only even depths in range 18-24 are supported for production use.
 #
 # PROCESS:
 # 1. Backup original main.nr
@@ -37,7 +40,7 @@ CIRCUIT_DIR="noir/district_membership"
 CIRCUIT_SRC="${CIRCUIT_DIR}/src/main.nr"
 CIRCUIT_BACKUP="${CIRCUIT_DIR}/src/main.nr.bak"
 TARGET_DIR="${CIRCUIT_DIR}/target"
-DEPTHS=(14 20 22)
+DEPTHS=(18 20 22 24)
 
 # Logging functions
 log_info() {
