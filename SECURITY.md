@@ -1,6 +1,13 @@
 # Security: Living Threat Model & Response Protocol
 
-**This document evolves with the threat landscape. Last updated: 2025-10-20**
+**This document evolves with the threat landscape. Last updated: 2026-01-23**
+
+## Recent Updates
+
+- **January 2026**: Documentation restructured with comprehensive architecture docs added to `/docs/`
+- **Phase 1 Implementation**: Core cryptographic infrastructure complete (Noir circuits, browser proving, Shadow Atlas)
+- **Trail of Bits Audit**: Scheduled Q1 2026 for Merkle circuit implementation (see line 162)
+- **Content Moderation**: 3-layer stack operational with cost-benefit validation
 
 **Phase 1 Focus**: Privacy is enforced by cryptography, not promises. Identity never leaves the device; offices receive verified signal without surveillance; reputation records, not identity, land on‑chain. Phase 2 adds economic mechanisms and is clearly marked.
 
@@ -12,7 +19,7 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 
 ### Critical Assets
 
-**Phase 1 Assets** (launching in 3 months):
+**Phase 1 Assets** (active implementation):
 1. **Identity linkage** - Connect wallet addresses to real-world identities (doxxing vector)
 2. **Message plaintext** - Read congressional communications (surveillance)
 3. **Reputation manipulation** - Farm credibility scores fraudulently
@@ -756,7 +763,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 - External: security@voter-protocol.org (PGP key: `0x7F3A...`)
 - Public: Twitter @VOTERProtocol + status.voter-protocol.org
 
-**Runbooks:**
+**Runbooks** (planned for Phase 1 launch):
 - Smart contract exploit: `/runbooks/contract-freeze.md`
 - Privacy breach: `/runbooks/identity-exposure.md`
 - Browser WASM compromise: `/runbooks/client-security-incident.md`
@@ -766,7 +773,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 ## Security Roadmap
 
-### Phase 1 Launch (Q4 2025 - Q1 2026)
+### Phase 1 Launch (Active - Q1 2026)
 
 **Critical Path (Must complete before mainnet launch):**
 - [ ] Noir circuit formal verification (Trail of Bits audit for Merkle membership circuit)
@@ -871,6 +878,6 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 -----
 
-**This document lives and breathes. Threat landscape changes daily. Security team reviews quarterly. Last review: 2025-10-20.**
+**This document lives and breathes. Threat landscape changes daily. Security team reviews quarterly. Last review: 2026-01-23.**
 
 **Questions? Concerns? Paranoia?** security@voter-protocol.org

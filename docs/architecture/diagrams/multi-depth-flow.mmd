@@ -1,0 +1,37 @@
+%%{init: {'theme':'dark', 'themeVariables': { 'primaryTextColor':'#fff'}}}%%
+sequenceDiagram
+    autonumber
+    participant User
+    participant Client as Client (Browser)
+    participant ShadowAtlas as Shadow Atlas
+    participant NoirProver as Noir Prover WASM
+    participant DistrictGate as DistrictGateV2
+    participant DistrictReg as DistrictRegistry
+    participant VerifierReg as VerifierRegistry
+    participant Verifier20 as UltraPlonkVerifier_Depth20
+    participant NullifierReg as NullifierRegistry
+
+    Note over User,NoirProver: Phase 1: Proof Generation (Client-Side)
+    User->>Client: Enter address
+    Client->>ShadowAtlas: Geocode to district
+    ShadowAtlas-->>Client: {districtId, country: "USA", depth: 20}
+    Client->>ShadowAtlas: Load tree for TX-21 (depth 20)
+    ShadowAtlas-->>Client: Tree + Merkle path
+    Client->>NoirProver: Generate proof (depth 20 circuit)
+    Note over NoirProver: 10-18s on mobile<br/>merkle_path: [Field; 20]
+    NoirProver-->>Client: Proof + public inputs
+
+    Note over User,NullifierReg: Phase 2: On-Chain Verification
+    Client->>DistrictGate: verifyAndAuthorizeWithSignature(proof, districtRoot, ...)
+    DistrictGate->>DistrictReg: getCountryAndDepth(districtRoot)
+    DistrictReg-->>DistrictGate: ("USA", 20)
+    DistrictGate->>VerifierReg: getVerifier(20)
+    VerifierReg-->>DistrictGate: 0xVerifier20 address
+    DistrictGate->>Verifier20: verifyProof(proof, publicInputs[5])
+    Note over Verifier20: 350-380k gas<br/>UltraPlonk verification<br/>K=18 circuit
+    Verifier20-->>DistrictGate: ✅ Valid
+    DistrictGate->>NullifierReg: recordNullifier(actionId, nullifier, root)
+    NullifierReg-->>DistrictGate: Recorded
+    DistrictGate-->>Client: ActionVerified event
+
+    Note over User,NullifierReg: Total: 10-20s proving + <5s on-chain<br/>Cost: $0.003-0.005 on Scroll L2

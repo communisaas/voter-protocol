@@ -81,7 +81,7 @@ The critical path is **blockaded** at the ZK proving layer: **Noir circuit exist
   - `merkle_root`, `nullifier`, `authority_hash`, `epoch_id`, `campaign_id`
   - `leaf`, `merkle_path` (DEPTH array), `leaf_index`, `user_secret`
 - **Circuit Logic:** Merkle proof verification + nullifier computation
-- **Circuit Size:** K=14 per TECHNICAL.md
+- **Circuit Size:** K=14 per ARCHITECTURE.md
 - **Constraint Count:** ~14 Poseidon hashes per proof
 
 **Current Implementation:**
@@ -289,7 +289,7 @@ async proveDistrict(params: { address: string }): Promise<DistrictProof> {
 
 ### Type Safety Issues
 
-**CLAUDE.md Requirement:** Nuclear-level strictness. Zero tolerance for `any`, `@ts-ignore`, etc.
+**TypeScript Requirement:** Nuclear-level strictness. Zero tolerance for `any`, `@ts-ignore`, etc.
 
 **Found Issues:**
 - `@ts-ignore` in client account code (minimal)
@@ -345,7 +345,7 @@ User enters: "123 Main St, Springfield, IL 62701"
 
 ### Token Economics - ZERO IMPLEMENTATION
 
-**Documented in TECHNICAL.md (1000+ lines)**  
+**Documented in ARCHITECTURE.md (1000+ lines)**  
 **Implementation Status:**
 
 | Feature | Files | Status |
@@ -359,18 +359,18 @@ User enters: "123 Main St, Springfield, IL 62701"
 | ReputationAgent | None | ❌ Documented only |
 | VerificationAgent | None | ❌ Documented only |
 
-**Reason:** TECHNICAL.md explicitly states (line 1010-1017):
+**Reason:** ARCHITECTURE.md explicitly states (line 1010-1017):
 
 > Phase 1 focuses on cryptographic infrastructure and reputation-only system. Token economics (VOTER token, challenge markets, outcome markets, treasury agents) launch 12-18 months post-Phase 1 after proving civic utility and establishing legal/regulatory compliance.
 
-**Recommendation:** Remove Phase 2 economic details from TECHNICAL.md or clearly section them.
+**Recommendation:** Remove Phase 2 economic details from ARCHITECTURE.md or clearly section them.
 
 ---
 
 ## 9. AWS Nitro Enclave Integration (PHASE 1)
 
 ### Documentation
-`TECHNICAL.md` lines 524-715: Comprehensive design
+`ARCHITECTURE.md` lines 524-715: Comprehensive design
 
 ### Implementation Status
 ❌ NOT IMPLEMENTED (deferred from Phase 1)
@@ -429,7 +429,7 @@ packages/noir-prover: npm test
 ## 11. Documentation Inventory
 
 ### Complete & Accurate
-- ✅ TECHNICAL.md - Comprehensive (includes future Phase 2)
+- ✅ ARCHITECTURE.md - Comprehensive (includes future Phase 2)
 - ✅ ARCHITECTURE.md - System design (matches single-tier implementation)
 - ✅ contracts/README.md - Smart contract guide
 - ✅ SECURITY.md - Threat model (living document)
@@ -551,7 +551,7 @@ The VOTER Protocol codebase **demonstrates solid architectural maturity** with 3
 
 **Strengths:**
 - Smart contracts battle-tested (Forge tests comprehensive)
-- Type safety enforced (nuclear-level per CLAUDE.md)
+- Type safety enforced (nuclear-level strictness)
 - Security model explicit (TimelockGovernance with honest threat acknowledgment)
 - Documentation thorough (linked, canonical)
 

@@ -10,26 +10,26 @@
 
 ## What You'll Do (Phase 1)
 
-1. Create account with Face ID or fingerprint (30 seconds)
-2. Verify your identity via NFC passport scan (2 minutes)
+1. Create passkey with Face ID, fingerprint, or PIN (30 seconds)
+2. Verify your address via NFC passport scan or Government ID upload (2 minutes)
 3. Pick a template or write your own (1 minute)
 4. Add your personal story (30 seconds)
-5. Send to your representative (1-5s browser proof generation, instant delivery)
+5. Send to your representative (8-15s browser proof generation, instant delivery)
 6. Build reputation (earn credibility points, see your impact)
 
 Total time: 4 minutes. You'll build portable reputation that proves your civic expertise across platforms.
 
 -----
 
-## Step 1: Create Account (30 seconds)
+## Step 1: Create Passkey (30 seconds)
 
 Visit communique.app and tap "Get Started"
 
-- **Use Face ID or fingerprint** - That's it. No passwords, no "write this down on paper."
-- **Account is cryptographically secure** - Face ID controls wallet addresses on every blockchain
+- **Create a passkey with Face ID, fingerprint, or PIN** - That's it. No passwords, no "write this down on paper."
+- **Passkey controls your wallet** - This biometric/PIN securely manages your wallet addresses across all blockchains
 - **No setup complexity** - The crypto part happens invisibly in the background
 
-If your device doesn't have biometrics, you can use a PIN. The point: no friction, no crypto jargon.
+This passkey is for **wallet access only** - it's not identity verification. Your actual identity remains private. The next step verifies your address to prove district membership.
 
 -----
 
@@ -37,17 +37,21 @@ If your device doesn't have biometrics, you can use a PIN. The point: no frictio
 
 **Phase 1 requires address verification** - Your messages must cryptographically prove district membership to reach congressional offices through zero-knowledge proofs. Your address never leaves your browser.
 
-### Method 1: Passport NFC Scan (Recommended - 70% of users)
+**Choose one verification method:**
+
+### Method 1: NFC Passport Scan (Recommended - 70% of users)
 - Tap "Verify with [self.xyz](https://www.self.xyz)"
-- Hold phone near passport (NFC chip authentication)
-- Face ID liveness check confirms it's you
+- Hold phone near passport (NFC chip reads your address from passport data)
+- Biometric liveness check confirms it's you (using your device's Face ID/fingerprint/PIN)
 - Done - instant cryptographic verification
 
 ### Method 2: Government ID Upload (Alternative - 30% of users)
 - Tap "Verify with [Didit.me](https://www.didit.me)"
-- Upload government ID (driver's license, state ID)
-- Face ID liveness check confirms it's you
+- Upload government ID with address (driver's license, state ID)
+- Biometric liveness check confirms it's you (using your device's Face ID/fingerprint/PIN)
 - Verification completes in 1-2 minutes
+
+**Both methods extract your address to prove district membership - your full identity stays private.**
 
 **What verification gets you (Phase 1):**
 - Your message actually reaches congressional offices (unverified = filtered as spam)
@@ -60,7 +64,7 @@ If your device doesn't have biometrics, you can use a PIN. The point: no frictio
 - Challenge markets (economic stakes on verifiable claims)
 - Outcome markets (financially compete with lobbying)
 
-**Privacy guarantee:** Your passport/ID data never touches our servers. NFC authentication happens locally on your device. Congressional offices receive your message and verification proof—never your name, address, or ID details. Privacy protects your identity, not your voice.
+**Privacy guarantee:** Your passport/ID data never touches our servers. Address extraction and verification happen locally on your device. Congressional offices receive your message and a zero-knowledge proof of district membership—never your name, full address, or ID details. Privacy protects your identity, not your voice.
 
 -----
 
@@ -254,7 +258,7 @@ Tap "Send to My Representative"
 A: No. Same way you don't need to understand TCP/IP to use email. The crypto part is invisible.
 
 **Q: What if I lose my phone?**
-A: Use Face ID on your new phone. Account recovery uses your biometric, not seed phrases you can lose.
+A: Your passkey (Face ID/fingerprint/PIN) can be recovered on your new device using your platform's built-in recovery (iCloud Keychain, Google Password Manager). No seed phrases to lose. You may need to re-verify your address with NFC passport scan or Government ID upload.
 
 **Q: Can my employer find out I sent a message?**
 A: No. Zero-knowledge proofs mean your employer sees nothing. Even if they subpoena us, the database doesn't contain the mapping between your identity and your wallet. Nothing to give them.
@@ -265,8 +269,8 @@ A: **Phase 1**: Report it for human review (moderation team investigates). **Pha
 **Q: How do I know my message actually got delivered?**
 A: Cryptographic receipt with timestamp. If office uses our dashboard, you can see which staffer's queue it entered.
 
-**Q: Do I have to verify my identity?**
-A: **Phase 1**: Address verification only (zero-knowledge proof). Your browser proves you live in a congressional district without revealing your address—no identity verification required. **Phase 2**: Identity verification (self.xyz/Didit.me) adds Sybil resistance for token rewards. Verified users earn full token rewards; unverified users can still participate but with reduced economic benefits.
+**Q: Do I have to verify my address?**
+A: **Phase 1**: Yes, address verification is required (via NFC passport scan OR Government ID upload). Your browser generates a zero-knowledge proof proving you live in a congressional district without revealing your full address to anyone. This isn't full identity verification—it only confirms district membership for congressional delivery. **Phase 2**: The same address verification provides Sybil resistance for token rewards. Verified users earn full token rewards.
 
 **Q: What if I don't care about earning tokens?**
 A: **Phase 1**: You're building reputation that proves civic expertise. Staffers prioritize your messages over spam. Your impact gets tracked and verified. Phase 1 is about proving democracy can work better. **Phase 2**: When economic layer launches, your Phase 1 reputation converts to token reward multipliers. Early participants positioned for significant Phase 2 earnings. Privacy protection and congressional access matter regardless of economic incentives.
@@ -275,17 +279,17 @@ A: **Phase 1**: You're building reputation that proves civic expertise. Staffers
 A: Yes. **Phase 1**: Cryptographic privacy, reputation systems, and content moderation are legal frameworks used across tech. Identity verification via [self.xyz](https://www.self.xyz)/[Didit.me](https://www.didit.me) complies with KYC best practices. Section 230 CDA provides platform immunity with content moderation good faith efforts. **Phase 2**: [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) framework classifies utility tokens as digital commodities. Civic participation rewards are constitutionally protected speech. Outcome markets operate under existing prediction market regulatory frameworks.
 
 **Q: What's stopping spam?**
-A: **Phase 1**: Rate limits (10 messages/day per verified identity), [self.xyz](https://www.self.xyz)/[Didit.me](https://www.didit.me) Sybil resistance (one identity = one account), 3-layer content moderation (OpenAI + Gemini/Claude + human), reputation requirements (low-rep accounts flagged for review). **Phase 2**: Economic consequences through challenge markets (false claims lose stakes), reputation decay for low-quality participation.
+A: **Phase 1**: Rate limits (10 messages/day per verified address), [self.xyz](https://www.self.xyz)/[Didit.me](https://www.didit.me) Sybil resistance (one address = one account), 3-layer content moderation (OpenAI + Gemini/Claude + human), reputation requirements (low-rep accounts flagged for review). **Phase 2**: Economic consequences through challenge markets (false claims lose stakes), reputation decay for low-quality participation.
 
 -----
 
 ## Next Steps
 
-**Just start:** [communi.email](https://communi.email) → Create Account → Verify Identity → Pick Template → Send
+**Just start:** [communi.email](https://communi.email) → Create Passkey → Verify Address → Pick Template → Send
 
 **Go deeper:**
 - [README.md](README.md) - Why this exists and what changes
-- [TECHNICAL.md](TECHNICAL.md) - Cryptographic details (Noir/Barretenberg zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Noir/Barretenberg zero-knowledge proofs, browser-native proving, self.xyz, Scroll L2)
 - [CONGRESSIONAL.md](CONGRESSIONAL.md) - Congressional office integration and quality signals
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete technical architecture (Phase 1 + Phase 2 evolution)
 - [SECURITY.md](SECURITY.md) - Living threat model and incident response

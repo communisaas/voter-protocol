@@ -1,9 +1,26 @@
 # Shadow Atlas Technical Specification
 
-**Version:** 1.2.0
-**Date:** 2025-12-12
-**Status:** Aligned with Merkle Forest Architecture
+**Version:** 2.0.0
+**Date:** 2026-01-25
+**Status:** Cell-Based Architecture
+**Implementation Status:** Phase 1 (Architecture Defined)
 **Standards Compliance:** IEEE 1471-2000 (Architecture Description), RFC 8949 (CBOR), GeoJSON RFC 7946
+
+**Implementation Progress:**
+- ✅ Geocoding pipeline (Census API, Geocodio, Nominatim)
+- ✅ District resolution (Congressional, State Legislature, City Council)
+- ✅ 716 city portals discovered and cataloged
+- ✅ Data acquisition protocols and validation
+- ✅ Bulk discovery automation (wave-based extraction)
+- ⏳ Cell tree construction (types defined, full integration pending)
+- ⏳ IPFS storage layer (planned)
+- ❌ Global scaling (US-only implementation currently)
+
+**Architecture Model:** Cell-Based (Census Block Groups)
+- Single Merkle tree with ~242K cells (depth 18)
+- Each cell contains ALL 14 district mappings
+- Proof reveals all districts as public outputs
+- Anonymity set = Block Group population (600-3000 residents)
 
 ---
 
@@ -11,23 +28,40 @@
 
 ### 1.1 Purpose
 
-This specification defines the Shadow Atlas data structure, acquisition protocols, and interface contracts for address-to-district resolution in the VOTER Protocol zero-knowledge proof system.
+This specification defines the Shadow Atlas data structure, acquisition protocols, and interface contracts for establishing **verified geographic identity** in the VOTER Protocol zero-knowledge proof system.
+
+**Core Purpose: District-to-User Mapping**
+
+Shadow Atlas enables users to prove their geographic identity - the cryptographic association between a verified user and all the districts they belong to. The cell-based model uses Census Block Groups as the fundamental unit, with each cell containing all 14 district mappings for that geographic area.
+
+**What Shadow Atlas Provides:**
+- A user proves: "I am a verified resident of this geographic cell"
+- The proof reveals: All 14 districts the user belongs to (their "district profile")
+- This establishes: Verified district-to-user mapping
+
+**What Shadow Atlas Does NOT Do:**
+- Decide which representative to contact (downstream application concern)
+- Route messages or submissions (downstream application concern)
+- Determine what actions to take (downstream application concern)
+
+The proof creates a verified geographic identity. Applications like Communique then USE this proven identity for their specific purposes (e.g., routing civic messages to representatives).
 
 ### 1.2 Scope
 
 **IN SCOPE:**
-- Shadow Atlas Merkle tree data structure (Section 3)
-- Data acquisition protocols for US legislative districts (Section 4)
+- Shadow Atlas Cell Tree data structure (Section 3)
+- Data acquisition protocols for US Census Block Groups and districts (Section 4)
 - Geocoding service interfaces (Section 5)
-- District resolution algorithms (Section 6)
+- Cell resolution algorithms (Section 6)
 - Data validation and quality assurance (Section 7)
+- Privacy model and anonymity guarantees (Section 8)
 
 **OUT OF SCOPE:**
 - Zero-knowledge proof circuit implementation (see ZK-PROOF-SPEC-REVISED.md)
 - Smart contract verification logic (see ZK-PROOF-SPEC-REVISED.md)
-- Congressional message delivery (see TECHNICAL.md)
+- Congressional message delivery (see ARCHITECTURE.md)
 
-**Scope Boundary:** This specification covers individual tree construction within the Shadow Atlas Merkle Forest. For forest-level architecture (2M boundary coordination, epoch management, composite proofs), see MERKLE-FOREST-SPEC.md.
+**Scope Boundary:** This specification covers the single cell tree containing ~242K Census Block Group cells. Each cell contains all 14 district mappings, eliminating the need for per-district trees.
 
 ### 1.3 References
 
@@ -47,7 +81,11 @@ This specification defines the Shadow Atlas data structure, acquisition protocol
 - **[ZK-SPEC]** ZK-PROOF-SPEC-REVISED.md - Zero-knowledge proof implementation
 - **[GEO-ARCH]** GEOCODING-ARCHITECTURE.md - Provider-agnostic geocoding design
 - **[DATA-STRAT]** SHADOW-ATLAS-DATA-STRATEGY.md - Data acquisition strategy
-- **[FOREST-SPEC]** MERKLE-FOREST-SPEC.md - Multi-boundary Merkle Forest architecture
+- **[DISTRICT-TAX]** DISTRICT-TAXONOMY.md - Complete BoundaryType classifications and circuit slot mappings
+
+**Census Data Sources:**
+- **[TIGER-BG]** Census TIGER Block Group Relationship Files - Maps blocks to governance boundaries
+- **[CENSUS-BG]** Census Block Group Shapefiles - Geographic boundaries for ~242K block groups
 
 ---
 
@@ -61,24 +99,25 @@ This specification defines the Shadow Atlas data structure, acquisition protocol
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────────────┐      ┌───────────────────────────┐  │
-│  │ District         │──────│ Geocoding Service         │  │
+│  │ Cell             │──────│ Geocoding Service         │  │
 │  │ Resolver         │      │ (Provider Router)         │  │
 │  └──────────────────┘      └───────────────────────────┘  │
 │         │                            │                      │
 │         │                            ▼                      │
 │         │                   ┌─────────────────┐            │
-│         │                   │ Geocodio        │            │
-│         │                   │ (US/CA)         │            │
+│         │                   │ Census API      │            │
+│         │                   │ (Block Groups)  │            │
 │         │                   └─────────────────┘            │
 │         │                            │                      │
 │         │                            ▼                      │
 │         │                   ┌─────────────────┐            │
+│         │                   │ Geocodio/       │            │
 │         │                   │ Nominatim       │            │
-│         │                   │ (Global)        │            │
 │         │                   └─────────────────┘            │
 │         ▼                                                   │
 │  ┌──────────────────────────────────────────────────┐     │
-│  │ Shadow Atlas Merkle Tree                          │     │
+│  │ Shadow Atlas Cell Tree                            │     │
+│  │ (~242K cells, depth 18)                          │     │
 │  │ (IndexedDB/IPFS)                                 │     │
 │  └──────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
@@ -87,88 +126,154 @@ This specification defines the Shadow Atlas data structure, acquisition protocol
 ┌─────────────────────────────────────────────────────────────┐
 │ Data Sources                                                 │
 ├─────────────────────────────────────────────────────────────┤
+│  • Census TIGER Block Group Relationship Files              │
 │  • Census Bureau API (Congressional + State Legislature)    │
 │  • Municipal GIS Portals (City Council Districts)           │
-│  • Cicero API (Validation Fence)                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Data Flow
+### 2.2 Data Flow (Cell-Based Model)
 
 ```
-Address Input
+Address Input (PRIVATE)
     │
     ▼
 Geocoding Service (lat/lon)
     │
     ▼
-District Resolver (country-specific strategy)
-    │
-    ├─→ Tier 1: City Council GIS (point-in-polygon)
-    ├─→ Tier 2: Census API (direct lookup)
-    └─→ Tier 3: Cicero Fence (on-demand)
+Census Block Group Lookup (cell_id) ─── PRIVATE
     │
     ▼
-District ID
+Cell Data (contains ALL 14 districts)
     │
     ▼
-Shadow Atlas Merkle Proof
+Cell Tree Merkle Proof
     │
     ▼
 ZK Proof Generation (see [ZK-SPEC])
+    │
+    ▼
+VERIFIED GEOGRAPHIC IDENTITY (PUBLIC OUTPUTS):
+  • nullifier (sybil resistance for any application)
+  • 14 district hashes (user's complete "district profile")
 ```
+
+**Core Purpose:** The proof establishes the user's **verified geographic identity** - the cryptographic association between a verified user and all their districts. The address and cell ID remain hidden; the district profile is public.
+
+**Key Architectural Change:** Unlike the old model where users had separate proofs per district, the cell-based model produces a single proof that reveals all 14 district memberships simultaneously. This creates a complete district-to-user mapping in one proof.
 
 ---
 
 ## 3. Shadow Atlas Data Structure
 
-### 3.1 Merkle Tree Specification
+### 3.1 Cell Tree Specification
 
-**Structure:** Individual trees within the Shadow Atlas Merkle Forest.
-Each tree services one governance boundary. A single address belongs to 12-25 boundaries simultaneously (congressional district, state legislature, county, city council, school board, etc.).
+**Structure:** Single Merkle tree where each leaf represents a Census Block Group (cell).
+Each cell contains a BoundaryMap with all 14 district mappings for that geographic area.
 
 **Parameters:**
 - **Hash Function:** Poseidon hash (SNARK-friendly, BN254 field)
-- **Leaf Node:** `Poseidon(address_string)`
+- **Tree Depth:** 18 (supports up to 262,144 cells; ~242K US block groups)
+- **Leaf Node:** `Poseidon(cell_id, identity_commitment, boundary_commitment)`
 - **Internal Node:** `Poseidon(left_child_hash || right_child_hash)`
 
-**Depth Tiers** (selected by boundary classification):
-- **Tier 1 (Depth 14):** ~16,000 leaves (municipal councils, voting precincts)
-- **Tier 2 (Depth 20):** ~1,000,000 leaves (congressional, state legislature, counties)
-- **Tier 3 (Depth 22):** ~4,000,000 leaves (mega-states like CA/TX/FL, national boundaries)
+**Cell Structure:**
+```
+Cell {
+  cell_id: Field,                    // Census Block Group GEOID (12-digit FIPS)
+  identity_commitment: Field,        // User's identity commitment
+  boundary_commitment: Field         // H(all 14 district hashes)
+}
+```
+
+**BoundaryMap (14 district slots):**
+```
+BoundaryMap {
+  slot_0:  congressional_district,     // US House district
+  slot_1:  state_senate,               // State upper chamber
+  slot_2:  state_house,                // State lower chamber
+  slot_3:  county,                     // County
+  slot_4:  city,                       // Municipality
+  slot_5:  city_council,               // City council district
+  slot_6:  school_district,            // School district
+  slot_7:  school_board,               // School board zone
+  slot_8:  special_district_1,         // Water/utility district
+  slot_9:  special_district_2,         // Fire/transit district
+  slot_10: judicial_district,          // Court jurisdiction
+  slot_11: precinct,                   // Voting precinct
+  slot_12: reserved_1,                 // Future use
+  slot_13: reserved_2                  // Future use
+}
+```
+
+**NULL_HASH:** `Poseidon("NULL")` - Used for unpopulated district slots
+
+### 3.5 District Type Coverage
+
+Shadow Atlas tracks **50+ BoundaryType classifications** representing the full taxonomy of US local governments. These classifications are mapped to **24 circuit slots** for ZK proofs, allowing comprehensive district coverage within circuit constraints.
+
+**Census 2022 Local Government Data:**
+| Government Type | Count | Notes |
+|-----------------|-------|-------|
+| **Total Local Governments** | 90,837 | All sub-state entities |
+| Special District Governments | 39,555 | Single-purpose districts |
+| Independent School Districts | 12,546 | Fiscally independent |
+| Counties | 3,031 | Including equivalents (LA parishes, AK boroughs) |
+| Municipalities | 19,491 | Cities, towns, villages, boroughs |
+| Townships | 16,214 | Town/township governments |
+
+**BoundaryType to Circuit Slot Mapping:**
+
+The 50+ BoundaryType classifications (e.g., `us:fire-district`, `us:water-district`, `us:library-district`) are mapped to 24 circuit slots using category-based aggregation. For the complete mapping specification, see **[DISTRICT-TAXONOMY.md](./DISTRICT-TAXONOMY.md)**.
+
+**Key Mapping Categories:**
+- Slots 0-3: Federal/State (Congressional, State Senate, State House, County)
+- Slots 4-5: Municipal (City, City Council)
+- Slots 6-7: Education (School District, School Board)
+- Slots 8-15: Special Districts (Fire, Water, Transit, Library, Hospital, Utility, etc.)
+- Slots 16-19: Judicial/Electoral (Courts, Precincts, Wards)
+- Slots 20-23: Reserved/International
 
 **Rationale:**
-- Tree depth determined by governance boundary population, not fixed globally
-- Depth 14-22 range = 14-22 Poseidon hashes per proof (circuit depth scales with boundary size)
-- Balanced tree ensures O(log n) proof size
+- Single tree depth (18) = 18 Poseidon hashes per proof (constant circuit depth)
+- ~242K cells covers entire US at block group granularity
+- All districts resolved in one proof, not multiple per-district proofs
+- Anonymity set = block group population (typically 600-3000 residents)
 
-For forest-scale architecture managing ~2 million boundary trees, see MERKLE-FOREST-SPEC.md.
-
-### 3.2 Tree Construction Algorithm
+### 3.2 Cell Tree Construction Algorithm
 
 ```
-ALGORITHM: ConstructMerkleTree
-INPUT: addresses[] (sorted lexicographically), max_depth (14, 20, or 22)
+ALGORITHM: ConstructCellTree
+INPUT: cells[] (Census Block Groups with BoundaryMaps)
 OUTPUT: root_hash, tree_structure
 
-1. max_capacity := 2^max_depth
-   IF len(addresses) > max_capacity THEN
-     ERROR "District capacity exceeded for depth tier"
+1. TREE_DEPTH := 18
+   max_capacity := 2^TREE_DEPTH  # 262,144 cells
 
-2. leaves := []
-   FOR EACH address IN addresses DO
-     leaf_hash := Poseidon(address)
+   IF len(cells) > max_capacity THEN
+     ERROR "Cell count exceeds tree capacity"
+
+2. # Sort cells by cell_id (GEOID) for deterministic ordering
+   cells := SORT(cells, BY cell_id)
+
+3. # Build leaves from cells
+   leaves := []
+   FOR EACH cell IN cells DO
+     boundary_commitment := ComputeBoundaryCommitment(cell.boundary_map)
+     leaf_hash := Poseidon(cell.cell_id, cell.identity_commitment, boundary_commitment)
      leaves.APPEND(leaf_hash)
    END FOR
 
-3. WHILE len(leaves) < max_capacity DO
+4. # Pad to full tree capacity
+   WHILE len(leaves) < max_capacity DO
      leaves.APPEND(Poseidon("PADDING"))  # Deterministic padding
    END WHILE
 
-4. current_layer := leaves
+5. # Build tree layers
+   current_layer := leaves
    tree_structure := [current_layer]
 
-5. FOR level := 0 TO (max_depth - 1) DO
+6. FOR level := 0 TO (TREE_DEPTH - 1) DO
      next_layer := []
      FOR i := 0 TO len(current_layer)-1 STEP 2 DO
        left := current_layer[i]
@@ -180,30 +285,57 @@ OUTPUT: root_hash, tree_structure
      tree_structure.APPEND(current_layer)
    END FOR
 
-6. root_hash := current_layer[0]
-7. RETURN root_hash, tree_structure
-
-NOTE: For tier-specific depth values (14/20/22), see MERKLE-FOREST-SPEC.md Section 3.3.
+7. root_hash := current_layer[0]
+8. RETURN root_hash, tree_structure
 ```
 
-### 3.3 Proof Generation Algorithm
+**Boundary Commitment Algorithm:**
+```
+ALGORITHM: ComputeBoundaryCommitment
+INPUT: boundary_map (14 district slots)
+OUTPUT: commitment_hash
+
+1. NULL_HASH := Poseidon("NULL")
+
+2. # Collect all 14 district hashes (or NULL_HASH if empty)
+   district_hashes := []
+   FOR slot := 0 TO 13 DO
+     IF boundary_map[slot] != NULL THEN
+       district_hashes.APPEND(Poseidon(boundary_map[slot]))
+     ELSE
+       district_hashes.APPEND(NULL_HASH)
+     END IF
+   END FOR
+
+3. # Compute commitment as hash of all district hashes
+   commitment := Poseidon(district_hashes[0..13])
+4. RETURN commitment
+```
+
+### 3.3 Cell Proof Generation Algorithm
 
 ```
-ALGORITHM: GenerateMerkleProof
-INPUT: address, tree_structure, max_depth
-OUTPUT: proof_siblings[], proof_indices[]
+ALGORITHM: GenerateCellProof
+INPUT: cell_id, identity_commitment, boundary_map, tree_structure
+OUTPUT: proof_siblings[], proof_indices[], boundary_commitment
 
-1. leaf_hash := Poseidon(address)
-2. leaf_index := FIND_INDEX(tree_structure[0], leaf_hash)
+1. TREE_DEPTH := 18
 
-3. IF leaf_index == -1 THEN
-     ERROR "Address not in tree"
+2. # Compute leaf hash
+   boundary_commitment := ComputeBoundaryCommitment(boundary_map)
+   leaf_hash := Poseidon(cell_id, identity_commitment, boundary_commitment)
 
-4. proof_siblings := []
+3. # Find leaf index (cells sorted by cell_id)
+   leaf_index := BINARY_SEARCH(tree_structure[0], leaf_hash)
+
+4. IF leaf_index == -1 THEN
+     ERROR "Cell not in tree"
+
+5. proof_siblings := []
    proof_indices := []
    current_index := leaf_index
 
-5. FOR level := 0 TO (max_depth - 1) DO
+6. FOR level := 0 TO (TREE_DEPTH - 1) DO
      IF current_index % 2 == 0 THEN  # Left child
        sibling_index := current_index + 1
        proof_indices.APPEND(0)
@@ -217,41 +349,94 @@ OUTPUT: proof_siblings[], proof_indices[]
      current_index := current_index / 2
    END FOR
 
-6. RETURN proof_siblings, proof_indices
-
-NOTE: Tree depth varies by boundary tier. For forest-level composite proof
-generation across multiple boundaries, see MERKLE-FOREST-SPEC.md Section 4.
+7. RETURN proof_siblings, proof_indices, boundary_commitment
 ```
+
+**ZK Circuit Outputs (Verified Geographic Identity):**
+The ZK proof establishes the user's geographic identity and outputs:
+- `nullifier` - Sybil resistance (derived from identity + epoch) - one action per context
+- `district_hashes[14]` - The user's "district profile" - all 14 district memberships as PUBLIC outputs
+
+**What This Proves:**
+- The user is a verified resident of a geographic cell
+- The user belongs to all 14 revealed districts
+- The nullifier prevents the same user from proving twice in the same context
+
+**Private Inputs (hidden - preserves address privacy):**
+- `address` - User's physical address
+- `cell_id` - Census Block Group identifier
+- `identity_secret` - User's private key material
+- `merkle_path` - Proof siblings and indices
 
 ### 3.4 On-Chain Storage
 
 **Smart Contract State:**
 ```solidity
-// Shadow Atlas root registry (Phase 1: single-boundary verification)
-mapping(bytes32 => bool) public shadowAtlasRoots;  // district_hash => valid
-bytes32 public currentEpoch;  // Current Shadow Atlas version
+// Shadow Atlas Cell Tree registry
+bytes32 public cellTreeRoot;        // Single tree root for all ~242K cells
+uint256 public currentEpoch;        // Current Shadow Atlas version
+uint256 public lastUpdated;         // Timestamp of last root update
+
+// Nullifier tracking (prevents double-voting)
+mapping(bytes32 => bool) public usedNullifiers;
 ```
 
 **Root Update Protocol:**
 ```solidity
-function updateShadowAtlasRoot(
-    bytes32 districtHash,
+function updateCellTreeRoot(
     bytes32 newRoot,
+    uint256 newEpoch,
     bytes calldata governanceProof
 ) external onlyGovernance {
+    require(newEpoch > currentEpoch, "Epoch must increase");
     require(verifyGovernanceProof(governanceProof), "Invalid governance proof");
-    shadowAtlasRoots[districtHash] = newRoot;
-    emit ShadowAtlasUpdated(districtHash, newRoot, block.timestamp);
+
+    cellTreeRoot = newRoot;
+    currentEpoch = newEpoch;
+    lastUpdated = block.timestamp;
+
+    emit CellTreeUpdated(newRoot, newEpoch, block.timestamp);
 }
 ```
 
-**Note:** This pattern serves Phase 1 (single-boundary verification). For production Merkle Forest with ~2 million boundaries and epoch-based updates, see MERKLE-FOREST-SPEC.md Section 5 (ShadowAtlasRegistry contract specification).
+**Proof Verification (Establishes Geographic Identity):**
+```solidity
+function verifyGeographicIdentity(
+    bytes32 nullifier,
+    bytes32[14] calldata districtHashes,  // User's "district profile" - all 14 districts
+    bytes calldata zkProof
+) external returns (bool) {
+    require(!usedNullifiers[nullifier], "Nullifier already used - sybil attempt");
+    require(verifyZKProof(cellTreeRoot, nullifier, districtHashes, zkProof), "Invalid proof");
+
+    usedNullifiers[nullifier] = true;
+    emit GeographicIdentityVerified(nullifier, districtHashes);
+    return true;
+}
+```
+
+**What This Establishes:**
+- User has proven geographic identity (district-to-user mapping)
+- The 14 districtHashes are the user's verified "district profile"
+- Nullifier prevents duplicate claims in the same context
+- Applications can now use this proven identity for their purposes
 
 ---
 
 ## 4. Data Acquisition Protocol
 
-### 4.1 Three-Tier Strategy
+### 4.1 Cell-Based Data Strategy
+
+**Foundation: Census Block Groups (~242K cells)**
+- **Source:** Census TIGER/Line Block Group Relationship Files
+- **Format:** CSV relationship tables + Shapefiles
+- **Coverage:** 100% US (all ~242K block groups)
+- **Cost:** $0 (FREE public data)
+- **Update Frequency:** Annual (decennial census + ACS updates)
+- **Key Files:**
+  - `tl_YYYY_SS_bg.shp` - Block group boundaries
+  - `tl_YYYY_SS_tabblock.dbf` - Block-to-block-group relationships
+  - Congressional/Legislative district relationship files
 
 **Tier 1: City Council Districts (Municipal GIS)**
 - **Source:** Municipal open data portals
@@ -259,6 +444,7 @@ function updateShadowAtlasRoot(
 - **Coverage:** Top 50 US cities (50M population)
 - **Cost:** $0 (FREE downloads)
 - **Update Frequency:** Annual (post-redistricting)
+- **Purpose:** Populates `slot_5` (city_council) in BoundaryMap
 
 **Tier 2: Congressional + State Legislature (Census API)**
 - **Source:** US Census Bureau Geocoding API ([CENSUS-API])
@@ -266,15 +452,76 @@ function updateShadowAtlasRoot(
 - **Coverage:** 100% US addresses
 - **Cost:** $0 (FREE unlimited)
 - **Update Frequency:** Automatic (API maintained by Census Bureau)
+- **Purpose:** Populates `slots 0-3` (congressional, state_senate, state_house, county)
 
-**Tier 3: Cicero Validation Fence**
-- **Source:** Cicero API ([CICERO])
-- **Format:** JSON
-- **Coverage:** 100+ US cities (on-demand)
-- **Cost:** $0.03 per lookup (deferred, user-consent required)
-- **Update Frequency:** Monthly (coverage endpoint check)
+**Tier 3: Special Districts (State GIS + Census)**
+- **Source:** State GIS portals, Census TIGER special district files
+- **Format:** GeoJSON, Shapefiles
+- **Coverage:** Varies by state
+- **Cost:** $0 (FREE)
+- **Purpose:** Populates `slots 6-11` (school, special districts, judicial, precinct)
 
-### 4.2 Data Source Interface Contract
+### 4.2 Special District Acquisition
+
+Special districts represent the largest category of US local governments (39,555 per Census 2022). Shadow Atlas prioritizes acquisition by district type prevalence and civic impact.
+
+**Special District Counts (Nationwide Estimates):**
+| District Type | Estimated Count | Primary Data Source |
+|---------------|-----------------|---------------------|
+| School Districts | 12,546 | Census of Governments |
+| Library Districts | ~9,000 | IMLS Public Library Survey |
+| Fire Districts | ~5,600 | NFPA, State Fire Marshal offices |
+| Water Districts | 5,000+ | EPA, State environmental agencies |
+| Soil/Water Conservation | ~3,000 | NACD, USDA-NRCS |
+| Hospital Districts | ~700 | AHA, State health departments |
+| Transit Districts | ~500 | FTA National Transit Database |
+
+**Acquisition Priority:**
+1. **High Priority:** School districts (elected boards, tax authority)
+2. **Medium Priority:** Fire, water, library (direct constituent services)
+3. **Lower Priority:** Soil/water conservation, hospital, transit (less frequent elections)
+
+**Data Sources by District Type:**
+- **School Districts:** NCES School District Geographic Relationship Files (annual)
+- **Fire Districts:** State Fire Marshal boundary files, NFPA district registry
+- **Water Districts:** State water boards, EPA SDWIS database
+- **Library Districts:** State library agencies, IMLS outlet data
+- **Transit Districts:** FTA service area boundaries, MPO GIS portals
+
+For complete BoundaryType classifications and slot mappings, see **[DISTRICT-TAXONOMY.md](./DISTRICT-TAXONOMY.md)**.
+
+### 4.3 International Coverage
+
+Shadow Atlas is designed for global expansion beyond US local governments. The international governance landscape includes significantly more granular representation structures.
+
+**Supported International Jurisdictions:**
+
+| Region | Entity Type | Estimated Count | Status |
+|--------|-------------|-----------------|--------|
+| **EU Parliament** | MEP constituencies | 27 countries | Planned (Phase 4) |
+| **India** | Gram Panchayats (village councils) | 262,834 | Research phase |
+| **UK** | Parish/Town Councils | 10,000+ | Planned (Phase 3) |
+| **Canada** | Municipal wards | ~5,000 | Planned (Phase 2) |
+| **Australia** | Local Government Areas | 537 | Planned (Phase 5) |
+
+**Township Equivalents by Country:**
+- **France:** 34,945 communes
+- **Germany:** 10,787 Gemeinden
+- **Italy:** 7,904 comuni
+- **Spain:** 8,131 municipios
+
+**International Data Sources:**
+- **EU:** Eurostat NUTS regions, national electoral commissions
+- **India:** Ministry of Panchayati Raj, State Election Commissions
+- **UK:** ONS geography, Electoral Commission boundary data
+- **Canada:** Statistics Canada census subdivisions
+
+**BoundaryType Extensions for International:**
+International jurisdictions use the `intl:` namespace prefix (e.g., `intl:eu-parliament`, `intl:uk-parish`, `intl:in-gram-panchayat`). These map to reserved circuit slots 20-23.
+
+For complete international BoundaryType mappings, see **[DISTRICT-TAXONOMY.md](./DISTRICT-TAXONOMY.md)**.
+
+### 4.5 Data Source Interface Contract
 
 **Interface:** `DataSourceProvider`
 
@@ -354,7 +601,7 @@ export enum JurisdictionType {
 }
 ```
 
-### 4.3 Census Bureau API Integration
+### 4.6 Census Bureau API Integration
 
 **Endpoint:** `https://geocoding.geo.census.gov/geocoder/geographies/address`
 
@@ -418,7 +665,7 @@ enum CensusAPIError {
 
 **Implementation Reference:** See `packages/crypto/services/census-geocoder.ts` (TO BE IMPLEMENTED)
 
-### 4.4 Municipal GIS Data Collection Protocol
+### 4.7 Municipal GIS Data Collection Protocol
 
 **Collection Script:** `scripts/collect-city-council-gis.ts`
 
@@ -471,7 +718,7 @@ interface GISValidationRules {
 8. Commit with metadata: source URL, download date, authority
 ```
 
-**Note:** This data acquisition protocol covers individual boundary collection. For forest-scale data management (~2M boundaries across 9+ governance layers, bulk processing pipelines, IPFS distribution), see MERKLE-FOREST-SPEC.md Section 7.
+**Note:** This data acquisition protocol feeds into the cell tree construction pipeline. City council districts populate slot_5 in the BoundaryMap for cells within that municipality.
 
 ---
 
@@ -653,116 +900,43 @@ OUTPUT: GeocodingProvider
 
 ---
 
-## 6. District Resolution Algorithm
+## 6. Cell Resolution Algorithm
 
 ### 6.1 Main Resolution Flow
 
 ```
-ALGORITHM: ResolveDistrict
+ALGORITHM: ResolveCell
 INPUT: address (Address)
-OUTPUT: district (District), merkle_proof (MerkleProof)
+OUTPUT: cell_id, boundary_map (all 14 districts), merkle_proof
 
 1. # Step 1: Geocode address
    geocoding_service := GetGeocodingService()
    coords := geocoding_service.geocode(address)
 
-2. # Step 2: Select country-specific strategy
-   strategy := GetCountryStrategy(address.country)
-   IF strategy == NULL THEN
-     ERROR "Country not supported: " + address.country
+2. # Step 2: Resolve Census Block Group (cell)
+   cell_id := ResolveCensusBlockGroup(address, coords)
+   IF cell_id == NULL THEN
+     ERROR "Could not resolve block group for address"
    END IF
 
-3. # Step 3: Resolve districts (finest → fallback)
-   districts := strategy.resolveDistricts(address, coords)
-   IF len(districts) == 0 THEN
-     ERROR "No district found for address"
-   END IF
+3. # Step 3: Fetch all districts for this cell
+   boundary_map := FetchCellBoundaryMap(cell_id)
+   # boundary_map contains all 14 district slots
 
-4. # Step 4: Select finest available granularity
-   finest_district := districts[0]  # Sorted by granularity
+4. # Step 4: Fetch Cell Tree Merkle proof
+   merkle_proof := FetchCellTreeProof(cell_id)
 
-5. # Step 5: Fetch Shadow Atlas Merkle proof
-   merkle_proof := FetchMerkleProof(finest_district.id, address)
-
-6. RETURN finest_district, merkle_proof
+5. RETURN cell_id, boundary_map, merkle_proof
 ```
 
-### 6.2 US District Resolution Strategy
+### 6.2 Census Block Group Resolution
 
 ```
-ALGORITHM: USDistrictResolution
+ALGORITHM: ResolveCensusBlockGroup
 INPUT: address (Address), coords (Coordinates)
-OUTPUT: districts[] (sorted finest → fallback)
+OUTPUT: cell_id (12-digit FIPS GEOID)
 
-1. districts := []
-
-2. # Tier 1: City Council GIS (FREE, finest granularity)
-   city_council := ResolveCityCouncilGIS(address, coords)
-   IF city_council != NULL THEN
-     districts.APPEND(city_council)
-   END IF
-
-3. # Tier 2: Census API (FREE, 100% coverage)
-   census_districts := ResolveCensusAPI(address)
-   districts.APPEND(census_districts)  # Congressional, state senate, state house
-
-4. # Tier 3: Cicero Fence (on-demand, $0.03 per lookup)
-   IF city_council == NULL THEN  # Only if Tier 1 unavailable
-     cicero_coverage := CheckCiceroCoverage(address.city)
-     IF cicero_coverage.hasLocalCouncil THEN
-       user_consent := PromptUserConsent(cost=0.03)
-       IF user_consent THEN
-         city_council := ResolveCicero(address)
-         districts.PREPEND(city_council)  # Finest granularity
-       END IF
-     END IF
-   END IF
-
-5. RETURN districts  # Already sorted finest → fallback
-```
-
-### 6.3 City Council GIS Resolution
-
-```
-ALGORITHM: ResolveCityCouncilGIS
-INPUT: address (Address), coords (Coordinates)
-OUTPUT: district (District) OR NULL
-
-1. # Load cached GIS boundaries
-   city_slug := address.city.toLowerCase().replace(" ", "-")
-   boundaries := LoadCityCouncilBoundaries(city_slug)
-
-2. IF boundaries == NULL THEN
-     RETURN NULL  # No FREE GIS for this city
-   END IF
-
-3. # Point-in-polygon check (Turf.js)
-   point := CreatePoint(coords.longitude, coords.latitude)
-
-4. FOR EACH feature IN boundaries.features DO
-     IF BooleanPointInPolygon(point, feature.geometry) THEN
-       RETURN District({
-         type: DistrictType.CITY_COUNCIL,
-         id: "US-CityCouncil-" + city_slug + "-" + feature.properties.district,
-         name: address.city + " City Council District " + feature.properties.district,
-         country: "US",
-         granularity: "finest",
-         source: "gis"
-       })
-     END IF
-   END FOR
-
-5. RETURN NULL  # Point not found in any district (error)
-```
-
-### 6.4 Census API Resolution
-
-```
-ALGORITHM: ResolveCensusAPI
-INPUT: address (Address)
-OUTPUT: districts[]
-
-1. # Call Census Bureau API
+1. # Call Census Bureau API with block group layer
    url := "https://geocoding.geo.census.gov/geocoder/geographies/address"
    params := {
      street: address.street,
@@ -770,6 +944,7 @@ OUTPUT: districts[]
      state: address.state,
      benchmark: "Public_AR_Current",
      vintage: "Current_Current",
+     layers: "Census Block Groups",
      format: "json"
    }
    response := HTTP_GET(url, params)
@@ -779,58 +954,183 @@ OUTPUT: districts[]
    END IF
 
 3. data := JSON_PARSE(response.body)
-   geo := data.result.geographies
-   districts := []
+   block_groups := data.result.geographies["Census Block Groups"]
 
-4. # Congressional district
-   cd := geo["119th Congressional Districts"][0]
-   IF cd != NULL THEN
-     districts.APPEND(District({
-       type: DistrictType.CONGRESSIONAL,
-       id: "US-Congress-" + address.state + "-" + cd.GEOID,
-       name: address.state + " Congressional District " + cd.GEOID,
-       country: "US",
-       granularity: "intermediate",
-       source: "census"
-     }))
+4. IF len(block_groups) == 0 THEN
+     ERROR "No block group found for address"
    END IF
 
-5. # State Senate
-   state_senate := geo["State Legislative Districts - Upper"][0]
-   IF state_senate != NULL THEN
-     districts.APPEND(District({
-       type: DistrictType.STATE_SENATE,
-       id: "US-StateSenate-" + address.state + "-" + state_senate.GEOID,
-       name: address.state + " State Senate District " + state_senate.GEOID,
-       country: "US",
-       granularity: "fallback",
-       source: "census"
-     }))
-   END IF
+5. # Extract 12-digit GEOID (State FIPS + County FIPS + Tract + Block Group)
+   cell_id := block_groups[0].GEOID  # e.g., "060375277021"
 
-6. # State House
-   state_house := geo["State Legislative Districts - Lower"][0]
-   IF state_house != NULL THEN
-     districts.APPEND(District({
-       type: DistrictType.STATE_HOUSE,
-       id: "US-StateHouse-" + address.state + "-" + state_house.GEOID,
-       name: address.state + " State House District " + state_house.GEOID,
-       country: "US",
-       granularity: "fallback",
-       source: "census"
-     }))
-   END IF
-
-7. RETURN districts
+6. RETURN cell_id
 ```
 
-**Note:** This district resolution algorithm resolves boundaries at a single point in time. For production multi-boundary resolution (resolving 12-25 simultaneous governance boundaries per address, handling boundary changes across epochs), see MERKLE-FOREST-SPEC.md Section 8.
+### 6.3 Boundary Map Population
+
+```
+ALGORITHM: FetchCellBoundaryMap
+INPUT: cell_id (12-digit GEOID)
+OUTPUT: boundary_map (14 district slots)
+
+1. NULL_HASH := Poseidon("NULL")
+   boundary_map := [NULL_HASH] * 14  # Initialize all slots to NULL
+
+2. # Fetch from Census API (slots 0-3)
+   census_districts := FetchCensusDistricts(cell_id)
+   boundary_map[0] := census_districts.congressional OR NULL_HASH
+   boundary_map[1] := census_districts.state_senate OR NULL_HASH
+   boundary_map[2] := census_districts.state_house OR NULL_HASH
+   boundary_map[3] := census_districts.county OR NULL_HASH
+
+3. # Fetch from municipal GIS (slots 4-5)
+   city_info := FetchCityInfo(cell_id)
+   boundary_map[4] := city_info.municipality OR NULL_HASH
+   boundary_map[5] := city_info.council_district OR NULL_HASH
+
+4. # Fetch from school district data (slots 6-7)
+   school_info := FetchSchoolDistricts(cell_id)
+   boundary_map[6] := school_info.district OR NULL_HASH
+   boundary_map[7] := school_info.board_zone OR NULL_HASH
+
+5. # Fetch special districts (slots 8-9)
+   special_districts := FetchSpecialDistricts(cell_id)
+   boundary_map[8] := special_districts.water_utility OR NULL_HASH
+   boundary_map[9] := special_districts.fire_transit OR NULL_HASH
+
+6. # Fetch judicial/precinct (slots 10-11)
+   judicial_info := FetchJudicialInfo(cell_id)
+   boundary_map[10] := judicial_info.judicial_district OR NULL_HASH
+   boundary_map[11] := judicial_info.voting_precinct OR NULL_HASH
+
+7. # Reserved slots (12-13) remain NULL_HASH
+
+8. RETURN boundary_map
+```
+
+### 6.4 Census API District Resolution
+
+```
+ALGORITHM: FetchCensusDistricts
+INPUT: cell_id (12-digit GEOID)
+OUTPUT: CensusDistricts { congressional, state_senate, state_house, county }
+
+1. # Extract state FIPS from cell_id (first 2 digits)
+   state_fips := cell_id[0:2]
+
+2. # Use Census relationship files or API
+   url := "https://geocoding.geo.census.gov/geocoder/geographies/coordinates"
+   # Get centroid of block group for API call
+   centroid := GetBlockGroupCentroid(cell_id)
+   params := {
+     x: centroid.longitude,
+     y: centroid.latitude,
+     benchmark: "Public_AR_Current",
+     vintage: "Current_Current",
+     format: "json"
+   }
+   response := HTTP_GET(url, params)
+
+3. data := JSON_PARSE(response.body)
+   geo := data.result.geographies
+
+4. RETURN CensusDistricts({
+     congressional: FormatDistrictId("US-Congress", state_fips, geo["119th Congressional Districts"][0]),
+     state_senate: FormatDistrictId("US-StateSenate", state_fips, geo["State Legislative Districts - Upper"][0]),
+     state_house: FormatDistrictId("US-StateHouse", state_fips, geo["State Legislative Districts - Lower"][0]),
+     county: FormatDistrictId("US-County", state_fips, geo["Counties"][0])
+   })
+```
+
+**Key Difference from Old Model:** The cell resolution algorithm returns ALL 14 districts in a single call, not just the "finest granularity" district. All districts are populated (or set to NULL_HASH) and returned together.
 
 ---
 
 ## 7. Data Validation Specification
 
-### 7.1 GeoJSON Validation ([RFC7946])
+### 7.1 Cell-Level Validation
+
+**Cell Validation Rules:**
+```typescript
+interface CellValidation {
+  // Cell ID validation
+  cell_id: {
+    format_valid: boolean;       // 12-digit FIPS GEOID
+    state_fips_valid: boolean;   // First 2 digits = valid state (01-56)
+    county_fips_valid: boolean;  // Digits 3-5 = valid county
+    tract_valid: boolean;        // Digits 6-11 = valid tract
+    block_group_valid: boolean;  // Digit 12 = 0-9
+  };
+
+  // BoundaryMap validation
+  boundary_map: {
+    all_14_slots_present: boolean;  // Must have exactly 14 slots
+    no_empty_slots: boolean;        // Each slot = district_hash OR NULL_HASH
+    valid_hash_format: boolean;     // All values are valid Poseidon hashes
+    required_slots_populated: boolean;  // Slots 0-3 (Census) must be non-NULL
+  };
+
+  // Geographic consistency
+  geography: {
+    districts_contain_cell: boolean;  // All non-NULL districts should contain this cell
+    no_impossible_combinations: boolean;  // e.g., CA city council in TX block group
+  };
+}
+```
+
+**Required Slot Population:**
+- Slots 0-3 (congressional, state_senate, state_house, county): REQUIRED (never NULL)
+- Slots 4-5 (city, city_council): REQUIRED if in incorporated area, else NULL_HASH
+- Slots 6-11: Optional (NULL_HASH acceptable)
+- Slots 12-13: Reserved (always NULL_HASH)
+
+### 7.2 Cell Validation Algorithm
+
+```
+ALGORITHM: ValidateCell
+INPUT: cell_id, boundary_map
+OUTPUT: ValidationResult
+
+1. NULL_HASH := Poseidon("NULL")
+
+2. # Validate cell_id format (12-digit FIPS GEOID)
+   IF len(cell_id) != 12 THEN
+     ERROR "Invalid cell_id length: expected 12, got " + len(cell_id)
+   END IF
+
+   state_fips := cell_id[0:2]
+   IF state_fips NOT IN VALID_STATE_FIPS THEN
+     ERROR "Invalid state FIPS: " + state_fips
+   END IF
+
+3. # Validate boundary_map has exactly 14 slots
+   IF len(boundary_map) != 14 THEN
+     ERROR "Invalid boundary_map: expected 14 slots, got " + len(boundary_map)
+   END IF
+
+4. # Validate required slots are populated (0-3)
+   FOR slot := 0 TO 3 DO
+     IF boundary_map[slot] == NULL_HASH THEN
+       ERROR "Required slot " + slot + " is NULL (Census districts required)"
+     END IF
+   END FOR
+
+5. # Validate all slots are valid hashes (not empty/malformed)
+   FOR slot := 0 TO 13 DO
+     IF NOT IsValidPoseidonHash(boundary_map[slot]) THEN
+       ERROR "Invalid hash in slot " + slot
+     END IF
+   END FOR
+
+6. # Validate reserved slots are NULL
+   IF boundary_map[12] != NULL_HASH OR boundary_map[13] != NULL_HASH THEN
+     ERROR "Reserved slots 12-13 must be NULL_HASH"
+   END IF
+
+7. RETURN ValidationResult(success=true)
+```
+
+### 7.3 GeoJSON Validation ([RFC7946])
 
 **Required Fields:**
 ```json
@@ -888,7 +1188,7 @@ interface GeoJSONValidation {
 }
 ```
 
-### 7.2 Topology Validation Algorithm
+### 7.4 Topology Validation Algorithm
 
 ```
 ALGORITHM: ValidateTopology
@@ -928,13 +1228,110 @@ OUTPUT: ValidationResult
 4. RETURN ValidationResult(success=true)
 ```
 
-**Note:** This validation protocol applies to individual tree construction. For forest-level validation (cross-tree consistency, epoch boundary conditions, composite root verification), see MERKLE-FOREST-SPEC.md Section 6.
+---
+
+## 8. Privacy Model
+
+### 8.1 Data Classification
+
+The cell-based model provides clear separation between private inputs and public outputs, establishing **verified geographic identity** while preserving address privacy:
+
+**PRIVATE (Hidden in ZK Proof - Address Privacy Preserved):**
+| Data Element | Description | Why Hidden |
+|--------------|-------------|------------|
+| `address` | User's physical street address | PII, location privacy |
+| `cell_id` | Census Block Group GEOID | Reveals approximate location |
+| `identity_secret` | User's private key material | Cryptographic security |
+| `merkle_path` | Tree proof siblings/indices | Implementation detail |
+
+**PUBLIC (Revealed as ZK Outputs - The User's Geographic Identity):**
+| Data Element | Description | Purpose |
+|--------------|-------------|---------|
+| `nullifier` | Derived from identity + epoch | Sybil resistance for any application |
+| `district_hashes[14]` | User's "district profile" | Establishes district-to-user mapping |
+| `cell_tree_root` | Current epoch root | Proves against valid tree |
+
+**The Fundamental Value:** A user can prove which districts they belong to without revealing their address. The 14 district hashes together form the user's verified "district profile" - their cryptographic geographic identity.
+
+### 8.2 Anonymity Set Analysis
+
+**Cell Granularity: Census Block Group**
+- **Population:** 600-3000 residents per block group (by Census design)
+- **US Total:** ~242,000 block groups
+- **Anonymity Set:** User is indistinguishable from all other residents of same block group
+
+**Privacy Guarantees:**
+```
+Given: ZK proof with public outputs (nullifier, 14 district_hashes)
+
+Observer CANNOT determine:
+- User's exact address (hidden)
+- User's specific block group (hidden)
+- Which of 600-3000 residents produced the proof
+
+Observer CAN determine:
+- User's complete "district profile" (all 14 district memberships)
+- The nullifier (for sybil resistance)
+
+This IS the user's verified geographic identity - the cryptographic
+association between a user and all their districts.
+```
+
+**Downstream Applications** can then use this proven identity for:
+- Civic engagement (route messages to correct representatives)
+- Analytics/PR (aggregate district-level data)
+- Voter verification (confirm eligibility)
+- Research (geographic demographic analysis)
+- Governance (district-scoped voting or polling)
+
+**Attack Surface:**
+- **Intersection Attack:** If user proves membership in rare combination of districts, anonymity set may shrink
+- **Mitigation:** Block groups are designed to nest within larger boundaries; district intersections typically affect entire block groups
+
+### 8.3 Privacy Comparison: Old vs New Model
+
+| Aspect | Old (Per-District Trees) | New (Cell-Based) |
+|--------|--------------------------|------------------|
+| **Address hidden** | Yes | Yes |
+| **District hidden** | Partially (proves one at a time) | No (all 14 public) |
+| **Proof count per user** | Multiple (one per district) | One (all districts) |
+| **Correlation risk** | Low (separate proofs) | None (single proof) |
+| **Anonymity set** | Entire district population | Block group (600-3000) |
+| **Tree count** | ~2M trees | 1 tree |
+
+**Trade-off:** The cell-based model reveals more district information publicly (all 14 vs. one at a time) but provides simpler, more efficient proofs. The anonymity set is smaller (block group vs. district) but still provides meaningful privacy (600-3000 residents).
+
+### 8.4 Nullifier Construction
+
+```
+ALGORITHM: ComputeNullifier
+INPUT: identity_secret, epoch, cell_id
+OUTPUT: nullifier
+
+1. # Nullifier binds identity to epoch, providing sybil resistance
+   nullifier := Poseidon(identity_secret, epoch, cell_id)
+
+2. # Nullifier reveals nothing about identity or location
+   # (one-way hash, cannot reverse to find inputs)
+
+3. RETURN nullifier
+```
+
+**Purpose: Sybil Resistance for Any Application**
+
+The nullifier provides sybil resistance - ensuring one user cannot act multiple times in the same context. This is independent of what the application does with the proven geographic identity.
+
+**Properties:**
+- **Deterministic:** Same inputs always produce same nullifier
+- **Unlinkable:** Different epochs produce different nullifiers (no cross-epoch tracking)
+- **Binding:** User cannot produce valid proof with different cell_id
+- **Application-agnostic:** Works for any downstream use case (voting, messaging, analytics, etc.)
 
 ---
 
-## 8. Implementation Status
+## 9. Implementation Status
 
-### 8.1 Completed Components (Updated 2025-11-18)
+### 9.1 Completed Components (Updated 2025-11-18)
 
 ✅ **Multi-Layer Boundary Resolution System (PRODUCTION-READY):**
 - Layer 2 (Foundation): TIGER PLACE provider operational (100% US coverage)
@@ -964,7 +1361,7 @@ OUTPUT: ValidationResult
 - Name pattern validation (rejects state/county/transit keywords)
 - District count validation (3-50 for city councils)
 
-### 8.2 Implementation Status (Updated 2025-11-18)
+### 9.2 Implementation Status (Updated 2025-11-18)
 
 **Phase 1: Foundation Layer (✅ COMPLETE)**
 - [x] TIGER PLACE provider (100% US coverage, annual updates)
@@ -980,20 +1377,20 @@ OUTPUT: ValidationResult
 - [ ] Test on 100 cities to measure quality improvement
 - [ ] Scale to all 32,041 cities
 
-**Phase 3: Merkle Forest Architecture (⏳ PLANNED)**
-- [ ] Implement Merkle tree construction for discovered boundaries
-- [ ] Generate trees for all 9+ US governance layers (congressional, state legislature, county, city council, school board, etc.)
-- [ ] Deploy forest structure to IPFS with epoch-based versioning
-- [ ] Create composite proof generation API
-- [ ] See MERKLE-FOREST-SPEC.md for multi-boundary coordination architecture
+**Phase 3: Cell Tree Architecture (⏳ PLANNED)**
+- [ ] Build Census Block Group cell lookup (address → cell_id)
+- [ ] Populate BoundaryMaps for all ~242K cells (14 districts each)
+- [ ] Construct single Cell Tree (depth 18)
+- [ ] Deploy cell tree to IPFS with epoch-based versioning
+- [ ] Create cell proof generation API
 
 **Phase 4: End-to-End Integration (⏳ PLANNED)**
-- [ ] Address → geocoding → multi-boundary district resolution
-- [ ] Generate composite proofs across 12-25 simultaneous boundaries
-- [ ] Browser-native ZK proof generation for forest verification
-- [ ] On-chain verification via ShadowAtlasRegistry contract
+- [ ] Address → geocoding → cell resolution → proof
+- [ ] ZK circuit: verify cell membership, output 14 district hashes
+- [ ] Browser-native ZK proof generation
+- [ ] On-chain verification via CellTreeRegistry contract
 
-### 8.3 Missing Specifications
+### 9.3 Missing Specifications
 
 ❌ **NOT YET SPECIFIED:**
 - [ ] IPFS pinning strategy for Shadow Atlas distribution
@@ -1005,7 +1402,7 @@ OUTPUT: ValidationResult
 
 ---
 
-## 9. Open Questions
+## 10. Open Questions
 
 1. **Shadow Atlas Versioning:** How do we handle district boundary changes mid-year?
    - Proposed: Epoch-based versioning with grace periods
@@ -1016,13 +1413,14 @@ OUTPUT: ValidationResult
    - **Redundancy:** NFT.storage (Filecoin permanence, one-time fee)
    - **Community:** Incentivize self-pinning with Phase 2 VOTER tokens
    - **Cost:** Near-zero (Pinata free tier covers millions of users)
-   - **Reference:** See communique repo `docs/PORTABLE-ENCRYPTED-IDENTITY-ARCHITECTURE.md`
+   - **Reference:** See `docs/specs/portable-identity.md` (external repo: communique)
 
 3. **Data Freshness:** How do we detect stale municipal GIS data?
    - Proposed: Automated quarterly checks with diff detection
 
 4. **International Expansion:** Which countries after US launch?
    - Proposed: Canada (Phase 2), UK (Phase 3), EU (Phase 4)
+   - See Section 4.3 for International Coverage scope
 
 5. **Cicero Dependency:** What if Cicero shuts down or raises prices?
    - Proposed: Build fallback scraping infrastructure for city council data
@@ -1036,12 +1434,12 @@ OUTPUT: ValidationResult
 
 ---
 
-## 10. Compliance Matrix
+## 11. Compliance Matrix
 
 | Standard | Requirement | Status | Reference |
 |----------|-------------|--------|-----------|
 | **[IEEE1471]** | Architecture description | ✅ COMPLETE | Section 2.1 |
-| **[RFC7946]** | GeoJSON format compliance | ⏸️ PARTIAL | Section 7.1 |
+| **[RFC7946]** | GeoJSON format compliance | ⏸️ PARTIAL | Section 7.3 |
 | **[ISO3166]** | Country code usage | ✅ COMPLETE | Section 5.1 |
 | **[EPSG:4326]** | WGS 84 coordinate system | ✅ COMPLETE | Section 5.1 |
 
@@ -1072,6 +1470,7 @@ See `packages/crypto/services/geocoding/types.ts` for complete TypeScript interf
 ---
 
 **Version History:**
+- 2.0.0 (2026-01-25): **MAJOR** - Cell-based architecture (Census Block Groups as leaves, single tree, 14 districts per cell)
 - 1.2.0 (2025-12-12): Aligned with Merkle Forest architecture (variable depth tiers, multi-boundary coordination)
 - 1.1.0 (2025-11-18): Multi-layer boundary resolution implementation complete
 - 1.0.0 (2025-11-08): Initial specification

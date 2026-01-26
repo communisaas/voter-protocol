@@ -88,7 +88,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 ## Go Deeper
 
 - **[QUICKSTART.md](QUICKSTART.md)** - Non-technical users: Face ID to first reward in 4 minutes
-- **[TECHNICAL.md](TECHNICAL.md)** - Blockchain developers: Cryptography deep dive, implementation details
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete technical architecture
 - **[CONGRESSIONAL.md](CONGRESSIONAL.md)** - Legislative staff: Solving the 66% spam problem
 - **[SECURITY.md](SECURITY.md)** - Living threat model: Attack vectors, mitigations, incident response
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete technical architecture
@@ -108,7 +108,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - Agent system specifications
 - Economic mechanism designs
 
-**Communique Repository** (Frontend):
+**Communique Repository** (Frontend - external repo):
 - User-facing web application
 - Template browser and message composition
 - Wallet integration and identity verification

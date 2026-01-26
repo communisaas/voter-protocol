@@ -632,9 +632,6 @@ After resolving an incident:
 ## Additional Resources
 
 **Documentation**:
-- [Operational Runbooks](../docs/OPERATIONAL-RUNBOOKS.md)
-- [Failure Resolution Playbook](../docs/FAILURE-RESOLUTION-PLAYBOOK.md)
-- [Quarterly Automation](../docs/QUARTERLY-AUTOMATION.md)
 - [Architecture](../README.md)
 
 **Runbooks**:

@@ -211,7 +211,7 @@ ORDER BY e.state_code, e.layer_type;
 "
 
 # Investigate and resolve failures
-# See FAILURE-RESOLUTION-PLAYBOOK.md
+# See ../common-incidents/ runbooks for guidance
 ```
 
 **Decision point**: If >10% validation failures, STOP and investigate.
@@ -636,7 +636,6 @@ console.log(report);
 ---
 
 **Related Documents**:
-- [QUARTERLY-AUTOMATION.md](../../../docs/QUARTERLY-AUTOMATION.md)
 - [Upstream Provider Failure](../common-incidents/upstream-failure.md)
 - [Data Corruption](../common-incidents/data-corruption.md)
 - [IPFS Unavailable](../common-incidents/ipfs-unavailable.md)
