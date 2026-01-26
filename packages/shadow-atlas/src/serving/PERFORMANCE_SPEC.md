@@ -297,16 +297,17 @@ npm run bench:scale        # Global scale simulation
 ### Recommended Infrastructure
 
 **Single-instance deployment** (low traffic, <1000 req/sec):
-- **Compute**: 2 vCPU, 4GB RAM
+- **Compute**: 2 vCPU, 2GB RAM
 - **Storage**: 10GB SSD (SQLite database)
-- **Cost**: ~$20/month (Fly.io, Railway)
+- **Cost**: $0 (local) or $5-10/month (VPS)
+- **Platforms**: Docker on laptop, VPS (DigitalOcean, Linode, Hetzner)
 
 **Multi-instance deployment** (high traffic, >10,000 req/sec):
 - **Compute**: 4 vCPU, 8GB RAM per instance
 - **Instances**: 3-5 instances (load balanced)
 - **Database**: Replicated SQLite (read-only)
 - **Cache**: Redis for shared L1 cache (optional)
-- **Cost**: ~$150-250/month
+- **Cost**: $30-60/month (multiple VPS instances)
 
 ### Autoscaling Triggers
 

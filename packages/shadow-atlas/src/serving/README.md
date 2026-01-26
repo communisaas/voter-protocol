@@ -354,60 +354,84 @@ interface ServingConfig {
 
 ## Deployment
 
-### Docker
+### Docker (Self-Hosted)
 
-```dockerfile
-FROM node:20-alpine
+Shadow Atlas includes a production-ready Dockerfile optimized for minimal cost deployment.
 
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --production
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["node", "dist/serving/api.js"]
-```
-
-### Fly.io
-
-```toml
-# fly.toml
-app = "shadow-atlas-api"
-
-[build]
-  builder = "paketobuildpacks/builder:base"
-
-[[services]]
-  internal_port = 3000
-  protocol = "tcp"
-
-  [[services.ports]]
-    handlers = ["http"]
-    port = 80
-
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = 443
-
-[[mounts]]
-  source = "shadow_atlas_data"
-  destination = "/data"
-```
-
-Deploy:
+**Quick Start:**
 ```bash
-fly deploy --config serving/fly.toml
+# Build the image
+cd packages/shadow-atlas
+docker build -t shadow-atlas .
+
+# Run locally (zero cloud costs)
+docker run -d \
+  --name shadow-atlas \
+  -p 3000:3000 \
+  -v $(pwd)/data:/data \
+  -e PORT=3000 \
+  -e DB_PATH=/data/shadow-atlas.db \
+  shadow-atlas
+
+# Check health
+curl http://localhost:3000/v1/health
 ```
 
-### Railway
-
+**Production Deployment:**
 ```bash
-railway up --service shadow-atlas-api
+# With environment file
+docker run -d \
+  --name shadow-atlas \
+  -p 3000:3000 \
+  -v /path/to/data:/data \
+  --env-file .env \
+  --restart unless-stopped \
+  shadow-atlas
 ```
+
+### Docker Compose
+
+For multi-service deployments:
+
+```yaml
+version: '3.8'
+services:
+  shadow-atlas:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - PORT=3000
+      - DB_PATH=/data/shadow-atlas.db
+      - IPFS_GATEWAY=https://w3s.link
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+```
+
+### Cost-Efficient Options
+
+**Local Development Machine** (Zero Cost):
+- Run on your laptop/desktop
+- Perfect for testing and development
+- No cloud fees
+
+**VPS Providers** ($5-10/month):
+- DigitalOcean Droplet
+- Linode Nanode
+- Vultr Cloud Compute
+- Hetzner Cloud (EU)
+
+**Minimum Requirements:**
+- 2 vCPU
+- 2GB RAM
+- 10GB SSD storage
+- Docker installed
 
 ## Monitoring
 

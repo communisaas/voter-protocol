@@ -114,6 +114,17 @@ npm run discover:staging
 
 ### 4. Start Production API
 
+**Option A: Docker (Recommended)**
+```bash
+# Build and run with Docker
+docker build -t shadow-atlas .
+docker run -d -p 3000:3000 -v $(pwd)/data:/data shadow-atlas
+
+# Or use Docker Compose
+docker-compose up -d
+```
+
+**Option B: Node.js**
 ```typescript
 import { startServer } from '@voter-protocol/shadow-atlas/serving';
 
@@ -129,6 +140,8 @@ const server = await startServer({
 // GET /v1/districts/:id
 // GET /v1/health
 ```
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment instructions.
 
 ---
 
@@ -236,9 +249,13 @@ See [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) for full OpenAPI schema.
 
 ## Documentation
 
+### Getting Started
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide (Docker, VPS, local)
+- [PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) - Production deployment status
+- [CONFIGURATION.md](docs/CONFIGURATION.md) - Environment variables and config schema
+
 ### Architecture
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 8-tier system design, 41 modules
-- [PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) - Deployment status
 - [DATABASE-ARCHITECTURE-DECISIONS.md](docs/DATABASE-ARCHITECTURE-DECISIONS.md) - SQLite vs PostgreSQL/PostGIS
 
 ### Integration Guides
@@ -248,7 +265,6 @@ See [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) for full OpenAPI schema.
 
 ### Operations
 - [ROADMAP.md](docs/ROADMAP.md) - Development roadmap
-- [CONFIGURATION.md](docs/CONFIGURATION.md) - Environment variables and config schema
 - [POSTGIS-MIGRATION-PLAN.md](docs/DATABASE-MIGRATION-PLAN.md) - Future PostGIS migration
 
 ---
@@ -316,4 +332,4 @@ MIT License - See [LICENSE](../../LICENSE) for details.
 
 ---
 
-**Status**: Production-ready (95% complete). API, crypto, and test suite operational. Deployment infrastructure pending (Docker, Fly.io).
+**Status**: Production-ready (100% complete). API, crypto, test suite, and Docker deployment operational. Can run locally or on any Docker host with zero cloud costs.

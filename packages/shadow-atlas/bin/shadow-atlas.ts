@@ -57,6 +57,9 @@ import { registerAuditCommands } from '../src/cli/commands/audit/index.js';
 // Command implementations - Curate (registration pattern)
 import { registerCurateCommands } from '../src/cli/commands/curate/index.js';
 
+// Command implementations - Serve
+import { serveCommand } from '../src/cli/commands/serve/index.js';
+
 // ============================================================================
 // Exit Codes (per spec)
 // ============================================================================
@@ -824,6 +827,32 @@ function createProgram(): Command {
   // Curate Commands (wired via registration function)
   // ============================================================================
   registerCurateCommands(program);
+
+  // ============================================================================
+  // Serve Command
+  // ============================================================================
+
+  program
+    .command('serve')
+    .description('Start the production HTTP API server')
+    .option('-p, --port <number>', 'Server port', parseInt)
+    .option('-h, --host <address>', 'Bind address')
+    .option('--db-path <path>', 'Database path')
+    .option('--cors-origins <origins>', 'CORS allowed origins (comma-separated)')
+    .option('--rate-limit <n>', 'Rate limit per minute', parseInt)
+    .option('--ipfs-gateway <url>', 'IPFS gateway URL')
+    .option('--snapshots-dir <path>', 'Snapshots directory')
+    .action(async (options) => {
+      await serveCommand({
+        port: options.port,
+        host: options.host,
+        dbPath: options.dbPath,
+        corsOrigins: options.corsOrigins,
+        rateLimitPerMinute: options.rateLimit,
+        ipfsGateway: options.ipfsGateway,
+        snapshotsDir: options.snapshotsDir,
+      });
+    });
 
   return program;
 }

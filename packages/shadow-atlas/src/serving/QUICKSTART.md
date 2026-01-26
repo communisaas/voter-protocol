@@ -143,47 +143,82 @@ CACHE_TTL_SECONDS=3600
 RATE_LIMIT_PER_MINUTE=60
 ```
 
-### Docker Deployment
+### Docker Deployment (Self-Hosted)
 
+**Quick Start (Zero Cloud Costs):**
 ```bash
 # Build image
-docker build -t shadow-atlas-api -f serving/Dockerfile .
+cd packages/shadow-atlas
+docker build -t shadow-atlas .
 
-# Run container
+# Run container locally
 docker run -d \
-  --name shadow-atlas-api \
+  --name shadow-atlas \
   -p 3000:3000 \
-  -v /data:/data:ro \
-  -v /snapshots:/snapshots \
+  -v $(pwd)/data:/data \
   --env-file .env \
-  shadow-atlas-api
+  --restart unless-stopped \
+  shadow-atlas
+
+# Verify
+curl http://localhost:3000/v1/health
 ```
 
-### Fly.io Deployment
-
+**Production Deployment:**
 ```bash
-# Install Fly CLI
-curl -L https://fly.io/install.sh | sh
-
-# Login
-fly auth login
-
-# Deploy
-fly deploy --config serving/fly.toml
+# With persistent volume and custom environment
+docker run -d \
+  --name shadow-atlas \
+  -p 3000:3000 \
+  -v /path/to/data:/data \
+  -e PORT=3000 \
+  -e DB_PATH=/data/shadow-atlas.db \
+  -e IPFS_GATEWAY=https://w3s.link \
+  --restart unless-stopped \
+  shadow-atlas
 ```
 
-### Railway Deployment
+### Docker Compose
 
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  shadow-atlas:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - PORT=3000
+      - DB_PATH=/data/shadow-atlas.db
+    restart: unless-stopped
+```
+
+Deploy:
 ```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Deploy
-railway up --service shadow-atlas-api
+docker-compose up -d
 ```
+
+### Cost-Efficient VPS Deployment
+
+**DigitalOcean Droplet ($6/month):**
+```bash
+# SSH into droplet
+ssh root@your-droplet-ip
+
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Clone and deploy
+git clone https://github.com/voter-protocol/voter-protocol.git
+cd voter-protocol/packages/shadow-atlas
+docker build -t shadow-atlas .
+docker run -d -p 3000:3000 -v /data:/data shadow-atlas
+```
+
+**Runs on any Docker host:** Home server, Raspberry Pi 4+, NAS, or VPS
 
 ---
 
@@ -374,10 +409,10 @@ k6 run load-test.js
    - Generate Merkle tree
 
 2. **Deploy to Production**
-   - Set up Fly.io/Railway deployment
-   - Configure Prometheus scraping
-   - Create Grafana dashboards
-   - Set up alerting
+   - Deploy with Docker (local or VPS)
+   - Configure Prometheus scraping (optional)
+   - Create Grafana dashboards (optional)
+   - Set up alerting (optional)
 
 3. **Integrate with Frontend**
    - Add client-side verification
