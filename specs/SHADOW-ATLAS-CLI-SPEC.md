@@ -1361,7 +1361,7 @@ packages/shadow-atlas/
 ## Appendix B: Related Specifications
 
 - [SHADOW-ATLAS-SPEC.md](./SHADOW-ATLAS-SPEC.md) - Core architecture
-- [DATA-PROVENANCE-SPEC.md](./DATA-PROVENANCE-SPEC.md) - Provenance model
+- [DATA-INTEGRITY-SPEC.md](./DATA-INTEGRITY-SPEC.md) - Data integrity, provenance, and freshness
 - [REGISTRY-MAINTENANCE.md](../docs/REGISTRY-MAINTENANCE.md) - Current maintenance procedures
 
 ---

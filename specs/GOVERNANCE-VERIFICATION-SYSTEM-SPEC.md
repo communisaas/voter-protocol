@@ -74,7 +74,7 @@ A **verification-native agentic system** with:
 
 **Project Documents:**
 - **[SHADOW-ATLAS-SPEC]** Shadow Atlas district geometry specification
-- **[DATA-FRESHNESS-SPEC]** Boundary freshness verification
+- **[DATA-INTEGRITY-SPEC]** Data integrity, freshness, and provenance verification
 - **[MERKLE-FOREST-SPEC]** Multi-boundary proof architecture
 
 ---
