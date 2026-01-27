@@ -5,7 +5,7 @@
  * verification using Noir circuits and Barretenberg (UltraHonk) backend.
  *
  * ARCHITECTURE:
- * 1. Noir circuit compiles address → district membership (with configurable Merkle depth)
+ * 1. Noir circuit compiles address -> district membership (with configurable Merkle depth)
  * 2. Browser generates ZK proof (witness computation + proving in WASM)
  * 3. Proof submitted on-chain (verifier contract on Scroll L2)
  * 4. No server trust - proving happens 100% client-side
@@ -22,8 +22,11 @@
  * - Proof size: ~2KB (UltraHonk compact proofs)
  *
  * SECURITY:
- * - Private inputs (address, secret, Merkle path) never leave browser
- * - Public outputs (merkle_root, nullifier, authority_hash, epoch_id, campaign_id) verified on-chain
+ * - CVE-001/CVE-003 FIX: Leaf is computed INSIDE circuit from user_secret, binding identity to proof
+ * - CVE-002 FIX: action_domain is PUBLIC (contract-controlled), preventing nullifier manipulation
+ * - ISSUE-006 FIX: authority_level is range-checked in circuit [1-5]
+ * - Private inputs (user_secret, registration_salt, Merkle path) never leave browser
+ * - Public outputs (merkle_root, nullifier, authority_level, action_domain, district_id) verified on-chain
  * - Poseidon2 hashing matches on-chain verifier (domain separation enforced)
  */
 
@@ -45,26 +48,36 @@ export type CircuitDepth = 18 | 20 | 22 | 24;
 
 /**
  * Private witness inputs (never leave browser)
+ *
+ * SECURITY NOTES:
+ * - user_secret: Private key material, binds identity to leaf and nullifier
+ * - registration_salt: Unique salt from registration, prevents rainbow attacks
+ * - merkle_path: Sibling hashes, proves tree membership without revealing position
+ *
+ * PUBLIC INPUTS (contract-controlled):
+ * - merkle_root: Expected tree root, set by verifying contract
+ * - action_domain: Domain separator, encodes epoch+campaign+authority (CVE-002 fix)
  */
 export interface DistrictWitness {
-  /** Merkle root of district tree (public output, verified on-chain) */
+  // PUBLIC inputs (contract-controlled, verified on-chain)
+  /** Merkle root of district tree (public input, verified on-chain) */
   merkle_root: string;
-  /** Nullifier preventing double-actions (public output, checked on-chain) */
-  nullifier: string;
-  /** Hash of authority ID (public output, identifies representative) */
-  authority_hash: string;
-  /** Epoch identifier (public output, prevents replay attacks) */
-  epoch_id: string;
-  /** Campaign identifier (public output, groups related actions) */
-  campaign_id: string;
-  /** Hashed address leaf (private) */
-  leaf: string;
+  /** Action domain separator - encodes epoch, campaign, authority hash (public, contract-controlled) */
+  action_domain: string;
+
+  // PRIVATE inputs (user witnesses, never leave browser)
+  /** User secret for leaf computation and nullifier (private, proves identity ownership) */
+  user_secret: string;
+  /** District identifier (private input, becomes public output) */
+  district_id: string;
+  /** Authority level tier 1-5 (private input, becomes public output, range-checked in circuit) */
+  authority_level: number;
+  /** Registration salt (private, assigned during registration, prevents rainbow attacks) */
+  registration_salt: string;
   /** Sibling hashes from leaf to root (private, length = DEPTH) */
   merkle_path: string[];
   /** Leaf position in tree (private) */
   leaf_index: number;
-  /** User secret for nullifier (private, prevents linkability) */
-  user_secret: string;
 }
 
 /**
@@ -73,24 +86,31 @@ export interface DistrictWitness {
 export interface DistrictProof {
   /** Serialized proof bytes (UltraHonk format) */
   proof: ProofData;
-  /** Public outputs from circuit: [merkle_root, nullifier, authority_hash, epoch_id, campaign_id] */
+  /**
+   * Public outputs from circuit:
+   * [merkle_root, nullifier, authority_level, action_domain, district_id]
+   *
+   * NOTE: nullifier is COMPUTED inside circuit, not provided as input (CVE-002 fix)
+   */
   publicInputs: string[];
 }
 
 /**
  * Configuration for proof verification
+ *
+ * All values are contract-controlled and verified against proof public outputs
  */
 export interface VerificationConfig {
   /** Expected Merkle root (must match proof public output) */
   expectedRoot: string;
-  /** Expected nullifier (must match proof public output) */
+  /** Expected nullifier (computed: hash(user_secret, action_domain)) */
   expectedNullifier: string;
-  /** Expected authority hash (must match proof public output) */
-  expectedAuthorityHash: string;
-  /** Expected epoch ID (must match proof public output) */
-  expectedEpochId: string;
-  /** Expected campaign ID (must match proof public output) */
-  expectedCampaignId: string;
+  /** Expected authority level tier (1-5) */
+  expectedAuthorityLevel: number;
+  /** Expected action domain (contract-controlled domain separator) */
+  expectedActionDomain: string;
+  /** Expected district ID */
+  expectedDistrictId: string;
 }
 
 /**
@@ -191,10 +211,20 @@ export class DistrictProver {
    * Generate ZK proof of district membership
    *
    * PROCESS:
-   * 1. Validate witness inputs (field bounds, array lengths)
-   * 2. Execute Noir circuit to compute witness
+   * 1. Validate witness inputs (field bounds, array lengths, authority_level range)
+   * 2. Execute Noir circuit to compute witness (leaf computed inside circuit!)
    * 3. Generate UltraHonk proof using Barretenberg backend
-   * 4. Extract public inputs from witness
+   * 4. Extract public outputs from circuit execution
+   *
+   * SECURITY (CVE-001/CVE-003 fix):
+   * The leaf is computed INSIDE the circuit from user_secret, district_id,
+   * authority_level, and registration_salt. This binds the user's identity
+   * to the merkle proof - they must know the secret used during registration.
+   *
+   * SECURITY (CVE-002 fix):
+   * The nullifier is computed from user_secret + action_domain, where action_domain
+   * is a PUBLIC input controlled by the verifying contract. Users cannot manipulate
+   * the nullifier domain to generate multiple proofs.
    *
    * @param witness - Private inputs + public parameters
    * @returns ZK proof with public outputs
@@ -205,36 +235,38 @@ export class DistrictProver {
     this.validateWitness(witness);
 
     // Convert witness to Noir input format
+    // NOTE: leaf is NOT provided - it's computed inside the circuit from user_secret!
     const inputs: InputMap = {
+      // PUBLIC inputs (contract-controlled)
       merkle_root: witness.merkle_root,
-      nullifier: witness.nullifier,
-      authority_hash: witness.authority_hash,
-      epoch_id: witness.epoch_id,
-      campaign_id: witness.campaign_id,
-      leaf: witness.leaf,
+      action_domain: witness.action_domain,
+      // PRIVATE inputs (user witnesses)
+      user_secret: witness.user_secret,
+      district_id: witness.district_id,
+      authority_level: witness.authority_level.toString(),
+      registration_salt: witness.registration_salt,
       merkle_path: witness.merkle_path,
       leaf_index: witness.leaf_index.toString(),
-      user_secret: witness.user_secret,
     };
 
     // Execute circuit to compute witness
-    const { witness: computedWitness } = await this.noir.execute(inputs);
+    // The circuit will:
+    // 1. Compute leaf = hash(user_secret, district_id, authority_level, registration_salt)
+    // 2. Verify merkle membership using computed leaf
+    // 3. Compute nullifier = hash(user_secret, action_domain)
+    // 4. Validate authority_level in [1, 5]
+    const { witness: computedWitness, returnValue } = await this.noir.execute(inputs);
 
     // Generate proof using Barretenberg backend
     const proof = await this.backend.generateProof(computedWitness);
 
-    // Extract public inputs (circuit returns 5 field elements)
-    const publicInputs = [
-      witness.merkle_root,
-      witness.nullifier,
-      witness.authority_hash,
-      witness.epoch_id,
-      witness.campaign_id,
-    ];
+    // Extract public outputs from circuit return value
+    // Circuit returns: (merkle_root, nullifier, authority_level, action_domain, district_id)
+    const publicOutputs = returnValue as string[];
 
     return {
       proof,
-      publicInputs,
+      publicInputs: publicOutputs,
     };
   }
 
@@ -243,7 +275,7 @@ export class DistrictProver {
    *
    * VERIFICATION STEPS:
    * 1. Validate proof structure
-   * 2. Check public inputs match expected values
+   * 2. Check public outputs match expected values
    * 3. Verify proof using Barretenberg backend
    *
    * @param proof - Generated proof from generateProof()
@@ -259,8 +291,9 @@ export class DistrictProver {
       return false;
     }
 
-    // Check public inputs match expected values
-    const [merkleRoot, nullifier, authorityHash, epochId, campaignId] = proof.publicInputs;
+    // Check public outputs match expected values
+    // Order: [merkle_root, nullifier, authority_level, action_domain, district_id]
+    const [merkleRoot, nullifier, authorityLevel, actionDomain, districtId] = proof.publicInputs;
 
     if (merkleRoot !== config.expectedRoot) {
       return false;
@@ -268,13 +301,13 @@ export class DistrictProver {
     if (nullifier !== config.expectedNullifier) {
       return false;
     }
-    if (authorityHash !== config.expectedAuthorityHash) {
+    if (authorityLevel !== config.expectedAuthorityLevel.toString()) {
       return false;
     }
-    if (epochId !== config.expectedEpochId) {
+    if (actionDomain !== config.expectedActionDomain) {
       return false;
     }
-    if (campaignId !== config.expectedCampaignId) {
+    if (districtId !== config.expectedDistrictId) {
       return false;
     }
 
@@ -294,9 +327,17 @@ export class DistrictProver {
    * - All fields are valid hex strings or numbers
    * - merkle_path has correct length (DEPTH)
    * - leaf_index is within bounds [0, 2^DEPTH)
+   * - authority_level is in valid range [1, 5] (ISSUE-006)
    * - Field elements are within BN254 field modulus
    */
   private validateWitness(witness: DistrictWitness): void {
+    // ISSUE-006: Validate authority_level is in range [1, 5]
+    if (witness.authority_level < 1 || witness.authority_level > 5) {
+      throw new Error(
+        `Invalid authority_level: ${witness.authority_level} (must be in [1, 5])`
+      );
+    }
+
     // Check merkle_path length matches circuit depth
     if (witness.merkle_path.length !== this.depth) {
       throw new Error(
@@ -315,12 +356,10 @@ export class DistrictProver {
     // Validate all field elements are valid hex strings
     const fields = [
       witness.merkle_root,
-      witness.nullifier,
-      witness.authority_hash,
-      witness.epoch_id,
-      witness.campaign_id,
-      witness.leaf,
+      witness.action_domain,
       witness.user_secret,
+      witness.district_id,
+      witness.registration_salt,
       ...witness.merkle_path,
     ];
 
