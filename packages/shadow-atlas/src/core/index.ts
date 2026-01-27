@@ -33,3 +33,26 @@ export {
   type HTTPClientConfig,
   type FetchOptions,
 } from './http-client.js';
+
+// Redistricting tracker (dual-validity for boundary transitions)
+export {
+  RedistrictingTracker,
+  InMemoryRedistrictingStorage,
+  getRedistrictingTracker,
+  resetRedistrictingTracker,
+  type RedistrictingEvent,
+  type RedistrictingConfig,
+  type RedistrictingStorage,
+  type RedistrictingSource,
+  type RootValidationResult,
+} from './redistricting-tracker.js';
+
+// Redistricting notifications
+export {
+  createRedistrictingNotification,
+  formatRedistrictingMessage,
+  formatRedistrictingTitle,
+  isNotificationActive,
+  daysRemainingInDualValidity,
+  type RedistrictingNotification,
+} from './redistricting-notifications.js';
