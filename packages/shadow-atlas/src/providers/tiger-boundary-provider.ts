@@ -32,6 +32,20 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 
 const execFileAsync = promisify(execFile);
+
+// Import TIGER verification utilities
+import {
+  verifyTIGERFile,
+  TIGERIntegrityError,
+  TIGERChecksumMissingError,
+  type VerificationResult,
+} from './tiger-verifier.js';
+import {
+  getTIGERChecksum,
+  getStateTIGERChecksum,
+  buildStateFileKey,
+  type TIGERVerificationOptions,
+} from './tiger-manifest.js';
 import type {
   BoundaryProvider,
   RawBoundaryFile,
@@ -677,6 +691,10 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
   private autoExpireCache: boolean;
   private gracePeriodDays: number;
 
+  // Verification configuration
+  private verifyDownloads: boolean;
+  private verificationOptions: TIGERVerificationOptions;
+
   constructor(options: {
     cacheDir?: string;
     year?: number;
@@ -686,6 +704,10 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     jobId?: string;
     autoExpireCache?: boolean;
     gracePeriodDays?: number;
+    /** Enable cryptographic verification of downloads (default: true) */
+    verifyDownloads?: boolean;
+    /** Verification options */
+    verificationOptions?: TIGERVerificationOptions;
   } = {}) {
     // Default cache: packages/crypto/data/tiger-cache
     this.cacheDir = options.cacheDir ||
@@ -701,6 +723,14 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     // Optional DLQ for failed download persistence
     this.dlq = options.dlq;
     this.jobId = options.jobId;
+
+    // Verification configuration (default: enabled with non-strict mode for backward compatibility)
+    this.verifyDownloads = options.verifyDownloads ?? true;
+    this.verificationOptions = options.verificationOptions ?? {
+      strictMode: false, // Don't fail on missing checksums by default
+      allowEmptyChecksums: true,
+      verbose: false,
+    };
 
     // Cache expiration configuration (default: enabled with 30 day grace period)
     this.autoExpireCache = options.autoExpireCache ?? true;
@@ -1114,6 +1144,7 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    * Download file via curl with exponential backoff retry
    *
    * On final failure, persists to DLQ for later retry if DLQ is configured.
+   * After successful download, verifies file integrity against manifest checksums.
    */
   private async downloadFileWithRetry(
     url: string,
@@ -1126,9 +1157,27 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
         await this.downloadFile(url, outputPath);
+
+        // Verify downloaded file integrity (CVE-VOTER-005 mitigation)
+        if (this.verifyDownloads && layer) {
+          await this.verifyDownloadedFile(outputPath, layer, stateFips);
+        }
+
         return; // Success
       } catch (error) {
         lastError = error as Error;
+
+        // Don't retry on integrity failures - these are not transient
+        if (error instanceof TIGERIntegrityError) {
+          logger.error('TIGER integrity check FAILED - potential MITM attack', {
+            layer,
+            url,
+            stateFips,
+            expected: error.result.expectedHash,
+            actual: error.result.actualHash,
+          });
+          throw error;
+        }
 
         if (attempt < this.maxRetries) {
           const delay = this.retryDelayMs * Math.pow(2, attempt);
@@ -1174,6 +1223,69 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     }
 
     throw new Error(`Download failed after ${this.maxRetries + 1} attempts: ${lastError?.message}`);
+  }
+
+  /**
+   * Verify downloaded TIGER file against manifest checksums
+   *
+   * @param filePath - Path to downloaded file
+   * @param layer - TIGER layer type
+   * @param stateFips - State FIPS code (for state-level files)
+   * @throws TIGERIntegrityError if verification fails
+   */
+  private async verifyDownloadedFile(
+    filePath: string,
+    layer: TIGERLayer,
+    stateFips?: string
+  ): Promise<void> {
+    const vintage = String(this.year);
+
+    // Get expected checksum from manifest
+    let expectedHash: string | null;
+    let fileKey: string;
+
+    if (stateFips) {
+      // State-level file
+      fileKey = buildStateFileKey(layer, stateFips);
+      expectedHash = getStateTIGERChecksum(vintage, layer, stateFips);
+    } else {
+      // National file
+      fileKey = layer;
+      expectedHash = getTIGERChecksum(vintage, layer);
+    }
+
+    // Skip verification if no checksum available (with logging)
+    if (!expectedHash) {
+      if (this.verificationOptions.strictMode) {
+        throw new TIGERChecksumMissingError(fileKey, vintage);
+      }
+
+      if (this.verificationOptions.verbose) {
+        logger.warn('No checksum available for TIGER file', {
+          fileKey,
+          vintage,
+          filePath,
+          message: 'Run scripts/generate-tiger-manifest.ts to populate checksums',
+        });
+      }
+      return;
+    }
+
+    // Perform verification
+    const result = await verifyTIGERFile(filePath, expectedHash);
+
+    if (!result.valid) {
+      throw new TIGERIntegrityError(fileKey, result, filePath);
+    }
+
+    if (this.verificationOptions.verbose) {
+      logger.info('TIGER file verified', {
+        fileKey,
+        vintage,
+        hash: result.actualHash.slice(0, 16) + '...',
+        size: result.fileSize,
+      });
+    }
   }
 
   /**
