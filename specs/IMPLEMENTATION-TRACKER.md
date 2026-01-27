@@ -193,7 +193,7 @@ Implementation of multi-depth circuit support (18, 20, 22, 24) and 24-slot hybri
 
 ### specs/
 - `DEPTH-PARAMETERIZATION-PLAN.md` - Update with actual status
-- `GEOGRAPHIC-CELL-CIRCUIT-SPEC.md` - Mark implemented sections
+- `DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md` - Mark implemented sections (renamed from GEOGRAPHIC-CELL-CIRCUIT-SPEC.md)
 - `DISTRICT-TAXONOMY.md` - No changes needed (documentation complete)
 
 ---
@@ -256,7 +256,7 @@ Implementation of multi-depth circuit support (18, 20, 22, 24) and 24-slot hybri
 ### 2026-01-25 (Wave 0 Complete)
 
 - **Wave 0 Complete**: Audit revealed noir-prover as critical blocker
-- **Documentation Updated**: GEOGRAPHIC-CELL-CIRCUIT-SPEC.md created
+- **Documentation Updated**: DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md created (renamed from GEOGRAPHIC-CELL-CIRCUIT-SPEC.md)
 - **Key Finding**: Contracts ready, prover not ready
 - **Next Step**: Wave 1 implementation
 

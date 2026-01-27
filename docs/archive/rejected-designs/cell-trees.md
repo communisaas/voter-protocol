@@ -1,5 +1,11 @@
 # Cell Trees Specification
 
+> **ARCHIVED: This describes a REJECTED architecture. See [specs/ARCHITECTURE-DECISION-SHADOW-ATLAS.md](../../../specs/ARCHITECTURE-DECISION-SHADOW-ATLAS.md) for why district-based was chosen instead.**
+>
+> This document is preserved for historical reference only. Do not use for implementation guidance.
+
+---
+
 > **⚠️ PHASE 2 SPECIFICATION - NOT IMPLEMENTED ⚠️**
 >
 > This describes a **future cell-based architecture** that does not yet exist. The current implementation uses a simpler single-district proof system. This is Phase 2 architecture requiring significant cryptographic and smart contract development before it can be deployed.
