@@ -14,8 +14,8 @@
 import { UltraHonkBackend } from '@aztec/bb.js';
 import { Noir } from '@noir-lang/noir_js';
 import type { CompiledCircuit } from '@noir-lang/noir_js';
-import type { ProverConfig, CircuitInputs, ProofResult, CircuitDepth } from './types';
-import { DEFAULT_CIRCUIT_DEPTH } from './types';
+import type { ProverConfig, CircuitInputs, ProofResult, CircuitDepth, AuthorityLevel } from './types';
+import { DEFAULT_CIRCUIT_DEPTH, validateAuthorityLevel } from './types';
 
 /**
  * Lazy circuit loaders - only imports circuit when needed
@@ -125,25 +125,40 @@ export class NoirProver {
 
     /**
      * Generate a ZK proof for district membership
+     *
+     * The new secure circuit computes leaf and nullifier internally:
+     * - leaf = hash(userSecret, districtId, authorityLevel, registrationSalt)
+     * - nullifier = hash(userSecret, actionDomain)
+     *
+     * This prevents attackers from submitting arbitrary leaves or nullifiers.
      */
     async prove(inputs: CircuitInputs): Promise<ProofResult> {
         await this.init();
 
+        // Validate authority level before proving
+        validateAuthorityLevel(inputs.authorityLevel);
+
         console.log('[NoirProver] Generating witness...');
         const witnessStart = Date.now();
 
-        // Use Noir to generate witness from circuit inputs
-        // The input names must match the circuit's main() function parameters
+        // Map TypeScript inputs to Noir circuit parameter names (snake_case)
+        // The circuit computes leaf and nullifier internally for security:
+        // - leaf = hash(user_secret, district_id, authority_level, registration_salt)
+        // - nullifier = hash(user_secret, action_domain)
         const noirInputs = {
+            // Public inputs (contract-controlled)
             merkle_root: inputs.merkleRoot,
-            nullifier: inputs.nullifier,
-            authority_hash: inputs.authorityHash,
-            epoch_id: inputs.epochId,
-            campaign_id: inputs.campaignId,
-            leaf: inputs.leaf,
+            action_domain: inputs.actionDomain,
+
+            // Private inputs (user secrets - never revealed)
+            user_secret: inputs.userSecret,
+            district_id: inputs.districtId,
+            authority_level: inputs.authorityLevel.toString(),
+            registration_salt: inputs.registrationSalt,
+
+            // Merkle proof data
             merkle_path: inputs.merklePath,
             leaf_index: inputs.leafIndex,
-            user_secret: inputs.userSecret,
         };
 
         const { witness } = await this.noir!.execute(noirInputs);
@@ -159,15 +174,21 @@ export class NoirProver {
 
         // Extract public inputs from proof result
         // The order matches the circuit's return statement:
-        // (merkle_root, nullifier, authority_hash, epoch_id, campaign_id)
+        // pub (merkle_root, nullifier, authority_level, action_domain, district_id)
+        //
+        // Note: nullifier is COMPUTED by the circuit, not passed in
+        const rawAuthorityLevel = publicInputs[2]
+            ? parseInt(publicInputs[2], 16) || parseInt(publicInputs[2], 10)
+            : inputs.authorityLevel;
+
         return {
             proof,
             publicInputs: {
                 merkleRoot: publicInputs[0] ?? inputs.merkleRoot,
-                nullifier: publicInputs[1] ?? inputs.nullifier,
-                authorityHash: publicInputs[2] ?? inputs.authorityHash,
-                epochId: publicInputs[3] ?? inputs.epochId,
-                campaignId: publicInputs[4] ?? inputs.campaignId,
+                nullifier: publicInputs[1] ?? '', // Computed by circuit, should always be present
+                authorityLevel: validateAuthorityLevel(rawAuthorityLevel),
+                actionDomain: publicInputs[3] ?? inputs.actionDomain,
+                districtId: publicInputs[4] ?? inputs.districtId,
             },
         };
     }

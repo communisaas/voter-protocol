@@ -92,32 +92,42 @@ describe('NoirProver E2E', () => {
         const DEPTH = 14;
 
         // 1. Generate Valid Inputs
-        // Use arbitrary small values for secrets/leaves
+        // Use arbitrary small values for secrets
         const userSecret = '0x1234';
-        const leaf = '0x1111';
+        const districtId = '0x42';
+        const authorityLevel = 1;
+        const registrationSalt = '0x99';
         const leafIndex = 0; // Leftmost leaf
         const merklePath = Array(DEPTH).fill('0x00'); // All zero siblings
 
-        const authorityHash = '0x01';
-        const epochId = '0x01';
-        const campaignId = '0x01';
+        // Action domain replaces epochId + campaignId
+        const actionDomain = '0x01';
 
-        // Compute valid public inputs
+        // The new secure circuit computes leaf internally:
+        // leaf = hash(userSecret, districtId, authorityLevel, registrationSalt)
+        const zero = '0x' + '00'.repeat(32);
+        const leaf = await poseidon([userSecret, districtId, authorityLevel.toString(), registrationSalt]);
+
+        // Compute valid merkle root from the computed leaf
         const merkleRoot = await computeMerkleRoot(leaf, merklePath, leafIndex);
 
-        // Nullifier = Poseidon(secret, campaign, authority, epoch)
-        const nullifier = await poseidon([userSecret, campaignId, authorityHash, epochId]);
+        // Note: nullifier is now computed inside the circuit as:
+        // nullifier = hash(userSecret, actionDomain)
 
         const inputs = {
+            // Public inputs (contract-controlled)
             merkleRoot,
-            nullifier,
-            authorityHash,
-            epochId,
-            campaignId,
-            leaf,
+            actionDomain,
+
+            // Private inputs (user secrets)
+            userSecret,
+            districtId,
+            authorityLevel: authorityLevel as 1 | 2 | 3 | 4 | 5,
+            registrationSalt,
+
+            // Merkle proof data
             merklePath: merklePath.map(toHex),
             leafIndex,
-            userSecret,
         };
 
         // 2. Generate Proof
@@ -130,10 +140,13 @@ describe('NoirProver E2E', () => {
         expect(result.proof).toBeDefined();
         expect((result.proof as Uint8Array).length).toBeGreaterThan(0);
 
-        // 3. Verify Proof (using bb.js verifier if available, or just asserting successful generation)
-        // Since we don't have verify() on NoirProver yet, successful generation implies 
-        // witness satisfaction (Noir) and proof generation (BB).
-        // Constraints are checked during witness generation.
+        // 3. Verify public outputs
+        // The circuit returns: (merkle_root, nullifier, authority_level, action_domain, district_id)
+        expect(result.publicInputs.merkleRoot).toBeDefined();
+        expect(result.publicInputs.nullifier).toBeDefined(); // Computed by circuit
+        expect(result.publicInputs.authorityLevel).toBe(authorityLevel);
+        expect(result.publicInputs.actionDomain).toBeDefined();
+        expect(result.publicInputs.districtId).toBeDefined();
 
         console.log('Proof generated successfully!');
         console.log('Public Inputs:', result.publicInputs);
