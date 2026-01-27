@@ -150,9 +150,12 @@ export class ProverOrchestrator {
     /**
      * Generate valid circuit inputs using Poseidon2 hashing (runs in worker)
      *
-     * This computes:
-     * - merkleRoot = compute_merkle_root(leaf, path, index)
-     * - nullifier = poseidon(user_secret, campaign_id, authority_hash, epoch_id)
+     * The new secure circuit computes internally:
+     * - leaf = hash(userSecret, districtId, authorityLevel, registrationSalt)
+     * - nullifier = hash(userSecret, actionDomain)
+     *
+     * This function computes:
+     * - merkleRoot = compute_merkle_root(computed_leaf, path, index)
      */
     async generateInputs(options: GenerateInputsOptions = {}): Promise<CircuitInputs> {
         if (!this.workerReady) {

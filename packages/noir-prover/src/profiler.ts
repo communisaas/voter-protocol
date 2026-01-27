@@ -183,15 +183,19 @@ export async function runProfile(): Promise<ProfileResult> {
         log(`Threads: ${result.threads}`);
 
         // Phase 2: Generate valid inputs in worker
+        // Using new secure circuit format where leaf and nullifier are computed inside circuit
         log('\n[2/5] Generating valid inputs in hash worker...');
         const inputsStart = performance.now();
 
         const inputs: CircuitInputs = await sharedOrchestrator.generateInputs({
-            leaf: '0x0000000000000000000000000000000000000000000000000000000000001111',
+            // Private inputs
             userSecret: '0x0000000000000000000000000000000000000000000000000000000000001234',
-            campaignId: '0x0000000000000000000000000000000000000000000000000000000000000001',
-            authorityHash: '0x0000000000000000000000000000000000000000000000000000000000000001',
-            epochId: '0x0000000000000000000000000000000000000000000000000000000000000001',
+            districtId: '0x0000000000000000000000000000000000000000000000000000000000000042',
+            authorityLevel: 1,
+            registrationSalt: '0x0000000000000000000000000000000000000000000000000000000000000099',
+            // Public inputs
+            actionDomain: '0x0000000000000000000000000000000000000000000000000000000000000001',
+            // Merkle data
             leafIndex: 0,
         });
 
@@ -202,7 +206,8 @@ export async function runProfile(): Promise<ProfileResult> {
         log(`Memory after inputs: ${result.memoryAfterInputs ?? 'N/A'} MB`);
         log('Valid inputs:', {
             merkleRoot: inputs.merkleRoot.slice(0, 18) + '...',
-            nullifier: inputs.nullifier.slice(0, 18) + '...',
+            districtId: inputs.districtId.slice(0, 18) + '...',
+            authorityLevel: inputs.authorityLevel,
             leafIndex: inputs.leafIndex,
         });
 

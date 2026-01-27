@@ -9,6 +9,17 @@
 
 import { writeFile, mkdir, readFile, stat } from 'fs/promises';
 import { dirname, join } from 'path';
+import { createHash } from 'crypto';
+
+// Import TIGER verification utilities
+import {
+  getTIGERChecksum,
+  buildStateFileKey,
+} from '../../providers/tiger-manifest.js';
+import {
+  verifyTIGERBuffer,
+  TIGERIntegrityError,
+} from '../../providers/tiger-verifier.js';
 
 // GeoJSON types (inline to avoid external dependency issues)
 export interface Geometry {
@@ -71,6 +82,12 @@ export interface TIGERFetchOptions {
 
   /** Timeout in milliseconds */
   readonly timeout?: number;
+
+  /** Verify download integrity against manifest checksums (default: true) */
+  readonly verifyIntegrity?: boolean;
+
+  /** Fail on missing checksums in strict mode (default: false) */
+  readonly strictVerification?: boolean;
 }
 
 /**
@@ -421,6 +438,8 @@ export async function fetchTIGER(
     cacheDir = '.shadow-atlas/tiger-cache',
     forceRefresh = false,
     timeout = 120000,
+    verifyIntegrity = true,
+    strictVerification = false,
   } = options;
 
   // Determine CD version suffix
@@ -464,6 +483,31 @@ export async function fetchTIGER(
   }
 
   const zipBuffer = await response.arrayBuffer();
+  const zipData = Buffer.from(zipBuffer);
+
+  // CVE-VOTER-005: Verify download integrity against manifest checksums
+  if (verifyIntegrity) {
+    const fileKey = state === 'us' ? layer : buildStateFileKey(layer, state);
+    const expectedHash = getTIGERChecksum(String(vintage), fileKey);
+
+    if (expectedHash) {
+      const result = verifyTIGERBuffer(zipData, expectedHash);
+      if (!result.valid) {
+        throw new TIGERIntegrityError(
+          fileKey,
+          result,
+          zipUrl
+        );
+      }
+      // Verification passed
+    } else if (strictVerification) {
+      throw new Error(
+        `No checksum available for TIGER file: ${fileKey} (vintage ${vintage}). ` +
+        `Run 'npx tsx scripts/generate-tiger-manifest.ts' to populate checksums.`
+      );
+    }
+    // If no checksum and not strict mode, proceed without verification
+  }
 
   // Extract and convert shapefile to GeoJSON
   const geojson = await extractShapefileToGeoJSON(new Uint8Array(zipBuffer));

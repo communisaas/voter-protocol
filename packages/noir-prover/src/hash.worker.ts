@@ -32,11 +32,16 @@ type WorkerCommand =
     | { type: 'TERMINATE' };
 
 interface GenerateInputsOptions {
-    leaf?: string;
+    // Private inputs
     userSecret?: string;
-    campaignId?: string;
-    authorityHash?: string;
-    epochId?: string;
+    districtId?: string;
+    authorityLevel?: 1 | 2 | 3 | 4 | 5;
+    registrationSalt?: string;
+
+    // Public inputs
+    actionDomain?: string;
+
+    // Merkle proof data
     leafIndex?: number;
     merklePath?: string[];
 }
@@ -129,13 +134,14 @@ async function handleInitHashOnly() {
         const fixtures = await loadFixtures();
 
         // Warmup: generate a test input to ensure WASM is fully loaded
+        // Uses new secure circuit input format
         console.log('[HashWorker] Warming up...');
         await fixtures.generateValidInputs({
-            leaf: '0x01',
             userSecret: '0x01',
-            campaignId: '0x01',
-            authorityHash: '0x01',
-            epochId: '0x01',
+            districtId: '0x01',
+            authorityLevel: 1,
+            registrationSalt: '0x01',
+            actionDomain: '0x01',
             leafIndex: 0,
         });
 
@@ -154,15 +160,18 @@ async function handleComputeMerkleRoot(leaf: string, merklePath: string[], leafI
         const fixtures = await loadFixtures();
         console.log('[HashWorker] Computing merkle root...');
 
-        // Use generateValidInputs with the provided merkle data
+        // Note: In the new secure circuit, leaf is computed internally from
+        // (userSecret, districtId, authorityLevel, registrationSalt).
+        // This function now generates inputs that will produce the correct merkle root.
+        // The 'leaf' parameter here is used to derive test values.
         const inputs = await fixtures.generateValidInputs({
-            leaf,
             merklePath,
             leafIndex,
-            userSecret: '0x01',
-            campaignId: '0x01',
-            authorityHash: '0x01',
-            epochId: '0x01',
+            userSecret: leaf, // Use provided leaf as userSecret for deterministic output
+            districtId: '0x01',
+            authorityLevel: 1,
+            registrationSalt: '0x01',
+            actionDomain: '0x01',
         });
 
         console.log('[HashWorker] Merkle root computed:', inputs.merkleRoot.slice(0, 18) + '...');
@@ -181,20 +190,15 @@ async function handlePoseidonHash(inputs: string[]) {
         const fixtures = await loadFixtures();
         console.log('[HashWorker] Computing Poseidon hash...');
 
-        // Use a leaf input to compute a hash
-        // The fixtures circuit computes poseidon2_permutation
-        const result = await fixtures.generateValidInputs({
-            leaf: inputs[0] || '0x01',
-            userSecret: inputs[1] || '0x01',
-            campaignId: '0x01',
-            authorityHash: '0x01',
-            epochId: '0x01',
-            leafIndex: 0,
-        });
+        // Use the exported computeNullifier for direct hash computation
+        // This computes: hash(userSecret, actionDomain) which mirrors the circuit
+        const hash = await fixtures.computeNullifier(
+            inputs[0] || '0x01',
+            inputs[1] || '0x01'
+        );
 
-        // The nullifier is effectively a hash of the inputs
-        console.log('[HashWorker] Hash computed:', result.nullifier.slice(0, 18) + '...');
-        sendEvent({ type: 'POSEIDON_HASH_RESULT', hash: result.nullifier });
+        console.log('[HashWorker] Hash computed:', hash.slice(0, 18) + '...');
+        sendEvent({ type: 'POSEIDON_HASH_RESULT', hash });
     } catch (error) {
         console.error('[HashWorker] Poseidon hash failed:', error);
         sendEvent({
@@ -211,9 +215,18 @@ async function handleGenerateInputs(options?: GenerateInputsOptions) {
 
         const inputs = await fixtures.generateValidInputs(options || {});
 
+        // Note: nullifier is now computed INSIDE the circuit, not passed in
+        // We can compute it here for logging purposes using computeNullifier
+        const expectedNullifier = await fixtures.computeNullifier(
+            inputs.userSecret,
+            inputs.actionDomain
+        );
+
         console.log('[HashWorker] Inputs generated:', {
             merkleRoot: inputs.merkleRoot.slice(0, 18) + '...',
-            nullifier: inputs.nullifier.slice(0, 18) + '...',
+            expectedNullifier: expectedNullifier.slice(0, 18) + '... (computed by circuit)',
+            districtId: inputs.districtId.slice(0, 18) + '...',
+            authorityLevel: inputs.authorityLevel,
         });
         sendEvent({ type: 'INPUTS_RESULT', inputs });
     } catch (error) {

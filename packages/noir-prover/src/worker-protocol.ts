@@ -33,13 +33,32 @@ export type WorkerCommand =
     | { type: 'GENERATE_INPUTS'; options?: GenerateInputsOptions }
     | { type: 'TERMINATE' };
 
+/**
+ * Options for generating valid circuit inputs
+ *
+ * The new secure circuit computes leaf and nullifier internally:
+ * - leaf = hash(userSecret, districtId, authorityLevel, registrationSalt)
+ * - nullifier = hash(userSecret, actionDomain)
+ */
 export interface GenerateInputsOptions {
-    leaf?: string;
+    // Private inputs (user secrets)
+    /** User's secret for nullifier derivation and leaf computation */
     userSecret?: string;
-    campaignId?: string;
-    authorityHash?: string;
-    epochId?: string;
+    /** District identifier */
+    districtId?: string;
+    /** Authority level (1-5) */
+    authorityLevel?: 1 | 2 | 3 | 4 | 5;
+    /** Registration salt for leaf computation */
+    registrationSalt?: string;
+
+    // Public inputs
+    /** Action domain (replaces epochId + campaignId) */
+    actionDomain?: string;
+
+    // Merkle proof data
+    /** Leaf position in tree */
     leafIndex?: number;
+    /** Custom merkle path siblings */
     merklePath?: string[];
 }
 

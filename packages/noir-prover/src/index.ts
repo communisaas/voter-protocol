@@ -21,8 +21,8 @@ export {
     resetProverSingleton,
     resetProverForDepth,
 } from './prover';
-export type { ProverConfig, ProofResult, CircuitInputs, CircuitDepth } from './types';
-export { DEFAULT_CIRCUIT_DEPTH } from './types';
+export type { ProverConfig, ProofResult, CircuitInputs, CircuitDepth, AuthorityLevel } from './types';
+export { DEFAULT_CIRCUIT_DEPTH, validateAuthorityLevel } from './types';
 
 // Cross-origin isolation utilities (needed for SharedArrayBuffer support)
 export { checkCrossOriginIsolation, requireCrossOriginIsolation } from './cross-origin-isolation';
