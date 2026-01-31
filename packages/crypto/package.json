@@ -1,9 +1,14 @@
 {
   "name": "@voter-protocol/crypto",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Cryptography library for VOTER Protocol - compression, encryption, key derivation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "noir/fixtures/target/*.json",
+    "noir/district_membership/target/*.json"
+  ],
   "exports": {
     ".": "./dist/index.js",
     "./poseidon2": "./dist/poseidon2.js",
