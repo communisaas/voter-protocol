@@ -19,8 +19,15 @@ global DEPTH: u32 = 14;
 global MIN_AUTHORITY_LEVEL: Field = 1;
 global MAX_AUTHORITY_LEVEL: Field = 5;
 
+// BA-003 FIX: Domain separation tag for 2-input hash.
+// Prevents cross-arity collisions: poseidon2_hash2(a, b) can no longer equal
+// poseidon2_hash4(a, b, 0, 0) because the third state element is now 0x48324d
+// ("H2M" = Hash-2 Marker) instead of 0.
+// Only hash2 needs the tag since hash4 already fills all 4 state slots.
+global DOMAIN_HASH2: Field = 0x48324d;
+
 fn poseidon2_hash2(left: Field, right: Field) -> Field {
-    let mut state: [Field; 4] = [left, right, 0, 0];
+    let mut state: [Field; 4] = [left, right, DOMAIN_HASH2, 0];
     let out = poseidon2_permutation(state, 4);
     out[0]
 }
@@ -81,8 +88,9 @@ fn compute_nullifier(user_secret: Field, action_domain: Field) -> Field {
 /// SECURITY (ISSUE-006): Authority levels must be bounded to prevent
 /// privilege escalation or invalid tier claims.
 fn validate_authority_level(authority_level: Field) {
-    // Range check: 1 <= authority_level <= 5
-    // We use Field comparisons via casting to u8 for bounded arithmetic
+    // BA-007 FIX: Ensure value fits in u8 before casting to prevent truncation attacks.
+    // A Field value like 261 (256 + 5) would silently truncate to 5 as u8.
+    assert(authority_level as u64 < 256, "Authority level exceeds u8 range");
     let level_u8 = authority_level as u8;
     assert(level_u8 >= MIN_AUTHORITY_LEVEL as u8, "Authority level below minimum (1)");
     assert(level_u8 <= MAX_AUTHORITY_LEVEL as u8, "Authority level above maximum (5)");

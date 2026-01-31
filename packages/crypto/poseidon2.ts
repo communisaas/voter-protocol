@@ -29,6 +29,12 @@ import fixturesCircuit from './noir/fixtures/target/fixtures.json';
 const ZERO_PAD = '0x' + '00'.repeat(32);
 
 /**
+ * Domain separation tag for hashPair (BA-003).
+ * Matches circuit: global DOMAIN_HASH2: Field = 0x48324d;  // "H2M" marker
+ */
+const DOMAIN_HASH2 = '0x' + (0x48324d).toString(16).padStart(64, '0');
+
+/**
  * Default concurrency for batch operations
  * Higher values = more parallelism, but may cause memory pressure
  */
@@ -47,6 +53,9 @@ const DEFAULT_BATCH_SIZE = 64;
 export class Poseidon2Hasher {
   private static instance: Poseidon2Hasher | null = null;
   private static initPromise: Promise<Poseidon2Hasher> | null = null;
+
+  // BN254 scalar field modulus
+  private static readonly BN254_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
 
   private readonly noir: Noir;
   private initialized = false;
@@ -71,7 +80,11 @@ export class Poseidon2Hasher {
 
     // Prevent double initialization with promise lock
     if (!Poseidon2Hasher.initPromise) {
-      Poseidon2Hasher.initPromise = Poseidon2Hasher.initialize();
+      Poseidon2Hasher.initPromise = Poseidon2Hasher.initialize().catch((err) => {
+        // BA-015 FIX: Clear promise on failure so next call retries
+        Poseidon2Hasher.initPromise = null;
+        throw err;
+      });
     }
 
     return Poseidon2Hasher.initPromise;
@@ -98,9 +111,11 @@ export class Poseidon2Hasher {
   }
 
   /**
-   * Hash two field elements: Poseidon2(left, right, 0, 0)
+   * Hash two field elements: Poseidon2(left, right, DOMAIN_HASH2, 0)
    *
-   * Matches the circuit: poseidon2_permutation([left, right, 0, 0], 4)[0]
+   * Matches the circuit: poseidon2_permutation([left, right, 0x48324d, 0], 4)[0]
+   * BA-003: Third state element carries the "H2M" domain separation tag to
+   * distinguish pair-hashing from single/quad modes in the Noir circuit.
    *
    * @param left - Left input (bigint or hex string)
    * @param right - Right input (bigint or hex string)
@@ -110,7 +125,7 @@ export class Poseidon2Hasher {
     const inputs = [
       this.toHex(left),
       this.toHex(right),
-      ZERO_PAD,
+      DOMAIN_HASH2,   // BA-003: Domain separation tag matching circuit
       ZERO_PAD,
     ];
 
@@ -249,10 +264,21 @@ export class Poseidon2Hasher {
   /**
    * Hash a string to BN254 field element
    *
-   * Chunking strategy for strings > 31 bytes:
+   * Chunking strategy:
    * - UTF-8 encode string
    * - Split into 31-byte chunks (safe for 254-bit BN254 field)
-   * - Hash iteratively: hash(chunk[0], chunk[1]) → hash(result, chunk[2]) → ...
+   * - Commit to byte length first, then fold in chunks iteratively:
+   *     hash = hashSingle(length)
+   *     hash = hashPair(hash, chunk[0])
+   *     hash = hashPair(hash, chunk[1])
+   *     ...
+   *
+   * LENGTH PREFIX (BA-022 fix):
+   * Without a length commitment, "" and "\x00" both reduce to hashSingle(0n).
+   * More generally, any two strings whose chunk representations share a common
+   * suffix (due to trailing zero bytes) could collide. Hashing the byte length
+   * as the first element makes every distinct string length a separate domain,
+   * eliminating this class of collision.
    *
    * @param str - String to hash
    * @returns Poseidon2 hash as bigint
@@ -267,18 +293,16 @@ export class Poseidon2Hasher {
       chunks.push(BigInt('0x' + chunk.toString('hex')));
     }
 
-    if (chunks.length === 0) {
-      return this.hashSingle(0n);
-    } else if (chunks.length === 1) {
-      return this.hashSingle(chunks[0]);
-    } else {
-      // Iterative hashing for multi-chunk strings
-      let hash = await this.hashPair(chunks[0], chunks[1]);
-      for (let i = 2; i < chunks.length; i++) {
-        hash = await this.hashPair(hash, chunks[i]);
-      }
-      return hash;
+    // BA-022: Start with the byte length to guarantee domain separation.
+    // This ensures "" (length 0) and "\x00" (length 1) hash differently,
+    // and prevents all trailing-zero-byte collision classes.
+    let hash = await this.hashSingle(BigInt(bytes.length));
+
+    for (const chunk of chunks) {
+      hash = await this.hashPair(hash, chunk);
     }
+
+    return hash;
   }
 
   /**
@@ -310,17 +334,32 @@ export class Poseidon2Hasher {
   }
 
   /**
-   * Convert value to 0x-prefixed 64-char hex string
+   * Convert value to 0x-prefixed 64-char hex string.
+   * BA-016: Validates hex characters, rejects negative bigints,
+   * and enforces BN254 field modulus bound.
    */
   private toHex(value: bigint | string): string {
-    if (typeof value === 'string') {
-      if (value.startsWith('0x')) {
-        // Pad to 64 chars
-        return '0x' + value.slice(2).padStart(64, '0');
+    if (typeof value === 'bigint') {
+      if (value < 0n) {
+        throw new Error(`Negative bigint not allowed: ${value}`);
       }
-      return '0x' + value.padStart(64, '0');
+      if (value >= Poseidon2Hasher.BN254_MODULUS) {
+        throw new Error(`Value exceeds BN254 field modulus: ${value}`);
+      }
+      return '0x' + value.toString(16).padStart(64, '0');
     }
-    return '0x' + value.toString(16).padStart(64, '0');
+    // String path
+    const hex = value.startsWith('0x') ? value.slice(2) : value;
+    if (!/^[0-9a-fA-F]*$/.test(hex)) {
+      throw new Error(`Invalid hex string: ${value}`);
+    }
+    const padded = hex.padStart(64, '0');
+    // Validate field range
+    const asBigInt = BigInt('0x' + padded);
+    if (asBigInt >= Poseidon2Hasher.BN254_MODULUS) {
+      throw new Error(`Value exceeds BN254 field modulus: 0x${padded}`);
+    }
+    return '0x' + padded;
   }
 }
 
