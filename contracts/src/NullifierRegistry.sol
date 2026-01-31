@@ -188,6 +188,7 @@ contract NullifierRegistry is Pausable, ReentrancyGuard {
         address previous = governance;
         governance = newGovernance;
         authorizedCallers[newGovernance] = true;
+        authorizedCallers[previous] = false;
         emit GovernanceTransferred(previous, newGovernance);
     }
 }

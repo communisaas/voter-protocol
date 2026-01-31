@@ -34,12 +34,12 @@ import "openzeppelin/security/Pausable.sol";
 /// This approach balances circuit efficiency with coverage for edge cases.
 /// Empty slots use bytes32(0) and are skipped during verification.
 ///
-/// PUBLIC INPUTS (SAME across all depths):
+/// PUBLIC INPUTS (SAME across all depths, matches circuit output order):
 /// - publicInputs[0]: merkleRoot (district Merkle root)
 /// - publicInputs[1]: nullifier (prevents double-voting)
-/// - publicInputs[2]: authorityHash (action context)
-/// - publicInputs[3]: epochId (temporal binding)
-/// - publicInputs[4]: campaignId (campaign context)
+/// - publicInputs[2]: authorityLevel (1-5 integer authority level)
+/// - publicInputs[3]: actionDomain (domain separator for nullifier scoping)
+/// - publicInputs[4]: districtId (district identifier)
 ///
 /// BACKWARDS COMPATIBILITY:
 /// - Existing depth-12 proofs continue to work via fallback verifier
@@ -67,12 +67,21 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
     /// @notice Campaign registry (optional, can be zero)
     CampaignRegistry public campaignRegistry;
 
+    /// @notice Timelock delay for campaign registry changes (7 days, same as district registration)
+    uint256 public constant CAMPAIGN_REGISTRY_TIMELOCK = 7 days;
+
+    /// @notice Proposed campaign registry address (zero if no proposal pending)
+    address public pendingCampaignRegistry;
+
+    /// @notice Timestamp after which the pending campaign registry change can execute
+    uint256 public pendingCampaignRegistryExecuteTime;
+
     /// @notice EIP-712 domain separator
     bytes32 public immutable DOMAIN_SEPARATOR;
 
     /// @notice EIP-712 typehash for proof submission
     bytes32 public constant SUBMIT_PROOF_TYPEHASH = keccak256(
-        "SubmitProof(bytes32 proofHash,bytes32 districtRoot,bytes32 nullifier,bytes32 authorityHash,bytes32 epochId,bytes32 campaignId,bytes3 country,uint256 nonce,uint256 deadline)"
+        "SubmitProof(bytes32 proofHash,bytes32 districtRoot,bytes32 nullifier,bytes32 authorityLevel,bytes32 actionDomain,bytes32 districtId,bytes3 country,uint256 nonce,uint256 deadline)"
     );
 
     /// @notice Nonces for replay protection
@@ -86,12 +95,14 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
         bytes3 country,
         uint8 depth,
         bytes32 nullifier,
-        bytes32 authorityHash,
-        bytes32 epochId,
-        bytes32 campaignId
+        bytes32 authorityLevel,
+        bytes32 actionDomain,
+        bytes32 districtId
     );
 
     event CampaignRegistrySet(address indexed previousRegistry, address indexed newRegistry);
+    event CampaignRegistryChangeProposed(address indexed proposed, uint256 executeTime);
+    event CampaignRegistryChangeCancelled(address indexed proposed);
     event ContractPaused(address indexed governance);
     event ContractUnpaused(address indexed governance);
 
@@ -103,6 +114,8 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
     error InvalidSignature();
     error SignatureExpired();
     error InvalidPublicInputCount();
+    error CampaignRegistryChangeNotProposed();
+    error CampaignRegistryTimelockNotExpired();
 
     /// @notice Deploy multi-depth gate
     /// @param _verifierRegistry Address of VerifierRegistry
@@ -145,9 +158,9 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
     /// @param proof ZK proof bytes
     /// @param districtRoot District Merkle root
     /// @param nullifier Unique nullifier for this action
-    /// @param authorityHash Authority/action context hash
-    /// @param epochId Temporal binding
-    /// @param campaignId Campaign identifier
+    /// @param authorityLevel Authority level (1-5 integer, encoded as bytes32)
+    /// @param actionDomain Domain separator for nullifier scoping
+    /// @param districtId District identifier
     /// @param expectedCountry Expected country code
     /// @param deadline Signature expiration timestamp
     /// @param signature EIP-712 signature from signer
@@ -156,9 +169,9 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
         bytes calldata proof,
         bytes32 districtRoot,
         bytes32 nullifier,
-        bytes32 authorityHash,
-        bytes32 epochId,
-        bytes32 campaignId,
+        bytes32 authorityLevel,
+        bytes32 actionDomain,
+        bytes32 districtId,
         bytes3 expectedCountry,
         uint256 deadline,
         bytes calldata signature
@@ -174,9 +187,9 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
                 proofHash,
                 districtRoot,
                 nullifier,
-                authorityHash,
-                epochId,
-                campaignId,
+                authorityLevel,
+                actionDomain,
+                districtId,
                 expectedCountry,
                 nonces[signer],
                 deadline
@@ -201,13 +214,13 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
         if (verifier == address(0)) revert VerifierNotFound();
 
         // Step 3: Verify ZK proof with depth-specific verifier
-        // Public inputs: (merkleRoot, nullifier, authorityHash, epochId, campaignId)
+        // Public inputs: (merkle_root, nullifier, authority_level, action_domain, district_id)
         uint256[5] memory publicInputs = [
             uint256(districtRoot),
             uint256(nullifier),
-            uint256(authorityHash),
-            uint256(epochId),
-            uint256(campaignId)
+            uint256(authorityLevel),
+            uint256(actionDomain),
+            uint256(districtId)
         ];
 
         (bool success, bytes memory result) = verifier.call(
@@ -222,12 +235,12 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
             revert VerificationFailed();
         }
 
-        // Step 4: Record nullifier (use authorityHash as actionId for backwards compatibility)
-        nullifierRegistry.recordNullifier(authorityHash, nullifier, districtRoot);
+        // Step 4: Record nullifier (use actionDomain as actionId — circuit's domain separator for nullifiers)
+        nullifierRegistry.recordNullifier(actionDomain, nullifier, districtRoot);
 
         // Step 5: Record campaign participation (if registry is set)
         if (address(campaignRegistry) != address(0)) {
-            try campaignRegistry.recordParticipation(campaignId, districtRoot) {
+            try campaignRegistry.recordParticipation(districtId, districtRoot) {
                 // Success - participation recorded
             } catch {
                 // Fail silently - action not linked to campaign or campaign paused
@@ -241,9 +254,9 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
             actualCountry,
             depth,
             nullifier,
-            authorityHash,
-            epochId,
-            campaignId
+            authorityLevel,
+            actionDomain,
+            districtId
         );
     }
 
@@ -280,11 +293,41 @@ contract DistrictGateV2 is Pausable, TimelockGovernance {
     // Campaign Registry Integration
     // ============================================================================
 
-    /// @notice Set the campaign registry address (governance only)
-    function setCampaignRegistry(address _campaignRegistry) external onlyGovernance {
+    /// @notice Propose a new campaign registry address (starts 7-day timelock)
+    /// @param _campaignRegistry New campaign registry address (address(0) to remove)
+    /// @dev Emits CampaignRegistryChangeProposed. Community has 7 days to respond.
+    function proposeCampaignRegistry(address _campaignRegistry) external onlyGovernance {
+        pendingCampaignRegistry = _campaignRegistry;
+        pendingCampaignRegistryExecuteTime = block.timestamp + CAMPAIGN_REGISTRY_TIMELOCK;
+
+        emit CampaignRegistryChangeProposed(_campaignRegistry, pendingCampaignRegistryExecuteTime);
+    }
+
+    /// @notice Execute the pending campaign registry change (after 7-day timelock)
+    /// @dev Can be called by anyone after timelock expires
+    function executeCampaignRegistry() external {
+        if (pendingCampaignRegistryExecuteTime == 0) revert CampaignRegistryChangeNotProposed();
+        if (block.timestamp < pendingCampaignRegistryExecuteTime) revert CampaignRegistryTimelockNotExpired();
+
         address previousRegistry = address(campaignRegistry);
-        campaignRegistry = CampaignRegistry(_campaignRegistry);
-        emit CampaignRegistrySet(previousRegistry, _campaignRegistry);
+        address newRegistry = pendingCampaignRegistry;
+
+        campaignRegistry = CampaignRegistry(newRegistry);
+        pendingCampaignRegistry = address(0);
+        pendingCampaignRegistryExecuteTime = 0;
+
+        emit CampaignRegistrySet(previousRegistry, newRegistry);
+    }
+
+    /// @notice Cancel a pending campaign registry change
+    function cancelCampaignRegistry() external onlyGovernance {
+        if (pendingCampaignRegistryExecuteTime == 0) revert CampaignRegistryChangeNotProposed();
+
+        address proposed = pendingCampaignRegistry;
+        pendingCampaignRegistry = address(0);
+        pendingCampaignRegistryExecuteTime = 0;
+
+        emit CampaignRegistryChangeCancelled(proposed);
     }
 
     // ============================================================================
