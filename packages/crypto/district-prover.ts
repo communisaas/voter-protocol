@@ -36,10 +36,11 @@ import type { CompiledCircuit, InputMap } from '@noir-lang/noir_js';
 import type { ProofData } from '@aztec/bb.js';
 
 // Import compiled district_membership circuits (build script generates 4 variants)
-import districtCircuit18 from './noir/district_membership/target/district_membership_18.json';
-import districtCircuit20 from './noir/district_membership/target/district_membership_20.json';
-import districtCircuit22 from './noir/district_membership/target/district_membership_22.json';
-import districtCircuit24 from './noir/district_membership/target/district_membership_24.json';
+// Node.js 22+ requires import attributes for JSON modules
+import districtCircuit18 from './noir/district_membership/target/district_membership_18.json' with { type: 'json' };
+import districtCircuit20 from './noir/district_membership/target/district_membership_20.json' with { type: 'json' };
+import districtCircuit22 from './noir/district_membership/target/district_membership_22.json' with { type: 'json' };
+import districtCircuit24 from './noir/district_membership/target/district_membership_24.json' with { type: 'json' };
 
 /**
  * Supported Merkle tree depths (even values 18-24)

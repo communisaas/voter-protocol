@@ -1,6 +1,6 @@
 {
   "name": "@voter-protocol/crypto",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cryptography library for VOTER Protocol - compression, encryption, key derivation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -21,7 +21,8 @@ import { Noir } from '@noir-lang/noir_js';
 import type { CompiledCircuit } from '@noir-lang/noir_js';
 
 // Import the compiled fixtures circuit (Poseidon2 hash wrapper)
-import fixturesCircuit from './noir/fixtures/target/fixtures.json';
+// Node.js 22+ requires import attributes for JSON modules
+import fixturesCircuit from './noir/fixtures/target/fixtures.json' with { type: 'json' };
 
 /**
  * Zero padding constant for hash inputs
