@@ -25,6 +25,8 @@
 #   - nargo (Noir compiler) installed and in PATH
 #   - Run from packages/crypto directory
 #
+# Requires: nargo 1.0.0-beta.18 (must match bb verifier generation)
+#
 
 set -e  # Exit on error
 set -u  # Exit on undefined variable

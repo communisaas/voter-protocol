@@ -104,6 +104,12 @@ generate_verifier_for_depth() {
 
     # Step 3: Rename contract to include depth in name
     # bb generates "HonkVerifier" by default, we want "UltraPlonkVerifier_18" etc.
+    #
+    # BA-021: Naming discrepancy — these contracts are named "UltraPlonkVerifier" but
+    # bb actually generates UltraHonk proofs (not UltraPlonk). The "Plonk" naming is
+    # a legacy convention retained for contract interface compatibility. The underlying
+    # proof system is UltraHonk. This naming is an artifact of the bb tool's rename
+    # step below and does NOT reflect the actual proof system used.
     sed -i.bak "s/contract HonkVerifier/contract UltraPlonkVerifier_${depth}/g" "${verifier_path}"
     rm -f "${verifier_path}.bak"
 
