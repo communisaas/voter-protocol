@@ -273,7 +273,9 @@ export const URLSchema = z.string()
     (url) => {
       try {
         const parsed = new URL(url);
-        return ALLOWED_DOMAINS.some((domain) => parsed.hostname.endsWith(domain));
+        return ALLOWED_DOMAINS.some((domain) =>
+          parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
+        );
       } catch {
         return false;
       }

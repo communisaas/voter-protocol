@@ -91,7 +91,8 @@ interface LookupResponse {
     leaf: string;
     siblings: string[];
     pathIndices: number[];
-  };
+  } | null;
+  proofStatus: 'available' | 'pending' | 'unavailable';
   provenance: {
     snapshotId: string;
     ipfsCID: string;
@@ -228,13 +229,11 @@ router.get('/v1/districts', async (request: Request, env: Env) => {
     const snapshotObj = await env.DISTRICTS_BUCKET.get('metadata/snapshot-current.json');
     const snapshot = snapshotObj ? ((await snapshotObj.json()) as R2SnapshotMetadata) : null;
 
-    // Generate mock Merkle proof (TODO: implement actual proof generation)
-    const merkleProof = {
-      root: snapshot?.merkleRoot || '0x0000000000000000000000000000000000000000000000000000000000000000',
-      leaf: '0x0000000000000000000000000000000000000000000000000000000000000000',
-      siblings: [],
-      pathIndices: [],
-    };
+    // Proof generation requires the shadow-atlas proof-generator service.
+    // The edge worker performs district lookup only; proof retrieval is a separate API call.
+    // See: packages/shadow-atlas/src/serving/proof-generator.ts
+    const merkleProof = null;
+    const proofStatus = 'pending' as const;
 
     // Build response
     const response: LookupResponse = {
@@ -247,6 +246,7 @@ router.get('/v1/districts', async (request: Request, env: Env) => {
       },
       coordinates: { lat, lng },
       merkleProof,
+      proofStatus,
       provenance: {
         snapshotId: snapshot?.snapshotId || 'unknown',
         ipfsCID: snapshot?.ipfsCID || 'unknown',
