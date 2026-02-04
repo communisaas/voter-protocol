@@ -34,6 +34,20 @@ export type CircuitDepth = 18 | 20 | 22 | 24;
 export const DEFAULT_CIRCUIT_DEPTH: CircuitDepth = 20;
 
 /**
+ * Number of public inputs in the single-tree circuit proof result.
+ *
+ * Public inputs layout (in circuit order):
+ *   merkle_root        (1)
+ *   nullifier          (1)
+ *   authority_level    (1)
+ *   action_domain      (1)
+ *   district_id        (1)
+ *   ───────────────────────
+ *   Total:             5
+ */
+export const PUBLIC_INPUT_COUNT = 5;
+
+/**
  * Authority levels representing user permission tiers
  * - 1: Basic voter
  * - 2: Verified voter
@@ -208,6 +222,136 @@ export interface ProofResult {
          */
         districtId: string;
     };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Two-Tree Architecture Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Number of district slots per cell in the 24-slot registration model.
+ * Per DISTRICT-TAXONOMY.md:
+ *   Slots 0-6:   Core governance (federal through municipal)
+ *   Slots 7-10:  Education districts
+ *   Slots 11-16: Core special districts
+ *   Slots 17-19: Extended special districts
+ *   Slots 20-21: Administrative boundaries
+ *   Slots 22-23: Overflow/international
+ */
+export const DISTRICT_SLOT_COUNT = 24;
+
+/**
+ * Number of public inputs in the two-tree circuit proof result.
+ *
+ * Public inputs layout (in circuit order):
+ *   user_root          (1)
+ *   cell_map_root      (1)
+ *   districts          (24)
+ *   nullifier          (1)
+ *   action_domain      (1)
+ *   authority_level     (1)
+ *   ───────────────────────
+ *   Total:             29
+ */
+export const TWO_TREE_PUBLIC_INPUT_COUNT = 29;
+
+/**
+ * Inputs required to generate a two-tree membership proof.
+ *
+ * The circuit verifies:
+ * 1. User identity in Tree 1 (standard Merkle tree)
+ * 2. Cell-to-district mapping in Tree 2 (sparse Merkle tree)
+ * 3. Nullifier correctness (computed from user_secret + action_domain)
+ * 4. Authority level range [1, 5]
+ *
+ * SECURITY:
+ * - SA-011: user_secret must not be zero
+ * - CVE-001/CVE-003: Leaves computed inside circuit from user_secret
+ * - CVE-002: Nullifier uses only user_secret + public action_domain
+ */
+export interface TwoTreeProofInput {
+    // ═══════════════════════════════════════════════════════════════════════
+    // PUBLIC INPUTS (contract-controlled, visible on-chain)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Root of Tree 1 (user identity Merkle tree) */
+    userRoot: bigint;
+
+    /** Root of Tree 2 (cell-district mapping sparse Merkle tree) */
+    cellMapRoot: bigint;
+
+    /** All 24 district IDs for this cell. Unused slots MUST be 0n. */
+    districts: bigint[];
+
+    /** Anti-double-vote nullifier = hash(user_secret, action_domain) */
+    nullifier: bigint;
+
+    /** Contract-controlled action scope for nullifier derivation */
+    actionDomain: bigint;
+
+    /** User's voting tier (1-5). Range-checked by the circuit. */
+    authorityLevel: AuthorityLevel;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRIVATE INPUTS (user-provided witnesses, never revealed)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** User's secret key material. Must be non-zero (SA-011). */
+    userSecret: bigint;
+
+    /** Census tract cell ID the user is registered in */
+    cellId: bigint;
+
+    /** Random salt assigned during registration */
+    registrationSalt: bigint;
+
+    /** Tree 1 Merkle siblings from leaf to root (length = TREE_DEPTH) */
+    userPath: bigint[];
+
+    /** Leaf position in Tree 1 (determines left/right at each level) */
+    userIndex: number;
+
+    /** Tree 2 SMT siblings from leaf to root (length = TREE_DEPTH) */
+    cellMapPath: bigint[];
+
+    /** Tree 2 SMT direction bits at each level: 0 = left, 1 = right */
+    cellMapPathBits: number[];
+}
+
+/**
+ * Result of two-tree proof generation.
+ */
+export interface TwoTreeProofResult {
+    /** Serialized proof bytes (UltraHonk format) */
+    proof: Uint8Array;
+
+    /**
+     * Public inputs as hex strings, in circuit order.
+     * Total count: 29 (TWO_TREE_PUBLIC_INPUT_COUNT)
+     *
+     * Layout:
+     *   [0]     user_root
+     *   [1]     cell_map_root
+     *   [2-25]  districts[0..24]
+     *   [26]    nullifier
+     *   [27]    action_domain
+     *   [28]    authority_level
+     */
+    publicInputs: string[];
+}
+
+/**
+ * Configuration for the TwoTreeNoirProver.
+ */
+export interface TwoTreeProverConfig {
+    /** Number of threads for proving (default: auto-detect) */
+    threads?: number;
+
+    /**
+     * Merkle tree depth for circuit selection (default: 20)
+     * Both Tree 1 and Tree 2 use the same depth.
+     */
+    depth?: CircuitDepth;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

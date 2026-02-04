@@ -6,6 +6,11 @@ import { inflate } from 'pako';
 import { Noir } from '@noir-lang/noir_js';
 import fixtureJson from '../../crypto/noir/fixtures/target/fixtures.json';
 
+// BA-003: Domain separation tag matching circuit poseidon2_hash2
+// This is 0x48324d as a 32-byte field element
+const DOMAIN_HASH2 = '0x000000000000000000000000000000000000000000000000000000000048324d';
+const ZERO_PAD = '0x' + '00'.repeat(32);
+
 // Helper to pad hex to 32 bytes buffer
 function toBuffer(val: string | bigint | Uint8Array): Uint8Array {
     if (val instanceof Uint8Array) return val;
@@ -71,25 +76,29 @@ describe('NoirProver E2E', () => {
 
     async function computeMerkleRoot(leaf: string, path: string[], index: number): Promise<string> {
         let node = leaf;
-        const zero = '0x' + '00'.repeat(32);
 
         for (let i = 0; i < path.length; i++) {
             const bit = (index >> i) & 1;
             const sibling = path[i];
 
+            // CRITICAL-003 FIX: Use DOMAIN_HASH2 to match circuit's poseidon2_hash2
+            // The circuit uses: poseidon2([left, right, DOMAIN_HASH2, 0])
+            // Previously this used [left, right, 0, 0] which would produce different hashes
             if (bit === 1) {
-                // node is right child, hash(sibling, node, 0, 0)
-                node = await poseidon([sibling, node, zero, zero]);
+                // node is right child, hash(sibling, node, DOMAIN_HASH2, 0)
+                node = await poseidon([sibling, node, DOMAIN_HASH2, ZERO_PAD]);
             } else {
-                // node is left child, hash(node, sibling, 0, 0)
-                node = await poseidon([node, sibling, zero, zero]);
+                // node is left child, hash(node, sibling, DOMAIN_HASH2, 0)
+                node = await poseidon([node, sibling, DOMAIN_HASH2, ZERO_PAD]);
             }
         }
         return node;
     }
 
     it('should generate valid proof verification', async () => {
-        const DEPTH = 14;
+        // Circuit depth 20 = state/large municipal (~1M leaves)
+        // Valid depths: 18, 20, 22, 24
+        const DEPTH = 20;
 
         // 1. Generate Valid Inputs
         // Use arbitrary small values for secrets

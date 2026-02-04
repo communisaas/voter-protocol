@@ -28,6 +28,13 @@ import fixturesCircuit from '../../crypto/noir/fixtures/target/fixtures.json';
 
 const ZERO_PAD = '0x' + '00'.repeat(32);
 
+/**
+ * BA-003 FIX: Domain separation tag for 2-input hash
+ * Matches circuit's DOMAIN_HASH2 constant (0x48324d = "H2M" = Hash-2 Marker)
+ * Prevents cross-arity collisions between hash2 and hash4
+ */
+const DOMAIN_HASH2 = '0x000000000000000000000000000000000000000000000000000000000048324d';
+
 let fixtureNoir: Noir | null = null;
 
 /**
@@ -55,13 +62,16 @@ export function resetFixtures(): void {
 }
 
 /**
- * Poseidon2 hash via Noir fixtures circuit
+ * Poseidon2 hash via Noir fixtures circuit (4-input version)
  * Matches: poseidon2_permutation([a, b, c, d], 4)[0]
+ *
+ * WARNING: For 2-input hashes (merkle steps, nullifiers), use poseidon2Hash2() instead
+ * to include the domain separation tag that matches the circuit.
  */
 async function poseidon(inputs: (string | bigint | number)[]): Promise<string> {
   const noir = await getFixtureNoir();
 
-  // Pad to 4 inputs
+  // Pad to 4 inputs with zeros (for poseidon2_hash4 compatibility)
   const paddedInputs = [...inputs];
   while (paddedInputs.length < 4) {
     paddedInputs.push(ZERO_PAD);
@@ -79,6 +89,32 @@ async function poseidon(inputs: (string | bigint | number)[]): Promise<string> {
   });
 
   const result = await noir.execute({ inputs: hexInputs });
+  const returnValue =
+    (result as { returnValue?: string }).returnValue ??
+    (result as { return_value?: string }).return_value;
+
+  if (!returnValue) {
+    throw new Error('Poseidon2 fixture returned no value');
+  }
+
+  return returnValue as string;
+}
+
+/**
+ * BA-003 FIX: Poseidon2 hash for 2 inputs with domain separation tag
+ * Matches circuit's poseidon2_hash2: poseidon2_permutation([left, right, DOMAIN_HASH2, 0], 4)[0]
+ *
+ * This prevents cross-arity collisions where hash2(a, b) could equal hash4(a, b, 0, 0)
+ */
+async function poseidon2Hash2(left: string, right: string): Promise<string> {
+  const noir = await getFixtureNoir();
+
+  const hexLeft = left.startsWith('0x') ? left : '0x' + left;
+  const hexRight = right.startsWith('0x') ? right : '0x' + right;
+
+  const result = await noir.execute({
+    inputs: [hexLeft, hexRight, DOMAIN_HASH2, ZERO_PAD],
+  });
   const returnValue =
     (result as { returnValue?: string }).returnValue ??
     (result as { return_value?: string }).return_value;
@@ -115,6 +151,8 @@ async function computeLeaf(
  * let bit: bool = ((leaf_index >> i) & 1u32) == 1u32;
  * node = if bit { poseidon2_hash2(sibling, node) } else { poseidon2_hash2(node, sibling) };
  * ```
+ *
+ * BA-003 FIX: Uses poseidon2Hash2() with domain separation tag to match circuit
  */
 async function computeMerkleRoot(
   leaf: string,
@@ -129,10 +167,10 @@ async function computeMerkleRoot(
 
     if (bit === 1) {
       // node is right child: hash(sibling, node)
-      node = await poseidon([sibling, node]);
+      node = await poseidon2Hash2(sibling, node);
     } else {
       // node is left child: hash(node, sibling)
-      node = await poseidon([node, sibling]);
+      node = await poseidon2Hash2(node, sibling);
     }
   }
 
@@ -149,12 +187,14 @@ async function computeMerkleRoot(
  *
  * Note: This is for reference/testing only - the actual nullifier is
  * computed INSIDE the circuit and returned as a public output.
+ *
+ * BA-003 FIX: Uses poseidon2Hash2() with domain separation tag to match circuit
  */
 export async function computeNullifier(
   userSecret: string,
   actionDomain: string
 ): Promise<string> {
-  return poseidon([userSecret, actionDomain]);
+  return poseidon2Hash2(userSecret, actionDomain);
 }
 
 /**

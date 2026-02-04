@@ -15,7 +15,7 @@ import { UltraHonkBackend } from '@aztec/bb.js';
 import { Noir } from '@noir-lang/noir_js';
 import type { CompiledCircuit } from '@noir-lang/noir_js';
 import type { ProverConfig, CircuitInputs, ProofResult, CircuitDepth, AuthorityLevel } from './types';
-import { DEFAULT_CIRCUIT_DEPTH, validateAuthorityLevel } from './types';
+import { DEFAULT_CIRCUIT_DEPTH, PUBLIC_INPUT_COUNT, validateAuthorityLevel } from './types';
 
 /**
  * Lazy circuit loaders - only imports circuit when needed
@@ -123,6 +123,9 @@ export class NoirProver {
         console.log('[NoirProver] Warmup complete (backend initialized)');
     }
 
+    /** Maximum allowed Merkle depth (prevents DoS via oversized arrays) */
+    private static readonly MAX_MERKLE_DEPTH = 24;
+
     /**
      * Generate a ZK proof for district membership
      *
@@ -134,6 +137,24 @@ export class NoirProver {
      */
     async prove(inputs: CircuitInputs): Promise<ProofResult> {
         await this.init();
+
+        // HIGH-005 FIX: Upfront check to prevent DoS via oversized merkle_path arrays
+        // Must happen BEFORE any processing to prevent memory exhaustion attacks
+        if (!Array.isArray(inputs.merklePath)) {
+            throw new Error('merklePath must be an array');
+        }
+        if (inputs.merklePath.length > NoirProver.MAX_MERKLE_DEPTH) {
+            throw new Error(
+                `merklePath exceeds maximum allowed depth: ${inputs.merklePath.length} > ${NoirProver.MAX_MERKLE_DEPTH}`
+            );
+        }
+        // Validate path length matches configured depth
+        if (inputs.merklePath.length !== this.depth) {
+            throw new Error(
+                `merklePath length mismatch: expected ${this.depth}, got ${inputs.merklePath.length}. ` +
+                `Did you initialize the prover with the wrong depth?`
+            );
+        }
 
         // Validate authority level before proving
         validateAuthorityLevel(inputs.authorityLevel);
@@ -172,23 +193,30 @@ export class NoirProver {
 
         console.log(`[NoirProver] Proof generated in ${Date.now() - proofStart}ms`);
 
+        // BR3-002 FIX: Validate public input count before extraction
+        // Prevents silent fallback to caller-provided values when circuit returns wrong count
+        if (publicInputs.length !== PUBLIC_INPUT_COUNT) {
+            throw new Error(
+                `Expected ${PUBLIC_INPUT_COUNT} public inputs from circuit, got ${publicInputs.length}`
+            );
+        }
+
         // Extract public inputs from proof result
         // The order matches the circuit's return statement:
         // pub (merkle_root, nullifier, authority_level, action_domain, district_id)
         //
         // Note: nullifier is COMPUTED by the circuit, not passed in
-        const rawAuthorityLevel = publicInputs[2]
-            ? parseInt(publicInputs[2], 16) || parseInt(publicInputs[2], 10)
-            : inputs.authorityLevel;
+        // publicInputs[2] guaranteed to exist after count check above
+        const rawAuthorityLevel = parseInt(publicInputs[2], 16) || parseInt(publicInputs[2], 10);
 
         return {
             proof,
             publicInputs: {
-                merkleRoot: publicInputs[0] ?? inputs.merkleRoot,
-                nullifier: publicInputs[1] ?? '', // Computed by circuit, should always be present
+                merkleRoot: publicInputs[0],
+                nullifier: publicInputs[1],
                 authorityLevel: validateAuthorityLevel(rawAuthorityLevel),
-                actionDomain: publicInputs[3] ?? inputs.actionDomain,
-                districtId: publicInputs[4] ?? inputs.districtId,
+                actionDomain: publicInputs[3],
+                districtId: publicInputs[4],
             },
         };
     }
@@ -243,16 +271,39 @@ export async function getProverForDepth(
         return existingPromise;
     }
 
-    // Start new initialization for this depth
-    const initPromise = (async () => {
-        const prover = new NoirProver({ ...config, depth });
-        await prover.init();
-        proverInstances.set(depth, prover);
-        initializationPromises.delete(depth); // Clear promise after success
-        return prover;
+    // HIGH-003 FIX: Create promise wrapper BEFORE starting async initialization
+    // Previous code had a race condition where the IIFE started executing before
+    // initializationPromises.set() was called, allowing concurrent calls to start
+    // duplicate initializations in the window between IIFE start and set() call.
+    //
+    // Solution: Use promise resolve/reject callbacks to register promise synchronously
+    // BEFORE any async work begins, eliminating the race window.
+    let resolveInit: (prover: NoirProver) => void;
+    let rejectInit: (error: Error) => void;
+
+    const initPromise = new Promise<NoirProver>((resolve, reject) => {
+        resolveInit = resolve;
+        rejectInit = reject;
+    });
+
+    // Register promise SYNCHRONOUSLY before any async work
+    initializationPromises.set(depth, initPromise);
+
+    // Now start async initialization - concurrent calls will await initPromise above
+    (async () => {
+        try {
+            const prover = new NoirProver({ ...config, depth });
+            await prover.init();
+            proverInstances.set(depth, prover);
+            initializationPromises.delete(depth); // Clear promise after success
+            resolveInit!(prover);
+        } catch (err) {
+            // SA-006: Clear failed promise so subsequent calls can retry
+            initializationPromises.delete(depth);
+            rejectInit!(err instanceof Error ? err : new Error(String(err)));
+        }
     })();
 
-    initializationPromises.set(depth, initPromise);
     return initPromise;
 }
 
