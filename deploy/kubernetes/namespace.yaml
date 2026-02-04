@@ -1,3 +1,17 @@
+# =============================================================================
+# SECURITY CHECKLIST - Namespace Configuration
+# =============================================================================
+# [x] Pod Security Standards enforced at namespace level (restricted profile)
+# [x] PSS enforce mode - non-compliant pods are rejected
+# [x] PSS audit mode - violations are logged for monitoring
+# [x] PSS warn mode - users receive warnings about violations
+# [x] Separate namespaces for production and staging environments
+# =============================================================================
+# Pod Security Standards Reference:
+# - restricted: Most restrictive, follows security best practices
+# - baseline: Prevents known privilege escalations
+# - privileged: Unrestricted (NOT used here)
+# =============================================================================
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -5,6 +19,14 @@ metadata:
   labels:
     name: shadow-atlas-production
     environment: production
+    # Pod Security Standards - SECURITY: Enforce restricted profile
+    # This ensures all pods meet the highest security standards
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
 ---
 apiVersion: v1
 kind: Namespace
@@ -13,3 +35,10 @@ metadata:
   labels:
     name: shadow-atlas-staging
     environment: staging
+    # Pod Security Standards - SECURITY: Enforce restricted profile
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest

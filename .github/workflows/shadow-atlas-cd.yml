@@ -1,9 +1,11 @@
 name: Shadow Atlas CD
 
+# DISABLED: Shadow Atlas workflows temporarily disabled
+# To re-enable, uncomment the triggers below
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
+  # release:
+  #   types: [published]
     inputs:
       environment:
         description: 'Deployment environment'

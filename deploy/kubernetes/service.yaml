@@ -1,3 +1,12 @@
+# =============================================================================
+# SECURITY CHECKLIST - Service Configuration
+# =============================================================================
+# [x] Service selector matches deployment labels precisely
+# [x] Internal service uses ClusterIP (not exposed externally)
+# [x] LoadBalancer service protected by ingress/NetworkPolicy
+# [x] No unnecessary ports exposed
+# [x] AWS NLB configured for proper backend protocol
+# =============================================================================
 apiVersion: v1
 kind: Service
 metadata:

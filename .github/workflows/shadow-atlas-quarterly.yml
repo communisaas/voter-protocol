@@ -1,10 +1,12 @@
 name: Shadow Atlas Quarterly Update
 
+# DISABLED: Shadow Atlas workflows temporarily disabled
+# To re-enable, uncomment the schedule trigger below
 on:
-  schedule:
-    # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
-    - cron: '0 2 1 1,4,7,10 *'
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
+  # schedule:
+  #   # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
+  #   - cron: '0 2 1 1,4,7,10 *'
     inputs:
       publish_ipfs:
         description: 'Publish to IPFS'

@@ -1,0 +1,92 @@
+# =============================================================================
+# SECURITY CHECKLIST - RBAC Configuration
+# =============================================================================
+# [x] Principle of least privilege applied
+# [x] Role scoped to namespace (not ClusterRole)
+# [x] Only minimal required permissions granted
+# [x] No wildcard permissions (*, all)
+# [x] No escalation paths (no RBAC modification permissions)
+# [x] ServiceAccount explicitly bound to Role
+# [x] Separate RBAC for production and staging
+# =============================================================================
+# Permission Justification:
+# - configmaps (get): Required to read application configuration
+# - secrets (get): Required to read TLS certs and credentials (if needed)
+# - pods (get, list): Required for health monitoring and debugging
+# - events (create): Required for emitting pod lifecycle events
+# =============================================================================
+---
+# Production RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shadow-atlas-role
+  namespace: shadow-atlas-production
+rules:
+# Read-only access to ConfigMaps for application configuration
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+  resourceNames: ["shadow-atlas-config"]
+
+# Read-only access to pods for health checks and debugging
+# Note: This is optional - remove if not needed for application logic
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+# Create events for pod lifecycle notifications
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shadow-atlas-rolebinding
+  namespace: shadow-atlas-production
+subjects:
+- kind: ServiceAccount
+  name: shadow-atlas
+  namespace: shadow-atlas-production
+roleRef:
+  kind: Role
+  name: shadow-atlas-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Staging RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shadow-atlas-role
+  namespace: shadow-atlas-staging
+rules:
+# Read-only access to ConfigMaps for application configuration
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+  resourceNames: ["shadow-atlas-config"]
+
+# Read-only access to pods for health checks and debugging
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+# Create events for pod lifecycle notifications
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shadow-atlas-rolebinding
+  namespace: shadow-atlas-staging
+subjects:
+- kind: ServiceAccount
+  name: shadow-atlas
+  namespace: shadow-atlas-staging
+roleRef:
+  kind: Role
+  name: shadow-atlas-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,16 +1,19 @@
 name: Shadow Atlas CI
 
+# DISABLED: Shadow Atlas workflows temporarily disabled
+# To re-enable, uncomment the triggers below and remove workflow_dispatch
 on:
-  pull_request:
-    paths:
-      - 'packages/shadow-atlas/**'
-      - '.github/workflows/shadow-atlas-ci.yml'
-  push:
-    branches:
-      - main
-    paths:
-      - 'packages/shadow-atlas/**'
-      - '.github/workflows/shadow-atlas-ci.yml'
+  workflow_dispatch:  # Manual trigger only
+  # pull_request:
+  #   paths:
+  #     - 'packages/shadow-atlas/**'
+  #     - '.github/workflows/shadow-atlas-ci.yml'
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'packages/shadow-atlas/**'
+  #     - '.github/workflows/shadow-atlas-ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

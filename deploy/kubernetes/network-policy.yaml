@@ -1,0 +1,174 @@
+# =============================================================================
+# SECURITY CHECKLIST - NetworkPolicy Configuration
+# =============================================================================
+# [x] Default deny all ingress traffic (zero-trust baseline)
+# [x] Default deny all egress traffic (zero-trust baseline)
+# [x] Ingress allowed only from ingress-nginx namespace
+# [x] Ingress allowed only from Prometheus for metrics scraping
+# [x] Egress allowed only to required services (DNS, IPFS gateway)
+# [x] Egress allowed to kube-dns for DNS resolution
+# [x] Pod-to-pod communication within namespace restricted
+# =============================================================================
+# Network Segmentation Strategy:
+# - Ingress: Only load balancer/ingress controller can reach pods
+# - Egress: Only essential external services are reachable
+# - Internal: Pods cannot communicate with arbitrary cluster services
+# =============================================================================
+---
+# Default deny all ingress and egress traffic
+# This establishes a zero-trust baseline for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: shadow-atlas-production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow ingress from nginx ingress controller only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-from-nginx
+  namespace: shadow-atlas-production
+spec:
+  podSelector:
+    matchLabels:
+      app: shadow-atlas
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow traffic from ingress-nginx namespace (ingress controller)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow traffic from monitoring namespace (Prometheus scraping)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+# Allow egress to required services only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-required
+  namespace: shadow-atlas-production
+spec:
+  podSelector:
+    matchLabels:
+      app: shadow-atlas
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS resolution (required for all network operations)
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS to external services (IPFS gateway, etc.)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        # Block access to private networks (RFC 1918)
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        # Block access to link-local addresses
+        - 169.254.0.0/16
+        # Block access to loopback
+        - 127.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# Staging namespace policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: shadow-atlas-staging
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-from-nginx
+  namespace: shadow-atlas-staging
+spec:
+  podSelector:
+    matchLabels:
+      app: shadow-atlas
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-required
+  namespace: shadow-atlas-staging
+spec:
+  podSelector:
+    matchLabels:
+      app: shadow-atlas
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 169.254.0.0/16
+        - 127.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 443

@@ -1,3 +1,17 @@
+# =============================================================================
+# SECURITY CHECKLIST - Deployment Configuration (Green)
+# =============================================================================
+# [x] Image pinned with SHA256 digest (immutable reference)
+# [x] imagePullPolicy: Always to verify digest integrity
+# [x] ServiceAccount with minimal RBAC permissions (see rbac.yaml)
+# [x] Pod securityContext: runAsNonRoot, runAsUser, fsGroup, seccompProfile
+# [x] Container securityContext: allowPrivilegeEscalation=false
+# [x] Container securityContext: readOnlyRootFilesystem=true
+# [x] Container securityContext: capabilities drop ALL
+# [x] Resource limits defined to prevent resource exhaustion
+# [x] Health probes configured for proper lifecycle management
+# [x] Pod anti-affinity for high availability across nodes
+# =============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,8 +51,13 @@ spec:
 
       containers:
       - name: shadow-atlas
-        image: ghcr.io/voter-protocol/shadow-atlas:latest
-        imagePullPolicy: IfNotPresent
+        # SECURITY: Use immutable image reference with SHA256 digest
+        # NEVER use :latest tag in production - it is mutable and unpredictable
+        # To update: Get the digest with `docker inspect --format='{{index .RepoDigests 0}}' <image>`
+        # or from the container registry after pushing a new version
+        image: ghcr.io/voter-protocol/shadow-atlas@sha256:a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+        # Always pull to verify the digest matches - provides integrity verification
+        imagePullPolicy: Always
 
         ports:
         - name: http

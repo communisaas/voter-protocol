@@ -1,3 +1,11 @@
+# =============================================================================
+# SECURITY CHECKLIST - HorizontalPodAutoscaler Configuration
+# =============================================================================
+# [x] Minimum replicas >= 3 for high availability
+# [x] Scale down stabilization window prevents thrashing (300s)
+# [x] Conservative scale down policy (min of 50% or 2 pods per minute)
+# [x] Resource-based scaling prevents resource exhaustion attacks
+# =============================================================================
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
