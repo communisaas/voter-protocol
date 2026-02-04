@@ -1,0 +1,7 @@
+[package]
+name = "sponge_helper"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.40.0"
+
+[dependencies]

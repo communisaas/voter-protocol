@@ -505,6 +505,18 @@ describe('DistrictProver - Proof Verification', () => {
 });
 
 describe('DistrictProver - Security Tests', () => {
+  // SA-011: Test that circuit rejects user_secret = 0
+  it('should reject user_secret = 0 (SA-011)', async () => {
+    const prover = await DistrictProver.getInstance(18);
+    const witness = await generateTestWitnessForDepth(18);
+
+    // Set user_secret to 0 (should be rejected by circuit)
+    witness.user_secret = '0x' + '00'.repeat(32);
+
+    // Circuit should reject this with assertion error
+    await expect(prover.generateProof(witness)).rejects.toThrow(/user_secret cannot be zero|Assertion failed/);
+  }, 30000);
+
   // CVE-001/CVE-003: Test that leaf is computed from user_secret
   it('should fail verification with wrong user_secret (CVE-001/CVE-003)', async () => {
     const hasher = await Poseidon2Hasher.getInstance();
@@ -635,6 +647,35 @@ describe('DistrictProver - Integration Tests', () => {
     expect(proof18.publicInputs).toHaveLength(5);
     expect(proof20.publicInputs).toHaveLength(5);
   }, 120000);
+
+  // SA-006: Test that initialization failures don't prevent retry
+  it('should allow retry after initialization failure (SA-006)', async () => {
+    // This test verifies the HIGH-004 fix in district-prover.ts lines 198-200
+    // where failed initialization promises are cleared from cache to allow retry.
+
+    // Reset to clear any existing instances
+    DistrictProver.resetInstances();
+
+    // Try to initialize with invalid depth (should fail)
+    // @ts-expect-error - Testing error handling with invalid depth
+    await expect(DistrictProver.getInstance(99)).rejects.toThrow(
+      'Unsupported circuit depth: 99. Must be 18, 20, 22, or 24.'
+    );
+
+    // CRITICAL: After failure, the cache should be cleared (SA-006 fix)
+    // This allows subsequent valid calls to succeed instead of returning cached rejection
+
+    // Now try with valid depth - should succeed (not return cached error)
+    const prover = await DistrictProver.getInstance(18);
+    expect(prover).toBeDefined();
+    expect(prover.getDepth()).toBe(18);
+
+    // Verify the prover actually works
+    const witness = await generateTestWitnessForDepth(18);
+    const proof = await prover.generateProof(witness);
+    expect(proof).toBeDefined();
+    expect(proof.publicInputs).toHaveLength(5);
+  }, 60000);
 });
 
 describe('DistrictProver - Edge Cases', () => {

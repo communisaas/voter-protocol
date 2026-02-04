@@ -7,7 +7,9 @@
   "files": [
     "dist",
     "noir/fixtures/target/*.json",
-    "noir/district_membership/target/*.json"
+    "noir/sponge_helper/target/*.json",
+    "noir/district_membership/target/*.json",
+    "noir/two_tree_membership/target/*.json"
   ],
   "exports": {
     ".": "./dist/index.js",
@@ -15,13 +17,21 @@
     "./district-prover": "./dist/district-prover.js",
     "./circuits": "./dist/circuits/pkg/index.js",
     "./noir-fixtures": "./noir/fixtures/target/fixtures.json",
+    "./noir-sponge-helper": "./noir/sponge_helper/target/sponge_helper.json",
     "./circuits/district_membership_14": "./noir/district_membership/target/district_membership_14.json",
+    "./circuits/district_membership_18": "./noir/district_membership/target/district_membership_18.json",
     "./circuits/district_membership_20": "./noir/district_membership/target/district_membership_20.json",
-    "./circuits/district_membership_22": "./noir/district_membership/target/district_membership_22.json"
+    "./circuits/district_membership_22": "./noir/district_membership/target/district_membership_22.json",
+    "./circuits/district_membership_24": "./noir/district_membership/target/district_membership_24.json",
+    "./circuits/two-tree-18": "./noir/two_tree_membership/target/two_tree_membership_18.json",
+    "./circuits/two-tree-20": "./noir/two_tree_membership/target/two_tree_membership_20.json",
+    "./circuits/two-tree-22": "./noir/two_tree_membership/target/two_tree_membership_22.json",
+    "./circuits/two-tree-24": "./noir/two_tree_membership/target/two_tree_membership_24.json"
   },
   "scripts": {
     "build": "tsc",
     "build:circuits": "./scripts/build-circuits.sh",
+    "build:two-tree-circuits": "./scripts/build-two-tree-circuits.sh",
     "test": "vitest",
     "test:watch": "vitest watch"
   },

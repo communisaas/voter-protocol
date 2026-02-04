@@ -149,6 +149,9 @@ export class DistrictProver {
    * First call initializes the Noir circuit + Barretenberg backend, subsequent calls
    * return cached instance. Uses promise-based locking to prevent double initialization.
    *
+   * HIGH-004 FIX: Clears promise on failure so subsequent calls can retry instead of
+   * returning a cached rejection forever.
+   *
    * @param depth - Merkle tree depth (18=municipal, 20=state, 22=federal, 24=mega-region)
    */
   static async getInstance(depth: CircuitDepth): Promise<DistrictProver> {
@@ -160,11 +163,42 @@ export class DistrictProver {
     // Prevent double initialization with promise lock
     let initPromise = DistrictProver.initPromises.get(depth);
     if (!initPromise) {
-      initPromise = DistrictProver.initialize(depth);
+      // HIGH-003/HIGH-004 FIX: Use promise wrapper pattern for race-free initialization
+      // and ensure promise is cleared on failure for retry capability
+      let resolveInit: (prover: DistrictProver) => void;
+      let rejectInit: (error: Error) => void;
+
+      initPromise = new Promise<DistrictProver>((resolve, reject) => {
+        resolveInit = resolve;
+        rejectInit = reject;
+      });
+
+      // Register promise SYNCHRONOUSLY before any async work
       DistrictProver.initPromises.set(depth, initPromise);
+
+      // Start async initialization
+      DistrictProver.initializeAsync(depth, resolveInit!, rejectInit!);
     }
 
     return initPromise;
+  }
+
+  /**
+   * Async initialization helper with proper error handling
+   */
+  private static async initializeAsync(
+    depth: CircuitDepth,
+    resolve: (prover: DistrictProver) => void,
+    reject: (error: Error) => void
+  ): Promise<void> {
+    try {
+      const prover = await DistrictProver.initialize(depth);
+      resolve(prover);
+    } catch (err) {
+      // HIGH-004 FIX: Clear failed promise so subsequent calls can retry
+      DistrictProver.initPromises.delete(depth);
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
   }
 
   /**
@@ -196,6 +230,8 @@ export class DistrictProver {
     const instance = new DistrictProver(noir, backend, depth);
     instance.initialized = true;
     DistrictProver.instances.set(depth, instance);
+    // Clear the promise on success - instance is now in the instances map
+    DistrictProver.initPromises.delete(depth);
 
     return instance;
   }
@@ -322,9 +358,16 @@ export class DistrictProver {
   }
 
   /**
+   * Maximum allowed Merkle depth (prevents DoS via oversized arrays)
+   * Circuit depths are 18, 20, 22, 24 - we allow up to 24
+   */
+  private static readonly MAX_MERKLE_DEPTH = 24;
+
+  /**
    * Validate witness inputs before proving
    *
    * CHECKS:
+   * - merkle_path is an array and doesn't exceed MAX_MERKLE_DEPTH (DoS prevention)
    * - All fields are valid hex strings or numbers
    * - merkle_path has correct length (DEPTH)
    * - leaf_index is within bounds [0, 2^DEPTH)
@@ -332,6 +375,18 @@ export class DistrictProver {
    * - Field elements are within BN254 field modulus
    */
   private validateWitness(witness: DistrictWitness): void {
+    // HIGH-005 FIX: Upfront check to prevent DoS via oversized merkle_path arrays
+    // This check happens BEFORE any processing to prevent memory exhaustion attacks
+    // where an attacker submits millions of elements
+    if (!Array.isArray(witness.merkle_path)) {
+      throw new Error('merkle_path must be an array');
+    }
+    if (witness.merkle_path.length > DistrictProver.MAX_MERKLE_DEPTH) {
+      throw new Error(
+        `merkle_path exceeds maximum allowed depth: ${witness.merkle_path.length} > ${DistrictProver.MAX_MERKLE_DEPTH}`
+      );
+    }
+
     // ISSUE-006: Validate authority_level is in range [1, 5]
     if (witness.authority_level < 1 || witness.authority_level > 5) {
       throw new Error(

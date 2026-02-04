@@ -62,46 +62,46 @@ const BN254_MAX_FIELD_ELEMENT = BN254_FIELD_MODULUS - 1n;
 
 /**
  * Vector 1: Hash of (1, 2) - Basic small values
- * Input: poseidon2_permutation([1, 2, 0, 0], 4)[0]
+ * Input: poseidon2_permutation([1, 2, DOMAIN_HASH2, 0], 4)[0]  // BA-003: Domain separation
  * Purpose: Verify basic hashing works with small integers
  */
-const HASH_1_2 = 18820432867059154094859436055199616701968052823097718648623846518936613856822n;
+const HASH_1_2 = 5700113488374071721540629675635551041370719088032104434910951352719804357924n;
 
 /**
  * Vector 2: Hash of (0, 0) - Zero case
- * Input: poseidon2_permutation([0, 0, 0, 0], 4)[0]
+ * Input: poseidon2_permutation([0, 0, DOMAIN_HASH2, 0], 4)[0]  // BA-003: Domain separation
  * Purpose: Verify zero-input handling (critical for empty leaves in Merkle trees)
  */
-const HASH_0_0 = 11250791130336988991462250958918728798886439319225016858543557054782819955502n;
+const HASH_0_0 = 7920904892182681660068699473082554335979114182301659186550863530220333250830n;
 
 /**
  * Vector 3: Hash of (BN254_PRIME - 1, 0) - Maximum field element
- * Input: poseidon2_permutation([21888242871839275222246405745257275088548364400416034343698204186575808495616, 0, 0, 0], 4)[0]
+ * Input: poseidon2_permutation([21888242871839275222246405745257275088548364400416034343698204186575808495616, 0, DOMAIN_HASH2, 0], 4)[0]  // BA-003
  * Purpose: Boundary test - ensures max field values don't cause overflow/underflow
  */
-const HASH_MAX_0 = 12127185110895373182153750310625920886801558240458884188913112137722207668509n;
+const HASH_MAX_0 = 13491091896790744474024807694963177586438429502397837496652506738509530300397n;
 
 /**
  * Vector 4: Hash of (2^248, 2^248) - Large values near field boundary
- * Input: poseidon2_permutation([2^248, 2^248, 0, 0], 4)[0]
+ * Input: poseidon2_permutation([2^248, 2^248, DOMAIN_HASH2, 0], 4)[0]  // BA-003: Domain separation
  * Purpose: Test large values that are valid but close to field overflow
  * Note: 2^248 < BN254_PRIME, so this is a valid field element
  */
-const HASH_LARGE = 10548716065560270304166577973829246015720586976224502741318298053497405089640n;
+const HASH_LARGE = 17154262625000596133902546958768945485998814610377059489508778071206375074806n;
 
 /**
  * Vector 5: Hash of single value (42)
- * Input: poseidon2_permutation([42, 0, 0, 0], 4)[0]
+ * Input: poseidon2_permutation([42, DOMAIN_HASH1, 0, 0], 4)[0]  // SA-007: Domain separation
  * Purpose: Verify single-value hashing (used for leaf hashing)
  */
-const HASH_SINGLE_42 = 7603882869716484187447696347871638785832006661854284644462824365925882635018n;
+const HASH_SINGLE_42 = 9322738841787553356062428716916748272222544603393244296941047884290559321234n;
 
 /**
  * Vector 6: Hash of single value (0)
- * Input: poseidon2_permutation([0, 0, 0, 0], 4)[0]
- * Purpose: Verify single zero value (should match HASH_0_0 since padding is zeros)
+ * Input: poseidon2_permutation([0, DOMAIN_HASH1, 0, 0], 4)[0]  // SA-007: Domain separation
+ * Purpose: Verify single zero value (NO LONGER matches HASH_0_0 due to domain separation)
  */
-const HASH_SINGLE_0 = 11250791130336988991462250958918728798886439319225016858543557054782819955502n;
+const HASH_SINGLE_0 = 19918955537188974640275502270345037015548280862301442546474376571040241611505n;
 
 /**
  * Vector 7: Hash of 4 values (1, 2, 3, 4)
@@ -112,17 +112,17 @@ const HASH_4_VALUES = 1550500536170601255174183489535503109951001466484246284205
 
 /**
  * Vector 8: Hash of string "hello"
- * Input: UTF-8 bytes of "hello" -> single chunk -> hashSingle
+ * Input: UTF-8 bytes of "hello" -> single chunk -> hashSingle  // SA-007: Includes DOMAIN_HASH1
  * Purpose: Verify string hashing for human-readable identifiers
  */
-const HASH_HELLO = 20295016858894593428496862809304457135181095319758016614231461188944930689651n;
+const HASH_HELLO = 20477477904946483159185841972227506861491996374656427994511915245453687913558n;
 
 /**
  * Vector 9: Hash of empty string ""
- * Input: Empty string -> hashSingle(0)
+ * Input: Empty string -> hashSingle(0)  // SA-007: Includes DOMAIN_HASH1
  * Purpose: Verify empty string handling (should match HASH_SINGLE_0)
  */
-const HASH_EMPTY = 11250791130336988991462250958918728798886439319225016858543557054782819955502n;
+const HASH_EMPTY = 19918955537188974640275502270345037015548280862301442546474376571040241611505n;
 
 /**
  * Vector 10: Hash of 4 zeros
@@ -133,17 +133,17 @@ const HASH_4_ZEROS = 11250791130336988991462250958918728798886439319225016858543
 
 /**
  * Vector 11: Hash of string "voter-protocol-cve-006"
- * Input: UTF-8 bytes -> single chunk -> hashSingle
+ * Input: UTF-8 bytes -> single chunk -> hashSingle  // SA-007: Includes DOMAIN_HASH1
  * Purpose: Domain-specific test string for protocol identification
  */
-const HASH_LONG_STRING = 18611551177496161129560967712699392992457741027215021515979218815229220122625n;
+const HASH_LONG_STRING = 11353653129648389514150722603806975136779426700304574859638383521217385389221n;
 
 /**
  * Vector 12: Hash of hex string input (0x...001)
- * Input: hashSingle('0x0000000000000000000000000000000000000000000000000000000000000001')
+ * Input: hashSingle('0x0000000000000000000000000000000000000000000000000000000000000001')  // SA-007
  * Purpose: Verify hex string parsing produces same result as bigint 1n
  */
-const HASH_HEX_INPUT = 1187863985434533916290764679013201786939267142671550539990974992402592744116n;
+const HASH_HEX_INPUT = 15264162045021955310114759652942767540044018132338228656490281371800599823631n;
 
 // ============================================================================
 // TEST SUITE
@@ -196,20 +196,25 @@ describe('Poseidon2 Golden Test Vectors (CVE-VOTER-006)', () => {
     });
 
     it('should match golden vector for hashSingle(0)', async () => {
-      // ZERO SINGLE TEST: Should equal hash(0, 0) due to zero padding
+      // ZERO SINGLE TEST: SA-007 - Now uses DOMAIN_HASH1, so NO LONGER equals hash(0, 0)
       const result = await hasher.hashSingle(0n);
       expect(result).toBe(HASH_SINGLE_0);
     });
 
-    it('hashSingle(0) should equal hashPair(0, 0)', async () => {
-      // CONSISTENCY TEST: Verifies padding behavior is consistent
-      // hashSingle(x) = poseidon2([x, 0, 0, 0])
-      // hashPair(x, y) = poseidon2([x, y, 0, 0])
-      // Therefore hashSingle(0) = hashPair(0, 0)
+    it('hashSingle(0) should NOT equal hashPair(0, 0) due to domain separation', async () => {
+      // SA-007: Domain separation ensures these differ
+      // hashSingle(0) = poseidon2([0, DOMAIN_HASH1, 0, 0])
+      // hashPair(0, 0) = poseidon2([0, 0, DOMAIN_HASH2, 0])
+      //                                ^^^^^^^^^^^^^^^^^^^^ different!
       const single = await hasher.hashSingle(0n);
       const pair = await hasher.hashPair(0n, 0n);
-      expect(single).toBe(pair);
-      expect(single).toBe(HASH_0_0);
+
+      // SA-007: These must NOT be equal to prevent cross-arity attacks
+      expect(single).not.toBe(pair);
+
+      // Verify each matches its own golden vector
+      expect(single).toBe(HASH_SINGLE_0);
+      expect(pair).toBe(HASH_0_0);
     });
   });
 
@@ -227,11 +232,13 @@ describe('Poseidon2 Golden Test Vectors (CVE-VOTER-006)', () => {
       expect(result).toBe(HASH_4_ZEROS);
     });
 
-    it('hash4(0, 0, 0, 0) should equal hashSingle(0)', async () => {
-      // CONSISTENCY TEST: All operations with all-zero inputs converge
+    it('hash4(0, 0, 0, 0) should NOT equal hashSingle(0) due to domain separation', async () => {
+      // SA-007: Domain separation now prevents this collision
+      // hashSingle(0) = poseidon2([0, DOMAIN_HASH1, 0, 0])
+      // hash4(0,0,0,0) = poseidon2([0, 0, 0, 0])
       const hash4Result = await hasher.hash4(0n, 0n, 0n, 0n);
       const singleResult = await hasher.hashSingle(0n);
-      expect(hash4Result).toBe(singleResult);
+      expect(hash4Result).not.toBe(singleResult);
     });
   });
 
@@ -422,30 +429,42 @@ describe('Poseidon2 Golden Test Vectors (CVE-VOTER-006)', () => {
   });
 
   describe('Cross-Function Consistency', () => {
-    it('hashPair(x, 0) should NOT equal hashSingle(x) for x != 0', async () => {
-      // IMPORTANT: hashPair and hashSingle have DIFFERENT behavior for non-zero x
-      // hashSingle(x) = poseidon2([x, 0, 0, 0])
-      // hashPair(x, 0) = poseidon2([x, 0, 0, 0])
-      // They SHOULD be equal because the padding is the same!
+    it('hashPair(x, 0) should NOT equal hashSingle(x) due to domain separation', async () => {
+      // SA-007 + BA-003: Both hash functions use domain separation
       //
-      // Actually, let's verify this is true:
+      // hashSingle(42) = poseidon2([42, DOMAIN_HASH1, 0, 0])
+      // hashPair(42, 0) = poseidon2([42, 0, DOMAIN_HASH2, 0])
+      //                                ^^^^^^^^^^^^^^^^^^^^^ different!
+      //
+      // These MUST NOT be equal to prevent security vulnerabilities where an attacker
+      // could substitute a hash2 result for a hash1 result (or vice versa).
       const pairResult = await hasher.hashPair(42n, 0n);
       const singleResult = await hasher.hashSingle(42n);
 
-      // Based on the implementation, both should be equal since:
-      // hashSingle(x) = poseidon2([x, 0, 0, 0])
-      // hashPair(x, 0) = poseidon2([x, 0, 0, 0])
-      expect(pairResult).toBe(singleResult);
-      expect(pairResult).toBe(HASH_SINGLE_42);
+      // SA-007 + BA-003: Domain separation ensures these are different values
+      expect(pairResult).not.toBe(singleResult);
+
+      // Verify hashSingle(42) still produces the expected golden vector
+      expect(singleResult).toBe(HASH_SINGLE_42);
     });
 
-    it('hash4(a, b, 0, 0) should equal hashPair(a, b)', async () => {
-      // CONSISTENCY TEST: hash4 with trailing zeros equals hashPair
+    it('hash4(a, b, 0, 0) should NOT equal hashPair(a, b) due to domain separation', async () => {
+      // BA-003: hashPair includes DOMAIN_HASH2 in slot 2, but hash4 uses slot 2 for actual data
+      //
+      // hashPair(1, 2) = poseidon2([1, 2, DOMAIN_HASH2, 0])
+      // hash4(1, 2, 0, 0) = poseidon2([1, 2, 0, 0])
+      //                                    ^^^^^^^^^ different!
+      //
+      // This domain separation prevents cross-arity attacks where different hash
+      // arities could produce colliding outputs.
       const hash4Result = await hasher.hash4(1n, 2n, 0n, 0n);
       const pairResult = await hasher.hashPair(1n, 2n);
 
-      expect(hash4Result).toBe(pairResult);
-      expect(hash4Result).toBe(HASH_1_2);
+      // BA-003: Domain separation ensures these are different values
+      expect(hash4Result).not.toBe(pairResult);
+
+      // Verify hashPair(1, 2) still produces the expected golden vector
+      expect(pairResult).toBe(HASH_1_2);
     });
   });
 });
@@ -468,9 +487,10 @@ describe('Poseidon2 Regression Guard', () => {
     const hasher = await Poseidon2Hasher.getInstance();
     const canaryHash = await hasher.hashString('voter-protocol-v1');
 
-    // This value was computed on 2026-01-26 using noir-lang/noir_js v1.0.0-beta.16
+    // This value was computed on 2026-02-01 using noir-lang/noir_js v1.0.0-beta.16
+    // with BA-003 (hashPair) and SA-007 (hashSingle) domain separation
     // If this value changes, investigate IMMEDIATELY - all existing proofs may be invalid
-    const EXPECTED_CANARY = 16900686253063682909327301483753383152173078221873999706517999868669682448702n;
+    const EXPECTED_CANARY = 8366566449439678633454373218705606361669530872810064846617848987382134091229n;
 
     expect(canaryHash).toBe(EXPECTED_CANARY);
   });

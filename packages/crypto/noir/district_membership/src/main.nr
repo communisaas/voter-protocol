@@ -9,11 +9,17 @@
 //   PUBLIC (contract-controlled). Previously, epoch_id and campaign_id were private
 //   inputs that users could manipulate to generate multiple valid proofs.
 // - ISSUE-006 FIX: authority_level is now range-checked to [1, 5].
+// - SA-011 FIX: user_secret cannot be zero to prevent predictable nullifiers.
 
 use dep::std::hash::poseidon2_permutation;
 
-// Default depth; build pipeline rewrites this per-class (14 / 20 / 22).
-global DEPTH: u32 = 14;
+// Import sponge module for two-tree architecture
+mod sponge;
+
+// Default circuit depth. Build pipeline rewrites this per variant (18 / 20 / 22 / 24).
+// Depth 20 is the default: ~1M leaves, suitable for UK constituencies, medium countries.
+// Valid depths: 18 (260K), 20 (1M), 22 (4M), 24 (16M)
+global DEPTH: u32 = 20;
 
 // Valid authority level bounds (inclusive)
 global MIN_AUTHORITY_LEVEL: Field = 1;
@@ -128,6 +134,11 @@ fn main(
     merkle_path: [Field; DEPTH],
     leaf_index: u32,
 ) -> pub (Field, Field, Field, Field, Field) {
+    // SA-011 FIX: Reject zero user_secret to prevent predictable nullifiers
+    // A zero secret makes nullifier = hash(0, action_domain), which is guessable.
+    // The security model requires high-entropy secrets.
+    assert(user_secret != 0, "user_secret cannot be zero");
+
     // ISSUE-006 FIX: Validate authority_level is in valid range [1, 5]
     validate_authority_level(authority_level);
 
