@@ -26,6 +26,7 @@ import type { CityTarget } from '../../core/city-target.js';
 import type { PortalCandidate } from './arcgis-hub.js';
 import { SemanticValidator } from '../../validators/semantic/validator.js';
 import { logger } from '../../core/utils/logger.js';
+import { validateURL } from '../../security/input-validator.js';
 
 /**
  * City-specific Socrata portal patterns
@@ -104,7 +105,15 @@ export class SocrataScanner {
     const query = `council district OR ward`;
     const url = `https://${domain}/api/catalog/v1?q=${encodeURIComponent(query)}&only=dataset&limit=10`;
 
-    const response = await fetch(url);
+    // SA-009: Validate URL against allowlist before fetching
+    const urlValidation = validateURL(url);
+    if (!urlValidation.success) {
+      const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+      logger.warn('Socrata domain URL not in allowlist', { url, domain, error: errorMsg });
+      throw new Error(`URL not in allowlist: ${errorMsg}`);
+    }
+
+    const response = await fetch(urlValidation.data);
 
     if (!response.ok) {
       throw new Error(`Socrata domain API returned ${response.status}`);
@@ -159,7 +168,15 @@ export class SocrataScanner {
     const query = `${city.name} ${city.state} council district OR ward`;
     const url = `${this.DISCOVERY_API_BASE}?q=${encodeURIComponent(query)}&only=dataset&limit=20`;
 
-    const response = await fetch(url);
+    // SA-009: Validate URL against allowlist before fetching
+    const urlValidation = validateURL(url);
+    if (!urlValidation.success) {
+      const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+      logger.warn('Socrata Discovery API URL not in allowlist', { url, error: errorMsg });
+      throw new Error(`URL not in allowlist: ${errorMsg}`);
+    }
+
+    const response = await fetch(urlValidation.data);
 
     if (!response.ok) {
       throw new Error(`Socrata Discovery API returned ${response.status}`);

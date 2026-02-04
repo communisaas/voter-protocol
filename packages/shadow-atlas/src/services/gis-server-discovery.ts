@@ -18,6 +18,8 @@
 
 import type { CityTarget } from '../validators/pipeline/deterministic.js';
 import { logger } from '../core/utils/logger.js';
+// SECURITY: URL validation for dynamically generated URLs (SA-009)
+import { secureFetch, isURLSafe } from '../security/secure-fetch.js';
 
 /**
  * GIS server endpoint metadata
@@ -304,6 +306,8 @@ export class GISServerDiscovery {
 
   /**
    * Probe a URL to determine GIS server type and health
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   async probeServer(baseUrl: string): Promise<GISServerEndpoint | null> {
     // Try ArcGIS REST API endpoint
@@ -311,18 +315,21 @@ export class GISServerDiscovery {
       const arcgisUrl = `${baseUrl}arcgis/rest/services?f=json`;
       await this.rateLimiter.waitForSlot();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      // SECURITY: Validate dynamically generated URL (SA-009)
+      if (!isURLSafe(arcgisUrl)) {
+        logger.warn('ArcGIS probe URL failed safety check', { url: arcgisUrl.substring(0, 100) });
+        return null;
+      }
 
-      const arcgisResponse = await fetch(arcgisUrl, {
-        signal: controller.signal,
+      const result = await secureFetch(arcgisUrl, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'GIS server discovery - probing potential municipal ArcGIS endpoint',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
-
-      if (arcgisResponse.ok) {
-        const data: unknown = await arcgisResponse.json();
+      if (result.validated && result.response?.ok) {
+        const data: unknown = await result.response.json();
 
         if (isArcGISRootResponse(data)) {
           // Convert version to string (ArcGIS returns number like 11.1)
@@ -346,18 +353,20 @@ export class GISServerDiscovery {
       const geoserverUrl = `${baseUrl}geoserver/rest/about/version.json`;
       await this.rateLimiter.waitForSlot();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      // SECURITY: Validate dynamically generated URL (SA-009)
+      if (!isURLSafe(geoserverUrl)) {
+        return null;
+      }
 
-      const geoserverResponse = await fetch(geoserverUrl, {
-        signal: controller.signal,
+      const result = await secureFetch(geoserverUrl, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'GIS server discovery - probing potential municipal GeoServer endpoint',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
-
-      if (geoserverResponse.ok) {
-        const data: unknown = await geoserverResponse.json();
+      if (result.validated && result.response?.ok) {
+        const data: unknown = await result.response.json();
 
         if (isGeoServerVersionResponse(data)) {
           const version = data.about?.resource?.[0]?.Version ?? null;
@@ -378,6 +387,8 @@ export class GISServerDiscovery {
 
   /**
    * Recursively explore ArcGIS server folder structure
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   async exploreArcGISFolders(
     serverUrl: string,
@@ -401,21 +412,28 @@ export class GISServerDiscovery {
     try {
       await this.rateLimiter.waitForSlot();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(folderUrl)) {
+        logger.warn('Folder URL failed safety check', { folder: folder || '(root)' });
+        return [];
+      }
 
-      const response = await fetch(folderUrl, {
-        signal: controller.signal,
+      const result = await secureFetch(folderUrl, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'ArcGIS folder exploration - discovered municipal GIS endpoint',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (!result.validated || !result.response) {
+        throw new Error(result.error ?? 'Fetch failed');
       }
 
-      const data: unknown = await response.json();
+      if (!result.response.ok) {
+        throw new Error(`HTTP ${result.response.status}`);
+      }
+
+      const data: unknown = await result.response.json();
 
       if (!isArcGISRootResponse(data)) {
         throw new Error('Invalid ArcGIS response structure');
@@ -459,26 +477,36 @@ export class GISServerDiscovery {
 
   /**
    * Explore a specific ArcGIS MapServer or FeatureServer
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   private async exploreService(serviceUrl: string): Promise<GISService | null> {
     try {
       await this.rateLimiter.waitForSlot();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const url = `${serviceUrl}?f=json`;
 
-      const response = await fetch(`${serviceUrl}?f=json`, {
-        signal: controller.signal,
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(url)) {
+        return null;
+      }
+
+      const result = await secureFetch(url, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Service exploration - discovered municipal GIS endpoint',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (!result.validated || !result.response) {
+        throw new Error(result.error ?? 'Fetch failed');
       }
 
-      const data: unknown = await response.json();
+      if (!result.response.ok) {
+        throw new Error(`HTTP ${result.response.status}`);
+      }
+
+      const data: unknown = await result.response.json();
 
       if (!isArcGISServiceResponse(data)) {
         throw new Error('Invalid service response structure');
@@ -515,26 +543,36 @@ export class GISServerDiscovery {
 
   /**
    * Get detailed metadata for a specific layer
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   private async getLayerDetails(layerUrl: string): Promise<GISLayer | null> {
     try {
       await this.rateLimiter.waitForSlot();
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const url = `${layerUrl}?f=json`;
 
-      const response = await fetch(`${layerUrl}?f=json`, {
-        signal: controller.signal,
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(url)) {
+        return null;
+      }
+
+      const result = await secureFetch(url, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Layer details fetch - discovered municipal GIS endpoint',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (!result.validated || !result.response) {
+        throw new Error(result.error ?? 'Fetch failed');
       }
 
-      const data: unknown = await response.json();
+      if (!result.response.ok) {
+        throw new Error(`HTTP ${result.response.status}`);
+      }
+
+      const data: unknown = await result.response.json();
 
       if (!isArcGISLayerDetails(data)) {
         throw new Error('Invalid layer response structure');
@@ -571,6 +609,8 @@ export class GISServerDiscovery {
 
   /**
    * Get feature count for a layer
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   private async getFeatureCount(layerUrl: string): Promise<number | null> {
     try {
@@ -578,21 +618,23 @@ export class GISServerDiscovery {
 
       const countUrl = `${layerUrl}/query?where=1=1&returnCountOnly=true&f=json`;
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const response = await fetch(countUrl, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' },
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(countUrl)) {
         return null;
       }
 
-      const data: unknown = await response.json();
+      const result = await secureFetch(countUrl, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Feature count query - discovered municipal GIS endpoint',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!result.validated || !result.response || !result.response.ok) {
+        return null;
+      }
+
+      const data: unknown = await result.response.json();
 
       if (isArcGISCountResponse(data) && typeof data.count === 'number') {
         return data.count;

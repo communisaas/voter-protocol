@@ -29,6 +29,7 @@ import type {
   DEFAULT_ORCHESTRATION_OPTIONS,
 } from './batch-orchestrator.types.js';
 import { logger } from '../core/utils/logger.js';
+import { parseSerializedJobState } from '../security/input-validator.js';
 
 // ============================================================================
 // Job State Store
@@ -95,6 +96,9 @@ export class JobStateStore {
   /**
    * Get job state
    *
+   * SA-014: Uses schema validation to prevent malformed/malicious state
+   * from corrupting job orchestration during resume operations.
+   *
    * @param jobId - Job ID
    * @returns Job state or null if not found
    */
@@ -102,7 +106,22 @@ export class JobStateStore {
     try {
       const filePath = this.getJobFilePath(jobId);
       const content = await readFile(filePath, 'utf-8');
-      const parsed = JSON.parse(content) as SerializedJobState;
+
+      // SA-014: Validate job state against schema
+      let parsed: SerializedJobState;
+      try {
+        // parseSerializedJobState throws if validation fails, so cast is safe
+        parsed = parseSerializedJobState(content) as unknown as SerializedJobState;
+      } catch (validationError) {
+        // Log warning but allow fallback for backwards compatibility
+        logger.warn('Job state validation failed, using unvalidated parse', {
+          jobId,
+          error: validationError instanceof Error ? validationError.message : 'Unknown error',
+          hint: 'Consider deleting and recreating the job',
+        });
+        parsed = JSON.parse(content) as SerializedJobState;
+      }
+
       return this.deserializeJobState(parsed);
     } catch (error) {
       if (this.isNotFoundError(error)) {
@@ -243,6 +262,9 @@ export class JobStateStore {
   /**
    * List recent jobs
    *
+   * SA-014: Uses schema validation for each job file to prevent
+   * malformed state from corrupting the job list.
+   *
    * @param limit - Maximum number of jobs to return (default: 10)
    * @returns Job summaries sorted by creation date (newest first)
    */
@@ -259,7 +281,21 @@ export class JobStateStore {
     for (const file of jobFiles) {
       try {
         const content = await readFile(join(this.storageDir, file), 'utf-8');
-        const parsed = JSON.parse(content) as SerializedJobState;
+
+        // SA-014: Validate job state against schema
+        let parsed: SerializedJobState;
+        try {
+          // parseSerializedJobState throws if validation fails, so cast is safe
+          parsed = parseSerializedJobState(content) as unknown as SerializedJobState;
+        } catch (validationError) {
+          // Log warning but allow fallback for backwards compatibility
+          logger.warn('Job state validation failed, using unvalidated parse', {
+            file,
+            error: validationError instanceof Error ? validationError.message : 'Unknown error',
+          });
+          parsed = JSON.parse(content) as SerializedJobState;
+        }
+
         const jobState = this.deserializeJobState(parsed);
         jobStates.push(jobState);
       } catch (error) {

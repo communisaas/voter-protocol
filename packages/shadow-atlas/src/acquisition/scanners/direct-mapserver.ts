@@ -30,6 +30,8 @@ import type { CityInfo as CityTarget } from '../../validators/geographic/validat
 import type { PortalCandidate } from './arcgis-hub.js';
 import { SemanticValidator } from '../../validators/semantic/validator.js';
 import { logger } from '../../core/utils/logger.js';
+// SECURITY: URL validation for dynamically generated URLs (SA-009)
+import { secureFetch, isURLSafe } from '../../security/secure-fetch.js';
 
 /**
  * Layer metadata from ArcGIS REST API
@@ -315,16 +317,43 @@ export class DirectMapServerScanner {
       try {
         const url = `https://${domain}${basePath}?f=json`;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        // SECURITY: Validate dynamically generated URL (SA-009)
+        // Direct MapServer scanner generates URLs from city names - must validate
+        if (!isURLSafe(url)) {
+          logger.warn('Generated URL failed safety check', { url: url.substring(0, 100) });
+          continue;
+        }
 
-        const response = await fetch(url, {
-          signal: controller.signal,
+        // Use secureFetch with bypassAllowlist for discovered municipal endpoints
+        const result = await secureFetch(url, {
+          timeout: this.timeout,
+          bypassAllowlist: true,
+          bypassReason: 'Direct MapServer discovery - dynamically generated municipal GIS URL',
           headers: { 'Accept': 'application/json' },
           redirect: 'follow', // Follow redirects (Aurora redirects ags.auroragov.org → data-auroraco.opendata.arcgis.com)
         });
 
-        clearTimeout(timeoutId);
+        if (!result.validated || !result.response) {
+          // Try known service paths directly
+          for (const servicePath of knownServicePaths) {
+            try {
+              const directUrl = `https://${domain}${basePath}${servicePath}`;
+              const serviceCheck = await this.checkDirectService(directUrl);
+              if (serviceCheck) {
+                serviceEndpoints.push(directUrl);
+              }
+            } catch {
+              // Service doesn't exist, continue
+            }
+          }
+          // If we found direct services, return them
+          if (serviceEndpoints.length > 0) {
+            return Object.freeze(serviceEndpoints);
+          }
+          continue;
+        }
+
+        const response = result.response;
 
         if (!response.ok) {
           // Base path not found, try known service paths directly
@@ -346,7 +375,7 @@ export class DirectMapServerScanner {
           continue;
         }
 
-        const data: unknown = await response.json();
+        const data: unknown = await result.response.json();
 
         if (!isArcGISFolderResponse(data)) continue;
 
@@ -403,23 +432,31 @@ export class DirectMapServerScanner {
 
   /**
    * Check if a direct service URL exists (faster than folder recursion)
+   *
+   * SECURITY: Validates URL before fetching (SA-009)
    */
   private async checkDirectService(serviceUrl: string): Promise<boolean> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const url = `${serviceUrl}?f=json`;
 
-      const response = await fetch(`${serviceUrl}?f=json`, {
-        signal: controller.signal,
+      // SECURITY: Validate dynamically generated URL (SA-009)
+      if (!isURLSafe(url)) {
+        return false;
+      }
+
+      const result = await secureFetch(url, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Direct service check - dynamically generated municipal GIS URL',
         headers: { 'Accept': 'application/json' },
         redirect: 'follow',
       });
 
-      clearTimeout(timeoutId);
+      if (!result.validated || !result.response || !result.response.ok) {
+        return false;
+      }
 
-      if (!response.ok) return false;
-
-      const data: unknown = await response.json();
+      const data: unknown = await result.response.json();
       return isArcGISServiceResponse(data);
     } catch {
       return false;
@@ -428,6 +465,8 @@ export class DirectMapServerScanner {
 
   /**
    * Recursively discover services in a folder
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   private async discoverServicesInFolder(
     baseUrl: string,
@@ -442,19 +481,23 @@ export class DirectMapServerScanner {
     try {
       const folderUrl = `${baseUrl}/${folder}?f=json`;
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(folderUrl)) {
+        return [];
+      }
 
-      const response = await fetch(folderUrl, {
-        signal: controller.signal,
+      const result = await secureFetch(folderUrl, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Folder discovery - dynamically generated municipal GIS URL',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
+      if (!result.validated || !result.response || !result.response.ok) {
+        return [];
+      }
 
-      if (!response.ok) return [];
-
-      const data: unknown = await response.json();
+      const data: unknown = await result.response.json();
 
       if (!isArcGISFolderResponse(data)) return [];
 
@@ -487,22 +530,30 @@ export class DirectMapServerScanner {
 
   /**
    * Enumerate all layers in a MapServer/FeatureServer
+   *
+   * SECURITY: Validates URLs before fetching (SA-009)
    */
   private async enumerateLayers(serviceUrl: string): Promise<readonly LayerMetadata[]> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const url = `${serviceUrl}?f=json`;
 
-      const response = await fetch(`${serviceUrl}?f=json`, {
-        signal: controller.signal,
+      // SECURITY: Validate URL before fetching (SA-009)
+      if (!isURLSafe(url)) {
+        return [];
+      }
+
+      const result = await secureFetch(url, {
+        timeout: this.timeout,
+        bypassAllowlist: true,
+        bypassReason: 'Layer enumeration - dynamically generated municipal GIS URL',
         headers: { 'Accept': 'application/json' },
       });
 
-      clearTimeout(timeoutId);
+      if (!result.validated || !result.response || !result.response.ok) {
+        return [];
+      }
 
-      if (!response.ok) return [];
-
-      const data: unknown = await response.json();
+      const data: unknown = await result.response.json();
 
       if (!isArcGISServiceResponse(data)) return [];
 

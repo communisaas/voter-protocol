@@ -724,10 +724,11 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
     this.dlq = options.dlq;
     this.jobId = options.jobId;
 
-    // Verification configuration (default: enabled with non-strict mode for backward compatibility)
+    // Verification configuration (default: enabled with strict mode for security)
     this.verifyDownloads = options.verifyDownloads ?? true;
     this.verificationOptions = options.verificationOptions ?? {
-      strictMode: false, // Don't fail on missing checksums by default
+      strictMode: true, // Fail-secure: reject downloads with missing checksums
+                        // Run: npx tsx scripts/generate-tiger-manifest.ts to populate checksums
       allowEmptyChecksums: true,
       verbose: false,
     };

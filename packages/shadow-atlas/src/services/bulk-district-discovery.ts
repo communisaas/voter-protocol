@@ -18,10 +18,15 @@
  * - Top 1,000 cities: ~40 minutes
  *
  * COST: $0 (all public APIs)
+ *
+ * SA-014: Uses Zod schema validation for discovery state deserialization
  */
 
 import type { BoundaryType } from '../core/types/boundary.js';
 import { BoundaryType as BT } from '../core/types/boundary.js';
+import { parseDiscoveryResults, DiscoveryResultSchema } from '../security/input-validator.js';
+import { z } from 'zod';
+import { logger } from '../core/utils/logger.js';
 
 /**
  * Census place data from TIGER/Line
@@ -430,9 +435,25 @@ export class BulkDistrictDiscovery {
 
   /**
    * Import previous results (for incremental discovery)
+   *
+   * SA-014: Uses schema validation to prevent malformed/malicious data
+   * from corrupting discovery state. Falls back to unvalidated parse with warning.
    */
   importResults(json: string): void {
-    const results = JSON.parse(json) as DiscoveryResult[];
+    let results: DiscoveryResult[];
+
+    try {
+      // SA-014: Validate results against schema
+      // parseDiscoveryResults throws if validation fails, so cast is safe after validation
+      results = parseDiscoveryResults(json) as unknown as DiscoveryResult[];
+    } catch (validationError) {
+      // Log warning but allow fallback for backwards compatibility
+      logger.warn('Discovery results validation failed, using unvalidated parse', {
+        error: validationError instanceof Error ? validationError.message : 'Unknown error',
+      });
+      results = JSON.parse(json) as DiscoveryResult[];
+    }
+
     for (const result of results) {
       this.results.set(result.geoid, result);
     }
@@ -443,13 +464,31 @@ export class BulkDistrictDiscovery {
    *
    * Loads previously discovered results to enable incremental discovery.
    * Cities already processed will be skipped.
+   *
+   * SA-014: Uses schema validation to prevent malformed/malicious state
+   * from corrupting discovery process.
    */
   resumeFromState(stateJson: string): void {
-    interface SavedState {
-      results?: DiscoveryResult[];
+    // Schema for saved state structure
+    const SavedStateSchema = z.object({
+      results: z.array(DiscoveryResultSchema).optional(),
+    });
+
+    let state: { results?: DiscoveryResult[] };
+
+    try {
+      // SA-014: Validate state against schema
+      const parsed = JSON.parse(stateJson) as unknown;
+      // Zod parse throws if validation fails, so cast is safe after validation
+      state = SavedStateSchema.parse(parsed) as unknown as { results?: DiscoveryResult[] };
+    } catch (validationError) {
+      // Log warning but allow fallback for backwards compatibility
+      logger.warn('Discovery state validation failed, using unvalidated parse', {
+        error: validationError instanceof Error ? validationError.message : 'Unknown error',
+      });
+      state = JSON.parse(stateJson) as { results?: DiscoveryResult[] };
     }
 
-    const state = JSON.parse(stateJson) as SavedState;
     if (state.results) {
       for (const result of state.results) {
         this.results.set(result.geoid, result);

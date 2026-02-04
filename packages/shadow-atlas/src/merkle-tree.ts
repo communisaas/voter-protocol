@@ -4,8 +4,12 @@
  * Compliant with: SHADOW-ATLAS-SPEC.md Section 3 (Merkle Tree Specification)
  *
  * Structure: Single-tier balanced binary Merkle tree per legislative district
- * Depth: 12 levels (fixed)
- * Capacity: 2^12 = 4,096 addresses per tree
+ * Depth: Configurable circuit depth (18, 20, 22, 24). Default: 20
+ * Capacity by depth:
+ *   - 18: ~262K addresses (small municipal districts)
+ *   - 20: ~1M addresses (UK constituencies, medium countries) - DEFAULT
+ *   - 22: ~4M addresses (federal/large countries)
+ *   - 24: ~16M addresses (mega-scale national systems)
  * Hash Function: Poseidon2 (Noir stdlib via @noir-lang/noir_js)
  *
  * PERFORMANCE OPTIMIZATIONS:

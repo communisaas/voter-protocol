@@ -1,6 +1,16 @@
 /**
  * IPFS Sync Service
  *
+ * STATUS: STUBBED - Deferred to Phase 2
+ * TRACKING: SA-008
+ *
+ * Current implementation returns mock data for development.
+ * Production deployment requires:
+ * - [ ] ipfs-http-client or helia integration
+ * - [ ] IPNS name resolution
+ * - [ ] CID verification against on-chain roots
+ * - [ ] Snapshot integrity validation
+ *
  * Monitors IPFS for new Shadow Atlas snapshots and updates serving database.
  * Enables decentralized distribution - multiple parties can serve from IPFS.
  *
@@ -11,7 +21,8 @@
  * 4. Validate Merkle root matches metadata
  * 5. Atomic database swap
  *
- * PRODUCTION READY: Graceful degradation if IPFS unavailable.
+ * NOTE: All IPFS operations are currently stubbed. See individual method
+ * TODOs for implementation requirements.
  */
 
 import { promises as fs } from 'fs';
@@ -142,17 +153,32 @@ export class SyncService {
 
   /**
    * Resolve IPNS name to CID
+   *
+   * TODO SA-008: Implement actual IPNS resolution
+   * - Use ipfs-http-client or helia
+   * - Handle IPNS key rotation
+   * - Cache resolved CIDs with TTL
+   * - Implement fallback gateways
    */
   private async resolveIPNS(name: string): Promise<string> {
-    // In production, use IPFS HTTP API or ipfs-http-client
-    // For now, simulate with mock CID
-    return `QmXyz789${Date.now()}`; // Mock CID
+    logger.warn('SA-008: IPFS sync is stubbed - returning mock CID', { name });
+    // TODO: Implement actual IPNS resolution
+    return `QmMock${Date.now()}`;
   }
 
   /**
    * Download snapshot from IPFS
+   *
+   * TODO SA-008: Implement actual IPFS download
+   * - Use ipfs-http-client or helia for direct IPFS access
+   * - Fall back to gateway with timeout
+   * - Verify CID matches downloaded content
+   * - Stream large files to avoid memory issues
+   * - Implement retry with exponential backoff
    */
   private async downloadSnapshot(cid: string): Promise<DownloadResult> {
+    logger.warn('SA-008: IPFS download is stubbed - returning mock data', { cid });
+
     try {
       const localPath = join(this.snapshotsDir, cid);
 
@@ -163,12 +189,12 @@ export class SyncService {
       const url = `${this.ipfsGateway}/ipfs/${cid}/shadow-atlas-v1.db`;
       logger.info('SyncService downloading snapshot', { url, cid });
 
-      // In production: Use fetch or ipfs-http-client
+      // TODO SA-008: Implement actual download
       // const response = await fetch(url);
       // const buffer = await response.arrayBuffer();
       // await fs.writeFile(join(localPath, 'shadow-atlas-v1.db'), Buffer.from(buffer));
 
-      // Mock metadata
+      // Mock metadata - STUBBED
       const metadata: SnapshotMetadata = {
         cid,
         merkleRoot: BigInt('0x1234567890abcdef'),
@@ -212,20 +238,32 @@ export class SyncService {
 
   /**
    * Validate snapshot database
+   *
+   * TODO SA-008: Implement actual snapshot validation
+   * - Open SQLite database and verify schema
+   * - Query district count matches metadata
+   * - Recompute Merkle root and verify against metadata
+   * - Check R-tree spatial index integrity
+   * - Validate CID matches on-chain registered roots
    */
   private async validateSnapshot(dbPath: string, metadata: SnapshotMetadata): Promise<boolean> {
+    logger.warn('SA-008: Snapshot validation is stubbed - returning true without verification', {
+      dbPath,
+      expectedDistrictCount: metadata.districtCount,
+    });
+
     try {
       // Check file exists
       await fs.access(dbPath);
 
-      // In production:
+      // TODO SA-008: Implement actual validation
       // 1. Open SQLite database
       // 2. Query district count
       // 3. Verify Merkle root matches metadata
       // 4. Check R-tree index integrity
 
-      logger.info('SyncService validating snapshot', { dbPath });
-      return true; // Mock validation
+      logger.info('SyncService validating snapshot (STUBBED)', { dbPath });
+      return true; // STUBBED - always returns true
     } catch (error) {
       logger.error('SyncService validation failed', {
         dbPath,

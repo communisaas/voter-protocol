@@ -11,12 +11,15 @@
  *
  * CRITICAL TYPE SAFETY: Change detection drives download decisions.
  * Type errors waste bandwidth or miss boundary updates.
+ *
+ * SA-014: Uses Zod schema validation for checksum cache deserialization
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { ChangeDetector, ChangeReport, UpdateTrigger } from './change-detector.js';
 import { logger } from '../core/utils/logger.js';
+import { parseChecksumCache } from '../security/input-validator.js';
 
 /**
  * TIGER source configuration
@@ -100,12 +103,31 @@ export class ChangeDetectionAdapter {
 
   /**
    * Load checksum cache from disk
+   *
+   * SA-014: Uses schema validation to prevent malformed/malicious cache
+   * data from corrupting change detection. Falls back to empty cache
+   * if validation fails (safe default).
    */
   async loadCache(): Promise<void> {
     try {
       const json = await readFile(this.checksumCachePath, 'utf-8');
-      this.cache = JSON.parse(json);
-    } catch (error) {
+
+      // SA-014: Validate cache against schema
+      try {
+        // Zod parse throws if validation fails, so cast is safe after validation
+        this.cache = parseChecksumCache(json) as unknown as ChecksumCache;
+      } catch (validationError) {
+        // Log warning and use empty cache (safe fallback)
+        logger.warn('Checksum cache validation failed, starting fresh', {
+          path: this.checksumCachePath,
+          error: validationError instanceof Error ? validationError.message : 'Unknown error',
+        });
+        this.cache = {
+          lastChecked: new Date(0).toISOString(),
+          sources: {},
+        };
+      }
+    } catch {
       // Cache doesn't exist yet - use empty cache
       this.cache = {
         lastChecked: new Date(0).toISOString(),

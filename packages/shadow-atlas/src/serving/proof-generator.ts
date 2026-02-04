@@ -31,8 +31,13 @@ import { logger } from '../core/utils/logger.js';
  */
 export interface ZKProofServiceConfig {
   /**
-   * Circuit depth (14=municipal, 20=state, 22=federal)
-   * Must match the Merkle tree depth being used
+   * Circuit depth for Merkle tree verification
+   * - 18: Small municipal (~260K leaves)
+   * - 20: State/large municipal (~1M leaves) - DEFAULT
+   * - 22: Federal (~4M leaves)
+   * - 24: National (~16M leaves)
+   *
+   * Must match the Merkle tree depth being used.
    */
   readonly depth: CircuitDepth;
 }
@@ -222,7 +227,7 @@ export class ProofService {
       districtMap.set(district.id, index);
     });
 
-    // Use provided depth or default to 14 (municipal level)
+    // Use provided depth or default to 20 (state/large municipal, ~1M leaves)
     const circuitDepth: CircuitDepth = zkConfig?.depth ?? 20;
     const service = new ProofService(merkleTree, districtMap, circuitDepth);
 

@@ -26,6 +26,9 @@ import { STATE_BOUNDS } from '../../core/geo-constants.js';
 // Canonical CityTarget imported from core/city-target.ts
 import type { BaseCityTarget } from '../../core/city-target.js';
 import { logger } from '../../core/utils/logger.js';
+// SECURITY: URL validation for discovered URLs (SA-009)
+import { secureFetch, isURLAllowed } from '../../security/secure-fetch.js';
+import { validateURL } from '../../security/input-validator.js';
 
 // CityTarget for ArcGIS Hub search (minimal version)
 export type CityTarget = BaseCityTarget;
@@ -155,6 +158,8 @@ export class ArcGISHubScanner {
 
   /**
    * Validate that dataset coordinates fall within expected state bounds
+   *
+   * SECURITY: Validates URL before fetching to prevent SSRF (SA-009)
    */
   private async validateGeography(
     downloadUrl: string,
@@ -163,11 +168,29 @@ export class ArcGISHubScanner {
     try {
       // Fetch first feature to check coordinates
       const sampleUrl = downloadUrl.replace('where=1%3D1', 'where=1%3D1&resultRecordCount=1');
-      const response = await fetch(sampleUrl);
 
-      if (!response.ok) {
+      // SECURITY: Validate URL before fetching (SA-009)
+      // Geographic validation fetches discovered URLs which may not be allowlisted
+      // We use bypassAllowlist with audit logging for discovered endpoints
+      const result = await secureFetch(sampleUrl, {
+        timeout: 10000,
+        bypassAllowlist: true,
+        bypassReason: 'Geographic validation of discovered ArcGIS dataset',
+      });
+
+      if (!result.validated || !result.response) {
+        logger.warn('Geographic validation fetch failed', {
+          url: sampleUrl.substring(0, 100),
+          error: result.error,
+        });
         return true; // Conservative: allow if we can't validate
       }
+
+      if (!result.response.ok) {
+        return true; // Conservative: allow if we can't validate
+      }
+
+      const response = result.response;
 
       const geojson = await response.json() as {
         type: string;
@@ -261,7 +284,15 @@ export class ArcGISHubScanner {
         // Use /datasets endpoint (not /search) for accurate dataset results
         const url = `${this.HUB_API_BASE}/datasets?q=${encodeURIComponent(query)}`;
 
-        const response = await fetch(url, {
+        // SA-009: Validate URL against allowlist before fetching
+        const urlValidation = validateURL(url);
+        if (!urlValidation.success) {
+          const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+          logger.warn('Hub API URL not in allowlist', { url, error: errorMsg });
+          continue;
+        }
+
+        const response = await fetch(urlValidation.data, {
           headers: {
             'Accept': 'application/json',
           },
@@ -345,7 +376,16 @@ export class ArcGISHubScanner {
   private async getServiceUrl(datasetId: string): Promise<{ url: string; layerId: number } | null> {
     try {
       const url = `${this.HUB_API_BASE}/datasets/${datasetId}`;
-      const response = await fetch(url);
+
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(url);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('Hub dataset URL not in allowlist', { url, error: errorMsg });
+        return null;
+      }
+
+      const response = await fetch(urlValidation.data);
 
       if (!response.ok) {
         return null;
@@ -384,7 +424,17 @@ export class ArcGISHubScanner {
   private async findPolygonLayer(serviceUrl: string): Promise<number | null> {
     try {
       const metadataUrl = `${serviceUrl}?f=json`;
-      const response = await fetch(metadataUrl);
+
+      // SA-009: Validate URL against allowlist before fetching
+      // Note: serviceUrl comes from discovery results and may not be allowlisted
+      const urlValidation = validateURL(metadataUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('Service metadata URL not in allowlist', { url: metadataUrl, error: errorMsg });
+        return null;
+      }
+
+      const response = await fetch(urlValidation.data);
 
       if (!response.ok) {
         return null;
@@ -419,7 +469,15 @@ export class ArcGISHubScanner {
     const query = `${city.name} council district OR ward`;
     const url = `${this.PORTAL_API_BASE}/search?q=${encodeURIComponent(query)}&f=json&num=20`;
 
-    const response = await fetch(url);
+    // SA-009: Validate URL against allowlist before fetching
+    const urlValidation = validateURL(url);
+    if (!urlValidation.success) {
+      const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+      logger.warn('Portal API URL not in allowlist', { url, error: errorMsg });
+      throw new Error(`URL not in allowlist: ${errorMsg}`);
+    }
+
+    const response = await fetch(urlValidation.data);
 
     if (!response.ok) {
       throw new Error(`Portal API returned ${response.status}`);

@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { atomicWriteJSON } from '../../core/utils/atomic-write.js';
 import { logger } from '../../core/utils/logger.js';
+import { parseCacheEntry } from '../../security/input-validator.js';
 
 // ============================================================================
 // Types
@@ -86,6 +87,9 @@ export class FilesystemCache {
   /**
    * Get entry from cache
    *
+   * SA-014: Uses schema validation to prevent cache poisoning attacks
+   * by validating cache entries before use.
+   *
    * @param key - Cache key
    * @returns Cached data or null if miss/expired
    */
@@ -95,7 +99,21 @@ export class FilesystemCache {
 
     try {
       const content = await readFile(cachePath, 'utf-8');
-      const entry = JSON.parse(content) as CacheEntry;
+
+      // SA-014: Validate cache entry against schema
+      let entry: CacheEntry;
+      try {
+        // parseCacheEntry throws if validation fails, so cast is safe
+        entry = parseCacheEntry(content) as unknown as CacheEntry;
+      } catch (validationError) {
+        // Cache entry is malformed - treat as cache miss and delete
+        logger.warn('Cache entry validation failed, treating as cache miss', {
+          cid,
+          error: validationError instanceof Error ? validationError.message : 'Unknown error',
+        });
+        await unlink(cachePath).catch(() => { /* Ignore deletion errors */ });
+        return null;
+      }
 
       // Check TTL
       if (entry.ttl) {
@@ -280,9 +298,10 @@ export class FilesystemCache {
           const fileStats = await stat(filePath);
 
           // Read entry to get timestamp
+          // SA-014: Validate cache entry against schema
           try {
             const content = await readFile(filePath, 'utf-8');
-            const entry = JSON.parse(content) as CacheEntry;
+            const entry = parseCacheEntry(content) as unknown as CacheEntry;
 
             entries.push({
               path: filePath,
@@ -290,7 +309,7 @@ export class FilesystemCache {
               size: fileStats.size,
             });
           } catch {
-            // Corrupted entry - skip
+            // Corrupted or invalid entry - skip
             continue;
           }
         }
@@ -400,9 +419,10 @@ export async function clearExpiredEntries(
 
         const filePath = join(subdirPath, file);
 
+        // SA-014: Validate cache entry against schema
         try {
           const content = await readFile(filePath, 'utf-8');
-          const entry = JSON.parse(content) as CacheEntry;
+          const entry = parseCacheEntry(content) as unknown as CacheEntry;
 
           // Check if expired
           if (entry.ttl) {
@@ -415,7 +435,7 @@ export async function clearExpiredEntries(
             }
           }
         } catch {
-          // Corrupted entry - delete it
+          // Corrupted or invalid entry - delete it
           const fileStats = await stat(filePath);
           await unlink(filePath);
           clearedEntries++;

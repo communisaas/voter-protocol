@@ -3,7 +3,15 @@
  *
  * Defines the state schema for the boundary discovery workflow.
  * All state is checkpointed to enable resume from any point.
+ *
+ * SA-014: Uses Zod schema validation for safe deserialization of checkpoint state.
  */
+
+import {
+  parseDiscoveryWorkflowState,
+  DiscoveryWorkflowStateSchema,
+} from '../../security/input-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 /**
  * Place record from Census or equivalent source
@@ -157,9 +165,25 @@ export function serializeState(state: DiscoveryState): string {
 
 /**
  * Deserialize state from checkpoint
+ *
+ * SA-014: Uses schema validation to prevent malformed/malicious checkpoint data
+ * from corrupting the discovery workflow. Falls back to unvalidated parse with
+ * warning for backwards compatibility with existing checkpoints.
  */
 export function deserializeState(json: string): DiscoveryState {
-  return JSON.parse(json) as DiscoveryState;
+  try {
+    // SA-014: Validate checkpoint state against schema
+    // Zod parse throws if validation fails, so cast is safe after validation
+    return parseDiscoveryWorkflowState(json) as unknown as DiscoveryState;
+  } catch (validationError) {
+    // Log warning but allow fallback for backwards compatibility
+    // Existing checkpoints may not match new schema exactly
+    logger.warn('Discovery state validation failed, using unvalidated parse', {
+      error: validationError instanceof Error ? validationError.message : 'Unknown error',
+      hint: 'Consider re-running discovery to generate new checkpoint',
+    });
+    return JSON.parse(json) as DiscoveryState;
+  }
 }
 
 /**

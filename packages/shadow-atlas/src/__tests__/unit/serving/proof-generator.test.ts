@@ -19,6 +19,7 @@ import {
 } from '../../../serving/proof-generator.js';
 import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from '../../../serving/types';
 import type { MerkleProof } from '../../../merkle-tree.js';
+import { DEFAULT_TREE_DEPTH } from '../../../core/constants.js';
 
 /**
  * Test fixture: Create mock district boundary
@@ -59,8 +60,8 @@ describe('ZKProofService', () => {
   let zkService: ZKProofService;
 
   beforeAll(async () => {
-    // Initialize ZK service with depth 14 (municipal level)
-    zkService = await ZKProofService.create({ depth: 14 });
+    // Initialize ZK service with default circuit depth (20 = state/large municipal level)
+    zkService = await ZKProofService.create({ depth: DEFAULT_TREE_DEPTH });
   });
 
   afterAll(async () => {
@@ -76,6 +77,7 @@ describe('ZKProofService', () => {
 
   it('should have correct circuit inputs structure', () => {
     // Test that we can create valid circuit inputs
+    // merkle_path length must match circuit depth (DEFAULT_TREE_DEPTH = 20)
     const testInputs: CircuitInputs = {
       merkle_root: '0x' + BigInt(12345).toString(16).padStart(64, '0'),
       nullifier: '0x' + BigInt(67890).toString(16).padStart(64, '0'),
@@ -83,7 +85,7 @@ describe('ZKProofService', () => {
       epoch_id: '0x' + BigInt(1).toString(16).padStart(64, '0'),
       campaign_id: '0x' + BigInt(2).toString(16).padStart(64, '0'),
       leaf: '0x' + BigInt(99999).toString(16).padStart(64, '0'),
-      merkle_path: Array(14).fill('0x' + BigInt(0).toString(16).padStart(64, '0')),
+      merkle_path: Array(DEFAULT_TREE_DEPTH).fill('0x' + BigInt(0).toString(16).padStart(64, '0')),
       leaf_index: 0,
       user_secret: '0x' + BigInt(77777).toString(16).padStart(64, '0'),
     };
@@ -95,17 +97,19 @@ describe('ZKProofService', () => {
     expect(testInputs.epoch_id).toBeDefined();
     expect(testInputs.campaign_id).toBeDefined();
     expect(testInputs.leaf).toBeDefined();
-    expect(testInputs.merkle_path).toHaveLength(14);
+    // Circuit expects exactly DEFAULT_TREE_DEPTH elements in merkle_path
+    expect(testInputs.merkle_path).toHaveLength(DEFAULT_TREE_DEPTH);
     expect(testInputs.leaf_index).toBeDefined();
     expect(testInputs.user_secret).toBeDefined();
   });
 
-  it('should validate merkle_path has exactly 14 elements', () => {
-    const validPath = Array(14).fill('0x' + BigInt(0).toString(16).padStart(64, '0'));
-    expect(validPath).toHaveLength(14);
+  it('should validate merkle_path has exactly DEFAULT_TREE_DEPTH elements', () => {
+    // Circuit requires merkle_path to have exactly DEFAULT_TREE_DEPTH elements
+    const validPath = Array(DEFAULT_TREE_DEPTH).fill('0x' + BigInt(0).toString(16).padStart(64, '0'));
+    expect(validPath).toHaveLength(DEFAULT_TREE_DEPTH);
 
     const invalidPath = Array(10).fill('0x' + BigInt(0).toString(16).padStart(64, '0'));
-    expect(invalidPath).not.toHaveLength(14);
+    expect(invalidPath).not.toHaveLength(DEFAULT_TREE_DEPTH);
   });
 
   it('should format hex strings with 0x prefix', () => {
@@ -116,7 +120,7 @@ describe('ZKProofService', () => {
       epoch_id: '0x' + BigInt(1).toString(16).padStart(64, '0'),
       campaign_id: '0x' + BigInt(2).toString(16).padStart(64, '0'),
       leaf: '0x' + BigInt(99999).toString(16).padStart(64, '0'),
-      merkle_path: Array(14).fill('0x' + BigInt(0).toString(16).padStart(64, '0')),
+      merkle_path: Array(DEFAULT_TREE_DEPTH).fill('0x' + BigInt(0).toString(16).padStart(64, '0')),
       leaf_index: 0,
       user_secret: '0x' + BigInt(77777).toString(16).padStart(64, '0'),
     };
@@ -152,7 +156,8 @@ describe('ProofService - Async Factory Pattern', () => {
     const districts = [createMockDistrict('district-1', 'District 1')];
     const addresses = ['123 Main St'];
 
-    const service = await ProofService.create(districts, addresses, { depth: 14 });
+    // Use DEFAULT_TREE_DEPTH for ZK proof configuration
+    const service = await ProofService.create(districts, addresses, { depth: DEFAULT_TREE_DEPTH });
 
     expect(service).toBeDefined();
   });
@@ -243,16 +248,17 @@ describe('ProofService - Circuit Input Mapping', () => {
     expect(circuitInputs.merkle_root).toMatch(/^0x[0-9a-f]{64}$/);
     expect(circuitInputs.leaf).toBeDefined();
     expect(circuitInputs.leaf).toMatch(/^0x[0-9a-f]{64}$/);
-    expect(circuitInputs.merkle_path).toHaveLength(14);
+    // merkle_path is padded to exactly DEFAULT_TREE_DEPTH elements for circuit compatibility
+    expect(circuitInputs.merkle_path).toHaveLength(DEFAULT_TREE_DEPTH);
     expect(circuitInputs.merkle_path.every((p) => p.match(/^0x[0-9a-f]{64}$/))).toBe(true);
     expect(circuitInputs.leaf_index).toBeGreaterThanOrEqual(0);
     expect(circuitInputs.user_secret).toBeDefined();
     expect(circuitInputs.campaign_id).toBeDefined();
     expect(circuitInputs.authority_hash).toBeDefined();
     expect(circuitInputs.epoch_id).toBeDefined();
-  });
+  }, 180000); // 3 min timeout for depth-20 tree building
 
-  it('should pad merkle_path to 14 elements if needed', async () => {
+  it('should pad merkle_path to DEFAULT_TREE_DEPTH elements if needed', async () => {
     const districts = [createMockDistrict('district-1', 'District 1')];
     const addresses = ['123 Main St'];
 
@@ -267,8 +273,8 @@ describe('ProofService - Circuit Input Mapping', () => {
       '0x' + BigInt(3).toString(16).padStart(64, '0')
     );
 
-    // Should always have exactly 14 elements
-    expect(circuitInputs.merkle_path).toHaveLength(14);
+    // Circuit requires exactly DEFAULT_TREE_DEPTH elements; shorter paths are zero-padded
+    expect(circuitInputs.merkle_path).toHaveLength(DEFAULT_TREE_DEPTH);
   });
 
   it('should compute leaf_index from path indices', async () => {
@@ -356,7 +362,7 @@ describe('ProofService - ZK Proof Methods', () => {
     const districts = [createMockDistrict('district-1', 'District 1')];
     const addresses = ['123 Main St'];
 
-    const service = await ProofService.create(districts, addresses, { depth: 14 });
+    const service = await ProofService.create(districts, addresses, { depth: DEFAULT_TREE_DEPTH });
 
     // Should not throw
     await expect(service.destroy()).resolves.not.toThrow();

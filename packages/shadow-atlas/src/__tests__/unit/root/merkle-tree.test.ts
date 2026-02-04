@@ -19,6 +19,13 @@ import {
   type MerkleLeafInput,
 } from '../../../merkle-tree.js';
 import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
+import { DEFAULT_TREE_DEPTH } from '../../../core/constants.js';
+
+/**
+ * Default tree capacity = 2^DEFAULT_TREE_DEPTH
+ * Used for testing default tree construction behavior.
+ */
+const DEFAULT_TREE_CAPACITY = 2 ** DEFAULT_TREE_DEPTH;
 
 describe('Poseidon2Hasher', () => {
   let hasher: Poseidon2Hasher;
@@ -159,11 +166,12 @@ describe('ShadowAtlasMerkleTree', () => {
     }, 30000);
 
     it('should have correct depth and capacity', async () => {
+      // Default depth is DEFAULT_TREE_DEPTH (20) with capacity 2^20 = 1,048,576
       const addresses = ['a', 'b', 'c'];
       const tree = await createShadowAtlasMerkleTree(addresses);
 
-      expect(tree.getDepth()).toBe(12);
-      expect(tree.getCapacity()).toBe(4096);
+      expect(tree.getDepth()).toBe(DEFAULT_TREE_DEPTH);
+      expect(tree.getCapacity()).toBe(DEFAULT_TREE_CAPACITY);
     });
 
     it('should produce deterministic root', async () => {
@@ -184,7 +192,8 @@ describe('ShadowAtlasMerkleTree', () => {
     });
 
     it('should reject when exceeding capacity', async () => {
-      const addresses = Array(4097)
+      // Default capacity is 2^20 = 1,048,576; exceeding by 1 should fail
+      const addresses = Array(DEFAULT_TREE_CAPACITY + 1)
         .fill(null)
         .map((_, i) => `addr${i}`);
 
@@ -222,8 +231,9 @@ describe('ShadowAtlasMerkleTree', () => {
 
       expect(proof.root).toBe(tree.getRoot());
       expect(proof.leaf).toBeDefined();
-      expect(proof.siblings).toHaveLength(12); // tree depth
-      expect(proof.pathIndices).toHaveLength(12);
+      // Proof path length equals tree depth (DEFAULT_TREE_DEPTH = 20)
+      expect(proof.siblings).toHaveLength(DEFAULT_TREE_DEPTH);
+      expect(proof.pathIndices).toHaveLength(DEFAULT_TREE_DEPTH);
     });
 
     it('should throw for non-existent address', async () => {
@@ -370,9 +380,10 @@ describe('Performance', () => {
     expect(tree.getRoot()).toBeDefined();
 
     // Should complete in reasonable time (adjust threshold as needed)
-    // Note: First run may be slower due to WASM initialization
-    expect(elapsed).toBeLessThan(60000); // 60 seconds max
-  }, 120000);
+    // Note: Depth-20 trees (1M capacity) require more computation than depth-12/14
+    // First run may be slower due to WASM initialization
+    expect(elapsed).toBeLessThan(180000); // 180 seconds max for depth-20
+  }, 240000);
 
   it('should generate proofs quickly', async () => {
     const addresses = Array(100)

@@ -88,12 +88,21 @@ export class CircuitDriver {
 
     /**
      * Verify ZK proof
+     *
+     * SECURITY: This method is not yet implemented. It throws an error to prevent
+     * false positives from code that expects verification to actually validate proofs.
+     * Use the NoirProver.verify() method from @voter-protocol/noir-prover instead.
+     *
+     * @throws Error Always - verification not implemented in this driver
      */
-    async verify(proof: Uint8Array): Promise<boolean> {
-        // Placeholder until verification method is identified
-        logger.warn('Verify method not yet implemented in driver');
-        return true;
-        // return this.api.acirVerify(proof);
+    async verify(_proof: Uint8Array): Promise<boolean> {
+        // CRITICAL-001 FIX: Throw error instead of returning true to prevent false sense of security
+        // The previous implementation would accept ANY proof, including malicious/invalid ones
+        throw new Error(
+            'CircuitDriver.verify() is not implemented. ' +
+            'Use NoirProver.verify() from @voter-protocol/noir-prover for proof verification, ' +
+            'or rely on on-chain verification via the DistrictGate contract.'
+        );
     }
     /**
      * Clean up resources

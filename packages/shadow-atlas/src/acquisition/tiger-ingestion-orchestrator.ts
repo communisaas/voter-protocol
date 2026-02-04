@@ -19,6 +19,8 @@
  * - Download unchanged data (waste bandwidth)
  * - Miss critical boundary updates (stale data)
  * - Corrupt checkpoint state (unrecoverable)
+ *
+ * SA-014: Uses Zod schema validation for checkpoint deserialization
  */
 
 import { readFile, mkdir, access } from 'node:fs/promises';
@@ -29,6 +31,7 @@ import type { ShadowAtlasConfig } from '../core/config.js';
 import type { TIGERLayerType, NormalizedBoundary } from '../core/types.js';
 import type { DownloadDLQ } from './download-dlq.js';
 import { logger } from '../core/utils/logger.js';
+import { parseCheckpointState } from '../security/input-validator.js';
 
 // ============================================================================
 // Types
@@ -646,6 +649,10 @@ export class TIGERIngestionOrchestrator {
 
   /**
    * Load checkpoint from disk
+   *
+   * SA-014: Uses schema validation to prevent malformed/malicious checkpoint
+   * data from corrupting batch operations. Falls back to unvalidated parse
+   * with warning for backwards compatibility.
    */
   private async loadCheckpoint(
     id: string,
@@ -656,7 +663,20 @@ export class TIGERIngestionOrchestrator {
     try {
       await access(filePath);
       const content = await readFile(filePath, 'utf-8');
-      return JSON.parse(content) as CheckpointState;
+
+      // SA-014: Validate checkpoint against schema
+      try {
+        // Zod parse throws if validation fails, so cast is safe after validation
+        return parseCheckpointState(content) as unknown as CheckpointState;
+      } catch (validationError) {
+        // Log warning but allow fallback for backwards compatibility
+        logger.warn('Checkpoint validation failed, using unvalidated parse', {
+          checkpointId: id,
+          error: validationError instanceof Error ? validationError.message : 'Unknown error',
+          hint: 'Consider re-running ingestion to generate new checkpoint',
+        });
+        return JSON.parse(content) as CheckpointState;
+      }
     } catch {
       return null;
     }

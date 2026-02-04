@@ -3,10 +3,20 @@
  *
  * Adapts @voter-protocol/noir-prover to the client's expected interface.
  * Maps between client's DistrictProof type and NoirProver's ProofResult.
+ *
+ * Supports both single-tree (NoirProverAdapter) and two-tree
+ * (TwoTreeNoirProverAdapter) proving architectures.
  */
 
 import { NoirProver as CoreNoirProver } from '@voter-protocol/noir-prover';
-import type { CircuitInputs, ProofResult } from '@voter-protocol/noir-prover';
+import { TwoTreeNoirProver as CoreTwoTreeProver } from '@voter-protocol/noir-prover';
+import type {
+    CircuitInputs,
+    ProofResult,
+    CircuitDepth,
+    TwoTreeProofInput,
+    TwoTreeProofResult,
+} from '@voter-protocol/noir-prover';
 import type { DistrictProof, ProofInputs, MerkleProof } from './types';
 import type { StreetAddress } from '../utils/addresses';
 
@@ -66,16 +76,26 @@ export class NoirProverAdapter {
     }
 
     /**
-     * Verify a district proof (not yet implemented in NoirProver)
+     * Verify a district proof
+     *
+     * SECURITY: This method throws NotImplementedError to prevent false sense of security.
+     * Client-side verification should NOT be relied upon as the sole verification mechanism.
+     * Always rely on on-chain verification via the DistrictGate contract.
+     *
+     * For local testing, use the NoirProver.verify() method from @voter-protocol/noir-prover
+     * which provides actual cryptographic verification.
      *
      * @param _proof - District proof to verify
-     * @returns True if proof is valid
+     * @throws Error Always - client verification should use on-chain or core prover
      */
     async verify(_proof: DistrictProof): Promise<boolean> {
-        // TODO: Implement verification when NoirProver adds verify() method
-        // For now, return true as a placeholder
-        console.warn('[NoirProverAdapter] Verification not yet implemented');
-        return true;
+        // CRITICAL-002 FIX: Throw error instead of returning true to prevent false positives
+        // The previous implementation would indicate "valid" for ANY proof, including forged ones
+        throw new Error(
+            '[NoirProverAdapter] Client-side verification not implemented. ' +
+            'Proof validity should be verified on-chain via DistrictGate contract. ' +
+            'For local testing, use NoirProver.verify() from @voter-protocol/noir-prover directly.'
+        );
     }
 
     /**
@@ -196,6 +216,191 @@ export class NoirProverAdapter {
 
     /**
      * Clean up resources
+     */
+    async destroy(): Promise<void> {
+        await this.prover.destroy();
+    }
+}
+
+// ============================================================================
+// Two-Tree Architecture Adapter
+// ============================================================================
+
+/**
+ * Two-tree proof inputs from the client side.
+ *
+ * These are the inputs the client collects from the Shadow Atlas service
+ * and the user's wallet to generate a two-tree membership proof.
+ */
+export interface TwoTreeClientProofInputs {
+    /** User's secret key material (from wallet) */
+    userSecret: bigint;
+    /** Census tract cell ID (from Shadow Atlas) */
+    cellId: bigint;
+    /** Registration salt (from registration record) */
+    registrationSalt: bigint;
+
+    /** Root of the user identity tree (from Shadow Atlas) */
+    userRoot: bigint;
+    /** Merkle siblings for the user tree (from Shadow Atlas) */
+    userPath: bigint[];
+    /** Leaf index in the user tree (from Shadow Atlas) */
+    userIndex: number;
+
+    /** Root of the cell-district mapping tree (from Shadow Atlas) */
+    cellMapRoot: bigint;
+    /** SMT siblings for the cell map tree (from Shadow Atlas) */
+    cellMapPath: bigint[];
+    /** SMT direction bits for the cell map tree (from Shadow Atlas) */
+    cellMapPathBits: number[];
+
+    /** All 24 district IDs for this cell (from Shadow Atlas) */
+    districts: bigint[];
+
+    /** Contract-controlled action scope */
+    actionDomain: bigint;
+    /** Pre-computed nullifier = hash(userSecret, actionDomain) */
+    nullifier: bigint;
+    /** User's authority tier (1-5) */
+    authorityLevel: 1 | 2 | 3 | 4 | 5;
+}
+
+/**
+ * Two-tree proof result formatted for the client.
+ */
+export interface TwoTreeClientProofResult {
+    /** Raw proof bytes */
+    proof: Uint8Array;
+    /** All 29 public inputs as hex strings */
+    publicInputs: string[];
+    /** Proving metadata */
+    metadata: {
+        provingTimeMs: number;
+        proofSizeBytes: number;
+        circuitDepth: CircuitDepth;
+    };
+}
+
+/**
+ * Adapter for TwoTreeNoirProver that provides a client-friendly interface.
+ *
+ * Wraps the core TwoTreeNoirProver from @voter-protocol/noir-prover and
+ * handles initialization, input mapping, and result formatting for the
+ * client application.
+ *
+ * Usage:
+ * ```typescript
+ * const adapter = new TwoTreeNoirProverAdapter({ depth: 20 });
+ * await adapter.init();
+ *
+ * const result = await adapter.prove(clientInputs);
+ * // Submit result.proof + result.publicInputs to DistrictGate contract
+ * ```
+ */
+export class TwoTreeNoirProverAdapter {
+    private prover: CoreTwoTreeProver;
+    private initPromise: Promise<void> | null = null;
+    private readonly circuitDepth: CircuitDepth;
+
+    constructor(config: { depth?: CircuitDepth; threads?: number } = {}) {
+        this.circuitDepth = config.depth ?? 20;
+        this.prover = new CoreTwoTreeProver({
+            depth: this.circuitDepth,
+            threads: config.threads,
+        });
+    }
+
+    /**
+     * Initialize the prover (idempotent).
+     * Loads the circuit and initializes the Barretenberg backend.
+     */
+    async init(): Promise<void> {
+        if (this.initPromise) {
+            return this.initPromise;
+        }
+        this.initPromise = this.prover.init();
+        return this.initPromise;
+    }
+
+    /**
+     * Pre-warm the prover by initializing the backend.
+     * Call this on app load to hide latency from the user.
+     */
+    async warmup(): Promise<void> {
+        await this.prover.warmup();
+    }
+
+    /**
+     * Generate a two-tree membership proof.
+     *
+     * @param inputs - Client-side proof inputs (from Shadow Atlas + wallet)
+     * @returns Proof result with bytes, public inputs, and metadata
+     */
+    async prove(inputs: TwoTreeClientProofInputs): Promise<TwoTreeClientProofResult> {
+        const startTime = Date.now();
+
+        // Map client inputs to core prover inputs
+        const coreInputs: TwoTreeProofInput = {
+            userRoot: inputs.userRoot,
+            cellMapRoot: inputs.cellMapRoot,
+            districts: inputs.districts,
+            nullifier: inputs.nullifier,
+            actionDomain: inputs.actionDomain,
+            authorityLevel: inputs.authorityLevel,
+
+            userSecret: inputs.userSecret,
+            cellId: inputs.cellId,
+            registrationSalt: inputs.registrationSalt,
+            userPath: inputs.userPath,
+            userIndex: inputs.userIndex,
+            cellMapPath: inputs.cellMapPath,
+            cellMapPathBits: inputs.cellMapPathBits,
+        };
+
+        const result: TwoTreeProofResult = await this.prover.generateProof(coreInputs);
+        const provingTimeMs = Date.now() - startTime;
+
+        return {
+            proof: result.proof,
+            publicInputs: result.publicInputs,
+            metadata: {
+                provingTimeMs,
+                proofSizeBytes: result.proof.length,
+                circuitDepth: this.circuitDepth,
+            },
+        };
+    }
+
+    /**
+     * Verify a two-tree proof.
+     *
+     * SECURITY: This method throws NotImplementedError to prevent false sense of security.
+     * Client-side verification should NOT be relied upon as the sole verification mechanism.
+     * Always rely on on-chain verification via the DistrictGate contract.
+     *
+     * For local testing, use TwoTreeNoirProver.verifyProof() from
+     * @voter-protocol/noir-prover directly.
+     *
+     * @param _result - Proof result to verify
+     * @throws Error Always - client verification should use on-chain or core prover
+     */
+    async verify(_result: TwoTreeClientProofResult): Promise<boolean> {
+        throw new Error(
+            '[TwoTreeNoirProverAdapter] Client-side verification not implemented. ' +
+            'Proof validity should be verified on-chain via DistrictGate contract. ' +
+            'For local testing, use TwoTreeNoirProver.verifyProof() from @voter-protocol/noir-prover directly.'
+        );
+    }
+
+    /**
+     * Get the circuit depth this adapter was configured with.
+     */
+    getDepth(): CircuitDepth {
+        return this.circuitDepth;
+    }
+
+    /**
+     * Clean up resources.
      */
     async destroy(): Promise<void> {
         await this.prover.destroy();

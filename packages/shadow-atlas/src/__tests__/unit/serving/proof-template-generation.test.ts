@@ -26,6 +26,7 @@ import type {
   ProofTemplateStore,
 } from '../../../core/types/atlas.js';
 import { BoundaryType } from '../../../core/types/boundary.js';
+import { DEFAULT_TREE_DEPTH } from '../../../core/constants.js';
 
 /**
  * Test fixture: Create mock boundary input
@@ -126,9 +127,10 @@ describe('ProofTemplate - Type Validation', () => {
 
 describe('ProofTemplateStore - Type Validation', () => {
   it('should have correct structure', () => {
+    // Using DEFAULT_TREE_DEPTH for circuit-compatible proof templates
     const store: ProofTemplateStore = {
       merkleRoot: '0xroot123',
-      treeDepth: 14,
+      treeDepth: DEFAULT_TREE_DEPTH,
       templateCount: 2,
       generatedAt: new Date().toISOString(),
       templates: {
@@ -156,7 +158,7 @@ describe('ProofTemplateStore - Type Validation', () => {
     };
 
     expect(store.merkleRoot).toBe('0xroot123');
-    expect(store.treeDepth).toBe(14);
+    expect(store.treeDepth).toBe(DEFAULT_TREE_DEPTH);
     expect(store.templateCount).toBe(2);
     expect(Object.keys(store.templates)).toHaveLength(2);
     expect(store.templates['cd-01'].districtId).toBe('cd-01');
@@ -305,7 +307,8 @@ describe('SnapshotManager - Proof Storage', () => {
   it('should store proof templates', async () => {
     const snapshotId = randomUUID();
     const merkleRoot = BigInt('0x123456789abcdef');
-    const treeDepth = 14;
+    // Use DEFAULT_TREE_DEPTH for circuit-compatible proof templates
+    const treeDepth = DEFAULT_TREE_DEPTH;
 
     const proofs = new Map<string, ProofTemplate>();
     proofs.set('cd-01', {
@@ -339,7 +342,8 @@ describe('SnapshotManager - Proof Storage', () => {
   it('should retrieve proof template by district ID', async () => {
     const snapshotId = randomUUID();
     const merkleRoot = BigInt('0xabcdef123');
-    const treeDepth = 12;
+    // Use valid circuit depth (18, 20, 22, or 24)
+    const treeDepth = 18;
 
     const proofs = new Map<string, ProofTemplate>();
     proofs.set('county-001', {
@@ -367,7 +371,8 @@ describe('SnapshotManager - Proof Storage', () => {
   it('should return null for non-existent district', async () => {
     const snapshotId = randomUUID();
     const merkleRoot = BigInt('0x111222333');
-    const treeDepth = 10;
+    // Use valid circuit depth (18, 20, 22, or 24)
+    const treeDepth = 18;
 
     const proofs = new Map<string, ProofTemplate>();
     proofs.set('cd-01', {
@@ -395,7 +400,8 @@ describe('SnapshotManager - Proof Storage', () => {
   it('should retrieve full proof template store', async () => {
     const snapshotId = randomUUID();
     const merkleRoot = BigInt('0xfedcba987');
-    const treeDepth = 16;
+    // Use valid circuit depth (18, 20, 22, or 24)
+    const treeDepth = 22;
 
     const proofs = new Map<string, ProofTemplate>();
     for (let i = 0; i < 5; i++) {
@@ -417,7 +423,7 @@ describe('SnapshotManager - Proof Storage', () => {
 
     expect(store).not.toBeNull();
     expect(store?.templateCount).toBe(5);
-    expect(store?.treeDepth).toBe(16);
+    expect(store?.treeDepth).toBe(22);
     expect(store?.merkleRoot).toBe(`0x${merkleRoot.toString(16)}`);
     expect(Object.keys(store?.templates ?? {})).toHaveLength(5);
   });

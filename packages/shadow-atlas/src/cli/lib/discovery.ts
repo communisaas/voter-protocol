@@ -13,6 +13,8 @@ import {
   getAggregatorsForState,
   type RegionalAggregator,
 } from '../../core/registry/regional-aggregators.js';
+import { validateURL } from '../../security/input-validator.js';
+import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
 // Types
@@ -254,7 +256,16 @@ export async function searchArcGISHub(
         sort: '-modified',
       });
 
-      const response = await fetch(`${hubApiUrl}?${params.toString()}`, {
+      // SA-009: Validate URL against allowlist before fetching
+      const fetchUrl = `${hubApiUrl}?${params.toString()}`;
+      const urlValidation = validateURL(fetchUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('ArcGIS Hub URL not in allowlist', { url: fetchUrl, error: errorMsg });
+        continue;
+      }
+
+      const response = await fetch(urlValidation.data, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol/1.0 (Shadow Atlas Discovery)',
@@ -416,7 +427,16 @@ export async function searchSocrata(
         limit: '25',
       });
 
-      const response = await fetch(`${socrataApiUrl}?${params.toString()}`, {
+      // SA-009: Validate URL against allowlist before fetching
+      const fetchUrl = `${socrataApiUrl}?${params.toString()}`;
+      const urlValidation = validateURL(fetchUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('Socrata URL not in allowlist', { url: fetchUrl, error: errorMsg });
+        continue;
+      }
+
+      const response = await fetch(urlValidation.data, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol/1.0 (Shadow Atlas Discovery)',

@@ -26,6 +26,7 @@ import type { PortalCandidate } from './arcgis-hub.js';
 import { getStatePortal, type StateGISPortal } from '../../core/registry/state-gis-portals.js';
 import { SemanticValidator } from '../../validators/semantic/validator.js';
 import { logger } from '../../core/utils/logger.js';
+import { validateURL } from '../../security/input-validator.js';
 
 /**
  * State GIS Clearinghouse Scanner
@@ -119,7 +120,16 @@ export class StateGISClearinghouseScanner {
       try {
         // Get layer metadata
         const metadataUrl = `${layerUrl}?f=json`;
-        const response = await fetch(metadataUrl, {
+
+        // SA-009: Validate URL against allowlist before fetching
+        const urlValidation = validateURL(metadataUrl);
+        if (!urlValidation.success) {
+          const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+          logger.warn('State GIS metadata URL not in allowlist', { url: metadataUrl, error: errorMsg });
+          continue;
+        }
+
+        const response = await fetch(urlValidation.data, {
           signal: AbortSignal.timeout(5000),
         });
 
@@ -212,7 +222,15 @@ export class StateGISClearinghouseScanner {
     const url = `${this.HUB_API_BASE}/datasets?q=${encodeURIComponent(query)}`;
 
     try {
-      const response = await fetch(url, {
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(url);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('State Hub API URL not in allowlist', { url, error: errorMsg });
+        return [];
+      }
+
+      const response = await fetch(urlValidation.data, {
         headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(10000),
       });
@@ -320,7 +338,15 @@ export class StateGISClearinghouseScanner {
     const searchUrl = `${portal.portalUrl}/api/3/action/package_search?q=${encodeURIComponent(query)}&rows=10`;
 
     try {
-      const response = await fetch(searchUrl, {
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(searchUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('CKAN search URL not in allowlist', { url: searchUrl, error: errorMsg });
+        return [];
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(10000),
       });
 
@@ -396,7 +422,15 @@ export class StateGISClearinghouseScanner {
     const catalogUrl = `https://${domain}/api/catalog/v1?q=${encodeURIComponent(`${city.name} council district`)}&only=datasets&limit=10`;
 
     try {
-      const response = await fetch(catalogUrl, {
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(catalogUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.warn('Socrata catalog URL not in allowlist', { url: catalogUrl, error: errorMsg });
+        return [];
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(10000),
       });
 
@@ -469,7 +503,16 @@ export class StateGISClearinghouseScanner {
 
     for (const baseUrl of patterns) {
       try {
-        const response = await fetch(`${baseUrl}?f=json`, {
+        const fetchUrl = `${baseUrl}?f=json`;
+
+        // SA-009: Validate URL against allowlist before fetching
+        const urlValidation = validateURL(fetchUrl);
+        if (!urlValidation.success) {
+          logger.debug('REST endpoint URL not in allowlist', { url: fetchUrl });
+          continue;
+        }
+
+        const response = await fetch(urlValidation.data, {
           signal: AbortSignal.timeout(5000),
         });
 
@@ -530,7 +573,15 @@ export class StateGISClearinghouseScanner {
       // Rate limiting: 100ms delay between requests (~10 req/sec)
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch(folderUrl, {
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(folderUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.debug('Folder URL not in allowlist', { url: folderUrl, error: errorMsg });
+        return [];
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(5000),
       });
 
@@ -593,7 +644,17 @@ export class StateGISClearinghouseScanner {
       // Rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch(`${serviceUrl}?f=json`, {
+      const fetchUrl = `${serviceUrl}?f=json`;
+
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(fetchUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.debug('Service URL not in allowlist', { url: fetchUrl, error: errorMsg });
+        return [];
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(5000),
       });
 
@@ -669,7 +730,17 @@ export class StateGISClearinghouseScanner {
       // Rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const response = await fetch(`${layerUrl}?f=json`, {
+      const fetchUrl = `${layerUrl}?f=json`;
+
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(fetchUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.debug('Layer URL not in allowlist', { url: fetchUrl, error: errorMsg });
+        return null;
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(5000),
       });
 
@@ -742,7 +813,16 @@ export class StateGISClearinghouseScanner {
   private async findPolygonLayer(serviceUrl: string): Promise<number | null> {
     try {
       const metadataUrl = `${serviceUrl}?f=json`;
-      const response = await fetch(metadataUrl, {
+
+      // SA-009: Validate URL against allowlist before fetching
+      const urlValidation = validateURL(metadataUrl);
+      if (!urlValidation.success) {
+        const errorMsg = 'error' in urlValidation ? urlValidation.error : 'Validation failed';
+        logger.debug('Service metadata URL not in allowlist', { url: metadataUrl, error: errorMsg });
+        return null;
+      }
+
+      const response = await fetch(urlValidation.data, {
         signal: AbortSignal.timeout(5000),
       });
 
