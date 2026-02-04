@@ -3,16 +3,18 @@ pragma solidity 0.8.19;
 
 import "openzeppelin/security/Pausable.sol";
 import "openzeppelin/security/ReentrancyGuard.sol";
+import "./TimelockGovernance.sol";
 
 /// @title NullifierRegistry
 /// @notice Action-scoped nullifier registry using external nullifier pattern
-/// @dev External nullifier = action_id allows same user to participate in 
+/// @dev External nullifier = action_id allows same user to participate in
 ///      different actions while preventing double-submission within same action.
 ///
 /// SECURITY PROPERTIES:
 /// - Same user CAN participate in multiple actions (different action_ids)
 /// - Same user CANNOT participate twice in same action (same action_id)
 /// - Nullifiers are domain-separated by action_id
+/// - All governance operations have 7-day timelocks (CRITICAL-001 fix)
 ///
 /// GAS OPTIMIZATION (Scroll L2):
 /// - ~20k gas per SSTORE on L1 → ~200 gas on Scroll L2
@@ -22,7 +24,13 @@ import "openzeppelin/security/ReentrancyGuard.sol";
 /// - This contract provides the nullifier registry layer
 /// - DistrictGate handles proof verification + calls this registry
 /// - Separation allows upgrading registry without changing verifier
-contract NullifierRegistry is Pausable, ReentrancyGuard {
+///
+/// GOVERNANCE TIMELOCK (CRITICAL-001):
+/// - All governance operations (transferGovernance, authorizeCaller, revokeCaller)
+///   have 7-day timelocks to give community time to respond to malicious actions
+/// - This matches the security pattern used by DistrictRegistry, VerifierRegistry,
+///   CampaignRegistry, and DistrictGate
+contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Nested mapping: actionId => userNullifier => used
     /// @dev Action ID serves as the external nullifier (domain separator)
     ///      User nullifier = H(user_secret, action_id, authority_hash, epoch_id) from circuit
@@ -37,8 +45,13 @@ contract NullifierRegistry is Pausable, ReentrancyGuard {
     /// @notice Authorized contracts that can mark nullifiers as used
     mapping(address => bool) public authorizedCallers;
 
-    /// @notice Governance address
-    address public governance;
+    /// @notice Pending caller authorization operations
+    /// @dev Maps caller address => execute timestamp (0 if no pending operation)
+    mapping(address => uint256) public pendingCallerAuthorization;
+
+    /// @notice Pending caller revocation operations
+    /// @dev Maps caller address => execute timestamp (0 if no pending operation)
+    mapping(address => uint256) public pendingCallerRevocation;
 
     /// @notice Rate limit: minimum time between actions for same user nullifier
     uint256 public constant RATE_LIMIT_SECONDS = 60; // 1 minute
@@ -59,28 +72,36 @@ contract NullifierRegistry is Pausable, ReentrancyGuard {
         uint256 timestamp
     );
 
-    event CallerAuthorized(address indexed caller, bool authorized);
-    event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
+    event CallerAuthorizationProposed(address indexed caller, uint256 executeTime);
+    event CallerAuthorized(address indexed caller);
+    event CallerAuthorizationCancelled(address indexed caller);
+    event CallerRevocationProposed(address indexed caller, uint256 executeTime);
+    event CallerRevoked(address indexed caller);
+    event CallerRevocationCancelled(address indexed caller);
 
     // Errors
     error NullifierAlreadyUsed();
     error RateLimitExceeded();
-    error UnauthorizedCaller();
-    error ZeroAddress();
-
-    modifier onlyGovernance() {
-        if (msg.sender != governance) revert UnauthorizedCaller();
-        _;
-    }
+    error CallerAlreadyAuthorized();
+    error CallerNotAuthorized();
+    error CallerAuthorizationNotPending();
+    error CallerRevocationNotPending();
+    error CallerAuthorizationTimelockNotExpired();
+    error CallerRevocationTimelockNotExpired();
+    error CallerAuthorizationAlreadyPending();
+    error CallerRevocationAlreadyPending();
 
     modifier onlyAuthorizedCaller() {
         if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
         _;
     }
 
+    /// @notice Timelock duration for caller authorization/revocation
+    uint256 public constant CALLER_AUTHORIZATION_TIMELOCK = 7 days;
+
     constructor(address _governance) {
         if (_governance == address(0)) revert ZeroAddress();
-        governance = _governance;
+        _initializeGovernance(_governance);
         // Governance is always authorized
         authorizedCallers[_governance] = true;
     }
@@ -146,23 +167,102 @@ contract NullifierRegistry is Pausable, ReentrancyGuard {
     }
 
     // ============================================================================
-    // Governance Functions
+    // Caller Authorization (7-day timelock)
     // ============================================================================
 
-    /// @notice Authorize a caller (e.g., DistrictGate contract)
-    /// @param caller Address to authorize
-    function authorizeCaller(address caller) external onlyGovernance {
+    /// @notice Propose authorizing a caller (starts 7-day timelock)
+    /// @param caller Address to authorize (e.g., DistrictGate contract)
+    /// @dev Anyone can monitor CallerAuthorizationProposed events
+    ///      Community has 7 days to respond if authorization looks malicious
+    ///
+    /// SECURITY (HIGH-001 FIX): Prevents overwriting existing pending proposals
+    /// to avoid griefing attacks that reset the timelock indefinitely.
+    function proposeCallerAuthorization(address caller) external onlyGovernance {
         if (caller == address(0)) revert ZeroAddress();
-        authorizedCallers[caller] = true;
-        emit CallerAuthorized(caller, true);
+        if (authorizedCallers[caller]) revert CallerAlreadyAuthorized();
+        // HIGH-001 FIX: Prevent overwriting existing pending proposals
+        // Without this check, an attacker with temporary governance access could
+        // repeatedly call proposeCallerAuthorization to reset the timelock
+        if (pendingCallerAuthorization[caller] != 0) revert CallerAuthorizationAlreadyPending();
+
+        uint256 executeTime = block.timestamp + CALLER_AUTHORIZATION_TIMELOCK;
+        pendingCallerAuthorization[caller] = executeTime;
+
+        emit CallerAuthorizationProposed(caller, executeTime);
     }
 
-    /// @notice Revoke caller authorization
-    /// @param caller Address to revoke
-    function revokeCaller(address caller) external onlyGovernance {
-        authorizedCallers[caller] = false;
-        emit CallerAuthorized(caller, false);
+    /// @notice Execute caller authorization (after 7-day timelock)
+    /// @param caller Address to authorize
+    /// @dev Can be called by anyone after timelock expires
+    function executeCallerAuthorization(address caller) external {
+        uint256 executeTime = pendingCallerAuthorization[caller];
+        if (executeTime == 0) revert CallerAuthorizationNotPending();
+        if (block.timestamp < executeTime) revert CallerAuthorizationTimelockNotExpired();
+
+        authorizedCallers[caller] = true;
+        delete pendingCallerAuthorization[caller];
+
+        emit CallerAuthorized(caller);
     }
+
+    /// @notice Cancel pending caller authorization
+    /// @param caller Address to cancel authorization for
+    function cancelCallerAuthorization(address caller) external onlyGovernance {
+        if (pendingCallerAuthorization[caller] == 0) revert CallerAuthorizationNotPending();
+
+        delete pendingCallerAuthorization[caller];
+
+        emit CallerAuthorizationCancelled(caller);
+    }
+
+    // ============================================================================
+    // Caller Revocation (7-day timelock)
+    // ============================================================================
+
+    /// @notice Propose revoking a caller's authorization (starts 7-day timelock)
+    /// @param caller Address to revoke
+    /// @dev Anyone can monitor CallerRevocationProposed events
+    ///      Community has 7 days to respond if revocation looks malicious
+    ///
+    /// SECURITY (HIGH-001 FIX): Prevents overwriting existing pending proposals
+    function proposeCallerRevocation(address caller) external onlyGovernance {
+        if (!authorizedCallers[caller]) revert CallerNotAuthorized();
+        // HIGH-001 FIX: Prevent overwriting existing pending proposals
+        if (pendingCallerRevocation[caller] != 0) revert CallerRevocationAlreadyPending();
+
+        uint256 executeTime = block.timestamp + CALLER_AUTHORIZATION_TIMELOCK;
+        pendingCallerRevocation[caller] = executeTime;
+
+        emit CallerRevocationProposed(caller, executeTime);
+    }
+
+    /// @notice Execute caller revocation (after 7-day timelock)
+    /// @param caller Address to revoke
+    /// @dev Can be called by anyone after timelock expires
+    function executeCallerRevocation(address caller) external {
+        uint256 executeTime = pendingCallerRevocation[caller];
+        if (executeTime == 0) revert CallerRevocationNotPending();
+        if (block.timestamp < executeTime) revert CallerRevocationTimelockNotExpired();
+
+        authorizedCallers[caller] = false;
+        delete pendingCallerRevocation[caller];
+
+        emit CallerRevoked(caller);
+    }
+
+    /// @notice Cancel pending caller revocation
+    /// @param caller Address to cancel revocation for
+    function cancelCallerRevocation(address caller) external onlyGovernance {
+        if (pendingCallerRevocation[caller] == 0) revert CallerRevocationNotPending();
+
+        delete pendingCallerRevocation[caller];
+
+        emit CallerRevocationCancelled(caller);
+    }
+
+    // ============================================================================
+    // View Functions
+    // ============================================================================
 
     /// @notice Check if address is authorized
     /// @param caller Address to check
@@ -171,24 +271,66 @@ contract NullifierRegistry is Pausable, ReentrancyGuard {
         return authorizedCallers[caller];
     }
 
-    /// @notice Pause contract
+    /// @notice Get time remaining until caller authorization can execute
+    /// @param caller Pending authorization target
+    /// @return secondsRemaining Time in seconds (0 if ready or not initiated)
+    function getCallerAuthorizationDelay(address caller) external view returns (uint256 secondsRemaining) {
+        uint256 executeTime = pendingCallerAuthorization[caller];
+        if (executeTime == 0 || block.timestamp >= executeTime) {
+            return 0;
+        }
+        return executeTime - block.timestamp;
+    }
+
+    /// @notice Get time remaining until caller revocation can execute
+    /// @param caller Pending revocation target
+    /// @return secondsRemaining Time in seconds (0 if ready or not initiated)
+    function getCallerRevocationDelay(address caller) external view returns (uint256 secondsRemaining) {
+        uint256 executeTime = pendingCallerRevocation[caller];
+        if (executeTime == 0 || block.timestamp >= executeTime) {
+            return 0;
+        }
+        return executeTime - block.timestamp;
+    }
+
+    // ============================================================================
+    // Pause Controls (immediate - for emergency use only)
+    // ============================================================================
+
+    /// @notice Pause contract (immediate - emergency only)
+    /// @dev No timelock for pause - enables fast response to attacks
     function pause() external onlyGovernance {
         _pause();
     }
 
-    /// @notice Unpause contract
+    /// @notice Unpause contract (immediate)
+    /// @dev No timelock for unpause - resuming operations is not risky
     function unpause() external onlyGovernance {
         _unpause();
     }
 
-    /// @notice Transfer governance
+    // ============================================================================
+    // Governance Transfer Override
+    // ============================================================================
+
+    /// @notice Execute governance transfer (after 7-day timelock)
     /// @param newGovernance New governance address
-    function transferGovernance(address newGovernance) external onlyGovernance {
-        if (newGovernance == address(0)) revert ZeroAddress();
-        address previous = governance;
+    /// @dev Overrides TimelockGovernance to also update authorized callers
+    function executeGovernanceTransfer(address newGovernance) external override {
+        uint256 executeTime = pendingGovernance[newGovernance];
+        if (executeTime == 0) revert TransferNotInitiated();
+        if (block.timestamp < executeTime) revert TimelockNotExpired();
+
+        address previousGovernance = governance;
+
+        // Update governance
         governance = newGovernance;
+        delete pendingGovernance[newGovernance];
+
+        // Update authorized callers: new governance is authorized, old is revoked
         authorizedCallers[newGovernance] = true;
-        authorizedCallers[previous] = false;
-        emit GovernanceTransferred(previous, newGovernance);
+        authorizedCallers[previousGovernance] = false;
+
+        emit GovernanceTransferred(previousGovernance, newGovernance);
     }
 }

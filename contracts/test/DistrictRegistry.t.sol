@@ -15,8 +15,9 @@ contract DistrictRegistryTest is Test {
     bytes32 public constant DISTRICT_ROOT_2 = keccak256("DISTRICT_2");
     bytes3 public constant USA = "USA";
     bytes3 public constant GBR = "GBR";
+    uint8 public constant DEPTH_20 = 20;
 
-    event DistrictRegistered(bytes32 indexed districtRoot, bytes3 indexed country, uint256 timestamp);
+    event DistrictRegistered(bytes32 indexed districtRoot, bytes3 indexed country, uint8 depth, uint256 timestamp);
     event GovernanceTransferInitiated(address indexed newGovernance, uint256 executeTime);
     event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
     event GovernanceTransferCancelled(address indexed newGovernance);
@@ -42,9 +43,9 @@ contract DistrictRegistryTest is Test {
     function test_RegisterDistrict() public {
         vm.prank(governance);
         vm.expectEmit(true, true, false, true);
-        emit DistrictRegistered(DISTRICT_ROOT_1, USA, block.timestamp);
+        emit DistrictRegistered(DISTRICT_ROOT_1, USA, DEPTH_20, block.timestamp);
 
-        registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20);
 
         assertEq(registry.getCountry(DISTRICT_ROOT_1), USA);
     }
@@ -52,21 +53,21 @@ contract DistrictRegistryTest is Test {
     function test_RevertWhen_RegisterDistrictUnauthorized() public {
         vm.prank(attacker);
         vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
-        registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20);
     }
 
     function test_RevertWhen_RegisterDistrictDuplicate() public {
         vm.startPrank(governance);
-        registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20);
         vm.expectRevert(DistrictRegistry.DistrictAlreadyRegistered.selector);
-        registry.registerDistrict(DISTRICT_ROOT_1, USA); // Should fail
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20); // Should fail
         vm.stopPrank();
     }
 
     function test_RevertWhen_RegisterDistrictInvalidCountry() public {
         vm.prank(governance);
         vm.expectRevert(DistrictRegistry.InvalidCountryCode.selector);
-        registry.registerDistrict(DISTRICT_ROOT_1, bytes3(0));
+        registry.registerDistrict(DISTRICT_ROOT_1, bytes3(0), DEPTH_20);
     }
 
     // ============ Batch Registration Tests ============
@@ -74,14 +75,17 @@ contract DistrictRegistryTest is Test {
     function test_RegisterDistrictsBatch() public {
         bytes32[] memory roots = new bytes32[](2);
         bytes3[] memory countries = new bytes3[](2);
+        uint8[] memory depths = new uint8[](2);
 
         roots[0] = DISTRICT_ROOT_1;
         roots[1] = DISTRICT_ROOT_2;
         countries[0] = USA;
         countries[1] = GBR;
+        depths[0] = DEPTH_20;
+        depths[1] = DEPTH_20;
 
         vm.prank(governance);
-        registry.registerDistrictsBatch(roots, countries);
+        registry.registerDistrictsBatch(roots, countries, depths);
 
         assertEq(registry.getCountry(DISTRICT_ROOT_1), USA);
         assertEq(registry.getCountry(DISTRICT_ROOT_2), GBR);
@@ -90,10 +94,11 @@ contract DistrictRegistryTest is Test {
     function test_RevertWhen_RegisterDistrictsBatchLengthMismatch() public {
         bytes32[] memory roots = new bytes32[](2);
         bytes3[] memory countries = new bytes3[](1);
+        uint8[] memory depths = new uint8[](1);
 
         vm.prank(governance);
         vm.expectRevert("Length mismatch");
-        registry.registerDistrictsBatch(roots, countries);
+        registry.registerDistrictsBatch(roots, countries, depths);
     }
 
     // ============ Governance Timelock Tests ============
@@ -275,14 +280,14 @@ contract DistrictRegistryTest is Test {
 
         // New governance can register districts
         vm.prank(newGovernance);
-        registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20);
 
         assertEq(registry.getCountry(DISTRICT_ROOT_1), USA);
 
         // Old governance cannot
         vm.prank(governance);
         vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
-        registry.registerDistrict(DISTRICT_ROOT_2, GBR);
+        registry.registerDistrict(DISTRICT_ROOT_2, GBR, DEPTH_20);
     }
 
     // ============ Fuzz Tests ============
@@ -291,7 +296,7 @@ contract DistrictRegistryTest is Test {
         vm.assume(country != bytes3(0));
 
         vm.prank(governance);
-        registry.registerDistrict(root, country);
+        registry.registerDistrict(root, country, DEPTH_20);
 
         assertEq(registry.getCountry(root), country);
     }
@@ -327,7 +332,7 @@ contract DistrictRegistryTest is Test {
 
     function test_IsDistrictInCountry() public {
         vm.prank(governance);
-        registry.registerDistrict(DISTRICT_ROOT_1, USA);
+        registry.registerDistrict(DISTRICT_ROOT_1, USA, DEPTH_20);
 
         assertTrue(registry.isDistrictInCountry(DISTRICT_ROOT_1, USA));
         assertFalse(registry.isDistrictInCountry(DISTRICT_ROOT_1, GBR));

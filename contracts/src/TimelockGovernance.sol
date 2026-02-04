@@ -80,7 +80,7 @@ abstract contract TimelockGovernance {
     /// @notice Execute governance transfer (after 7-day timelock)
     /// @param newGovernance New governance address
     /// @dev Can be called by anyone after timelock expires
-    function executeGovernanceTransfer(address newGovernance) external {
+    function executeGovernanceTransfer(address newGovernance) external virtual {
         uint256 executeTime = pendingGovernance[newGovernance];
         if (executeTime == 0) revert TransferNotInitiated();
         if (block.timestamp < executeTime) revert TimelockNotExpired();

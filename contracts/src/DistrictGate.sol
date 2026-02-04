@@ -3,84 +3,123 @@ pragma solidity 0.8.19;
 
 import "./DistrictRegistry.sol";
 import "./NullifierRegistry.sol";
+import "./VerifierRegistry.sol";
 import "./CampaignRegistry.sol";
+import "./UserRootRegistry.sol";
+import "./CellMapRegistry.sol";
 import "./TimelockGovernance.sol";
 import "openzeppelin/utils/cryptography/ECDSA.sol";
 import "openzeppelin/security/Pausable.sol";
 
 /// @title DistrictGate
-/// @notice Master verification contract for district membership proofs
-/// @dev Orchestrates four-step verification:
-///      Step 1: ZK proof verification (district membership)
-///      Step 2: On-chain registry lookup (district→country mapping)
-///      Step 3: Nullifier recording (double-action prevention + rate limiting)
-///      Step 4: Campaign participation recording (if action linked to campaign)
+/// @notice Multi-depth verifier orchestration for international district support
+/// @dev Routes verification to depth-specific verifiers (18, 20, 22, 24)
 ///
-/// PERMISSIONLESS ACTIONS:
-/// - Any bytes32 actionId is valid (no authorization required)
-/// - Spam mitigated by: rate limits (60s), gas costs, ZK proof generation time
-/// - Action namespaces are user-defined (typically hash of template/campaign ID)
+/// ARCHITECTURE:
+/// 1. Proof submitted with districtRoot
+/// 2. Look up depth from DistrictRegistry
+/// 3. Route to appropriate verifier from VerifierRegistry
+/// 4. Verify ZK proof with depth-specific verifier
+/// 5. Record nullifier and emit event
 ///
-/// HYBRID 24-SLOT DISTRICT APPROACH:
-/// The ZK circuit supports 24 district slots per proof using a hybrid allocation:
-/// - Slots 0-19: 20 defined district types (federal, state, county, city, school, etc.)
+/// DEPTH ROUTING (International Coverage):
+/// - Depth 18: Small countries (262K addresses, K=16 circuit, ~22KB verifier)
+/// - Depth 20: Medium countries (1M addresses, K=18 circuit, ~26KB verifier)
+/// - Depth 22: Large countries (4M addresses, K=20 circuit, split deployment)
+/// - Depth 24: Very large (16M addresses, K=22 circuit, split deployment)
+///
+/// MULTI-DISTRICT REGISTRATION MODEL (24 District Slots):
+/// Users can be registered in up to 24 district types (federal, state, county, city, etc.):
+/// - Slots 0-19: 20 defined district types
 /// - Slots 20-21: Reserved for future defined district types
 /// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
-/// This approach balances circuit efficiency with coverage for edge cases.
-/// Empty slots use bytes32(0) and are skipped during verification.
 ///
-/// CAMPAIGN INTEGRATION (Phase 1.5):
-/// - Optional CampaignRegistry records participation metrics
-/// - Actions work without campaigns (backwards compatible)
-/// - If action is linked to campaign, participation is recorded
+/// IMPORTANT: SINGLE-DISTRICT PROOFS
+/// Each ZK proof proves membership in exactly ONE district. The 24-slot model describes
+/// the registration taxonomy, NOT the circuit output. For actions requiring multiple
+/// district memberships (e.g., state + county eligibility), callers must submit and
+/// verify separate proofs for each district. This keeps circuits efficient and allows
+/// flexible multi-district requirements to be enforced at the application layer.
 ///
-/// PHASE 1 SECURITY MODEL (Honest):
-/// - Single point of failure: Founder key compromise = governance compromise
-/// - Mitigation: 7-day governance timelock, 14-day verifier timelock
-/// - Community can monitor events and exit during timelock if malicious
-/// - NO nation-state resistance until Phase 2 (requires real multi-jurisdiction guardians)
+/// GAS COSTS FOR MULTI-DISTRICT VERIFICATION:
+/// - Single proof: ~300-400k gas verification
+/// - N districts: N separate verifications = N × (~300-400k) gas
+/// - Example: State + County + Congressional = 3 proofs ≈ 900k-1.2M gas total
 ///
-/// UPGRADE PATH (Phase 2+):
-/// - Add GuardianShield when real guardians are recruited
-/// - Guardians must be humans in different legal jurisdictions
-/// - NOT LLM agents, NOT VPN-separated keys from same person
+/// PUBLIC INPUTS (SAME across all depths, matches circuit output order):
+/// - publicInputs[0]: merkleRoot (district Merkle root)
+/// - publicInputs[1]: nullifier (prevents double-voting)
+/// - publicInputs[2]: authorityLevel (1-5 integer authority level)
+/// - publicInputs[3]: actionDomain (domain separator for nullifier scoping)
+/// - publicInputs[4]: districtId (district identifier)
+///
+/// BACKWARDS COMPATIBILITY:
+/// - Existing depth-12 proofs continue to work via fallback verifier
+/// - New proofs use depth-aware routing
+/// - Gradual migration: old districts (depth 12) → new districts (depth 18-24)
+///
+/// UPGRADE PATH:
+/// - Add new depths via VerifierRegistry (14-day timelock)
+/// - Register new districts with depth via DistrictRegistry (7-day timelock)
+/// - No changes to this contract required
 contract DistrictGate is Pausable, TimelockGovernance {
-    /// @notice Maximum district slots in proof (hybrid: 20 defined + 4 overflow)
-    /// @dev Slots 0-19: Defined district types, Slots 20-21: Reserved, Slots 22-23: Overflow
+    /// @notice Maximum district types a user can be registered in (20 defined + 4 overflow)
+    /// @dev Each proof proves ONE district. This constant defines the registration model.
+    ///      Multi-district verification requires separate proofs per district.
+    ///      Slots 0-19: Defined types, Slots 20-21: Reserved, Slots 22-23: Overflow
     uint8 public constant MAX_DISTRICT_SLOTS = 24;
 
-    /// @notice Address of the ZK verifier contract (upgradeable with timelock)
-    address public verifier;
+    /// @notice Verifier registry (depth → verifier address)
+    VerifierRegistry public immutable verifierRegistry;
 
-    /// @notice Pending verifier upgrade
-    address public pendingVerifier;
-
-    /// @notice Execution timestamp for verifier upgrade
-    uint256 public verifierUpgradeTime;
-
-    /// @notice Timelock for verifier upgrades (14 days - more critical than governance)
-    /// @dev Longer timelock because verifier bugs could accept invalid proofs
-    uint256 public constant VERIFIER_UPGRADE_TIMELOCK = 14 days;
-
-    /// @notice Address of the district registry
+    /// @notice District registry (root → country + depth)
     DistrictRegistry public immutable districtRegistry;
 
-    /// @notice Address of the nullifier registry
+    /// @notice Nullifier registry (prevents double-voting)
     NullifierRegistry public immutable nullifierRegistry;
 
-    /// @notice Address of the campaign registry (optional, can be zero)
-    /// @dev Not immutable - can be set after deployment for Phase 1.5 upgrade
+    /// @notice User root registry (Tree 1 - user identity roots)
+    UserRootRegistry public userRootRegistry;
+
+    /// @notice Cell map registry (Tree 2 - cell-district mapping roots)
+    CellMapRegistry public cellMapRegistry;
+
+    /// @notice Campaign registry (optional, can be zero)
     CampaignRegistry public campaignRegistry;
 
-    /// @notice EIP-712 domain separator for signature verification
+    /// @notice Timelock delay for campaign registry changes (7 days, same as district registration)
+    uint256 public constant CAMPAIGN_REGISTRY_TIMELOCK = 7 days;
+
+    /// @notice Proposed campaign registry address (zero if no proposal pending)
+    address public pendingCampaignRegistry;
+
+    /// @notice Timestamp after which the pending campaign registry change can execute
+    uint256 public pendingCampaignRegistryExecuteTime;
+
+    /// @notice Allowed action domains (governance-controlled whitelist)
+    /// @dev SA-001 FIX: Prevents users from generating fresh nullifiers with arbitrary actionDomains
+    mapping(bytes32 => bool) public allowedActionDomains;
+
+    /// @notice Timelock for action domain registration (7 days)
+    uint256 public constant ACTION_DOMAIN_TIMELOCK = 7 days;
+
+    /// @notice Pending action domain registrations (actionDomain => executeTime)
+    mapping(bytes32 => uint256) public pendingActionDomains;
+
+    /// @notice EIP-712 domain separator
     bytes32 public immutable DOMAIN_SEPARATOR;
 
-    /// @notice EIP-712 typehash for proof submission
+    /// @notice EIP-712 typehash for single-tree proof submission
     bytes32 public constant SUBMIT_PROOF_TYPEHASH = keccak256(
-        "SubmitProof(bytes32 proofHash,bytes32 districtRoot,bytes32 nullifier,bytes32 actionId,bytes3 country,uint256 nonce,uint256 deadline)"
+        "SubmitProof(bytes32 proofHash,bytes32 districtRoot,bytes32 nullifier,bytes32 authorityLevel,bytes32 actionDomain,bytes32 districtId,bytes3 country,uint256 nonce,uint256 deadline)"
     );
 
-    /// @notice Nonces for replay protection (per-address)
+    /// @notice EIP-712 typehash for two-tree proof submission
+    bytes32 public constant SUBMIT_TWO_TREE_PROOF_TYPEHASH = keccak256(
+        "SubmitTwoTreeProof(bytes32 proofHash,bytes32 publicInputsHash,uint8 verifierDepth,uint256 nonce,uint256 deadline)"
+    );
+
+    /// @notice Nonces for replay protection
     mapping(address => uint256) public nonces;
 
     // Events
@@ -89,50 +128,92 @@ contract DistrictGate is Pausable, TimelockGovernance {
         address indexed submitter,
         bytes32 indexed districtRoot,
         bytes3 country,
+        uint8 depth,
         bytes32 nullifier,
-        bytes32 actionId
+        bytes32 authorityLevel,
+        bytes32 actionDomain,
+        bytes32 districtId
     );
-    event VerifierUpgradeInitiated(address indexed newVerifier, uint256 executeTime);
-    event VerifierUpgraded(address indexed previousVerifier, address indexed newVerifier);
-    event VerifierUpgradeCancelled(address indexed target);
+
     event CampaignRegistrySet(address indexed previousRegistry, address indexed newRegistry);
+    event CampaignRegistryChangeProposed(address indexed proposed, uint256 executeTime);
+    event CampaignRegistryChangeCancelled(address indexed proposed);
     event ContractPaused(address indexed governance);
     event ContractUnpaused(address indexed governance);
+    event ActionDomainProposed(bytes32 indexed actionDomain, uint256 executeTime);
+    event ActionDomainActivated(bytes32 indexed actionDomain);
+    event ActionDomainRevoked(bytes32 indexed actionDomain);
 
     // Errors
     error VerificationFailed();
     error UnauthorizedDistrict();
     error DistrictNotRegistered();
+    error DistrictRootNotActive();
+    error VerifierNotFound();
     error InvalidSignature();
     error SignatureExpired();
-    error UpgradeNotInitiated();
+    error InvalidPublicInputCount();
+    error CampaignRegistryChangeNotProposed();
+    error CampaignRegistryTimelockNotExpired();
+    error ActionDomainNotAllowed();
+    error ActionDomainNotPending();
+    error ActionDomainTimelockNotExpired();
+    error OperationAlreadyPending();
 
-    /// @notice Deploy gate with verifier, registries, and governance
-    /// @param _verifier Address of deployed ZK verifier contract
-    /// @param _districtRegistry Address of deployed DistrictRegistry contract
-    /// @param _nullifierRegistry Address of deployed NullifierRegistry contract
-    /// @param _governance Governance address (initially founder, later multisig)
+    /// @notice Number of public inputs for two-tree proofs
+    /// @dev [0] user_root, [1] cell_map_root, [2-25] districts[24],
+    ///      [26] nullifier, [27] action_domain, [28] authority_level
+    uint256 public constant TWO_TREE_PUBLIC_INPUT_COUNT = 29;
+
+    // Two-tree events
+    event TwoTreeProofVerified(
+        address indexed signer,
+        address indexed submitter,
+        bytes32 indexed userRoot,
+        bytes32 cellMapRoot,
+        bytes32 nullifier,
+        bytes32 actionDomain,
+        bytes32 authorityLevel,
+        uint8 verifierDepth
+    );
+
+    // Two-tree errors
+    error InvalidUserRoot();
+    error InvalidCellMapRoot();
+    error InvalidTwoTreePublicInputCount();
+    error TwoTreeVerificationFailed();
+    error CountryMismatch();
+    error DepthMismatch();
+
+    /// @notice Deploy multi-depth gate
+    /// @param _verifierRegistry Address of VerifierRegistry
+    /// @param _districtRegistry Address of DistrictRegistry
+    /// @param _nullifierRegistry Address of NullifierRegistry
+    /// @param _governance Governance address
     constructor(
-        address _verifier,
+        address _verifierRegistry,
         address _districtRegistry,
         address _nullifierRegistry,
         address _governance
     ) {
-        if (_verifier == address(0)) revert ZeroAddress();
+        if (_verifierRegistry == address(0)) revert ZeroAddress();
         if (_districtRegistry == address(0)) revert ZeroAddress();
         if (_nullifierRegistry == address(0)) revert ZeroAddress();
 
         _initializeGovernance(_governance);
 
-        verifier = _verifier;
+        verifierRegistry = VerifierRegistry(_verifierRegistry);
         districtRegistry = DistrictRegistry(_districtRegistry);
         nullifierRegistry = NullifierRegistry(_nullifierRegistry);
+
+        // Two-tree registries default to address(0)
+        // Configure via proposeTwoTreeRegistries() after deployment
 
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("DistrictGate")),
-                keccak256(bytes("4")), // Version 4: Phase 1 honest governance
+                keccak256(bytes("1")), // Version 1: Multi-depth support
                 block.chainid,
                 address(this)
             )
@@ -140,16 +221,18 @@ contract DistrictGate is Pausable, TimelockGovernance {
     }
 
     // ============================================================================
-    // Proof Verification
+    // Proof Verification (Multi-Depth Routing)
     // ============================================================================
 
-    /// @notice Verify district membership proof with EIP-712 signature (MEV-resistant)
+    /// @notice Verify district membership proof with depth-aware routing
     /// @param signer Address that signed the proof submission
     /// @param proof ZK proof bytes
-    /// @param districtRoot Merkle root of the district
+    /// @param districtRoot District Merkle root
     /// @param nullifier Unique nullifier for this action
-    /// @param actionId Action identifier (any bytes32 is valid)
-    /// @param expectedCountry Expected country code for the district
+    /// @param authorityLevel Authority level (1-5 integer, encoded as bytes32)
+    /// @param actionDomain Domain separator for nullifier scoping
+    /// @param districtId District identifier
+    /// @param expectedCountry Expected country code
     /// @param deadline Signature expiration timestamp
     /// @param signature EIP-712 signature from signer
     function verifyAndAuthorizeWithSignature(
@@ -157,7 +240,9 @@ contract DistrictGate is Pausable, TimelockGovernance {
         bytes calldata proof,
         bytes32 districtRoot,
         bytes32 nullifier,
-        bytes32 actionId,
+        bytes32 authorityLevel,
+        bytes32 actionDomain,
+        bytes32 districtId,
         bytes3 expectedCountry,
         uint256 deadline,
         bytes calldata signature
@@ -165,7 +250,7 @@ contract DistrictGate is Pausable, TimelockGovernance {
         if (signer == address(0)) revert ZeroAddress();
         if (block.timestamp > deadline) revert SignatureExpired();
 
-        // Compute EIP-712 digest
+        // Verify EIP-712 signature
         bytes32 proofHash = keccak256(proof);
         bytes32 structHash = keccak256(
             abi.encode(
@@ -173,7 +258,9 @@ contract DistrictGate is Pausable, TimelockGovernance {
                 proofHash,
                 districtRoot,
                 nullifier,
-                actionId,
+                authorityLevel,
+                actionDomain,
+                districtId,
                 expectedCountry,
                 nonces[signer],
                 deadline
@@ -188,16 +275,36 @@ contract DistrictGate is Pausable, TimelockGovernance {
 
         nonces[signer]++;
 
-        // Step 1: Verify ZK proof
-        uint256[3] memory publicInputs = [
+        // Step 1: Look up district metadata (country + depth)
+        (bytes3 actualCountry, uint8 depth) = districtRegistry.getCountryAndDepth(districtRoot);
+        if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
+        if (actualCountry != expectedCountry) revert UnauthorizedDistrict();
+
+        // SA-004 FIX: Validate root lifecycle (isActive and not expired)
+        // getCountryAndDepth() only checks registration, NOT lifecycle state
+        if (!districtRegistry.isValidRoot(districtRoot)) revert DistrictRootNotActive();
+
+        // SA-001 FIX: Validate actionDomain is on the governance-controlled whitelist
+        // This prevents users from generating fresh nullifiers by choosing arbitrary actionDomains
+        if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        // Step 2: Get depth-specific verifier
+        address verifier = verifierRegistry.getVerifier(depth);
+        if (verifier == address(0)) revert VerifierNotFound();
+
+        // Step 3: Verify ZK proof with depth-specific verifier
+        // Public inputs: (merkle_root, nullifier, authority_level, action_domain, district_id)
+        uint256[5] memory publicInputs = [
             uint256(districtRoot),
             uint256(nullifier),
-            uint256(actionId)
+            uint256(authorityLevel),
+            uint256(actionDomain),
+            uint256(districtId)
         ];
 
         (bool success, bytes memory result) = verifier.call(
             abi.encodeWithSignature(
-                "verifyProof(bytes,uint256[3])",
+                "verifyProof(bytes,uint256[5])",
                 proof,
                 publicInputs
             )
@@ -207,24 +314,15 @@ contract DistrictGate is Pausable, TimelockGovernance {
             revert VerificationFailed();
         }
 
-        // Step 2: Verify district is registered
-        bytes3 actualCountry = districtRegistry.getCountry(districtRoot);
-        if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
-        if (actualCountry != expectedCountry) revert UnauthorizedDistrict();
+        // Step 4: Record nullifier (use actionDomain as actionId — circuit's domain separator for nullifiers)
+        nullifierRegistry.recordNullifier(actionDomain, nullifier, districtRoot);
 
-        // Step 3: Record nullifier
-        nullifierRegistry.recordNullifier(actionId, nullifier, districtRoot);
-
-        // Step 4: Record campaign participation (if registry is set)
-        // Fails gracefully if campaignRegistry is not set or action not linked to campaign
+        // Step 5: Record campaign participation (if registry is set)
         if (address(campaignRegistry) != address(0)) {
-            // Use try/catch to ensure verification succeeds even if campaign recording fails
-            // This maintains backwards compatibility and prevents campaign issues from blocking verification
-            try campaignRegistry.recordParticipation(actionId, districtRoot) {
+            try campaignRegistry.recordParticipation(actionDomain, districtRoot) {
                 // Success - participation recorded
             } catch {
                 // Fail silently - action not linked to campaign or campaign paused
-                // This is expected behavior for permissionless actions
             }
         }
 
@@ -233,8 +331,11 @@ contract DistrictGate is Pausable, TimelockGovernance {
             msg.sender,
             districtRoot,
             actualCountry,
+            depth,
             nullifier,
-            actionId
+            authorityLevel,
+            actionDomain,
+            districtId
         );
     }
 
@@ -243,85 +344,318 @@ contract DistrictGate is Pausable, TimelockGovernance {
     // ============================================================================
 
     /// @notice Check if a nullifier has been used for an action
-    /// @param actionId Action identifier
-    /// @param nullifier Nullifier to check
-    /// @return True if nullifier was already used
     function isNullifierUsed(bytes32 actionId, bytes32 nullifier) external view returns (bool) {
         return nullifierRegistry.isNullifierUsed(actionId, nullifier);
     }
 
     /// @notice Get participant count for an action
-    /// @param actionId Action identifier
-    /// @return Number of participants
     function getParticipantCount(bytes32 actionId) external view returns (uint256) {
         return nullifierRegistry.getParticipantCount(actionId);
+    }
+
+    /// @notice Get verifier address for a district (by looking up depth)
+    /// @param districtRoot District Merkle root
+    /// @return Verifier contract address (address(0) if not found)
+    function getVerifierForDistrict(bytes32 districtRoot) external view returns (address) {
+        uint8 depth = districtRegistry.getDepth(districtRoot);
+        if (depth == 0) return address(0);
+        return verifierRegistry.getVerifier(depth);
+    }
+
+    /// @notice Get all supported depths with registered verifiers
+    /// @return Array of depths (e.g., [18, 20, 22, 24])
+    function getSupportedDepths() external view returns (uint8[] memory) {
+        return verifierRegistry.getRegisteredDepths();
     }
 
     // ============================================================================
     // Campaign Registry Integration
     // ============================================================================
 
-    /// @notice Set the campaign registry address (governance only)
-    /// @param _campaignRegistry Address of CampaignRegistry contract (can be zero to disable)
-    /// @dev This is not timelocked because:
-    ///      1. CampaignRegistry failure doesn't affect core verification
-    ///      2. Setting to zero only disables optional feature
-    ///      3. CampaignRegistry has its own governance controls
-    function setCampaignRegistry(address _campaignRegistry) external onlyGovernance {
-        address previousRegistry = address(campaignRegistry);
-        campaignRegistry = CampaignRegistry(_campaignRegistry);
-        emit CampaignRegistrySet(previousRegistry, _campaignRegistry);
+    /// @notice Propose a new campaign registry address (starts 7-day timelock)
+    /// @param _campaignRegistry New campaign registry address (address(0) to remove)
+    /// @dev Emits CampaignRegistryChangeProposed. Community has 7 days to respond.
+    function proposeCampaignRegistry(address _campaignRegistry) external onlyGovernance {
+        // BR3-007: Prevent overwriting pending proposal (resetting timelock)
+        if (pendingCampaignRegistryExecuteTime != 0) revert OperationAlreadyPending();
+
+        pendingCampaignRegistry = _campaignRegistry;
+        pendingCampaignRegistryExecuteTime = block.timestamp + CAMPAIGN_REGISTRY_TIMELOCK;
+
+        emit CampaignRegistryChangeProposed(_campaignRegistry, pendingCampaignRegistryExecuteTime);
     }
 
-    // ============================================================================
-    // Verifier Upgrade (14-day timelock)
-    // ============================================================================
-
-    /// @notice Initiate verifier upgrade (starts 14-day timelock)
-    /// @param newVerifier New verifier contract address
-    /// @dev Monitor VerifierUpgradeInitiated events - community has 14 days to respond
-    function initiateVerifierUpgrade(address newVerifier) external onlyGovernance {
-        if (newVerifier == address(0)) revert ZeroAddress();
-        if (newVerifier == verifier) revert SameAddress();
-
-        pendingVerifier = newVerifier;
-        verifierUpgradeTime = block.timestamp + VERIFIER_UPGRADE_TIMELOCK;
-
-        emit VerifierUpgradeInitiated(newVerifier, verifierUpgradeTime);
-    }
-
-    /// @notice Execute verifier upgrade (after 14-day timelock)
+    /// @notice Execute the pending campaign registry change (after 7-day timelock)
     /// @dev Can be called by anyone after timelock expires
-    function executeVerifierUpgrade() external {
-        if (pendingVerifier == address(0)) revert UpgradeNotInitiated();
-        if (block.timestamp < verifierUpgradeTime) revert TimelockNotExpired();
+    function executeCampaignRegistry() external {
+        if (pendingCampaignRegistryExecuteTime == 0) revert CampaignRegistryChangeNotProposed();
+        if (block.timestamp < pendingCampaignRegistryExecuteTime) revert CampaignRegistryTimelockNotExpired();
 
-        address previousVerifier = verifier;
-        verifier = pendingVerifier;
-        delete pendingVerifier;
-        delete verifierUpgradeTime;
+        address previousRegistry = address(campaignRegistry);
+        address newRegistry = pendingCampaignRegistry;
 
-        emit VerifierUpgraded(previousVerifier, verifier);
+        campaignRegistry = CampaignRegistry(newRegistry);
+        pendingCampaignRegistry = address(0);
+        pendingCampaignRegistryExecuteTime = 0;
+
+        emit CampaignRegistrySet(previousRegistry, newRegistry);
     }
 
-    /// @notice Cancel pending verifier upgrade
-    function cancelVerifierUpgrade() external onlyGovernance {
-        if (pendingVerifier == address(0)) revert UpgradeNotInitiated();
+    /// @notice Cancel a pending campaign registry change
+    function cancelCampaignRegistry() external onlyGovernance {
+        if (pendingCampaignRegistryExecuteTime == 0) revert CampaignRegistryChangeNotProposed();
 
-        address target = pendingVerifier;
-        delete pendingVerifier;
-        delete verifierUpgradeTime;
+        address proposed = pendingCampaignRegistry;
+        pendingCampaignRegistry = address(0);
+        pendingCampaignRegistryExecuteTime = 0;
 
-        emit VerifierUpgradeCancelled(target);
+        emit CampaignRegistryChangeCancelled(proposed);
     }
 
-    /// @notice Get time remaining until verifier upgrade can execute
-    /// @return secondsRemaining Time in seconds (0 if ready or not initiated)
-    function getVerifierUpgradeDelay() external view returns (uint256 secondsRemaining) {
-        if (pendingVerifier == address(0) || block.timestamp >= verifierUpgradeTime) {
-            return 0;
+    // ============================================================================
+    // Action Domain Whitelist Management (SA-001 Fix)
+    // ============================================================================
+
+    /// @notice Propose a new action domain (starts 7-day timelock)
+    /// @param actionDomain Action domain to whitelist
+    /// @dev Emits ActionDomainProposed. Community has 7 days to respond.
+    ///      Action domains are used to scope nullifiers - each domain represents a distinct action.
+    function proposeActionDomain(bytes32 actionDomain) external onlyGovernance {
+        // BR3-007: Prevent resetting timelock for already-pending domain
+        if (pendingActionDomains[actionDomain] != 0) revert OperationAlreadyPending();
+
+        pendingActionDomains[actionDomain] = block.timestamp + ACTION_DOMAIN_TIMELOCK;
+        emit ActionDomainProposed(actionDomain, pendingActionDomains[actionDomain]);
+    }
+
+    /// @notice Execute a pending action domain activation (after 7-day timelock)
+    /// @param actionDomain Action domain to activate
+    /// @dev Can be called by anyone after timelock expires
+    function executeActionDomain(bytes32 actionDomain) external {
+        uint256 executeTime = pendingActionDomains[actionDomain];
+        if (executeTime == 0) revert ActionDomainNotPending();
+        if (block.timestamp < executeTime) revert ActionDomainTimelockNotExpired();
+
+        allowedActionDomains[actionDomain] = true;
+        delete pendingActionDomains[actionDomain];
+
+        emit ActionDomainActivated(actionDomain);
+    }
+
+    /// @notice Cancel a pending action domain proposal
+    /// @param actionDomain Action domain to cancel
+    function cancelActionDomain(bytes32 actionDomain) external onlyGovernance {
+        if (pendingActionDomains[actionDomain] == 0) revert ActionDomainNotPending();
+        delete pendingActionDomains[actionDomain];
+    }
+
+    /// @notice Revoke an active action domain (immediate effect, governance only)
+    /// @param actionDomain Action domain to revoke
+    /// @dev Revocation is immediate for emergency response. Use with caution.
+    ///      Existing submissions with this domain remain valid (nullifiers already recorded).
+    ///      Future submissions will be rejected.
+    function revokeActionDomain(bytes32 actionDomain) external onlyGovernance {
+        allowedActionDomains[actionDomain] = false;
+        emit ActionDomainRevoked(actionDomain);
+    }
+
+    // ============================================================================
+    // Two-Tree Registry Configuration
+    // ============================================================================
+
+    /// @notice Pending two-tree registry addresses
+    address public pendingUserRootRegistry;
+    address public pendingCellMapRegistry;
+    uint256 public pendingTwoTreeRegistriesExecuteTime;
+
+    event TwoTreeRegistriesProposed(address userRootRegistry, address cellMapRegistry, uint256 executeTime);
+    event TwoTreeRegistriesSet(address userRootRegistry, address cellMapRegistry);
+    event TwoTreeRegistriesCancelled();
+
+    error TwoTreeRegistriesNotProposed();
+    error TwoTreeRegistriesTimelockNotExpired();
+
+    /// @notice Propose two-tree registry addresses (starts 7-day timelock)
+    /// @param _userRootRegistry Address of UserRootRegistry
+    /// @param _cellMapRegistry Address of CellMapRegistry
+    function proposeTwoTreeRegistries(
+        address _userRootRegistry,
+        address _cellMapRegistry
+    ) external onlyGovernance {
+        if (_userRootRegistry == address(0)) revert ZeroAddress();
+        if (_cellMapRegistry == address(0)) revert ZeroAddress();
+        // BR3-007: Prevent overwriting pending proposal
+        if (pendingTwoTreeRegistriesExecuteTime != 0) revert OperationAlreadyPending();
+
+        pendingUserRootRegistry = _userRootRegistry;
+        pendingCellMapRegistry = _cellMapRegistry;
+        pendingTwoTreeRegistriesExecuteTime = block.timestamp + GOVERNANCE_TIMELOCK;
+
+        emit TwoTreeRegistriesProposed(
+            _userRootRegistry,
+            _cellMapRegistry,
+            pendingTwoTreeRegistriesExecuteTime
+        );
+    }
+
+    /// @notice Execute pending two-tree registry configuration (after 7-day timelock)
+    function executeTwoTreeRegistries() external {
+        if (pendingTwoTreeRegistriesExecuteTime == 0) revert TwoTreeRegistriesNotProposed();
+        if (block.timestamp < pendingTwoTreeRegistriesExecuteTime) {
+            revert TwoTreeRegistriesTimelockNotExpired();
         }
-        return verifierUpgradeTime - block.timestamp;
+
+        userRootRegistry = UserRootRegistry(pendingUserRootRegistry);
+        cellMapRegistry = CellMapRegistry(pendingCellMapRegistry);
+
+        emit TwoTreeRegistriesSet(pendingUserRootRegistry, pendingCellMapRegistry);
+
+        pendingUserRootRegistry = address(0);
+        pendingCellMapRegistry = address(0);
+        pendingTwoTreeRegistriesExecuteTime = 0;
+    }
+
+    /// @notice Cancel pending two-tree registry configuration
+    function cancelTwoTreeRegistries() external onlyGovernance {
+        if (pendingTwoTreeRegistriesExecuteTime == 0) revert TwoTreeRegistriesNotProposed();
+
+        pendingUserRootRegistry = address(0);
+        pendingCellMapRegistry = address(0);
+        pendingTwoTreeRegistriesExecuteTime = 0;
+
+        emit TwoTreeRegistriesCancelled();
+    }
+
+    // ============================================================================
+    // Two-Tree Proof Verification
+    // ============================================================================
+
+    /// @notice Verify a two-tree ZK proof (user identity + cell-district mapping) with EIP-712 signature
+    /// @param signer Address that signed the proof submission
+    /// @param proof ZK proof bytes from the two-tree circuit
+    /// @param publicInputs Array of 29 public inputs:
+    ///        [0]     user_root          (Tree 1 root)
+    ///        [1]     cell_map_root      (Tree 2 root)
+    ///        [2-25]  districts[24]      (All 24 district IDs)
+    ///        [26]    nullifier          (Action-scoped)
+    ///        [27]    action_domain      (Contract-controlled whitelist)
+    ///        [28]    authority_level    (1-5)
+    /// @param verifierDepth Depth to look up the two-tree verifier (from VerifierRegistry)
+    /// @param deadline Signature expiration timestamp
+    /// @param signature EIP-712 signature from signer
+    /// @dev Steps:
+    ///      0. Verify EIP-712 signature (nonce, deadline, parameter binding)
+    ///      1. Validate user_root via UserRootRegistry
+    ///      2. Validate cell_map_root via CellMapRegistry
+    ///      3. Validate action_domain via whitelist (SA-001)
+    ///      4. Call verifier with proof + public inputs
+    ///      5. Record nullifier via NullifierRegistry
+    ///      6. Emit event
+    function verifyTwoTreeProof(
+        address signer,
+        bytes calldata proof,
+        uint256[29] calldata publicInputs,
+        uint8 verifierDepth,
+        uint256 deadline,
+        bytes calldata signature
+    ) external whenNotPaused {
+        if (signer == address(0)) revert ZeroAddress();
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        // Step 0: Verify EIP-712 signature
+        bytes32 proofHash = keccak256(proof);
+
+        // Hash public inputs array for signature binding
+        bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                SUBMIT_TWO_TREE_PROOF_TYPEHASH,
+                proofHash,
+                publicInputsHash,
+                verifierDepth,
+                nonces[signer],
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+        );
+
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != signer) revert InvalidSignature();
+
+        nonces[signer]++;
+        // Step 0: Validate registries are configured
+        if (address(userRootRegistry) == address(0)) revert InvalidUserRoot();
+        if (address(cellMapRegistry) == address(0)) revert InvalidCellMapRoot();
+
+        // Extract key fields from public inputs
+        bytes32 userRoot = bytes32(publicInputs[0]);
+        bytes32 cellMapRoot = bytes32(publicInputs[1]);
+        bytes32 nullifier = bytes32(publicInputs[26]);
+        bytes32 actionDomain = bytes32(publicInputs[27]);
+        bytes32 authorityLevel = bytes32(publicInputs[28]);
+
+        // Step 1: Validate user_root via UserRootRegistry
+        if (!userRootRegistry.isValidUserRoot(userRoot)) revert InvalidUserRoot();
+
+        // Step 2: Validate cell_map_root via CellMapRegistry
+        if (!cellMapRegistry.isValidCellMapRoot(cellMapRoot)) revert InvalidCellMapRoot();
+
+        // BR3-004: Cross-check country between both trees
+        (bytes3 userCountry, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+        (bytes3 cellMapCountry,) = cellMapRegistry.getCountryAndDepth(cellMapRoot);
+        if (userCountry != cellMapCountry) revert CountryMismatch();
+
+        // BR3-009: Validate verifierDepth matches registry metadata
+        if (userDepth != verifierDepth) revert DepthMismatch();
+
+        // Step 3: Validate action_domain via whitelist (SA-001)
+        if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        // Step 4: Get depth-specific verifier and verify proof
+        address verifier = verifierRegistry.getVerifier(verifierDepth);
+        if (verifier == address(0)) revert VerifierNotFound();
+
+        // Encode the call with 29 public inputs
+        // The verifier expects: verifyProof(bytes proof, uint256[29] publicInputs)
+        (bool success, bytes memory result) = verifier.call(
+            abi.encodeWithSignature(
+                "verifyProof(bytes,uint256[29])",
+                proof,
+                publicInputs
+            )
+        );
+
+        if (!success || result.length == 0 || !abi.decode(result, (bool))) {
+            revert TwoTreeVerificationFailed();
+        }
+
+        // Step 5: Record nullifier (use actionDomain as actionId)
+        nullifierRegistry.recordNullifier(actionDomain, nullifier, userRoot);
+
+        // Step 6: Record campaign participation (if registry is set)
+        if (address(campaignRegistry) != address(0)) {
+            try campaignRegistry.recordParticipation(actionDomain, userRoot) {
+                // Success
+            } catch {
+                // Fail silently
+            }
+        }
+
+        // Step 7: Emit event
+        emit TwoTreeProofVerified(
+            signer,
+            msg.sender,
+            userRoot,
+            cellMapRoot,
+            nullifier,
+            actionDomain,
+            authorityLevel,
+            verifierDepth
+        );
     }
 
     // ============================================================================
@@ -329,7 +663,6 @@ contract DistrictGate is Pausable, TimelockGovernance {
     // ============================================================================
 
     /// @notice Pause contract (governance only)
-    /// @dev Use for emergency situations. Blocks all proof verification.
     function pause() external onlyGovernance {
         _pause();
         emit ContractPaused(msg.sender);

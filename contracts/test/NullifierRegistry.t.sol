@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/NullifierRegistry.sol";
+import "../src/TimelockGovernance.sol";
 
 contract NullifierRegistryTest is Test {
     NullifierRegistry public registry;
@@ -20,10 +21,12 @@ contract NullifierRegistryTest is Test {
     function setUp() public {
         vm.prank(governance);
         registry = new NullifierRegistry(governance);
-        
-        // Authorize DistrictGate as caller
+
+        // Authorize DistrictGate as caller (with 7-day timelock)
         vm.prank(governance);
-        registry.authorizeCaller(districtGate);
+        registry.proposeCallerAuthorization(districtGate);
+        vm.warp(block.timestamp + 7 days);
+        registry.executeCallerAuthorization(districtGate);
     }
 
     // ============================================================================
@@ -113,7 +116,7 @@ contract NullifierRegistryTest is Test {
     // ============================================================================
 
     function test_RevertUnauthorizedCaller() public {
-        vm.expectRevert(NullifierRegistry.UnauthorizedCaller.selector);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         vm.prank(unauthorized);
         registry.recordNullifier(actionId1, nullifier1, merkleRoot);
     }
@@ -121,15 +124,19 @@ contract NullifierRegistryTest is Test {
     function test_AuthorizeAndRevokeCaller() public {
         // Initially unauthorized
         assertFalse(registry.isAuthorized(unauthorized));
-        
-        // Authorize
+
+        // Authorize (with 7-day timelock)
         vm.prank(governance);
-        registry.authorizeCaller(unauthorized);
+        registry.proposeCallerAuthorization(unauthorized);
+        skip(7 days);
+        registry.executeCallerAuthorization(unauthorized);
         assertTrue(registry.isAuthorized(unauthorized));
-        
-        // Revoke
+
+        // Revoke (with 7-day timelock)
         vm.prank(governance);
-        registry.revokeCaller(unauthorized);
+        registry.proposeCallerRevocation(unauthorized);
+        skip(7 days);
+        registry.executeCallerRevocation(unauthorized);
         assertFalse(registry.isAuthorized(unauthorized));
     }
 
@@ -139,18 +146,21 @@ contract NullifierRegistryTest is Test {
 
     function test_TransferGovernance() public {
         address newGov = address(0x999);
-        
+
+        // Transfer (with 7-day timelock)
         vm.prank(governance);
-        registry.transferGovernance(newGov);
-        
+        registry.initiateGovernanceTransfer(newGov);
+        vm.warp(block.timestamp + 7 days);
+        registry.executeGovernanceTransfer(newGov);
+
         assertEq(registry.governance(), newGov);
         assertTrue(registry.isAuthorized(newGov));
     }
 
     function test_RevertZeroAddressGovernance() public {
-        vm.expectRevert(NullifierRegistry.ZeroAddress.selector);
+        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
         vm.prank(governance);
-        registry.transferGovernance(address(0));
+        registry.initiateGovernanceTransfer(address(0));
     }
 
     // ============================================================================

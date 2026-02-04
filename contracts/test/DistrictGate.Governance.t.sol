@@ -5,362 +5,851 @@ import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
 import "../src/NullifierRegistry.sol";
-import "../src/TimelockGovernance.sol";
+import "../src/VerifierRegistry.sol";
+import "../src/CampaignRegistry.sol";
 
 /// @title DistrictGate Governance Tests
-/// @notice Tests the governance timelock mechanism for DistrictGate
-/// @dev Validates CRITICAL #1 fix from adversarial security analysis
+/// @notice Comprehensive tests for DistrictGate governance and timelock functionality
+/// @dev Tests cover:
+///      1. Campaign Registry Timelock (7-day timelock)
+///      2. Action Domain Timelock (SA-001 fix, 7-day timelock)
+///      3. Pause Controls (immediate, governance only)
+///      4. Access Control (governance-only functions)
+///      5. Edge Cases (non-existent proposals, double execute, etc.)
 contract DistrictGateGovernanceTest is Test {
     DistrictGate public gate;
-    DistrictRegistry public registry;
+    DistrictRegistry public districtRegistry;
     NullifierRegistry public nullifierRegistry;
+    VerifierRegistry public verifierRegistry;
+    CampaignRegistry public campaignRegistry;
+    CampaignRegistry public newCampaignRegistry;
     address public verifier;
 
     address public governance = address(0x1);
-    address public newGovernance = address(0x2);
+    address public user = address(0x2);
     address public attacker = address(0x3);
 
-    event GovernanceTransferInitiated(address indexed newGovernance, uint256 executeTime);
-    event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
-    event GovernanceTransferCancelled(address indexed newGovernance);
+    bytes32 public constant DISTRICT_ROOT = bytes32(uint256(0x123));
+    bytes32 public constant NULLIFIER_1 = bytes32(uint256(0x456));
+    bytes32 public constant ACTION_DOMAIN_1 = keccak256("election-2024");
+    bytes32 public constant ACTION_DOMAIN_2 = keccak256("petition-456");
+    bytes32 public constant AUTHORITY_LEVEL = bytes32(uint256(3));
+    bytes32 public constant DISTRICT_ID = keccak256("CA-SD-01");
+    bytes3 public constant USA = "USA";
+    uint8 public constant DEPTH_18 = 18;
+
+    uint256 public constant SEVEN_DAYS = 7 days;
+
+    // Campaign Registry Events
+    event CampaignRegistrySet(address indexed previousRegistry, address indexed newRegistry);
+    event CampaignRegistryChangeProposed(address indexed proposed, uint256 executeTime);
+    event CampaignRegistryChangeCancelled(address indexed proposed);
+
+    // Action Domain Events
+    event ActionDomainProposed(bytes32 indexed actionDomain, uint256 executeTime);
+    event ActionDomainActivated(bytes32 indexed actionDomain);
+    event ActionDomainRevoked(bytes32 indexed actionDomain);
+
+    // Pause Events
+    event ContractPaused(address indexed governance);
+    event ContractUnpaused(address indexed governance);
 
     function setUp() public {
         // Deploy mock verifier
-        verifier = address(new MockVerifier());
+        verifier = address(new MockVerifierGov());
 
         // Deploy registries
-        registry = new DistrictRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance);
         nullifierRegistry = new NullifierRegistry(governance);
+        verifierRegistry = new VerifierRegistry(governance);
 
-        // Deploy gate (Phase 1: no guardians)
-        gate = new DistrictGate(verifier, address(registry), address(nullifierRegistry), governance);
+        // Deploy DistrictGate
+        gate = new DistrictGate(
+            address(verifierRegistry),
+            address(districtRegistry),
+            address(nullifierRegistry),
+            governance
+        );
 
-        // Authorize gate as caller
-        vm.prank(governance);
-        nullifierRegistry.authorizeCaller(address(gate));
+        // Deploy CampaignRegistries
+        campaignRegistry = new CampaignRegistry(governance);
+        newCampaignRegistry = new CampaignRegistry(governance);
+
+        // Setup: Register verifier for depth 18 (with 14-day timelock - HIGH-001 fix)
+        vm.startPrank(governance);
+        verifierRegistry.proposeVerifier(DEPTH_18, verifier);
+        vm.warp(block.timestamp + 14 days);
+        verifierRegistry.executeVerifier(DEPTH_18);
+
+        // Setup: Register district
+        districtRegistry.registerDistrict(DISTRICT_ROOT, USA, DEPTH_18);
+
+        // Setup: Authorize gate as caller on NullifierRegistry (with 7-day timelock)
+        nullifierRegistry.proposeCallerAuthorization(address(gate));
+        vm.stopPrank();
+        vm.warp(block.timestamp + 7 days);
+        nullifierRegistry.executeCallerAuthorization(address(gate));
     }
 
-    // ============ Constructor Tests ============
+    // ============================================================================
+    // 1. CAMPAIGN REGISTRY TIMELOCK TESTS
+    // ============================================================================
 
-    function test_Constructor() public view {
-        assertEq(gate.governance(), governance);
-        assertEq(gate.GOVERNANCE_TIMELOCK(), 7 days);
-    }
-
-    function test_RevertWhen_ConstructorZeroGovernance() public {
-        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        new DistrictGate(verifier, address(registry), address(nullifierRegistry), address(0));
-    }
-
-    // ============ Governance Timelock Tests ============
-
-    function test_InitiateGovernanceTransfer() public {
-        uint256 expectedExecuteTime = block.timestamp + 7 days;
+    /// @notice proposeCampaignRegistry starts 7-day timelock
+    function test_ProposeCampaignRegistry_StartsTimelock() public {
+        uint256 expectedExecuteTime = block.timestamp + SEVEN_DAYS;
 
         vm.prank(governance);
         vm.expectEmit(true, false, false, true);
-        emit GovernanceTransferInitiated(newGovernance, expectedExecuteTime);
+        emit CampaignRegistryChangeProposed(address(campaignRegistry), expectedExecuteTime);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        assertEq(gate.pendingGovernance(newGovernance), expectedExecuteTime);
+        // Verify: Pending state is set correctly
+        assertEq(gate.pendingCampaignRegistry(), address(campaignRegistry));
+        assertEq(gate.pendingCampaignRegistryExecuteTime(), expectedExecuteTime);
     }
 
-    function test_RevertWhen_InitiateGovernanceTransferUnauthorized() public {
-        vm.prank(attacker);
-        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        gate.initiateGovernanceTransfer(newGovernance);
-    }
-
-    function test_RevertWhen_InitiateGovernanceTransferZeroAddress() public {
+    /// @notice executeCampaignRegistry fails before timelock expires
+    function test_RevertWhen_ExecuteCampaignRegistryBeforeTimelock() public {
         vm.prank(governance);
-        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        gate.initiateGovernanceTransfer(address(0));
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+
+        // Try to execute immediately
+        vm.expectRevert(DistrictGate.CampaignRegistryTimelockNotExpired.selector);
+        gate.executeCampaignRegistry();
+
+        // Try to execute just before timelock expires
+        vm.warp(block.timestamp + SEVEN_DAYS - 1);
+        vm.expectRevert(DistrictGate.CampaignRegistryTimelockNotExpired.selector);
+        gate.executeCampaignRegistry();
     }
 
-    function test_RevertWhen_InitiateGovernanceTransferToSelf() public {
+    /// @notice executeCampaignRegistry succeeds after timelock expires
+    function test_ExecuteCampaignRegistry_SucceedsAfterTimelock() public {
         vm.prank(governance);
-        vm.expectRevert(TimelockGovernance.SameAddress.selector);
-        gate.initiateGovernanceTransfer(governance);
-    }
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-    function test_ExecuteGovernanceTransferAfterTimelock() public {
-        // Initiate transfer
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
+        // Warp past timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
 
-        // Fast forward 7 days
-        vm.warp(block.timestamp + 7 days);
-
-        // Execute transfer (anyone can execute)
+        // Execute
         vm.expectEmit(true, true, false, false);
-        emit GovernanceTransferred(governance, newGovernance);
+        emit CampaignRegistrySet(address(0), address(campaignRegistry));
+        gate.executeCampaignRegistry();
 
-        gate.executeGovernanceTransfer(newGovernance);
+        // Verify: Campaign registry is set
+        assertEq(address(gate.campaignRegistry()), address(campaignRegistry));
 
-        assertEq(gate.governance(), newGovernance);
-        assertEq(gate.pendingGovernance(newGovernance), 0); // Should be deleted
+        // Verify: Pending state is cleared
+        assertEq(gate.pendingCampaignRegistry(), address(0));
+        assertEq(gate.pendingCampaignRegistryExecuteTime(), 0);
     }
 
-    function test_ExecuteGovernanceTransferByAnyone() public {
-        // Initiate transfer
+    /// @notice cancelCampaignRegistry clears pending proposal
+    function test_CancelCampaignRegistry_ClearsPendingProposal() public {
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-        // Fast forward 7 days
-        vm.warp(block.timestamp + 7 days);
+        // Verify proposal exists
+        assertEq(gate.pendingCampaignRegistry(), address(campaignRegistry));
 
-        // Attacker can execute (but doesn't benefit from it)
-        vm.prank(attacker);
-        gate.executeGovernanceTransfer(newGovernance);
-
-        assertEq(gate.governance(), newGovernance);
-    }
-
-    function test_RevertWhen_ExecuteGovernanceTransferNotInitiated() public {
-        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
-        gate.executeGovernanceTransfer(newGovernance);
-    }
-
-    function test_RevertWhen_ExecuteGovernanceTransferBeforeTimelock() public {
-        // Initiate transfer
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        // Try to execute immediately (should fail)
-        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        gate.executeGovernanceTransfer(newGovernance);
-    }
-
-    function test_RevertWhen_ExecuteGovernanceTransferOneDayEarly() public {
-        // Initiate transfer
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        // Fast forward 6 days (not enough)
-        vm.warp(block.timestamp + 6 days);
-
-        // Try to execute (should fail)
-        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        gate.executeGovernanceTransfer(newGovernance);
-    }
-
-    function test_CancelGovernanceTransfer() public {
-        // Initiate transfer
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        assertEq(gate.pendingGovernance(newGovernance), block.timestamp + 7 days);
-
-        // Cancel transfer
+        // Cancel
         vm.prank(governance);
         vm.expectEmit(true, false, false, false);
-        emit GovernanceTransferCancelled(newGovernance);
+        emit CampaignRegistryChangeCancelled(address(campaignRegistry));
+        gate.cancelCampaignRegistry();
 
-        gate.cancelGovernanceTransfer(newGovernance);
-
-        assertEq(gate.pendingGovernance(newGovernance), 0);
+        // Verify: Pending state is cleared
+        assertEq(gate.pendingCampaignRegistry(), address(0));
+        assertEq(gate.pendingCampaignRegistryExecuteTime(), 0);
     }
 
-    function test_RevertWhen_CancelGovernanceTransferUnauthorized() public {
-        // Initiate transfer
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        // Attacker tries to cancel (should fail)
+    /// @notice Only governance can propose campaign registry
+    function test_RevertWhen_NonGovernanceProposeCampaignRegistry() public {
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        gate.cancelGovernanceTransfer(newGovernance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
     }
 
-    function test_RevertWhen_CancelGovernanceTransferNotInitiated() public {
+    /// @notice Only governance can cancel campaign registry
+    function test_RevertWhen_NonGovernanceCancelCampaignRegistry() public {
+        // First propose
         vm.prank(governance);
-        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
-        gate.cancelGovernanceTransfer(newGovernance);
-    }
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-    // ============ Governance Attack Scenario Tests ============
-
-    function test_CompromisedGovernanceCannotInstantTakeover() public {
-        // CRITICAL: This test validates CRITICAL #1 fix
-        // Attack scenario: Multi-sig gets compromised, attacker tries instant takeover
-
-        // Attacker compromises governance multi-sig
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(attacker);
-        uint256 initiateTime = block.timestamp;
-        uint256 executeTime = gate.pendingGovernance(attacker);
-
-        // Governance is still the original (transfer not executed)
-        assertEq(gate.governance(), governance);
-
-        // Community detects malicious transfer during 7-day window
-        // They can fork or organize response
-
-        // Fast forward only 1 day - still can't execute
-        vm.warp(initiateTime + 1 days);
-        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        gate.executeGovernanceTransfer(attacker);
-
-        // Even 1 second before timelock expires - still can't execute
-        vm.warp(executeTime - 1);
-        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        gate.executeGovernanceTransfer(attacker);
-
-        // Community has full 7 days to respond
-        assertEq(gate.governance(), governance, "Governance should still be original");
-    }
-
-    function test_CommunityCanDetectAndRespond() public {
-        // Malicious transfer initiated
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(attacker);
-
-        // Community has 7 days to:
-        // 1. Detect malicious transfer (GovernanceTransferInitiated event)
-        // 2. Organize response (social consensus)
-        // 3. Exit to fork if necessary
-
-        // In this scenario, governance realizes mistake and cancels
-        vm.prank(governance);
-        gate.cancelGovernanceTransfer(attacker);
-
-        // Governance remains unchanged
-        assertEq(gate.governance(), governance);
-
-        // Cannot execute cancelled transfer
-        vm.warp(block.timestamp + 7 days);
-        vm.expectRevert(TimelockGovernance.TransferNotInitiated.selector);
-        gate.executeGovernanceTransfer(attacker);
-    }
-
-    function test_NewGovernanceHasAuthority() public {
-        // Transfer governance successfully
-        vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-
-        vm.warp(block.timestamp + 7 days);
-        gate.executeGovernanceTransfer(newGovernance);
-
-        // New governance can pause/unpause (actions are permissionless, no authorization needed)
-        vm.prank(newGovernance);
-        gate.pause();
-        assertTrue(gate.paused());
-
-        // Old governance cannot
-        vm.prank(governance);
+        // Try to cancel as non-governance
+        vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        gate.unpause();
+        gate.cancelCampaignRegistry();
     }
 
-    function test_NewGovernanceInheritsAllAuthority() public {
-        // Transfer governance
+    /// @notice Anyone can execute after timelock
+    function test_AnyoneCanExecuteCampaignRegistry_AfterTimelock() public {
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-        vm.warp(block.timestamp + 7 days);
-        gate.executeGovernanceTransfer(newGovernance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-        // New governance can pause
-        vm.prank(newGovernance);
+        // Warp past timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // Execute as random user (not governance)
+        vm.prank(attacker);
+        gate.executeCampaignRegistry();
+
+        // Verify: Campaign registry is set
+        assertEq(address(gate.campaignRegistry()), address(campaignRegistry));
+    }
+
+    /// @notice Setting campaign registry to address(0) removes it
+    function test_SetCampaignRegistryToZero_RemovesRegistry() public {
+        // First set a campaign registry
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+        vm.warp(block.timestamp + SEVEN_DAYS);
+        gate.executeCampaignRegistry();
+
+        assertEq(address(gate.campaignRegistry()), address(campaignRegistry));
+
+        // Now propose setting it to zero
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(0));
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        vm.expectEmit(true, true, false, false);
+        emit CampaignRegistrySet(address(campaignRegistry), address(0));
+        gate.executeCampaignRegistry();
+
+        // Verify: Campaign registry is removed
+        assertEq(address(gate.campaignRegistry()), address(0));
+    }
+
+    // ============================================================================
+    // 2. ACTION DOMAIN TIMELOCK TESTS (SA-001 Fix)
+    // ============================================================================
+
+    /// @notice proposeActionDomain starts 7-day timelock
+    function test_ProposeActionDomain_StartsTimelock() public {
+        uint256 expectedExecuteTime = block.timestamp + SEVEN_DAYS;
+
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, true);
+        emit ActionDomainProposed(ACTION_DOMAIN_1, expectedExecuteTime);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: Pending state is set correctly
+        assertEq(gate.pendingActionDomains(ACTION_DOMAIN_1), expectedExecuteTime);
+    }
+
+    /// @notice executeActionDomain fails before timelock
+    function test_RevertWhen_ExecuteActionDomainBeforeTimelock() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Try to execute immediately
+        vm.expectRevert(DistrictGate.ActionDomainTimelockNotExpired.selector);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Try to execute just before timelock expires
+        vm.warp(block.timestamp + SEVEN_DAYS - 1);
+        vm.expectRevert(DistrictGate.ActionDomainTimelockNotExpired.selector);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice executeActionDomain succeeds after timelock
+    function test_ExecuteActionDomain_SucceedsAfterTimelock() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Warp past timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // Execute
+        vm.expectEmit(true, false, false, false);
+        emit ActionDomainActivated(ACTION_DOMAIN_1);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: Action domain is whitelisted
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
+
+        // Verify: Pending state is cleared
+        assertEq(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
+    }
+
+    /// @notice cancelActionDomain clears pending proposal
+    function test_CancelActionDomain_ClearsPendingProposal() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify proposal exists
+        assertGt(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
+
+        // Cancel
+        vm.prank(governance);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: Pending state is cleared
+        assertEq(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
+    }
+
+    /// @notice revokeActionDomain is immediate (emergency revocation)
+    function test_RevokeActionDomain_IsImmediate() public {
+        // First whitelist an action domain
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
+
+        // Revoke immediately (no timelock required)
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ActionDomainRevoked(ACTION_DOMAIN_1);
+        gate.revokeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: Action domain is revoked immediately
+        assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
+    }
+
+    /// @notice Only governance can propose action domain
+    function test_RevertWhen_NonGovernanceProposeActionDomain() public {
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Only governance can cancel action domain
+    function test_RevertWhen_NonGovernanceCancelActionDomain() public {
+        // First propose
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Try to cancel as non-governance
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Only governance can revoke action domain
+    function test_RevertWhen_NonGovernanceRevokeActionDomain() public {
+        // First whitelist
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Try to revoke as non-governance
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.revokeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Anyone can execute action domain after timelock
+    function test_AnyoneCanExecuteActionDomain_AfterTimelock() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Warp past timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // Execute as random user (not governance)
+        vm.prank(attacker);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: Action domain is whitelisted
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
+    }
+
+    /// @notice Verify ActionDomainProposed event has correct data
+    function test_ActionDomainProposed_EventData() public {
+        uint256 startTime = block.timestamp;
+        uint256 expectedExecuteTime = startTime + SEVEN_DAYS;
+
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, true);
+        emit ActionDomainProposed(ACTION_DOMAIN_1, expectedExecuteTime);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Verify ActionDomainActivated event is emitted
+    function test_ActionDomainActivated_EventEmitted() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        vm.expectEmit(true, false, false, false);
+        emit ActionDomainActivated(ACTION_DOMAIN_1);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Verify ActionDomainRevoked event is emitted
+    function test_ActionDomainRevoked_EventEmitted() public {
+        // Whitelist first
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Revoke
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ActionDomainRevoked(ACTION_DOMAIN_1);
+        gate.revokeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    // ============================================================================
+    // 3. PAUSE CONTROLS TESTS
+    // ============================================================================
+
+    /// @notice pause() only callable by governance
+    function test_Pause_OnlyGovernance() public {
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ContractPaused(governance);
         gate.pause();
-        assertTrue(gate.paused());
 
-        // New governance can unpause
-        vm.prank(newGovernance);
+        assertTrue(gate.paused());
+    }
+
+    /// @notice unpause() only callable by governance
+    function test_Unpause_OnlyGovernance() public {
+        // First pause
+        vm.prank(governance);
+        gate.pause();
+
+        // Then unpause
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ContractUnpaused(governance);
         gate.unpause();
+
         assertFalse(gate.paused());
+    }
 
-        // Old governance cannot pause
-        vm.prank(governance);
+    /// @notice Non-governance cannot pause
+    function test_RevertWhen_NonGovernancePause() public {
+        vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         gate.pause();
     }
 
-    // ============ Fuzz Tests ============
-
-    function testFuzz_TimelockEnforcement(uint256 timeElapsed) public {
-        vm.assume(timeElapsed < 7 days);
-
+    /// @notice Non-governance cannot unpause
+    function test_RevertWhen_NonGovernanceUnpause() public {
+        // First pause
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
+        gate.pause();
 
-        vm.warp(block.timestamp + timeElapsed);
-
-        // Should fail if less than 7 days
-        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        gate.executeGovernanceTransfer(newGovernance);
+        // Try to unpause as non-governance
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.unpause();
     }
 
-    function testFuzz_TimelockSuccess(uint256 timeElapsed) public {
-        vm.assume(timeElapsed >= 7 days && timeElapsed < 365 days);
-
+    /// @notice verifyAndAuthorizeWithSignature reverts when paused
+    function test_RevertWhen_VerifyAndAuthorize_WhenPaused() public {
+        // Whitelist action domain first
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
 
-        vm.warp(block.timestamp + timeElapsed);
+        // Pause the contract
+        vm.prank(governance);
+        gate.pause();
 
-        // Should succeed if 7+ days
-        gate.executeGovernanceTransfer(newGovernance);
+        // Setup signature
+        bytes memory proof = hex"deadbeef";
+        uint256 userPrivateKey = 0x1234;
+        address signer = vm.addr(userPrivateKey);
+        uint256 deadline = block.timestamp + 1 hours;
 
-        assertEq(gate.governance(), newGovernance);
+        (bytes memory signature, ) = _generateSignature(
+            userPrivateKey,
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER_1,
+            AUTHORITY_LEVEL,
+            ACTION_DOMAIN_1,
+            DISTRICT_ID,
+            USA,
+            deadline
+        );
+
+        // Try to verify - should revert with Pausable error
+        vm.expectRevert("Pausable: paused");
+        gate.verifyAndAuthorizeWithSignature(
+            signer,
+            proof,
+            DISTRICT_ROOT,
+            NULLIFIER_1,
+            AUTHORITY_LEVEL,
+            ACTION_DOMAIN_1,
+            DISTRICT_ID,
+            USA,
+            deadline,
+            signature
+        );
     }
 
-    // ============ Edge Case Tests ============
+    /// @notice Verify ContractPaused event is emitted
+    function test_ContractPaused_EventEmitted() public {
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ContractPaused(governance);
+        gate.pause();
+    }
 
-    function test_MultipleSimultaneousPendingTransfers() public {
-        address governance2 = address(0x4);
-        address governance3 = address(0x5);
+    /// @notice Verify ContractUnpaused event is emitted
+    function test_ContractUnpaused_EventEmitted() public {
+        vm.prank(governance);
+        gate.pause();
 
-        // Initiate both transfers
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ContractUnpaused(governance);
+        gate.unpause();
+    }
+
+    // ============================================================================
+    // 4. ACCESS CONTROL TESTS
+    // ============================================================================
+
+    /// @notice Non-governance cannot call governance-only functions - comprehensive test
+    function test_AccessControl_NonGovernanceCannotCallGovernanceOnlyFunctions() public {
+        // Test proposeCampaignRegistry
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+
+        // Test cancelCampaignRegistry (need to set up pending proposal first)
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.cancelCampaignRegistry();
+        // Clean up
+        vm.prank(governance);
+        gate.cancelCampaignRegistry();
+
+        // Test proposeActionDomain
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Test cancelActionDomain (need to set up pending proposal first)
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+        // Clean up
+        vm.prank(governance);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+
+        // Test revokeActionDomain
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.revokeActionDomain(ACTION_DOMAIN_1);
+
+        // Test pause
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.pause();
+
+        // Test unpause (need to pause first)
+        vm.prank(governance);
+        gate.pause();
+        vm.prank(user);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        gate.unpause();
+    }
+
+    /// @notice Verify UnauthorizedCaller error selector is correct
+    function test_UnauthorizedCallerErrorSelector() public {
+        bytes4 expectedSelector = TimelockGovernance.UnauthorizedCaller.selector;
+
+        vm.prank(user);
+        vm.expectRevert(expectedSelector);
+        gate.pause();
+    }
+
+    // ============================================================================
+    // 5. EDGE CASES
+    // ============================================================================
+
+    /// @notice Cancel non-existent campaign registry proposal fails
+    function test_RevertWhen_CancelNonExistentCampaignRegistryProposal() public {
+        vm.prank(governance);
+        vm.expectRevert(DistrictGate.CampaignRegistryChangeNotProposed.selector);
+        gate.cancelCampaignRegistry();
+    }
+
+    /// @notice Execute non-existent campaign registry proposal fails
+    function test_RevertWhen_ExecuteNonExistentCampaignRegistryProposal() public {
+        vm.expectRevert(DistrictGate.CampaignRegistryChangeNotProposed.selector);
+        gate.executeCampaignRegistry();
+    }
+
+    /// @notice Double execute campaign registry fails
+    function test_RevertWhen_DoubleExecuteCampaignRegistry() public {
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // First execute - should succeed
+        gate.executeCampaignRegistry();
+
+        // Second execute - should fail (pending state was cleared)
+        vm.expectRevert(DistrictGate.CampaignRegistryChangeNotProposed.selector);
+        gate.executeCampaignRegistry();
+    }
+
+    /// @notice Cancel non-existent action domain proposal fails
+    function test_RevertWhen_CancelNonExistentActionDomainProposal() public {
+        bytes32 fakeDomain = keccak256("never-proposed");
+
+        vm.prank(governance);
+        vm.expectRevert(DistrictGate.ActionDomainNotPending.selector);
+        gate.cancelActionDomain(fakeDomain);
+    }
+
+    /// @notice Execute non-existent action domain proposal fails
+    function test_RevertWhen_ExecuteNonExistentActionDomainProposal() public {
+        bytes32 fakeDomain = keccak256("never-proposed");
+
+        vm.expectRevert(DistrictGate.ActionDomainNotPending.selector);
+        gate.executeActionDomain(fakeDomain);
+    }
+
+    /// @notice Double execute action domain fails
+    function test_RevertWhen_DoubleExecuteActionDomain() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // First execute - should succeed
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Second execute - should fail (pending state was cleared)
+        vm.expectRevert(DistrictGate.ActionDomainNotPending.selector);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    // ============================================================================
+    // BR3-007: PENDING OPERATION GUARDS
+    // ============================================================================
+
+    /// @notice BR3-007: Propose when already pending should revert (prevents timelock reset)
+    function test_RevertWhen_ProposeCampaignRegistry_WhenAlreadyPending() public {
+        // First proposal
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+
+        // Advance time a bit
+        vm.warp(block.timestamp + 1 days);
+
+        // Second proposal should revert (prevents timelock reset attack)
+        vm.prank(governance);
+        vm.expectRevert(DistrictGate.OperationAlreadyPending.selector);
+        gate.proposeCampaignRegistry(address(newCampaignRegistry));
+    }
+
+    /// @notice BR3-007: After cancel, can re-propose
+    function test_ProposeCampaignRegistry_AfterCancel_Succeeds() public {
+        // First proposal
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
+
+        // Cancel
+        vm.prank(governance);
+        gate.cancelCampaignRegistry();
+
+        // Now can propose again
+        vm.prank(governance);
+        gate.proposeCampaignRegistry(address(newCampaignRegistry));
+
+        // Verify: New pending state
+        assertEq(gate.pendingCampaignRegistry(), address(newCampaignRegistry));
+    }
+
+    /// @notice BR3-007: Propose action domain when already pending should revert
+    function test_RevertWhen_ProposeActionDomain_WhenAlreadyPending() public {
+        // First proposal
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Advance time a bit
+        vm.warp(block.timestamp + 1 days);
+
+        // Second proposal for same domain should revert
+        vm.prank(governance);
+        vm.expectRevert(DistrictGate.OperationAlreadyPending.selector);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice BR3-007: After cancel, can re-propose action domain
+    function test_ProposeActionDomain_AfterCancel_Succeeds() public {
+        // First proposal
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Cancel
+        vm.prank(governance);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+
+        // Now can propose again
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Verify: New pending state
+        assertGt(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
+    }
+
+    /// @notice Revoking non-whitelisted action domain does not revert (idempotent)
+    function test_RevokeActionDomain_WhenNotWhitelisted_DoesNotRevert() public {
+        // ACTION_DOMAIN_1 was never whitelisted
+        assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
+
+        // Revoke should still work (just sets it to false, which it already is)
+        vm.prank(governance);
+        vm.expectEmit(true, false, false, false);
+        emit ActionDomainRevoked(ACTION_DOMAIN_1);
+        gate.revokeActionDomain(ACTION_DOMAIN_1);
+
+        // Still false
+        assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
+    }
+
+    /// @notice Multiple action domains can be proposed simultaneously
+    function test_MultipleActionDomains_CanBePendingSimultaneously() public {
         vm.startPrank(governance);
-        gate.initiateGovernanceTransfer(governance2);
-        gate.initiateGovernanceTransfer(governance3);
+
+        // Propose multiple action domains
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        gate.proposeActionDomain(ACTION_DOMAIN_2);
+
+        // Verify: Both are pending
+        assertGt(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
+        assertGt(gate.pendingActionDomains(ACTION_DOMAIN_2), 0);
+
         vm.stopPrank();
 
-        // Both should be pending
-        uint256 executeTime2 = gate.pendingGovernance(governance2);
-        uint256 executeTime3 = gate.pendingGovernance(governance3);
-        assertTrue(executeTime2 > 0, "governance2 transfer should be pending");
-        assertTrue(executeTime3 > 0, "governance3 transfer should be pending");
+        // Warp past timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
 
-        // Execute first one after timelock
-        vm.warp(executeTime2);
-        gate.executeGovernanceTransfer(governance2);
+        // Execute both
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+        gate.executeActionDomain(ACTION_DOMAIN_2);
 
-        // First one succeeds
-        assertEq(gate.governance(), governance2);
-
-        // Execute second one after its timelock
-        vm.warp(executeTime3);
-        gate.executeGovernanceTransfer(governance3);
-
-        // governance3 takes over (last execution wins)
-        assertEq(gate.governance(), governance3);
+        // Verify: Both are whitelisted
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_2));
     }
 
-    function test_OverwritePendingTransferWithNewInitiation() public {
-        // Initiate transfer
+    /// @notice Execute after cancelled proposal fails
+    function test_RevertWhen_ExecuteAfterCancelledCampaignRegistryProposal() public {
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-        uint256 firstExecuteTime = gate.pendingGovernance(newGovernance);
+        gate.proposeCampaignRegistry(address(campaignRegistry));
 
-        // Fast forward 3 days
-        vm.warp(block.timestamp + 3 days);
-
-        // Initiate again (overwrites)
+        // Cancel
         vm.prank(governance);
-        gate.initiateGovernanceTransfer(newGovernance);
-        uint256 secondExecuteTime = gate.pendingGovernance(newGovernance);
+        gate.cancelCampaignRegistry();
 
-        // Second time should be later
-        assertGt(secondExecuteTime, firstExecuteTime);
-        assertEq(secondExecuteTime, block.timestamp + 7 days);
+        // Warp past original timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // Try to execute - should fail
+        vm.expectRevert(DistrictGate.CampaignRegistryChangeNotProposed.selector);
+        gate.executeCampaignRegistry();
+    }
+
+    /// @notice Execute after cancelled action domain proposal fails
+    function test_RevertWhen_ExecuteAfterCancelledActionDomainProposal() public {
+        vm.prank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+
+        // Cancel
+        vm.prank(governance);
+        gate.cancelActionDomain(ACTION_DOMAIN_1);
+
+        // Warp past original timelock
+        vm.warp(block.timestamp + SEVEN_DAYS);
+
+        // Try to execute - should fail
+        vm.expectRevert(DistrictGate.ActionDomainNotPending.selector);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+    }
+
+    /// @notice Timelock constant is 7 days
+    function test_TimelockConstants_Are7Days() public view {
+        assertEq(gate.CAMPAIGN_REGISTRY_TIMELOCK(), 7 days);
+        assertEq(gate.ACTION_DOMAIN_TIMELOCK(), 7 days);
+    }
+
+    /// @notice Pausing twice reverts (OpenZeppelin Pausable behavior)
+    function test_RevertWhen_PauseTwice() public {
+        vm.prank(governance);
+        gate.pause();
+
+        vm.prank(governance);
+        vm.expectRevert("Pausable: paused");
+        gate.pause();
+    }
+
+    /// @notice Unpausing when not paused reverts (OpenZeppelin Pausable behavior)
+    function test_RevertWhen_UnpauseWhenNotPaused() public {
+        vm.prank(governance);
+        vm.expectRevert("Pausable: not paused");
+        gate.unpause();
+    }
+
+    // ============================================================================
+    // Helper Functions
+    // ============================================================================
+
+    /// @notice Helper to generate EIP-712 signature for proof submission
+    function _generateSignature(
+        uint256 privateKey,
+        address signer,
+        bytes memory proof,
+        bytes32 districtRoot,
+        bytes32 nullifier,
+        bytes32 authorityLevel,
+        bytes32 actionDomain,
+        bytes32 districtId,
+        bytes3 country,
+        uint256 deadline
+    ) internal view returns (bytes memory signature, uint256 returnedDeadline) {
+        returnedDeadline = deadline;
+        uint256 nonce = gate.nonces(signer);
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                gate.SUBMIT_PROOF_TYPEHASH(),
+                keccak256(proof),
+                districtRoot,
+                nullifier,
+                authorityLevel,
+                actionDomain,
+                districtId,
+                country,
+                nonce,
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", gate.DOMAIN_SEPARATOR(), structHash)
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        signature = abi.encodePacked(r, s, v);
     }
 }
 
 /// @notice Mock verifier that always returns true
-contract MockVerifier {
-    function verifyProof(bytes calldata, uint256[3] calldata) external pure returns (bool) {
+contract MockVerifierGov {
+    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
         return true;
     }
 }

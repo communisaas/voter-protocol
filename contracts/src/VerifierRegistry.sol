@@ -13,40 +13,55 @@ import "./TimelockGovernance.sol";
 /// - Depth 22: 4M addresses (large countries, US congressional districts)
 /// - Depth 24: 16M addresses (very large countries, future expansion)
 ///
-/// HYBRID 24-SLOT DISTRICT APPROACH:
-/// All verifiers support proofs with up to 24 district slots:
-/// - Slots 0-19: 20 defined district types (federal, state, county, city, school, etc.)
+/// MULTI-DISTRICT REGISTRATION MODEL (24 District Slots):
+/// Users can be registered in up to 24 district types (federal, state, county, city, etc.):
+/// - Slots 0-19: 20 defined district types
 /// - Slots 20-21: Reserved for future defined district types
 /// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
-/// The circuit handles empty slots (bytes32(0)) gracefully.
 ///
-/// UPGRADE PATH:
-/// - Each verifier has 14-day timelock (matches DistrictGate)
-/// - Community can audit new verifier bytecode during timelock
-/// - Verifiers are circuit-specific (different depths = different circuits)
+/// IMPORTANT: SINGLE-DISTRICT PROOFS
+/// Each verifier handles proofs that prove membership in exactly ONE district.
+/// The 24-slot model describes the registration taxonomy, not the circuit output.
+/// Multi-district verification requires separate proof verifications per district.
+///
+/// SECURITY MODEL (HIGH-001 FIX):
+/// ALL verifier registrations (initial AND upgrades) require 14-day timelock.
+/// This prevents front-running attacks where a compromised governance key could
+/// instantly register a malicious verifier that accepts all proofs.
+///
+/// ATTACK SCENARIO (PREVENTED):
+/// 1. Protocol announces support for new depth (e.g., depth 26)
+/// 2. Attacker compromises governance key
+/// 3. Attacker attempts to front-run with registerVerifier(26, maliciousVerifier)
+/// 4. FIX: 14-day timelock gives community time to detect and respond
 ///
 /// VERIFIER LIFECYCLE:
 /// 1. Noir circuit compiled with DEPTH constant (e.g., DEPTH=20)
 /// 2. Generates UltraPlonkVerifier_Depth{N}.sol with embedded VK
-/// 3. Deployed to Scroll, address registered here
-/// 4. DistrictGate looks up verifier by depth during verification
+/// 3. Deployed to Scroll, governance proposes registration
+/// 4. 14-day timelock: Community audits new verifier bytecode
+/// 5. After timelock: Anyone can execute registration
+/// 6. DistrictGate looks up verifier by depth during verification
 contract VerifierRegistry is TimelockGovernance {
-    /// @notice Maximum district slots supported per proof (hybrid: 20 defined + 4 overflow)
-    /// @dev Slots 0-19: Defined types, Slots 20-21: Reserved, Slots 22-23: Overflow
+    /// @notice Maximum district types a user can be registered in (20 defined + 4 overflow)
+    /// @dev Each proof proves ONE district. This constant defines the registration model.
+    ///      Multi-district verification requires separate proofs per district.
+    ///      Slots 0-19: Defined types, Slots 20-21: Reserved, Slots 22-23: Overflow
     uint8 public constant MAX_DISTRICT_SLOTS = 24;
 
     /// @notice Mapping: depth → verifier contract address
     /// @dev Only even depths supported (18, 20, 22, 24)
     mapping(uint8 => address) public verifierByDepth;
 
-    /// @notice Pending verifier upgrades per depth
+    /// @notice Pending verifier proposals per depth (for both initial registration and upgrades)
     mapping(uint8 => address) public pendingVerifiers;
 
-    /// @notice Execution timestamps for verifier upgrades
-    mapping(uint8 => uint256) public upgradeExecutionTime;
+    /// @notice Execution timestamps for verifier proposals
+    mapping(uint8 => uint256) public verifierExecutionTime;
 
-    /// @notice Verifier upgrade timelock (14 days - matches DistrictGate)
-    uint256 public constant VERIFIER_UPGRADE_TIMELOCK = 14 days;
+    /// @notice Verifier registration/upgrade timelock (14 days)
+    /// @dev All verifier changes require timelock - no instant registration (HIGH-001 fix)
+    uint256 public constant VERIFIER_TIMELOCK = 14 days;
 
     /// @notice Minimum supported depth
     uint8 public constant MIN_DEPTH = 18;
@@ -55,37 +70,72 @@ contract VerifierRegistry is TimelockGovernance {
     uint8 public constant MAX_DEPTH = 24;
 
     // Events
+    event VerifierProposed(uint8 indexed depth, address indexed verifier, uint256 executeTime, bool isUpgrade);
     event VerifierRegistered(uint8 indexed depth, address indexed verifier);
-    event VerifierUpgradeInitiated(uint8 indexed depth, address indexed newVerifier, uint256 executeTime);
     event VerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
-    event VerifierUpgradeCancelled(uint8 indexed depth, address indexed target);
+    event VerifierProposalCancelled(uint8 indexed depth, address indexed target);
 
     // Errors
     error InvalidDepth();
     error VerifierNotRegistered();
     error VerifierAlreadyRegistered();
-    error UpgradeNotInitiated();
+    error ProposalNotInitiated();
+    error ProposalAlreadyPending();
 
     constructor(address _governance) {
         _initializeGovernance(_governance);
     }
 
     // ============================================================================
-    // Verifier Registration (Initial Setup)
+    // Verifier Registration (14-day timelock - HIGH-001 FIX)
     // ============================================================================
 
-    /// @notice Register initial verifier for a depth (no timelock)
+    /// @notice Propose initial verifier registration (starts 14-day timelock)
     /// @param depth Merkle tree depth (18, 20, 22, or 24)
     /// @param verifier Address of deployed verifier contract
-    /// @dev Only callable if depth has no verifier registered
-    ///      Subsequent changes require timelock via initiateVerifierUpgrade()
-    function registerVerifier(uint8 depth, address verifier) external onlyGovernance {
+    /// @dev HIGH-001 FIX: Initial registration now requires timelock
+    ///      This prevents front-running attacks with malicious verifiers
+    ///      Monitor VerifierProposed events - community has 14 days to audit
+    function proposeVerifier(uint8 depth, address verifier) external onlyGovernance {
         _validateDepth(depth);
         if (verifier == address(0)) revert ZeroAddress();
         if (verifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+        if (pendingVerifiers[depth] != address(0)) revert ProposalAlreadyPending();
 
-        verifierByDepth[depth] = verifier;
-        emit VerifierRegistered(depth, verifier);
+        pendingVerifiers[depth] = verifier;
+        verifierExecutionTime[depth] = block.timestamp + VERIFIER_TIMELOCK;
+
+        emit VerifierProposed(depth, verifier, verifierExecutionTime[depth], false);
+    }
+
+    /// @notice Execute verifier registration (after 14-day timelock)
+    /// @param depth Merkle tree depth
+    /// @dev Can be called by anyone after timelock expires
+    function executeVerifier(uint8 depth) external {
+        if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+        if (block.timestamp < verifierExecutionTime[depth]) revert TimelockNotExpired();
+
+        // This is initial registration (not upgrade)
+        if (verifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+
+        verifierByDepth[depth] = pendingVerifiers[depth];
+
+        delete pendingVerifiers[depth];
+        delete verifierExecutionTime[depth];
+
+        emit VerifierRegistered(depth, verifierByDepth[depth]);
+    }
+
+    /// @notice Cancel pending verifier registration
+    /// @param depth Merkle tree depth
+    function cancelVerifier(uint8 depth) external onlyGovernance {
+        if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+
+        address target = pendingVerifiers[depth];
+        delete pendingVerifiers[depth];
+        delete verifierExecutionTime[depth];
+
+        emit VerifierProposalCancelled(depth, target);
     }
 
     // ============================================================================
@@ -95,31 +145,35 @@ contract VerifierRegistry is TimelockGovernance {
     /// @notice Initiate verifier upgrade (starts 14-day timelock)
     /// @param depth Merkle tree depth
     /// @param newVerifier New verifier contract address
-    /// @dev Monitor VerifierUpgradeInitiated events - community has 14 days to respond
-    function initiateVerifierUpgrade(uint8 depth, address newVerifier) external onlyGovernance {
+    /// @dev Monitor VerifierProposed events - community has 14 days to respond
+    function proposeVerifierUpgrade(uint8 depth, address newVerifier) external onlyGovernance {
         _validateDepth(depth);
         if (newVerifier == address(0)) revert ZeroAddress();
         if (verifierByDepth[depth] == address(0)) revert VerifierNotRegistered();
         if (newVerifier == verifierByDepth[depth]) revert SameAddress();
+        if (pendingVerifiers[depth] != address(0)) revert ProposalAlreadyPending();
 
         pendingVerifiers[depth] = newVerifier;
-        upgradeExecutionTime[depth] = block.timestamp + VERIFIER_UPGRADE_TIMELOCK;
+        verifierExecutionTime[depth] = block.timestamp + VERIFIER_TIMELOCK;
 
-        emit VerifierUpgradeInitiated(depth, newVerifier, upgradeExecutionTime[depth]);
+        emit VerifierProposed(depth, newVerifier, verifierExecutionTime[depth], true);
     }
 
     /// @notice Execute verifier upgrade (after 14-day timelock)
     /// @param depth Merkle tree depth
     /// @dev Can be called by anyone after timelock expires
     function executeVerifierUpgrade(uint8 depth) external {
-        if (pendingVerifiers[depth] == address(0)) revert UpgradeNotInitiated();
-        if (block.timestamp < upgradeExecutionTime[depth]) revert TimelockNotExpired();
+        if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+        if (block.timestamp < verifierExecutionTime[depth]) revert TimelockNotExpired();
+
+        // This is an upgrade (must have existing verifier)
+        if (verifierByDepth[depth] == address(0)) revert VerifierNotRegistered();
 
         address previousVerifier = verifierByDepth[depth];
         verifierByDepth[depth] = pendingVerifiers[depth];
 
         delete pendingVerifiers[depth];
-        delete upgradeExecutionTime[depth];
+        delete verifierExecutionTime[depth];
 
         emit VerifierUpgraded(depth, previousVerifier, verifierByDepth[depth]);
     }
@@ -127,13 +181,13 @@ contract VerifierRegistry is TimelockGovernance {
     /// @notice Cancel pending verifier upgrade
     /// @param depth Merkle tree depth
     function cancelVerifierUpgrade(uint8 depth) external onlyGovernance {
-        if (pendingVerifiers[depth] == address(0)) revert UpgradeNotInitiated();
+        if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
 
         address target = pendingVerifiers[depth];
         delete pendingVerifiers[depth];
-        delete upgradeExecutionTime[depth];
+        delete verifierExecutionTime[depth];
 
-        emit VerifierUpgradeCancelled(depth, target);
+        emit VerifierProposalCancelled(depth, target);
     }
 
     // ============================================================================
@@ -156,14 +210,36 @@ contract VerifierRegistry is TimelockGovernance {
         return verifierByDepth[depth] != address(0);
     }
 
-    /// @notice Get time remaining until verifier upgrade can execute
+    /// @notice Get time remaining until verifier proposal can execute
     /// @param depth Merkle tree depth
     /// @return secondsRemaining Time in seconds (0 if ready or not initiated)
-    function getUpgradeDelay(uint8 depth) external view returns (uint256 secondsRemaining) {
-        if (pendingVerifiers[depth] == address(0) || block.timestamp >= upgradeExecutionTime[depth]) {
+    function getProposalDelay(uint8 depth) external view returns (uint256 secondsRemaining) {
+        if (pendingVerifiers[depth] == address(0) || block.timestamp >= verifierExecutionTime[depth]) {
             return 0;
         }
-        return upgradeExecutionTime[depth] - block.timestamp;
+        return verifierExecutionTime[depth] - block.timestamp;
+    }
+
+    /// @notice Check if there's a pending proposal for a depth
+    /// @param depth Merkle tree depth
+    /// @return True if proposal pending
+    function hasPendingProposal(uint8 depth) external view returns (bool) {
+        return pendingVerifiers[depth] != address(0);
+    }
+
+    /// @notice Get pending proposal details for a depth
+    /// @param depth Merkle tree depth
+    /// @return verifier Pending verifier address (address(0) if none)
+    /// @return executeTime Timestamp when proposal can be executed (0 if none)
+    /// @return isUpgrade True if this is an upgrade vs initial registration
+    function getPendingProposal(uint8 depth) external view returns (
+        address verifier,
+        uint256 executeTime,
+        bool isUpgrade
+    ) {
+        verifier = pendingVerifiers[depth];
+        executeTime = verifierExecutionTime[depth];
+        isUpgrade = verifierByDepth[depth] != address(0);
     }
 
     /// @notice Get all registered depths
