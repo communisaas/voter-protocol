@@ -1,9 +1,10 @@
 # Security: Living Threat Model & Response Protocol
 
-**This document evolves with the threat landscape. Last updated: 2026-01-23**
+**This document evolves with the threat landscape. Last updated: 2026-02-01**
 
 ## Recent Updates
 
+- **February 2026**: Added "Privacy Guarantees & Limitations" section documenting anonymity set calculations and small district risks (SA-013)
 - **January 2026**: Documentation restructured with comprehensive architecture docs added to `/docs/`
 - **Phase 1 Implementation**: Core cryptographic infrastructure complete (Noir circuits, browser proving, Shadow Atlas)
 - **Trail of Bits Audit**: Scheduled Q1 2026 for Merkle circuit implementation (see line 162)
@@ -657,6 +658,123 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 - **If single agent compromised**: Reduce consensus weight to 0%, deploy patched version
 - **If multiple agents colluding**: Emergency governance vote, manual decisions until fix deployed
 - **If logic exploit found**: Immediate patch, retroactive correction of affected rewards
+
+-----
+
+## Privacy Guarantees & Limitations
+
+### What ZK Proofs Reveal
+
+VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals public outputs that enable verification while narrowing the anonymity set:
+
+| Public Output | Purpose | Privacy Impact |
+|---------------|---------|----------------|
+| `merkle_root` | District tree membership | Links proof to specific district snapshot |
+| `nullifier` | Double-participation prevention | Unique per user+campaign (not linkable across different campaigns) |
+| `authority_hash` | Authority level/tier verification | Narrows anonymity set by authority level |
+| `epoch_id` | Temporal binding | Links to specific time period |
+| `campaign_id` | Campaign context | Binds proof to specific campaign/action |
+
+**What remains hidden:**
+- Exact address (only Merkle membership proven)
+- Leaf position in tree (Merkle path reveals nothing about index)
+- User secret (never leaves client)
+- Which specific leaf commitment is yours
+
+### Anonymity Set Calculation
+
+Your effective anonymity set is determined by the intersection of users sharing your public outputs:
+
+```
+anonymity_set = voters_in_district × proportion_at_your_authority_level
+```
+
+**Example calculations:**
+
+| District Size | Authority Level Distribution | Effective Anonymity Set |
+|---------------|------------------------------|------------------------|
+| Large city (500,000 voters) | 20% at tier 3 | ~100,000 voters |
+| Medium suburb (50,000 voters) | 15% at tier 3 | ~7,500 voters |
+| Small town (5,000 voters) | 10% at tier 3 | ~500 voters |
+| Rural district (500 voters) | 5% at tier 4 | ~25 voters |
+
+### Small District Warning
+
+**Districts with fewer than 100 voters at your authority tier may have trivially small anonymity sets.** In extreme cases, you may be uniquely identifiable or narrowed to a handful of individuals.
+
+**Risk scenarios:**
+- Rural congressional districts with sparse population
+- Specialized authority tiers (tier 5+) in any district
+- New districts with few registered participants
+- Districts where most voters haven't participated yet
+
+**Recommendations for users in small districts:**
+
+1. **Assess the privacy trade-off** - Consider whether the reduced anonymity is acceptable for your specific use case and threat model
+2. **Use batch timing** - Submit proofs during high-activity periods when more users are participating
+3. **Monitor anonymity set size** - Future tooling will warn when anonymity sets fall below safe thresholds
+4. **Wait for protocol upgrades** - Future versions will implement mitigation strategies (see below)
+
+### Future Mitigation Strategies
+
+The following enhancements are planned for future protocol versions to improve anonymity in small districts:
+
+**1. Authority Level Bucketing**
+- Combine authority levels into broader tiers: "standard" (levels 1-2), "elevated" (levels 3-5), "high" (levels 6+)
+- Increases anonymity set by reducing granularity of revealed authority information
+- Trade-off: Reduced precision in tier-based access control
+
+**2. District Aggregation**
+- Automatically aggregate small districts into larger regional groupings
+- Example: Combine 5 rural districts of 500 voters each into one 2,500-voter regional pool
+- Requires governance coordination and smart contract updates
+
+**3. Optional Authority Level Hiding**
+- Allow users to generate proofs that hide authority level entirely
+- Trade-off: Cannot enforce tier-based participation requirements
+- Use case: When tier verification isn't required by the campaign
+
+**4. Anonymity Set Warnings**
+- Client-side warnings when computed anonymity set falls below configurable threshold
+- Suggested default threshold: 100 users minimum
+- Allow users to make informed decisions before generating proofs
+
+**5. Temporal Anonymity Sets**
+- Aggregate proofs across time windows (e.g., weekly batches)
+- Prevents timing correlation attacks
+- Trade-off: Increased latency for proof verification
+
+### Technical Implementation Notes
+
+The anonymity set limitations stem from the circuit's public output design (see [DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md](/specs/DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md)):
+
+```
+Public outputs: (merkle_root, nullifier, authority_hash, epoch_id, campaign_id)
+```
+
+- `merkle_root` identifies the district tree, effectively revealing district membership
+- `authority_hash` encodes the user's authority level for tier-based access control
+- These are necessary for the protocol's verification guarantees
+
+**Why not hide these values?**
+- `merkle_root`: Required to verify proof against correct district tree on-chain
+- `authority_hash`: Required for campaigns that enforce minimum authority levels
+- Hiding these would require recursive proofs (significant performance cost) or eliminate tier-based features
+
+### Honest Assessment
+
+**We are transparent about this limitation:**
+
+| Claim | Status |
+|-------|--------|
+| "Anonymous voting" | ❌ **False** - Proofs are pseudonymous with bounded anonymity sets |
+| "District membership hidden" | ❌ **False** - Merkle root reveals district |
+| "Authority level hidden" | ❌ **False** - Authority hash reveals tier |
+| "Unlinkable across campaigns" | ✅ **True** - Different nullifiers per campaign |
+| "Address never revealed" | ✅ **True** - Only Merkle membership proven |
+| "Exact leaf position hidden" | ✅ **True** - Merkle path reveals no position info |
+
+Users should understand these trade-offs before participating. If your threat model requires stronger anonymity guarantees than your district can provide, consider whether participation is appropriate for your situation.
 
 -----
 

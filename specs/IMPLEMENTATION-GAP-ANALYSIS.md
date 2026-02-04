@@ -1,12 +1,13 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 6: 2026-01-27)
-> **Status:** REVISION 6 — CVEs REMEDIATED, Round 1 Brutalist COMPLETE (21/23), Round 2 Brutalist TRIAGED (18 new findings)
+> **Date:** 2026-01-26 (Rev 7: 2026-02-04)
+> **Status:** REVISION 7 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 TRIAGED (10 new findings)
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
 > **Brutalist Audit Round 1:** 9 AI critics across 4 audits (security + codebase) — 2026-01-26
 > **Brutalist Audit Round 2:** 12 AI critics across 4 targeted audits (circuit, crypto, shadow-atlas, cross-system) — 2026-01-27
+> **Brutalist Audit Round 3:** 15 AI critics across 5 domains (architecture, crypto, contracts, prover, shadow-atlas) — 2026-02-04
 
 ---
 
@@ -492,7 +493,7 @@ The EIP-712 signature prevents third-party manipulation (the signer commits to `
 2. Derive `actionDomain = keccak256(abi.encodePacked(address(this), actionType, epoch))` on-chain
 3. Require `actionDomain` to match a `CampaignRegistry` template action ID
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — Added `allowedActionDomains` mapping with governance-controlled whitelist. `registerActionDomain()` and `removeActionDomain()` with 7-day timelock. `verifyAndAuthorizeWithSignature()` and `verifyTwoTreeProof()` check `allowedActionDomains[actionDomain]`.
 
 #### SA-002: `recordParticipation` Receives `districtId` Where `actionId` Is Expected
 **Severity:** CRITICAL | **Repo:** voter-protocol | **Source:** 3/12 critics
@@ -516,7 +517,7 @@ We're passing `districtId` (e.g., "CO-06") where `actionId` (e.g., hash of "Elec
 campaignRegistry.recordParticipation(actionDomain, districtRoot);
 ```
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — Changed `districtId` to `actionDomain` in both `verifyAndAuthorizeWithSignature()` and `verifyTwoTreeProof()` calls to `recordParticipation()`.
 
 #### SA-003: Golden Vector Tests Stale After BA-003 Domain Tag
 **Severity:** HIGH | **Repo:** voter-protocol | **Source:** 2/12 critics
@@ -538,7 +539,7 @@ The test name at line 425 even says "should NOT equal" but the assertion says `.
 
 **Fix:** Update golden vector tests to assert **inequality** between `hashPair` and `hashSingle`/`hash4`. Regenerate all golden vector constants.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-01) — Golden vector constants regenerated. All cross-function tests updated to assert `.not.toBe()`. Domain separation tests added (hashSingle vs hashPair, hashPair vs hash4). 21 golden vector tests passing.
 
 ### P1 — Security Critical
 
@@ -559,7 +560,7 @@ The test name at line 425 even says "should NOT equal" but the assertion says `.
 3. `currentRoot` per country/depth for freshness enforcement
 4. Dual-validity window during transitions (ISSUE-003 pattern)
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — `DistrictRegistry.sol` extended with `isActive` flag, `expiresAt` timestamp, timelocked `deactivateRoot()`/`reactivateRoot()`/`setRootExpiry()`. `isValidRoot()` checks both flags. Same pattern implemented in `UserRootRegistry.sol` and `CellMapRegistry.sol`.
 
 #### SA-005: `discovery.nr` Uses Poseidon v1, Not Poseidon2
 **Severity:** HIGH | **Repo:** voter-protocol | **Source:** 1 critic (confirmed in code)
@@ -575,7 +576,7 @@ This file lives in the same directory as `main.nr` (which uses `poseidon2_permut
 
 **Fix:** Either delete `discovery.nr` or rewrite to use `poseidon2_permutation`.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — `discovery.nr` deleted (unused file). Git status confirms deletion.
 
 #### SA-006: NoirProver Singleton Caches Failed Init Promise Forever
 **Severity:** HIGH | **Repo:** voter-protocol | **Source:** 2/12 critics
@@ -605,7 +606,7 @@ const initPromise = (async () => { ... })().catch((err) => {
 });
 ```
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — `.catch()` block added to prover init. Both success and failure paths call `initializationPromises.delete(depth)`. Matches the BA-015 fix pattern in `Poseidon2Hasher`.
 
 #### SA-007: `hashSingle` Has No Domain Separation From `hash4(v, 0, 0, 0)`
 **Severity:** MEDIUM-HIGH | **Repo:** voter-protocol | **Source:** 3/12 critics
@@ -624,7 +625,7 @@ Currently `hashSingle` is only used in `hashString()` (length prefix) and `hashS
 ```
 Update circuit if `hashSingle` is used there. Regenerate golden vectors.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-01) — Added `DOMAIN_HASH1 = 0x48314d` ("H1M") to `poseidon2.ts`. `hashSingle(x)` now computes `poseidon2([x, DOMAIN_HASH1, 0, 0])`. Golden vectors regenerated. Domain separation verified: `hashSingle(0) !== hashPair(0,0) !== hash4(0,0,0,0)`.
 
 ### P2 — Important
 
@@ -668,7 +669,7 @@ The `UnifiedRateLimiter` interface's `consume()` method calls `check()` which ex
 
 **Fix:** `consume()` should call `checkClient()` or directly call `bucket.consume()`.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — `consume()` now actually consumes tokens from both rate limit buckets. Comment updated to document consuming behavior.
 
 #### SA-011: Circuit Accepts `user_secret = 0`
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** 2/12 critics
@@ -679,7 +680,7 @@ The circuit's security model assumes `user_secret` is high-entropy. But the circ
 
 **Fix:** Add `assert(user_secret != 0)` in the circuit, or enforce at registration time.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-01) — Added `assert(user_secret != 0, "user_secret cannot be zero")` in both `district_membership/src/main.nr` and `two_tree_membership/src/main.nr`. TypeScript prover test confirms circuit rejects zero secret.
 
 #### SA-012: Package.json Exports Don't Match Build Pipeline
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** 2/12 critics
@@ -688,7 +689,7 @@ The circuit's security model assumes `user_secret` is high-entropy. But the circ
 
 **Fix:** Update `package.json` exports to match build targets: remove depth-14, add depth-18 and depth-24.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — `package.json` exports updated: depth-14 removed, depths 18/20/22/24 exported for both `district_membership` and `two_tree_membership` circuits. `files` field includes all circuit target directories.
 
 #### SA-013: Public Outputs Reduce Anonymity Sets (Design Limitation)
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** 5/12 critics (strongest consensus across all audits)
@@ -729,20 +730,564 @@ Both `importResults()` and `resumeFromState()` accept arbitrary JSON with type a
 
 **Fix:** Add Zod schema validation (the codebase already uses Zod extensively in `input-validator.ts`).
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE (2026-02-02) — Zod `SavedStateSchema` added to `bulk-district-discovery.ts`. `resumeFromState()` now uses `SavedStateSchema.parse()` for validation. Additional response schemas created in `packages/shadow-atlas/src/schemas/`.
 
 ### P3 — Housekeeping / Low
 
 | ID | Finding | Repo | Status |
 |----|---------|------|--------|
-| SA-015 | 24-slot documentation mismatch: contract comments describe hybrid 24-slot architecture but circuit proves single `district_id` per proof | voter-protocol | [ ] — Misleading comments, not a bug (separate proofs per district is by design) |
+| SA-015 | 24-slot documentation mismatch: contract comments describe hybrid 24-slot architecture but circuit proves single `district_id` per proof | voter-protocol | [x] COMPLETE (2026-02-01) — Updated all contract comments (DistrictRegistry, DistrictGate, DistrictGateV2, VerifierRegistry) to clarify: 24-slot model is for registration organization, each proof proves ONE district, multi-district requires separate proofs. Updated DISTRICT-TAXONOMY.md with clarification section. |
 | SA-016 | CORS wildcard default in `.env.example` (`CORS_ORIGINS=*`) | voter-protocol | [ ] — Should ship with restrictive default |
 | SA-017 | Census geocoder has no response cross-validation — TLS only, no secondary provider check | voter-protocol | [ ] — Defense-in-depth gap for civic infrastructure |
 | SA-018 | TIGER manifest `strictMode` defaults to `false` — fails open when checksums missing | voter-protocol | [ ] — Should default to `true` in production |
 
 ---
 
-## Executive Summary
+## 🔴 Brutalist Audit Round 3: Two-Tree Architecture (2026-02-04)
+
+> **Scope:** Post-implementation review of the Two-Tree Architecture (Phases 1-4 complete).
+> **Method:** 15 AI critic passes across 5 domains (architecture, crypto security, contract security, noir-prover, shadow-atlas) using Claude, Codex, and Gemini agents.
+> **Raw findings:** ~75 individual findings across all critics. After deduplication, validity analysis, and triage: **10 actionable**, **10 already-known**, **10 low-priority**, **9 invalid/overstated**.
+> **Triage by:** Distinguished engineer review weighing each finding against actual code behavior, circuit constraints, and existing mitigations.
+
+### Triage Methodology
+
+Every finding was evaluated against four criteria:
+1. **Code reality** — Does the actual implementation have this flaw, or did the critic misread the code?
+2. **Circuit enforcement** — Does the ZK circuit already constrain this, making the off-chain/contract-level gap unexploitable?
+3. **Tracking status** — Is this already documented (SA-XXX, BA-XXX) or flagged during wave reviews?
+4. **Attack feasibility** — Can a realistic attacker exploit this, or is it theoretical under conditions that can't arise?
+
+Findings marked INVALID include rationale for rejection to prevent re-discovery in future audits.
+
+---
+
+### P0 — Deployment Blocking (1)
+
+#### BR3-001: `verifyTwoTreeProof` Has No Front-Running / Proof-Theft Protection
+
+**Severity:** CRITICAL
+**Repo:** `contracts/src/DistrictGate.sol:532-596`
+**Source:** All 3 contract critics (Claude, Codex, Gemini), 2 crypto critics
+**Confirmed by:** Code inspection — two-tree path has zero signature binding
+
+**Problem:**
+
+The single-tree `verifyAndAuthorizeWithSignature()` requires an EIP-712 signature, nonce, and deadline — binding the proof to a specific signer. The two-tree `verifyTwoTreeProof()` has none of these protections:
+
+```solidity
+function verifyTwoTreeProof(
+    bytes calldata proof,
+    uint256[29] calldata publicInputs,
+    uint8 verifierDepth
+) external whenNotPaused {
+    // No signature, no nonce, no deadline, no signer binding
+```
+
+**Attack scenario:**
+1. User broadcasts `verifyTwoTreeProof` transaction to mempool
+2. Attacker extracts `proof` and `publicInputs` from pending transaction
+3. Attacker submits identical call with higher gas price
+4. Attacker's transaction lands first, consuming the nullifier
+5. User's transaction reverts with "nullifier already used"
+6. User is permanently blocked from voting in that action domain
+
+The nullifier is deterministic (`hash(user_secret, action_domain)`) — once consumed, it cannot be regenerated. The legitimate voter's participation is irrecoverably denied.
+
+**Why this is worse than a revert:** The nullifier slot is occupied. The user cannot retry. Their vote is stolen — not cast by the attacker (the attacker gains nothing from the proof itself), but denied to the user.
+
+**Recommended fix — Option A (EIP-712 binding, matches single-tree pattern):**
+
+```solidity
+function verifyTwoTreeProof(
+    bytes calldata proof,
+    uint256[29] calldata publicInputs,
+    uint8 verifierDepth,
+    address signer,
+    uint256 nonce,
+    uint256 deadline,
+    bytes calldata signature
+) external whenNotPaused {
+    require(block.timestamp <= deadline, "Expired");
+    // Verify EIP-712 signature over (proof_hash, publicInputs_hash, nonce, deadline)
+    bytes32 structHash = keccak256(abi.encode(
+        TWO_TREE_TYPEHASH,
+        keccak256(proof),
+        keccak256(abi.encode(publicInputs)),
+        verifierDepth,
+        nonce,
+        deadline
+    ));
+    // ... ECDSA recovery, nonce check, then proceed with verification
+```
+
+**Pitfalls with Option A:**
+- Adds ~50k gas (ECDSA recovery + storage for nonce)
+- Requires client-side signing infrastructure
+- Gasless relay patterns become more complex
+
+**Recommended fix — Option B (commit-reveal, lighter weight):**
+
+```solidity
+mapping(bytes32 => uint256) public proofCommitments; // commitment => block number
+
+function commitTwoTreeProof(bytes32 commitment) external {
+    proofCommitments[commitment] = block.number;
+}
+
+function revealTwoTreeProof(
+    bytes calldata proof,
+    uint256[29] calldata publicInputs,
+    uint8 verifierDepth
+) external whenNotPaused {
+    bytes32 commitment = keccak256(abi.encode(msg.sender, keccak256(proof)));
+    require(proofCommitments[commitment] != 0, "No commitment");
+    require(block.number > proofCommitments[commitment], "Same block");
+    delete proofCommitments[commitment];
+    // ... proceed with verification
+```
+
+**Pitfalls with Option B:**
+- Two transactions required (higher total gas, worse UX)
+- Commitment can be observed and the reveal still front-run if `msg.sender` binding is weak
+- Needs commitment expiry to prevent storage bloat
+
+**Recommended approach:** Option A (EIP-712), consistent with the single-tree path. The gas overhead is acceptable for a voting transaction. The UX impact is minimal since the client already signs EIP-712 for single-tree.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P1 — Security Critical (2)
+
+#### BR3-002: Single-Tree `NoirProver.prove()` Silently Substitutes Caller Values on Missing Public Inputs
+
+**Severity:** HIGH
+**Repo:** `packages/noir-prover/src/prover.ts:196-213`
+**Source:** 2 prover critics (Claude, Codex)
+**Confirmed by:** Code diff between single-tree and two-tree provers
+
+**Problem:**
+
+When the Barretenberg backend returns fewer public inputs than expected, the single-tree prover silently falls back to caller-provided values:
+
+```typescript
+return {
+    proof,
+    publicInputs: {
+        merkleRoot: publicInputs[0] ?? inputs.merkleRoot,  // Attacker's claimed root
+        nullifier: publicInputs[1] ?? '',                    // Empty string!
+        authorityLevel: validateAuthorityLevel(rawAuthorityLevel),
+        actionDomain: publicInputs[3] ?? inputs.actionDomain,
+        districtId: publicInputs[4] ?? inputs.districtId,
+    },
+};
+```
+
+The two-tree prover (`two-tree-prover.ts:316-321`) correctly hard-errors:
+
+```typescript
+if (proof.publicInputs.length !== TWO_TREE_PUBLIC_INPUT_COUNT) {
+    throw new Error(`Expected ${TWO_TREE_PUBLIC_INPUT_COUNT} public inputs, got ${proof.publicInputs.length}`);
+}
+```
+
+**Attack scenario:**
+A backend bug, version mismatch, or corrupted WASM produces a proof with missing public inputs. The single-tree prover returns a "successful" result with attacker-controlled `merkleRoot`, empty `nullifier`, and caller-chosen `actionDomain`. If submitted on-chain, the verifier would reject it (proof doesn't match), but:
+- Downstream code relying on `result.publicInputs` for display/storage treats them as verified
+- An empty nullifier (`''`) could cause unexpected behavior in client-side dedup logic
+- The error is masked, making diagnosis difficult
+
+**Recommended fix:**
+
+```typescript
+if (publicInputs.length !== PUBLIC_INPUT_COUNT) {
+    throw new Error(`Expected ${PUBLIC_INPUT_COUNT} public inputs, got ${publicInputs.length}`);
+}
+```
+
+Match the two-tree prover's pattern. Remove all `?? fallback` substitutions.
+
+**Pitfalls:** If there's a legitimate reason older circuits return fewer inputs, this would be a breaking change. Check if any deployed single-tree circuit version returns variable-length outputs. If so, gate by circuit version.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-003: `toHex()` in Noir-Prover Lacks BN254 Field Modulus Validation — Field Aliasing
+
+**Severity:** HIGH
+**Repo:** `packages/noir-prover/src/two-tree-prover.ts:99-101`
+**Source:** 3 critics across crypto and prover domains
+**Confirmed by:** Code inspection — no modulus check exists anywhere in the input pipeline
+
+**Problem:**
+
+```typescript
+function toHex(value: bigint): string {
+    return '0x' + value.toString(16).padStart(64, '0');
+}
+```
+
+No validation that `value < BN254_MODULUS`. The Noir circuit operates in the BN254 scalar field. Values `>= modulus` are silently reduced `mod p` by the circuit runtime. This creates aliasing:
+
+- `userSecret = x` and `userSecret = x + BN254_MODULUS` produce identical circuit behavior
+- Same nullifier, same leaf hash, same proof
+- An attacker who knows `userSecret = x` can submit `x + BN254_MODULUS` through the prover and generate an identical nullifier, consuming the victim's nullifier slot
+
+The `poseidon2.ts:500-519` in the crypto package DOES validate field bounds. But the noir-prover has its own `toHex` that bypasses this.
+
+**Recommended fix:**
+
+```typescript
+const BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+function toHex(value: bigint): string {
+    if (value < 0n) throw new Error('Field element cannot be negative');
+    if (value >= BN254_MODULUS) throw new Error(`Field element exceeds BN254 modulus: ${value}`);
+    return '0x' + value.toString(16).padStart(64, '0');
+}
+```
+
+Apply to both `toHex` in `two-tree-prover.ts` and to the single-tree `prover.ts` input formatting.
+
+**Pitfalls:** The BN254 modulus constant must be kept in sync if it appears in multiple packages. Consider exporting it from `@voter-protocol/crypto` as the single source of truth.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P2 — Important (5)
+
+#### BR3-004: No Country/Depth Consistency Check Between UserRoot and CellMapRoot
+
+**Severity:** MEDIUM
+**Repo:** `contracts/src/DistrictGate.sol:541-555`
+**Source:** 1 contract critic (Codex)
+**Confirmed by:** Code inspection — `verifyTwoTreeProof` validates each root independently
+
+**Problem:**
+
+The contract checks `isValidUserRoot(userRoot)` and `isValidCellMapRoot(cellMapRoot)` separately but never verifies they share the same country or compatible depth. Both registries store this metadata:
+
+```solidity
+// UserRootRegistry
+struct UserRootMetadata { bytes3 country; uint8 depth; ... }
+
+// CellMapRegistry
+struct CellMapRootMetadata { bytes3 country; uint8 depth; ... }
+```
+
+A user could pair a US user root with a UK cell map root, proving membership in UK districts while registered in the US system.
+
+**Recommended fix:**
+
+```solidity
+(bytes3 userCountry, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+(bytes3 cellMapCountry, uint8 cellMapDepth) = cellMapRegistry.getCountryAndDepth(cellMapRoot);
+require(userCountry == cellMapCountry, "Country mismatch");
+// Optionally: require(userDepth == cellMapDepth == verifierDepth)
+```
+
+**Pitfalls:**
+- Adds 2 external calls (~5k gas). Acceptable for a voting transaction.
+- If the protocol ever supports cross-country proofs (e.g., US citizen voting from abroad), this check would need to be relaxed. Document the assumption.
+- Depth matching is more nuanced — user tree and cell map tree could legitimately have different depths if the country has more cells than users.
+
+**Approach:** Enforce country match. Log but don't enforce depth match (let the VK handle it cryptographically).
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-005: Missing Zero-Checks for `cellId`, `actionDomain`, `registrationSalt` in Two-Tree Prover
+
+**Severity:** MEDIUM
+**Repo:** `packages/noir-prover/src/two-tree-prover.ts:171-238`
+**Source:** 2 prover critics (Claude, Gemini)
+**Confirmed by:** `validateInputs()` only checks `userSecret === 0n`
+
+**Problem:**
+
+The SA-011 fix added `assert(user_secret != 0)` in the circuit and `userSecret === 0n` in the prover's `validateInputs()`. But other critical fields have no zero-check:
+
+| Field | Zero Consequence | Checked? |
+|-------|-----------------|----------|
+| `userSecret` | Predictable nullifier, deanonymization | ✅ SA-011 |
+| `cellId` | Degenerate cell map leaf, potentially collides with empty leaf | ❌ |
+| `actionDomain` | Universal nullifier — same for ALL action domains | ❌ |
+| `registrationSalt` | Reduced entropy in leaf preimage, weakens rainbow resistance | ❌ |
+| `districts[i]` | Empty district slots may be legitimately 0 | N/A (by design) |
+
+Zero `actionDomain` is the most dangerous: `hash(user_secret, 0)` produces a single nullifier that would be consumed across all elections, permanently blocking the user from every future action.
+
+**Recommended fix:**
+
+```typescript
+if (inputs.cellId === 0n) throw new Error('cellId cannot be zero');
+if (inputs.actionDomain === 0n) throw new Error('actionDomain cannot be zero');
+if (inputs.registrationSalt === 0n) throw new Error('registrationSalt cannot be zero');
+```
+
+**Pitfalls:** The contract also validates `actionDomain` via the whitelist (`allowedActionDomains`), so zero would only pass if governance whitelists domain 0. But defense-in-depth means catching it in the prover too.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-006: `validateInputs()` Called After `init()` — Wasteful WASM Loading on Invalid Inputs
+
+**Severity:** MEDIUM
+**Repo:** `packages/noir-prover/src/two-tree-prover.ts:278-290`
+**Source:** 1 prover critic (Gemini)
+**Confirmed by:** Code inspection — `generateProof` calls `await this.init()` first
+
+**Problem:**
+
+```typescript
+async generateProof(inputs: TwoTreeProofInput): Promise<TwoTreeProofResult> {
+    await this.init();           // ← Heavy: loads WASM, allocates backend
+    this.validateInputs(inputs); // ← Cheap: pure JS checks
+    // ...
+```
+
+If inputs are invalid, the prover has already paid the full WASM initialization cost (~200ms first load, negligible on subsequent calls due to singleton). On first call with bad inputs, this wastes resources and delays the error.
+
+**Recommended fix:**
+
+```typescript
+async generateProof(inputs: TwoTreeProofInput): Promise<TwoTreeProofResult> {
+    this.validateInputs(inputs); // ← Cheap check first
+    await this.init();           // ← Only load WASM if inputs are valid
+    // ...
+```
+
+**Pitfalls:** None. `validateInputs` is pure synchronous JS with no dependency on the initialized state. Safe to reorder.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-007: `TimelockGovernance.initiateGovernanceTransfer` Lacks `OperationAlreadyPending` Guard
+
+**Severity:** MEDIUM
+**Repo:** `contracts/src/TimelockGovernance.sol:66-76`
+**Source:** 1 contract critic (Codex)
+**Confirmed by:** Code diff — UserRootRegistry and CellMapRegistry DO have this guard, but the base contract doesn't
+
+**Problem:**
+
+```solidity
+function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
+    require(newGovernance != address(0), "Zero address");
+    pendingGovernance = newGovernance;
+    governanceTransferTime = block.timestamp + GOVERNANCE_TIMELOCK;
+    emit GovernanceTransferInitiated(newGovernance, governanceTransferTime);
+}
+```
+
+No check for `governanceTransferTime != 0` (i.e., existing pending transfer). A compromised governance key can repeatedly call `initiateGovernanceTransfer` with a new address, perpetually resetting the 7-day timelock and preventing community-initiated recovery from ever reaching execution.
+
+Compare with the root lifecycle operations in UserRootRegistry/CellMapRegistry which DO guard:
+
+```solidity
+if (pendingRootOperations[root].executeTime != 0) {
+    revert OperationAlreadyPending();
+}
+```
+
+**Recommended fix:**
+
+```solidity
+function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
+    require(newGovernance != address(0), "Zero address");
+    require(governanceTransferTime == 0, "Transfer already pending");
+    pendingGovernance = newGovernance;
+    governanceTransferTime = block.timestamp + GOVERNANCE_TIMELOCK;
+    emit GovernanceTransferInitiated(newGovernance, governanceTransferTime);
+}
+```
+
+**Pitfalls:**
+- This means governance can't change the pending transfer target without first cancelling. But that's the correct behavior — cancellation is explicit and observable.
+- Check if `DistrictGate.proposeTwoTreeRegistries`, `proposeActionDomain`, and `proposeCampaignRegistry` have the same gap. If so, apply the guard uniformly.
+- The `DistrictGate` proposal functions (lines 365-372, 406-412, 465-481) also overwrite without checking — these need the same fix.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-008: `SMT.verify()` Does Not Bind `proof.key` — Misleading API
+
+**Severity:** MEDIUM
+**Repo:** `packages/crypto/sparse-merkle-tree.ts:505-531`
+**Source:** 2 crypto critics (Claude, Codex)
+**Confirmed by:** Code inspection — static `verify()` only checks path math
+
+**Problem:**
+
+```typescript
+static async verify(proof: SMTProof, expectedRoot: bigint, hasher: Poseidon2Hasher): Promise<boolean> {
+    let current = proof.value;  // ← Uses proof.value, ignores proof.key
+    for (let i = 0; i < proof.siblings.length; i++) {
+        // ... hash up the path
+    }
+    return current === expectedRoot;
+}
+```
+
+The `proof.key` and `proof.attempt` fields are present in the proof object but never checked during verification. A valid proof for cell A could be passed with `proof.key = B` and `verify()` would return `true`.
+
+**Why this is safe on-chain but dangerous off-chain:**
+- The two-tree circuit binds `cell_id` into the leaf: `cell_map_leaf = hash(cell_id, district_commitment)`. So on-chain, a proof for cell A can't be claimed as cell B — the leaf wouldn't match.
+- But off-chain callers using `SMT.verify()` for access control or data validation could be fooled.
+
+**Recommended fix — Option A (document the limitation):**
+
+Add JSDoc:
+```typescript
+/**
+ * Verifies that the Merkle path from proof.value to expectedRoot is valid.
+ * WARNING: Does NOT verify that proof.key maps to the proven position.
+ * Callers must independently verify that proof.value = hash(proof.key, ...).
+ */
+```
+
+**Recommended fix — Option B (add key binding):**
+
+```typescript
+static async verify(proof: SMTProof, expectedRoot: bigint, hasher: Poseidon2Hasher): Promise<boolean> {
+    // Verify position derivation
+    const expectedPosition = await SparseMerkleTree.computePosition(proof.key, proof.attempt, hasher);
+    // Verify the path bits encode the expected position
+    let positionFromBits = 0;
+    for (let i = 0; i < proof.pathBits.length; i++) {
+        positionFromBits |= (proof.pathBits[i] << i);
+    }
+    if (positionFromBits !== expectedPosition) return false;
+    // Then verify the Merkle path...
+```
+
+**Pitfalls with Option B:** Requires `computePosition` to be a static/public method (currently private). Would need refactoring. Also adds a hash computation to every verify call.
+
+**Approach:** Option A (document) for now. Option B if `SMT.verify` is ever used in an access-control context outside the ZK circuit.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P3 — Hardening (2)
+
+#### BR3-009: `verifierDepth` Not Checked Against Registry Metadata
+
+**Severity:** LOW
+**Repo:** `contracts/src/DistrictGate.sol:532-536`
+**Source:** All 3 contract critics
+**Confirmed by:** Code inspection — verifier routing trusts caller-supplied depth
+
+**Problem:**
+
+The `verifierDepth` parameter is caller-supplied and not validated against the depth stored in UserRootRegistry or CellMapRegistry for the provided roots. An incorrect depth routes to the wrong verifier, which will fail cryptographically (VK mismatch), but:
+- Error message is `TwoTreeVerificationFailed`, not "depth mismatch" — unhelpful for debugging
+- Gas is wasted on the full verifier call before the rejection
+- A permissive or misconfigured verifier at the wrong depth could theoretically accept
+
+**Recommended fix:**
+
+```solidity
+(, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+require(userDepth == verifierDepth, "Depth mismatch");
+```
+
+**Pitfalls:** If user tree and cell map tree have different depths (e.g., depth-20 cell map with depth-22 user tree), which depth do you enforce? The circuit is compiled for a single depth. Clarify whether both trees must share the same depth. If so, enforce both. If not, the depth enforcement needs to match the circuit's expectation (which is a single `TREE_DEPTH` global).
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR3-010: Domain Tag `DOMAIN_SPONGE_24` Uses Number Literal Exceeding `MAX_SAFE_INTEGER`
+
+**Severity:** LOW
+**Repo:** `packages/crypto/poseidon2.ts:68`
+**Source:** 2 crypto critics (Claude, Codex)
+**Confirmed by:** `0x534f4e47455f24 > Number.MAX_SAFE_INTEGER === true`
+
+**Problem:**
+
+```typescript
+const DOMAIN_SPONGE_24 = '0x' + (0x534f4e47455f24).toString(16).padStart(64, '0');
+```
+
+The hex literal `0x534f4e47455f24` (≈2.3×10^16) exceeds `Number.MAX_SAFE_INTEGER` (≈9×10^15). However, empirical testing confirms this specific value IS exactly representable as an IEEE 754 double because it's divisible by 4 (the 55-bit value loses 2 trailing zero bits, fitting in 53 mantissa bits). The roundtrip `Number → hex string → BigInt` produces identical results.
+
+**Why this is LOW not HIGH:** The golden vector tests (`sponge-vectors.test.ts`) pin the exact output of `poseidon2Sponge([1..24])` across TypeScript and Noir. If precision loss occurred, these tests would fail. They pass.
+
+**Why it still matters:** The code pattern is fragile. A future developer changing a domain tag to a value that's NOT exactly representable would introduce a silent cross-language mismatch without any compile-time or lint-time warning.
+
+**Recommended fix:**
+
+```typescript
+const DOMAIN_SPONGE_24 = '0x' + (0x534f4e47455f24n).toString(16).padStart(64, '0');
+//                                              ↑ BigInt literal suffix
+```
+
+Apply the same pattern to any other hex literals that might exceed `MAX_SAFE_INTEGER`. Audit: `DOMAIN_HASH2` (0x48324d = 4,731,725 — safe), `DOMAIN_HASH3` (0x48334d = 4,731,725 — safe), `DOMAIN_HASH1` (0x48314d — safe), `EMPTY_CELL_TAG` (0x454d50545943454c4c — 20 hex digits, ~10^23, ALSO exceeds MAX_SAFE_INTEGER and should be converted to BigInt).
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### Findings Assessed as INVALID (Preserved for Future Auditors)
+
+These findings were raised by one or more critics but determined to be incorrect after code-level verification. They are documented here to prevent re-discovery in future audit rounds.
+
+| ID | Claimed Finding | Why Invalid |
+|----|----------------|-------------|
+| BR3-X01 | "Circuit lacks return statement — public inputs not bound" | Noir `pub` parameter annotations are cryptographically constrained by the UltraHonk proof system identically to return values. The prover cannot manipulate public inputs without invalidating the proof. This is not a design choice — it's how Noir works. |
+| BR3-X02 | "Nullifier-action domain binding is unverified" (Gemini CRITICAL) | The circuit explicitly computes `computed_nullifier = poseidon2_hash2(user_secret, action_domain)` and asserts `computed_nullifier == nullifier` at `main.nr:298-300`. The binding IS enforced. |
+| BR3-X03 | "25 verifications/sec means 46 days for 100M votes" | The protocol does not require all votes to be individual on-chain transactions. Multi-day voting windows, batching via aggregation proofs, and off-chain accumulation with periodic on-chain settlement are the expected operational model at national scale. |
+| BR3-X04 | "SMT collision overflow will cause insertion failure" | With 242K cells in 2^20 slots (23% load factor), the probability of 16 consecutive collisions at any single position is (0.23)^16 ≈ 1.5×10^-10 per insertion. Over 242K insertions, expected failures ≈ 0.00004. Effectively zero. |
+| BR3-X05 | "Non-membership proofs are unsound" | The two-tree circuit only uses membership proofs. Non-membership is not in the ZK proving path. The SMT non-membership API exists for completeness but is not security-critical. |
+| BR3-X06 | "DistrictGate missing containsDistrict check" (Gemini) | The spec's Section 9.3 describes the district check as the *calling contract's* responsibility, not DistrictGate's. DistrictGate verifies the ZK proof and exposes the 24 districts as public inputs. The election contract (caller) reads `publicInputs[2-25]` and checks if required districts are present. This is deliberate separation of concerns — the gate is generic, the caller is domain-specific. |
+| BR3-X07 | "Gas bomb — 500-700k per two-tree verification" | UltraHonk verification cost is dominated by the fixed pairing check, not public input count. The spec's ~403k estimate is based on benchmarked UltraHonk gas on Scroll L2. Additional calldata for 24 more uint256s adds ~15k gas (24×32×~20 gas/byte), not 200k. |
+| BR3-X08 | "DO NOT DEPLOY Shadow Atlas" | The shadow-atlas is explicitly a Phase 1 prototype building toward production. In-memory tree storage, stubbed IPFS, and sequential hashing are all known limitations tracked in SA-008 and the TWO-TREE-AGENT-REVIEW-SUMMARY. The data pipeline is designed for correctness verification first, production scaling second. |
+| BR3-X09 | "hash4/hash3 cross-arity collision" | The collision requires `authority_level = DOMAIN_HASH3 (0x48334d = 4,731,725)`. The circuit enforces `authority_level ∈ [1, 5]` via BA-007's u64→u8 truncation-safe check. This attack path is fully blocked by the existing authority validation. |
+
+---
+
+### Findings Confirmed as Already-Known
+
+| Critic Finding | Existing Tracking |
+|---------------|-------------------|
+| IPFS sync completely stubbed | SA-008 (DEFERRED to Phase 2) |
+| Governance centralization (single key) | Documented in `TimelockGovernance.sol` comments as Phase 1 design |
+| Privacy fingerprinting via 24 public districts | SA-013 (DOCUMENTED as architectural trade-off) |
+| `loadCellDistrictMappings` returns empty array | Known stub; spatial join requires PostGIS/GDAL |
+| In-memory SMT won't scale to national deployment | Known; production requires disk-backed KV store |
+| Mobile proving time unvalidated | MED-1 in TWO-TREE-AGENT-REVIEW-SUMMARY |
+| `hash4` lacks domain separation tag | Known; mitigated by authority_level range [1,5] blocking DOMAIN_HASH3 collision |
+| Shadow Atlas `dual-tree-builder` uses `hash4` not `hash3` for user leaf | Flagged during Wave 3B review; tracked for alignment |
+| Legacy `simpleHash` DJB2 in client adapter | Pre-existing; `TODO: Use proper key derivation in production` |
+| Legacy `NoirProverAdapter` broken against current interface | Pre-existing dead code on single-tree legacy path |
+
+---
+
+### Summary Table: Brutalist Round 3
+
+| Priority | ID | Issue | Repo | Status |
+|----------|-----|-------|------|--------|
+| **P0** | BR3-001 | `verifyTwoTreeProof` front-running / proof theft | contracts | [ ] NOT STARTED |
+| **P1** | BR3-002 | Single-tree prover silently substitutes public inputs | noir-prover | [ ] NOT STARTED |
+| **P1** | BR3-003 | `toHex()` lacks BN254 modulus validation (field aliasing) | noir-prover | [ ] NOT STARTED |
+| **P2** | BR3-004 | No country/depth consistency between roots | contracts | [ ] NOT STARTED |
+| **P2** | BR3-005 | Missing zero-checks for cellId, actionDomain, salt | noir-prover | [ ] NOT STARTED |
+| **P2** | BR3-006 | `validateInputs` called after `init()` | noir-prover | [ ] NOT STARTED |
+| **P2** | BR3-007 | `TimelockGovernance` transfer lacks pending guard | contracts | [ ] NOT STARTED |
+| **P2** | BR3-008 | `SMT.verify()` doesn't bind proof.key | crypto | [ ] NOT STARTED |
+| **P3** | BR3-009 | `verifierDepth` not checked against registry | contracts | [ ] NOT STARTED |
+| **P3** | BR3-010 | Domain tag Number literal exceeds MAX_SAFE_INTEGER | crypto | [ ] NOT STARTED |
+
+---
 
 This document maps the delta between current implementation and the unified proof architecture.
 
@@ -751,38 +1296,50 @@ This document maps the delta between current implementation and the unified proo
 **Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014 rate limiting), 1 env-blocked (BA-017 depth-24 test)
 **Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 3 P0, 4 P1, 7 P2, 4 P3
 
-**Combined open issues: 20** (2 Round 1 + 18 Round 2 — ISSUE-002 scope fix complete)
+**Combined open issues: 16** (6 from Rounds 1-2 + 10 new from Round 3, updated 2026-02-04)
 
-**🔴 P0 — Deployment blocking (3):**
-- SA-001: `actionDomain` caller-supplied without on-chain whitelist (double-vote vector)
-- SA-002: `recordParticipation` receives wrong argument (campaign recording silently broken)
-- SA-003: Golden vector tests stale after BA-003 domain tag (test suite integrity)
+**Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014), 1 env-blocked (BA-017)
+**Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 14 fixed, 4 remaining
+**Brutalist Round 3 (2026-02-04):** ~75 raw findings from 15 critics → 10 valid after triage (9 invalid rejected with rationale)
 
-**🟡 P1 — Security critical (4):**
-- SA-004: DistrictRegistry append-only, no root revocation
-- SA-005: `discovery.nr` uses Poseidon v1 (hash divergence)
-- SA-006: NoirProver caches failed init promise forever
-- SA-007: `hashSingle` missing domain separation from `hash4(v,0,0,0)`
-- ~~ISSUE-002 (scope fix): X OAuth missing `users.email` scope~~ ✅ FIXED
+**🔴 P0 — Deployment blocking (1 new):**
+- BR3-001: `verifyTwoTreeProof` has no front-running protection (proof theft via mempool)
 
-**🟠 P2 — Important (9):**
-- BA-014: Rate limiting (deferred), BA-017: Depth-24 test (env-blocked)
-- SA-008 through SA-014: IPFS stub, discovery URL bypass, rate limiter consume(), user_secret=0, pkg exports, anonymity sets, JSON deserialization
+**🟡 P1 — Security critical (2 new):**
+- BR3-002: Single-tree prover silently substitutes public inputs on backend failure
+- BR3-003: `toHex()` lacks BN254 modulus validation (field aliasing attack vector)
 
-**⚠️ Breaking changes from Round 1 requiring follow-up:**
-BA-003 (Merkle tree rebuild + golden vectors), BA-008 (identity commitment migration), BA-022 (string hash regeneration), BA-001 (EIP-712 typehash change for off-chain signers)
+**🟠 P2 — Important (7 total: 2 legacy + 5 new):**
+- BA-014: Rate limiting (DEFERRED — pending infrastructure decision)
+- BA-017: Depth-24 proof generation test (ENV-BLOCKED — requires BB setup)
+- BR3-004: No country consistency check between UserRoot and CellMapRoot
+- BR3-005: Missing zero-checks for cellId, actionDomain, registrationSalt in prover
+- BR3-006: `validateInputs()` called after `init()` in two-tree prover
+- BR3-007: `TimelockGovernance.initiateGovernanceTransfer` lacks pending-operation guard
+- BR3-008: `SMT.verify()` doesn't bind proof.key (misleading API)
+
+**⚠️ P3 — Hardening (5 total: 3 legacy + 2 new):**
+- SA-016: CORS restrictive default (LOW)
+- SA-017: Census geocoder cross-validation (MEDIUM)
+- SA-018: TIGER strictMode default (LOW)
+- BR3-009: `verifierDepth` not checked against registry metadata
+- BR3-010: Domain tag Number literal exceeds MAX_SAFE_INTEGER
+
+**Design Issues: 2 remaining**
+- ISSUE-001: Cross-provider identity deduplication (DESIGN PHASE)
+- ISSUE-003: Redistricting emergency protocol (DESIGN PHASE)
 
 **Key Design Principle:** Identity verification is a *trust modifier*, not a requirement. The system supports tiered authority levels (1-5), with self-attestation as the permissionless default.
 
 | Tier | Source | MVP Required |
 |------|--------|--------------|
-| 1 | Self-claimed | ✅ Yes (default path) |
-| 2-3 | Location/Social | ❌ Future |
-| 4-5 | Identity verified | ❌ Optional upgrade |
+| 1 | Self-claimed | Yes (default path) |
+| 2-3 | Location/Social | Future |
+| 4-5 | Identity verified | Optional upgrade |
 
 **TEE Address Handling:** Address is sent to decision-makers (Congress, healthcare, corporations, HOAs) via TEE. Address is never stored by the platform.
 
-**Phase 0 Complete.** Next: Phase 1 (Round 2 P0/P1 remediation).
+**Two-Tree Architecture: IMPLEMENTATION COMPLETE.** E2E integration test added (`packages/crypto/test/two-tree-e2e.test.ts`). Round 3 brutalist review completed — 1 P0 (front-running), 2 P1 (prover validation), 5 P2 (defense-in-depth), 2 P3 (hardening). 9 findings rejected as invalid with documented rationale.
 
 ---
 
@@ -2025,7 +2582,7 @@ export const CREDENTIAL_TTL = {
 
 **P3 — Housekeeping (4):**
 
-- [ ] **SA-015:** Fix 24-slot documentation mismatch
+- [x] **SA-015:** Fix 24-slot documentation mismatch (COMPLETE 2026-02-01)
 - [ ] **SA-016:** Ship restrictive CORS default in `.env.example`
 - [ ] **SA-017:** Add Census geocoder response cross-validation
 - [ ] **SA-018:** Default TIGER `strictMode` to `true` in production

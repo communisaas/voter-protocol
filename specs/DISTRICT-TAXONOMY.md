@@ -16,16 +16,16 @@ The United States operates the most complex multi-layered governance system amon
 
 International democracies add further complexity, ranging from 5-12 elected levels depending on the country's federal structure, local governance traditions, and special-purpose district usage.
 
-### The Solution: Hybrid 24-Slot Architecture
+### The Solution: 24-Slot Registration Model with Single-District Proofs
 
-The Voter Protocol ZK circuit implements a **hybrid 24-slot district encoding** that balances:
+The Voter Protocol implements a **24-slot district registration model** that balances:
 
 1. **Completeness** — Covers all common US district types plus international variants
-2. **Efficiency** — Fixed-size arrays enable predictable proving times
+2. **Efficiency** — Single-district proofs keep circuits compact (~300-400k gas verification)
 3. **Flexibility** — 4 overflow slots handle edge cases without circuit changes
-4. **Privacy** — All 24 slots are always populated (with null markers) to prevent metadata leakage
+4. **Privacy** — Each proof reveals only one district membership
 
-**Slot Distribution:**
+**Slot Distribution (Registration Model):**
 - **Slots 0-6:** Core governance (federal through municipal)
 - **Slots 7-10:** Education districts
 - **Slots 11-16:** Core special districts
@@ -34,6 +34,21 @@ The Voter Protocol ZK circuit implements a **hybrid 24-slot district encoding** 
 - **Slots 22-23:** Overflow/international
 
 This architecture supports **99.7% of US voters** with defined slots, using overflow only for rare multi-special-district scenarios.
+
+> **IMPORTANT: Single-District Proofs**
+>
+> The 24-slot model describes **registration organization**, not circuit output. Each ZK proof proves membership in **exactly one district at a time**. The circuit outputs a single `districtRoot` and `districtId`, not all 24 slots.
+>
+> **Multi-District Verification:**
+> - Actions requiring multiple districts (e.g., state + county) need **separate proofs** per district
+> - The application layer enforces multi-district requirements by verifying N proofs for N districts
+> - Gas cost scales linearly: N districts ≈ N × 300-400k gas
+>
+> **Example:** A state-level action requiring proof of both congressional district and county membership would:
+> 1. User generates proof for congressional district (slot 0)
+> 2. User generates proof for county (slot 4)
+> 3. Verifier calls `DistrictGate.verifyAndAuthorize()` twice, once per proof
+> 4. Application confirms both verifications passed before proceeding
 
 ---
 
