@@ -369,6 +369,150 @@ describe('Rate Limiter - IP Normalization', () => {
   });
 });
 
+describe('Rate Limiter - consume() vs check() Behavior (SA-010)', () => {
+  let rateLimiter: MultiTierRateLimiter;
+
+  beforeEach(() => {
+    rateLimiter = createRateLimiter({
+      ip: { maxRequests: 10, windowMs: 60000 }, // Long window to avoid refill during test
+      apiKey: { maxRequests: 100, windowMs: 60000 },
+      global: { maxRequests: 1000, windowMs: 60000 },
+    });
+  });
+
+  afterEach(() => {
+    rateLimiter.destroy();
+  });
+
+  test('consume() actually decrements remaining tokens', () => {
+    const clientId = '192.168.1.100';
+
+    // Get initial tokens
+    const initialTokens = rateLimiter.getRemainingTokens(clientId);
+    expect(initialTokens).toBe(10);
+
+    // Consume should decrement
+    const consumed = rateLimiter.consume(clientId, 1);
+    expect(consumed).toBe(true);
+
+    // Verify tokens actually decreased
+    const afterConsume = rateLimiter.getRemainingTokens(clientId);
+    expect(afterConsume).toBe(9);
+  });
+
+  test('check() does NOT decrement remaining tokens', () => {
+    const clientId = '192.168.1.101';
+
+    // Get initial tokens (creates bucket)
+    const initialResult = rateLimiter.check(clientId, 1);
+    expect(initialResult.allowed).toBe(true);
+    expect(initialResult.remaining).toBe(10);
+
+    // Check multiple times - should NOT decrement
+    for (let i = 0; i < 5; i++) {
+      const result = rateLimiter.check(clientId, 1);
+      expect(result.allowed).toBe(true);
+      expect(result.remaining).toBe(10); // Still 10, not decremented
+    }
+
+    // Verify via getRemainingTokens as well
+    const finalTokens = rateLimiter.getRemainingTokens(clientId);
+    expect(finalTokens).toBe(10);
+  });
+
+  test('after N consumes, subsequent consumes return false', () => {
+    const clientId = '192.168.1.102';
+
+    // Consume all 10 tokens
+    for (let i = 0; i < 10; i++) {
+      const consumed = rateLimiter.consume(clientId, 1);
+      expect(consumed).toBe(true);
+    }
+
+    // 11th consume should fail
+    const failedConsume = rateLimiter.consume(clientId, 1);
+    expect(failedConsume).toBe(false);
+
+    // Verify tokens are exhausted
+    const remaining = rateLimiter.getRemainingTokens(clientId);
+    expect(remaining).toBe(0);
+  });
+
+  test('check() still returns true even after exhaustion by consume()', () => {
+    const clientId = '192.168.1.103';
+
+    // Exhaust tokens via consume()
+    for (let i = 0; i < 10; i++) {
+      rateLimiter.consume(clientId, 1);
+    }
+
+    // check() should now return false (tokens exhausted)
+    const checkResult = rateLimiter.check(clientId, 1);
+    expect(checkResult.allowed).toBe(false);
+    expect(checkResult.remaining).toBe(0);
+  });
+
+  test('consume() with cost > 1 decrements correct amount', () => {
+    const clientId = '192.168.1.104';
+
+    // Consume with cost of 3
+    const consumed = rateLimiter.consume(clientId, 3);
+    expect(consumed).toBe(true);
+
+    // Should have 7 remaining
+    const remaining = rateLimiter.getRemainingTokens(clientId);
+    expect(remaining).toBe(7);
+
+    // Consume with cost of 5
+    rateLimiter.consume(clientId, 5);
+    expect(rateLimiter.getRemainingTokens(clientId)).toBe(2);
+
+    // Try to consume 3 more (only 2 available)
+    const failedConsume = rateLimiter.consume(clientId, 3);
+    expect(failedConsume).toBe(false);
+  });
+
+  test('consume() respects global limit', () => {
+    // Create rate limiter with tight global limit
+    const tightLimiter = createRateLimiter({
+      ip: { maxRequests: 100, windowMs: 60000 },
+      global: { maxRequests: 5, windowMs: 60000 },
+    });
+
+    const clientId = '192.168.1.105';
+
+    // Consume 5 (global limit)
+    for (let i = 0; i < 5; i++) {
+      const consumed = tightLimiter.consume(clientId, 1);
+      expect(consumed).toBe(true);
+    }
+
+    // 6th should fail due to global limit
+    const failedConsume = tightLimiter.consume(clientId, 1);
+    expect(failedConsume).toBe(false);
+
+    tightLimiter.destroy();
+  });
+
+  test('different clients have independent token pools for consume()', () => {
+    const client1 = '192.168.1.106';
+    const client2 = '192.168.1.107';
+
+    // Exhaust client1's tokens
+    for (let i = 0; i < 10; i++) {
+      rateLimiter.consume(client1, 1);
+    }
+
+    // client1 should be exhausted
+    expect(rateLimiter.consume(client1, 1)).toBe(false);
+    expect(rateLimiter.getRemainingTokens(client1)).toBe(0);
+
+    // client2 should still have tokens
+    expect(rateLimiter.consume(client2, 1)).toBe(true);
+    expect(rateLimiter.getRemainingTokens(client2)).toBe(9);
+  });
+});
+
 describe('Rate Limiter - Memory Management', () => {
   test('cleans up stale buckets', async () => {
     const rateLimiter = createRateLimiter({

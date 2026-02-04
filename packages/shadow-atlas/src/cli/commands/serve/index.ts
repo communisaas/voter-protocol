@@ -22,7 +22,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     port = parseInt(process.env.PORT || '3000', 10),
     host = process.env.HOST || '0.0.0.0',
     dbPath = process.env.DB_PATH || '/data/shadow-atlas.db',
-    corsOrigins = process.env.CORS_ORIGINS || '*',
+    corsOrigins = process.env.CORS_ORIGINS || '',
     rateLimitPerMinute = parseInt(process.env.RATE_LIMIT_PER_MINUTE || '60', 10),
     ipfsGateway = process.env.IPFS_GATEWAY || 'https://w3s.link',
     snapshotsDir = process.env.SNAPSHOTS_DIR || '/data/snapshots',

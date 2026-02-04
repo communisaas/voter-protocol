@@ -23,12 +23,17 @@ export {
   validateStateCode,
   validateStateFips,
   validateURL,
+  validateURLWithOptions,
   validateJobID,
   validateSnapshotID,
   validateGeoJSON,
   validatePagination,
   validateContentType,
   validateResponseSize,
+
+  // URL safety functions
+  isPublicURL,
+  isDomainAllowlisted,
 
   // Schemas
   CoordinateSchema,
@@ -57,6 +62,47 @@ export {
   type ValidatedGeoJSONFeatureCollection,
   type ValidatedPagination,
 } from './input-validator.js';
+
+// ============================================================================
+// Secure Fetch
+// ============================================================================
+
+export {
+  // Secure fetch functions
+  secureFetch,
+  secureFetchAllowlisted,
+  isURLAllowed,
+  isURLSafe,
+  batchValidateURLs,
+
+  // Types
+  type SecureFetchOptions,
+  type SecureFetchResult,
+} from './secure-fetch.js';
+
+// ============================================================================
+// URL Validator (SA-009)
+// ============================================================================
+
+export {
+  // Validation functions
+  validateDiscoveryURL,
+  isURLSafeForBypass,
+  batchValidateDiscoveryURLs,
+  matchAllowlistPattern,
+  isPrivateHostname,
+  isDomainAllowed,
+  getMatchingPatternDescription,
+  getAllowlistPatterns,
+
+  // Constants
+  URL_ALLOWLIST_PATTERNS,
+
+  // Types
+  type URLPattern,
+  type URLValidationResult,
+  type URLBlockedEvent,
+} from './url-validator.js';
 
 // ============================================================================
 // Rate Limiting

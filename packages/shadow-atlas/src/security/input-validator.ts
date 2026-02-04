@@ -203,27 +203,163 @@ export function validateStateFips(
  * Allowlisted domains for upstream data sources
  *
  * SECURITY: Prevents SSRF attacks by restricting fetches to trusted domains.
+ *
+ * ADDING NEW DOMAINS:
+ * 1. Verify the domain is an official government or trusted data source
+ * 2. Ensure HTTPS is enforced on the domain
+ * 3. Add with a comment indicating the organization
+ * 4. Test that the domain works with validateURL()
  */
 const ALLOWED_DOMAINS = [
   // US Census Bureau
   'tigerweb.geo.census.gov',
   'www2.census.gov',
   'ftp.census.gov',
+  'api.census.gov',
 
-  // Esri ArcGIS
+  // Esri ArcGIS (global platform)
   'services.arcgis.com',
-  'tigerweb.geo.census.gov',
+  'hub.arcgis.com',
+  'www.arcgis.com',
+  'opendata.arcgis.com',
 
-  // State GIS portals (add as needed)
+  // Socrata Open Data Platform
+  'api.us.socrata.com',
+  'data.cityofchicago.org',
+  'data.seattle.gov',
+  'data.sfgov.org',
+  'data.cityofnewyork.us',
+  'data.lacity.org',
+  'data.baltimorecity.gov',
+  'data.austintexas.gov',
+  'data.boston.gov',
+  'data.sandiego.gov',
+  'opendata.denvergov.org',
+  'data.kcmo.org',
+  'opendataphilly.org',
+
+  // CKAN Portals
+  'catalog.data.gov',
+  'data.gov.uk',
+  'data.gov.au',
+  'open.canada.ca',
+  'datos.gob.es',
+  'dati.gov.it',
+  'data.opendatasoft.com',
+
+  // State GIS portals
   'gis.legis.wisconsin.gov',
   'gis.nc.gov',
   'gis.texas.gov',
-  'data.cityofchicago.org', // Socrata
+  'geodata.hawaii.gov',
+  'pasda.psu.edu',
+
+  // Redistricting Data Hub
+  'redistrictingdatahub.org',
 
   // International sources
   'geoportal.statistics.gov.uk', // UK ONS
   'represent.opennorth.ca', // Canada Open North
 ];
+
+/**
+ * Check if URL is safe (no private IPs, no localhost)
+ * Used for both allowlisted and bypass validation
+ *
+ * @param url - URL to check
+ * @returns true if URL points to public internet
+ */
+export function isPublicURL(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname;
+
+    // Reject non-HTTPS
+    if (parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    // Reject private IP ranges (RFC 1918)
+    const privateIPRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.)/;
+    if (privateIPRegex.test(hostname)) {
+      return false;
+    }
+
+    // Reject localhost
+    if (hostname === 'localhost' || hostname === '::1') {
+      return false;
+    }
+
+    // Reject link-local addresses
+    if (hostname.startsWith('169.254.')) {
+      return false;
+    }
+
+    // Reject IPv6 loopback and link-local
+    if (hostname === '::1' || hostname.startsWith('fe80:') || hostname.startsWith('fc') || hostname.startsWith('fd')) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a domain is in the allowlist
+ *
+ * @param hostname - Domain to check
+ * @returns true if domain is allowlisted
+ */
+export function isDomainAllowlisted(hostname: string): boolean {
+  return ALLOWED_DOMAINS.some((domain) =>
+    hostname === domain || hostname.endsWith('.' + domain)
+  );
+}
+
+/**
+ * Validate URL with explicit bypass option for operator-configured sources
+ *
+ * SECURITY: The bypassAllowlist option should ONLY be used when:
+ * 1. Operators explicitly configure custom data sources
+ * 2. The URL still passes public IP validation
+ * 3. The bypass is logged for audit purposes
+ *
+ * @param url - URL to validate
+ * @param options - Validation options
+ * @returns Validation result
+ */
+export function validateURLWithOptions(
+  url: string | undefined,
+  options: { bypassAllowlist?: boolean; reason?: string } = {}
+): { success: true; data: string; bypassed: boolean } | { success: false; error: string } {
+  if (!url) {
+    return { success: false, error: 'Missing URL' };
+  }
+
+  // Always check for public URL (no private IPs, no localhost)
+  if (!isPublicURL(url)) {
+    return { success: false, error: 'URL must use HTTPS and not point to private IP or localhost' };
+  }
+
+  // Check allowlist unless bypassed
+  if (!options.bypassAllowlist) {
+    try {
+      const parsed = new URL(url);
+      if (!isDomainAllowlisted(parsed.hostname)) {
+        return { success: false, error: `URL domain not in allowlist: ${parsed.hostname}` };
+      }
+    } catch {
+      return { success: false, error: 'Invalid URL format' };
+    }
+    return { success: true, data: url, bypassed: false };
+  }
+
+  // Bypass mode - URL is valid but not in allowlist
+  // This should be logged by the caller for audit purposes
+  return { success: true, data: url, bypassed: true };
+}
 
 /**
  * URL validation schema
@@ -730,4 +866,481 @@ export function sanitizeLogData(data: Record<string, unknown>): Record<string, u
   }
 
   return sanitized;
+}
+
+// ============================================================================
+// Discovery Result Schema Validation (SA-014)
+// ============================================================================
+
+/**
+ * Discovery result schema for validated JSON parsing
+ * SA-014: Prevents malformed JSON from corrupting discovery state
+ *
+ * SECURITY: All persisted discovery state and external API responses
+ * must be validated before use to prevent data corruption attacks.
+ */
+export const DiscoveryResultSchema = z.object({
+  geoid: z.string().regex(/^\d{2,15}$/, 'GEOID must be numeric (2-15 digits)'),
+  cityName: z.string().min(1).max(200),
+  state: z.string().min(1).max(50),
+  population: z.number().int().min(0),
+  status: z.enum(['found', 'not_found', 'at_large', 'error', 'pending']),
+  districtCount: z.number().int().min(0).nullable(),
+  downloadUrl: z.string().url().nullable(),
+  portalType: z.enum(['arcgis-hub', 'socrata', 'ckan', 'gis-server', 'state-gis']).nullable(),
+  confidence: z.number().min(0).max(100),
+  discoveredAt: z.union([z.string().datetime(), z.null()]),
+  errorMessage: z.string().max(1000).nullable(),
+});
+
+export type ValidatedDiscoveryResult = z.infer<typeof DiscoveryResultSchema>;
+
+/**
+ * Discovery state schema for workflow checkpointing
+ * SA-014: Validates persisted workflow state on resume
+ */
+export const DiscoveryWorkflowStateSchema = z.object({
+  region: z.string().regex(/^[A-Z]{2}-[A-Z]{2,3}$/, 'Region must be ISO format (e.g., US-MT)'),
+  phase: z.enum([
+    'initializing',
+    'loading_places',
+    'classifying_governance',
+    'searching_sources',
+    'validating_urls',
+    'writing_registry',
+    'complete',
+    'failed',
+  ]),
+  currentPlaceIndex: z.number().int().min(0),
+  places: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    state: z.string(),
+    countryCode: z.string(),
+    population: z.number().int().min(0),
+    placeType: z.string(),
+  })),
+  classifications: z.array(z.object({
+    placeId: z.string(),
+    placeName: z.string(),
+    governanceType: z.enum(['ward', 'district', 'commission', 'at-large', 'unknown']),
+    expectedDistricts: z.number().int().min(0),
+    confidence: z.enum(['verified', 'inferred', 'needs-research']),
+    source: z.string(),
+    reasoning: z.string(),
+  })),
+  candidateUrls: z.array(z.object({
+    placeId: z.string(),
+    url: z.string().url(),
+    source: z.enum(['arcgis', 'socrata', 'ckan', 'state-gis', 'county-gis', 'city-gis']),
+    layerName: z.string(),
+    confidence: z.number().min(0).max(1),
+    discoveredAt: z.number(),
+  })),
+  validatedBoundaries: z.array(z.object({
+    placeId: z.string(),
+    placeName: z.string(),
+    url: z.string().url(),
+    format: z.enum(['geojson', 'shapefile', 'feature-service']),
+    featureCount: z.number().int().min(0),
+    geometryType: z.enum(['polygon', 'multipolygon', 'unknown']),
+    validatedAt: z.number(),
+    responseTimeMs: z.number().min(0),
+  })),
+  errors: z.array(z.object({
+    placeId: z.string(),
+    phase: z.enum([
+      'initializing',
+      'loading_places',
+      'classifying_governance',
+      'searching_sources',
+      'validating_urls',
+      'writing_registry',
+      'complete',
+      'failed',
+    ]),
+    error: z.string(),
+    timestamp: z.number(),
+    retryCount: z.number().int().min(0),
+  })),
+  retryQueue: z.array(z.string()),
+  startedAt: z.number(),
+  lastCheckpoint: z.number(),
+  apiCallCount: z.number().int().min(0),
+  estimatedCost: z.number().min(0),
+  summary: z.object({
+    region: z.string(),
+    totalPlaces: z.number().int().min(0),
+    wardBasedPlaces: z.number().int().min(0),
+    atLargePlaces: z.number().int().min(0),
+    boundariesFound: z.number().int().min(0),
+    boundariesMissing: z.number().int().min(0),
+    coveragePercent: z.number().min(0).max(100),
+    totalApiCalls: z.number().int().min(0),
+    totalCost: z.number().min(0),
+    durationMs: z.number().min(0),
+  }).optional(),
+});
+
+export type ValidatedDiscoveryWorkflowState = z.infer<typeof DiscoveryWorkflowStateSchema>;
+
+/**
+ * TIGER ingestion checkpoint schema
+ * SA-014: Validates checkpoint state for resumable batch operations
+ */
+export const CheckpointStateSchema = z.object({
+  id: z.string().uuid(),
+  startedAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  completedStates: z.array(z.string().regex(/^\d{2}$/, 'State FIPS must be 2 digits')),
+  failedStates: z.array(z.string().regex(/^\d{2}$/, 'State FIPS must be 2 digits')),
+  pendingStates: z.array(z.string().regex(/^\d{2}$/, 'State FIPS must be 2 digits')),
+  options: z.object({
+    states: z.array(z.string()),
+    layers: z.array(z.string()),
+    year: z.number().int().min(2000).max(2100),
+    maxConcurrentStates: z.number().int().min(1).max(50).optional(),
+    circuitBreakerThreshold: z.number().int().min(1).max(100).optional(),
+    checkpointDir: z.string().optional(),
+    forceRefresh: z.boolean().optional(),
+  }),
+  circuitOpen: z.boolean(),
+  consecutiveFailures: z.number().int().min(0),
+  boundaryCount: z.number().int().min(0),
+});
+
+export type ValidatedCheckpointState = z.infer<typeof CheckpointStateSchema>;
+
+/**
+ * Checksum cache schema for change detection
+ * SA-014: Validates persisted checksum cache
+ */
+export const ChecksumCacheSchema = z.object({
+  lastChecked: z.string().datetime(),
+  sources: z.record(
+    z.string(),
+    z.object({
+      etag: z.string().nullable(),
+      lastModified: z.string().nullable(),
+      checkedAt: z.string().datetime(),
+    })
+  ),
+});
+
+export type ValidatedChecksumCache = z.infer<typeof ChecksumCacheSchema>;
+
+/**
+ * Parse and validate discovery results from JSON
+ * SA-014: Safe parsing with schema validation
+ *
+ * @param json - Raw JSON string
+ * @returns Validated discovery results array
+ * @throws ZodError if validation fails
+ */
+export function parseDiscoveryResults(json: string): ValidatedDiscoveryResult[] {
+  const parsed = JSON.parse(json) as unknown;
+  return z.array(DiscoveryResultSchema).parse(parsed);
+}
+
+/**
+ * Parse and validate discovery workflow state from JSON
+ * SA-014: Safe parsing for workflow checkpoint resume
+ *
+ * @param json - Raw JSON string
+ * @returns Validated discovery state
+ * @throws ZodError if validation fails
+ */
+export function parseDiscoveryWorkflowState(json: string): ValidatedDiscoveryWorkflowState {
+  const parsed = JSON.parse(json) as unknown;
+  return DiscoveryWorkflowStateSchema.parse(parsed);
+}
+
+/**
+ * Parse and validate checkpoint state from JSON
+ * SA-014: Safe parsing for TIGER ingestion resume
+ *
+ * @param json - Raw JSON string
+ * @returns Validated checkpoint state
+ * @throws ZodError if validation fails
+ */
+export function parseCheckpointState(json: string): ValidatedCheckpointState {
+  const parsed = JSON.parse(json) as unknown;
+  return CheckpointStateSchema.parse(parsed);
+}
+
+/**
+ * Parse and validate checksum cache from JSON
+ * SA-014: Safe parsing for change detection cache
+ *
+ * @param json - Raw JSON string
+ * @returns Validated checksum cache
+ * @throws ZodError if validation fails
+ */
+export function parseChecksumCache(json: string): ValidatedChecksumCache {
+  const parsed = JSON.parse(json) as unknown;
+  return ChecksumCacheSchema.parse(parsed);
+}
+
+/**
+ * Safe JSON parse with schema validation
+ * SA-014: Generic wrapper for validated parsing
+ *
+ * @param json - Raw JSON string
+ * @param schema - Zod schema to validate against
+ * @returns Validated data or error
+ */
+export function safeParseJSON<T>(
+  json: string,
+  schema: z.ZodType<T>
+): { success: true; data: T } | { success: false; error: string } {
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    const result = schema.safeParse(parsed);
+
+    if (!result.success) {
+      const errorMsg = result.error.errors[0]?.message ?? 'Schema validation failed';
+      return { success: false, error: errorMsg };
+    }
+
+    return { success: true, data: result.data };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return { success: false, error: 'Invalid JSON syntax' };
+    }
+    return { success: false, error: 'JSON parsing failed' };
+  }
+}
+
+// ============================================================================
+// Job State Schema Validation (SA-014)
+// ============================================================================
+
+/**
+ * Serialized completed extraction schema
+ * SA-014: Validates persisted job extraction records
+ */
+export const SerializedCompletedExtractionSchema = z.object({
+  state: z.string().regex(/^[A-Z]{2}$/, 'State must be 2-letter code'),
+  layer: z.string().min(1).max(100),
+  completedAt: z.string().datetime(),
+  boundaryCount: z.number().int().min(0),
+  validationPassed: z.boolean(),
+});
+
+export type ValidatedSerializedCompletedExtraction = z.infer<typeof SerializedCompletedExtractionSchema>;
+
+/**
+ * Serialized extraction failure schema
+ * SA-014: Validates persisted job failure records
+ */
+export const SerializedExtractionFailureSchema = z.object({
+  state: z.string().regex(/^[A-Z]{2}$/, 'State must be 2-letter code'),
+  layer: z.string().min(1).max(100),
+  failedAt: z.string().datetime(),
+  error: z.string().max(2000),
+  attemptCount: z.number().int().min(0).max(100),
+  retryable: z.boolean(),
+});
+
+export type ValidatedSerializedExtractionFailure = z.infer<typeof SerializedExtractionFailureSchema>;
+
+/**
+ * Serialized not configured task schema
+ * SA-014: Validates persisted not-configured task records
+ */
+export const SerializedNotConfiguredTaskSchema = z.object({
+  state: z.string().regex(/^[A-Z]{2}$/, 'State must be 2-letter code'),
+  layer: z.string().min(1).max(100),
+  reason: z.enum(['state_not_in_registry', 'layer_not_configured']),
+  checkedAt: z.string().datetime(),
+});
+
+export type ValidatedSerializedNotConfiguredTask = z.infer<typeof SerializedNotConfiguredTaskSchema>;
+
+/**
+ * Job scope schema
+ * SA-014: Validates job scope definition
+ */
+export const JobScopeSchema = z.object({
+  states: z.array(z.string().regex(/^[A-Z]{2}$/, 'State must be 2-letter code')),
+  layers: z.array(z.string().min(1).max(100)),
+});
+
+export type ValidatedJobScope = z.infer<typeof JobScopeSchema>;
+
+/**
+ * Job progress schema
+ * SA-014: Validates job progress tracking
+ */
+export const JobProgressSchema = z.object({
+  totalTasks: z.number().int().min(0),
+  completedTasks: z.number().int().min(0),
+  failedTasks: z.number().int().min(0),
+  currentTask: z.string().max(500).optional(),
+});
+
+export type ValidatedJobProgress = z.infer<typeof JobProgressSchema>;
+
+/**
+ * Orchestration options schema
+ * SA-014: Validates orchestration configuration
+ */
+export const OrchestrationOptionsSchema = z.object({
+  concurrency: z.number().int().min(1).max(50).optional(),
+  continueOnError: z.boolean().optional(),
+  maxRetries: z.number().int().min(0).max(10).optional(),
+  retryDelayMs: z.number().int().min(0).max(60000).optional(),
+  validateAfterExtraction: z.boolean().optional(),
+  rateLimitMs: z.number().int().min(0).max(60000).optional(),
+});
+
+export type ValidatedOrchestrationOptions = z.infer<typeof OrchestrationOptionsSchema>;
+
+/**
+ * Serialized job state schema
+ * SA-014: Validates persisted job state for safe deserialization
+ *
+ * SECURITY: Prevents malformed/malicious job state files from corrupting
+ * the job orchestration system during resume operations.
+ */
+export const SerializedJobStateSchema = z.object({
+  jobId: z.string().regex(/^job-[a-z0-9]+-[a-f0-9]+$/, 'Invalid job ID format'),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  status: z.enum(['pending', 'running', 'partial', 'completed', 'failed', 'cancelled']),
+  scope: JobScopeSchema,
+  progress: JobProgressSchema,
+  completedExtractions: z.array(SerializedCompletedExtractionSchema),
+  failures: z.array(SerializedExtractionFailureSchema),
+  notConfiguredTasks: z.array(SerializedNotConfiguredTaskSchema).optional(),
+  options: OrchestrationOptionsSchema,
+});
+
+export type ValidatedSerializedJobState = z.infer<typeof SerializedJobStateSchema>;
+
+/**
+ * Parse and validate serialized job state from JSON
+ * SA-014: Safe parsing for job state resume
+ *
+ * @param json - Raw JSON string
+ * @returns Validated serialized job state
+ * @throws ZodError if validation fails
+ */
+export function parseSerializedJobState(json: string): ValidatedSerializedJobState {
+  const parsed = JSON.parse(json) as unknown;
+  return SerializedJobStateSchema.parse(parsed);
+}
+
+// ============================================================================
+// Cache Entry Schema Validation (SA-014)
+// ============================================================================
+
+/**
+ * Cache entry schema
+ * SA-014: Validates cached data structure for safe deserialization
+ *
+ * SECURITY: Prevents cache poisoning attacks by validating cache entries
+ * before use. The data field uses z.unknown() as it can contain any cached value.
+ */
+export const CacheEntrySchema = z.object({
+  key: z.string().min(1).max(1000),
+  data: z.unknown(),
+  timestamp: z.number().int().min(0),
+  size: z.number().int().min(0),
+  ttl: z.number().int().min(0).optional(),
+});
+
+export type ValidatedCacheEntry = z.infer<typeof CacheEntrySchema>;
+
+/**
+ * Parse and validate cache entry from JSON
+ * SA-014: Safe parsing for cache retrieval
+ *
+ * @param json - Raw JSON string
+ * @returns Validated cache entry
+ * @throws ZodError if validation fails
+ */
+export function parseCacheEntry(json: string): ValidatedCacheEntry {
+  const parsed = JSON.parse(json) as unknown;
+  return CacheEntrySchema.parse(parsed);
+}
+
+// ============================================================================
+// Security Event Schema Validation (SA-014)
+// ============================================================================
+
+/**
+ * Security event severity levels
+ */
+export const SecurityEventSeveritySchema = z.enum(['critical', 'high', 'medium', 'low', 'info']);
+
+/**
+ * Security event category
+ */
+export const SecurityEventCategorySchema = z.enum([
+  'authentication',
+  'authorization',
+  'validation',
+  'rate_limit',
+  'integrity',
+  'data_access',
+  'configuration',
+  'system',
+]);
+
+/**
+ * Security event client schema
+ */
+export const SecurityEventClientSchema = z.object({
+  ip: z.string().max(100),
+  apiKeyHash: z.string().max(128).optional(),
+  userAgent: z.string().max(500).optional(),
+});
+
+/**
+ * Security event request schema
+ */
+export const SecurityEventRequestSchema = z.object({
+  method: z.string().max(20),
+  path: z.string().max(2000),
+  query: z.record(z.string()).optional(),
+  headers: z.record(z.string()).optional(),
+});
+
+/**
+ * Security event schema
+ * SA-014: Validates security audit log entries for safe parsing
+ *
+ * SECURITY: Ensures audit log integrity verification works correctly
+ * by validating event structure before hash chain verification.
+ */
+export const SecurityEventSchema = z.object({
+  id: z.string().uuid(),
+  timestamp: z.string().datetime(),
+  severity: SecurityEventSeveritySchema,
+  category: SecurityEventCategorySchema,
+  eventType: z.string().min(1).max(100),
+  client: SecurityEventClientSchema,
+  request: SecurityEventRequestSchema,
+  data: z.record(z.unknown()),
+  success: z.boolean(),
+  error: z.string().max(2000).optional(),
+  correlationId: z.string().max(100).optional(),
+  previousHash: z.string().regex(/^[a-f0-9]{64}$/, 'Previous hash must be SHA-256 hex').optional(),
+  eventHash: z.string().regex(/^[a-f0-9]{64}$/, 'Event hash must be SHA-256 hex').optional(),
+});
+
+export type ValidatedSecurityEvent = z.infer<typeof SecurityEventSchema>;
+
+/**
+ * Parse and validate security event from JSON
+ * SA-014: Safe parsing for audit log verification
+ *
+ * @param json - Raw JSON string
+ * @returns Validated security event
+ * @throws ZodError if validation fails
+ */
+export function parseSecurityEvent(json: string): ValidatedSecurityEvent {
+  const parsed = JSON.parse(json) as unknown;
+  return SecurityEventSchema.parse(parsed);
 }

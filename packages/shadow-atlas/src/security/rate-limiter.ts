@@ -237,13 +237,37 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
   /**
    * Consume tokens if available (UnifiedRateLimiter interface)
    *
+   * IMPORTANT: This method actually consumes tokens, unlike check() which is non-consuming.
+   * Use check() for read-only rate limit checks, use consume() when processing a request.
+   *
    * @param clientId - Client identifier
    * @param cost - Number of tokens to consume
    * @returns true if tokens consumed, false if rate limited
    */
   consume(clientId: string, cost = 1): boolean {
+    // First check without consuming
     const result = this.check(clientId, cost);
-    return result.allowed;
+    if (!result.allowed) {
+      return false;
+    }
+
+    // Actually consume from both buckets
+    const client: ClientIdentifier = { ip: clientId };
+    const ipBucket = this.getOrCreateIPBucket(client.ip);
+
+    // Consume from global bucket
+    if (!this.globalBucket.consume(cost)) {
+      return false; // Race condition - another request got there first
+    }
+
+    // Consume from IP bucket
+    if (!ipBucket.consume(cost)) {
+      // Unlikely race, but handle gracefully
+      // Note: global tokens already consumed, this is acceptable
+      return false;
+    }
+
+    return true;
   }
 
   /**

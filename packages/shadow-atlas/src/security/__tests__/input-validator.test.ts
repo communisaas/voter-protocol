@@ -6,6 +6,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
+import { z } from 'zod';
 import {
   validateCoordinates,
   validateStateCode,
@@ -18,6 +19,12 @@ import {
   validateContentType,
   validateResponseSize,
   sanitizeErrorMessage,
+  // SA-014: Discovery schema validation
+  parseDiscoveryResults,
+  parseCheckpointState,
+  parseChecksumCache,
+  safeParseJSON,
+  DiscoveryResultSchema,
 } from '../input-validator.js';
 
 describe('Input Validator - Coordinate Validation', () => {
@@ -457,5 +464,229 @@ describe('Input Validator - Error Sanitization', () => {
     const sanitized = sanitizeErrorMessage(zodError);
     expect(sanitized).toContain('Invalid input');
     expect(sanitized).not.toContain('Another error');
+  });
+});
+
+// ============================================================================
+// SA-014: Discovery Schema Validation Tests
+// ============================================================================
+
+describe('Input Validator - Discovery Result Schema (SA-014)', () => {
+
+  test('accepts valid discovery result', () => {
+    const validResult = JSON.stringify([{
+      geoid: '0644000',
+      cityName: 'Los Angeles',
+      state: 'California',
+      population: 3900000,
+      status: 'found',
+      districtCount: 15,
+      downloadUrl: 'https://example.com/data.geojson',
+      portalType: 'arcgis-hub',
+      confidence: 95,
+      discoveredAt: '2025-01-15T10:00:00Z',
+      errorMessage: null,
+    }]);
+
+    const results = parseDiscoveryResults(validResult);
+    expect(results).toHaveLength(1);
+    expect(results[0].geoid).toBe('0644000');
+    expect(results[0].status).toBe('found');
+  });
+
+  test('rejects invalid geoid format', () => {
+    const invalidGeoid = JSON.stringify([{
+      geoid: 'abc', // Invalid - must be numeric
+      cityName: 'Test City',
+      state: 'Test State',
+      population: 100000,
+      status: 'found',
+      districtCount: null,
+      downloadUrl: null,
+      portalType: null,
+      confidence: 0,
+      discoveredAt: null,
+      errorMessage: null,
+    }]);
+
+    expect(() => parseDiscoveryResults(invalidGeoid)).toThrow();
+  });
+
+  test('rejects invalid status value', () => {
+    const invalidStatus = JSON.stringify([{
+      geoid: '1234567',
+      cityName: 'Test City',
+      state: 'Test State',
+      population: 100000,
+      status: 'invalid_status', // Invalid enum value
+      districtCount: null,
+      downloadUrl: null,
+      portalType: null,
+      confidence: 0,
+      discoveredAt: null,
+      errorMessage: null,
+    }]);
+
+    expect(() => parseDiscoveryResults(invalidStatus)).toThrow();
+  });
+
+  test('rejects confidence out of range', () => {
+    const outOfRange = JSON.stringify([{
+      geoid: '1234567',
+      cityName: 'Test City',
+      state: 'Test State',
+      population: 100000,
+      status: 'found',
+      districtCount: null,
+      downloadUrl: null,
+      portalType: null,
+      confidence: 150, // Invalid - must be 0-100
+      discoveredAt: null,
+      errorMessage: null,
+    }]);
+
+    expect(() => parseDiscoveryResults(outOfRange)).toThrow();
+  });
+
+  test('rejects invalid JSON syntax', () => {
+    const malformedJson = '{ invalid json }';
+    expect(() => parseDiscoveryResults(malformedJson)).toThrow();
+  });
+});
+
+describe('Input Validator - Checkpoint State Schema (SA-014)', () => {
+
+  test('accepts valid checkpoint state', () => {
+    const validCheckpoint = JSON.stringify({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      startedAt: '2025-01-15T10:00:00Z',
+      updatedAt: '2025-01-15T11:00:00Z',
+      completedStates: ['01', '06'],
+      failedStates: ['36'],
+      pendingStates: ['48'],
+      options: {
+        states: ['01', '06', '36', '48'],
+        layers: ['cd', 'sldu'],
+        year: 2024,
+      },
+      circuitOpen: false,
+      consecutiveFailures: 0,
+      boundaryCount: 1000,
+    });
+
+    const checkpoint = parseCheckpointState(validCheckpoint);
+    expect(checkpoint.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(checkpoint.completedStates).toHaveLength(2);
+  });
+
+  test('rejects invalid state FIPS codes', () => {
+    const invalidFips = JSON.stringify({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      startedAt: '2025-01-15T10:00:00Z',
+      updatedAt: '2025-01-15T11:00:00Z',
+      completedStates: ['ABC'], // Invalid - must be 2 digits
+      failedStates: [],
+      pendingStates: [],
+      options: {
+        states: [],
+        layers: [],
+        year: 2024,
+      },
+      circuitOpen: false,
+      consecutiveFailures: 0,
+      boundaryCount: 0,
+    });
+
+    expect(() => parseCheckpointState(invalidFips)).toThrow();
+  });
+
+  test('rejects invalid UUID', () => {
+    const invalidUuid = JSON.stringify({
+      id: 'not-a-uuid',
+      startedAt: '2025-01-15T10:00:00Z',
+      updatedAt: '2025-01-15T11:00:00Z',
+      completedStates: [],
+      failedStates: [],
+      pendingStates: [],
+      options: {
+        states: [],
+        layers: [],
+        year: 2024,
+      },
+      circuitOpen: false,
+      consecutiveFailures: 0,
+      boundaryCount: 0,
+    });
+
+    expect(() => parseCheckpointState(invalidUuid)).toThrow();
+  });
+});
+
+describe('Input Validator - Checksum Cache Schema (SA-014)', () => {
+
+  test('accepts valid checksum cache', () => {
+    const validCache = JSON.stringify({
+      lastChecked: '2025-01-15T10:00:00Z',
+      sources: {
+        'cd-01-2024': {
+          etag: '"abc123"',
+          lastModified: 'Tue, 15 Jan 2025 10:00:00 GMT',
+          checkedAt: '2025-01-15T10:00:00Z',
+        },
+      },
+    });
+
+    const cache = parseChecksumCache(validCache);
+    expect(cache.lastChecked).toBe('2025-01-15T10:00:00Z');
+    expect(cache.sources['cd-01-2024'].etag).toBe('"abc123"');
+  });
+
+  test('accepts null etag and lastModified', () => {
+    const cacheWithNulls = JSON.stringify({
+      lastChecked: '2025-01-15T10:00:00Z',
+      sources: {
+        'cd-01-2024': {
+          etag: null,
+          lastModified: null,
+          checkedAt: '2025-01-15T10:00:00Z',
+        },
+      },
+    });
+
+    const cache = parseChecksumCache(cacheWithNulls);
+    expect(cache.sources['cd-01-2024'].etag).toBeNull();
+  });
+});
+
+describe('Input Validator - Safe JSON Parse (SA-014)', () => {
+
+  test('returns success for valid JSON and schema', () => {
+    const schema = z.object({ name: z.string() });
+    const result = safeParseJSON('{"name":"test"}', schema);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe('test');
+    }
+  });
+
+  test('returns error for invalid JSON syntax', () => {
+    const schema = z.object({ name: z.string() });
+    const result = safeParseJSON('{ invalid }', schema);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe('Invalid JSON syntax');
+    }
+  });
+
+  test('returns error for schema validation failure', () => {
+    const schema = z.object({ name: z.string().min(5) });
+    const result = safeParseJSON('{"name":"ab"}', schema);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain('5');  // References min length
+    }
   });
 });

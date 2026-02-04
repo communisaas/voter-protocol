@@ -14,6 +14,7 @@ import { createHash } from 'crypto';
 import { writeFile, appendFile, mkdir, readdir, stat, unlink, readFile } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '../core/utils/logger.js';
+import { parseSecurityEvent } from './input-validator.js';
 
 // ============================================================================
 // Types
@@ -645,8 +646,10 @@ export async function queryAuditLogs(filters: LogFilter): Promise<readonly Secur
         const lines = content.split('\n').filter((line) => line.trim().length > 0);
 
         for (const line of lines) {
+          // SA-014: Validate security event against schema
           try {
-            const event = JSON.parse(line) as SecurityEvent;
+            // parseSecurityEvent throws if validation fails, so cast is safe
+            const event = parseSecurityEvent(line) as unknown as SecurityEvent;
 
             // Apply filters
             if (!matchesFilters(event, filters)) {
@@ -655,8 +658,8 @@ export async function queryAuditLogs(filters: LogFilter): Promise<readonly Secur
 
             events.push(event);
           } catch (parseError) {
-            // Skip malformed log entries (log corruption)
-            logger.error('Failed to parse audit log entry', {
+            // Skip malformed log entries (log corruption or validation failure)
+            logger.error('Failed to parse/validate audit log entry', {
               operation: 'query_audit_logs',
               logFile,
               error: parseError instanceof Error ? parseError.message : String(parseError),
@@ -711,8 +714,10 @@ export async function verifyAuditLogIntegrity(logFilePath: string): Promise<Hash
     let entriesChecked = 0;
 
     for (let i = 0; i < lines.length; i++) {
+      // SA-014: Validate security event against schema before verification
       try {
-        const event = JSON.parse(lines[i] ?? '') as SecurityEvent;
+        // parseSecurityEvent throws if validation fails, so cast is safe
+        const event = parseSecurityEvent(lines[i] ?? '') as unknown as SecurityEvent;
         entriesChecked++;
 
         // Verify hash chain link

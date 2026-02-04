@@ -166,7 +166,7 @@ export class ShadowAtlasAPI {
     syncService: SyncService,
     port = 3000,
     host = '0.0.0.0',
-    corsOrigins: readonly string[] = ['*'],
+    corsOrigins: readonly string[] = [],
     rateLimitPerMinute = 60,
     apiVersion: APIVersion = {
       version: 'v1',
@@ -182,6 +182,14 @@ export class ShadowAtlasAPI {
     this.host = host;
     this.corsOrigins = corsOrigins;
     this.apiVersion = apiVersion;
+
+    // SA-016: Reject wildcard CORS in production
+    if (process.env.NODE_ENV === 'production' && this.corsOrigins.includes('*')) {
+      throw new Error(
+        'SA-016: CORS wildcard (*) not allowed in production. ' +
+        'Set CORS_ORIGINS to specific allowed origins.'
+      );
+    }
 
     this.server = createServer((req, res) => this.handleRequest(req, res));
   }
@@ -600,12 +608,14 @@ export class ShadowAtlasAPI {
    * Set comprehensive security headers
    */
   private setSecurityHeaders(res: ServerResponse, requestId: string): void {
-    // CORS headers
-    const origin = this.corsOrigins.includes('*') ? '*' : this.corsOrigins[0];
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
+    // CORS headers - only set if origins are configured
+    if (this.corsOrigins.length > 0) {
+      const origin = this.corsOrigins.includes('*') ? '*' : this.corsOrigins[0];
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
+    }
 
     // Security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
