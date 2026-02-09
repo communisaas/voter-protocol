@@ -1,5 +1,7 @@
 # Shadow Atlas API Implementation Guide
 
+> **ARCHIVED — REJECTED DESIGN**: This guide describes a PostgreSQL + PostGIS + Redis + Prometheus architecture that was evaluated but never implemented. shadow-atlas uses SQLite + better-sqlite3 with a simple Node.js HTTP server. See README.md in this directory for context.
+
 **Audience:** Backend engineers implementing the REST API
 
 This guide provides implementation patterns for the production API server.

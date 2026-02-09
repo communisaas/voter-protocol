@@ -1,3 +1,14 @@
+> [!NOTE]
+> **HISTORICAL AUDIT — Findings tracked in IMPLEMENTATION-GAP-ANALYSIS.md Rev 8**
+>
+> This adversarial ZK review was conducted 2026-02-01. Key findings:
+> - HIGH-001 (root validity) → Fixed as SA-004
+> - MEDIUM-001 (predictable test secrets) → Code quality, not security vulnerability
+>
+> All security findings are tracked in the master security document.
+
+---
+
 # Adversarial ZK Security Review
 
 **Date:** 2026-02-01

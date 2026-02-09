@@ -1,17 +1,17 @@
 # Remediation Wave Plan: Expert Agent Orchestration
 
 > **Created:** 2026-02-01
-> **Updated:** 2026-02-04
-> **Status:** WAVES 1-4 COMPLETE, WAVE 5-6 PARTIAL, ROUND 3 TRIAGED (10 new)
+> **Updated:** 2026-02-05
+> **Status:** WAVES 1-4 COMPLETE, WAVE 5-6 PARTIAL, ROUND 3 ALL RESOLVED (10/10 verified)
 > **Objective:** Systematic remediation of findings via sequential sonnet expert waves with inter-wave engineering review
 
-> 📘 **Methodology Reference:** For the general-purpose multi-agent wave orchestration methodology underlying this plan, see [AGENTIC-WAVE-METHODOLOGY.md](./AGENTIC-WAVE-METHODOLOGY.md). This document applies that methodology to the specific voter-protocol remediation effort.
+> 📘 **Methodology Reference:** For the general-purpose multi-agent wave orchestration methodology underlying this plan, see [AGENTIC-WAVE-METHODOLOGY.md](../docs/methodology/AGENTIC-WAVE-METHODOLOGY.md). This document applies that methodology to the specific voter-protocol remediation effort.
 
 ---
 
 ## Executive Summary
 
-Following two rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2) plus original CVE remediation, **20 open issues** remain. This plan orchestrates sequential waves of sonnet expert agents to close these gaps with engineering distinction.
+Following three rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2, 10/10 Round 3) plus original CVE remediation. **All Round 3 findings resolved** (2026-02-05, cross-validated against source code). **6 legacy items remain** (3 deferred/blocked, 3 P3 housekeeping). This plan orchestrated sequential waves of sonnet expert agents to close these gaps with engineering distinction.
 
 **Wave Structure:**
 - 5 implementation waves + 1 documentation wave
@@ -72,31 +72,31 @@ Following two rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2) plu
 > 15 AI critics, 5 domains. ~75 raw → 10 valid after triage (9 rejected with rationale).
 > Full details: IMPLEMENTATION-GAP-ANALYSIS.md § "Brutalist Audit Round 3"
 
-### BR3 — P0 Deployment Blocking (1)
+### BR3 — P0 Deployment Blocking (1) — RESOLVED
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
-| BR3-001 | `verifyTwoTreeProof` front-running / proof theft (no EIP-712) | contracts | NOT STARTED |
+| BR3-001 | `verifyTwoTreeProof` front-running / proof theft (no EIP-712) | contracts | COMPLETE — EIP-712 at DistrictGate.sol:565-589 |
 
-### BR3 — P1 Security Critical (2)
+### BR3 — P1 Security Critical (2) — ALL RESOLVED
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
-| BR3-002 | Single-tree prover silently substitutes public inputs | noir-prover | NOT STARTED |
-| BR3-003 | `toHex()` lacks BN254 modulus validation (field aliasing) | noir-prover | NOT STARTED |
+| BR3-002 | Single-tree prover silently substitutes public inputs | noir-prover | COMPLETE — Hard error at prover.ts:198 |
+| BR3-003 | `toHex()` lacks BN254 modulus validation (field aliasing) | noir-prover | COMPLETE — BN254_MODULUS check at two-tree-prover.ts:110 |
 
-### BR3 — P2 Important (5)
+### BR3 — P2 Important (5) — ALL RESOLVED
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
-| BR3-004 | No country consistency check between UserRoot and CellMapRoot | contracts | NOT STARTED |
-| BR3-005 | Missing zero-checks for cellId, actionDomain, salt | noir-prover | NOT STARTED |
-| BR3-006 | `validateInputs()` called after `init()` | noir-prover | NOT STARTED |
-| BR3-007 | `TimelockGovernance` transfer lacks pending-operation guard | contracts | NOT STARTED |
-| BR3-008 | `SMT.verify()` doesn't bind proof.key | crypto | NOT STARTED |
+| BR3-004 | No country consistency check between UserRoot and CellMapRoot | contracts | COMPLETE — Country match at DistrictGate.sol:608-610 |
+| BR3-005 | Missing zero-checks for cellId, actionDomain, salt | noir-prover | COMPLETE — Zero-checks at two-tree-prover.ts:193-204 |
+| BR3-006 | `validateInputs()` called after `init()` | noir-prover | COMPLETE — Reordered at two-tree-prover.ts:326 |
+| BR3-007 | `TimelockGovernance` transfer lacks pending-operation guard | contracts | COMPLETE — OperationAlreadyPending at DistrictGate.sol:380,425,488 |
+| BR3-008 | `SMT.verify()` doesn't bind proof.key | crypto | DOCUMENTED — JSDoc warning at sparse-merkle-tree.ts:501-512 |
 
-### BR3 — P3 Hardening (2)
+### BR3 — P3 Hardening (2) — ALL RESOLVED
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
-| BR3-009 | `verifierDepth` not checked against registry metadata | contracts | NOT STARTED |
-| BR3-010 | Domain tag Number literal exceeds MAX_SAFE_INTEGER | crypto | NOT STARTED |
+| BR3-009 | `verifierDepth` not checked against registry metadata | contracts | COMPLETE — Depth check at DistrictGate.sol:613 |
+| BR3-010 | Domain tag Number literal exceeds MAX_SAFE_INTEGER | crypto | COMPLETE — BigInt literal at poseidon2.ts:68 |
 
 ---
 

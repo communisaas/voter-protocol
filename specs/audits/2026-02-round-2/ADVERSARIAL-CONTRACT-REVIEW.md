@@ -1,3 +1,14 @@
+> [!NOTE]
+> **HISTORICAL AUDIT — Findings tracked in IMPLEMENTATION-GAP-ANALYSIS.md Rev 8**
+>
+> This adversarial review was conducted 2026-02-01. Key findings:
+> - HIGH-001 (root deactivation) → Fixed as SA-004
+> - MED-005 (governance timelock) → Tracked, deferred
+>
+> All findings are now tracked in the master security document.
+
+---
+
 # Adversarial Contract Security Review
 
 ## Overview

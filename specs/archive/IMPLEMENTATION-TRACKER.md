@@ -1,3 +1,11 @@
+> [!NOTE]
+> **ARCHIVED — Superseded by IMPLEMENTATION-GAP-ANALYSIS.md**
+>
+> This tracker covered only multi-depth circuit implementation (Waves 1-3, completed 2026-01-26).
+> All tracking is now consolidated in `specs/IMPLEMENTATION-GAP-ANALYSIS.md` (Rev 8, 2920 lines).
+
+---
+
 # Multi-Depth Implementation Tracker
 
 > **Version:** 1.0.0

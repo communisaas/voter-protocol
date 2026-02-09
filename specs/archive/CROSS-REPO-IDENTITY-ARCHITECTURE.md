@@ -1,3 +1,13 @@
+> [!NOTE]
+> **ARCHIVED — Pre-Two-Tree Integration Analysis (2026-01-26)**
+>
+> This gap analysis was conducted before the two-tree architecture was implemented
+> (contracts deployed 2026-02-03/04). Findings like "hash mismatch" and "35% integration
+> complete" may no longer be accurate. See `specs/TWO-TREE-ARCHITECTURE-SPEC.md` and
+> `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for current integration status.
+
+---
+
 # Cross-Repository Identity Architecture Analysis
 
 **Date:** 2026-01-26

@@ -1,3 +1,15 @@
+> [!NOTE]
+> **HISTORICAL AUDIT — Findings tracked in IMPLEMENTATION-GAP-ANALYSIS.md Rev 8**
+>
+> This integrity review was conducted 2026-02-01. Key findings:
+> - SA-008 (IPFS stubbed) → Phase 2 deferred
+> - SA-010 (rate limiter) → Tracked
+> - SA-014 (JSON validation) → Tracked
+>
+> All findings are tracked in the master security document.
+
+---
+
 # Shadow Atlas Data Integrity Security Review
 
 **Reviewer:** Data Integrity Specialist

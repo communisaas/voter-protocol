@@ -1,3 +1,12 @@
+> [!NOTE]
+> **ARCHIVED — Content consolidated into SHADOW-ATLAS-SPEC.md Section 13**
+>
+> This standalone ADR for the district-based vs cell-based data acquisition decision
+> duplicates the Architecture Decision Record in SHADOW-ATLAS-SPEC.md Section 13.
+> Retained for git history; canonical version is in the parent spec.
+
+---
+
 # Architecture Decision: Shadow Atlas v3.0
 
 **Date:** 2026-01-26
