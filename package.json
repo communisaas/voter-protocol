@@ -4,7 +4,9 @@
   "packageManager": "npm@10.8.2",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/crypto",
+    "packages/noir-prover",
+    "packages/shadow-atlas"
   ],
   "scripts": {
     "build": "turbo run build",

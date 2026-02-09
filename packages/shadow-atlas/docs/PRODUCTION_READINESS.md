@@ -3,6 +3,10 @@
 **Status**: 100% Complete (Production-Ready)
 **Last Updated**: 2026-01-26
 
+> [!NOTE]
+> IPFS distribution (SA-008) is deferred to Phase 2. `sync-service.ts` currently returns mock CIDs.
+> Production readiness applies to the core SQLite-based district registry and Merkle tree operations.
+
 ---
 
 ## Executive Summary

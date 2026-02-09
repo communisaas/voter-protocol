@@ -1,5 +1,20 @@
 # Shadow Atlas API Documentation
 
+> [!NOTE]
+> **Canonical API reference: `src/serving/api.ts`**
+>
+> Current implemented endpoints (all GET):
+> - `GET /health` — Health check
+> - `GET /v1/coverage/stats` — Coverage statistics
+> - `GET /v1/districts/lookup` — District lookup by coordinates
+> - `GET /v1/cells/:cellId` — Cell details
+> - `GET /v1/merkle/proof/:cellId` — Merkle proof for cell
+> - `GET /v1/merkle/metadata` — Tree metadata
+>
+> Any POST endpoints or authentication described below are design targets, not yet implemented.
+
+---
+
 **Free, cryptographically verifiable district lookup API for VOTER Protocol.**
 
 ## Table of Contents

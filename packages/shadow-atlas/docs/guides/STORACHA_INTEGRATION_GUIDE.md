@@ -1,3 +1,12 @@
+> [!WARNING]
+> **PHASE 2 DEFERRED (SA-008)**
+>
+> IPFS/Storacha integration is not yet implemented. `sync-service.ts` returns mock CIDs.
+> This guide describes the planned integration architecture for when SA-008 is resolved.
+> Do not follow these steps expecting a working IPFS setup.
+
+---
+
 # Storacha Integration Guide for Shadow Atlas
 
 **Research Date:** 2025-12-18

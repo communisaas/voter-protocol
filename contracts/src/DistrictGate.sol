@@ -106,6 +106,21 @@ contract DistrictGate is Pausable, TimelockGovernance {
     /// @notice Pending action domain registrations (actionDomain => executeTime)
     mapping(bytes32 => uint256) public pendingActionDomains;
 
+    /// @notice Minimum authority level required per action domain (0 = no enforcement)
+    /// @dev Wave 14d: Prevents low-authority proofs from being accepted for sensitive domains
+    mapping(bytes32 => uint8) public actionDomainMinAuthority;
+
+    /// @notice Timelock for authority level increases (24 hours)
+    /// @dev Increases are timelocked to prevent front-running user proofs.
+    ///      Decreases take effect immediately (only relaxes requirements).
+    uint256 public constant MIN_AUTHORITY_INCREASE_TIMELOCK = 24 hours;
+
+    /// @notice Pending authority level increases (actionDomain => proposed minLevel)
+    mapping(bytes32 => uint8) public pendingMinAuthority;
+
+    /// @notice Timestamp when pending authority increase can execute
+    mapping(bytes32 => uint256) public pendingMinAuthorityExecuteTime;
+
     /// @notice EIP-712 domain separator
     bytes32 public immutable DOMAIN_SEPARATOR;
 
@@ -143,6 +158,8 @@ contract DistrictGate is Pausable, TimelockGovernance {
     event ActionDomainProposed(bytes32 indexed actionDomain, uint256 executeTime);
     event ActionDomainActivated(bytes32 indexed actionDomain);
     event ActionDomainRevoked(bytes32 indexed actionDomain);
+    event ActionDomainMinAuthoritySet(bytes32 indexed actionDomain, uint8 minLevel);
+    event MinAuthorityIncreaseProposed(bytes32 indexed actionDomain, uint8 proposedLevel, uint256 executeTime);
 
     // Errors
     error VerificationFailed();
@@ -159,6 +176,7 @@ contract DistrictGate is Pausable, TimelockGovernance {
     error ActionDomainNotPending();
     error ActionDomainTimelockNotExpired();
     error OperationAlreadyPending();
+    error InsufficientAuthority(uint8 submitted, uint8 required);
 
     /// @notice Number of public inputs for two-tree proofs
     /// @dev [0] user_root, [1] cell_map_root, [2-25] districts[24],
@@ -287,6 +305,18 @@ contract DistrictGate is Pausable, TimelockGovernance {
         // SA-001 FIX: Validate actionDomain is on the governance-controlled whitelist
         // This prevents users from generating fresh nullifiers by choosing arbitrary actionDomains
         if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        // Wave 14d: Enforce minimum authority level per action domain
+        // Wave 14R: Bounds-check before uint8 cast to prevent truncation
+        {
+            uint256 authorityRaw = uint256(authorityLevel);
+            require(authorityRaw >= 1 && authorityRaw <= 5, "Authority level out of range");
+            uint8 submittedAuthority = uint8(authorityRaw);
+            uint8 requiredAuthority = actionDomainMinAuthority[actionDomain];
+            if (requiredAuthority > 0 && submittedAuthority < requiredAuthority) {
+                revert InsufficientAuthority(submittedAuthority, requiredAuthority);
+            }
+        }
 
         // Step 2: Get depth-specific verifier
         address verifier = verifierRegistry.getVerifier(depth);
@@ -459,6 +489,53 @@ contract DistrictGate is Pausable, TimelockGovernance {
         emit ActionDomainRevoked(actionDomain);
     }
 
+    /// @notice Set minimum authority level for an action domain
+    /// @param actionDomain Registered action domain
+    /// @param minLevel Minimum authority level (0 = no enforcement, 1-5 = minimum required)
+    /// @dev Wave 14R: Increases are timelocked (24h) to prevent front-running user proofs.
+    ///      Decreases (including setting to 0) take effect immediately since they only relax requirements.
+    function setActionDomainMinAuthority(bytes32 actionDomain, uint8 minLevel) external onlyGovernance {
+        require(allowedActionDomains[actionDomain], "Domain not registered");
+        require(minLevel <= 5, "Invalid authority level");
+
+        uint8 currentLevel = actionDomainMinAuthority[actionDomain];
+
+        if (minLevel <= currentLevel) {
+            // Decrease or no change: immediate effect (only relaxes requirements)
+            actionDomainMinAuthority[actionDomain] = minLevel;
+            emit ActionDomainMinAuthoritySet(actionDomain, minLevel);
+        } else {
+            // Increase: requires 24h timelock to prevent front-running
+            pendingMinAuthority[actionDomain] = minLevel;
+            pendingMinAuthorityExecuteTime[actionDomain] = block.timestamp + MIN_AUTHORITY_INCREASE_TIMELOCK;
+            emit MinAuthorityIncreaseProposed(actionDomain, minLevel, pendingMinAuthorityExecuteTime[actionDomain]);
+        }
+    }
+
+    /// @notice Execute a pending authority level increase after timelock
+    /// @param actionDomain Action domain with pending increase
+    function executeMinAuthorityIncrease(bytes32 actionDomain) external {
+        uint256 executeTime = pendingMinAuthorityExecuteTime[actionDomain];
+        require(executeTime != 0, "No pending increase");
+        require(block.timestamp >= executeTime, "Timelock not expired");
+
+        uint8 newLevel = pendingMinAuthority[actionDomain];
+        actionDomainMinAuthority[actionDomain] = newLevel;
+
+        delete pendingMinAuthority[actionDomain];
+        delete pendingMinAuthorityExecuteTime[actionDomain];
+
+        emit ActionDomainMinAuthoritySet(actionDomain, newLevel);
+    }
+
+    /// @notice Cancel a pending authority level increase
+    /// @param actionDomain Action domain with pending increase
+    function cancelMinAuthorityIncrease(bytes32 actionDomain) external onlyGovernance {
+        require(pendingMinAuthorityExecuteTime[actionDomain] != 0, "No pending increase");
+        delete pendingMinAuthority[actionDomain];
+        delete pendingMinAuthorityExecuteTime[actionDomain];
+    }
+
     // ============================================================================
     // Two-Tree Registry Configuration
     // ============================================================================
@@ -614,6 +691,18 @@ contract DistrictGate is Pausable, TimelockGovernance {
 
         // Step 3: Validate action_domain via whitelist (SA-001)
         if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        // Wave 14d: Enforce minimum authority level per action domain
+        // Wave 14R: Bounds-check before uint8 cast to prevent truncation
+        {
+            uint256 authorityRaw = publicInputs[28];
+            require(authorityRaw >= 1 && authorityRaw <= 5, "Authority level out of range");
+            uint8 submittedAuthority = uint8(authorityRaw);
+            uint8 requiredAuthority = actionDomainMinAuthority[actionDomain];
+            if (requiredAuthority > 0 && submittedAuthority < requiredAuthority) {
+                revert InsufficientAuthority(submittedAuthority, requiredAuthority);
+            }
+        }
 
         // Step 4: Get depth-specific verifier and verify proof
         address verifier = verifierRegistry.getVerifier(verifierDepth);

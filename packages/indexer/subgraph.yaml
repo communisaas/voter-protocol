@@ -1,0 +1,96 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: DistrictGate
+    network: scroll-sepolia
+    source:
+      address: "0x6eD37CC3D42c788d09657Af3D81e35A69e295930"
+      abi: DistrictGate
+      startBlock: 0 # Set to deployment block
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Action
+        - ActionDomain
+        - GovernanceEvent
+      abis:
+        - name: DistrictGate
+          file: ../../contracts/out/DistrictGate.sol/DistrictGate.json
+      eventHandlers:
+        - event: ActionVerified(indexed address,indexed address,indexed bytes32,bytes3,uint8,bytes32,bytes32,bytes32,bytes32)
+          handler: handleActionVerified
+        - event: TwoTreeProofVerified(indexed address,indexed address,indexed bytes32,bytes32,bytes32,bytes32,bytes32,uint8)
+          handler: handleTwoTreeProofVerified
+        - event: ActionDomainProposed(indexed bytes32,uint256)
+          handler: handleActionDomainProposed
+        - event: ActionDomainActivated(indexed bytes32)
+          handler: handleActionDomainActivated
+        - event: ActionDomainRevoked(indexed bytes32)
+          handler: handleActionDomainRevoked
+        - event: ActionDomainMinAuthoritySet(indexed bytes32,uint8)
+          handler: handleActionDomainMinAuthoritySet
+        - event: MinAuthorityIncreaseProposed(indexed bytes32,uint8,uint256)
+          handler: handleMinAuthorityIncreaseProposed
+        - event: CampaignRegistryChangeProposed(indexed address,uint256)
+          handler: handleCampaignRegistryChangeProposed
+        - event: TwoTreeRegistriesProposed(address,address,uint256)
+          handler: handleTwoTreeRegistriesProposed
+      file: ./src/mappings/district-gate.ts
+
+  - kind: ethereum
+    name: CampaignRegistry
+    network: scroll-sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Set after deployment
+      abi: CampaignRegistry
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Campaign
+        - Participation
+      abis:
+        - name: CampaignRegistry
+          file: ../../contracts/out/CampaignRegistry.sol/CampaignRegistry.json
+      eventHandlers:
+        - event: CampaignCreated(indexed bytes32,indexed address,indexed bytes3,bytes32,uint256)
+          handler: handleCampaignCreated
+        - event: CampaignStatusChanged(indexed bytes32,uint8,uint8)
+          handler: handleCampaignStatusChanged
+        - event: ParticipantRecorded(indexed bytes32,indexed bytes32,indexed bytes32,bool)
+          handler: handleParticipantRecorded
+        - event: CampaignFlagged(indexed bytes32,string)
+          handler: handleCampaignFlagged
+      file: ./src/mappings/campaign-registry.ts
+
+  - kind: ethereum
+    name: NullifierRegistry
+    network: scroll-sepolia
+    source:
+      address: "0x0000000000000000000000000000000000000000" # Set after deployment
+      abi: NullifierRegistry
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - NullifierAction
+        - NullifierSubmission
+      abis:
+        - name: NullifierRegistry
+          file: ../../contracts/out/NullifierRegistry.sol/NullifierRegistry.json
+      eventHandlers:
+        - event: ActionCreated(indexed bytes32,uint256)
+          handler: handleActionCreated
+        - event: ActionSubmitted(indexed bytes32,indexed bytes32,bytes32,uint256)
+          handler: handleActionSubmitted
+      file: ./src/mappings/nullifier-registry.ts

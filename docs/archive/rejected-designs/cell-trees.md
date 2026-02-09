@@ -2381,10 +2381,10 @@ export class NoirProver {
 
 **On-Chain Verifier Registry:**
 
-Each depth has its own verifier contract. The `DistrictGateV2` contract routes verification based on depth stored in `DistrictRegistry`:
+Each depth has its own verifier contract. The `DistrictGate` contract routes verification based on depth stored in `DistrictRegistry`:
 
 ```solidity
-contract DistrictGateV2 {
+contract DistrictGate {
     VerifierRegistry public verifierRegistry;
     DistrictRegistry public districtRegistry;
 

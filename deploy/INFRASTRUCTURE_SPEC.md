@@ -1,5 +1,14 @@
 # Shadow Atlas Infrastructure Specification
 
+> [!IMPORTANT]
+> **PLANNED ARCHITECTURE — Not Current Infrastructure**
+>
+> This document describes a planned Phase 2 edge deployment architecture using Cloudflare Workers,
+> R2, and Storacha. Current infrastructure uses Kubernetes + Docker with SQLite.
+> See `DEPLOYMENT_GUIDE.md` for the active deployment configuration.
+
+---
+
 **Version**: 1.0
 **Status**: Production-Ready IaC
 **Last Updated**: 2025-12-18

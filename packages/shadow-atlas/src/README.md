@@ -8,12 +8,12 @@ Resolves addresses to the finest-grain political boundary available (city counci
 
 ## Current Status
 
-**100% Accuracy**: 149/149 validation tests passing against Census TIGER ground truth.
+**100% Accuracy**: All validation tests passing against Census TIGER ground truth.
 
 | Component | Coverage | Status |
 |-----------|----------|--------|
 | **US States** | 50/50 | ✅ Complete |
-| **TIGER Validation** | 149/149 tests | ✅ 100% accurate |
+| **TIGER Validation** | All tests | ✅ 100% accurate |
 | **Discovery** | 4,163 districts from 31,316 layers | ✅ Phase 1 complete |
 | **Merkle Tree** | Poseidon WASM bindings | ✅ Production-ready |
 

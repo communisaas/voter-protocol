@@ -46,6 +46,28 @@ VOTER Protocol smart contracts settle on Scroll zkEVM (Ethereum L2), providing c
 
 ---
 
+## Two-Tree Architecture Extensions
+
+The original single-tree contract architecture has been extended with a two-tree design that
+separates identity concerns from geospatial mapping:
+
+### New Contracts (Two-Tree)
+
+| Contract | Purpose |
+|----------|---------|
+| `UserRootRegistry` | Manages per-user Merkle roots for identity commitments (Tree 1) |
+| `CellMapRegistry` | Manages cell-to-district mapping commitments via Sparse Merkle Tree (Tree 2) |
+
+### Architectural Changes
+- **Tree 1 (User Identity):** Standard Merkle tree. Leaf = H3(user_secret, cell_id, salt)
+- **Tree 2 (Cell Map):** Sparse Merkle Tree. Leaf = H2(cell_id, sponge_24(districts))
+- **DistrictGate** now supports `verifyTwoTreeProof()` with EIP-712 signature binding (BR3-001)
+- **Public inputs** expanded from 5 (single-tree) to accommodate both tree roots
+
+See `specs/TWO-TREE-ARCHITECTURE-SPEC.md` for the full specification.
+
+---
+
 ## Settlement Layer: Scroll zkEVM
 
 ### Why Scroll?

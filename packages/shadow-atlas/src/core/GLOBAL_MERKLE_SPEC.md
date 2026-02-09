@@ -1,5 +1,14 @@
 # Global Hierarchical Merkle Tree Specification
 
+> [!NOTE]
+> **Current scope: United States only**
+>
+> While this specification describes global scalability requirements (190+ countries),
+> the current implementation supports US census geographies exclusively.
+> International expansion is planned but not yet implemented.
+
+---
+
 **Architecture**: Multi-tier hierarchical Merkle tree for 190+ countries with O(log n) proof complexity
 **Cryptographic Hash**: Poseidon2 (ZK-compatible via Noir stdlib and @aztec/bb.js)
 **Goal**: Efficient global-scale district membership proofs with minimal proof size

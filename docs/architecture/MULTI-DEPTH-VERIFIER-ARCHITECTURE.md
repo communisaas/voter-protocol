@@ -97,7 +97,7 @@ Existing circuit uses **depth 12** (4,096 addresses) optimized for US congressio
 
 ```mermaid
 graph TB
-    User[User submits proof] --> DistrictGate[DistrictGateV2]
+    User[User submits proof] --> DistrictGate[DistrictGate]
     DistrictGate -->|1. Lookup depth| DistrictRegistry[DistrictRegistry]
     DistrictRegistry -->|depth=20| DistrictGate
     DistrictGate -->|2. Get verifier| VerifierRegistry[VerifierRegistry]
@@ -219,7 +219,7 @@ fn main(
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│         DistrictGateV2 (orchestrator)                   │
+│         DistrictGate (orchestrator)                   │
 │  - EIP-712 signature verification                       │
 │  - Depth lookup via DistrictRegistry                    │
 │  - Verifier routing via VerifierRegistry                │
@@ -315,7 +315,7 @@ function getCountryAndDepth(bytes32 districtRoot)
     external view returns (bytes3 country, uint8 depth);
 ```
 
-#### 3. DistrictGateV2.sol (Multi-Depth Router)
+#### 3. DistrictGate.sol (Multi-Depth Router)
 
 **Purpose**: Orchestrates verification with depth-aware routing
 
@@ -475,8 +475,8 @@ await verifierRegistry.registerVerifier(20, verifier20.address);
 await verifierRegistry.registerVerifier(22, verifier22.address);
 await verifierRegistry.registerVerifier(24, verifier24.address);
 
-// 4. Deploy DistrictGateV2
-const districtGate = await deploy("DistrictGateV2", [
+// 4. Deploy DistrictGate
+const districtGate = await deploy("DistrictGate", [
     verifierRegistry.address,
     districtRegistry.address,
     nullifierRegistry.address,
@@ -536,7 +536,7 @@ await districtRegistry.registerDistrict(
 
 **Existing contracts continue to work**:
 - `DistrictGate` (original, depth-12 only) remains deployed
-- `DistrictGateV2` routes to depth-appropriate verifiers
+- `DistrictGate` routes to depth-appropriate verifiers
 - Old proofs (depth 12) can be verified via legacy verifier
 - Gradual migration: new districts use new depths
 
@@ -731,7 +731,7 @@ done
 ### Implementation Roadmap
 
 **Month 1**: Circuit compilation (all depths), verifier generation
-**Month 2**: Deploy `VerifierRegistry`, `DistrictRegistry`, `DistrictGateV2`
+**Month 2**: Deploy `VerifierRegistry`, `DistrictRegistry`, `DistrictGate`
 **Month 3**: Register initial districts (USA depth 20, UK/Singapore depth 18)
 **Month 4**: Client integration, Shadow Atlas updates, end-to-end testing
 **Month 5**: Mainnet deployment, gradual rollout

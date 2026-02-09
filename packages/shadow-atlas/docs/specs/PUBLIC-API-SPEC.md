@@ -1,3 +1,15 @@
+> [!IMPORTANT]
+> **DESIGN TARGET — Partial Implementation**
+>
+> This specification describes the target API architecture. Current implementation status:
+> - **Implemented:** 6 GET endpoints on Node.js HTTP server (`src/serving/api.ts`)
+> - **Not implemented:** POST endpoints, API key registration, Cloudflare Workers deployment
+> - **Not implemented:** Authentication/authorization layer
+>
+> See `src/serving/api.ts` for the current working API surface.
+
+---
+
 # Shadow Atlas Public API Architecture Specification
 
 **Version**: 1.0

@@ -1,5 +1,13 @@
 # Shadow Atlas Deployment Guide
 
+> [!NOTE]
+> **Current deployment method: Kubernetes + Docker**
+>
+> This is the active deployment guide. The separate `DEPLOYMENT_CHECKLIST.md` in this directory
+> describes a planned Cloudflare Workers deployment that was never implemented.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)

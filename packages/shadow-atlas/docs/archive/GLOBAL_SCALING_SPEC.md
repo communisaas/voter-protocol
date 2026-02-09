@@ -1,3 +1,10 @@
+> **ARCHIVED — FUTURE ARCHITECTURE (NOT IMPLEMENTED)**
+> This specification describes planned international expansion (190+ countries, starting with 27 EU member states).
+> Current deployment is US-only. No international provider code has been implemented.
+> Retained as reference for future development.
+
+---
+
 ## # Shadow Atlas International Provider Architecture: Global Scaling Specification
 
 **Version**: 1.0

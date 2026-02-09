@@ -1,0 +1,18 @@
+{
+  "name": "@voter-protocol/indexer",
+  "version": "0.1.0",
+  "description": "The Graph subgraph indexer for voter-protocol on-chain events",
+  "license": "MIT",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy:hosted": "graph deploy --node https://api.thegraph.com/deploy/ voter-protocol/district-gate",
+    "deploy:studio": "graph deploy district-gate --studio",
+    "create:local": "graph create --node http://localhost:8020/ voter-protocol/district-gate",
+    "deploy:local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 voter-protocol/district-gate"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.0"
+  }
+}

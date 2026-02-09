@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> **DESIGN SPECIFICATION — Not Fully Implemented**
+>
+> This document describes the target API design. Only 6 GET endpoints are currently implemented.
+> POST endpoints, API key registration, and authentication are not yet built.
+> See `src/serving/api.ts` for the current working API surface.
+
+---
+
 # Shadow Atlas REST API Specification
 
 **Version:** 1.0.0

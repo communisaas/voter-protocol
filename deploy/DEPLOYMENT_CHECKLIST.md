@@ -1,5 +1,16 @@
 # Shadow Atlas Deployment Checklist
 
+> [!CAUTION]
+> **OUTDATED — Cloudflare Workers deployment was never implemented.**
+>
+> This checklist was written for a planned Cloudflare Workers + R2 + KV deployment architecture
+> that was evaluated but not built. The current deployment uses Kubernetes + Docker.
+> See `DEPLOYMENT_GUIDE.md` for the current K8s-based deployment process.
+>
+> This document is retained as reference for a potential future edge deployment migration.
+
+---
+
 Production deployment verification checklist for Shadow Atlas infrastructure.
 
 ---

@@ -1,4 +1,26 @@
-# @voter-protocol/client
+## REMOVED FROM WORKSPACE
+
+> [!CAUTION]
+> **THIS PACKAGE HAS BEEN REMOVED — DO NOT USE**
+>
+> This package (`@voter-protocol/client`) has been removed from the voter-protocol workspace as of 2026-02-08.
+>
+> **Reasons for removal:**
+> - Uses deprecated cryptographic primitives (DJB2/simpleHash instead of Poseidon2)
+> - Contains outdated ABI with non-existent methods like `verifyDistrict()`
+> - No two-tree Merkle proof support
+> - Broken contract bindings that don't match current contracts
+> - In-memory key store that doesn't reflect current architecture
+>
+> **For all integrations, use:**
+> - `@voter-protocol/crypto` — Poseidon2 hashing, two-tree Merkle proofs, domain separation
+> - `@voter-protocol/noir-prover` — Zero-knowledge proof generation (Noir/UltraHonk)
+>
+> This directory is retained for git history only. The package will not build and is not published.
+
+---
+
+# @voter-protocol/client (ARCHIVED)
 
 TypeScript SDK for the VOTER Protocol - democracy infrastructure that competes in the attention economy.
 

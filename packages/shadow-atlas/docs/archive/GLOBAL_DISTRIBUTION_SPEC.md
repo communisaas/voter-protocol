@@ -1,3 +1,10 @@
+> **ARCHIVED — FUTURE ARCHITECTURE (NOT IMPLEMENTED)**
+> This specification describes a planned IPFS global distribution architecture that has not been implemented.
+> IPFS sync is deferred to Phase 2 (SA-008). Current state: local SQLite only, sync-service.ts returns mock CIDs.
+> Retained as reference for future development.
+
+---
+
 # Shadow Atlas Global IPFS Distribution Specification
 
 **Version:** 1.0

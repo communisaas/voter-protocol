@@ -380,7 +380,7 @@ Eight expert agents conducted comprehensive analysis across documentation, dead 
 - ✅ @voter-protocol/crypto - builds
 - ✅ @voter-protocol/noir-prover - builds
 - ✅ @voter-protocol/shadow-atlas - builds
-- ✅ @voter-protocol/client - builds
+- ❌ @voter-protocol/client - REMOVED (deprecated, 2026-02-08)
 
 ---
 

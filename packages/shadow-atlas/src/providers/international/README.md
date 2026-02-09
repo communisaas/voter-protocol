@@ -1,3 +1,13 @@
+> [!WARNING]
+> **PLANNED — NOT IMPLEMENTED**
+>
+> International expansion is a future goal. Current deployment is **US-only**.
+> No international provider code is functional. The directory structure exists as a
+> scaffold for future development. Census geocoding, TIGER/Line boundary data, and
+> H3 cell mapping are implemented for the United States only.
+
+---
+
 # Shadow Atlas International Providers
 
 Type-safe, extensible boundary provider architecture for scaling Shadow Atlas to 190+ countries.

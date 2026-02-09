@@ -1,0 +1,149 @@
+"""
+Voter Protocol Subgraph Schema (Wave 15c)
+
+Indexes on-chain events from DistrictGate, CampaignRegistry, and NullifierRegistry
+on Scroll L2. Provides GraphQL API for coordination integrity metrics.
+
+Entities:
+- Action: Verified ZK proof submissions (single-tree and two-tree)
+- Campaign: On-chain campaigns with template metadata
+- Participation: Campaign participations by verified users
+- ActionDomain: Governance-controlled action domain whitelist
+- NullifierAction: Nullifier registry action tracking
+- GovernanceEvent: Timelocked governance operations
+"""
+
+type Action @entity {
+  "Transaction hash"
+  id: ID!
+  "User address (EIP-712 signer)"
+  user: Bytes!
+  "Submitter address (relayer)"
+  submitter: Bytes!
+  "Type: single_tree or two_tree"
+  proofType: String!
+  "District root (single-tree) or user root (two-tree)"
+  primaryRoot: Bytes!
+  "Cell map root (two-tree only)"
+  cellMapRoot: Bytes
+  "Country code (single-tree only)"
+  country: Bytes
+  "Verifier depth"
+  depth: Int!
+  "Nullifier (unique per user+action)"
+  nullifier: Bytes!
+  "Authority level (1-5)"
+  authorityLevel: Int!
+  "Action domain hash"
+  actionDomain: Bytes!
+  "District ID (single-tree only)"
+  districtId: Bytes
+  "Block timestamp"
+  timestamp: BigInt!
+  "Block number"
+  blockNumber: BigInt!
+  "Transaction hash"
+  txHash: Bytes!
+}
+
+type Campaign @entity {
+  "Campaign ID (bytes32)"
+  id: ID!
+  "Creator address"
+  creator: Bytes!
+  "Country code"
+  country: Bytes!
+  "IPFS metadata hash"
+  ipfsMetadataHash: Bytes!
+  "Number of templates"
+  templateCount: BigInt!
+  "Current status: Active, Paused, Completed, Flagged"
+  status: String!
+  "Total participants"
+  participantCount: BigInt!
+  "Unique districts"
+  districtCount: BigInt!
+  "Flag reason (if flagged)"
+  flagReason: String
+  "Creation timestamp"
+  createdAt: BigInt!
+  "Last update timestamp"
+  updatedAt: BigInt!
+  "Participations"
+  participations: [Participation!]! @derivedFrom(field: "campaign")
+}
+
+type Participation @entity {
+  "campaignId-actionId-districtRoot"
+  id: ID!
+  "Parent campaign"
+  campaign: Campaign!
+  "Action ID"
+  actionId: Bytes!
+  "District root"
+  districtRoot: Bytes!
+  "Whether this was a new unique district"
+  newDistrict: Boolean!
+  "Block timestamp"
+  timestamp: BigInt!
+}
+
+type ActionDomain @entity {
+  "Action domain hash (bytes32)"
+  id: ID!
+  "Whether currently active"
+  isActive: Boolean!
+  "Minimum authority level (0 = no enforcement)"
+  minAuthority: Int!
+  "Pending authority increase (0 if none)"
+  pendingMinAuthority: Int!
+  "Timestamp when pending increase can execute"
+  pendingExecuteTime: BigInt!
+  "Proposal timestamp"
+  proposedAt: BigInt
+  "Activation timestamp"
+  activatedAt: BigInt
+  "Revocation timestamp (null if active)"
+  revokedAt: BigInt
+}
+
+type NullifierAction @entity {
+  "actionId (bytes32)"
+  id: ID!
+  "Participant count"
+  participantCount: BigInt!
+  "First submission timestamp"
+  createdAt: BigInt!
+  "Most recent submission"
+  lastSubmission: BigInt!
+  "Submissions for this action"
+  submissions: [NullifierSubmission!]! @derivedFrom(field: "action")
+}
+
+type NullifierSubmission @entity {
+  "actionId-nullifier"
+  id: ID!
+  "Parent action"
+  action: NullifierAction!
+  "Nullifier hash"
+  nullifier: Bytes!
+  "Merkle root used"
+  merkleRoot: Bytes!
+  "Block timestamp"
+  timestamp: BigInt!
+}
+
+type GovernanceEvent @entity(immutable: true) {
+  "txHash-logIndex"
+  id: ID!
+  "Event type: propose, execute, cancel, set"
+  eventType: String!
+  "Target: campaign_registry, action_domain, two_tree_registries, min_authority"
+  target: String!
+  "Target identifier (address or bytes32)"
+  targetId: Bytes
+  "Execute time (for proposals)"
+  executeTime: BigInt
+  "Block timestamp"
+  timestamp: BigInt!
+}

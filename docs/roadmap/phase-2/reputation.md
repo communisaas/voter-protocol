@@ -1892,5 +1892,5 @@ interface CredentialChallenge {
 ---
 
 **Implementation Status**: ✅ Specification complete, ready for voter-protocol implementation
-**Next Milestone**: Cloudflare Workers deployment for ReputationAgent API endpoint
+**Next Milestone**: Edge API deployment for ReputationAgent endpoint (deployment target TBD — K8s current, Cloudflare Workers evaluated but not implemented)
 **Cost Efficiency**: FREE tier (Gemini 2.5 Flash) vs $700/month (OpenAI GPT-4o) = $8,400/year savings
