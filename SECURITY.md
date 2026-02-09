@@ -363,60 +363,66 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 - **If MPC broken**: Immediate key rotation, migrate all user funds to new addresses
 - **If validator compromise**: NEAR protocol-level response, outside VOTER control
 
-### Message Content Encryption from Platform Operators via AWS Nitro Enclaves
+### Message Content Encryption from Platform Operators via AWS Nitro Enclaves [PLANNED - Phase 2]
 
-**Security claim:** Platform operators architecturally CANNOT decrypt message content or addresses. Decryption occurs only in AWS Nitro Enclaves (isolated compute), which deliver plaintext to congressional offices via CWC API. Platform backend never sees plaintext messages or addresses.
+**Security claim (Phase 2 target architecture):** Platform operators architecturally CANNOT decrypt message content or addresses. Decryption occurs only in AWS Nitro Enclaves (isolated compute), which deliver plaintext to congressional offices via CWC API. Platform backend never sees plaintext messages or addresses.
 
-**Why Nitro Enclaves:**
+**Phase 1 Status:** Nitro Enclave infrastructure is NOT yet deployed. No enclave manifests, configs, or deployment code exists. Phase 1 uses standard encrypted storage with operational key management.
+
+**Why Nitro Enclaves (Phase 2 design rationale):**
 - Hypervisor-based isolation (NOT Intel SGX/AMD SEV vulnerable to TEE.fail DDR5 attacks)
 - Cryptographic attestation (users verify correct code running before encrypting)
 - We cannot access enclave memory (architectural enforcement, not policy)
 - FREE (no additional cost beyond EC2 instance)
 
-**Attack vectors:**
+**Phase 1 Reality:** This is target architecture, not current deployment. TEE infrastructure planned for Phase 2.
+
+**Attack vectors (Phase 2 target architecture):**
 
 1. **Backend server compromise** - Attacker gains root access to EC2 instance
-   - *Mitigation*: Backend stores only encrypted blobs, lacks decryption keys
-   - *Enclave isolation*: Even with root access, attacker cannot read enclave memory
-   - *Status*: AWS Nitro Hypervisor prevents host OS from accessing enclave
+   - *Mitigation (planned)*: Backend stores only encrypted blobs, lacks decryption keys
+   - *Enclave isolation (planned)*: Even with root access, attacker cannot read enclave memory
+   - *Status*: **NOT DEPLOYED** - Nitro Hypervisor would prevent host OS from accessing enclave
    - *Even if compromised*: Attacker gets XChaCha20-Poly1305 encrypted blobs useless without enclave keys
 
 2. **Enclave code vulnerability** - Bug in enclave moderation/delivery logic
-   - *Mitigation*: Open-source enclave code, community auditable
-   - *Attestation*: Users verify PCR measurements match expected code hash before encrypting
-   - *Status*: Any code change requires new attestation, users see mismatch and refuse to encrypt
-   - *Response*: Deploy patched enclave, publish new PCR measurements, transparency report
+   - *Mitigation (planned)*: Open-source enclave code, community auditable
+   - *Attestation (planned)*: Users verify PCR measurements match expected code hash before encrypting
+   - *Status*: **NOT DEPLOYED** - No enclave code exists yet
+   - *Response (planned)*: Deploy patched enclave, publish new PCR measurements, transparency report
 
 3. **AWS as malicious actor** - AWS itself attempts to extract enclave keys
-   - *Mitigation*: Nitro Enclave design makes this architecturally difficult
+   - *Mitigation (planned)*: Nitro Enclave design makes this architecturally difficult
    - *Honest assessment*: You trust AWS infrastructure (same as any cloud provider)
    - *Comparison*: Better than "trust us" (we can't decrypt) but requires trusting AWS data center security
    - *Alternative*: Congressional offices could hold keys (they won't manage 535 keypairs)
 
 4. **Physical attack on AWS data center** - Attacker physically accesses servers
    - *Threat model exclusion*: Physical data center attacks are OUT OF SCOPE per industry standards
-   - *Status*: Requires breaking into AWS facilities, bypassing armed guards and physical security
+   - *Status*: **NOT DEPLOYED** - Requires breaking into AWS facilities, bypassing armed guards and physical security
    - *Honest assessment*: If your threat model includes nation-state physical AWS infiltration, use different infrastructure
-   - *TEE.fail immunity*: Nitro uses hypervisor isolation (not vulnerable to DDR5 memory interposer attacks)
+   - *TEE.fail immunity (planned)*: Nitro uses hypervisor isolation (not vulnerable to DDR5 memory interposer attacks)
 
 5. **Side-channel attacks on enclave** - Extract keys via timing, cache, power analysis
-   - *Mitigation*: Nitro Enclaves designed with side-channel resistance
-   - *Status*: Mitigated but not eliminated (side channels are hard problem)
-   - *Monitoring*: AWS publishes security bulletins, we track and patch
-   - *Response*: If side-channel discovered, emergency key rotation within enclave
+   - *Mitigation (planned)*: Nitro Enclaves designed with side-channel resistance
+   - *Status*: **NOT DEPLOYED** - Mitigated but not eliminated (side channels are hard problem)
+   - *Monitoring (planned)*: AWS publishes security bulletins, we track and patch
+   - *Response (planned)*: If side-channel discovered, emergency key rotation within enclave
 
 6. **Attestation verification bypass** - User client skips PCR verification, encrypts to wrong enclave
-   - *Mitigation*: Client-side attestation verification enforced in open-source code
-   - *Status*: Users can audit JavaScript, verify attestation logic correct
-   - *Detection*: Community reports if attestation bypassed in wild
-   - *Response*: Publish security advisory, users update to patched client
+   - *Mitigation (planned)*: Client-side attestation verification enforced in open-source code
+   - *Status*: **NOT DEPLOYED** - Users can audit JavaScript, verify attestation logic correct
+   - *Detection (planned)*: Community reports if attestation bypassed in wild
+   - *Response (planned)*: Publish security advisory, users update to patched client
 
-**What Nitro Enclaves PROTECTS (platform operators):**
+**What Nitro Enclaves WOULD PROTECT (Phase 2 target architecture):**
 ✅ Server compromise (platform backend cannot decrypt)
 ✅ Insider threats (platform operators cannot access enclave)
 ✅ Legal compulsion (platform literally cannot decrypt to comply)
 ✅ Database breach (encrypted blobs useless without enclave keys)
 ✅ Platform surveillance (addresses and message content never seen by platform)
+
+**⚠️ PHASE 1 REALITY:** These protections are NOT currently operational. Standard encrypted storage with operational key management is used.
 
 **What Congressional Offices RECEIVE:**
 ✅ Constituent address (CWC API requirement)
@@ -424,28 +430,32 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 ✅ Zero-knowledge district verification proof
 ✅ Reputation score (on-chain data)
 
-**What Nitro Enclaves DOES NOT protect against:**
+**What Nitro Enclaves WOULD NOT protect against (Phase 2):**
 ❌ Physical AWS data center attacks (excluded from threat model)
 ❌ AWS as malicious actor (you trust AWS infrastructure)
 ❌ Bugs in enclave code (mitigated via open-source audit)
 ❌ Side-channel attacks (mitigated but not eliminated)
 ❌ Congressional offices seeing address/message (required for CWC delivery)
 
-**Honest comparison to alternatives:**
+**Honest comparison to alternatives (Phase 2 design):**
 - **vs. "Trust us" encryption**: We CANNOT decrypt (architectural), not "we promise not to"
 - **vs. Congressional offices holding keys**: Realistic? No (535 offices won't manage keypairs)
 - **vs. No moderation**: Legal requirement (Section 230 compliance needs content filtering)
 
-**Cost:**
+**Cost (Phase 2 projected):**
 - EC2 instance: $500-800/month (c6a.xlarge for Nitro Enclaves)
 - AI moderation: Runs inside enclave ($0 additional compute)
 - Total: $500-800/month for message encryption + moderation
 
-**Incident response:**
+**Phase 1 Cost:** Standard infrastructure without TEE deployment costs.
+
+**Incident response (Phase 2 planned):**
 - **If enclave code bug**: Deploy patch, publish new PCR measurements, transparency report
 - **If attestation bypassed**: Emergency client update, security advisory
 - **If AWS Nitro vulnerability**: Follow AWS security bulletins, emergency key rotation if needed
 - **If physical data center attack**: This is AWS's responsibility, we monitor AWS security advisories
+
+**Phase 1 Incident Response:** Standard encrypted storage incident procedures apply (not TEE-specific).
 
 -----
 
@@ -812,24 +822,31 @@ Users should understand these trade-offs before participating. If your threat mo
 
 **Scenario:** Attacker gains access to encrypted message database.
 
-**Current state:**
+**Phase 2 target architecture:**
 - Messages encrypted client-side (XChaCha20-Poly1305) to TEE public key before network transit
 - Encrypted blobs stored in backend database (platform cannot decrypt)
 - Decryption occurs only in AWS Nitro Enclaves (isolated from platform)
 - Enclave decrypts message + address, sends as plaintext to congressional offices via CWC API
 - Addresses and message content never persist in platform-accessible storage
 
-**If database compromised:**
+**Phase 1 current state:**
+- **Nitro Enclaves NOT deployed** - TEE infrastructure is planned for Phase 2
+- Messages use standard encrypted storage with operational key management
+- Database compromise mitigations follow industry-standard practices
+
+**If database compromised (Phase 2 with TEE):**
 - Attacker gets: Encrypted blobs (XChaCha20-Poly1305 encrypted to TEE public key)
 - Attacker needs: TEE private keys (exist only in AWS Nitro Enclave memory, inaccessible)
 - Brute force infeasible: 256-bit symmetric keys, ~2^256 operations
 - Platform operators cannot decrypt even if they wanted to (architectural enforcement)
 
-**Response:**
+**Response (Phase 2 planned):**
 1. Immediate incident notification to affected congressional offices
 2. Forensic analysis to determine breach vector and scope
 3. Purge all temporary encrypted message storage
 4. Encrypted blobs are useless without TEE keys (which remain secure in enclaves)
+
+**Phase 1 Response:** Standard incident response procedures for encrypted data breaches apply.
 
 -----
 
