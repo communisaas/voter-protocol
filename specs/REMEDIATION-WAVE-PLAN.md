@@ -1812,7 +1812,36 @@ Each implementation wave followed by a review wave (3 sonnet agents: security, i
 
 ---
 
-**Document Version:** 1.8
+---
+
+## Cycle 4: Registration + TEE Deployment (Waves 17-19)
+
+> **Objective:** Implement Shadow Atlas user registration, build Nitro Enclave for message delivery, remove mvpAddress cleartext bypass
+> **Plan Document:** [WAVE-17-19-IMPLEMENTATION-PLAN.md](/tmp/claude-501/-Users-noot-Documents-voter-protocol/waves/WAVE-17-19-IMPLEMENTATION-PLAN.md) (working document in temp dir)
+> **Blockers Closed:** INT-001 (npm packages), INT-002 (registration endpoint), INT-003 (mvpAddress bypass)
+> **Status:** PLANNING — Wave 17 ready to execute
+
+### Wave Structure
+
+| Wave | Objective | Type |
+|------|-----------|------|
+| 17 | Registration endpoint + npm fix | Implementation |
+| 17R | 3-agent expert review | Review |
+| 17M | Distinguished engineer manual review | Checkpoint |
+| 18 | Nitro Enclave application | Implementation |
+| 18R | 3-agent expert review | Review |
+| 18M | Distinguished engineer manual review | Checkpoint |
+| 19 | TEE integration + mvpAddress removal | Implementation |
+| 19R | 3-agent expert review | Review |
+| 19M | Distinguished engineer manual review | Checkpoint |
+
+### Key Architecture Decision: Client-Side Leaf Computation
+
+Registration sends ONLY the leaf hash to Shadow Atlas. Operator never sees cell_id, user_secret, or registration_salt. Circuit validates leaf correctness at proof time. See plan document for full data flow.
+
+---
+
+**Document Version:** 1.9
 **Author:** Distinguished Engineering Review
 **Last Updated:** 2026-02-09
-**Status:** Cycle 1 complete (Waves 1-8). Cycle 2: Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 IN PROGRESS. Cycle 3: Waves 13-16 COMPLETE (all 11 gaps closed, documentation audit applied). All 7 coordination integrity findings (CI-001–CI-007) IMPLEMENTED or DOCUMENTED. 3 integration blockers (INT-001/002/003) formally tracked. CRITICAL-002 RESOLVED as documentation error.
+**Status:** Cycle 1 complete (Waves 1-8). Cycle 2: Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 IN PROGRESS. Cycle 3: Waves 13-16 COMPLETE (all 11 gaps closed, documentation audit applied). Cycle 4: PLANNING (Waves 17-19: Registration + TEE). All 7 coordination integrity findings (CI-001–CI-007) IMPLEMENTED or DOCUMENTED. 3 integration blockers (INT-001/002/003) formally tracked.
