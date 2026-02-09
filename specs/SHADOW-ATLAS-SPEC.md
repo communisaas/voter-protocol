@@ -149,8 +149,8 @@ Applications specify which district proofs they require. Users generate only tho
 │         │                   └─────────────────┘            │
 │         ▼                                                   │
 │  ┌──────────────────────────────────────────────────┐     │
-│  │ Shadow Atlas Cell Tree                            │     │
-│  │ (~242K cells, depth 18)                          │     │
+│  │ Shadow Atlas District Trees                       │     │
+│  │ (per-district type, variable depth 18-24)        │     │
 │  │ (IndexedDB/IPFS)                                 │     │
 │  └──────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
@@ -1052,6 +1052,14 @@ OUTPUT: GeocodingProvider
 
 ## 6. Cell Resolution Algorithm
 
+> [!WARNING]
+> **SUPERSEDED — Cell-Based Architecture**
+>
+> Sections 6-7 describe the original cell-based resolution using Census Block Groups.
+> The current implementation uses **district-based boundary resolution** (point-in-polygon testing).
+> See Section 2.2 for the current data flow and Section 13 for the architecture decision rationale.
+> Retained for historical context only.
+
 ### 6.1 Main Resolution Flow
 
 ```
@@ -1234,7 +1242,7 @@ interface CellValidation {
 - Slots 6-11: Optional (NULL_HASH acceptable)
 - Slots 12-13: Reserved (always NULL_HASH)
 
-### 7.2 Cell Validation Algorithm
+### 7.2 Cell Validation Algorithm (Superseded)
 
 ```
 ALGORITHM: ValidateCell

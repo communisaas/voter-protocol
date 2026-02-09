@@ -15,7 +15,7 @@
 
 > **Spec ID:** CIRCUIT-GEO-001
 > **Version:** 2.3.0
-> **Status:** Active
+> **Status:** Superseded by TWO-TREE-ARCHITECTURE-SPEC.md
 > **Last Updated:** 2026-01-25
 > **Authors:** Voter Protocol Team
 
