@@ -1,3 +1,15 @@
+> [!NOTE]
+> **SUPERSEDED by TWO-TREE-ARCHITECTURE-SPEC.md**
+>
+> This document describes the original single-tree proof architecture (unified leaf hash,
+> 5 public outputs). The canonical architecture is now the two-tree design documented in
+> `specs/TWO-TREE-ARCHITECTURE-SPEC.md` (UserRootRegistry + CellMapRegistry, separated
+> identity and geospatial concerns).
+>
+> Retained as historical reference for the architectural evolution.
+
+---
+
 # Unified Proof Architecture: Residency + District Authenticity
 
 > **Version:** 1.0.0-draft
@@ -461,7 +473,7 @@ USER JOURNEY
    - Accept attestation as input
    - Handle new public input structure
 
-5. **Contract Update** (`DistrictGateV2.sol`)
+5. **Contract Update** (`DistrictGate.sol`)
    - Add provider pubkey registry
    - Update verifier interface
 

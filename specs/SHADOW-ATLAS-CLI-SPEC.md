@@ -1,3 +1,14 @@
+> [!NOTE]
+> **DESIGN PROPOSAL — NOT IMPLEMENTED**
+>
+> This specification proposes replacing 87 ad-hoc scripts with a unified `shadow-atlas` CLI.
+> The CLI has not been built. Current operations still use individual scripts in
+> `packages/shadow-atlas/scripts/`.
+>
+> **Status:** Design phase. Implementation deferred.
+
+---
+
 # Shadow Atlas CLI Specification
 
 > **STATUS**: Implementation Plan

@@ -110,7 +110,7 @@ export const AUTHORITY_LEVELS = {
 } as const;
 ```
 
-### 2.4 Solidity Contract (`/contracts/src/DistrictGateV2.sol`)
+### 2.4 Solidity Contract (`/contracts/src/DistrictGate.sol`)
 
 The contract accepts `authorityLevel` as `bytes32` in `verifyAndAuthorizeWithSignature()`. Range validation happens in the ZK circuit, not the contract. The contract trusts the circuit's range-check assertion.
 
@@ -208,7 +208,7 @@ return {
 };
 ```
 
-### 4.3 Solidity Verifier Call (`/contracts/src/DistrictGateV2.sol:248-262`)
+### 4.3 Solidity Verifier Call (`/contracts/src/DistrictGate.sol:248-262`)
 
 ```solidity
 /// PUBLIC INPUTS (SAME across all depths, matches circuit output order):
@@ -299,7 +299,7 @@ import fixturesCircuit from '../../crypto/noir/fixtures/target/fixtures.json';
 2. Copy fixtures.json to noir-prover during build
 3. Inline the fixture generation logic
 
-### CRITICAL-3: DistrictGate vs DistrictGateV2 Public Input Mismatch
+### CRITICAL-3: DistrictGate vs DistrictGate Public Input Mismatch
 
 **Location:** `/contracts/src/DistrictGate.sol:207`
 
@@ -309,7 +309,7 @@ import fixturesCircuit from '../../crypto/noir/fixtures/target/fixtures.json';
 
 vs
 
-**Location:** `/contracts/src/DistrictGateV2.sol:260`
+**Location:** `/contracts/src/DistrictGate.sol:260`
 
 ```solidity
 "verifyProof(bytes,uint256[5])"  // NEW: 5 inputs
@@ -436,7 +436,7 @@ These mock verifiers don't match the V2 contract's `uint256[5]` signature, which
 | `/packages/noir-prover/src/types.ts` | TypeScript types | `CircuitDepth`, `AuthorityLevel` |
 | `/packages/shadow-atlas/src/merkle-tree.ts` | Tree construction | `MerkleProof` interface |
 | `/packages/shadow-atlas/src/core/constants.ts` | Constants | `AUTHORITY_LEVELS`, `CIRCUIT_DEPTHS` |
-| `/contracts/src/DistrictGateV2.sol` | Verifier orchestration | Public input array ordering |
+| `/contracts/src/DistrictGate.sol` | Verifier orchestration | Public input array ordering |
 | `/contracts/src/VerifierRegistry.sol` | Verifier registry | Depth validation (18-24 even) |
 
 ---
@@ -451,7 +451,7 @@ cd packages/crypto && npm test -- golden-vectors.test.ts
 cd packages/noir-prover && npm test -- prover.test.ts
 
 # Run contract tests (requires foundry)
-cd contracts && forge test --match-contract DistrictGateV2
+cd contracts && forge test --match-contract DistrictGate
 
 # Full integration test (requires all packages built)
 npm run test:integration

@@ -1,3 +1,15 @@
+> [!WARNING]
+> **DESIGN SPECIFICATION — NOT IMPLEMENTED (Phase 3+)**
+>
+> This document describes planned international expansion to 190+ countries.
+> Current implementation is **US-only**. No international provider code, BoundaryRegistry
+> router, or multi-country data pipeline exists.
+>
+> **Prerequisites:** US launch, SA-008 (IPFS), DESIGN-001 (dedup)
+> **Estimated phase:** Post-US launch (Phase 3+)
+
+---
+
 # Shadow Atlas: Global Scaling Architecture
 
 **Version:** 1.0.0

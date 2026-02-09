@@ -1,8 +1,8 @@
 # Remediation Wave Plan: Expert Agent Orchestration
 
 > **Created:** 2026-02-01
-> **Updated:** 2026-02-05
-> **Status:** WAVES 1-4 COMPLETE, WAVE 5-6 PARTIAL, ROUND 3 ALL RESOLVED (10/10 verified)
+> **Updated:** 2026-02-08
+> **Status:** CYCLE 1 COMPLETE (Waves 1-8), CYCLE 2 IN PROGRESS (Waves 9-12: Coordination Integrity), CYCLE 3 IN PROGRESS (Waves 13-15 + 15R COMPLETE, Wave 16 PENDING: Anti-Astroturf Hardening)
 > **Objective:** Systematic remediation of findings via sequential sonnet expert waves with inter-wave engineering review
 
 > 📘 **Methodology Reference:** For the general-purpose multi-agent wave orchestration methodology underlying this plan, see [AGENTIC-WAVE-METHODOLOGY.md](../docs/methodology/AGENTIC-WAVE-METHODOLOGY.md). This document applies that methodology to the specific voter-protocol remediation effort.
@@ -11,10 +11,11 @@
 
 ## Executive Summary
 
-Following three rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2, 10/10 Round 3) plus original CVE remediation. **All Round 3 findings resolved** (2026-02-05, cross-validated against source code). **6 legacy items remain** (3 deferred/blocked, 3 P3 housekeeping). This plan orchestrated sequential waves of sonnet expert agents to close these gaps with engineering distinction.
+Following three rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2, 10/10 Round 3) plus original CVE remediation, plus a fourth round of coordination integrity review (7 findings). **Cycle 1 complete** (Waves 1-8). **Cycle 2 in progress** — coordination integrity remediation spanning voter-protocol and communique repos. Status corrections applied: SA-009 COMPLETE, SA-016 PARTIALLY FIXED, SA-018 COMPLETE.
 
 **Wave Structure:**
-- 5 implementation waves + 1 documentation wave
+- **Cycle 1** (Waves 1-8): 6 implementation waves + 2 adversarial review waves
+- **Cycle 2** (Waves 9-12): Cross-repo coordination integrity remediation
 - Inter-wave review by opus coordinator
 - Completion tracking against IMPLEMENTATION-GAP-ANALYSIS.md
 - Code path verification for fragmentation, vulnerability, and redundancy
@@ -38,26 +39,26 @@ Following three rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2, 1
 | SA-006 | NoirProver caches failed init promise forever | noir-prover | COMPLETE |
 | SA-007 | `hashSingle` missing domain separation from `hash4(v,0,0,0)` | crypto | COMPLETE |
 
-### P2 — Important (9) -- 7 COMPLETE, 2 REMAINING
+### P2 — Important (9) -- 8 COMPLETE, 1 REMAINING
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
 | BA-014 | Rate limiting deferred | communique | DEFERRED |
 | BA-017 | Depth-24 proof generation test missing | crypto | ENV-BLOCKED |
 | SA-008 | IPFS sync service entirely stubbed | shadow-atlas | DEFERRED (Phase 2) |
-| SA-009 | Discovery pipeline bypasses URL allowlist | shadow-atlas | ASSESSED |
+| SA-009 | Discovery pipeline bypasses URL allowlist | shadow-atlas | COMPLETE |
 | SA-010 | Rate limiter `consume()` doesn't consume tokens | shadow-atlas | COMPLETE |
 | SA-011 | Circuit accepts `user_secret = 0` | crypto/noir | COMPLETE |
 | SA-012 | Package.json exports don't match build pipeline | crypto | COMPLETE |
 | SA-013 | Public outputs reduce anonymity sets (design doc) | specs | DOCUMENTED |
 | SA-014 | JSON deserialization without schema validation | shadow-atlas | COMPLETE |
 
-### P3 — Housekeeping (4) -- 1 COMPLETE, 3 REMAINING
+### P3 — Housekeeping (4) -- 3 COMPLETE, 1 REMAINING
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
 | SA-015 | 24-slot documentation mismatch | specs | COMPLETE |
-| SA-016 | CORS wildcard default in `.env.example` | deploy | OPEN |
+| SA-016 | CORS wildcard default in `.env.example` | deploy | PARTIALLY FIXED |
 | SA-017 | Census geocoder no cross-validation | shadow-atlas | OPEN |
-| SA-018 | TIGER manifest `strictMode` defaults false | shadow-atlas | OPEN |
+| SA-018 | TIGER manifest `strictMode` defaults false | shadow-atlas | COMPLETE |
 
 ### Design Issues (2 from Original Expert Review)
 | ID | Issue | Status |
@@ -181,8 +182,8 @@ Following three rounds of brutalist audits (21/23 Round 1, 18 genuine Round 2, 1
 **Recommended:** Option 1 (whitelist) with governance timelock for additions.
 
 **Files:**
-- `contracts/src/DistrictGateV2.sol` — Add `allowedActionDomains` mapping, validation in `verifyAndAuthorizeWithSignature`
-- `contracts/src/DistrictGateV2.sol` — Add `registerActionDomain()` governance function with 7-day timelock
+- `contracts/src/DistrictGate.sol` — Add `allowedActionDomains` mapping, validation in `verifyAndAuthorizeWithSignature`
+- `contracts/src/DistrictGate.sol` — Add `registerActionDomain()` governance function with 7-day timelock
 
 **Test Cases:**
 - [ ] Reject proof with unregistered `actionDomain`
@@ -204,7 +205,7 @@ campaignRegistry.recordParticipation(actionDomain, districtRoot);
 ```
 
 **Files:**
-- `contracts/src/DistrictGateV2.sol:~243` — Change `districtId` → `actionDomain`
+- `contracts/src/DistrictGate.sol:~243` — Change `districtId` → `actionDomain`
 
 **Test Cases:**
 - [ ] Campaign participation recorded correctly
@@ -231,7 +232,7 @@ function isValidRoot(bytes32 root) public view returns (bool);
 
 **Files:**
 - `contracts/src/DistrictRegistry.sol` — Extend `RootMetadata`, add lifecycle functions
-- `contracts/src/DistrictGateV2.sol` — Use `isValidRoot()` instead of existence check
+- `contracts/src/DistrictGate.sol` — Use `isValidRoot()` instead of existence check
 
 **Test Cases:**
 - [ ] Deactivated root rejected
@@ -571,7 +572,7 @@ From IMPLEMENTATION-TRACKER Wave 2.4:
 **Completed Changes:**
 - Updated `DistrictRegistry.sol` comments to clarify single-district proofs
 - Updated `DistrictGate.sol` comments with multi-district verification pattern
-- Updated `DistrictGateV2.sol` comments with gas cost estimates for multi-district
+- Updated `DistrictGate.sol` comments with gas cost estimates for multi-district
 - Updated `VerifierRegistry.sol` comments for clarity
 - Added clarification section to `DISTRICT-TAXONOMY.md` explaining proof model
 
@@ -642,9 +643,9 @@ Track breaking changes requiring:
 - [x] All contract tests pass ✅ (164/164 tests passing)
 
 **Wave 1 Completed: 2026-02-01**
-- DistrictGateV2.sol: +66 lines (actionDomain whitelist + SA-002 one-line fix)
+- DistrictGate.sol: +66 lines (actionDomain whitelist + SA-002 one-line fix)
 - DistrictRegistry.sol: +192 lines (root lifecycle management)
-- New tests: DistrictGateV2.ActionDomain.t.sol, DistrictRegistry.Lifecycle.t.sol
+- New tests: DistrictGate.ActionDomain.t.sol, DistrictRegistry.Lifecycle.t.sol
 
 ### Wave 2 Complete When:
 - [x] SA-003: Golden vectors regenerated, tests pass ✅ (30/30 tests)
@@ -721,7 +722,7 @@ Track breaking changes requiring:
 **Wave 6 Completed: 2026-02-01**
 - SECURITY.md: Added "Privacy Guarantees & Limitations" section with anonymity set calculations
 - README.md: Added privacy limitation note linking to SECURITY.md
-- DistrictRegistry.sol, DistrictGate.sol, DistrictGateV2.sol, VerifierRegistry.sol: Clarified 24-slot vs single-proof model
+- DistrictRegistry.sol, DistrictGate.sol, VerifierRegistry.sol: Clarified 24-slot vs single-proof model
 - DISTRICT-TAXONOMY.md: Added clarification section explaining proof model
 - DESIGN-001-CROSS-PROVIDER-DEDUP.md: Created comprehensive design spec for phone OTP anchoring
 - DESIGN-003-REDISTRICTING-PROTOCOL.md: Created design spec for PACER monitoring and dual-validity windows
@@ -775,7 +776,7 @@ Your task: Implement fixes for [SA-001|SA-002|SA-004] per the specification.
 
 Context:
 - Repository: /Users/noot/Documents/voter-protocol
-- Main contract: contracts/src/DistrictGateV2.sol
+- Main contract: contracts/src/DistrictGate.sol
 - Related: DistrictRegistry.sol, CampaignRegistry.sol, NullifierRegistry.sol
 
 Requirements:
@@ -832,11 +833,11 @@ Critical: Hash outputs MUST match between Noir circuit and TypeScript library.
 
 #### HIGH-001: isValidRoot() Never Called [FIXED]
 
-**Problem:** SA-004 root lifecycle was completely non-functional. DistrictGateV2.sol called `getCountryAndDepth()` which only checks if a root is registered - it does NOT check `isActive` or `expiresAt` flags.
+**Problem:** SA-004 root lifecycle was completely non-functional. DistrictGate.sol called `getCountryAndDepth()` which only checks if a root is registered - it does NOT check `isActive` or `expiresAt` flags.
 
 **Evidence (before fix):**
 ```solidity
-// DistrictGateV2.sol:236-238
+// DistrictGate.sol:236-238
 (bytes3 actualCountry, uint8 depth) = districtRegistry.getCountryAndDepth(districtRoot);
 if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
 if (actualCountry != expectedCountry) revert UnauthorizedDistrict();
@@ -845,14 +846,14 @@ if (actualCountry != expectedCountry) revert UnauthorizedDistrict();
 
 **Fix Applied:**
 ```solidity
-// DistrictGateV2.sol:239-241 (new)
+// DistrictGate.sol:239-241 (new)
 // SA-004 FIX: Validate root lifecycle (isActive and not expired)
 // getCountryAndDepth() only checks registration, NOT lifecycle state
 if (!districtRegistry.isValidRoot(districtRoot)) revert DistrictRootNotActive();
 ```
 
 **Files Changed:**
-- `contracts/src/DistrictGateV2.sol` - Added `DistrictRootNotActive` error, added `isValidRoot()` check
+- `contracts/src/DistrictGate.sol` - Added `DistrictRootNotActive` error, added `isValidRoot()` check
 
 #### MEDIUM-002: Fixtures Hash Mismatch [FIXED]
 
@@ -900,7 +901,7 @@ All adversarial analysis documented in:
 
 ```
 # Contract tests: 11/11 passing
-forge test --match-contract DistrictGateV2
+forge test --match-contract DistrictGate
 # Prover tests: 6/6 passing (+ 1 pre-existing e2e failure)
 npm test
 ```
@@ -951,7 +952,7 @@ function transferGovernance(address newGovernance) external onlyGovernance {
 - DistrictRegistry: 7-day timelock
 - VerifierRegistry: 7-day timelock (via TimelockGovernance)
 - CampaignRegistry: 7-day timelock (via TimelockGovernance)
-- DistrictGateV2: 7-day timelock (via TimelockGovernance)
+- DistrictGate: 7-day timelock (via TimelockGovernance)
 
 **Attack Scenario:**
 1. Attacker compromises governance key
@@ -966,17 +967,19 @@ function transferGovernance(address newGovernance) external onlyGovernance {
 
 ---
 
-### CRITICAL-002: Deployment Uses DistrictGate V1, Not V2 [NEW]
+### CRITICAL-002: Deployment Uses V1 Not V2 [RESOLVED — Documentation Error]
 
-**Severity:** CRITICAL
+**Severity:** CRITICAL (originally) → **RESOLVED**
 **Files:** `contracts/script/DeployScrollSepolia.s.sol`, `contracts/script/DeployToScrollSepolia.s.sol`
 
-**Problem:** Deployment scripts deploy `DistrictGate` (V1), NOT `DistrictGateV2`. All SA-001 and SA-004 fixes in V2 are NOT being deployed.
+**Original Problem:** Audit claimed deployment scripts deploy "DistrictGate V1" instead of an enhanced "V2" version and that SA-001/SA-004 fixes were missing.
+
+**Resolution:** This was a **documentation error**, not an implementation issue. There is only ONE DistrictGate contract at `contracts/src/DistrictGate.sol`. The "V2" terminology was incorrectly used in audit documents to refer to the enhanced version of the contract with SA-001 (actionDomain whitelist), SA-004 (root lifecycle), BR3-007 (proposal reset), two-tree support, and timelocked governance.
 
 **Evidence:**
 ```solidity
-// DeployToScrollSepolia.s.sol:55-62
-DistrictGate gate = new DistrictGate(  // V1, NOT V2!
+// DeployToScrollSepolia.s.sol:55-62 — This IS the correct contract
+DistrictGate gate = new DistrictGate(  // The single, canonical DistrictGate
     verifier,
     address(districtRegistry),
     address(nullifierRegistry),
@@ -984,15 +987,17 @@ DistrictGate gate = new DistrictGate(  // V1, NOT V2!
 );
 ```
 
-**Missing in V1 (deployed):**
-- SA-001: actionDomain whitelist with timelock
-- SA-004: isValidRoot() lifecycle check
-- DistrictRootNotActive error
-- 7-day timelocked campaign registry updates
+**Actual Contract Status:**
+- ✅ SA-001: actionDomain whitelist with timelock — IMPLEMENTED in DistrictGate.sol
+- ✅ SA-004: isValidRoot() lifecycle check — IMPLEMENTED in DistrictGate.sol
+- ✅ DistrictRootNotActive error — IMPLEMENTED in DistrictGate.sol
+- ✅ 7-day timelocked governance — IMPLEMENTED via TimelockGovernance inheritance
+- ✅ Two-tree support — IMPLEMENTED in DistrictGate.sol
+- ✅ BR3-007 proposal reset guards — IMPLEMENTED in DistrictGate.sol
 
-**Impact:** All Wave 1 contract security fixes are NOT DEPLOYED.
+**Impact:** None. All Wave 1 contract security fixes ARE deployed in the single DistrictGate contract.
 
-**Status:** PENDING FIX - Update deployment scripts to use DistrictGateV2
+**Status:** RESOLVED (2026-02-08) — Documentation cleanup completed to eliminate V1/V2 confusion
 
 ---
 
@@ -1112,7 +1117,7 @@ These are design-phase considerations, not code bugs.
 
 **Immediate (P0):**
 1. Add 7-day timelock to NullifierRegistry.transferGovernance()
-2. Update deployment scripts to use DistrictGateV2
+2. ~~Update deployment scripts to use enhanced version~~ RESOLVED — no V2, single DistrictGate contract with all features
 3. Fix Kubernetes CORS from `*` to specific origins
 
 **High Priority (P1):**
@@ -1373,14 +1378,14 @@ function initiateCallerAuthorization(address caller) external onlyGovernance {
 **Reason Deferred:** Lower risk than NullifierRegistry (campaigns don't prevent double-voting):
 - CampaignRegistry only tracks participation metadata (not nullifiers)
 - Malicious campaign registration doesn't prevent legitimate voting
-- DistrictGateV2 is the enforcement layer (with timelocks)
+- DistrictGate is the enforcement layer (with timelocks)
 - Campaign metadata is informational, not security-critical
 
 **Current Mitigation:**
 - Governance controlled by multisig (3-of-5 or higher)
 - Event monitoring for unauthorized `CallerAuthorized` events
 - Campaign metadata is public and auditable
-- DistrictGateV2 has independent actionDomain whitelist with timelock (SA-001 fix)
+- DistrictGate has independent actionDomain whitelist with timelock (SA-001 fix)
 
 **Design Consideration:**
 Adding timelock to CampaignRegistry may be overkill:
@@ -1396,7 +1401,391 @@ Adding timelock to CampaignRegistry may be overkill:
 
 ---
 
-**Document Version:** 1.3
+---
+
+## Cycle 2: Coordination Integrity Remediation
+
+> **Objective:** Close all coordination integrity gaps (CI-001 through CI-007) identified in Round 4 audit, spanning both voter-protocol and communique repositories.
+> **Started:** 2026-02-08
+> **Methodology:** [AGENTIC-WAVE-METHODOLOGY.md](../docs/methodology/AGENTIC-WAVE-METHODOLOGY.md)
+> **Tracking:** IMPLEMENTATION-GAP-ANALYSIS.md § "Round 4: Coordination Integrity Review"
+
+### Cycle 2 Issue Inventory
+
+| ID | Finding | Severity | Repo | Status | Wave |
+|----|---------|----------|------|--------|------|
+| CI-001 | Proof-message content unbound | HIGH | cross-repo | ASSESSED — action domain binding sufficient for Phase 1 | — |
+| CI-002 | Blockchain submission mocked | CRITICAL | communique | IMPLEMENTED (2026-02-08) | 9 |
+| CI-003 | `mailto:` bypasses proof requirements | HIGH | communique | IMPLEMENTED (2026-02-08) | 10 |
+| CI-004 | Personalized content unmoderated | MEDIUM-HIGH | communique | IMPLEMENTED (2026-02-08) | 10 |
+| CI-005 | Nullifier scoping lacks recipient granularity | MEDIUM | cross-repo | IMPLEMENTED (2026-02-08) | 9 |
+| CI-006 | Template fingerprinting risk | HIGH | cross-repo | DOCUMENTED — design constraint, no content hash | — |
+| CI-007 | Decision-maker generalization | MEDIUM | cross-repo | IMPLEMENTED (2026-02-08) | 9 |
+
+**Dependencies (from AGENTIC-WAVE-METHODOLOGY.md § Wave Formation):**
+```
+CI-002 depends on: nothing (P0 — greenfield)
+CI-005 depends on: CI-002 (action domain builder created in Wave 9)
+CI-007 depends on: CI-002 (schema wired through action domain builder)
+CI-003 depends on: CI-002 (proof verification must work before fencing bypass)
+CI-004 depends on: CI-002 (moderation pipeline references proof state)
+```
+
+**Wave formation algorithm output:**
+```
+Wave 9:  CI-002 (P0), CI-005 (schema), CI-007 (schema)  ← foundation
+Wave 10: CI-003 (fence mailto), CI-004 (send-time moderation) ← delivery integrity
+Wave 11: Gate review + integration testing
+Wave 12: Documentation sync + closure
+```
+
+### Status Corrections Applied (Pre-Cycle 2)
+
+Before beginning Cycle 2, agent exploration verified implementation status against source code:
+
+| ID | Previous Status | Corrected Status | Evidence |
+|----|----------------|------------------|----------|
+| SA-009 | NOT STARTED | COMPLETE | `input-validator.ts`: 50 domains in `ALLOWED_DOMAINS` (lines 213-263), `validateURL()` at line 430, 12 call sites across codebase |
+| SA-016 | OPEN | PARTIALLY FIXED | `api.ts:186-192`: Production check throws on CORS wildcard `*`; `.env.example` still ships `*` as default |
+| SA-018 | OPEN | COMPLETE | `tiger-verifier.ts:190`: `strictMode` already defaults to `true` |
+
+**Net effect:** Open issue count reduced from 10 to 8.
+
+---
+
+### Wave 9: Integration Foundation (P0 — Cross-Repo)
+
+**Objective:** Build the cryptographic bridge between communique's message flow and voter-protocol's on-chain verification. This is the P0 critical path — every subsequent wave depends on this infrastructure.
+
+**Issues:** CI-002 (blockchain mock), CI-005 (nullifier schema), CI-007 (decision-maker schema)
+
+#### 9a: Action Domain Builder (`communique`)
+
+**Target File:** `communique/src/lib/core/zkp/action-domain-builder.ts` (NEW)
+
+**Requirements:**
+1. Implement `buildActionDomain()` that computes `keccak256("communique.v1" || country || jurisdiction_type || recipient_subdivision || template_id || session_id)`
+2. Schema revision: rename `legislature` → `jurisdiction_type`, add `recipient_subdivision` for nullifier granularity (CI-005)
+3. Support decision-maker generalization (CI-007): `jurisdiction_type` handles federal/state/local/international contexts
+4. Export `ActionDomainParams` TypeScript interface
+5. Use `@voter-protocol/crypto` for hashing if available, otherwise `ethers.keccak256`
+
+**Action Domain Schema (revised):**
+```typescript
+interface ActionDomainParams {
+  protocol: "communique.v1";         // Protocol version
+  country: string;                    // ISO 3166-1 alpha-2
+  jurisdictionType: string;           // "federal" | "state" | "local" | "international"
+  recipientSubdivision: string;       // ISO 3166-2 or "national"
+  templateId: string;                 // Template identifier
+  sessionId: string;                  // Legislative session or campaign ID
+}
+```
+
+**Nullifier semantics:** One proof per user per `(country, jurisdictionType, recipientSubdivision, templateId, sessionId)` tuple. This provides recipient-level granularity (CI-005) while maintaining template-level rate limiting.
+
+**Success Criteria:**
+- [ ] `buildActionDomain()` produces deterministic bytes32
+- [ ] Unit tests cover all jurisdiction types
+- [ ] Schema matches DistrictGate `allowedActionDomains` mapping expectations
+
+#### 9b: Real DistrictGate Client (`communique`)
+
+**Target File:** `communique/src/lib/core/blockchain/district-gate-client.ts` (REPLACE MOCK)
+
+**Requirements:**
+1. Add `ethers` dependency to communique (or `viem` — prefer ethers for consistency with voter-protocol)
+2. Load DistrictGate ABI directly from `contracts/out/DistrictGate.sol/DistrictGate.json`
+3. Replace mock `verifyOnChain()` (lines 105-131) with real `verifyTwoTreeProof()` call
+4. Implement EIP-712 signing using `SubmitTwoTreeProof` struct:
+   ```
+   SubmitTwoTreeProof(bytes32 proofHash, bytes32 publicInputsHash, uint8 verifierDepth, uint256 nonce, uint256 deadline)
+   ```
+5. Wire `buildActionDomain()` from Wave 9a into proof submission
+6. Handle `isNullifierUsed()` check before submission (real contract read)
+7. Support Scroll Sepolia (testnet) and future mainnet via env config
+
+**Contract Reference:**
+- Deployed: `0x6ed37cc3d42c788d09657af3d81e35a69e295930` (Scroll Sepolia, V1)
+- ABI: `contracts/out/DistrictGate.sol/DistrictGate.json`
+- Function: `verifyTwoTreeProof(address signer, bytes proof, uint256[29] publicInputs, uint8 verifierDepth, uint256 deadline, bytes signature)`
+- Public input count: `TWO_TREE_PUBLIC_INPUT_COUNT = 29`
+
+**NOTE:** CRITICAL-002 was a documentation error. There is only ONE DistrictGate contract with all features (SA-001, SA-004, BR3 fixes, two-tree support). No separate "V2" exists.
+
+**Success Criteria:**
+- [ ] Mock removed — real contract calls via ethers provider
+- [ ] EIP-712 signature constructed correctly
+- [ ] Action domain from `buildActionDomain()` used in proof submission
+- [ ] Nullifier pre-check prevents redundant submissions
+- [ ] Graceful degradation when RPC unavailable (user sees error, not silent failure)
+
+#### Wave 9 Gate
+
+**Gate Type:** Engineering review (per AGENTIC-WAVE-METHODOLOGY.md § Gates)
+
+**Checklist:**
+- [ ] Action domain builder produces correct keccak256 output (test against known vector)
+- [ ] DistrictGate client successfully calls testnet contract
+- [ ] No regressions in existing communique tests
+- [ ] EIP-712 struct matches deployed contract's `SUBMIT_TWO_TREE_PROOF_TYPEHASH`
+- [ ] Action domain schema documented in COORDINATION-INTEGRITY-SPEC.md
+
+---
+
+### Wave 10: Delivery Integrity (P1 — Communique)
+
+**Objective:** Close the two delivery-path integrity gaps: personalized content bypassing moderation (CI-004) and `mailto:` bypassing proof requirements (CI-003).
+
+**Issues:** CI-003 (mailto fence), CI-004 (send-time moderation)
+
+**Blocked by:** Wave 9 (proof verification must work before we can fence bypasses)
+
+#### 10a: Send-Time Moderation for Personalized Content (CI-004)
+
+**Target Files:**
+- `communique/src/lib/core/server/moderation/index.ts` (EXTEND)
+- `communique/src/lib/components/template-browser/parts/ActionBar.svelte` (WIRE)
+- `communique/src/routes/api/moderation/personalization/+server.ts` (NEW endpoint)
+
+**Problem:** `ActionBar.svelte` lines 32-37 apply `[Personal Connection]` replacement with NO moderation call. The 3-layer moderation pipeline (Prompt Guard → Llama Guard 4 → Gemini 2.5 Flash) only runs at template creation time.
+
+**Requirements:**
+1. Create lightweight `moderatePersonalization(text: string)` function in moderation module
+2. This is NOT full template moderation — just the delta (user-supplied personalization text)
+3. Run Prompt Guard + Llama Guard only (skip Gemini for latency)
+4. Create API endpoint for client-side moderation call
+5. Wire into `ActionBar.svelte` `handleSendClick()` — moderate before send, block on failure
+6. Cache moderation results by content hash to avoid re-checking identical text
+
+**Design Constraint (from COORDINATION-INTEGRITY-SPEC.md):** Moderation is a UX guardrail, not a censorship mechanism. False positives must be rare. The user can edit and retry.
+
+**Success Criteria:**
+- [ ] Personalized content passes through moderation before send
+- [ ] Moderation latency < 500ms (Prompt Guard + Llama Guard only)
+- [ ] Clear error message on moderation failure
+- [ ] Cached results prevent redundant API calls
+
+#### 10b: Fence `mailto:` Delivery Path (CI-003)
+
+**Target Files:**
+- `communique/src/lib/services/emailService.ts` (MODIFY)
+- `communique/src/lib/components/template-browser/parts/ActionBar.svelte` (LABEL)
+
+**Problem:** `emailService.ts` line 148: Guest users on non-CWC templates skip proof entirely. The `mailto:` path opens a local email client with pre-filled content — there's no server-side enforcement.
+
+**Requirements:**
+1. Add `unverified` label to `mailto:`-sent messages in the UI
+2. Track `mailto:` sends separately in analytics (distinct from verified CWC sends)
+3. Display clear indicator: "This message was sent without cryptographic verification"
+4. Do NOT block `mailto:` — it serves a legitimate use case (non-federal, non-CWC recipients)
+5. Ensure proof state is passed through so verified users who happen to use `mailto:` are labeled correctly
+
+**Design Rationale (from COORDINATION-INTEGRITY-SPEC.md § Three-Form Problem):** `mailto:` cannot be gated by proof verification because:
+- The email client is controlled by the user's OS, not communique
+- The message may be modified after handoff
+- Blocking `mailto:` would prevent contacting non-CWC decision-makers entirely
+
+**Success Criteria:**
+- [ ] `mailto:` sends display "unverified" label in UI
+- [ ] Analytics distinguish verified vs. unverified sends
+- [ ] Verified users using `mailto:` path are labeled correctly
+- [ ] No blocking of `mailto:` functionality
+
+#### Wave 10 Gate
+
+**Gate Type:** UX + Security review
+
+**Checklist:**
+- [ ] Moderation pipeline latency measured and within budget
+- [ ] `mailto:` labeling renders correctly across browsers
+- [ ] No false-positive moderation blocks on benign personalization
+- [ ] Analytics events fire correctly for both paths
+- [ ] Accessibility: labels readable by screen readers
+
+---
+
+### Wave 11: Integration Gate (Cross-Repo Verification)
+
+**Objective:** End-to-end verification that the full flow works: user generates proof → action domain computed → DistrictGate verifies → nullifier recorded → message sent with verified status.
+
+**Issues:** All CI-* (integration test)
+
+**Blocked by:** Wave 10
+
+#### 11a: Integration Test Suite
+
+**Requirements:**
+1. Test: Action domain builder → DistrictGate client → contract call (testnet or fork)
+2. Test: Personalization moderation → send flow → verified label
+3. Test: `mailto:` path → unverified label → analytics event
+4. Test: Duplicate nullifier → rejection
+5. Test: Invalid proof → rejection with clear error
+
+#### 11b: Adversarial Spot Check
+
+**Requirements:**
+1. Verify template fingerprinting mitigation is documented (CI-006)
+2. Verify proof-message binding rationale is documented (CI-001)
+3. Check for new gaps introduced by Wave 9-10 changes
+4. Verify no regressions in existing voter-protocol test suites
+
+#### Wave 11 Gate
+
+**Gate Type:** Adversarial review (per AGENTIC-WAVE-METHODOLOGY.md)
+
+**Checklist:**
+- [ ] End-to-end flow verified on testnet
+- [ ] No new security gaps introduced
+- [ ] All CI-* findings addressed or explicitly deferred with rationale
+- [ ] Cross-repo dependency versions pinned and compatible
+
+---
+
+### Wave 12: Documentation Sync & Closure
+
+**Objective:** Update all tracking documents to reflect Cycle 2 completion status. Close the loop on all findings.
+
+**Issues:** All (documentation)
+
+**Blocked by:** Wave 11
+
+#### 12a: Update Tracking Documents
+
+**Files to update:**
+1. `voter-protocol/specs/IMPLEMENTATION-GAP-ANALYSIS.md` — Mark CI-002 through CI-007 final status
+2. `voter-protocol/specs/REMEDIATION-WAVE-PLAN.md` — Mark Waves 9-12 complete
+3. `voter-protocol/specs/COORDINATION-INTEGRITY-SPEC.md` — Update implementation status
+4. `voter-protocol/specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` — Update Gap 5.6 status
+5. `communique/docs/integration.md` — Update finding statuses
+6. `voter-protocol/specs/COMMUNIQUE-INTEGRATION-SPEC.md` — Update integration status
+
+#### 12b: Deferred Items Inventory
+
+**Explicitly deferred to Phase 2 (with rationale):**
+
+| ID | Finding | Rationale |
+|----|---------|-----------|
+| CI-001 | Proof-message content unbound | Action domain binding provides sufficient anti-replay without content hash (which would enable template fingerprinting) |
+| CI-006 | Template fingerprinting risk | Fundamental design constraint — content hashing on-chain = deanonymization. Structural signals are the correct mitigation layer. |
+| CRITICAL-001 | NullifierRegistry instant governance | Requires contract upgrade (Phase 2 deployment) |
+| ~~CRITICAL-002~~ | ~~Deployment uses V1 not V2~~ | **RESOLVED** — Documentation error. There is only one DistrictGate contract with all features. No V1/V2 split exists. |
+
+#### Wave 12 Gate
+
+**Gate Type:** Documentation completeness review
+
+**Checklist:**
+- [ ] All tracking docs updated
+- [ ] No orphaned TODOs
+- [ ] Deferred items have explicit rationale
+- [ ] Version numbers incremented
+- [ ] Cross-references between docs are valid
+
+---
+
+### Cycle 2 TODO Summary
+
+**Immediate (Wave 9 — COMPLETE):**
+- [x] Create `communique/src/lib/core/zkp/action-domain-builder.ts` (22 unit tests passing)
+- [x] Add `ethers` dependency to communique (v6.16.0)
+- [x] Replace mock in `district-gate-client.ts` with real contract calls
+- [x] Implement EIP-712 signing for `SubmitTwoTreeProof`
+- [x] Wire action domain builder into proof submission flow
+- [x] Unit tests for action domain builder
+- [ ] Integration test against Scroll Sepolia (deferred to Wave 11)
+
+**After Wave 9 Gate (Wave 10 — COMPLETE):**
+- [x] Create `moderatePersonalization()` in moderation module
+- [x] Create `/api/moderation/personalization` endpoint
+- [x] Wire moderation into `ActionBar.svelte` send flow
+- [x] Add `unverified` label to `mailto:` sends
+- [x] Add analytics tracking for verified vs. unverified sends
+- [x] Ensure verified `mailto:` users labeled correctly
+
+**After Wave 10 Gate (Wave 11 — PENDING):**
+- [ ] End-to-end integration test (proof → verify → send → label)
+- [ ] Adversarial spot check for new gaps
+- [ ] Cross-repo dependency verification
+
+**After Wave 11 Gate (Wave 12 — IN PROGRESS):**
+- [x] Update all 6 tracking documents
+- [x] Inventory deferred items with rationale
+- [ ] Version bump all updated docs
+
+---
+
+---
+
+## Cycle 3: Anti-Astroturf Hardening (Waves 13-16)
+
+> **Objective:** Close 11 remaining anti-astroturfing gaps identified by 4 expert analysis waves.
+> **Plan Document:** [ANTI-ASTROTURF-IMPLEMENTATION-PLAN.md](ANTI-ASTROTURF-IMPLEMENTATION-PLAN.md)
+> **Scope:** Both repos — voter-protocol + communique
+
+### Gap Inventory (11 Items)
+
+| # | Gap | Severity | Wave | Status |
+|---|-----|----------|------|--------|
+| G-01 | On-chain submission path non-operational | P0 | 15a | DONE — relayer client w/ circuit breaker, retry queue, balance monitoring |
+| G-02 | Cross-provider Sybil (ISSUE-001) | P0 | 14a | DONE — identity_commitment + encrypted_entropy closure |
+| G-03 | Authority level enforcement missing on-chain | P1 | 14c/14d | DONE — on-chain bounds check + 24h timelock for increases |
+| G-04 | Coordination metrics indexer missing | P1 | 15c/15d | DONE — The Graph subgraph + coordination metrics API |
+| G-05 | Moderation fail-open on service outage | P1 | 13a | DONE — fail-closed moderation circuit breaker |
+| G-06 | Rate limiting absent on template creation | P1 | 13b | DONE — 10 req/day per user on template creation |
+| G-07 | `user_id` stored in Submission (deanonymization) | P1 | 13c | DONE — replaced with pseudonymous_id (HMAC) |
+| G-08 | Per-chamber nullifier scoping not deployed | P2 | 14e | DONE — recipientSubdivision in action domain builder |
+| G-09 | Delivery confirmation loop missing for mailto | P2 | 15e | DONE — HMAC tokens w/ 7-day expiry, timingSafeEqual |
+| G-10 | Template creation ungated for unverified users | P2 | 13d | DONE — trust_score >= 100 gate on template creation |
+| G-11 | BA-014 rate limiting on sensitive endpoints | P2 | 13e | DONE — 8 route patterns + metrics/confirm rate limits |
+
+### Wave Structure
+
+- **Wave 13:** Pipeline Hardening & Privacy (G-05, G-06, G-07, G-10, G-11) — communique only
+- **Wave 14:** Identity & Contract Hardening (G-02, G-03, G-08) — both repos
+- **Wave 15:** On-Chain Infrastructure & Indexing (G-01, G-04, G-09) — both repos + indexer
+- **Wave 16:** Documentation Sync & Closure
+
+Each implementation wave followed by a review wave (3 sonnet agents: security, integration, privacy) and manual opus checkpoint.
+
+### Wave 15R Review Findings & Remediation
+
+**Review agents deployed:** 3 (infrastructure, subgraph/metrics, delivery confirmation)
+
+**CRITICAL/HIGH fixes applied:**
+
+| # | Finding | Severity | Fix |
+|---|---------|----------|-----|
+| 15R-C01 | Circuit breaker half-open race | CRITICAL | 3-state machine with `halfOpenAttemptInProgress` flag |
+| 15R-C02 | Subgraph entity ID collision | CRITICAL | txHash-logIndex composite keys in both Action handlers |
+| 15R-C03 | Unsafe BigInt→i32 authority level | CRITICAL | Byte array indexing `authorityLevel[31]` |
+| 15R-C04 | Non-constant-time HMAC comparison | CRITICAL | `crypto.timingSafeEqual` |
+| 15R-H01 | Incomplete RPC error detection | HIGH | Expanded to 16 patterns (rate limit, DNS, gas, nonce) |
+| 15R-H02 | Balance check fail-open | HIGH | Fail-closed: `recordRpcFailure()` + return error |
+| 15R-H03 | Token expiration missing | HIGH | 7-day TTL embedded in token payload |
+| 15R-H04 | Admin endpoint leaks sensitive info | HIGH | Truncated address, balance status categories |
+
+**MEDIUM fixes applied:**
+
+| # | Finding | Severity | Fix |
+|---|---------|----------|-----|
+| 15R-M01 | Retry queue ignores circuit breaker | MEDIUM | `isCircuitOpen()` check before processing |
+| 15R-M02 | No rate limiting on metrics/confirm | MEDIUM | Added `/api/metrics/` and `/api/email/confirm/` to ROUTE_RATE_LIMITS |
+| 15R-M03 | Health endpoint consumes half-open slot | MEDIUM | Read-only `getCircuitBreakerState()` accessor |
+| 15R-M04 | Confirmation endpoint no time bounds | MEDIUM | 7-day `created_at` filter on submission lookup |
+
+**Accepted risks (documented):**
+
+| # | Finding | Rationale |
+|---|---------|-----------|
+| 15R-A01 | TOCTOU in retry queue nullifier check | Contract-level nullifier check prevents double-spend; TOCTOU wastes gas only |
+| 15R-A02 | Subgraph `first: 1000` limit | The Graph pagination limit; mitigated by cache, adequate for current scale |
+| 15R-A03 | Template ID vs Submission ID in tokens | Architectural constraint of mailto flow (no submission ID at URL generation time); mitigated by 7-day window + token expiry |
+| 15R-A04 | CSRF on GET confirmation endpoint | GET is idempotent (status update), no destructive action; rate limited |
+
+---
+
+**Document Version:** 1.7
 **Author:** Distinguished Engineering Review
-**Last Updated:** 2026-02-01
-**Status:** Wave 8 complete - 2 CRITICAL, 3 HIGH issues pending + 6 items deferred to Phase 2
+**Last Updated:** 2026-02-08
+**Status:** Cycle 1 complete (Waves 1-8). Cycle 2: Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 IN PROGRESS. Cycle 3: Waves 13-15 COMPLETE (all 11 gaps closed), Wave 15R COMPLETE (12 fixes applied), Wave 16 PENDING. All 7 coordination integrity findings (CI-001–CI-007) IMPLEMENTED or DOCUMENTED. CRITICAL-002 RESOLVED as documentation error. V1/V2 terminology purged. @voter-protocol/client deprecated and removed from workspace.

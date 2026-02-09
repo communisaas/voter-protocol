@@ -4,10 +4,11 @@
 
 ## Recent Updates
 
+- **February 2026**: Added `specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` — comprehensive trust stack analysis, operator surface area inventory, walkaway roadmap (Phases 1-3), five identified trust gaps with mitigation architecture, landscape context (zkVM, DA layers, governance patterns as of Feb 2026)
 - **February 2026**: Added "Privacy Guarantees & Limitations" section documenting anonymity set calculations and small district risks (SA-013)
 - **January 2026**: Documentation restructured with comprehensive architecture docs added to `/docs/`
 - **Phase 1 Implementation**: Core cryptographic infrastructure complete (Noir circuits, browser proving, Shadow Atlas)
-- **Trail of Bits Audit**: Scheduled Q1 2026 for Merkle circuit implementation (see line 162)
+- **Trail of Bits Audit**: Scheduling in progress as of Q1 2026. Three rounds of internal Brutalist security audits have been completed (51 total findings; see `specs/IMPLEMENTATION-GAP-ANALYSIS.md` Rev 8 for tracking)
 - **Content Moderation**: 3-layer stack operational with cost-benefit validation
 
 **Phase 1 Focus**: Privacy is enforced by cryptography, not promises. Identity never leaves the device; offices receive verified signal without surveillance; reputation records, not identity, land on‑chain. Phase 2 adds economic mechanisms and is clearly marked.

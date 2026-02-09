@@ -1,5 +1,24 @@
 # Communique Integration Spec: Two-Tree Architecture + Message Delivery
 
+> [!NOTE]
+> **Implementation Status (2026-02-08)**
+>
+> | Phase | Component | Status |
+> |-------|-----------|--------|
+> | 1 | Noir two-tree circuit | Complete |
+> | 2 | Smart contracts (DistrictGate, UserRootRegistry, CellMapRegistry) | Complete |
+> | 3 | Shadow-atlas two-tree support | Complete |
+> | 4 | noir-prover WASM integration | Complete |
+> | 5 | Communique registration UI integration | **In Progress** |
+> | 6 | On-chain verification via DistrictGate client | Complete (Wave 15a) |
+> | 7 | Coordination metrics indexer (The Graph) | Complete (Wave 15c/15d) |
+> | 8 | Anti-astroturf hardening (Waves 13-15) | Complete — all 11 gaps closed |
+>
+> **Remaining blocker:** No `POST /v1/register` endpoint in shadow-atlas yet (leafIndex hardcoded to 0).
+> See `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for detailed progress.
+
+---
+
 **Version:** 0.1.0
 **Date:** 2026-02-02
 **Status:** DRAFT - Pending Engineering Review
@@ -384,6 +403,84 @@ The 24-district disclosure narrows the anonymity set:
 
 1. **TEE provider**: AWS Nitro vs multi-party (2-of-3 AWS/Google/Azure)?
 2. **Address re-entry UX**: Session storage (24h) vs IndexedDB (6 months) for returning users?
-3. **Template+Rep vs Template-only nullifier**: Per-template allows one submission total; per-template-per-rep allows one per representative. Which aligns with user expectations?
+3. ~~**Template+Rep vs Template-only nullifier**: Per-template allows one submission total; per-template-per-rep allows one per representative. Which aligns with user expectations?~~ **RESOLVED (2026-02-08):** Per-template-per-chamber. See Section 15.
 4. **OAuth token storage**: Separate DB table or extend existing `Account` model?
 5. **Selective district disclosure**: Should Phase 2 allow proving membership in N-of-24 districts instead of revealing all 24?
+
+---
+
+## 15. Coordination Integrity Findings (2026-02-08)
+
+> **Cross-reference:** COORDINATION-INTEGRITY-SPEC.md (foundational spec)
+
+### 15.1 Open Question #3 Resolution: Nullifier Scoping
+
+**Decision:** Add `recipient_chamber` to the action domain schema (communique.v2):
+
+```
+action_domain = keccak256(
+    abi.encodePacked(
+        bytes32("communique.v2"),         // Updated protocol prefix
+        bytes3(country_code),
+        bytes8(jurisdiction_type),        // Renamed from legislature_id
+        bytes32(template_id),
+        bytes16(session_id),
+        bytes8(recipient_subdivision)     // NEW: "senate", "house", "council", etc.
+    )
+)
+```
+
+**Rationale:** Template-only scoping pushes users to the mailto: path (which bypasses all ZK protections) when they want to send to House today and Senate next week. Per-chamber scoping allows 2-3 proof submissions per template while maintaining sybil resistance within each chamber.
+
+**Impact:** Governance must register 2-3 action domains per template (one per target chamber). Batch registration via helper contract mitigates overhead.
+
+### 15.2 Proof-Message Binding
+
+**Finding:** The ZK proof and the delivered message are cryptographically independent. The EIP-712 signature (`SUBMIT_TWO_TREE_PROOF_TYPEHASH`) covers `proofHash` and `publicInputsHash` but not message content, template ID, or recipient.
+
+**Resolution:** Action domain binding is sufficient. The `action_domain` encodes `template_id`, creating an immutable on-chain record linking the user's proof to the template identity. Content commitment on-chain (e.g., `contentHash` in events) was evaluated and rejected due to the template fingerprinting attack — see COORDINATION-INTEGRITY-SPEC Section 2.
+
+**Residual gap:** Backend could modify personalized content within a template. Addressed by TEE deployment (Phase 2).
+
+### 15.3 Delivery Path Security
+
+**Finding:** The mailto: path has no proof, no nullifier, and no on-chain record. Coordinated campaigns using mailto: bypass all anti-astroturf mechanisms.
+
+**Resolution:** Fence, don't merge:
+- Phase 1: Label mailto: sends as "unverified" in all metrics. Exclude from `CampaignRegistry` counts.
+- Phase 2: Require off-chain proof generation before displaying mailto: link.
+
+### 15.4 Moderation Gap
+
+**Finding:** User-provided `[Personal Connection]` text is never moderated. It passes directly to CWC XML construction, bypassing the three-layer moderation pipeline.
+
+**Resolution:** Add Layer 0 (Llama Prompt Guard, <200ms) moderation on the combined template + personalization at send-time. Block only S1 (threats) and S4 (CSAM), matching ADR-006 permissive policy.
+
+### 15.5 Content Commitment On-Chain: Evaluated and Rejected
+
+**Evaluation:** Putting `contentHash = keccak256(messageBody)` on-chain was considered for measuring content diversity across campaigns.
+
+**Rejection reasons:**
+1. **Template fingerprinting attack.** Templates are public. Precomputed hashes match on-chain events to specific templates, revealing each pseudonymous user's political positions. Combined with 24-district intersection, anonymity sets degrade to potentially dozens.
+2. **Three-form problem.** Messages exist as raw template, resolved template (with PII), and final personalized. No hash target is both meaningful and privacy-safe.
+3. **AI duplication.** Independent users requesting AI-generated templates on the same topic receive identical outputs, creating false coordination signals.
+
+**Alternative:** Structural signals (geographic diversity, temporal entropy, authority distribution, template count) provide anti-astroturf observability without privacy regression. See COORDINATION-INTEGRITY-SPEC Section 4.
+
+### 15.6 Blockchain Submission Gap — RESOLVED (Wave 15a, 2026-02-08)
+
+**Original finding:** `district-gate-client.ts` in Communique returned a mock transaction hash.
+
+**Resolution:** Mock replaced with real ethers.js v6 client in Wave 15a (Cycle 3 anti-astroturf hardening):
+- Real `verifyTwoTreeProof()` calls via Scroll RPC
+- EIP-712 signing with server-side relayer wallet (NonceManager for nonce safety)
+- 3-state circuit breaker (closed/open/half_open) with single-flight half-open semantics
+- Database-backed retry queue with exponential backoff (30s→240s, max 4 retries)
+- Balance monitoring with fail-closed on RPC errors
+- Nullifier idempotency check before retry (on-chain `isNullifierUsed()`)
+
+**Wave 15R hardening:** 12 review findings addressed (race conditions, error detection, admin sanitization, rate limiting).
+
+### 15.7 Decision-Maker Generalization
+
+The action domain schema and delivery architecture must support any decision-maker context, not only US Congress via CWC. The `legislature_id` field is renamed to `jurisdiction_type` in the v2 schema to reflect this. Delivery adapters for non-CWC channels (state portals, regulatory APIs, municipal email, corporate governance) are Phase 2+ work. See COORDINATION-INTEGRITY-SPEC Section 12.

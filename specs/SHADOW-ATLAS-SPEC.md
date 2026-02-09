@@ -1,5 +1,18 @@
 # Shadow Atlas Technical Specification
 
+> [!NOTE]
+> **Scope: Geographic Data Acquisition and District Registry**
+>
+> This specification covers how shadow-atlas acquires, processes, and serves geographic
+> district data (TIGER/Line boundaries, H3 cell mapping, coverage validation).
+>
+> For the **cryptographic proof architecture** (Merkle trees, ZK circuits, smart contracts),
+> see `specs/TWO-TREE-ARCHITECTURE-SPEC.md`.
+>
+> **Implementation:** SQLite + better-sqlite3, 6 GET endpoints, US-only.
+
+---
+
 **Version:** 3.0.0
 **Date:** 2026-01-26
 **Status:** District-Based Architecture (PRODUCTION-READY)

@@ -31,7 +31,7 @@ Implementation of multi-depth circuit support (18, 20, 22, 24) and 24-slot hybri
 | Noir circuit template | DONE | `global DEPTH: u32` parameterized |
 | Build script (3 depths) | DONE | 14, 20, 22 compiled |
 | DistrictProver (crypto) | DONE | Runtime selection via `getInstance(depth)` |
-| DistrictGateV2 contract | DONE | Multi-depth routing implemented |
+| DistrictGate contract | DONE | Multi-depth routing implemented |
 | VerifierRegistry | DONE | Depth→verifier mapping |
 | DistrictRegistry | DONE | District→depth metadata |
 

@@ -52,7 +52,7 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - Front-running / MEV extraction on proof submissions
 
 **Key Files:**
-- `contracts/src/DistrictGateV2.sol` - Main verification orchestrator
+- `contracts/src/DistrictGate.sol` - Main verification orchestrator
 - `contracts/src/DistrictRegistry.sol` - Root lifecycle management
 - `contracts/src/NullifierRegistry.sol` - Double-vote prevention
 - `contracts/src/CampaignRegistry.sol` - Participation tracking

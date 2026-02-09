@@ -13,7 +13,7 @@
 
 ## Overview
 
-**Scope:** DistrictGateV2, DistrictRegistry, NullifierRegistry, CampaignRegistry, VerifierRegistry
+**Scope:** DistrictGate, DistrictRegistry, NullifierRegistry, CampaignRegistry, VerifierRegistry
 **Review Date:** 2026-02-01
 **Solidity Version:** 0.8.19
 **Auditor Type:** Governance Attack Specialist
@@ -44,10 +44,10 @@ The voter-protocol contracts implement a multi-depth ZK proof verification syste
 
 #### Description
 
-When `deactivateRoot()` is called (via the two-phase timelock process), the `isValidRoot()` check will fail for that district root. However, **DistrictGateV2 does NOT check `isValidRoot()`** - it only calls `getCountryAndDepth()` which returns data even for deactivated roots.
+When `deactivateRoot()` is called (via the two-phase timelock process), the `isValidRoot()` check will fail for that district root. However, **DistrictGate does NOT check `isValidRoot()`** - it only calls `getCountryAndDepth()` which returns data even for deactivated roots.
 
 ```solidity
-// DistrictGateV2.sol line 236
+// DistrictGate.sol line 236
 (bytes3 actualCountry, uint8 depth) = districtRegistry.getCountryAndDepth(districtRoot);
 if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
 ```
@@ -66,7 +66,7 @@ function getCountryAndDepth(bytes32 districtRoot)
 
 **Impact:**
 - Deactivated roots can still be used for proof verification
-- The `isValidRoot()` function exists but is never called by DistrictGateV2
+- The `isValidRoot()` function exists but is never called by DistrictGate
 - Root deactivation has NO EFFECT on voting capability
 
 **Attack Scenario:**
@@ -79,7 +79,7 @@ function getCountryAndDepth(bytes32 districtRoot)
 
 **Recommendation:**
 ```solidity
-// DistrictGateV2.sol - Add isValidRoot check
+// DistrictGate.sol - Add isValidRoot check
 (bytes3 actualCountry, uint8 depth) = districtRegistry.getCountryAndDepth(districtRoot);
 if (actualCountry == bytes3(0)) revert DistrictNotRegistered();
 if (!districtRegistry.isValidRoot(districtRoot)) revert RootDeactivated();
@@ -90,7 +90,7 @@ if (!districtRegistry.isValidRoot(districtRoot)) revert RootDeactivated();
 ### MED-001: Nullifier Front-Running Can Grief Legitimate Voters
 
 **Severity:** Medium
-**Contract:** NullifierRegistry.sol, DistrictGateV2.sol
+**Contract:** NullifierRegistry.sol, DistrictGate.sol
 **Location:** Lines 92-121 (`recordNullifier`)
 
 #### Description
@@ -130,7 +130,7 @@ The rate limit (60 seconds between actions per nullifier) does NOT prevent this 
 ### MED-002: Malicious ActionDomain Registration After Timelock
 
 **Severity:** Medium
-**Contract:** DistrictGateV2.sol
+**Contract:** DistrictGate.sol
 **Location:** Lines 373-407 (`proposeActionDomain`, `executeActionDomain`)
 
 #### Description
@@ -195,13 +195,13 @@ function recordParticipation(
 ```
 
 **Impact:**
-- If DistrictGateV2 is replaced/upgraded incorrectly, multiple calls possible
+- If DistrictGate is replaced/upgraded incorrectly, multiple calls possible
 - `participantCount` can exceed actual unique participants
 - Sybil metrics become unreliable
 
 **Attack Vector:**
-The current code path through DistrictGateV2 calls `recordParticipation` exactly once per `verifyAndAuthorizeWithSignature` call. However:
-1. If an attacker deploys a malicious "DistrictGateV2" and gets it authorized
+The current code path through DistrictGate calls `recordParticipation` exactly once per `verifyAndAuthorizeWithSignature` call. However:
+1. If an attacker deploys a malicious "DistrictGate" and gets it authorized
 2. They can call `recordParticipation` repeatedly
 
 This requires governance compromise (authorizing malicious caller), but the defense-in-depth principle suggests adding idempotency.
@@ -230,7 +230,7 @@ function recordParticipation(
 ### MED-004: Signature Replay Across Chains (EIP-712 Incomplete)
 
 **Severity:** Medium
-**Contract:** DistrictGateV2.sol
+**Contract:** DistrictGate.sol
 **Location:** Lines 169-178, 210-231
 
 #### Description
@@ -246,7 +246,7 @@ The EIP-712 implementation includes `chainId` in the domain separator, which is 
 DOMAIN_SEPARATOR = keccak256(
     abi.encode(
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-        keccak256(bytes("DistrictGateV2")),
+        keccak256(bytes("DistrictGate")),
         keccak256(bytes("1")),
         block.chainid,      // Fixed at deployment
         address(this)
@@ -344,7 +344,7 @@ Since nullifiers are derived from user secrets, each address has a unique nullif
 ### LOW-002: Verifier Call Return Data Not Validated
 
 **Severity:** Low
-**Contract:** DistrictGateV2.sol
+**Contract:** DistrictGate.sol
 **Location:** Lines 258-268
 
 #### Description
@@ -421,7 +421,7 @@ But relies on `createdAt != 0`, which could theoretically collide with an existi
 ### LOW-004: Missing Event for ActionDomain Cancellation
 
 **Severity:** Low
-**Contract:** DistrictGateV2.sol
+**Contract:** DistrictGate.sol
 **Location:** Lines 394-397
 
 #### Description
@@ -461,12 +461,12 @@ function cancelActionDomain(bytes32 actionDomain) external onlyGovernance {
 
 - `NullifierRegistry` uses `ReentrancyGuard` on `recordNullifier`
 - `CampaignRegistry` uses `ReentrancyGuard` on `recordParticipation` and `createCampaign`
-- `DistrictGateV2` does NOT use `ReentrancyGuard`
+- `DistrictGate` does NOT use `ReentrancyGuard`
 
-The external call to `verifier.call()` in DistrictGateV2 is the primary reentrancy vector, but since verifiers are governance-controlled, this is low risk.
+The external call to `verifier.call()` in DistrictGate is the primary reentrancy vector, but since verifiers are governance-controlled, this is low risk.
 
 **Recommendation:**
-- Document why DistrictGateV2 doesn't need ReentrancyGuard
+- Document why DistrictGate doesn't need ReentrancyGuard
 - Consider adding for defense-in-depth
 
 ---
@@ -474,7 +474,7 @@ The external call to `verifier.call()` in DistrictGateV2 is the primary reentran
 ### INFO-002: No Circuit-Level Validation of Public Inputs Range
 
 **Severity:** Informational
-**Contract:** DistrictGateV2.sol
+**Contract:** DistrictGate.sol
 
 #### Description
 
@@ -500,7 +500,7 @@ There's no on-chain validation that `authorityLevel` is in range [1,5].
 ### INFO-003: Pausable but No Emergency Unpause Mechanism
 
 **Severity:** Informational
-**Contracts:** DistrictGateV2.sol, NullifierRegistry.sol, CampaignRegistry.sol
+**Contracts:** DistrictGate.sol, NullifierRegistry.sol, CampaignRegistry.sol
 
 #### Description
 
@@ -547,7 +547,7 @@ If governance is compromised:
 
 **Answer: NOTHING (Bug - see HIGH-001)**
 
-Root deactivation sets `isActive = false` but DistrictGateV2 never checks `isValidRoot()`. Voting continues unaffected on "deactivated" roots. This is a bug, not intentional behavior.
+Root deactivation sets `isActive = false` but DistrictGate never checks `isValidRoot()`. Voting continues unaffected on "deactivated" roots. This is a bug, not intentional behavior.
 
 ---
 
@@ -581,7 +581,7 @@ Edge cases:
 **Answer: NO (currently), but fragile (see MED-003)**
 
 Current code path:
-1. DistrictGateV2 calls recordParticipation once per verification
+1. DistrictGate calls recordParticipation once per verification
 2. Nullifier prevents same user from re-verifying
 3. CampaignRegistry doesn't track individual calls
 
@@ -628,7 +628,7 @@ If authorized caller list is compromised, inflation is possible. The function la
 
 | ID | Issue | Mitigation | Priority |
 |----|-------|------------|----------|
-| HIGH-001 | Root deactivation ineffective | Add `isValidRoot()` check in DistrictGateV2 | P0 |
+| HIGH-001 | Root deactivation ineffective | Add `isValidRoot()` check in DistrictGate | P0 |
 | MED-001 | Nullifier front-running | Commit-reveal for ordering-sensitive actions | P1 |
 | MED-002 | Malicious actionDomain | Add naming registry and format validation | P2 |
 | MED-003 | Participation double-counting | Add idempotency to recordParticipation | P2 |
@@ -643,7 +643,7 @@ If authorized caller list is compromised, inflation is possible. The function la
 
 ## Conclusion
 
-The voter-protocol contracts demonstrate thoughtful security architecture with appropriate use of timelocks, separation of concerns, and defense-in-depth patterns. The most critical finding (HIGH-001) is that root deactivation is currently ineffective due to missing validation in DistrictGateV2. This should be addressed before production deployment.
+The voter-protocol contracts demonstrate thoughtful security architecture with appropriate use of timelocks, separation of concerns, and defense-in-depth patterns. The most critical finding (HIGH-001) is that root deactivation is currently ineffective due to missing validation in DistrictGate. This should be addressed before production deployment.
 
 The medium-severity findings around governance consistency (MED-005) and front-running (MED-001) represent real but bounded risks that should be addressed based on threat model priorities.
 

@@ -29,7 +29,7 @@ The system has been **significantly hardened** with documented CVE fixes (CVE-00
 | Severity | Count | Description |
 |----------|-------|-------------|
 | Critical | 0 | - |
-| High | 1 | Missing root validity check in DistrictGateV2 |
+| High | 1 | Missing root validity check in DistrictGate |
 | Medium | 2 | Predictable secrets in test fixtures, TypeScript/Noir hash divergence risk |
 | Low | 3 | Rate limit bypass, authority level truncation edge case, weak entropy guidance |
 | Informational | 4 | General observations and hardening recommendations |
@@ -38,10 +38,10 @@ The system has been **significantly hardened** with documented CVE fixes (CVE-00
 
 ## Detailed Findings
 
-### HIGH-001: DistrictGateV2 Does Not Check `isValidRoot()` Before Verification
+### HIGH-001: DistrictGate Does Not Check `isValidRoot()` Before Verification
 
 **Severity:** HIGH
-**Location:** `/Users/noot/Documents/voter-protocol/contracts/src/DistrictGateV2.sol:236-238`
+**Location:** `/Users/noot/Documents/voter-protocol/contracts/src/DistrictGate.sol:236-238`
 **Attack Vector:** Proof Replay / Merkle Path Attack
 
 **Description:**
@@ -61,7 +61,7 @@ The `DistrictRegistry` has a comprehensive root lifecycle system with `isValidRo
 2. Root is active (not deactivated)
 3. Root is not expired
 
-However, `DistrictGateV2` only checks condition #1 via `getCountryAndDepth()`.
+However, `DistrictGate` only checks condition #1 via `getCountryAndDepth()`.
 
 **Impact:**
 
@@ -78,7 +78,7 @@ districtRegistry.initiateRootDeactivation(compromisedRoot);
 // ... 7 days pass ...
 districtRegistry.executeRootDeactivation(compromisedRoot);
 
-// But DistrictGateV2 still accepts proofs against the deactivated root!
+// But DistrictGate still accepts proofs against the deactivated root!
 // getCountryAndDepth() returns valid data even for deactivated roots
 districtGate.verifyAndAuthorizeWithSignature(..., compromisedRoot, ...);
 // This succeeds when it should fail
@@ -468,7 +468,7 @@ userSecret: string;
 ### INFO-001: Action Domain Whitelist Is Properly Enforced
 
 **Severity:** INFORMATIONAL
-**Location:** `/Users/noot/Documents/voter-protocol/contracts/src/DistrictGateV2.sol:242`
+**Location:** `/Users/noot/Documents/voter-protocol/contracts/src/DistrictGate.sol:242`
 
 **Question Answered:** Is the `action_domain` truly enforced by the contract, or can provers bypass it?
 
@@ -610,7 +610,7 @@ The TypeScript side also correctly implements this pattern for hashPair and hash
 ## Recommendations Summary
 
 ### Critical/High Priority
-1. **Add `isValidRoot()` check in DistrictGateV2** - Prevents use of deactivated/expired roots
+1. **Add `isValidRoot()` check in DistrictGate** - Prevents use of deactivated/expired roots
 
 ### Medium Priority
 2. **Fix domain tags in fixtures.ts** - Align with circuit's poseidon2_hash2

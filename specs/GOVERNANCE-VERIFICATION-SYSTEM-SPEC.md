@@ -1,3 +1,16 @@
+> [!WARNING]
+> **ARCHITECTURAL VISION — NOT IMPLEMENTED (Phase 3+)**
+>
+> This specification describes a Temporal Knowledge Graph and Four-Swarm verification
+> architecture for maintaining representative data. **No implementation exists.**
+> The proposed stack (PostgreSQL + Apache Age, verification swarms, entity resolution)
+> has not been built.
+>
+> **Estimated ongoing cost:** $3-15K/month
+> **Prerequisites:** US launch, core protocol stabilization
+
+---
+
 # Governance Verification System Specification
 
 **Version:** 1.1.0

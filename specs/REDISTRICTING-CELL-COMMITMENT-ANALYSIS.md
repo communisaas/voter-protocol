@@ -1,3 +1,15 @@
+> [!NOTE]
+> **HISTORICAL ANALYSIS — Alternative Design (Not Implemented)**
+>
+> This document analyzes a proposed "cell-commitment model" where redistricting invalidates
+> all user credentials. The implemented **two-tree architecture** uses a different approach:
+> Tree 1 (user identity, stable) is separated from Tree 2 (cell→district mappings, updatable).
+>
+> This analysis informed the two-tree design decision but does not describe the current system.
+> See `specs/TWO-TREE-ARCHITECTURE-SPEC.md` for the implemented architecture.
+
+---
+
 # Redistricting Impact Analysis: Cell-Commitment Model
 
 > **Analysis ID:** ANALYSIS-REDISTRICT-001

@@ -1,3 +1,14 @@
+> [!NOTE]
+> **PARTIALLY IMPLEMENTED**
+>
+> Multi-depth circuit compilation (depth 18/20/22/24) is designed but only **depth-20**
+> is currently compiled and used in production. The build pipeline does not yet generate
+> multiple circuit variants.
+>
+> Current: `TREE_DEPTH=20` in `packages/noir-prover/circuits/two_tree_membership/main.nr`
+
+---
+
 # Depth Parameterization Implementation Plan
 
 **Version:** 1.2.0

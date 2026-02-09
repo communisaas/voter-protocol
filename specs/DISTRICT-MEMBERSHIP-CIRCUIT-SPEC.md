@@ -1,3 +1,16 @@
+> [!NOTE]
+> **HISTORICAL — Single-Tree Architecture (Superseded)**
+>
+> This specification documents the original single-tree Noir circuit with 5 public outputs
+> (`merkle_root, nullifier, authority_hash, epoch_id, campaign_id`).
+>
+> The current implementation uses the **two-tree architecture** with 29 public outputs.
+> See `specs/TWO-TREE-ARCHITECTURE-SPEC.md` for the canonical circuit specification.
+>
+> Retained for architectural context and understanding the single→two-tree evolution.
+
+---
+
 # Geographic Cell Membership Circuit Specification
 
 > **Spec ID:** CIRCUIT-GEO-001
@@ -296,9 +309,9 @@ interface IDistrictMembershipVerifier {
 ### 5.2 Multi-Depth Routing
 
 ```solidity
-// contracts/src/DistrictGateV2.sol
+// contracts/src/DistrictGate.sol
 
-contract DistrictGateV2 {
+contract DistrictGate {
     /// @notice Maximum district slots in proof (hybrid: 20 defined + 4 overflow)
     uint8 public constant MAX_DISTRICT_SLOTS = 24;
 
