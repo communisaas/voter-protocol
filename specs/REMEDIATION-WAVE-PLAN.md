@@ -2,7 +2,7 @@
 
 > **Created:** 2026-02-01
 > **Updated:** 2026-02-08
-> **Status:** CYCLE 1 COMPLETE (Waves 1-8), CYCLE 2 IN PROGRESS (Waves 9-12: Coordination Integrity), CYCLE 3 IN PROGRESS (Waves 13-15 + 15R COMPLETE, Wave 16 PENDING: Anti-Astroturf Hardening)
+> **Status:** CYCLE 1 COMPLETE (Waves 1-8), CYCLE 2 IN PROGRESS (Waves 9-10 COMPLETE, 11 PENDING, 12 IN PROGRESS), CYCLE 3 COMPLETE (Waves 13-16: Anti-Astroturf + Documentation Audit)
 > **Objective:** Systematic remediation of findings via sequential sonnet expert waves with inter-wave engineering review
 
 > 📘 **Methodology Reference:** For the general-purpose multi-agent wave orchestration methodology underlying this plan, see [AGENTIC-WAVE-METHODOLOGY.md](../docs/methodology/AGENTIC-WAVE-METHODOLOGY.md). This document applies that methodology to the specific voter-protocol remediation effort.
@@ -1785,7 +1785,34 @@ Each implementation wave followed by a review wave (3 sonnet agents: security, i
 
 ---
 
-**Document Version:** 1.7
+### Wave 16: Documentation Audit & Closure (2026-02-09)
+
+**Objective:** Comprehensive cross-repository documentation audit to align specs with implementation reality.
+
+**Method:** 7-agent expert wave (3 audit + 4 fix agents)
+
+**Completed:**
+
+| Agent | Scope | Key Fixes |
+|-------|-------|-----------|
+| Spec Integrity | 32 voter-protocol specs | DISTRICT-MEMBERSHIP-CIRCUIT-SPEC → Superseded, SHADOW-ATLAS-SPEC deprecation banners |
+| Communique Docs | All communique docs | Deleted stale VECTOR_SEARCH_QUICKSTART.md + embeddings.md, 6 Halo2→Noir/UltraHonk fixes |
+| Cross-Repo Consistency | Both repos | Confirmed 29-input crypto alignment, identified 3 INT blockers |
+| Deploy Docs | voter-protocol/deploy | Archived Cloudflare docs to `deploy/archive/cloudflare-research/`, new K8s README |
+| SECURITY.md | voter-protocol/SECURITY.md | All Nitro Enclave sections marked `[PLANNED - Phase 2]` |
+| ProverClient | communique prover-client | Added `TwoTreeProofInputs`, `generateTwoTreeProof()`, 29-input validation |
+| Field Naming | Cross-repo | Created `specs/PUBLIC-INPUT-FIELD-REFERENCE.md` canonical naming reference |
+
+**New items surfaced (added to IMPLEMENTATION-GAP-ANALYSIS.md as INT-001/002/003):**
+- INT-001: `package.json` `file:` paths (P0 — blocks CI/CD)
+- INT-002: Shadow Atlas `POST /v1/register` (P0 — blocks two-tree deployment)
+- INT-003: `mvpAddress` cleartext bypass (P1 — privacy debt)
+
+**Status:** ✅ COMPLETE — All documentation fixes applied, committed, and pushed. Integration blockers formally tracked.
+
+---
+
+**Document Version:** 1.8
 **Author:** Distinguished Engineering Review
-**Last Updated:** 2026-02-08
-**Status:** Cycle 1 complete (Waves 1-8). Cycle 2: Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 IN PROGRESS. Cycle 3: Waves 13-15 COMPLETE (all 11 gaps closed), Wave 15R COMPLETE (12 fixes applied), Wave 16 PENDING. All 7 coordination integrity findings (CI-001–CI-007) IMPLEMENTED or DOCUMENTED. CRITICAL-002 RESOLVED as documentation error. V1/V2 terminology purged. @voter-protocol/client deprecated and removed from workspace.
+**Last Updated:** 2026-02-09
+**Status:** Cycle 1 complete (Waves 1-8). Cycle 2: Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 IN PROGRESS. Cycle 3: Waves 13-16 COMPLETE (all 11 gaps closed, documentation audit applied). All 7 coordination integrity findings (CI-001–CI-007) IMPLEMENTED or DOCUMENTED. 3 integration blockers (INT-001/002/003) formally tracked. CRITICAL-002 RESOLVED as documentation error.

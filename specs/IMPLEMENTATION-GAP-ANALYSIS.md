@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 9: 2026-02-08)
-> **Status:** REVISION 9 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 COMPLETE (10/10), Round 4 TRIAGED (7 findings)
+> **Date:** 2026-01-26 (Rev 10: 2026-02-09)
+> **Status:** REVISION 10 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 COMPLETE (10/10), Round 4 COMPLETE (7/7), Integration Status UPDATED (3 INT blockers identified)
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -1476,20 +1476,25 @@ This document maps the delta between current implementation and the unified proo
 **Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014 rate limiting), 1 env-blocked (BA-017 depth-24 test)
 **Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 3 P0, 4 P1, 7 P2, 4 P3
 
-**Combined open issues: 3** (3 legacy from Rounds 1-2; all Round 3 resolved; all Round 4 coordination integrity findings IMPLEMENTED or DOCUMENTED per 2026-02-08; SA-009 COMPLETE, SA-016 PARTIALLY FIXED, SA-018 COMPLETE)
+**Combined open issues: 6** (3 legacy from Rounds 1-2; all Round 3 resolved; all Round 4 IMPLEMENTED or DOCUMENTED; 3 integration blockers identified 2026-02-09: INT-001/002/003)
 
 **Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014), 1 env-blocked (BA-017)
 **Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 14 fixed, 4 remaining
 **Brutalist Round 3 (2026-02-04):** ~75 raw findings from 15 critics → 10 valid after triage → **ALL 10 RESOLVED** (2026-02-05 cross-validated against source code)
 **Coordination Integrity Round 4 (2026-02-08):** 7 findings — ALL IMPLEMENTED or DOCUMENTED (Cycle 2 Waves 9-10)
 
-**✅ P0 — Deployment blocking (CLEAR):**
+**🔴 P0 — Deployment blocking (2 OPEN):**
 - CI-002: Blockchain submission → IMPLEMENTED (real ethers.js client, EIP-712, `verifyTwoTreeProof()`)
+- INT-001: Package.json `file:` paths → NOT STARTED (blocks CI/CD)
+- INT-002: Shadow Atlas `POST /v1/register` → NOT STARTED (blocks two-tree proof generation)
 
 **✅ P1 — Security critical (Rounds 1-3: ALL CLEAR; Round 4: ALL IMPLEMENTED):**
 - CI-001: Proof-message content unbound → ASSESSED (action domain binding sufficient for Phase 1)
 - CI-003: `mailto:` bypasses proof → IMPLEMENTED (unverified labels, analytics tracking)
 - CI-004: Personalized content unmoderated → IMPLEMENTED (`moderatePersonalization()`, API endpoint, ActionBar wired)
+
+**🟠 P1 — Privacy/Security debt (1 OPEN):**
+- INT-003: `mvpAddress` cleartext bypass → NOT STARTED (violates privacy architecture)
 
 **🟠 P2 — Important (2 legacy remaining):**
 - BA-014: Rate limiting (DEFERRED — pending infrastructure decision)
@@ -1525,25 +1530,59 @@ This document maps the delta between current implementation and the unified proo
 
 ---
 
-## Cross-Repository Integration Status
+## Cross-Repository Integration Status (Updated 2026-02-09)
 
 **Repositories:** `voter-protocol` + `communique`
 
+### Cryptographic Core (Solid)
+
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Package dependencies (`@voter-protocol/*`) | ✅ Working | - |
+| Package dependencies (`@voter-protocol/*`) | ⚠️ Working locally | `file:` paths in communique package.json — breaks CI/CD (INT-001) |
 | Poseidon2 hash implementation | ✅ Working | `Poseidon2Hasher` via Noir WASM singleton (CVE-004 fix) |
 | Poseidon2 domain separation | ✅ Working | `DOMAIN_HASH2 = 0x48324d` in `hashPair` (BA-003 fix) |
 | Golden test vectors | ✅ Working | Cross-language Noir↔TypeScript vectors (CVE-006 fix) |
-| Noir prover integration | ✅ Working | Multi-depth UltraHonk backend |
+| Noir prover (single-tree) | ✅ Working | Multi-depth UltraHonk backend |
+| Noir prover (two-tree) | ✅ Working | `TwoTreeNoirProver` with 29 public inputs |
 | Shadow Atlas tree building | ✅ Working | Poseidon2 leaf computation, multi-depth trees |
-| Smart contracts (DistrictGate) | ✅ Deployed | Multi-depth verifier routing, EIP-712 |
-| communique → Poseidon2 | ❌ NOT CONNECTED | communique still uses SHA-256 mock |
-| communique → Shadow Atlas API | ❌ NOT CONNECTED | communique has local mock |
-| self.xyz / Didit.me SDK | ❌ STUB | Interface only (Phase 4) |
-| IPFS sync service | ❌ STUBBED | Mock CID, mock validation (SA-008) |
+| Smart contracts (DistrictGate) | ✅ Deployed | Two-tree verifier routing, EIP-712, 29 public inputs |
 
-**Next integration step:** Replace communique's mock hash with `@voter-protocol/crypto` Poseidon2Hasher.
+### Integration Layer (Gaps Remain)
+
+| Component | Status | Blocker | Notes |
+|-----------|--------|---------|-------|
+| communique → DistrictGate client | ✅ Working | — | Real ethers.js client, EIP-712, `verifyTwoTreeProof()` (CI-002 fix) |
+| communique → action domain builder | ✅ Working | — | `action-domain-builder.ts`, 22 tests (CI-005/007 fix) |
+| communique → two-tree prover types | ✅ Working | — | `TwoTreeProofInputs`, `generateTwoTreeProof()`, 29-input validation |
+| communique → Poseidon2 | ❌ NOT CONNECTED | — | communique still uses SHA-256 mock for some paths |
+| communique → Shadow Atlas registration | ❌ BLOCKED | INT-002 | `POST /v1/register` does not exist; leafIndex hardcoded to 0 |
+| communique → mvpAddress bypass | ⚠️ TECH DEBT | INT-003 | Cleartext address bypass still in `/api/submissions/create` |
+| self.xyz / Didit.me SDK | ⚠️ PARTIAL | — | Didit.me integrated with HMAC; self.xyz interface only |
+| IPFS sync service | ❌ STUBBED | — | Mock CID, mock validation (SA-008, deferred to Phase 2) |
+| TEE (AWS Nitro Enclaves) | ❌ NOT DEPLOYED | — | Phase 2 target architecture (SECURITY.md updated) |
+| Package.json CI/CD | ❌ BLOCKED | INT-001 | `file:` paths must become npm registry refs before deploy |
+
+### Integration Blockers (INT-00x)
+
+**INT-001: Package.json `file:` paths break CI/CD**
+- **Location:** `communique/package.json` — `@voter-protocol/crypto` and `@voter-protocol/noir-prover` use `file:/Users/noot/...`
+- **Impact:** GitHub Actions cannot resolve local paths. Blocks any non-local deployment.
+- **Clarification needed:** Are packages published to npm? GitHub Packages? Or should we use a monorepo workspace protocol?
+- **Status:** [ ] NOT STARTED
+
+**INT-002: Shadow Atlas `POST /v1/register` endpoint missing**
+- **Location:** `communique/src/routes/api/shadow-atlas/register/+server.ts:152` calls endpoint that doesn't exist in shadow-atlas
+- **Impact:** Blocks two-tree proof generation for real users. `leafIndex` hardcoded to 0.
+- **Clarification needed:** Is registration a shadow-atlas server endpoint, or should it be a client-side Merkle proof computation? One-time (at signup) or per-session?
+- **Status:** [ ] NOT STARTED — P0 integration blocker
+- **Cross-ref:** COMMUNIQUE-INTEGRATION-SPEC.md:17
+
+**INT-003: `mvpAddress` cleartext bypass still in production path**
+- **Location:** `communique/src/routes/api/submissions/create/+server.ts:91,186,229-232`
+- **Impact:** Violates stated privacy architecture ("address never leaves device"). Server receives plaintext address.
+- **Clarification needed:** What replaces this in Phase 1? TEE is Phase 2. Options: (a) drop address delivery entirely, (b) client-side CWC XML construction, (c) accept as known Phase 1 limitation.
+- **Status:** [ ] NOT STARTED — P1 privacy debt
+- **Cross-ref:** COMMUNIQUE-INTEGRATION-SPEC.md:199,212,353
 
 ---
 
