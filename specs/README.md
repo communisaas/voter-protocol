@@ -16,6 +16,7 @@ Navigation guide for the specification documents. Files are organized by maturit
 | Document | Description | Lines |
 |----------|-------------|-------|
 | [DISTRICT-TAXONOMY.md](DISTRICT-TAXONOMY.md) | 24-slot district type hierarchy and FIPS/TIGER codes | 971 |
+| [PUBLIC-INPUT-FIELD-REFERENCE.md](PUBLIC-INPUT-FIELD-REFERENCE.md) | Canonical naming for 29 public inputs across all components | 66 |
 | [STRING-ENCODING-SPEC.md](STRING-ENCODING-SPEC.md) | Field element string encoding (31-byte chunks, Poseidon2) | 323 |
 | [DATA-INTEGRITY-SPEC.md](DATA-INTEGRITY-SPEC.md) | Data freshness and provenance requirements | 647 |
 | [DEPTH-PARAMETERIZATION-PLAN.md](DEPTH-PARAMETERIZATION-PLAN.md) | Multi-depth circuit compilation (depth-20 active) | 547 |
