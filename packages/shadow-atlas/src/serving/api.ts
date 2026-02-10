@@ -26,13 +26,14 @@ import { DistrictLookupService } from './district-service';
 import { ProofService, toCompactProof } from './proof-generator';
 import { SyncService } from './sync-service';
 import { HealthMonitor } from './health';
+import { RegistrationService, type CellMapState, type CellProofResult } from './registration-service';
 import type {
   LookupResult,
   ErrorCode,
   DistrictBoundary,
   SnapshotMetadata,
 } from './types';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual, createHmac } from 'crypto';
 import { logger } from '../core/utils/logger.js';
 
 /**
@@ -105,6 +106,34 @@ const districtIdSchema = z.object({
 });
 
 /**
+ * POST /v1/register request body: { leaf: "0x..." }
+ * The leaf is a Poseidon2_H3(user_secret, cell_id, registration_salt) computed client-side.
+ */
+/** BN254 scalar field modulus for Zod-level validation (CR-011) */
+const BN254_MODULUS_API = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+const registerSchema = z.object({
+  leaf: z.string()
+    .min(3, 'Leaf hash is required')
+    .regex(/^(0x)?[0-9a-fA-F]+$/, 'Leaf must be a hex-encoded field element')
+    .refine((val) => {
+      try {
+        const n = BigInt(val.startsWith('0x') ? val : '0x' + val);
+        return n > 0n && n < BN254_MODULUS_API;
+      } catch { return false; }
+    }, 'Leaf must be a valid BN254 field element (0 < leaf < p)'),
+});
+
+/**
+ * GET /v1/cell-proof?cell_id={cell_id}
+ */
+const cellProofSchema = z.object({
+  cell_id: z.string()
+    .min(1, 'cell_id is required')
+    .regex(/^(0x)?[0-9a-fA-F]+$|^\d+$/, 'cell_id must be numeric or hex'),
+});
+
+/**
  * Rate limiter with sliding window
  */
 class RateLimiter {
@@ -155,6 +184,10 @@ export class ShadowAtlasAPI {
   private readonly syncService: SyncService;
   private readonly healthMonitor: HealthMonitor;
   private readonly rateLimiter: RateLimiter;
+  private readonly registrationRateLimiter: RateLimiter;
+  private readonly registrationService: RegistrationService | null;
+  private readonly cellMapState: CellMapState | null;
+  private readonly registrationAuthToken: string | null;
   private readonly port: number;
   private readonly host: string;
   private readonly corsOrigins: readonly string[];
@@ -171,13 +204,20 @@ export class ShadowAtlasAPI {
     apiVersion: APIVersion = {
       version: 'v1',
       deprecated: false,
-    }
+    },
+    registrationService: RegistrationService | null = null,
+    cellMapState: CellMapState | null = null,
+    registrationAuthToken: string | null = null,
   ) {
     this.lookupService = lookupService;
     this.proofService = proofService;
     this.syncService = syncService;
     this.healthMonitor = new HealthMonitor();
     this.rateLimiter = new RateLimiter(rateLimitPerMinute);
+    this.registrationRateLimiter = new RateLimiter(5, 60000); // 5 registrations/min per IP
+    this.registrationService = registrationService;
+    this.cellMapState = cellMapState;
+    this.registrationAuthToken = registrationAuthToken;
     this.port = port;
     this.host = host;
     this.corsOrigins = corsOrigins;
@@ -188,6 +228,14 @@ export class ShadowAtlasAPI {
       throw new Error(
         'SA-016: CORS wildcard (*) not allowed in production. ' +
         'Set CORS_ORIGINS to specific allowed origins.'
+      );
+    }
+
+    // C-01: Warn when registration auth is disabled (tree-filling attack surface)
+    if (this.registrationService && !this.registrationAuthToken) {
+      logger.warn(
+        'Registration auth token not configured. POST /v1/register is unauthenticated. ' +
+        'Set REGISTRATION_AUTH_TOKEN in production to prevent tree-filling attacks (CR-004).',
       );
     }
 
@@ -206,16 +254,22 @@ export class ShadowAtlasAPI {
         url: `http://${this.host}:${this.port}`,
       });
 
-      logger.info('API endpoints registered', {
-        endpoints: [
-          `GET /${this.apiVersion.version}/lookup?lat={lat}&lng={lng} - District lookup`,
-          `GET /${this.apiVersion.version}/districts/:id - Direct district lookup`,
-          `GET /${this.apiVersion.version}/health - Health check`,
-          `GET /${this.apiVersion.version}/metrics - Prometheus metrics`,
-          `GET /${this.apiVersion.version}/snapshot - Current snapshot metadata`,
-          `GET /${this.apiVersion.version}/snapshots - List snapshots`,
-        ],
-      });
+      const v = this.apiVersion.version;
+      const endpoints = [
+        `GET /${v}/lookup?lat={lat}&lng={lng} - District lookup`,
+        `GET /${v}/districts/:id - Direct district lookup`,
+        `GET /${v}/health - Health check`,
+        `GET /${v}/metrics - Prometheus metrics`,
+        `GET /${v}/snapshot - Current snapshot metadata`,
+        `GET /${v}/snapshots - List snapshots`,
+      ];
+      if (this.registrationService) {
+        endpoints.push(`POST /${v}/register - User registration (Tree 1 leaf insertion)`);
+      }
+      if (this.cellMapState) {
+        endpoints.push(`GET /${v}/cell-proof?cell_id={id} - Cell SMT proof (Tree 2)`);
+      }
+      logger.info('API endpoints registered', { endpoints });
 
       if (this.apiVersion.deprecated) {
         logger.warn('API version is deprecated', {
@@ -247,7 +301,7 @@ export class ShadowAtlasAPI {
     const startTime = performance.now();
 
     // Set security headers (CSP, CORS, etc.)
-    this.setSecurityHeaders(res, requestId);
+    this.setSecurityHeaders(res, requestId, req);
 
     // Handle OPTIONS preflight
     if (req.method === 'OPTIONS') {
@@ -294,6 +348,10 @@ export class ShadowAtlasAPI {
 
       if (basePath === '/lookup' && req.method === 'GET') {
         await this.handleLookup(url, res, req, requestId, startTime);
+      } else if (basePath === '/register' && req.method === 'POST') {
+        await this.handleRegister(req, res, requestId, startTime);
+      } else if (basePath === '/cell-proof' && req.method === 'GET') {
+        await this.handleCellProof(url, res, req, requestId, startTime);
       } else if (basePath.match(/^\/districts\/[\w-]+$/) && req.method === 'GET') {
         await this.handleDistrictById(basePath, res, req, requestId, startTime);
       } else if (basePath === '/health' && req.method === 'GET') {
@@ -381,7 +439,6 @@ export class ShadowAtlasAPI {
         'Invalid request parameters',
         requestId,
         performance.now() - startTime,
-        validation.error.flatten()
       );
       return;
     }
@@ -484,7 +541,6 @@ export class ShadowAtlasAPI {
         'Invalid district ID',
         requestId,
         performance.now() - startTime,
-        validation.error.flatten()
       );
       return;
     }
@@ -523,6 +579,271 @@ export class ShadowAtlasAPI {
         { districtId, error: errorMsg }
       );
     }
+  }
+
+  /**
+   * Handle POST /v1/register endpoint
+   *
+   * Accepts a precomputed leaf hash and inserts it into Tree 1.
+   * Returns the leaf index and Merkle proof.
+   */
+  private async handleRegister(
+    req: IncomingMessage,
+    res: ServerResponse,
+    requestId: string,
+    startTime: number,
+  ): Promise<void> {
+    // Check service availability
+    if (!this.registrationService) {
+      this.sendErrorResponse(
+        res, 501, 'REGISTRATION_UNAVAILABLE',
+        'Registration service not configured',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    // Rate limiting (stricter than lookup: 5/min per IP)
+    const clientId = this.getClientId(req);
+    const rateResult = this.registrationRateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', 5);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Registration rate limit exceeded. Please try again later.',
+        requestId, performance.now() - startTime,
+        { limit: 5, remaining: 0, resetAt: new Date(rateResult.resetAt).toISOString() },
+      );
+      return;
+    }
+
+    // CR-004: Authenticate registration requests to prevent tree-filling attacks.
+    // Without auth, an attacker can fill the tree (2^20 leaves ≈ 146 days at 5/min rate limit).
+    if (this.registrationAuthToken) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        this.sendErrorResponse(
+          res, 401, 'UNAUTHORIZED',
+          'Authorization required',
+          requestId, performance.now() - startTime,
+        );
+        return;
+      }
+      const token = authHeader.slice(7);
+      // Constant-time comparison to prevent timing attacks
+      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
+        this.sendErrorResponse(
+          res, 403, 'FORBIDDEN',
+          'Invalid authorization token',
+          requestId, performance.now() - startTime,
+        );
+        return;
+      }
+    }
+
+    // CR-014: Validate Content-Type before reading body
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      this.sendErrorResponse(
+        res, 415, 'INVALID_BODY',
+        'Content-Type must be application/json',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    // Parse request body
+    const body = await this.readBody(req);
+    if (body === null) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_BODY',
+        'Request body must be valid JSON',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    // Validate with Zod (CR-007: strip Zod details from response)
+    const validation = registerSchema.safeParse(body);
+    if (!validation.success) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_PARAMETERS',
+        'Invalid registration parameters',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    try {
+      const result = await this.registrationService.insertLeaf(validation.data.leaf);
+
+      // No cache for mutations
+      res.setHeader('Cache-Control', 'no-store');
+
+      this.sendSuccessResponse(
+        res, result, requestId,
+        performance.now() - startTime, false,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+
+      if (msg === 'DUPLICATE_LEAF') {
+        // CR-006: Return 400 (not 409) so duplicate is indistinguishable
+        // from other validation errors — prevents registration oracle attack.
+        // S-08: Use identical message to prevent error-message oracle.
+        this.sendErrorResponse(
+          res, 400, 'INVALID_PARAMETERS',
+          'Invalid registration parameters',
+          requestId, performance.now() - startTime,
+        );
+      } else if (msg.includes('Zero leaf') || msg.includes('exceeds BN254') || msg.includes('Invalid hex')) {
+        this.sendErrorResponse(
+          res, 400, 'INVALID_PARAMETERS',
+          'Invalid registration parameters',
+          requestId, performance.now() - startTime,
+        );
+      } else if (msg.includes('capacity')) {
+        this.sendErrorResponse(
+          res, 503, 'TREE_FULL',
+          'Registration tree is at capacity',
+          requestId, performance.now() - startTime,
+        );
+      } else {
+        this.healthMonitor.recordError(msg);
+        this.sendErrorResponse(
+          res, 500, 'INTERNAL_ERROR',
+          'Registration failed',
+          requestId, performance.now() - startTime,
+        );
+      }
+    }
+  }
+
+  /**
+   * Handle GET /v1/cell-proof endpoint
+   *
+   * Returns the Tree 2 SMT proof for a cell_id, including the 24 district IDs.
+   */
+  private async handleCellProof(
+    url: URL,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+    startTime: number,
+  ): Promise<void> {
+    if (!this.cellMapState) {
+      this.sendErrorResponse(
+        res, 501, 'CELL_PROOF_UNAVAILABLE',
+        'Cell proof service not configured',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    // Rate limiting (same as lookup)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', this.rateLimiter['maxRequests']);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    // Validate query params
+    const params = Object.fromEntries(url.searchParams.entries());
+    const validation = cellProofSchema.safeParse(params);
+
+    if (!validation.success) {
+      // CR-007: Strip Zod details from response
+      this.sendErrorResponse(
+        res, 400, 'INVALID_PARAMETERS',
+        'Invalid cell_id parameter',
+        requestId, performance.now() - startTime,
+      );
+      return;
+    }
+
+    try {
+      const rawCellId = validation.data.cell_id;
+      const cellId = BigInt(rawCellId);
+      const cellIdStr = cellId.toString();
+
+      // Check cell exists in Tree 2
+      const districts = this.cellMapState.districtMap.get(cellIdStr);
+      if (!districts) {
+        this.sendErrorResponse(
+          res, 404, 'CELL_NOT_FOUND',
+          'Cell ID not found in district map',
+          requestId, performance.now() - startTime,
+        );
+        return;
+      }
+
+      // Generate SMT proof
+      const proof = await this.cellMapState.tree.getProof(cellId);
+
+      const result: CellProofResult = {
+        cellMapRoot: '0x' + this.cellMapState.root.toString(16),
+        cellMapPath: proof.siblings.map((s: bigint) => '0x' + s.toString(16)),
+        cellMapPathBits: [...proof.pathBits],
+        districts: districts.map((d: bigint) => '0x' + d.toString(16)),
+      };
+
+      this.sendSuccessResponse(
+        res, result, requestId,
+        performance.now() - startTime, false,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.healthMonitor.recordError(msg);
+      this.sendErrorResponse(
+        res, 500, 'INTERNAL_ERROR',
+        'Cell proof generation failed',
+        requestId, performance.now() - startTime,
+      );
+    }
+  }
+
+  /**
+   * Read and parse JSON request body (max 1KB for registration).
+   */
+  private readBody(req: IncomingMessage): Promise<unknown | null> {
+    return new Promise((resolve) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      const maxSize = 1024; // 1KB max for registration body
+
+      req.on('data', (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > maxSize) {
+          resolve(null);
+          req.destroy();
+          return;
+        }
+        chunks.push(chunk);
+      });
+
+      req.on('end', () => {
+        try {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          resolve(JSON.parse(raw));
+        } catch {
+          resolve(null);
+        }
+      });
+
+      req.on('error', () => resolve(null));
+    });
   }
 
   /**
@@ -607,14 +928,27 @@ export class ShadowAtlasAPI {
   /**
    * Set comprehensive security headers
    */
-  private setSecurityHeaders(res: ServerResponse, requestId: string): void {
+  private setSecurityHeaders(res: ServerResponse, requestId: string, req?: IncomingMessage): void {
     // CORS headers - only set if origins are configured
     if (this.corsOrigins.length > 0) {
-      const origin = this.corsOrigins.includes('*') ? '*' : this.corsOrigins[0];
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
+      // CR-012: Validate against actual request origin, not just first in list
+      const requestOrigin = req?.headers.origin;
+      let origin: string;
+      if (this.corsOrigins.includes('*')) {
+        origin = '*';
+      } else if (requestOrigin && this.corsOrigins.includes(requestOrigin)) {
+        origin = requestOrigin;
+      } else {
+        // H-04: Don't send CORS header if request origin doesn't match any allowed origin.
+        // Sending a non-matching origin header is misleading and can mask misconfigurations.
+        origin = '';
+      }
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
+      }
     }
 
     // Security headers
@@ -657,13 +991,16 @@ export class ShadowAtlasAPI {
       },
     };
 
-    // Set cache headers
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    } else {
-      res.setHeader('X-Cache', 'MISS');
-      res.setHeader('Cache-Control', 'public, max-age=60');
+    // Set cache headers — only if not already set (handleRegister sets no-store)
+    const existingCacheControl = res.getHeader('Cache-Control');
+    if (!existingCacheControl) {
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      } else {
+        res.setHeader('X-Cache', 'MISS');
+        res.setHeader('Cache-Control', 'public, max-age=60');
+      }
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -704,13 +1041,96 @@ export class ShadowAtlasAPI {
   /**
    * Get client ID for rate limiting
    */
+  /**
+   * Get client ID for rate limiting.
+   * CR-003: Only trust X-Forwarded-For from loopback (reverse proxy).
+   * CR-002: Normalize IPv6 to /64 prefix to prevent rotation bypass.
+   */
   private getClientId(req: IncomingMessage): string {
-    // Use X-Forwarded-For if behind proxy, otherwise socket address
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded && typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
+    const socketAddr = req.socket.remoteAddress || 'unknown';
+
+    // CR-003: Only trust X-Forwarded-For when the direct connection is from
+    // a trusted reverse proxy (loopback or private network)
+    let clientIp = socketAddr;
+    if (this.isTrustedProxy(socketAddr)) {
+      const forwarded = req.headers['x-forwarded-for'];
+      if (forwarded && typeof forwarded === 'string') {
+        clientIp = forwarded.split(',')[0].trim();
+      }
     }
-    return req.socket.remoteAddress || 'unknown';
+
+    // CR-002: Normalize IPv6 to /64 prefix to prevent rotation attack
+    return this.normalizeIpForRateLimit(clientIp);
+  }
+
+  /**
+   * Check if the direct connection is from a trusted reverse proxy.
+   * Only loopback and RFC1918 private addresses are trusted.
+   */
+  private isTrustedProxy(addr: string): boolean {
+    // Normalize IPv6-mapped IPv4 (e.g., ::ffff:127.0.0.1 → 127.0.0.1)
+    const normalized = addr.replace(/^::ffff:/, '');
+    return (
+      normalized === '127.0.0.1' ||
+      normalized === '::1' ||
+      normalized.startsWith('10.') ||
+      this.isRfc1918_172(normalized) ||
+      normalized.startsWith('192.168.')
+    );
+  }
+
+  /**
+   * Check if an IPv4 address is in the 172.16.0.0/12 RFC1918 range (172.16.0.0 – 172.31.255.255).
+   * M-06: Previous prefix matching (`172.2`) incorrectly matched public IPs like 172.2.x.x.
+   */
+  private isRfc1918_172(ip: string): boolean {
+    const match = ip.match(/^172\.(\d+)\./);
+    if (!match) return false;
+    const second = parseInt(match[1], 10);
+    return second >= 16 && second <= 31;
+  }
+
+  /**
+   * Normalize IP address for rate limiting.
+   * IPv6 addresses are truncated to /64 prefix to prevent rotation bypass.
+   */
+  private normalizeIpForRateLimit(addr: string): string {
+    // IPv6-mapped IPv4 → use the IPv4 part
+    const normalized = addr.replace(/^::ffff:/, '');
+    if (!normalized.includes(':')) {
+      return normalized; // IPv4: use as-is
+    }
+    // IPv6: truncate to /64 prefix (first 4 groups)
+    const full = this.expandIPv6(normalized);
+    const groups = full.split(':');
+    return groups.slice(0, 4).join(':') + '::/64';
+  }
+
+  /**
+   * Expand abbreviated IPv6 to full 8-group form for consistent prefix extraction.
+   */
+  private expandIPv6(addr: string): string {
+    const parts = addr.split('::');
+    const left = parts[0] ? parts[0].split(':') : [];
+    const right = parts.length > 1 && parts[1] ? parts[1].split(':') : [];
+    const missing = 8 - left.length - right.length;
+    const middle = Array(Math.max(0, missing)).fill('0000');
+    const groups = [...left, ...middle, ...right];
+    return groups.map(g => g.padStart(4, '0')).slice(0, 8).join(':');
+  }
+
+  /**
+   * Constant-time string comparison to prevent timing attacks on auth tokens.
+   */
+  private constantTimeEqual(a: string, b: string): boolean {
+    // Use HMAC-based normalization to prevent length-leak timing side-channel.
+    // timingSafeEqual requires equal-length buffers; padding with a hash
+    // ensures we never reveal length differences via early return.
+    const key = 'constant-time-compare';
+    const hashA = createHmac('sha256', key).update(a).digest();
+    const hashB = createHmac('sha256', key).update(b).digest();
+    // HMAC outputs are always 32 bytes — safe for timingSafeEqual
+    return timingSafeEqual(hashA, hashB) && a.length === b.length;
   }
 
   /**
@@ -744,6 +1164,9 @@ export async function createShadowAtlasAPI(
     ipfsGateway?: string;
     snapshotsDir?: string;
     apiVersion?: APIVersion;
+    registrationService?: RegistrationService;
+    cellMapState?: CellMapState;
+    registrationAuthToken?: string;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services
@@ -765,7 +1188,10 @@ export async function createShadowAtlasAPI(
     options.host,
     options.corsOrigins,
     options.rateLimitPerMinute,
-    options.apiVersion
+    options.apiVersion,
+    options.registrationService ?? null,
+    options.cellMapState ?? null,
+    options.registrationAuthToken ?? process.env.REGISTRATION_AUTH_TOKEN ?? null,
   );
 
   return api;

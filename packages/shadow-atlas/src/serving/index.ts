@@ -23,6 +23,14 @@ export { ProofService, toCompactProof, fromCompactProof } from './proof-generato
 export { SyncService } from './sync-service';
 export { HealthMonitor } from './health';
 export { ShadowAtlasAPI, createShadowAtlasAPI } from './api';
+export { RegistrationService } from './registration-service';
+
+// Registration types
+export type {
+  RegistrationResult,
+  CellProofResult,
+  CellMapState,
+} from './registration-service';
 
 // Types
 export type {
