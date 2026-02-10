@@ -1,7 +1,7 @@
 # Communique Integration Spec: Two-Tree Architecture + Message Delivery
 
 > [!NOTE]
-> **Implementation Status (2026-02-08)**
+> **Implementation Status (2026-02-10)**
 >
 > | Phase | Component | Status |
 > |-------|-----------|--------|
@@ -9,12 +9,17 @@
 > | 2 | Smart contracts (DistrictGate, UserRootRegistry, CellMapRegistry) | Complete |
 > | 3 | Shadow-atlas two-tree support | Complete |
 > | 4 | noir-prover WASM integration | Complete |
-> | 5 | Communique registration UI integration | **In Progress** |
+> | 5 | Communique registration UI integration | Complete (Wave 17c) |
+> | 5b | Communique two-tree proof generation | Complete (Wave 19a) |
+> | 5c | Registration auth (CR-004) | Complete (Wave 19b) |
+> | 5d | Identity verification (self.xyz/didit) mandatory for CWC | Required (Wave 24) |
 > | 6 | On-chain verification via DistrictGate client | Complete (Wave 15a) |
 > | 7 | Coordination metrics indexer (The Graph) | Complete (Wave 15c/15d) |
 > | 8 | Anti-astroturf hardening (Waves 13-15) | Complete — all 11 gaps closed |
 >
-> **Remaining blocker:** No `POST /v1/register` endpoint in shadow-atlas yet (leafIndex hardcoded to 0).
+> **INT-002 RESOLVED (Wave 17b):** `POST /v1/register` endpoint implemented in shadow-atlas.
+> `GET /v1/cell-proof` endpoint implemented for Tree 2 proofs.
+> **CR-004 RESOLVED (Wave 19b):** Bearer token auth on `POST /v1/register` with HMAC constant-time comparison.
 > See `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for detailed progress.
 
 ---
@@ -75,9 +80,74 @@ Client                           Server                    On-Chain             
 - `user_root` (1), `cell_map_root` (1), `districts[24]` (24), `nullifier` (1), `action_domain` (1), `authority_level` (1)
 
 **Private inputs (in proof, never revealed):**
-- `user_secret`, `cell_id`, `salt`, merkle paths for both trees
+- `user_secret`, `cell_id`, `salt`, `identity_commitment`, merkle paths for both trees
 
-### 2.2 Path 2: mailto: (No Proof)
+### 2.2 Registration Privacy Architecture (Wave 17)
+
+The registration flow preserves user privacy through client-side leaf computation:
+
+```
+Browser                          Communique Server              Shadow Atlas
+  │                                    │                              │
+  ├─ Enter address ───────────────────►│                              │
+  │                                    ├─ Census Geocoding API ──►    │
+  │                                    │◄── cell_id (GEOID) ─────    │
+  │◄── cell_id ────────────────────────┤                              │
+  │                                    │                              │
+  │  Generate user_secret (random)     │                              │
+  │  Generate registration_salt        │                              │
+  │  Verify identity via self.xyz/didit │                              │
+  │  → identityCommitment              │                              │
+  │  → authorityLevel (from attestation)│                              │
+  │  Compute leaf = H4(secret,         │                              │
+  │    cell_id, salt, authority_level)  │                              │
+  │    IN BROWSER                      │                              │
+  │                                    │                              │
+  ├─ POST /register { leaf } ──────────┤                              │
+  │                                    ├─ POST /v1/register ────────►│
+  │                                    │                  Insert leaf │
+  │                                    │                  into Tree 1 │
+  │                                    │◄── { leafIndex, userPath, ──│
+  │                                    │      userRoot }              │
+  │◄── { leafIndex, userPath, ─────────┤                              │
+  │      userRoot, pathIndices }       │                              │
+  │                                    │                              │
+  ├─ GET /cell-proof?cell_id=X ────────┤                              │
+  │                                    ├─ GET /v1/cell-proof ───────►│
+  │                                    │◄── { cellMapRoot, path, ────│
+  │                                    │      districts[24] }         │
+  │◄── { cellMapRoot, cellMapPath, ────┤                              │
+  │      districts[24] }               │                              │
+  │                                    │                              │
+  │  Store in IndexedDB (encrypted):   │                              │
+  │    user_secret, cell_id,           │                              │
+  │    registration_salt, leafIndex,   │                              │
+  │    userPath, userRoot,             │                              │
+  │    cellMapRoot, cellMapPath,       │                              │
+  │    cellMapPathBits, districts[24]  │                              │
+```
+
+**What the Communique server sees:** `{ leaf: "0x7a3f..." }` — a 256-bit hash. Nothing else.
+
+**What the Shadow Atlas operator sees:** Same leaf hash + the cell_id (neighborhood-level, ~600-3000 people) for the Tree 2 proof request. The Shadow Atlas also receives the self.xyz/didit attestation signature to verify authority_level. It learns the authority tier for each leaf but NOT the user's identity.
+
+**Why this is safe:**
+- The ZK circuit validates leaf correctness from private inputs at proof time
+- Garbage leaves (wrong cell_id) fail Tree 2 membership check
+- The operator is an append-only log, not a validator
+- cell_id disclosure is a known Phase 1 tradeoff (see Deferred Items in WAVE-17-19-IMPLEMENTATION-PLAN.md)
+
+**Credential recovery limitation:** Browser clear = re-register. user_secret and registration_salt exist only in encrypted IndexedDB. Acceptable for initial launch; credential backup is Phase 2.
+
+### 2.3 Tree Root Distribution
+
+Phase 1: Shadow Atlas operator submits root updates to on-chain registries:
+- `UserRootRegistry.sol` — Tree 1 root updated after each registration batch
+- `CellMapRegistry.sol` — Tree 2 root updated after Census data ingestion
+
+Phase 2: TEE-attested root updates (operator cannot manipulate roots).
+
+### 2.4 Path 2: mailto: (No Proof)
 
 ```
 Client                           Server                    Email Provider
@@ -126,7 +196,7 @@ Client generates **1 proof per template**. Server fans out to N representatives 
 |--------|-------|
 | Proof count | 1 per template submission |
 | Gas cost | ~387K on Scroll L2 (~$0.0016) |
-| Nullifier | `H(user_secret, action_domain)` |
+| Nullifier | `H(identity_commitment, action_domain)` |
 | Reuse within session | Blocked (same nullifier) |
 | Reuse across sessions | Allowed (new `session_id` = new `action_domain`) |
 
@@ -199,6 +269,8 @@ interface SessionCredential {
 - `mvpAddress` field from `/api/submissions/create` (cleartext bypass)
 - `encryptedDeliveryData` Postgres table (server-side address storage)
 - `blob-encryption.ts` address handling code
+
+**MVP address bypass removed.** CWC delivery requires TEE (Phase 2). The mailto: path is available without TEE but is labeled 'unverified' and does not claim ZK-backed constituency proof.
 
 ---
 

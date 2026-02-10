@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 10: 2026-02-09)
-> **Status:** REVISION 10 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 COMPLETE (10/10), Round 4 COMPLETE (7/7), Integration Status UPDATED (3 INT blockers identified)
+> **Date:** 2026-01-26 (Rev 14: 2026-02-10)
+> **Status:** REVISION 14 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 COMPLETE (10/10), Round 4 COMPLETE (7/7), Round 5 TRIAGED (20 new findings + NUL-001 architectural), Integration Status UPDATED (3 INT blockers identified), ARCHITECTURAL DECISIONS RECORDED (H4 leaf, identity nullifier, no MVP, chain-only, IPFS replay, npm scope)
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -10,6 +10,7 @@
 > **Brutalist Audit Round 3:** 15 AI critics across 5 domains (architecture, crypto, contracts, prover, shadow-atlas) — 2026-02-04
 > **BR3 Remediation Verified:** All 10 findings resolved and cross-validated against source code — 2026-02-05
 > **Coordination Integrity Review (Round 4):** Cross-repository data-flow analysis of proof-message binding, delivery paths, and anti-astroturf architecture — 2026-02-08
+> **Brutalist Audit Round 5:** 7 AI critics (3 Claude, 3 Codex, 1 Gemini) across 4 persona-driven assessments (cryptanalyst, infra hacker, client-side predator, protocol analyst) — 2026-02-10
 
 ---
 
@@ -1469,44 +1470,405 @@ The on-chain `allowedActionDomains` whitelist already accommodates this — gove
 
 ---
 
+## 🔴 Brutalist Audit Round 5: Multi-Persona Security Assessment (2026-02-10)
+
+> **Scope:** Cross-repo security assessment covering voter-protocol, communique, and their integration boundary.
+> **Method:** 4 parallel brutalist instances with 7 critic agents (3 Claude, 3 Codex, 1 Gemini). Each instance was imbued with a distinct attacker persona:
+> 1. **The Cryptanalyst** — PhD-level cryptographer targeting hash functions, proof soundness, field arithmetic
+> 2. **The Infrastructure Hacker** — Pentester targeting Shadow Atlas API, rate limiting, auth, DoS
+> 3. **The Client-Side Predator** — Browser exploit specialist targeting communique, IndexedDB, XSS, supply chain
+> 4. **The Protocol Analyst** — Integration specialist targeting cross-repo seams, field naming, version skew, type erasure
+>
+> **Triage:** 20 new findings confirmed, 7 cross-referenced to existing tracking, 5 false positives rejected.
+> **Verified Secure:** Hash parity (H2/H3 TS↔Noir), BN254 modulus consistency, nullifier formula (CVE-002), user leaf formula, sponge construction, Merkle proof bit logic, registration mutex, CORS, Zod validation, CR-006 anti-oracle (error codes).
+
+### CRITICAL ARCHITECTURAL FINDING: Nullifier Sybil Vulnerability
+
+**Severity:** CRITICAL | **Discovered:** 2026-02-10 (post-brutalist architectural review) | **Repo:** voter-protocol + communique
+
+**ID:** NUL-001
+
+**Problem:**
+
+The current nullifier is derived from `userSecret`:
+```
+nullifier = H2(userSecret, actionDomain)
+```
+
+`userSecret` is random — generated client-side, ephemeral, never sent to any server. If a user:
+1. Registers with `secret_A` -> `leaf_A` in tree -> `nullifier_A = H2(secret_A, action)`
+2. Clears browser (or opens incognito)
+3. Re-verifies with self.xyz/didit
+4. Registers with `secret_B` -> `leaf_B` in tree -> `nullifier_B = H2(secret_B, action)`
+
+**Two different nullifiers. Same person. Double vote.** The nullifier is derived from something ephemeral, not something identity-bound. Re-registration creates a new nullifier for the same human.
+
+**Fix (DECIDED):**
+
+```
+nullifier = H2(identityCommitment, actionDomain)
+```
+
+Where `identityCommitment = H(self.xyz_subject_hash)` — deterministic per verified person regardless of how many times they register. Same person -> same identityCommitment -> same nullifier -> can't double-vote.
+
+**Circuit changes required:**
+- `identityCommitment` becomes a new **private input**
+- Nullifier computation: `H2(userSecret, actionDomain)` -> `H2(identityCommitment, actionDomain)`
+- Combined with BR5-001: leaf becomes `H4(userSecret, cellId, registrationSalt, authorityLevel)` with DOMAIN_HASH4
+- `userSecret` still exists for leaf preimage knowledge proof but no longer drives the nullifier
+
+**Re-registration properties:**
+| Trigger | Old Leaf | New Leaf | Nullifier |
+|---|---|---|---|
+| Browser cleared | Unusable (lost secret) | New (new secret, new salt) | **Same** (identity-bound) |
+| Moved | Valid for old districts | New (new cellId) | **Same** |
+| Authority upgrade | Level 1 | New (level 4) | **Same** |
+| Salt rotation | Valid | New (new salt) | **Same** |
+
+**Status:** [ ] NOT STARTED — DECIDED. Circuit rework required (combined with BR5-001).
+
+---
+
+### P0 — Deployment Blocking (3)
+
+#### BR5-001: Authority Level Not Cryptographically Bound to Leaf Hash
+
+**Severity:** CRITICAL | **Repo:** voter-protocol + communique | **Source:** ALL 4 assessment instances (7/7 critics)
+
+**Problem:**
+
+The two-tree circuit computes the user leaf as:
+```noir
+user_leaf = poseidon2_hash3(user_secret, cell_id, registration_salt)
+```
+
+`authority_level` is a separate public input with range check `[1, 5]` (ISSUE-006/BA-007) but is **not included in the leaf preimage**. The circuit verifies the leaf exists in the tree and that `authority_level ∈ [1,5]`, but never proves that this specific authority level was assigned to this user during registration.
+
+**Attack scenario:**
+1. Attacker registers normally (level 1 self-attestation) → gets valid leaf in Tree 1
+2. Attacker modifies `authorityLevel: 5` in `ProofContext` or IndexedDB `SessionCredential`
+3. Circuit generates valid proof (leaf exists, authority_level 5 is in range [1,5])
+4. On-chain contract accepts `authority_level=5` from public inputs
+5. Any downstream system gating on authority level is bypassed
+
+**Compounding factors:**
+- `mapCredentialToProofInputs` falls back to level 3 for verified users without server-attested `authorityLevel` (Wave 18M fix) — but client can override via `ProofContext`
+- No on-chain authority registry to validate claimed levels
+- The mapper has zero callers in production flow (P1 gap) — manual construction could use any level
+
+**Assessment:**
+**DECIDED: Option A.** Authority level is cryptographically bound to the leaf hash via `H4(userSecret, cellId, registrationSalt, authorityLevel)` with `DOMAIN_HASH4 = 0x48344d` ("H4M"). This requires a circuit rework. The leaf formula changes from `H3(userSecret, cellId, registrationSalt)` to `H4(userSecret, cellId, registrationSalt, authorityLevel)`. Identity verification (self.xyz or didit) is mandatory for CWC-path messages; the authority level is attested by the identity provider at registration time and bound into the leaf.
+
+This decision also requires the nullifier construction change (NUL-001): `nullifier = H2(identityCommitment, actionDomain)` instead of `H2(userSecret, actionDomain)`, where `identityCommitment` is a new private circuit input derived from the self.xyz/didit credential. This fixes the Sybil vulnerability where re-registration with a new `userSecret` would create new nullifiers.
+
+**Cross-reference:** Related to CVE-001 (opaque leaf — FIXED), ISSUE-006 (range check — COMPLETE), NUL-001 (nullifier Sybil — DECIDED). The range check prevents out-of-bounds values; this fix prevents self-elevation within bounds; NUL-001 prevents double-registration.
+
+**Recommended fix:**
+Option A (DECIDED): Include `authority_level` in leaf: `H4(secret, cellId, registrationSalt, authorityLevel)` with `DOMAIN_HASH4 = 0x48344d`. Requires circuit change + tree rebuild. No second proof tree needed.
+
+**Status:** [ ] NOT STARTED — DECIDED: Option A (bind to leaf via H4). Circuit rework required.
+
+---
+
+#### BR5-002: Server-Side Proof Non-Verification in Submissions Endpoint
+
+**Severity:** CRITICAL | **Repo:** communique | **Source:** Codex (communique assessment)
+
+**Problem:**
+
+`/api/submissions/create` ingests `proof`, `publicInputs`, and `nullifier` from the client and stores them without any ZK proof verification. In MVP mode, `verification_status` is set to `verified` without checking:
+
+```typescript
+// communique/src/routes/api/submissions/create/+server.ts
+// Accepts proof bytes from client, stores them, marks as verified
+// No call to barretenberg verifyProof() or DistrictGate
+```
+
+Combined with BR5-003 (`skipCredentialCheck={true}` in TemplateModal), any authenticated user can submit arbitrary data as "verified" submissions.
+
+**Impact:** Fraudulent submissions delivered to representatives, bypassing the entire ZK security model.
+
+**Cross-reference:** Related to CI-002 (blockchain submission mocked — IMPLEMENTED with real ethers.js). However, even with blockchain submission working, the server-side handler stores first, submits to chain second. If chain submission fails, the submission may remain "verified" locally.
+
+**Recommended fix:** Chain is source of truth. Submissions marked verified only after on-chain DistrictGate confirmation. Server never calls barretenberg directly.
+
+**Status:** [ ] NOT STARTED — No MVP mode. Must verify on-chain before marking verified.
+
+### P1 — Security Critical (8)
+
+#### BR5-003: `skipCredentialCheck` Creates Mock Credentials in Production UI
+
+**Severity:** HIGH | **Repo:** communique | **Source:** Codex (communique assessment)
+
+**Problem:** `TemplateModal` always passes `skipCredentialCheck={true}` to `ProofGenerator.svelte` (line ~1125). When no credential exists, mock credentials are created and proof generation proceeds with fabricated data.
+
+**Impact:** Any user (even unverified) gets a client flow that generates "valid" proof inputs without real registration. Combined with BR5-002, total identity bypass.
+
+**Recommended fix:** Remove `skipCredentialCheck` flag from production TemplateModal. Require valid SessionCredential before proof generation.
+
+**Status:** [ ] NOT STARTED — Remove entirely. No MVP mode.
+
+---
+
+#### BR5-004: `hash4` Lacks Domain Separation — Collision With `hash3`
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Gemini (crypto assessment)
+
+**Problem:**
+
+`hash3(a,b,c)` invokes `poseidon2_permutation([a, b, c, DOMAIN_HASH3])`.
+`hash4(a,b,c,d)` invokes `poseidon2_permutation([a, b, c, d])` — **no domain tag**.
+
+When `d = DOMAIN_HASH3` (0x48334d = 4,731,725): `hash4(a, b, c, DOMAIN_HASH3) === hash3(a, b, c)` — proven collision.
+
+**Cross-reference:** BR3-X09 dismissed this for the specific case where `d = authority_level` (blocked by circuit range [1,5]). However, BR5-004 documents the BROADER collision: any use of hash4 where the 4th input could equal DOMAIN_HASH3 is vulnerable. In the legacy single-tree circuit, `hash4(secret, districtId, authorityLevel, salt)` — if `salt = 4731725`, the leaf collides with `hash3(secret, districtId, authorityLevel)`. The `registrationSalt` has no constraint other than non-zero (BR3-005).
+
+**Current mitigation:** Legacy single-tree circuit is not the active proof path. Cross-tree collision requires shared root registry, which doesn't exist.
+
+**Recommended fix:** Addressed by the H4 circuit rework (BR5-001 decision). Adding DOMAIN_HASH4 = 0x48344d ('H4M') eliminates the collision. Since the leaf formula is changing to H4 anyway, the domain tag is added as part of that change.
+
+**Status:** [ ] NOT STARTED — Resolved by BR5-001 circuit rework (DOMAIN_HASH4 added)
+
+---
+
+#### BR5-005: Registration Timing Oracle Defeats CR-006 Anti-Oracle
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Shadow-Atlas + Integration assessments (3/7 critics)
+
+**Problem:**
+
+CR-006 anti-oracle (Wave 20M) ensures duplicate and invalid registrations return identical error codes and messages. However, the timing differs:
+- Duplicate leaf: O(1) `Set.has()` check (~1ms)
+- New leaf insertion: O(depth=20) Poseidon2 hashes (~50ms)
+- Response includes `meta.latencyMs` in JSON body
+
+An attacker submitting candidate leaves can classify duplicates by response time, breaking the 1-bit privacy guarantee ("is this leaf registered?").
+
+**Recommended fix:**
+1. Remove `latencyMs` from registration error responses
+2. Add constant random delay (50-200ms) to all registration responses
+3. OR: perform dummy hash chain on duplicate detection to equalize timing
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR5-006: `TwoTreeNoirProver.verifyProof` Doesn't Validate Expected Public Inputs
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Codex (crypto assessment)
+
+**Problem:** `TwoTreeNoirProver.verifyProof` at `two-tree-prover.ts:364-375` only calls `backend.verifyProof()` and returns its boolean result. It does NOT check that the proof's public inputs match expected values for `userRoot`, `cellMapRoot`, `nullifier`, `actionDomain`, or `authorityLevel`.
+
+**Impact:** A valid proof from a different action domain or earlier root can be presented to off-chain verifiers using this method. On-chain, DistrictGate validates public inputs independently. Off-chain callers are unprotected.
+
+**Cross-reference:** Analogous to BR3-008 (SMT.verify doesn't bind key — DOCUMENTED).
+
+**Recommended fix:** Add `expectedPublicInputs` parameter to `verifyProof()` and assert equality. Or document as off-chain limitation.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR5-007: Registration State Non-Persistent — Restart Enables Duplicate Insertion
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Integration assessment (2/7 critics)
+
+**Problem:** `RegistrationService` stores all state (`leafSet`, `nodeMap`, `root`, `nextLeafIndex`) in memory. Server restart:
+1. Clears the leaf set → duplicate leaf insertion possible with different `leafIndex`
+2. Resets `nextLeafIndex` → tree overwrites previous insertions
+3. Resets rate limiter state
+
+Two valid proofs for the same identity commitment with different `leafIndex` values could exist simultaneously after restart.
+
+**Cross-reference:** Related to CR-005 (persistent rate limiting — Wave 22 planned). CR-005 covers rate limiting only, not tree state persistence.
+
+**Recommended fix:** IPFS log replay architecture decided. Shadow Atlas state = deterministic rebuild from append-only leaf insertion log. Primary: Storacha (formerly web3.storage, free 5GB tier, Filecoin-backed). Backup: Lighthouse Beacon ($20 one-time, perpetual via Filecoin endowment pool). Optional: Helia self-hosted node for sovereignty.
+
+**Status:** [ ] NOT STARTED — Architecture decided: IPFS log replay (Storacha + Lighthouse)
+
+---
+
+#### BR5-008: npm Package Names Unclaimed — Supply Chain Name-Squatting
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Integration assessment (2/7 critics)
+
+**Problem:** `communique/package.json` references `@voter-protocol/crypto@^0.1.3` and `@voter-protocol/noir-prover@^0.2.0`. These packages have NOT been published to npm. An attacker could:
+1. Create the `@voter-protocol` org on npm (if unclaimed)
+2. Publish malicious `@voter-protocol/crypto` package
+3. Any `npm install` in communique pulls attacker's code
+
+**Cross-reference:** INT-001 tracks CI/CD impact of `file:` paths. BR5-008 adds the supply chain attack vector.
+
+**Recommended fix:** Immediately claim the `@voter-protocol` npm scope and publish placeholder packages. Or switch to GitHub Packages with authenticated registry.
+
+**Status:** [ ] NOT STARTED — npm scope @voter-protocol already claimed. Publish packages.
+
+---
+
+#### BR5-009: No BN254 Validation on Shadow Atlas Responses in Communique
+
+**Severity:** HIGH | **Repo:** communique | **Source:** Claude (integration assessment)
+
+**Problem:** `shadow-atlas-handler.ts` checks presence of `userRoot`, `userPath`, etc. from Shadow Atlas registration response, but never validates they are valid BN254 field elements. A compromised or malicious Shadow Atlas could return values ≥ BN254 modulus, passing through to proof generation and causing circuit failures or undefined behavior.
+
+**Recommended fix:** Add `hexToFr()` validation (which includes BN254 bounds check) on all server response fields before storing in SessionCredential.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR5-010: 29 Public Inputs Not Validated Client-Side Before On-Chain Submission
+
+**Severity:** HIGH | **Repo:** communique | **Source:** Claude (integration assessment)
+
+**Problem:** After proof generation in `ProofGenerator.svelte`, the 29 public inputs are extracted and submitted to DistrictGate without client-side cross-validation:
+- `userRoot` not checked against Shadow Atlas commitment
+- `cellMapRoot` not checked against current known state
+- `authorityLevel` not re-verified against credential
+- `nullifier` not re-checked against `H2(userSecret, actionDomain)`
+
+A compromised proof generator (XSS, browser extension) could submit cryptographically valid proofs with wrong public inputs.
+
+**Recommended fix:** Add `validatePublicInputs(proofResult, credential, context)` function that cross-checks outputs against known-good state before submission.
+
+**Status:** [ ] NOT STARTED
+
+### P2 — Important (8)
+
+| ID | Finding | Repo | Source | Status |
+|----|---------|------|--------|--------|
+| BR5-011 | No credential recovery path for returning users — browser clear causes account lockout (no endpoint to retrieve existing Merkle path) | communique + voter-protocol | Gemini (integration) | [ ] NOT STARTED |
+| BR5-012 | Registration auth defaults to open when `REGISTRATION_AUTH_TOKEN` unconfigured — warning-only log at `api.ts:234-239` | voter-protocol | Shadow-Atlas + Integration (3/7) | [ ] NOT STARTED |
+| BR5-013 | `/v1/health` leaks `lat`/`lon` coordinates and error samples; `/v1/metrics` unauthenticated — operational telemetry exposed | voter-protocol | Codex (shadow-atlas) | [ ] NOT STARTED |
+| BR5-014 | Generic 500 error responses pass `error.message` details to client via `sendErrorResponse` at `api.ts:375-389` | voter-protocol | Codex (shadow-atlas) | [ ] NOT STARTED |
+| BR5-015 | No CSP header in communique `hooks.server.ts` — only COOP/COEP set, increasing XSS blast radius for IndexedDB credential theft | communique | Codex (communique) | [ ] NOT STARTED |
+| BR5-016 | `/api/shadow-atlas/cell-proof` endpoint not rate limited — enables cell ID enumeration and Shadow Atlas DoS | communique | Codex (communique) | [ ] NOT STARTED |
+| BR5-017 | `formatInputs()` districts array is positional (slot 0-23 = specific district types) but ordering never validated across translation pipeline | voter-protocol | Claude (integration) | [ ] NOT STARTED |
+| BR5-018 | Wildcard dependency `"*"` for `@voter-protocol/noir-prover` in `packages/client/package.json:27-38` — allows any version including malicious | voter-protocol | Codex (integration) | [ ] NOT STARTED |
+
+### P3 — Hardening (2)
+
+| ID | Finding | Repo | Source | Status |
+|----|---------|------|--------|--------|
+| BR5-019 | IndexedDB encryption key same-origin accessible — XSS reads credential store (defense-in-depth limitation documented in `credential-encryption.ts:10-14`) | communique | Codex (communique) | [x] DOCUMENTED |
+| BR5-020 | `leafIndex→userIndex` triple-rename (`SessionCredential.leafIndex` → `TwoTreeProofInputs.userIndex` → circuit `user_index`) creates developer confusion | communique | Claude (integration) | [x] DOCUMENTED — specs/PUBLIC-INPUT-FIELD-REFERENCE.md |
+
+### Already Tracked (Cross-Referenced)
+
+| Critic Finding | Existing Tracking | Notes |
+|---------------|-------------------|-------|
+| mvpAddress cleartext bypass | INT-003 | Confirmed by 3/7 critics — Phase 2 TEE required |
+| In-memory rate limiting (CR-005) | Wave 22 planned | Persistent Redis-backed rate limiting |
+| SMT.verify doesn't bind proof.key | BR3-008 (DOCUMENTED) | Re-confirmed by crypto assessment |
+| IPFS sync stubbed / snapshot integrity | SA-008 (DEFERRED Phase 2) | `validateSnapshot` always returns true |
+| Legacy client SDK disconnect | Already-Known (BR3 triage) | `@voter-protocol/client` outdated for two-tree |
+| Weak `deriveUserSecret()` in client adapter | Already-Known (BR3 triage) | DJB2 hash — legacy dead code |
+| npm `file:` paths break CI/CD | INT-001 | BR5-008 adds supply chain angle |
+
+### False Positives Rejected (Preserved for Future Auditors)
+
+| Claimed Finding | Why Invalid |
+|----------------|-------------|
+| "hash4/hash3 collision via authority_level = DOMAIN_HASH3" | Blocked by circuit range check `authority_level ∈ [1,5]` and DOMAIN_HASH3 = 4,731,725 (BR3-X09). The BROADER collision where ANY 4th input = DOMAIN_HASH3 is separately tracked as BR5-004. |
+| "Circuit lacks return statement — public inputs not bound" | Re-raised from BR3-X01. Noir `pub` parameters are cryptographically constrained by UltraHonk proof system. |
+| "SMT collision overflow will cause insertion failure" | Re-raised from BR3-X04. 23% load factor makes 16-collision cascade probability ≈ 10^-10. |
+| "Registration endpoint concurrent race condition" | Promise-chain serialization in RegistrationService prevents concurrent insertion races. Verified in Wave 17b review. |
+| "Merkle root not recomputed inside circuit" | Re-raised from BR2. `main.nr:145` explicitly computes and asserts merkle root equality. |
+
+### Verified Secure (Confirmed by All Assessors)
+
+| Area | Verdict | Evidence |
+|------|---------|----------|
+| Hash parity (H2/H3 TS↔Noir) | IDENTICAL | Domain tags `0x48324d`, `0x48334d` match byte-for-byte; golden vectors confirmed |
+| BN254 modulus consistency | IDENTICAL | Same value across all 6 declaration sites |
+| Nullifier formula (CVE-002) | FIXED | `H2(userSecret, actionDomain)` everywhere |
+| User leaf formula | CONSISTENT | `H3(userSecret, cellId, registrationSalt)` in circuit + TypeScript |
+| Sponge construction | CORRECT | Addition-based, domain tag in capacity position |
+| Merkle proof bit logic | CORRECT | Verified by 86 tests across 4 test files |
+| Registration mutex | SOUND | Promise-chain serialization prevents concurrent insertion |
+| CORS | SECURE | Origin validation against allowlist, no wildcard in production |
+| Zod input validation | COMPREHENSIVE | 3-layer BN254 checking (regex → refine → service-level) |
+| CR-006 anti-oracle (error codes) | FIXED | Identical 400 + same message (Wave 20M fix) |
+| Content-Type enforcement | SECURE | `application/json` required before body parsing |
+
+### Summary Table: Brutalist Round 5
+
+| Priority | ID | Issue | Repo | Status |
+|----------|-----|-------|------|--------|
+| **P0** | NUL-001 | Nullifier derived from ephemeral userSecret — Sybil via re-registration | both | [ ] DECIDED — Circuit rework required |
+| **P0** | BR5-001 | Authority level not bound to leaf hash | both | [ ] DECIDED — Option A (H4 leaf binding) |
+| **P0** | BR5-002 | Server-side proof non-verification | communique | [ ] NOT STARTED — No MVP mode, chain-only verification |
+| **P1** | BR5-003 | skipCredentialCheck mock credentials | communique | [ ] NOT STARTED — Remove entirely |
+| **P1** | BR5-004 | hash4 lacks domain tag — collision with hash3 | voter-protocol | [ ] Resolved by BR5-001 circuit rework |
+| **P1** | BR5-005 | Registration timing oracle | voter-protocol | [ ] NOT STARTED |
+| **P1** | BR5-006 | verifyProof doesn't check public inputs | voter-protocol | [ ] NOT STARTED |
+| **P1** | BR5-007 | Registration state non-persistent | voter-protocol | [ ] NOT STARTED — IPFS log replay decided |
+| **P1** | BR5-008 | npm package names not claimed | voter-protocol | [ ] NOT STARTED — npm scope claimed |
+| **P1** | BR5-009 | No BN254 validation on server responses | communique | [ ] NOT STARTED |
+| **P1** | BR5-010 | 29 public inputs not validated pre-submission | communique | [ ] NOT STARTED |
+| **P2** | BR5-011 | No credential recovery path (account lockout) | both | [ ] NOT STARTED |
+| **P2** | BR5-012 | Registration auth defaults to open | voter-protocol | [ ] NOT STARTED |
+| **P2** | BR5-013 | Health/metrics endpoint data leakage | voter-protocol | [ ] NOT STARTED |
+| **P2** | BR5-014 | Error detail leakage in 500s | voter-protocol | [ ] NOT STARTED |
+| **P2** | BR5-015 | No CSP header | communique | [ ] NOT STARTED |
+| **P2** | BR5-016 | Cell-proof endpoint not rate limited | communique | [ ] NOT STARTED |
+| **P2** | BR5-017 | Array ordering not validated | voter-protocol | [ ] NOT STARTED |
+| **P2** | BR5-018 | Wildcard dependency "*" | voter-protocol | [ ] NOT STARTED |
+| **P3** | BR5-019 | IndexedDB same-origin access (defense-in-depth) | communique | [x] DOCUMENTED |
+| **P3** | BR5-020 | Triple-rename confusion | communique | [x] DOCUMENTED |
+
+---
+
 This document maps the delta between current implementation and the unified proof architecture.
 
 **Original CVEs (6) + Expert Issues (7): ALL 13 REMEDIATED** (2026-01-26)
 
-**Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014 rate limiting), 1 env-blocked (BA-017 depth-24 test)
-**Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 3 P0, 4 P1, 7 P2, 4 P3
-
-**Combined open issues: 6** (3 legacy from Rounds 1-2; all Round 3 resolved; all Round 4 IMPLEMENTED or DOCUMENTED; 3 integration blockers identified 2026-02-09: INT-001/002/003)
-
 **Brutalist Round 1 (2026-01-26):** 23 findings — 21 fixed, 1 deferred (BA-014), 1 env-blocked (BA-017)
 **Brutalist Round 2 (2026-01-27):** 18 genuine findings (7 false positives rejected) — 14 fixed, 4 remaining
-**Brutalist Round 3 (2026-02-04):** ~75 raw findings from 15 critics → 10 valid after triage → **ALL 10 RESOLVED** (2026-02-05 cross-validated against source code)
-**Coordination Integrity Round 4 (2026-02-08):** 7 findings — ALL IMPLEMENTED or DOCUMENTED (Cycle 2 Waves 9-10)
+**Brutalist Round 3 (2026-02-04):** ~75 raw findings from 15 critics → 10 valid after triage → **ALL 10 RESOLVED** (2026-02-05)
+**Coordination Integrity Round 4 (2026-02-08):** 7 findings — ALL IMPLEMENTED or DOCUMENTED
+**Brutalist Round 5 (2026-02-10):** 4 persona-driven assessments with 7 critics → 20 new findings (2 P0, 8 P1, 8 P2, 2 P3) + 7 cross-referenced + 5 false positives rejected
+**Post-Round 5 Architectural Review (2026-02-10):** NUL-001 nullifier Sybil vulnerability identified + architectural decisions on BR5-001/002/003/004/007/008
 
-**🔴 P0 — Deployment blocking (2 OPEN):**
-- CI-002: Blockchain submission → IMPLEMENTED (real ethers.js client, EIP-712, `verifyTwoTreeProof()`)
-- INT-001: Package.json `file:` paths → NOT STARTED (blocks CI/CD)
-- INT-002: Shadow Atlas `POST /v1/register` → NOT STARTED (blocks two-tree proof generation)
+**Combined open issues: 25** (2 legacy from Rounds 1-2, 2 legacy integration blockers, 20 new from Round 5, 1 architectural finding)
 
-**✅ P1 — Security critical (Rounds 1-3: ALL CLEAR; Round 4: ALL IMPLEMENTED):**
-- CI-001: Proof-message content unbound → ASSESSED (action domain binding sufficient for Phase 1)
-- CI-003: `mailto:` bypasses proof → IMPLEMENTED (unverified labels, analytics tracking)
-- CI-004: Personalized content unmoderated → IMPLEMENTED (`moderatePersonalization()`, API endpoint, ActionBar wired)
+**🔴 P0 — Deployment blocking (5 OPEN):**
+- NUL-001: NULLIFIER SYBIL: H2(userSecret) allows double-registration → DECIDED (H2(identityCommitment) + circuit rework)
+- BR5-001: Authority level not bound to leaf hash → DECIDED: Option A (H4 leaf binding)
+- BR5-002: Server-side proof non-verification → NOT STARTED (no MVP mode — chain-only verification)
+- INT-001: Package.json `file:` paths → IN PROGRESS (communique updated to ^0.2.0, awaits npm publish)
+- INT-002: Shadow Atlas `POST /v1/register` → IMPLEMENTED (Wave 17b)
+
+**🔴 P1 — Security critical (8 NEW from Round 5):**
+- BR5-003: skipCredentialCheck mock credentials → NOT STARTED (remove entirely, no MVP mode)
+- BR5-004: hash4 lacks domain tag (collision with hash3) → Resolved by BR5-001 circuit rework (DOMAIN_HASH4 added)
+- BR5-005: Registration timing oracle → NOT STARTED
+- BR5-006: verifyProof doesn't check public inputs → NOT STARTED
+- BR5-007: Registration state non-persistent → NOT STARTED (architecture decided: IPFS log replay)
+- BR5-008: npm package names not claimed → NOT STARTED (npm scope @voter-protocol claimed)
+- BR5-009: No BN254 validation on server responses → NOT STARTED
+- BR5-010: 29 public inputs not validated pre-submission → NOT STARTED
 
 **🟠 P1 — Privacy/Security debt (1 OPEN):**
-- INT-003: `mvpAddress` cleartext bypass → NOT STARTED (violates privacy architecture)
+- INT-003: `mvpAddress` cleartext bypass → NOT STARTED (requires Phase 2 TEE)
 
-**🟠 P2 — Important (2 legacy remaining):**
+**🟠 P2 — Important (10 total: 2 legacy + 8 new):**
 - BA-014: Rate limiting (DEFERRED — pending infrastructure decision)
 - BA-017: Depth-24 proof generation test (ENV-BLOCKED — requires BB setup)
-- CI-005: Nullifier scoping → IMPLEMENTED (`recipientSubdivision` in action domain builder)
-- CI-006: Template fingerprinting risk → DOCUMENTED (design constraint)
-- CI-007: Decision-maker generalization → IMPLEMENTED (`jurisdictionType` in action domain schema)
+- BR5-011: No credential recovery path (account lockout) → NOT STARTED
+- BR5-012: Registration auth defaults to open → NOT STARTED
+- BR5-013: Health/metrics endpoint data leakage → NOT STARTED
+- BR5-014: Error detail leakage in 500s → NOT STARTED
+- BR5-015: No CSP header → NOT STARTED
+- BR5-016: Cell-proof endpoint not rate limited → NOT STARTED
+- BR5-017: Array ordering not validated → NOT STARTED
+- BR5-018: Wildcard dependency "*" → NOT STARTED
 
-**⚠️ P3 — Hardening (1 legacy remaining):**
-- SA-016: CORS restrictive default → PARTIALLY FIXED (production rejects `*`; `.env.example` remaining)
-- SA-017: Census geocoder cross-validation (MEDIUM)
-- SA-018: TIGER strictMode default → COMPLETE (already defaults `true` at `tiger-verifier.ts:190`)
+**⚠️ P3 — Hardening (3 legacy + 2 new documented):**
+- SA-016: CORS restrictive default → PARTIALLY FIXED
+- SA-017: Census geocoder cross-validation → OPEN
+- BR5-019: IndexedDB same-origin access → DOCUMENTED
+- BR5-020: Triple-rename confusion → DOCUMENTED
 
 **Design Issues: 2 remaining**
 - ISSUE-001: Cross-provider identity deduplication (DESIGN PHASE)
@@ -1516,13 +1878,13 @@ This document maps the delta between current implementation and the unified proo
 - SA-008: IPFS sync (DEFERRED to Phase 2)
 - SA-009: Discovery URL allowlist → COMPLETE (50 domains in `ALLOWED_DOMAINS`, 12 call sites validated)
 
-**Key Design Principle:** Identity verification is a *trust modifier*, not a requirement. The system supports tiered authority levels (1-5), with self-attestation as the permissionless default.
+**Key Design Principle:** Identity verification (self.xyz or didit) is **mandatory for CWC-path messages**. Authority level is cryptographically bound to the leaf hash via H4, attested by the identity provider at registration. The nullifier is derived from `identityCommitment` (not `userSecret`) to provide cryptographic Sybil resistance across re-registrations. The mailto: path remains available without verification but is labeled "unverified."
 
-| Tier | Source | MVP Required |
-|------|--------|--------------|
-| 1 | Self-claimed | Yes (default path) |
-| 2-3 | Location/Social | Future |
-| 4-5 | Identity verified | Optional upgrade |
+| Tier | Source | CWC Required |
+|------|--------|-------------|
+| 1 | Self-claimed | No (mailto: only) |
+| 2-3 | Social verification (self.xyz) | Yes |
+| 4-5 | Document verified (self.xyz/didit passport) | Yes |
 
 **TEE Address Handling:** Address is sent to decision-makers (Congress, healthcare, corporations, HOAs) via TEE. Address is never stored by the platform.
 
@@ -1555,7 +1917,7 @@ This document maps the delta between current implementation and the unified proo
 | communique → action domain builder | ✅ Working | — | `action-domain-builder.ts`, 22 tests (CI-005/007 fix) |
 | communique → two-tree prover types | ✅ Working | — | `TwoTreeProofInputs`, `generateTwoTreeProof()`, 29-input validation |
 | communique → Poseidon2 | ❌ NOT CONNECTED | — | communique still uses SHA-256 mock for some paths |
-| communique → Shadow Atlas registration | ❌ BLOCKED | INT-002 | `POST /v1/register` does not exist; leafIndex hardcoded to 0 |
+| communique → Shadow Atlas registration | ✅ Working | — | `POST /v1/register` + `GET /v1/cell-proof` (Wave 17b/17c); client-side leaf computation |
 | communique → mvpAddress bypass | ⚠️ TECH DEBT | INT-003 | Cleartext address bypass still in `/api/submissions/create` |
 | self.xyz / Didit.me SDK | ⚠️ PARTIAL | — | Didit.me integrated with HMAC; self.xyz interface only |
 | IPFS sync service | ❌ STUBBED | — | Mock CID, mock validation (SA-008, deferred to Phase 2) |
@@ -1570,12 +1932,11 @@ This document maps the delta between current implementation and the unified proo
 - **Clarification needed:** Are packages published to npm? GitHub Packages? Or should we use a monorepo workspace protocol?
 - **Status:** [ ] NOT STARTED
 
-**INT-002: Shadow Atlas `POST /v1/register` endpoint missing**
-- **Location:** `communique/src/routes/api/shadow-atlas/register/+server.ts:152` calls endpoint that doesn't exist in shadow-atlas
-- **Impact:** Blocks two-tree proof generation for real users. `leafIndex` hardcoded to 0.
-- **Clarification needed:** Is registration a shadow-atlas server endpoint, or should it be a client-side Merkle proof computation? One-time (at signup) or per-session?
-- **Status:** [ ] NOT STARTED — P0 integration blocker
-- **Cross-ref:** COMMUNIQUE-INTEGRATION-SPEC.md:17
+**INT-002: Shadow Atlas `POST /v1/register` endpoint missing — ✅ RESOLVED (Wave 17b/17c)**
+- **Resolution:** RegistrationService with sparse Merkle tree (O(depth) insert, 17 tests). `POST /v1/register` + `GET /v1/cell-proof` endpoints in shadow-atlas. Communique registration flow rewritten for client-side leaf computation.
+- **Architecture:** Client computes `leaf = H3(secret, cell_id, salt)` in browser → server sends only leaf hash to Shadow Atlas → operator is append-only log. Cell_id disclosed at neighborhood level for Tree 2 proof (accepted Phase 1 tradeoff).
+- **Files:** `shadow-atlas/src/serving/registration-service.ts`, `shadow-atlas/src/serving/api.ts`, `communique/src/routes/api/shadow-atlas/register/+server.ts`, `communique/src/routes/api/shadow-atlas/cell-proof/+server.ts`, `communique/src/lib/core/identity/shadow-atlas-handler.ts`, `communique/src/lib/core/shadow-atlas/client.ts`
+- **Status:** [x] COMPLETE — Wave 17b (2026-02-09)
 
 **INT-003: `mvpAddress` cleartext bypass still in production path**
 - **Location:** `communique/src/routes/api/submissions/create/+server.ts:91,186,229-232`
@@ -3130,7 +3491,10 @@ this.halo2Prover = new Halo2Prover();  // CLASS DIDN'T EXIST
 
 ---
 
-**Document Status:** REVISION 10 — Rounds 1-4 complete, all CI findings IMPLEMENTED or DOCUMENTED
-**Last Updated:** 2026-02-08
-**Next Action:** End-to-end integration test on Scroll Sepolia (Wave 11); CRITICAL-001/002 contract fixes (Phase 2)
+**Document Status:** REVISION 13 — Rounds 1-4 complete, all CI findings IMPLEMENTED or DOCUMENTED. CRITICAL-001/HIGH-001 verified resolved. INT-002 resolved (Wave 17b). Wave 18 complete (CR-001, CR-009, poseidon2Hash2 DOMAIN_HASH2 fix, nullifier CVE-002 alignment). Wave 19 complete (CR-004, two-tree proof orchestration, security hardening).
+**Last Updated:** 2026-02-10
+**Next Action:** Waves 20-23 (test coverage → CI/CD + npm publish → security hardening → privacy docs). See `specs/WAVE-20-23-PLAN.md`. Wave 11 integration gate (blocked on Scroll Sepolia deployment).
 **Security Review Required:** Before any mainnet deployment
+**Resolved since Rev 10:** CRITICAL-001 (NullifierRegistry already has TimelockGovernance), HIGH-001 (VerifierRegistry has 14-day timelock on initial registration), INT-002 (Wave 17b)
+**Resolved since Rev 11:** CR-001 (poseidon2Hash3 in browser), CR-009 (proof-input-mapper), poseidon2Hash2 DOMAIN_HASH2 pre-existing bug fixed, computeNullifier aligned to CVE-002 hash2 formula, BN254 modulus validation added to hexToFr
+**Resolved since Rev 12:** CR-004 (register auth), two-tree ProofGenerator flow, CRIT-001 prove→generateProof fix, timing side-channel fix (HMAC constantTimeEqual), CORS H-04, isTrustedProxy M-06, hexToFr M-05, ErrorCode UNAUTHORIZED/FORBIDDEN

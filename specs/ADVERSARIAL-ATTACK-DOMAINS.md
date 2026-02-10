@@ -25,6 +25,8 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - Domain separation completeness (every hash context unique?)
 - Poseidon2 security margin (8 internal, 56 external rounds)
 - Side-channel leakage in WASM proof generation
+- Nullifier Sybil resistance (is nullifier deterministic per real human?)
+- Leaf preimage completeness (does the leaf bind all security-critical fields?)
 
 **Key Files:**
 - `packages/crypto/noir/district_membership/src/main.nr` - Circuit constraints
@@ -36,6 +38,8 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - SA-007: DOMAIN_HASH1 (0x48314d) for single hashing
 - SA-011: user_secret != 0 constraint
 - CVE-001/003: Leaf computed inside circuit from user_secret
+- DECIDED: Leaf = H4(secret, cellId, salt, authorityLevel) with DOMAIN_HASH4
+- DECIDED: Nullifier = H2(identityCommitment, actionDomain) — identity-bound, not secret-bound
 
 ---
 
@@ -182,6 +186,8 @@ imagePullPolicy: IfNotPresent
 - Session reset on deploy (in-memory rate limits)
 - Account merging on identity verification (race condition)
 - Credential expiration edge cases (6-month TTL)
+- Re-registration Sybil (same person, new userSecret → new nullifier)
+- Identity provider attestation forgery
 
 **Key Files:**
 - `communique/src/lib/server/oauth-providers.ts`
@@ -195,6 +201,9 @@ imagePullPolicy: IfNotPresent
 - Identity hash = SHA-256(passport + nationality + birthYear + salt)
 - Transaction-based duplicate detection
 - BA-010: CSRF origin checking
+- DECIDED: self.xyz/didit mandatory for CWC path
+- DECIDED: identityCommitment (from verification provider) anchors nullifier
+- DECIDED: Shadow Atlas verifies attestation signature at registration
 
 ---
 
@@ -212,14 +221,16 @@ imagePullPolicy: IfNotPresent
 
 **Privacy Model:**
 ```
-Public outputs per proof:
-- merkle_root (district identifier)
-- nullifier (action-scoped, unlinkable across domains)
-- authority_level (1-5, reduces anonymity)
+Public outputs per proof (29 fields):
+- user_root (Tree 1 root — identity commitment)
+- cell_map_root (Tree 2 root — geographic commitment)
+- districts[24] (24 district IDs for the cell)
+- nullifier (identity-bound via H2(identityCommitment, actionDomain))
 - action_domain (action identifier)
-- district_id (further reduces anonymity)
+- authority_level (1-5, bound to leaf hash — reduces anonymity)
 
 Anonymity set = |users in district with same authority_level|
+Note: authority_level now cryptographically committed (not self-claimed)
 ```
 
 **Documented in:** `SECURITY.md` - Privacy Guarantees & Limitations
@@ -241,8 +252,8 @@ Anonymity set = |users in district with same authority_level|
 
 **Cross-Provider Dedup (ISSUE-001):**
 - Design spec: `specs/DESIGN-001-CROSS-PROVIDER-DEDUP.md`
-- Solution: Phone OTP as cross-provider anchor
-- Status: Design phase
+- Solution: self.xyz/didit mandatory for CWC. identityCommitment derived from verification credential anchors nullifier — cryptographic Sybil resistance.
+- Status: DECIDED — identity verification mandatory, nullifier = H2(identityCommitment, actionDomain)
 
 ---
 
@@ -719,6 +730,65 @@ Phase 3: Reporting (15 min per agent)
 
 **Status:** Documented, pending remediation
 
+### Wave 3: Brutalist Round 3 — Two-Tree Architecture (2026-02-04)
+
+**Agents Deployed:** 15 AI critics across 5 domains (architecture, crypto, contracts, prover, shadow-atlas)
+
+**Confirmed Findings (10 valid, 9 rejected):**
+- CRITICAL: BR3-001 front-running / proof theft (no EIP-712 on two-tree path)
+- HIGH: BR3-002 single-tree prover silently substitutes public inputs
+- HIGH: BR3-003 toHex() lacks BN254 modulus validation
+
+**Status:** ALL 10 RESOLVED (2026-02-05)
+
+### Wave 4: Coordination Integrity Review (2026-02-08)
+
+**Agents Deployed:** Cross-repository data-flow analysis
+
+**Confirmed Findings (7):**
+- CRITICAL: CI-002 blockchain submission mocked
+- HIGH: CI-001 proof-message content unbound
+- HIGH: CI-003 mailto: bypasses proof requirements
+
+**Status:** ALL IMPLEMENTED or DOCUMENTED
+
+### Wave 5: Multi-Persona Security Assessment (2026-02-10)
+
+**Agents Deployed:** 4 parallel brutalist instances with 7 critic agents (3 Claude, 3 Codex, 1 Gemini)
+
+**Methodology:** Each instance was imbued with a distinct attacker persona:
+1. **The Cryptanalyst** — PhD-level cryptographer (voter-protocol/packages/crypto)
+2. **The Infrastructure Hacker** — Pentester with botnet (voter-protocol/packages/shadow-atlas)
+3. **The Client-Side Predator** — Browser exploit specialist (communique)
+4. **The Protocol Analyst** — Integration seam exploiter (cross-repo boundary)
+
+**Critical Findings:**
+- CRITICAL: BR5-001 authority_level not bound to leaf hash — any user can self-elevate to level 5
+- CRITICAL: BR5-002 server-side proof non-verification — submissions accepted without ZK verification
+- HIGH: BR5-003 skipCredentialCheck creates mock credentials in production UI
+- HIGH: BR5-004 hash4/hash3 domain separation collision (broader than BR3-X09)
+- HIGH: BR5-005 registration timing oracle defeats CR-006 error-parity fix
+- HIGH: BR5-006 TwoTreeNoirProver.verifyProof doesn't check expected public inputs
+- HIGH: BR5-007 registration state non-persistent (restart enables duplicate insertion)
+- HIGH: BR5-008 npm package names unclaimed (supply chain name-squatting)
+
+**Verified Secure:**
+- Hash parity (H2/H3 TS↔Noir): IDENTICAL — golden vectors match
+- BN254 modulus consistency: IDENTICAL across all declaration sites
+- Nullifier formula (CVE-002): FIXED everywhere
+- Registration mutex: SOUND (Promise-chain serialization)
+- CR-006 anti-oracle (error codes): FIXED (identical 400 + same message)
+
+**Triage:** 20 new findings confirmed, 7 cross-referenced to existing tracking, 5 false positives rejected
+**Status:** TRIAGED — Remediation pending. Tracked in IMPLEMENTATION-GAP-ANALYSIS.md § "Brutalist Audit Round 5"
+
+**Post-Assessment Architectural Decisions (2026-02-10):**
+- **Nullifier Sybil vulnerability identified**: H2(userSecret, actionDomain) allows double-registration. DECIDED: H2(identityCommitment, actionDomain).
+- **Authority level bound to leaf**: H4(secret, cellId, salt, authorityLevel) with DOMAIN_HASH4. Resolves BR5-001 + BR5-004.
+- **Identity verification mandatory**: self.xyz/didit required for CWC path. Attestation verified by Shadow Atlas.
+- **No MVP mode**: mvpAddress bypass, skipCredentialCheck, mock verification all marked for removal.
+- **IPFS log replay**: Storacha (free 5GB, Filecoin-backed) primary + Lighthouse Beacon ($20 perpetual) backup.
+
 ---
 
 ## Appendix A: Quick Reference
@@ -750,6 +820,6 @@ Phase 3: Reporting (15 min per agent)
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2026-02-01
+**Document Version:** 1.2
+**Last Updated:** 2026-02-10
 **Maintainer:** Distinguished Engineering Review
