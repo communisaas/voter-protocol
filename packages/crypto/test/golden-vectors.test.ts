@@ -220,8 +220,8 @@ describe('Poseidon2 Golden Test Vectors (CVE-VOTER-006)', () => {
 
   describe('Four-Value Hashing (hash4)', () => {
     it('should match golden vector for hash4(1, 2, 3, 4)', async () => {
-      // NULLIFIER TEST: hash4 is used for nullifier computation
-      // nullifier = hash4(user_secret, campaign_id, authority_hash, epoch_id)
+      // Golden vector for hash4. Note: nullifier now uses hash2 (CVE-002 fix):
+      // nullifier = poseidon2_hash2(user_secret, action_domain)
       const result = await hasher.hash4(1n, 2n, 3n, 4n);
       expect(result).toBe(HASH_4_VALUES);
     });
