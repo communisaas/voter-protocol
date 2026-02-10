@@ -49,7 +49,6 @@ export interface APIResponse<T> {
   };
   readonly meta: {
     readonly requestId: string;
-    readonly latencyMs: number;
     readonly cached: boolean;
     readonly version: string;
   };
@@ -327,7 +326,6 @@ export class ShadowAtlasAPI {
           'UNSUPPORTED_VERSION',
           `API version ${requestedVersion} not supported. Current version: ${this.apiVersion.version}`,
           requestId,
-          performance.now() - startTime
         );
         return;
       }
@@ -369,7 +367,6 @@ export class ShadowAtlasAPI {
           'NOT_FOUND',
           `Endpoint not found: ${pathname}`,
           requestId,
-          performance.now() - startTime
         );
       }
     } catch (error) {
@@ -384,7 +381,6 @@ export class ShadowAtlasAPI {
         'INTERNAL_ERROR',
         'Internal server error',
         requestId,
-        performance.now() - startTime,
         error instanceof Error ? error.message : undefined
       );
     }
@@ -416,7 +412,6 @@ export class ShadowAtlasAPI {
         'RATE_LIMIT_EXCEEDED',
         'Rate limit exceeded. Please try again later.',
         requestId,
-        performance.now() - startTime,
         {
           limit: this.rateLimiter['maxRequests'],
           remaining: rateLimitResult.remaining,
@@ -438,7 +433,6 @@ export class ShadowAtlasAPI {
         'INVALID_PARAMETERS',
         'Invalid request parameters',
         requestId,
-        performance.now() - startTime,
       );
       return;
     }
@@ -452,7 +446,6 @@ export class ShadowAtlasAPI {
         'INVALID_COORDINATES',
         'Missing lat or lng parameter',
         requestId,
-        performance.now() - startTime
       );
       return;
     }
@@ -469,7 +462,6 @@ export class ShadowAtlasAPI {
           'DISTRICT_NOT_FOUND',
           'No district found at coordinates',
           requestId,
-          performance.now() - startTime,
           { lat, lng }
         );
         return;
@@ -478,7 +470,7 @@ export class ShadowAtlasAPI {
       // Generate Merkle proof
       const merkleProof = await this.proofService.generateProof(result.district.id);
 
-      // Build response data
+      // Build response data (BR5-005: latencyMs removed from response to prevent timing oracle)
       const responseData: LookupResult = {
         district: result.district,
         merkleProof: {
@@ -488,11 +480,10 @@ export class ShadowAtlasAPI {
           pathIndices: merkleProof.pathIndices,
           depth: merkleProof.depth,
         },
-        latencyMs: result.latencyMs,
         cacheHit: result.cacheHit,
       };
 
-      // Record metrics
+      // Record metrics (internal only — not exposed to client)
       this.healthMonitor.recordQuery(result.latencyMs, result.cacheHit);
 
       // Send success response
@@ -500,7 +491,6 @@ export class ShadowAtlasAPI {
         res,
         responseData,
         requestId,
-        performance.now() - startTime,
         result.cacheHit
       );
     } catch (error) {
@@ -512,7 +502,6 @@ export class ShadowAtlasAPI {
         'INTERNAL_ERROR',
         errorMsg,
         requestId,
-        performance.now() - startTime
       );
     }
   }
@@ -540,7 +529,6 @@ export class ShadowAtlasAPI {
         'INVALID_PARAMETERS',
         'Invalid district ID',
         requestId,
-        performance.now() - startTime,
       );
       return;
     }
@@ -564,7 +552,6 @@ export class ShadowAtlasAPI {
         res,
         responseData,
         requestId,
-        performance.now() - startTime,
         false
       );
     } catch (error) {
@@ -575,7 +562,6 @@ export class ShadowAtlasAPI {
         'DISTRICT_NOT_FOUND',
         `District not found: ${districtId}`,
         requestId,
-        performance.now() - startTime,
         { districtId, error: errorMsg }
       );
     }
@@ -598,7 +584,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 501, 'REGISTRATION_UNAVAILABLE',
         'Registration service not configured',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -614,7 +600,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 429, 'RATE_LIMIT_EXCEEDED',
         'Registration rate limit exceeded. Please try again later.',
-        requestId, performance.now() - startTime,
+        requestId,
         { limit: 5, remaining: 0, resetAt: new Date(rateResult.resetAt).toISOString() },
       );
       return;
@@ -628,7 +614,7 @@ export class ShadowAtlasAPI {
         this.sendErrorResponse(
           res, 401, 'UNAUTHORIZED',
           'Authorization required',
-          requestId, performance.now() - startTime,
+          requestId,
         );
         return;
       }
@@ -638,7 +624,7 @@ export class ShadowAtlasAPI {
         this.sendErrorResponse(
           res, 403, 'FORBIDDEN',
           'Invalid authorization token',
-          requestId, performance.now() - startTime,
+          requestId,
         );
         return;
       }
@@ -650,7 +636,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 415, 'INVALID_BODY',
         'Content-Type must be application/json',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -661,7 +647,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 400, 'INVALID_BODY',
         'Request body must be valid JSON',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -672,7 +658,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 400, 'INVALID_PARAMETERS',
         'Invalid registration parameters',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -684,8 +670,7 @@ export class ShadowAtlasAPI {
       res.setHeader('Cache-Control', 'no-store');
 
       this.sendSuccessResponse(
-        res, result, requestId,
-        performance.now() - startTime, false,
+        res, result, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -697,26 +682,26 @@ export class ShadowAtlasAPI {
         this.sendErrorResponse(
           res, 400, 'INVALID_PARAMETERS',
           'Invalid registration parameters',
-          requestId, performance.now() - startTime,
+          requestId,
         );
       } else if (msg.includes('Zero leaf') || msg.includes('exceeds BN254') || msg.includes('Invalid hex')) {
         this.sendErrorResponse(
           res, 400, 'INVALID_PARAMETERS',
           'Invalid registration parameters',
-          requestId, performance.now() - startTime,
+          requestId,
         );
       } else if (msg.includes('capacity')) {
         this.sendErrorResponse(
           res, 503, 'TREE_FULL',
           'Registration tree is at capacity',
-          requestId, performance.now() - startTime,
+          requestId,
         );
       } else {
         this.healthMonitor.recordError(msg);
         this.sendErrorResponse(
           res, 500, 'INTERNAL_ERROR',
           'Registration failed',
-          requestId, performance.now() - startTime,
+          requestId,
         );
       }
     }
@@ -738,7 +723,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 501, 'CELL_PROOF_UNAVAILABLE',
         'Cell proof service not configured',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -754,7 +739,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 429, 'RATE_LIMIT_EXCEEDED',
         'Rate limit exceeded. Please try again later.',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -768,7 +753,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 400, 'INVALID_PARAMETERS',
         'Invalid cell_id parameter',
-        requestId, performance.now() - startTime,
+        requestId,
       );
       return;
     }
@@ -784,7 +769,7 @@ export class ShadowAtlasAPI {
         this.sendErrorResponse(
           res, 404, 'CELL_NOT_FOUND',
           'Cell ID not found in district map',
-          requestId, performance.now() - startTime,
+          requestId,
         );
         return;
       }
@@ -800,8 +785,7 @@ export class ShadowAtlasAPI {
       };
 
       this.sendSuccessResponse(
-        res, result, requestId,
-        performance.now() - startTime, false,
+        res, result, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -809,7 +793,7 @@ export class ShadowAtlasAPI {
       this.sendErrorResponse(
         res, 500, 'INTERNAL_ERROR',
         'Cell proof generation failed',
-        requestId, performance.now() - startTime,
+        requestId,
       );
     }
   }
@@ -860,7 +844,6 @@ export class ShadowAtlasAPI {
       res,
       metrics,
       requestId,
-      performance.now() - startTime,
       false
     );
   }
@@ -892,7 +875,6 @@ export class ShadowAtlasAPI {
         'SNAPSHOT_UNAVAILABLE',
         'No snapshot available',
         requestId,
-        performance.now() - startTime
       );
       return;
     }
@@ -901,7 +883,6 @@ export class ShadowAtlasAPI {
       res,
       snapshot,
       requestId,
-      performance.now() - startTime,
       false
     );
   }
@@ -920,7 +901,6 @@ export class ShadowAtlasAPI {
       res,
       snapshots,
       requestId,
-      performance.now() - startTime,
       false
     );
   }
@@ -977,7 +957,6 @@ export class ShadowAtlasAPI {
     res: ServerResponse,
     data: T,
     requestId: string,
-    latencyMs: number,
     cached: boolean
   ): void {
     const response: APIResponse<T> = {
@@ -985,7 +964,6 @@ export class ShadowAtlasAPI {
       data,
       meta: {
         requestId,
-        latencyMs: Math.round(latencyMs * 100) / 100,
         cached,
         version: this.apiVersion.version,
       },
@@ -1016,7 +994,6 @@ export class ShadowAtlasAPI {
     code: ErrorCode | string,
     message: string,
     requestId: string,
-    latencyMs: number,
     details?: unknown
   ): void {
     const response: APIResponse<never> = {
@@ -1028,7 +1005,6 @@ export class ShadowAtlasAPI {
       },
       meta: {
         requestId,
-        latencyMs: Math.round(latencyMs * 100) / 100,
         cached: false,
         version: this.apiVersion.version,
       },

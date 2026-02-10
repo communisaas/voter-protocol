@@ -46,7 +46,6 @@ export interface GeoJSONPolygon {
 export interface LookupResult {
   readonly district: DistrictBoundary;
   readonly merkleProof: MerkleProof;
-  readonly latencyMs: number;
   readonly cacheHit: boolean;
 }
 

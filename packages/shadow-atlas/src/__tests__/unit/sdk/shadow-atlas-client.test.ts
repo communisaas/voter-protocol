@@ -134,12 +134,10 @@ describe('ShadowAtlasClient - Lookup', () => {
           siblings: ['0x7e25e38a34daf68780556839d53cfdc5'],
           pathIndices: [0, 1, 0, 1],
         },
-        latencyMs: 23.4,
         cacheHit: false,
       },
       meta: {
         requestId: 'req_abc123',
-        latencyMs: 23.4,
         cached: false,
         version: 'v1',
       },
@@ -167,7 +165,6 @@ describe('ShadowAtlasClient - Lookup', () => {
       },
       meta: {
         requestId: 'req_def456',
-        latencyMs: 18.7,
         cached: false,
         version: 'v1',
       },
@@ -202,12 +199,10 @@ describe('ShadowAtlasClient - Lookup', () => {
           siblings: ['0x7e25e38a34daf68780556839d53cfdc5'],
           pathIndices: [0, 1, 0, 1],
         },
-        latencyMs: 23.4,
         cacheHit: false,
       },
       meta: {
         requestId: 'req_ghi789',
-        latencyMs: 23.4,
         cached: false,
         version: 'v1',
       },
@@ -247,12 +242,10 @@ describe('ShadowAtlasClient - Lookup', () => {
           siblings: ['0x7e25e38a34daf68780556839d53cfdc5'],
           pathIndices: [0, 1, 0, 1],
         },
-        latencyMs: 23.4,
         cacheHit: false,
       },
       meta: {
         requestId: 'req_jkl012',
-        latencyMs: 23.4,
         cached: false,
         version: 'v1',
       },
@@ -300,7 +293,6 @@ describe('ShadowAtlasClient - Get District by ID', () => {
       },
       meta: {
         requestId: 'req_mno345',
-        latencyMs: 8.2,
         cached: true,
         version: 'v1',
       },
@@ -324,7 +316,6 @@ describe('ShadowAtlasClient - Get District by ID', () => {
       },
       meta: {
         requestId: 'req_pqr678',
-        latencyMs: 5.1,
         cached: false,
         version: 'v1',
       },
@@ -362,7 +353,6 @@ describe('ShadowAtlasClient - Snapshots', () => {
       },
       meta: {
         requestId: 'req_stu901',
-        latencyMs: 8.2,
         cached: false,
         version: 'v1',
       },
@@ -408,7 +398,6 @@ describe('ShadowAtlasClient - Snapshots', () => {
       ],
       meta: {
         requestId: 'req_vwx234',
-        latencyMs: 5.3,
         cached: false,
         version: 'v1',
       },
@@ -470,7 +459,6 @@ describe('ShadowAtlasClient - Health', () => {
       },
       meta: {
         requestId: 'req_yza567',
-        latencyMs: 2.1,
         cached: false,
         version: 'v1',
       },
@@ -514,12 +502,10 @@ describe('ShadowAtlasClient - Rate Limiting', () => {
           siblings: ['0x7e25e38a34daf68780556839d53cfdc5'],
           pathIndices: [0, 1, 0, 1],
         },
-        latencyMs: 23.4,
         cacheHit: false,
       },
       meta: {
         requestId: 'req_bcd890',
-        latencyMs: 23.4,
         cached: false,
         version: 'v1',
       },
@@ -551,7 +537,6 @@ describe('ShadowAtlasClient - Rate Limiting', () => {
       },
       meta: {
         requestId: 'req_efg123',
-        latencyMs: 1.2,
         cached: false,
         version: 'v1',
       },
@@ -589,7 +574,6 @@ describe('ShadowAtlasClient - Error Handling', () => {
       },
       meta: {
         requestId: 'req_hij456',
-        latencyMs: 2.1,
         cached: false,
         version: 'v1',
       },

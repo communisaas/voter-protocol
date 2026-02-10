@@ -42,7 +42,6 @@ export interface APIResponse<T> {
   };
   readonly meta: {
     readonly requestId: string;
-    readonly latencyMs: number;
     readonly cached: boolean;
     readonly version: string;
   };
@@ -78,7 +77,6 @@ export interface MerkleProof {
 export interface LookupResult {
   readonly district: District;
   readonly merkleProof: MerkleProof;
-  readonly latencyMs: number;
   readonly cacheHit: boolean;
 }
 

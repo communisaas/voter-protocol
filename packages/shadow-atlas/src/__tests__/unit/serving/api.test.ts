@@ -280,7 +280,6 @@ describe('Shadow Atlas API v2 - Response Standardization', () => {
       data: expect.any(Object),
       meta: {
         requestId: expect.stringMatching(/^req_[a-f0-9]+$/),
-        latencyMs: expect.any(Number),
         cached: expect.any(Boolean),
         version: 'v1',
       },
@@ -301,7 +300,6 @@ describe('Shadow Atlas API v2 - Response Standardization', () => {
       },
       meta: {
         requestId: expect.stringMatching(/^req_[a-f0-9]+$/),
-        latencyMs: expect.any(Number),
         cached: false,
         version: 'v1',
       },
@@ -321,12 +319,11 @@ describe('Shadow Atlas API v2 - Response Standardization', () => {
     }
   });
 
-  it('includes latency in all responses', async () => {
+  it('does not expose latencyMs in responses (BR5-005)', async () => {
     const response = await invokeHandleRequest(api, '/v1/health');
     const body = response.body as APIResponse<unknown>;
 
-    expect(body.meta.latencyMs).toBeGreaterThan(0);
-    expect(body.meta.latencyMs).toBeLessThan(1000); // Should be fast
+    expect(body.meta).not.toHaveProperty('latencyMs');
   });
 });
 
@@ -673,7 +670,6 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
       },
       meta: {
         requestId: expect.any(String),
-        latencyMs: expect.any(Number),
         cached: expect.any(Boolean),
         version: expect.any(String),
       },
@@ -713,7 +709,6 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
       },
       meta: {
         requestId: expect.any(String),
-        latencyMs: expect.any(Number),
         cached: expect.any(Boolean),
         version: expect.any(String),
       },
