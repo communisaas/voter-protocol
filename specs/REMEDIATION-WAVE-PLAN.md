@@ -52,12 +52,12 @@ Following five rounds of brutalist audits plus architectural review. **Cycles 1-
 | SA-013 | Public outputs reduce anonymity sets (design doc) | specs | DOCUMENTED |
 | SA-014 | JSON deserialization without schema validation | shadow-atlas | COMPLETE |
 
-### P3 — Housekeeping (4) -- 3 COMPLETE, 1 REMAINING
+### P3 — Housekeeping (4) -- ALL RESOLVED
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
 | SA-015 | 24-slot documentation mismatch | specs | COMPLETE |
 | SA-016 | CORS wildcard default in `.env.example` | deploy | COMPLETE |
-| SA-017 | Census geocoder no cross-validation | shadow-atlas | OPEN |
+| SA-017 | Census geocoder no cross-validation | shadow-atlas | WONTFIX — Census Bureau TIGER/LINE is the legal authority for US congressional districts. Cross-validation against non-authoritative sources adds false confidence. TLS mitigates MITM. |
 | SA-018 | TIGER manifest `strictMode` defaults false | shadow-atlas | COMPLETE |
 
 ### Critical Architectural Findings + Brutalist Round 5 — P0 (3) — ALL IMPLEMENTED
@@ -94,8 +94,8 @@ Following five rounds of brutalist audits plus architectural review. **Cycles 1-
 ### Design Issues (2 from Original Expert Review)
 | ID | Issue | Status |
 |----|-------|--------|
-| ISSUE-001 | Cross-provider identity deduplication | PARTIAL — didit webhook generates shadowAtlasCommitment (webhook:162), but NOT wired to registration path (NUL-001 placeholder). Infrastructure ready, end-to-end flow pending. |
-| ISSUE-003 | Redistricting emergency protocol | DESIGN PHASE — DESIGN-003 spec created, no implementation |
+| ISSUE-001 | Cross-provider identity deduplication | RESOLVED BY NUL-001 — didit credential hash is deterministic per-person. Same person → same identityCommitment → same nullifier. Dedup is cryptographic once NUL-001 wire lands. |
+| ISSUE-003 | Redistricting emergency protocol | ARCHITECTURE HANDLES — two-tree design means redistricting only updates Tree 2 (cell map). Operational runbook to be written pre-deployment. |
 
 ---
 
@@ -2009,10 +2009,10 @@ Registration sends ONLY the leaf hash to Shadow Atlas. Operator never sees cell_
 | Item | Source | Status |
 |------|--------|--------|
 | ~~BA-014: Rate limiting (persistent/Redis)~~ | ~~Wave 5~~ | ✅ COMPLETE — sliding window rate limiter with Redis support (rate-limiter.ts), 11 endpoint configs |
-| BA-017: Depth-24 proof generation test | Wave 4 | ENV-BLOCKED (test written, requires barretenberg backend) |
-| SA-017: Census geocoder cross-validation | Wave 5 | OPEN — single Census Bureau source, no secondary provider |
+| BA-017: Depth-24 proof generation test | Wave 4 | CI BACKLOG — test written, needs barretenberg in CI runner |
+| ~~SA-017: Census geocoder cross-validation~~ | ~~Wave 5~~ | WONTFIX — Census Bureau is the authoritative source for US congressional districts |
 | ~~CR-005: Persistent rate limiting (Redis)~~ | ~~Wave 17~~ | ✅ COMPLETE — merged with BA-014 implementation |
-| CR-010: Salt rotation enforcement | Wave 17 residual | NOT STARTED |
+| ~~CR-010: Salt rotation enforcement~~ | ~~Wave 17~~ | NOT APPLICABLE — salts are random and ephemeral per-leaf; recovery generates new salt by construction |
 
 #### P3 — Hardening
 
@@ -2108,23 +2108,38 @@ The provider-derived commitment is stored in `verification_audit.metadata` but n
 
 ---
 
-## Remaining Open Items (2026-02-11 Audit)
+## Remaining Open Items — Triaged (2026-02-11)
 
-| ID | Issue | Priority | Status | Action Required |
-|----|-------|----------|--------|-----------------|
-| NUL-001 wiring | identityCommitment placeholder in shadow-atlas-handler.ts | **CRITICAL** | Code gap | Wire provider-derived commitment through registration path |
-| BR5-010 | Public inputs not validated before on-chain tx submission | P1 | Partial | Add 29-element structure validation in blockchain submission code |
-| SA-017 | Census geocoder single-source trust | P2 | Open | Add secondary provider (Nominatim/Google) with consensus |
-| BA-017 | Depth-24 proof generation test | P2 | Env-blocked | Requires barretenberg backend setup |
-| CR-010 | Salt rotation enforcement | P2 | Not started | Enforcement mechanism needed |
-| ISSUE-001 | Cross-provider identity dedup | P2 | Partial | Didit generates commitment but not wired end-to-end |
-| ISSUE-003 | Redistricting emergency protocol | P3 | Design only | DESIGN-003 spec exists, no implementation |
-| K8s manifests | No Kubernetes/Helm/NetworkPolicy/RBAC | P3 | Absent | Docker ready, k8s deployment configs needed |
-| BR5-008 | npm packages not published | P3 | Scope claimed | `npm publish` for @voter-protocol packages |
+> Dispositions based on 4-agent cross-validation audit + architectural review.
+> Criterion: does this block putting the system in front of real constituents?
+
+### Launch Gate (1 item — ~30 lines of code)
+
+| ID | Issue | Action |
+|----|-------|--------|
+| NUL-001 wiring | identityCommitment placeholder in shadow-atlas-handler.ts:136 | **Wire it.** Thread `verification_audit.metadata.shadow_atlas_commitment` through registration call. Remove placeholder. ~30 lines across 2 files. Sybil invariant then holds end-to-end. |
+
+### Backlog — Post-Launch Hardening
+
+| ID | Issue | Disposition | Rationale |
+|----|-------|-------------|-----------|
+| BR5-010 | Public inputs not validated before on-chain tx | **P3 BACKLOG** | Same code path generates and submits. No realistic attack vector between `generateProof()` and POST to own server. Defense-in-depth, not a real gap. |
+| BA-017 | Depth-24 proof generation test | **CI BACKLOG** | Test written, needs barretenberg in CI. DevOps task, not implementation. |
+| BR5-008 | npm packages not published | **RELEASE TASK** | `npm publish` when cutting v0.1.0. |
+| K8s manifests | No Kubernetes/Helm configs | **PREMATURE** | Docker container ready. Deploy to Fly.io or single VPS for launch. K8s when horizontal scaling needed. |
+
+### Closed — Architecture Already Handles
+
+| ID | Issue | Disposition | Rationale |
+|----|-------|-------------|-----------|
+| SA-017 | Census geocoder single-source | **WONTFIX** | Census Bureau TIGER/LINE is the *legal authority* for US congressional districts. Not "a source" — THE source. Cross-validating against Google (no CD data) or OSM (community-maintained, less accurate) adds false confidence, not real security. TLS mitigates MITM. |
+| CR-010 | Salt rotation enforcement | **NOT APPLICABLE** | Registration salts are random, ephemeral, per-leaf. Credential recovery generates a new salt by construction. No persistent salt to "rotate." Finding was against a mental model that doesn't match the architecture. |
+| ISSUE-001 | Cross-provider identity dedup | **SOLVED BY NUL-001** | Once identityCommitment flows from didit, the nullifier is bound to a verified identity. Didit's credential hash is deterministic per-person (`SHA-256(documentNumber:nationality)`). Same person → same commitment → same nullifier. Dedup is cryptographic, not database-level. |
+| ISSUE-003 | Redistricting emergency protocol | **ARCHITECTURE HANDLES** | The two-tree design exists precisely so redistricting only updates Tree 2 (cell map) while Tree 1 (user identity) stays stable. "Emergency protocol" = update the cell map SMT. Write a one-page operational runbook closer to deployment. |
 
 ---
 
-**Document Version:** 3.0
+**Document Version:** 3.1
 **Author:** Distinguished Engineering Review + 4-Agent Cross-Validation Audit
 **Last Updated:** 2026-02-11
-**Status:** Cycles 1-6 complete (Waves 1-31). All BR5 findings implemented except BR5-010 (partial). NUL-001 circuit implemented but identityCommitment wiring gap remains (shadow-atlas-handler.ts placeholder). Communique type debt remediation complete (484→0 errors). SA-017, BA-017, CR-010, ISSUE-003 open. Architectural decisions locked 2026-02-10.
+**Status:** Cycles 1-6 complete (Waves 1-31). All BR5 findings implemented (BR5-010 partial, backlogged). **One launch gate: NUL-001 identityCommitment wiring (~30 lines).** SA-017 closed WONTFIX (Census is authoritative). CR-010 closed NOT APPLICABLE (salts are ephemeral). ISSUE-001 resolved by NUL-001 wire. ISSUE-003 handled by two-tree architecture. Communique type debt remediation complete (484→0 errors).
