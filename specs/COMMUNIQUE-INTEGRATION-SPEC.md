@@ -12,7 +12,7 @@
 > | 5 | Communique registration UI integration | Complete (Wave 17c) |
 > | 5b | Communique two-tree proof generation | Complete (Wave 19a) |
 > | 5c | Registration auth (CR-004) | Complete (Wave 19b) |
-> | 5d | Identity verification (self.xyz/didit) mandatory for CWC | Required (Wave 24) |
+> | 5d | Identity verification (self.xyz/didit) mandatory for CWC | Partial — didit webhook generates shadowAtlasCommitment, but NOT wired to registration path (NUL-001 placeholder in shadow-atlas-handler.ts:136) |
 > | 6 | On-chain verification via DistrictGate client | Complete (Wave 15a) |
 > | 7 | Coordination metrics indexer (The Graph) | Complete (Wave 15c/15d) |
 > | 8 | Anti-astroturf hardening (Waves 13-15) | Complete — all 11 gaps closed |
@@ -20,14 +20,14 @@
 > **INT-002 RESOLVED (Wave 17b):** `POST /v1/register` endpoint implemented in shadow-atlas.
 > `GET /v1/cell-proof` endpoint implemented for Tree 2 proofs.
 > **CR-004 RESOLVED (Wave 19b):** Bearer token auth on `POST /v1/register` with HMAC constant-time comparison.
-> **BR5-011 DESIGNED (2026-02-10):** Leaf replacement credential recovery protocol. No re-verification — identityCommitment stable across sessions. Implementation blocked on Wave 24 (NUL-001). See TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8.
+> **BR5-011 IMPLEMENTED (Waves 30-31):** Leaf replacement credential recovery plumbing complete — replaceLeaf(), POST /v1/register/replace, recoverTwoTree(). Wave 24 circuit rework DONE (H4 leaf + identity-bound nullifier). **NUL-001 wiring gap:** identityCommitment uses placeholder (request.leaf) in shadow-atlas-handler.ts:136 instead of provider-derived commitment. Sybil safety pending this wiring. See TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8.
 > See `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for detailed progress.
 
 ---
 
-**Version:** 0.2.0
-**Date:** 2026-02-10
-**Status:** ACTIVE — Recovery protocol designed (BR5-011), Open Question #2 resolved
+**Version:** 0.3.0
+**Date:** 2026-02-11
+**Status:** ACTIVE — Recovery plumbing complete (Waves 30-31), circuit rework complete (Wave 24), NUL-001 identityCommitment wiring gap open
 **Depends on:** TWO-TREE-ARCHITECTURE-SPEC.md v0.4.0
 
 ---

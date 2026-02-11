@@ -1,10 +1,12 @@
 # Wave 30-31: Leaf Replacement Credential Recovery — Implementation Plan
 
-> **Status:** ACTIVE
+> **Status:** PLUMBING COMPLETE (verified 2026-02-11 by 4-agent audit)
 > **Created:** 2026-02-10
 > **Spec Reference:** TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8
 > **Finding:** BR5-011
-> **Prerequisite for Sybil safety:** Wave 24 (NUL-001) — but tree mechanics and API plumbing can be built now
+> **Wave 24 circuit:** IMPLEMENTED (H4 leaf + identity-bound nullifier in main.nr)
+> **Sybil safety:** Pending NUL-001 wiring — identityCommitment placeholder in shadow-atlas-handler.ts:136
+> **UI detection:** Deferred (documented, intentional — see §31d)
 
 ---
 

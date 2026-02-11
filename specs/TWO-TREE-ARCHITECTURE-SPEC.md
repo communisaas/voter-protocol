@@ -1,11 +1,11 @@
 # Two-Tree Architecture Specification
 
 > **Spec ID:** TWO-TREE-ARCH-001
-> **Version:** 0.4.0
-> **Status:** Implementation Complete (spec synced with code 2026-02-03; recovery protocol designed 2026-02-10)
-> **Date:** 2026-02-10
+> **Version:** 0.5.0
+> **Status:** Implementation Complete — circuit rework (H4 leaf + identity-bound nullifier), leaf replacement plumbing, IPFS persistence all verified in code (2026-02-11 4-agent audit). **NUL-001 wiring gap:** identityCommitment uses placeholder in communique registration path.
+> **Date:** 2026-02-11
 > **Authors:** Architecture Review
-> **Revision:** v0.4 — Added Section 8.4-8.8: Credential Recovery via Leaf Replacement Protocol (BR5-011). Resolved Open Question #2 (address re-entry UX). Updated threat model and privacy analysis tables. Implementation blocked on Wave 24 (NUL-001 identity-bound nullifier). v0.3: Synced Section 4 (Circuit) with actual main.nr (SA-011, BA-007, named helper functions, sponge module import). Synced Section 9 (Contracts) with actual contract layout. Added E2E integration test cross-reference.
+> **Revision:** v0.5 — 4-agent cross-validation audit confirmed: Wave 24 circuit rework IMPLEMENTED (H4 leaf main.nr:308, identity-bound nullifier main.nr:336-337, DOMAIN_HASH4 0x48344d). Waves 30-31 leaf replacement IMPLEMENTED (replaceLeaf, POST /v1/register/replace, recoverTwoTree). IPFS persistence IMPLEMENTED (InsertionLog + SyncService + Lighthouse). NUL-001 identityCommitment wiring gap identified — shadow-atlas-handler.ts:136 uses request.leaf placeholder. v0.4: Added Section 8.4-8.8: Credential Recovery. v0.3: Synced Section 4 (Circuit) with actual main.nr.
 
 ---
 

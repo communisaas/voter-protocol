@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
 > **Date:** 2026-01-26 (Rev 20: 2026-02-10)
-> **Status:** REVISION 20 — CVEs REMEDIATED, Rounds 1-4 COMPLETE, Round 5 WAVE 24-29 IMPLEMENTED + REVIEWED. Wave 29: BR5-009 + BR5-010 + BR5-015 + BR5-016 COMPLETE (communique client hardening: BN254 validation on SA responses, post-proof cross-validation, CSP header, cell-proof rate limiting). 29R review: 3 agents found 2 CRITICAL + 5 HIGH; 29M triaged to 6 real fixes (3 false positives rejected). **CYCLE 6 COMPLETE** (Waves 27-29).
+> **Status:** REVISION 21 — CVEs REMEDIATED, Rounds 1-5 COMPLETE, Waves 1-31 IMPLEMENTED. Cycle 5 (Waves 24-26): circuit rework DONE, MVP removal DONE, IPFS persistence DONE. Cycle 6 (Waves 27-29): BR5 hardening DONE. Waves 30-31: leaf replacement plumbing DONE. 4-agent cross-validation audit (2026-02-11): 14 findings previously marked NOT STARTED confirmed COMPLETE in code. **NUL-001 wiring gap identified** — identityCommitment placeholder in shadow-atlas-handler.ts. BR5-010 partial (pre-submission validation only). Communique type debt remediation COMPLETE (484→0 svelte-check errors).
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -413,7 +413,7 @@ cookies with `httpOnly: false`. XSS can read and replay them.
 Identity verification, Shadow Atlas registration, and submission endpoints lack throttling.
 Enables brute force on identity hashes and spam submissions.
 
-**Status:** [~] ASSESSED/DEFERRED (2026-01-26) — Comprehensive analysis documented as TODO in `hooks.server.ts`: 8 high-risk endpoints identified, 4 existing unused rate limiter implementations found. Two recommended approaches: (1) Cloudflare WAF rate limiting rules (preferred for Fly.io deployment), (2) In-app sliding window with Redis/KV store. Deferred pending infrastructure decision.
+**Status:** [x] COMPLETE (verified 2026-02-11) — Sliding window rate limiter implemented in `rate-limiter.ts` with Redis backend support (REDIS_URL env var). 11 endpoint configurations in `hooks.server.ts` covering identity, registration, cell-proof, submissions, templates, moderation, email, metrics. RFC 6585 compliant response headers (X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After).
 
 #### BA-015: Poseidon2 Singleton Init Failure Permanent
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (crypto codebase)
