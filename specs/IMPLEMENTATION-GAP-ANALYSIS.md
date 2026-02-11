@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 14: 2026-02-10)
-> **Status:** REVISION 14 — CVEs REMEDIATED, Round 1 COMPLETE (21/23), Round 2 COMPLETE (14/18), Round 3 COMPLETE (10/10), Round 4 COMPLETE (7/7), Round 5 TRIAGED (20 new findings + NUL-001 architectural), Integration Status UPDATED (3 INT blockers identified), ARCHITECTURAL DECISIONS RECORDED (H4 leaf, identity nullifier, no MVP, chain-only, IPFS replay, npm scope)
+> **Date:** 2026-01-26 (Rev 20: 2026-02-10)
+> **Status:** REVISION 20 — CVEs REMEDIATED, Rounds 1-4 COMPLETE, Round 5 WAVE 24-29 IMPLEMENTED + REVIEWED. Wave 29: BR5-009 + BR5-010 + BR5-015 + BR5-016 COMPLETE (communique client hardening: BN254 validation on SA responses, post-proof cross-validation, CSP header, cell-proof rate limiting). 29R review: 3 agents found 2 CRITICAL + 5 HIGH; 29M triaged to 6 real fixes (3 false positives rejected). **CYCLE 6 COMPLETE** (Waves 27-29).
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -642,7 +642,7 @@ Update circuit if `hashSingle` is used there. Regenerate golden vectors.
 
 Anyone deploying the serving layer gets a non-functional sync pipeline that accepts any data.
 
-**Status:** [ ] NOT STARTED — Not a vulnerability if serving layer is not deployed. Becomes critical at deployment time.
+**Status:** [x] COMPLETE — Wave 26a: SyncService rewritten from scratch. Now event-driven (notifyInsertion), uploads InsertionLog to Storacha + Lighthouse, persists CID metadata locally, supports IPFS gateway recovery. No more mock CIDs or unconditional validation.
 
 #### SA-009: Discovery Pipeline Bypasses URL Allowlist
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** 2/12 critics
@@ -1525,7 +1525,7 @@ Where `identityCommitment = H(self.xyz_subject_hash)` — deterministic per veri
 | Authority upgrade | Level 1 | New (level 4) | **Same** |
 | Salt rotation | Valid | New (new salt) | **Same** |
 
-**Status:** [ ] NOT STARTED — DECIDED. Circuit rework required (combined with BR5-001).
+**Status:** [x] COMPLETE (Wave 24, 2026-02-10). Circuit reworked: nullifier = H2(identityCommitment, actionDomain). TypeScript updated in both repos. Golden vectors verified.
 
 ---
 
@@ -1566,7 +1566,7 @@ This decision also requires the nullifier construction change (NUL-001): `nullif
 **Recommended fix:**
 Option A (DECIDED): Include `authority_level` in leaf: `H4(secret, cellId, registrationSalt, authorityLevel)` with `DOMAIN_HASH4 = 0x48344d`. Requires circuit change + tree rebuild. No second proof tree needed.
 
-**Status:** [ ] NOT STARTED — DECIDED: Option A (bind to leaf via H4). Circuit rework required.
+**Status:** [x] COMPLETE (Wave 24, 2026-02-10). H4 leaf + DOMAIN_HASH4 implemented in Noir circuit, voter-protocol TypeScript, communique TypeScript. identityCommitment added as private input. Golden vectors verified. 97+ tests pass.
 
 ---
 
@@ -1592,7 +1592,7 @@ Combined with BR5-003 (`skipCredentialCheck={true}` in TemplateModal), any authe
 
 **Recommended fix:** Chain is source of truth. Submissions marked verified only after on-chain DistrictGate confirmation. Server never calls barretenberg directly.
 
-**Status:** [ ] NOT STARTED — No MVP mode. Must verify on-chain before marking verified.
+**Status:** [x] COMPLETE — Wave 25a. MVP CWC bypass block removed from submissions endpoint. verification_status stays 'pending' until on-chain confirmation. Entire `/api/cwc/submit-mvp` endpoint deleted.
 
 ### P1 — Security Critical (8)
 
@@ -1606,7 +1606,7 @@ Combined with BR5-003 (`skipCredentialCheck={true}` in TemplateModal), any authe
 
 **Recommended fix:** Remove `skipCredentialCheck` flag from production TemplateModal. Require valid SessionCredential before proof generation.
 
-**Status:** [ ] NOT STARTED — Remove entirely. No MVP mode.
+**Status:** [x] COMPLETE — Wave 25a. `skipCredentialCheck` prop removed from ProofGenerator + TemplateModal. Mock credential generation block deleted. MVP test removed from ProofGenerator.test.ts.
 
 ---
 
@@ -1627,7 +1627,7 @@ When `d = DOMAIN_HASH3` (0x48334d = 4,731,725): `hash4(a, b, c, DOMAIN_HASH3) ==
 
 **Recommended fix:** Addressed by the H4 circuit rework (BR5-001 decision). Adding DOMAIN_HASH4 = 0x48344d ('H4M') eliminates the collision. Since the leaf formula is changing to H4 anyway, the domain tag is added as part of that change.
 
-**Status:** [ ] NOT STARTED — Resolved by BR5-001 circuit rework (DOMAIN_HASH4 added)
+**Status:** [x] COMPLETE (Wave 24, 2026-02-10). DOMAIN_HASH4 = 0x48344d added. 2-round sponge construction in Noir + TypeScript.
 
 ---
 
@@ -1665,7 +1665,7 @@ An attacker submitting candidate leaves can classify duplicates by response time
 
 **Recommended fix:** Add `expectedPublicInputs` parameter to `verifyProof()` and assert equality. Or document as off-chain limitation.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE — Wave 28a+28M: `verifyProof()` validates public input count (29). New `verifyProofWithExpectedInputs()` checks all 29 values (user_root, cell_map_root, 24 districts, nullifier, action_domain, authority_level). 28M-001: `parsePublicInput()` helper validates canonical 0x-hex format + BN254 bounds before BigInt conversion. 11 tests (5 BR5-006 + 2 parsePublicInput + 4 missing mismatch types).
 
 ---
 
@@ -1684,7 +1684,7 @@ Two valid proofs for the same identity commitment with different `leafIndex` val
 
 **Recommended fix:** IPFS log replay architecture decided. Shadow Atlas state = deterministic rebuild from append-only leaf insertion log. Primary: Storacha (formerly web3.storage, free 5GB tier, Filecoin-backed). Backup: Lighthouse Beacon ($20 one-time, perpetual via Filecoin endowment pool). Optional: Helia self-hosted node for sovereignty.
 
-**Status:** [ ] NOT STARTED — Architecture decided: IPFS log replay (Storacha + Lighthouse)
+**Status:** [x] COMPLETE — Wave 26a: InsertionLog (NDJSON append-only, fsync'd), RegistrationService replay-on-startup, SyncService (Storacha + Lighthouse upload, IPFS gateway recovery), LighthousePinningService added. 34 new tests (13 log + 9 persistence + 12 sync).
 
 ---
 
@@ -1713,7 +1713,7 @@ Two valid proofs for the same identity commitment with different `leafIndex` val
 
 **Recommended fix:** Add `hexToFr()` validation (which includes BN254 bounds check) on all server response fields before storing in SessionCredential.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE — Wave 29a+29M: `validateBN254Hex()` + `validateBN254HexArray()` added to `client.ts`. Applied in `registerLeaf()` (userRoot, userPath), `getCellProof()` (cellMapRoot, cellMapPath, districts), and `lookupDistrict()` (root, leaf, siblings). Path length validation added for cellMapPath/cellMapPathBits (29M-004). Cell-proof error normalized to prevent cell ID existence oracle (29M-006).
 
 ---
 
@@ -1731,20 +1731,20 @@ A compromised proof generator (XSS, browser extension) could submit cryptographi
 
 **Recommended fix:** Add `validatePublicInputs(proofResult, credential, context)` function that cross-checks outputs against known-good state before submission.
 
-**Status:** [ ] NOT STARTED
+**Status:** [x] COMPLETE — Wave 29a+29M: Post-proof cross-validation in `ProofGenerator.svelte` checks actionDomain, nullifier, userRoot, and cellMapRoot (29M-002) against expected values. Throws on mismatch.
 
 ### P2 — Important (8)
 
 | ID | Finding | Repo | Source | Status |
 |----|---------|------|--------|--------|
-| BR5-011 | No credential recovery path for returning users — browser clear causes account lockout (no endpoint to retrieve existing Merkle path) | communique + voter-protocol | Gemini (integration) | [ ] NOT STARTED |
-| BR5-012 | Registration auth defaults to open when `REGISTRATION_AUTH_TOKEN` unconfigured — warning-only log at `api.ts:234-239` | voter-protocol | Shadow-Atlas + Integration (3/7) | [ ] NOT STARTED |
-| BR5-013 | `/v1/health` leaks `lat`/`lon` coordinates and error samples; `/v1/metrics` unauthenticated — operational telemetry exposed | voter-protocol | Codex (shadow-atlas) | [ ] NOT STARTED |
-| BR5-014 | Generic 500 error responses pass `error.message` details to client via `sendErrorResponse` at `api.ts:375-389` | voter-protocol | Codex (shadow-atlas) | [ ] NOT STARTED |
-| BR5-015 | No CSP header in communique `hooks.server.ts` — only COOP/COEP set, increasing XSS blast radius for IndexedDB credential theft | communique | Codex (communique) | [ ] NOT STARTED |
-| BR5-016 | `/api/shadow-atlas/cell-proof` endpoint not rate limited — enables cell ID enumeration and Shadow Atlas DoS | communique | Codex (communique) | [ ] NOT STARTED |
-| BR5-017 | `formatInputs()` districts array is positional (slot 0-23 = specific district types) but ordering never validated across translation pipeline | voter-protocol | Claude (integration) | [ ] NOT STARTED |
-| BR5-018 | Wildcard dependency `"*"` for `@voter-protocol/noir-prover` in `packages/client/package.json:27-38` — allows any version including malicious | voter-protocol | Codex (integration) | [ ] NOT STARTED |
+| BR5-011 | No credential recovery path for returning users — browser clear causes account lockout (no endpoint to retrieve existing Merkle path) | communique + voter-protocol | Gemini (integration) | [x] PLUMBING COMPLETE — Wave 30-31: `RegistrationService.replaceLeaf()` (33 tests), `POST /v1/register/replace` endpoint, communique `replaceLeaf()` client (BN254 validated), register endpoint replace mode (Postgres update + CRITICAL logging for atomicity failure), `recoverTwoTree()` handler. Oracle-resistant error messages. **Sybil safety pending NUL-001 (Wave 24).** |
+| BR5-012 | Registration auth defaults to open when `REGISTRATION_AUTH_TOKEN` unconfigured — warning-only log at `api.ts:234-239` | voter-protocol | Shadow-Atlas + Integration (3/7) | [x] COMPLETE — Wave 27a+27M: Fail-closed in production (`process.env.NODE_ENV === 'production'` throws), dev-mode warning preserved. 3 tests added. |
+| BR5-013 | `/v1/health` leaks `lat`/`lon` coordinates and error samples; `/v1/metrics` unauthenticated — operational telemetry exposed | voter-protocol | Codex (shadow-atlas) | [x] COMPLETE — Wave 27a+27M: Health sanitized (status/uptime/aggregate counts only). Metrics auth-gated: token-required when configured (no trusted-proxy bypass, 27M-001), trusted-proxy-only when no token. 5 metrics auth tests added. |
+| BR5-014 | Generic 500 error responses pass `error.message` details to client via `sendErrorResponse` at `api.ts:375-389` | voter-protocol | Codex (shadow-atlas) | [x] COMPLETE — Wave 27a: All catch blocks audited — error.message logged internally, generic messages returned to client. Zod field errors stripped. WWW-Authenticate headers on 401s (27M-002). |
+| BR5-015 | No CSP header in communique `hooks.server.ts` — only COOP/COEP set, increasing XSS blast radius for IndexedDB credential theft | communique | Codex (communique) | [x] COMPLETE — Wave 29a+29M: Full CSP header added (default-src 'self', wasm-unsafe-eval, Google Fonts CDN, frame-ancestors 'none', object-src 'none', upgrade-insecure-requests). |
+| BR5-016 | `/api/shadow-atlas/cell-proof` endpoint not rate limited — enables cell ID enumeration and Shadow Atlas DoS | communique | Codex (communique) | [x] COMPLETE — Wave 29a+29M: 10 req/min user-based rate limit with includeGet. Cell-proof error normalized (anti-oracle, 29M-006). |
+| BR5-017 | `formatInputs()` districts array is positional (slot 0-23 = specific district types) but ordering never validated across translation pipeline | voter-protocol | Claude (integration) | [x] COMPLETE — Wave 28a: Non-zero districts validated for uniqueness (Set<bigint> dedup), BN254 bounds on all districts. All bigint fields validated against BN254 modulus. Merkle path siblings BN254-validated. 6 BR5-017 + 5 BN254 field tests. |
+| BR5-018 | Wildcard dependency `"*"` for `@voter-protocol/noir-prover` in `packages/client/package.json:27-38` — allows any version including malicious | voter-protocol | Codex (integration) | [x] COMPLETE — Wave 22: Pinned to specific version. |
 
 ### P3 — Hardening (2)
 
@@ -1795,25 +1795,25 @@ A compromised proof generator (XSS, browser extension) could submit cryptographi
 
 | Priority | ID | Issue | Repo | Status |
 |----------|-----|-------|------|--------|
-| **P0** | NUL-001 | Nullifier derived from ephemeral userSecret — Sybil via re-registration | both | [ ] DECIDED — Circuit rework required |
-| **P0** | BR5-001 | Authority level not bound to leaf hash | both | [ ] DECIDED — Option A (H4 leaf binding) |
-| **P0** | BR5-002 | Server-side proof non-verification | communique | [ ] NOT STARTED — No MVP mode, chain-only verification |
-| **P1** | BR5-003 | skipCredentialCheck mock credentials | communique | [ ] NOT STARTED — Remove entirely |
-| **P1** | BR5-004 | hash4 lacks domain tag — collision with hash3 | voter-protocol | [ ] Resolved by BR5-001 circuit rework |
-| **P1** | BR5-005 | Registration timing oracle | voter-protocol | [ ] NOT STARTED |
-| **P1** | BR5-006 | verifyProof doesn't check public inputs | voter-protocol | [ ] NOT STARTED |
-| **P1** | BR5-007 | Registration state non-persistent | voter-protocol | [ ] NOT STARTED — IPFS log replay decided |
+| **P0** | NUL-001 | Nullifier derived from ephemeral userSecret — Sybil via re-registration | both | [x] COMPLETE — Wave 24 circuit rework (H2(identityCommitment, actionDomain)) |
+| **P0** | BR5-001 | Authority level not bound to leaf hash | both | [x] COMPLETE — Wave 24 H4 leaf binding + DOMAIN_HASH4 |
+| **P0** | BR5-002 | Server-side proof non-verification | communique | [x] COMPLETE — Wave 25a. MVP bypass removed, chain-only verification |
+| **P1** | BR5-003 | skipCredentialCheck mock credentials | communique | [x] COMPLETE — Wave 25a. Removed from ProofGenerator + TemplateModal |
+| **P1** | BR5-004 | hash4 lacks domain tag — collision with hash3 | voter-protocol | [x] COMPLETE — DOMAIN_HASH4 added in Wave 24 |
+| **P1** | BR5-005 | Registration timing oracle | voter-protocol | [x] COMPLETE — latencyMs removed from API responses (Wave 22) |
+| **P1** | BR5-006 | verifyProof doesn't check public inputs | voter-protocol | [x] COMPLETE (Wave 28) |
+| **P1** | BR5-007 | Registration state non-persistent | voter-protocol | [x] COMPLETE — Wave 26a. InsertionLog + SyncService + Lighthouse |
 | **P1** | BR5-008 | npm package names not claimed | voter-protocol | [ ] NOT STARTED — npm scope claimed |
-| **P1** | BR5-009 | No BN254 validation on server responses | communique | [ ] NOT STARTED |
-| **P1** | BR5-010 | 29 public inputs not validated pre-submission | communique | [ ] NOT STARTED |
-| **P2** | BR5-011 | No credential recovery path (account lockout) | both | [ ] NOT STARTED |
-| **P2** | BR5-012 | Registration auth defaults to open | voter-protocol | [ ] NOT STARTED |
-| **P2** | BR5-013 | Health/metrics endpoint data leakage | voter-protocol | [ ] NOT STARTED |
-| **P2** | BR5-014 | Error detail leakage in 500s | voter-protocol | [ ] NOT STARTED |
-| **P2** | BR5-015 | No CSP header | communique | [ ] NOT STARTED |
-| **P2** | BR5-016 | Cell-proof endpoint not rate limited | communique | [ ] NOT STARTED |
-| **P2** | BR5-017 | Array ordering not validated | voter-protocol | [ ] NOT STARTED |
-| **P2** | BR5-018 | Wildcard dependency "*" | voter-protocol | [ ] NOT STARTED |
+| **P1** | BR5-009 | No BN254 validation on server responses | communique | [x] COMPLETE (Wave 29) |
+| **P1** | BR5-010 | 29 public inputs not validated pre-submission | communique | [x] COMPLETE (Wave 29) |
+| **P2** | BR5-011 | No credential recovery path (account lockout) | both | [x] PLUMBING COMPLETE (Wave 30-31) — Sybil safety pending NUL-001 |
+| **P2** | BR5-012 | Registration auth defaults to open | voter-protocol | [x] COMPLETE (Wave 27) |
+| **P2** | BR5-013 | Health/metrics endpoint data leakage | voter-protocol | [x] COMPLETE (Wave 27) |
+| **P2** | BR5-014 | Error detail leakage in 500s | voter-protocol | [x] COMPLETE (Wave 27) |
+| **P2** | BR5-015 | No CSP header | communique | [x] COMPLETE (Wave 29) |
+| **P2** | BR5-016 | Cell-proof endpoint not rate limited | communique | [x] COMPLETE (Wave 29) |
+| **P2** | BR5-017 | Array ordering not validated | voter-protocol | [x] COMPLETE (Wave 28) |
+| **P2** | BR5-018 | Wildcard dependency "*" | voter-protocol | [x] COMPLETE — pinned in Wave 22 |
 | **P3** | BR5-019 | IndexedDB same-origin access (defense-in-depth) | communique | [x] DOCUMENTED |
 | **P3** | BR5-020 | Triple-rename confusion | communique | [x] DOCUMENTED |
 
@@ -1829,40 +1829,165 @@ This document maps the delta between current implementation and the unified proo
 **Coordination Integrity Round 4 (2026-02-08):** 7 findings — ALL IMPLEMENTED or DOCUMENTED
 **Brutalist Round 5 (2026-02-10):** 4 persona-driven assessments with 7 critics → 20 new findings (2 P0, 8 P1, 8 P2, 2 P3) + 7 cross-referenced + 5 false positives rejected
 **Post-Round 5 Architectural Review (2026-02-10):** NUL-001 nullifier Sybil vulnerability identified + architectural decisions on BR5-001/002/003/004/007/008
+**Wave 24 Expert Review (2026-02-10):** 3-agent review (ZK crypto + integration + security) of Wave 24 implementation → 5 fixes applied in Wave 24M:
+- FIX-1 (HIGH): `authority_level: .toString()` → `toHex(BigInt())` for BN254 validation consistency
+- FIX-2 (HIGH): Stale single-tree docstring in types.ts header → updated to two-tree H4/NUL-001
+- FIX-3 (MEDIUM): `fallbackAuthorityLevel` truthy check strengthened (rejects zero commitment strings)
+- FIX-4 (MEDIUM/CRIT): `generateIdentityCommitment()` included `issuedAt: Date.now()` → removed (breaks NUL-001 determinism)
+- FIX-5 (LOW): `identityCommitment: request.leaf` marked as provisional TODO(NUL-001) for end-to-end wiring
+**Wave 25a MVP Removal (2026-02-10):** BR5-002 + BR5-003 + INT-003 resolved:
+- Deleted `/api/cwc/submit-mvp` endpoint (291 lines) + MVP API test harness
+- Removed 120-line MVP CWC bypass block from `/api/submissions/create` (dead code — `mvpAddress` was never destructured)
+- Removed `skipCredentialCheck` and `mvpAddress` props from ProofGenerator.svelte + TemplateModal.svelte
+- Removed mock credential generation block, DEMO-00 district bypass, benchmark UI, attestation UI
+- `verification_status` stays `pending` until on-chain DistrictGate confirmation (chain = source of truth)
+- Removed `AddressData`, `EncryptionBenchmark` interfaces from ProofGenerator
+- Removed skipCredentialCheck test from ProofGenerator.test.ts
+- Updated TemplateModal comment from "MVP version / HACKATHON" to "ZK proof flow"
+**Wave 25 Expert Review (2026-02-10):** 3-agent review (security + integration + ZK flow) found 6 actionable fixes applied in Wave 25M:
+- FIX-1 (HIGH): PII leak — removed `templateData`/`userEmail`/`userName` from ProofGenerator request body (privacy invariant: PII only in encrypted witness)
+- FIX-2 (HIGH): Removed `userEmail`/`userName` dead props from ProofGenerator interface + TemplateModal
+- FIX-3 (MEDIUM): Simplified template fetch to `select: { id: true }` (title/message_body/slug were dead fields post-MVP removal)
+- FIX-4 (MEDIUM): Removed dead `fetchCWCResults()` function + `cwcJobResults` state from TemplateModal (queried orphaned CWC Jobs table)
+- FIX-5 (HIGH): Deleted broken `cwc-routes.test.ts` (imported deleted submit-mvp endpoint)
+- Triaged pre-existing Phase 2 items (TEE template context, mock TEE key, witness encryption scope, AES-GCM→XChaCha20) — not Wave 25 scope
 
-**Combined open issues: 25** (2 legacy from Rounds 1-2, 2 legacy integration blockers, 20 new from Round 5, 1 architectural finding)
+**Wave 26a Implementation (2026-02-10):** IPFS persistence (BR5-007 + SA-008):
+- InsertionLog: append-only NDJSON log with fsync, streaming replay, concurrent-safe writes
+- RegistrationService: optional `logOptions` for persistent mode, `replayLeaf()` for rebuild-on-startup
+- SyncService: rewritten — event-driven upload (every N insertions), Storacha + Lighthouse dual-pin, IPFS gateway recovery, local CID metadata persistence
+- LighthousePinningService: perpetual Filecoin storage via Lighthouse HTTP API
+- CLI serve command: auto-creates persistent registration with insertion log
+- 34 new tests: 13 InsertionLog + 9 persistence + 12 SyncService (all pass)
+- 71 total serving tests pass (34 new + 17 existing reg + 20 endpoint)
 
-**🔴 P0 — Deployment blocking (5 OPEN):**
-- NUL-001: NULLIFIER SYBIL: H2(userSecret) allows double-registration → DECIDED (H2(identityCommitment) + circuit rework)
-- BR5-001: Authority level not bound to leaf hash → DECIDED: Option A (H4 leaf binding)
-- BR5-002: Server-side proof non-verification → NOT STARTED (no MVP mode — chain-only verification)
+**Wave 26R Review (2026-02-10):** 3-agent expert review (IPFS distributed systems, integration, security):
+- Agent 1 (IPFS/Distributed Systems): 7 CRIT, 4 HIGH, 10 MED, 5 LOW
+- Agent 2 (Integration): 1 CRIT, 2 HIGH, 4 MED, 2 LOW
+- Agent 3 (Security): 2 CRIT, 4 HIGH, 8 MED, 3 LOW
+- Cross-agent consensus findings: Lighthouse type bug (3/3), notifyInsertion gap (2/3), shutdown race (2/3), counter reset (2/3), atomic metadata (2/3)
+
+**Wave 26M Manual Fixes (2026-02-10):** 9 fixes applied:
+1. Lighthouse `type: 'storacha'` → `'lighthouse'` (all 3 agents flagged)
+2. Wire `syncService.notifyInsertion(log)` in `handleRegister()` — IPFS backup was never triggered
+3. Wire `syncService.recoverLog()` in serve command startup — recovery flow was dead code
+4. Add `syncService.init()` in `createShadowAtlasAPI()` factory when creating internally
+5. Async shutdown handler — `await` upload + close before `process.exit(0)`
+6. Counter reset only on upload success — prevents unbounded data-loss window
+7. Atomic metadata write — tmp+rename pattern prevents corruption on crash
+8. Log file permissions `0o600` — owner read/write only
+9. `countEntries()` rewritten with streaming validator — matches replay logic (no malformed line mismatch)
+
+Deferred findings (tracked for future waves):
+- Log integrity signing (Ed25519) — significant scope, requires new dependency
+- Write-ahead logging (log before tree update) — significant refactor of insertLeafInternal
+- CID content verification after upload — needs multiformats dependency
+- IPFS gateway MITM protection — same as CID verification
+- Parent directory fsync — very edge case on modern filesystems
+- Timing oracle on duplicate detection — partially mitigated by CR-006
+
+71 tests pass (no regressions).
+
+**Wave 27a Implementation (2026-02-10):** Server hardening (BR5-012, BR5-013, BR5-014):
+- BR5-012: Registration auth fail-closed in production. `process.env.NODE_ENV === 'production'` throws when `REGISTRATION_AUTH_TOKEN` not set (previously warning-only). Dev/test mode preserves existing behavior.
+- BR5-013: Health endpoint sanitized (status, uptime, aggregate counts only — no cache metrics, no error samples, no coordinates). Metrics endpoint auth-gated with dual-mode: Bearer token OR trusted proxy (loopback/RFC1918).
+- BR5-014: All catch blocks in api.ts audited — `error.message` logged internally via `logger.error()`, generic messages returned to client. No lat/lng passed to `recordError()`.
+
+**Wave 27R Review (2026-02-10):** 3-agent expert review (security, integration, API design):
+- CRITICAL: Metrics auth bypass — trusted proxies could skip token even when configured
+- CRITICAL: Deployment configs lack `METRICS_AUTH_TOKEN` and `REGISTRATION_AUTH_TOKEN`
+- HIGH: Metrics token comparison uses `!==` (timing-vulnerable)
+- HIGH: Missing `WWW-Authenticate` header on 401 responses (RFC 7235)
+- HIGH: Health endpoint shape change may break monitoring dashboards
+- MEDIUM: Missing test coverage for BR5-012 production throw
+
+**Wave 27M Manual Fixes (2026-02-10):** 5 fixes applied:
+1. 27M-001: Metrics auth bypass fixed — when token is configured, REQUIRE it (no trusted-proxy bypass). Prevents internal network attackers from scraping metrics without credentials.
+2. 27M-001b: Metrics token comparison changed to `constantTimeEqual()` (was `!==`, timing-vulnerable).
+3. 27M-002: `WWW-Authenticate: Bearer` header added to all 401 responses (registration + metrics) per RFC 7235.
+4. api.test.ts: 12 previously broken tests fixed — `getHeader()` added to mock (fixes sendSuccessResponse crash), CORS tests updated for empty-origins default, Zod details expectations removed (CR-007), health shape expectations updated (BR5-013).
+5. api.test.ts: 8 new tests added — 3 BR5-012 production auth guard tests, 5 metrics auth tests (wrong token, correct token, trusted-proxy-with-token, no-token-trusted-proxy, no-token-external-IP).
+
+107 tests pass across 4 test files (no regressions).
+
+**Wave 28a Implementation (2026-02-10):** Prover validation (BR5-006 + BR5-017):
+- BR5-006: `verifyProof()` now validates public input count (29) before backend verification
+- BR5-006: New `verifyProofWithExpectedInputs()` method checks all 29 public inputs match expected values
+- BR5-017: Non-zero districts validated for uniqueness (Set<bigint>), BN254 bounds on all districts
+- All bigint fields validated against BN254 modulus in `validateInputs()` (userRoot, cellMapRoot, nullifier, actionDomain, userSecret, cellId, registrationSalt, identityCommitment)
+- Merkle path siblings BN254-validated after array length checks
+- 63 prover tests passing (2 skipped = heavy BB tests)
+
+**Wave 28R Review (2026-02-10):** 3-agent expert review (ZK crypto + integration + security):
+- Agent 1 (ZK Crypto): 3 CRITICAL, 2 HIGH, 3 MEDIUM
+- Agent 2 (Integration): 2 CRITICAL, 3 HIGH, 4 MEDIUM
+- Agent 3 (Security): 2 CRITICAL, 2 HIGH, 4 MEDIUM
+- Cross-agent consensus: BigInt parsing (2/3), BN254 in verification path (2/3), missing test coverage (2/3)
+
+**Wave 28M Manual Review (2026-02-10):** 4 real fixes applied, 2 false positives rejected:
+- 28M-001 (ZK-CRIT-001 + Security-CRIT-001): Added `parsePublicInput()` helper — validates canonical 0x-hex format before BigInt conversion in verification path
+- 28M-002 (Security-CRIT-002): Merged into 28M-001 — BN254 bounds check on parsed public inputs (rejects values >= modulus as field aliasing attacks)
+- 28M-003 (ZK-CRIT-003): All-zero districts: **NOT A BUG at prover level**. Prover should prove whatever inputs are given. Application-level checks (RegistrationService, communique client) must ensure cells have ≥ 1 district. JSDoc note added.
+- 28M-004 (Integration-HIGH-003): Added 6 missing test cases — nullifier/actionDomain/authorityLevel/cellMapRoot mismatches + parsePublicInput hex format rejection + BN254 overflow rejection
+- FALSE POSITIVE: Integration-CRIT-002 (formatInputs breaking change) — method is documented "for testing purposes" and hex is the correct Noir Field format
+- FALSE POSITIVE: Security-HIGH-001 (Set<bigint> engine-dependent) — SameValueZero works correctly for bigint in all modern JS engines
+- 69 prover tests passing (2 skipped = heavy BB tests)
+
+**Wave 29a Implementation (2026-02-10):** Communique client hardening (BR5-009 + BR5-010 + BR5-015 + BR5-016):
+- BR5-009: `validateBN254Hex()` + `validateBN254HexArray()` helpers in communique `client.ts` — validates all Shadow Atlas field elements (root, leaf, siblings, districts) against BN254 modulus
+- BR5-009: Applied in `registerLeaf()` (userRoot, userPath), `getCellProof()` (cellMapRoot, cellMapPath, districts), `lookupDistrict()` (merkleProof.root, leaf, siblings)
+- BR5-010: Post-proof cross-validation in `ProofGenerator.svelte` — actionDomain, nullifier, userRoot checked against expected credential values after proof generation
+- BR5-015: Full CSP header in `hooks.server.ts` — default-src 'self', script-src 'wasm-unsafe-eval', style-src Google Fonts, connect-src 'self', worker-src blob:, frame-ancestors 'none', base-uri 'self', form-action 'self'
+- BR5-016: Cell-proof rate limit (10 req/min user-based) in `rate-limiter.ts` with `includeGet: true`
+
+**Wave 29R Review (2026-02-10):** 3-agent expert review (security + integration + CSP/rate-limit):
+- Agent 1 (Security): 2 CRITICAL, 3 HIGH, 5 MEDIUM, 3 LOW
+- Agent 2 (Integration): 1 CRITICAL, 2 HIGH, 3 MEDIUM, 3 LOW
+- Agent 3 (CSP + Rate Limit): 1 CRITICAL, 4 HIGH, 5 MEDIUM, 4 LOW
+- Cross-agent consensus: CSP blocks Google Fonts (2/3), cell-proof should be user-based rate limit (2/3), BR5-010 missing cellMapRoot (2/3), missing object-src 'none' (2/3)
+
+**Wave 29M Manual Review (2026-02-10):** 6 real fixes applied, 3 false positives rejected:
+- 29M-001 (CSP-CRIT-001 + CSP-HIGH-001): Google Fonts in style-src/font-src, added `object-src 'none'` + `upgrade-insecure-requests`
+- 29M-002 (Security-HIGH-002): Added cellMapRoot cross-validation in ProofGenerator.svelte (attacker could substitute different cell's root)
+- 29M-003 (Security-MEDIUM-001 + CSP-HIGH-003): Cell-proof rate limit changed from IP-based to user-based (prevents shared IP false positives)
+- 29M-004 (Integration-HIGH-001): Added cellMapPath/cellMapPathBits length validation (20 each) in getCellProof()
+- 29M-005 (Integration-MEDIUM-001): Added BN254 validation in lookupDistrict() for merkleProof.root, leaf, siblings
+- 29M-006 (Security-MEDIUM-002): Normalized cell-proof errors to generic 503 (prevents cell ID existence oracle via 404 vs 503 distinction)
+- FALSE POSITIVE: CRIT-INT-001 (connect-src blocks intelligence APIs) — those are server-side fetch calls, not browser-originated
+- FALSE POSITIVE: HIGH-INT-001 (BN254 hex 0x prefix) — Shadow Atlas always returns 0x-prefixed values
+- FALSE POSITIVE: HIGH-INT-002 (hex format mismatch in BR5-010) — both paths use same frToHex() format
+
+**Combined open issues: 5** (1 integration blocker, 1 P1 from Round 5, 3 P2 — 20 items resolved: NUL-001, BR5-001, BR5-002, BR5-003, BR5-004, BR5-005, BR5-006, BR5-007, BR5-009, BR5-010, BR5-012, BR5-013, BR5-014, BR5-015, BR5-016, BR5-017, BR5-018, SA-008, INT-002, INT-003)
+
+**🔴 P0 — Deployment blocking (1 OPEN, 4 RESOLVED):**
+- ~~NUL-001: NULLIFIER SYBIL~~ → ✅ COMPLETE (Wave 24 — H2(identityCommitment, actionDomain))
+- ~~BR5-001: Authority level not bound to leaf hash~~ → ✅ COMPLETE (Wave 24 — H4 leaf binding + DOMAIN_HASH4)
+- ~~BR5-002: Server-side proof non-verification~~ → ✅ COMPLETE (Wave 25a — MVP bypass removed, chain-only verification)
 - INT-001: Package.json `file:` paths → IN PROGRESS (communique updated to ^0.2.0, awaits npm publish)
-- INT-002: Shadow Atlas `POST /v1/register` → IMPLEMENTED (Wave 17b)
+- ~~INT-002: Shadow Atlas `POST /v1/register`~~ → ✅ COMPLETE (Wave 17b)
 
-**🔴 P1 — Security critical (8 NEW from Round 5):**
-- BR5-003: skipCredentialCheck mock credentials → NOT STARTED (remove entirely, no MVP mode)
-- BR5-004: hash4 lacks domain tag (collision with hash3) → Resolved by BR5-001 circuit rework (DOMAIN_HASH4 added)
-- BR5-005: Registration timing oracle → NOT STARTED
-- BR5-006: verifyProof doesn't check public inputs → NOT STARTED
-- BR5-007: Registration state non-persistent → NOT STARTED (architecture decided: IPFS log replay)
+**🔴 P1 — Security critical (1 OPEN, 8 RESOLVED from Round 5):**
+- ~~BR5-003: skipCredentialCheck mock credentials~~ → ✅ COMPLETE (Wave 25a — removed from ProofGenerator + TemplateModal)
+- ~~BR5-004: hash4 lacks domain tag (collision with hash3)~~ → ✅ COMPLETE (Wave 24 — DOMAIN_HASH4 added)
+- ~~BR5-005: Registration timing oracle~~ → ✅ COMPLETE (Wave 22 — latencyMs removed)
+- ~~INT-003: `mvpAddress` cleartext bypass~~ → ✅ COMPLETE (Wave 25a — mvpAddress removed from all code paths)
+- ~~BR5-007: Registration state non-persistent~~ → ✅ COMPLETE (Wave 26a — InsertionLog + SyncService + Lighthouse)
+- ~~BR5-006: verifyProof doesn't check public inputs~~ → ✅ COMPLETE (Wave 28a+28M — verifyProofWithExpectedInputs + parsePublicInput + 11 tests)
 - BR5-008: npm package names not claimed → NOT STARTED (npm scope @voter-protocol claimed)
-- BR5-009: No BN254 validation on server responses → NOT STARTED
-- BR5-010: 29 public inputs not validated pre-submission → NOT STARTED
+- ~~BR5-009: No BN254 validation on server responses~~ → ✅ COMPLETE (Wave 29a+29M — validateBN254Hex + lookupDistrict + anti-oracle)
+- ~~BR5-010: 29 public inputs not validated pre-submission~~ → ✅ COMPLETE (Wave 29a+29M — post-proof cross-validation + cellMapRoot)
 
-**🟠 P1 — Privacy/Security debt (1 OPEN):**
-- INT-003: `mvpAddress` cleartext bypass → NOT STARTED (requires Phase 2 TEE)
-
-**🟠 P2 — Important (10 total: 2 legacy + 8 new):**
+**🟠 P2 — Important (2 OPEN, 8 RESOLVED):**
 - BA-014: Rate limiting (DEFERRED — pending infrastructure decision)
 - BA-017: Depth-24 proof generation test (ENV-BLOCKED — requires BB setup)
-- BR5-011: No credential recovery path (account lockout) → NOT STARTED
-- BR5-012: Registration auth defaults to open → NOT STARTED
-- BR5-013: Health/metrics endpoint data leakage → NOT STARTED
-- BR5-014: Error detail leakage in 500s → NOT STARTED
-- BR5-015: No CSP header → NOT STARTED
-- BR5-016: Cell-proof endpoint not rate limited → NOT STARTED
-- BR5-017: Array ordering not validated → NOT STARTED
-- BR5-018: Wildcard dependency "*" → NOT STARTED
+- ~~BR5-011: No credential recovery path (account lockout)~~ → ✅ PLUMBING COMPLETE (Wave 30-31 — replaceLeaf + endpoint + recovery handler; Sybil safety pending NUL-001)
+- ~~BR5-012: Registration auth defaults to open~~ → ✅ COMPLETE (Wave 27a+27M — fail-closed + 3 tests)
+- ~~BR5-013: Health/metrics endpoint data leakage~~ → ✅ COMPLETE (Wave 27a+27M — sanitized + auth-gated + 5 tests)
+- ~~BR5-014: Error detail leakage in 500s~~ → ✅ COMPLETE (Wave 27a+27M — sanitized + WWW-Authenticate)
+- ~~BR5-015: No CSP header~~ → ✅ COMPLETE (Wave 29a+29M — full CSP with WASM, Google Fonts, object-src 'none')
+- ~~BR5-016: Cell-proof endpoint not rate limited~~ → ✅ COMPLETE (Wave 29a+29M — 10 req/min user-based + anti-oracle)
+- ~~BR5-017: Array ordering not validated~~ → ✅ COMPLETE (Wave 28a — district uniqueness + BN254 bounds + 11 tests)
+- ~~BR5-018: Wildcard dependency "*"~~ → ✅ COMPLETE (Wave 22 — pinned)
 
 **⚠️ P3 — Hardening (3 legacy + 2 new documented):**
 - SA-016: CORS restrictive default → PARTIALLY FIXED
@@ -1875,7 +2000,7 @@ This document maps the delta between current implementation and the unified proo
 - ISSUE-003: Redistricting emergency protocol (DESIGN PHASE)
 
 **Other tracked (non-blocking):**
-- SA-008: IPFS sync (DEFERRED to Phase 2)
+- ~~SA-008: IPFS sync~~ → ✅ COMPLETE (Wave 26a — SyncService rewritten, log-based persistence)
 - SA-009: Discovery URL allowlist → COMPLETE (50 domains in `ALLOWED_DOMAINS`, 12 call sites validated)
 
 **Key Design Principle:** Identity verification (self.xyz or didit) is **mandatory for CWC-path messages**. Authority level is cryptographically bound to the leaf hash via H4, attested by the identity provider at registration. The nullifier is derived from `identityCommitment` (not `userSecret`) to provide cryptographic Sybil resistance across re-registrations. The mailto: path remains available without verification but is labeled "unverified."
@@ -1918,9 +2043,9 @@ This document maps the delta between current implementation and the unified proo
 | communique → two-tree prover types | ✅ Working | — | `TwoTreeProofInputs`, `generateTwoTreeProof()`, 29-input validation |
 | communique → Poseidon2 | ❌ NOT CONNECTED | — | communique still uses SHA-256 mock for some paths |
 | communique → Shadow Atlas registration | ✅ Working | — | `POST /v1/register` + `GET /v1/cell-proof` (Wave 17b/17c); client-side leaf computation |
-| communique → mvpAddress bypass | ⚠️ TECH DEBT | INT-003 | Cleartext address bypass still in `/api/submissions/create` |
+| ~~communique → mvpAddress bypass~~ | ✅ REMOVED | INT-003 | Wave 25a — all mvpAddress code deleted |
 | self.xyz / Didit.me SDK | ⚠️ PARTIAL | — | Didit.me integrated with HMAC; self.xyz interface only |
-| IPFS sync service | ❌ STUBBED | — | Mock CID, mock validation (SA-008, deferred to Phase 2) |
+| IPFS sync service | ✅ IMPLEMENTED | SA-008 | Wave 26a — InsertionLog + Storacha/Lighthouse upload + IPFS recovery |
 | TEE (AWS Nitro Enclaves) | ❌ NOT DEPLOYED | — | Phase 2 target architecture (SECURITY.md updated) |
 | Package.json CI/CD | ❌ BLOCKED | INT-001 | `file:` paths must become npm registry refs before deploy |
 
@@ -1938,12 +2063,11 @@ This document maps the delta between current implementation and the unified proo
 - **Files:** `shadow-atlas/src/serving/registration-service.ts`, `shadow-atlas/src/serving/api.ts`, `communique/src/routes/api/shadow-atlas/register/+server.ts`, `communique/src/routes/api/shadow-atlas/cell-proof/+server.ts`, `communique/src/lib/core/identity/shadow-atlas-handler.ts`, `communique/src/lib/core/shadow-atlas/client.ts`
 - **Status:** [x] COMPLETE — Wave 17b (2026-02-09)
 
-**INT-003: `mvpAddress` cleartext bypass still in production path**
-- **Location:** `communique/src/routes/api/submissions/create/+server.ts:91,186,229-232`
-- **Impact:** Violates stated privacy architecture ("address never leaves device"). Server receives plaintext address.
-- **Clarification needed:** What replaces this in Phase 1? TEE is Phase 2. Options: (a) drop address delivery entirely, (b) client-side CWC XML construction, (c) accept as known Phase 1 limitation.
-- **Status:** [ ] NOT STARTED — P1 privacy debt
-- **Cross-ref:** COMMUNIQUE-INTEGRATION-SPEC.md:199,212,353
+**INT-003: `mvpAddress` cleartext bypass — ✅ RESOLVED (Wave 25a)**
+- **Resolution:** All `mvpAddress` code paths removed. Direct CWC delivery block deleted from `/api/submissions/create`. Entire `/api/cwc/submit-mvp` MVP endpoint deleted. `skipCredentialCheck` and `mvpAddress` props removed from ProofGenerator + TemplateModal. User PII now exclusively in encrypted witness for TEE processing.
+- **Files modified:** `communique/src/routes/api/submissions/create/+server.ts`, `communique/src/lib/components/template/ProofGenerator.svelte`, `communique/src/lib/components/template/TemplateModal.svelte`, `communique/tests/unit/ProofGenerator.test.ts`
+- **Files deleted:** `communique/src/routes/api/cwc/submit-mvp/+server.ts`, `communique/src/lib/tests/cwc-api-test.ts`
+- **Status:** [x] COMPLETE — Wave 25a (2026-02-10)
 
 ---
 

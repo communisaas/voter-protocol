@@ -1,11 +1,11 @@
 # Two-Tree Architecture Specification
 
 > **Spec ID:** TWO-TREE-ARCH-001
-> **Version:** 0.3.0
-> **Status:** Implementation Complete (spec synced with code 2026-02-03)
-> **Date:** 2026-02-03
+> **Version:** 0.4.0
+> **Status:** Implementation Complete (spec synced with code 2026-02-03; recovery protocol designed 2026-02-10)
+> **Date:** 2026-02-10
 > **Authors:** Architecture Review
-> **Revision:** v0.3 — Synced Section 4 (Circuit) with actual main.nr (SA-011, BA-007, named helper functions, sponge module import). Synced Section 9 (Contracts) with actual contract layout. Added E2E integration test cross-reference.
+> **Revision:** v0.4 — Added Section 8.4-8.8: Credential Recovery via Leaf Replacement Protocol (BR5-011). Resolved Open Question #2 (address re-entry UX). Updated threat model and privacy analysis tables. Implementation blocked on Wave 24 (NUL-001 identity-bound nullifier). v0.3: Synced Section 4 (Circuit) with actual main.nr (SA-011, BA-007, named helper functions, sponge module import). Synced Section 9 (Contracts) with actual contract layout. Added E2E integration test cross-reference.
 
 ---
 
@@ -50,7 +50,7 @@ PROPOSED (Two-Tree):
 5. [Registration Flow](#5-registration-flow)
 6. [Proof Generation Flow](#6-proof-generation-flow)
 7. [Verification Flow](#7-verification-flow)
-8. [Redistricting Handling](#8-redistricting-handling)
+8. [Redistricting & Recovery Handling](#8-redistricting-handling)
 9. [Smart Contract Changes](#9-smart-contract-changes)
 10. [Shadow Atlas Changes](#10-shadow-atlas-changes)
 11. [Client (Communique) Changes](#11-client-communique-changes)
@@ -870,6 +870,160 @@ Day 127:  Old root EXPIRED (proofs fail)
 Total grace period: 90 days for users to sync
 ```
 
+### 8.4 Credential Recovery (Leaf Replacement Protocol)
+
+**Problem:** Private circuit inputs (`user_secret`, `registration_salt`, `cell_id`) exist only in the browser's encrypted IndexedDB. A browser clear, device loss, or storage corruption causes total credential loss. Without a recovery path, the user must start over — which, with the pre-Wave-24 nullifier formula `H2(user_secret, action_domain)`, would produce a new nullifier and create a Sybil opening.
+
+**Solution:** Leaf replacement — zero the old leaf in Tree 1, insert a new leaf with fresh random inputs at the next available position. The user's `identityCommitment` (derived from their OAuth credential, stable across sessions) is already stored server-side from first registration.
+
+**Prerequisite:** Wave 24 (NUL-001) circuit rework. The identity-bound nullifier formula `H2(identityCommitment, actionDomain)` is what makes leaf replacement safe. Since `identityCommitment` is stable across re-registrations, the nullifier is preserved regardless of `user_secret` or `registration_salt` changes. Without NUL-001, recovery would produce a different nullifier and break Sybil resistance.
+
+**Design philosophy:** The hard thing (identity verification) happens once. Recovery should feel like logging in, not starting over. The system already knows the user's identity — don't make them re-prove it.
+
+### 8.5 Recovery Protocol
+
+```
+Recovery trigger: User logs in (OAuth), system detects no IndexedDB credential,
+but finds existing registration in Postgres via user_id.
+
+User-facing steps: 1 (re-enter address OR confirm "still same address?")
+Wall-clock time: ~15 seconds
+
+                Client                    Communique Server              Shadow Atlas
+                  │                              │                            │
+  1. OAuth login  │──────────────────────────────>│                            │
+                  │                               │  2. Lookup user_id         │
+                  │                               │     → found registration   │
+                  │<── "Welcome back" ────────────│     (has identityCommit,   │
+                  │    credential missing         │      leafIndex, but NO     │
+                  │    detected                   │      private inputs)       │
+                  │                               │                            │
+  3. User re-enters address                       │                            │
+     (or confirms "same address?")                │                            │
+                  │                               │                            │
+  4. Client:                                      │                            │
+     cellId = deriveCellId(address)               │                            │
+     newUserSecret = crypto.random()              │                            │
+     newSalt = crypto.random()                    │                            │
+     newLeaf = H4(newUserSecret, cellId,          │                            │
+                  newSalt, authorityLevel)         │                            │
+                  │                               │                            │
+  5. POST /api/shadow-atlas/register              │                            │
+     { leaf: newLeaf, replace: true }             │                            │
+                  │──────────────────────────────>│                            │
+                  │                               │  6. Find existing record   │
+                  │                               │     oldLeafIndex = record  │
+                  │                               │     .leaf_index            │
+                  │                               │                            │
+                  │                               │  7. POST /v1/register/     │
+                  │                               │     replace                │
+                  │                               │     { newLeaf,             │
+                  │                               │       oldLeafIndex }       │
+                  │                               │──────────────────────────>│
+                  │                               │                            │
+                  │                               │  8. Shadow Atlas:          │
+                  │                               │     a. Zero leaf at        │
+                  │                               │        oldLeafIndex        │
+                  │                               │     b. Insert newLeaf at   │
+                  │                               │        nextLeafIndex       │
+                  │                               │     c. Recompute root      │
+                  │                               │     d. Return proof        │
+                  │                               │<──────────────────────────│
+                  │                               │                            │
+                  │                               │  9. Update Postgres:       │
+                  │                               │     leaf_index = new       │
+                  │                               │     merkle_root = new      │
+                  │                               │     merkle_path = new      │
+                  │                               │                            │
+                  │<── { leafIndex, userRoot,     │                            │
+                  │      userPath, pathIndices }  │                            │
+                  │                               │                            │
+ 10. Client stores SessionCredential              │                            │
+     in encrypted IndexedDB                       │                            │
+                  │                               │                            │
+ 11. "You're ready to participate."               │                            │
+```
+
+### 8.6 Leaf Replacement Tree Mechanics
+
+```
+Before recovery (Tree 1 state):
+
+         root_old
+        /        \
+      ...        ...
+     /              \
+   [...]    leaf_old @ index 7    [empty] @ index 12    [...]
+            ^^^^^^^^                ^^^^^^^
+            user's old leaf         next available slot
+
+After replaceLeaf(oldIndex=7, newLeaf):
+
+         root_new
+        /        \
+      ...        ...
+     /              \
+   [...]    padding @ index 7     leaf_new @ index 12   [...]
+            ^^^^^^^               ^^^^^^^^
+            zeroed (= empty       fresh leaf at
+             subtree hash)         next position
+```
+
+**Tree operations (O(depth) each):**
+1. Set `nodeMap["0:7"] = emptyHashes[0]` (zero the old leaf)
+2. Recompute path from index 7 to root (depth hashes)
+3. Set `nodeMap["0:12"] = newLeaf` (insert at next position)
+4. Recompute path from index 12 to root (depth hashes)
+5. New root reflects both mutations
+
+**Insertion log entry (BR5-007 compatible):**
+```json
+{ "type": "replace", "oldIndex": 7, "newLeaf": "0xabc...", "newIndex": 12, "ts": 1707500000 }
+```
+
+The log remains append-only. Replay applies zeroing + insertion in order.
+
+### 8.7 Recovery Security Invariants
+
+| Property | Guarantee | Mechanism |
+|----------|-----------|-----------|
+| **Sybil resistance** | Same user → same nullifier after recovery | `nullifier = H2(identityCommitment, actionDomain)` — identityCommitment is stable (NUL-001) |
+| **No double-voting** | Already-used nullifiers remain on-chain | NullifierRegistry rejects re-submission; new leaf doesn't change this |
+| **Old proofs invalidated** | Old leaf zeroed → old root invalid | Any proof against old root fails after root transition |
+| **New proofs valid** | Fresh leaf with valid inputs | Circuit verifies new leaf membership in current Tree 1 root |
+| **No credential theft** | Can't replace someone else's leaf | Replace requires authenticated session (OAuth) matching the user_id that owns the registration |
+| **Privacy preserved** | Server never sees private inputs | Only the new leaf hash is transmitted; userSecret and salt remain client-side |
+| **Operator can't forge** | Leaf replacement is logged + roots are on-chain | IPFS insertion log (BR5-007) auditable; on-chain root must match |
+
+**Attack: Operator replaces leaf without user consent?**
+The insertion log (IPFS-pinned) records every mutation. Anyone replaying the log can verify that every replace corresponds to an authenticated request. Phase 2 TEE attestation eliminates this trust assumption entirely.
+
+**Attack: User claims browser clear to get a second identity?**
+Impossible. `identityCommitment` hasn't changed, so `nullifier = H2(identityCommitment, actionDomain)` is identical. The on-chain NullifierRegistry catches the duplicate.
+
+**Attack: Attacker compromises OAuth account?**
+Same threat model as initial registration — OAuth account compromise is out of scope for the ZK layer. Mitigation is at the identity provider level (MFA, etc.).
+
+### 8.8 Address Re-Entry UX Optimization
+
+The only user-facing friction in recovery is re-entering their residential address (to derive `cell_id`). This is necessary because the system deliberately does not store the address (privacy by design).
+
+**Optimization for returning users who haven't moved:**
+
+If the communique server stores a `cell_id_hash = H(cell_id)` alongside the registration record (not the cell_id itself), the recovery flow can offer:
+
+```
+"Welcome back. Still at the same address?"
+
+[Yes, same address]     [No, I've moved]
+```
+
+On "Yes": client re-enters address, derives `cell_id`, communique verifies `H(cell_id) == stored cell_id_hash`, proceeds. This prevents a misremembered address from silently producing wrong district mappings.
+
+On "No, I've moved": client enters new address, derives new `cell_id`, new leaf reflects new location. Districts change accordingly.
+
+**Why hash, not plaintext:** Storing `cell_id` directly would let the server operator enumerate user neighborhoods. Storing `H(cell_id)` reveals nothing — census tract IDs are not enumerable from hashes (the space is sparse and the hash is one-way). But it allows the server to verify consistency on the "same address" fast path.
+
 ---
 
 ## 9. Smart Contract Changes
@@ -1420,7 +1574,8 @@ Users who never renew (churned) simply expire. Their old credentials become inva
 |--------|------------|
 | User claims wrong cell | ZK proof fails (cell not in user tree) |
 | User claims wrong districts | ZK proof fails (districts don't match cell map) |
-| User generates multiple identities | Same user_secret produces same nullifier |
+| User generates multiple identities | Same identityCommitment produces same nullifier (NUL-001) |
+| User loses browser data | Leaf replacement protocol (Section 8.4-8.8) — same nullifier preserved |
 | Malicious Shadow Atlas | Roots are on-chain, verifiable by anyone |
 | Cell map tampering | SMT proofs cryptographically bound |
 | Redistricting race condition | 90-day grace period |
@@ -1437,6 +1592,8 @@ Users who never renew (churned) simply expire. Their old credentials become inva
 | districts[24] | Shadow Atlas lookup | Shadow Atlas → Client | Encrypted IndexedDB | YES (public output) |
 | user_secret | Identity provider | NEVER | In-memory only | NEVER (private input) |
 | salt | Client RNG | Shadow Atlas (registration) | Encrypted IndexedDB | NEVER (private input) |
+| identityCommitment | Derived from OAuth credential | Communique server (registration) | Communique Postgres | NEVER (private circuit input; public via nullifier indirectly) |
+| cell_id_hash | H(cell_id) at registration | Communique server | Communique Postgres | NEVER (recovery consistency check only) |
 
 **Anonymity sets:**
 

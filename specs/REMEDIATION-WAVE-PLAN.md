@@ -82,7 +82,7 @@ Following five rounds of brutalist audits plus architectural review. **Cycles 1-
 ### Brutalist Round 5 — P2 (8) — PENDING
 | ID | Issue | Repo | Status |
 |----|-------|------|--------|
-| BR5-011 | No credential recovery path for returning users | both | NOT STARTED |
+| BR5-011 | No credential recovery path for returning users | both | DESIGN COMPLETE — leaf replacement protocol (Wave 24, blocked on NUL-001) |
 | BR5-012 | Registration auth defaults to open when token unconfigured | voter-protocol | NOT STARTED |
 | BR5-013 | Health/metrics endpoints leak operational telemetry | voter-protocol | NOT STARTED |
 | BR5-014 | Error detail leakage in generic 500 responses | voter-protocol | NOT STARTED |
@@ -2047,9 +2047,9 @@ Registration sends ONLY the leaf hash to Shadow Atlas. Operator never sees cell_
 > **Scope:** Circuit rework (H4 leaf + identity-bound nullifier), MVP mode removal, IPFS persistence, remaining BR5 fixes
 > **Prerequisites:** Waves 17-20 complete, architectural decisions finalized
 
-### Wave 24: Circuit Rework (NUL-001 + BR5-001 + BR5-004)
+### Wave 24: Circuit Rework + Credential Recovery (NUL-001 + BR5-001 + BR5-004 + BR5-011)
 
-**Goal:** Rework the two-tree circuit to bind authority_level to the leaf and derive nullifier from identityCommitment.
+**Goal:** Rework the two-tree circuit to bind authority_level to the leaf and derive nullifier from identityCommitment. Then implement credential recovery (leaf replacement) — which is only safe once the identity-bound nullifier is in place.
 
 **Circuit changes (main.nr):**
 1. Leaf: `poseidon2_hash3(user_secret, cell_id, registration_salt)` → `poseidon2_hash4(user_secret, cell_id, registration_salt, authority_level)` with DOMAIN_HASH4
@@ -2066,12 +2066,23 @@ Registration sends ONLY the leaf hash to Shadow Atlas. Operator never sees cell_
 
 **Registration flow changes:**
 - Shadow Atlas: Accept self.xyz/didit attestation with leaf. Verify attestation signature. Validate authority_level matches attestation tier.
-- Communique: Derive identityCommitment from self.xyz/didit credential. Include attestation in registration POST.
+- Communique: Derive identityCommitment from self.xyz/didit credential. Include attestation in registration POST. Store `cell_id_hash = H(cell_id)` for recovery consistency check.
+
+**Credential recovery (BR5-011) — leaf replacement protocol:**
+- `RegistrationService.replaceLeaf(oldLeafIndex, newLeaf)`: Zero old leaf at old position, insert new leaf at next available position, recompute root, return fresh Merkle proof. O(2 * depth) hashes.
+- `POST /v1/register/replace` endpoint: Authenticated, accepts `{ newLeaf, oldLeafIndex }`. InsertionLog gains `"replace"` entry type.
+- Communique register endpoint: `replace: true` mode — finds existing registration by user_id, extracts oldLeafIndex, calls Shadow Atlas replace, updates Postgres record.
+- `shadow-atlas-handler.ts`: Detect missing IndexedDB credential + existing Postgres registration → trigger "Welcome back" recovery flow.
+- Recovery UX: User re-enters address (~15 seconds) or confirms "still same address?" via cell_id_hash consistency check. No re-verification — identityCommitment already stored.
+- Full protocol spec: TWO-TREE-ARCHITECTURE-SPEC.md Section 8.4-8.8.
 
 **Test coverage:**
 - Golden vectors for H4 (cross-language: Noir ↔ TypeScript)
 - Nullifier uniqueness across re-registrations with same identityCommitment
 - Authority level binding (can't claim level 5 with level 1 leaf)
+- Leaf replacement: old proof invalid, new proof valid, root transition correct
+- Recovery flow: missing credential detection, replace mode, Postgres record update
+- Sybil invariant: same nullifier after recovery (identityCommitment stable)
 
 ### Wave 25: MVP Mode Removal (BR5-002 + BR5-003 + INT-003)
 
@@ -2111,7 +2122,7 @@ Registration sends ONLY the leaf hash to Shadow Atlas. Operator never sees cell_
 
 ---
 
-**Document Version:** 2.2
+**Document Version:** 2.3
 **Author:** Distinguished Engineering Review
 **Last Updated:** 2026-02-10
-**Status:** Cycle 1 complete (Waves 1-8). Cycle 2 substantially complete (Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 PARTIAL). Cycle 3 complete (Waves 13-16). Cycle 4 complete (Waves 17-20). Cycle 5 planning (Waves 24-26): circuit rework + MVP removal + IPFS persistence. 21 findings open (NUL-001 + BR5-001 through BR5-020). Architectural decisions locked 2026-02-10.
+**Status:** Cycle 1 complete (Waves 1-8). Cycle 2 substantially complete (Waves 9-10 COMPLETE, Wave 11 PENDING, Wave 12 PARTIAL). Cycle 3 complete (Waves 13-16). Cycle 4 complete (Waves 17-20). Cycle 5 planning (Waves 24-26): circuit rework + credential recovery + MVP removal + IPFS persistence. BR5-011 leaf replacement protocol designed (TWO-TREE-ARCHITECTURE-SPEC §8.4-8.8), implementation blocked on Wave 24 NUL-001. BA-014 rate limiting deferred. Architectural decisions locked 2026-02-10.

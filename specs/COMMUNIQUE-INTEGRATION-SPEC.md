@@ -20,14 +20,15 @@
 > **INT-002 RESOLVED (Wave 17b):** `POST /v1/register` endpoint implemented in shadow-atlas.
 > `GET /v1/cell-proof` endpoint implemented for Tree 2 proofs.
 > **CR-004 RESOLVED (Wave 19b):** Bearer token auth on `POST /v1/register` with HMAC constant-time comparison.
+> **BR5-011 DESIGNED (2026-02-10):** Leaf replacement credential recovery protocol. No re-verification — identityCommitment stable across sessions. Implementation blocked on Wave 24 (NUL-001). See TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8.
 > See `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for detailed progress.
 
 ---
 
-**Version:** 0.1.0
-**Date:** 2026-02-02
-**Status:** DRAFT - Pending Engineering Review
-**Depends on:** TWO-TREE-ARCHITECTURE-SPEC.md v0.2.0
+**Version:** 0.2.0
+**Date:** 2026-02-10
+**Status:** ACTIVE — Recovery protocol designed (BR5-011), Open Question #2 resolved
+**Depends on:** TWO-TREE-ARCHITECTURE-SPEC.md v0.4.0
 
 ---
 
@@ -137,7 +138,22 @@ Browser                          Communique Server              Shadow Atlas
 - The operator is an append-only log, not a validator
 - cell_id disclosure is a known Phase 1 tradeoff (see Deferred Items in WAVE-17-19-IMPLEMENTATION-PLAN.md)
 
-**Credential recovery limitation:** Browser clear = re-register. user_secret and registration_salt exist only in encrypted IndexedDB. Acceptable for initial launch; credential backup is Phase 2.
+**Credential recovery:** Browser clear or device loss triggers the **leaf replacement protocol** (TWO-TREE-ARCHITECTURE-SPEC.md Section 8.4-8.8). The user re-authenticates via OAuth, re-enters their address (~15 seconds), and the system generates fresh random `user_secret` + `registration_salt`, zeros the old Tree 1 leaf, and inserts a new one. No re-verification required — the `identityCommitment` (stable across sessions, derived from OAuth credential) is already stored from first registration.
+
+**Sybil safety:** The post-Wave-24 nullifier formula `H2(identityCommitment, actionDomain)` produces the same nullifier regardless of `user_secret` changes, so leaf replacement cannot be exploited for double-voting. Already-used nullifiers remain on-chain; old proofs are invalidated by the root transition.
+
+**Prerequisite:** Wave 24 (NUL-001) identity-bound nullifier circuit rework. Without it, a new `user_secret` would produce a new nullifier and break Sybil resistance.
+
+**Implementation scope (voter-protocol):**
+- `RegistrationService.replaceLeaf(oldLeafIndex, newLeaf)` — zero old position, insert at next, recompute root, return proof
+- `POST /v1/register/replace` endpoint — authenticated, accepts `{ newLeaf, oldLeafIndex }`
+- InsertionLog gains `"replace"` entry type for audit trail
+
+**Implementation scope (communique):**
+- Register endpoint gains `replace: true` mode — finds existing registration, extracts `oldLeafIndex`, calls Shadow Atlas replace
+- `shadow-atlas-handler.ts` detects missing IndexedDB credential + existing Postgres registration → triggers recovery flow
+- Postgres stores `cell_id_hash = H(cell_id)` for "still same address?" consistency check
+- "Welcome back" UX: 1 user action (address re-entry), ~15 seconds wall-clock
 
 ### 2.3 Tree Root Distribution
 
@@ -474,7 +490,7 @@ The 24-district disclosure narrows the anonymity set:
 ## 14. Open Questions
 
 1. **TEE provider**: AWS Nitro vs multi-party (2-of-3 AWS/Google/Azure)?
-2. **Address re-entry UX**: Session storage (24h) vs IndexedDB (6 months) for returning users?
+2. ~~**Address re-entry UX**: Session storage (24h) vs IndexedDB (6 months) for returning users?~~ **RESOLVED (2026-02-10):** IndexedDB with 6-month TTL for active credentials. On browser clear / device loss, leaf replacement recovery re-derives cell_id from address re-entry (~15s). "Still same address?" fast path with stored `cell_id_hash`. See TWO-TREE-ARCHITECTURE-SPEC.md Section 8.4-8.8.
 3. ~~**Template+Rep vs Template-only nullifier**: Per-template allows one submission total; per-template-per-rep allows one per representative. Which aligns with user expectations?~~ **RESOLVED (2026-02-08):** Per-template-per-chamber. See Section 15.
 4. **OAuth token storage**: Separate DB table or extend existing `Account` model?
 5. **Selective district disclosure**: Should Phase 2 allow proving membership in N-of-24 districts instead of revealing all 24?
