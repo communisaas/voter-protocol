@@ -24,6 +24,7 @@ export { SyncService } from './sync-service';
 export { HealthMonitor } from './health';
 export { ShadowAtlasAPI, createShadowAtlasAPI } from './api';
 export { RegistrationService } from './registration-service';
+export { InsertionLog } from './insertion-log';
 
 // Registration types
 export type {
@@ -31,6 +32,18 @@ export type {
   CellProofResult,
   CellMapState,
 } from './registration-service';
+
+// Insertion log types
+export type {
+  InsertionLogEntry,
+  InsertionLogOptions,
+} from './insertion-log';
+
+// Sync service types
+export type {
+  PinnedLogMetadata,
+  SyncServiceConfig,
+} from './sync-service';
 
 // Types
 export type {

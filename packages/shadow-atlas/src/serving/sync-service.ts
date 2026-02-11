@@ -1,368 +1,340 @@
 /**
- * IPFS Sync Service
+ * IPFS Sync Service — Log-Based Persistence (BR5-007 / SA-008)
  *
- * STATUS: STUBBED - Deferred to Phase 2
- * TRACKING: SA-008
+ * Manages IPFS-based backup and recovery of the Tree 1 insertion log.
  *
- * Current implementation returns mock data for development.
- * Production deployment requires:
- * - [ ] ipfs-http-client or helia integration
- * - [ ] IPNS name resolution
- * - [ ] CID verification against on-chain roots
- * - [ ] Snapshot integrity validation
+ * Architecture:
+ * - Local: InsertionLog writes append-only NDJSON to disk (fsync'd)
+ * - Remote: Periodically uploads the log to Storacha + Lighthouse
+ * - Recovery: On startup, if local log is missing, fetches from IPFS
  *
- * Monitors IPFS for new Shadow Atlas snapshots and updates serving database.
- * Enables decentralized distribution - multiple parties can serve from IPFS.
+ * The insertion log is the canonical state — the Merkle tree is a
+ * deterministic function of the log entries replayed in order.
  *
- * Sync workflow:
- * 1. Resolve IPNS name → latest IPFS CID
- * 2. Compare with current CID
- * 3. Download new snapshot if available
- * 4. Validate Merkle root matches metadata
- * 5. Atomic database swap
+ * Upload strategy:
+ * - After every N insertions (default 10), upload the full log
+ * - On graceful shutdown, upload the final state
+ * - Each upload produces a new CID (content-addressed, immutable)
+ * - Latest CID is persisted locally for fast recovery
  *
- * NOTE: All IPFS operations are currently stubbed. See individual method
- * TODOs for implementation requirements.
+ * SPEC REFERENCE: IMPLEMENTATION-GAP-ANALYSIS.md BR5-007, SA-008
  */
 
 import { promises as fs } from 'fs';
-import { join } from 'path';
-import type { SnapshotMetadata } from './types';
+import { join, dirname } from 'path';
+import type { IPinningService } from '../distribution/regional-pinning-service.js';
+import type { InsertionLog } from './insertion-log.js';
 import { logger } from '../core/utils/logger.js';
 
-/**
- * Snapshot download result
- */
-interface DownloadResult {
-  readonly success: boolean;
-  readonly localPath: string;
-  readonly metadata: SnapshotMetadata;
-  readonly error?: string;
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Pinned log metadata — stored locally for recovery */
+export interface PinnedLogMetadata {
+  /** IPFS CID of the uploaded log */
+  readonly cid: string;
+  /** Number of entries at time of upload */
+  readonly entryCount: number;
+  /** Timestamp of upload */
+  readonly uploadedAt: number;
+  /** Which service(s) successfully pinned */
+  readonly services: readonly string[];
 }
 
+/** SyncService configuration */
+export interface SyncServiceConfig {
+  /** Directory for persisting metadata */
+  readonly dataDir: string;
+  /** Upload after every N insertions (default: 10) */
+  readonly uploadInterval?: number;
+  /** IPFS gateway URL for fetching logs (default: https://w3s.link) */
+  readonly ipfsGateway?: string;
+  /** Pinning services for upload (Storacha, Lighthouse, etc.) */
+  readonly pinningServices?: readonly IPinningService[];
+}
+
+// ============================================================================
+// SyncService
+// ============================================================================
+
 /**
- * IPFS sync service for snapshot updates
+ * IPFS sync service for insertion log persistence.
+ *
+ * Handles upload of local insertion log to IPFS pinning services
+ * and recovery from IPFS when local state is lost.
  */
 export class SyncService {
-  private currentCID: string | null = null;
+  private readonly dataDir: string;
+  private readonly uploadInterval: number;
   private readonly ipfsGateway: string;
-  private readonly snapshotsDir: string;
-  private readonly checkIntervalMs: number;
-  private syncTimer: NodeJS.Timeout | null = null;
+  private readonly pinningServices: readonly IPinningService[];
+  private readonly metadataPath: string;
+  private insertionsSinceLastUpload = 0;
+  private latestMetadata: PinnedLogMetadata | null = null;
 
-  constructor(
-    ipfsGateway = 'https://ipfs.io',
-    snapshotsDir = '/snapshots',
-    checkIntervalSeconds = 3600 // Check hourly
-  ) {
-    this.ipfsGateway = ipfsGateway;
-    this.snapshotsDir = snapshotsDir;
-    this.checkIntervalMs = checkIntervalSeconds * 1000;
+  constructor(config: SyncServiceConfig) {
+    this.dataDir = config.dataDir;
+    this.uploadInterval = config.uploadInterval ?? 10;
+    this.ipfsGateway = config.ipfsGateway ?? 'https://w3s.link';
+    this.pinningServices = config.pinningServices ?? [];
+    this.metadataPath = join(this.dataDir, 'latest-log-cid.json');
   }
 
   /**
-   * Start periodic sync checks
+   * Initialize: load last known CID metadata from disk.
    */
-  start(): void {
-    if (this.syncTimer) {
-      return; // Already running
-    }
+  async init(): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    this.latestMetadata = await this.loadMetadata();
 
-    // Check immediately, then on interval
-    this.checkForUpdates().catch((error) => {
-      logger.error('SyncService initial check failed', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    });
-
-    this.syncTimer = setInterval(() => {
-      this.checkForUpdates().catch((error) => {
-        logger.error('SyncService periodic check failed', {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-      });
-    }, this.checkIntervalMs);
-
-    logger.info('SyncService started', {
-      checkIntervalSeconds: this.checkIntervalMs / 1000,
+    logger.info('SyncService initialized', {
+      dataDir: this.dataDir,
+      latestCID: this.latestMetadata?.cid ?? 'none',
+      latestEntryCount: this.latestMetadata?.entryCount ?? 0,
+      pinningServices: this.pinningServices.map(s => s.type),
     });
   }
 
   /**
-   * Stop periodic sync checks
-   */
-  stop(): void {
-    if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-      this.syncTimer = null;
-      logger.info('SyncService stopped');
-    }
-  }
-
-  /**
-   * Check for updates and download if available
-   */
-  async checkForUpdates(): Promise<boolean> {
-    logger.info('SyncService checking for updates');
-
-    try {
-      // Step 1: Resolve IPNS to get latest CID
-      const latestCID = await this.resolveIPNS('shadow-atlas-latest');
-
-      // Step 2: Compare with current
-      if (latestCID === this.currentCID) {
-        logger.debug('SyncService: No updates available', { currentCID: this.currentCID });
-        return false;
-      }
-
-      logger.info('SyncService: New snapshot available', {
-        latestCID,
-        currentCID: this.currentCID,
-      });
-
-      // Step 3: Download new snapshot
-      const downloadResult = await this.downloadSnapshot(latestCID);
-
-      if (!downloadResult.success) {
-        logger.error('SyncService download failed', {
-          cid: latestCID,
-          error: downloadResult.error,
-        });
-        return false;
-      }
-
-      // Step 4: Swap database atomically
-      await this.swapDatabase(downloadResult.localPath);
-
-      this.currentCID = latestCID;
-      logger.info('SyncService successfully updated', {
-        cid: latestCID,
-        districtCount: downloadResult.metadata.districtCount,
-      });
-      return true;
-    } catch (error) {
-      logger.error('SyncService update check failed', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      return false;
-    }
-  }
-
-  /**
-   * Resolve IPNS name to CID
+   * Notify the sync service that a leaf was inserted.
    *
-   * TODO SA-008: Implement actual IPNS resolution
-   * - Use ipfs-http-client or helia
-   * - Handle IPNS key rotation
-   * - Cache resolved CIDs with TTL
-   * - Implement fallback gateways
-   */
-  private async resolveIPNS(name: string): Promise<string> {
-    logger.warn('SA-008: IPFS sync is stubbed - returning mock CID', { name });
-    // TODO: Implement actual IPNS resolution
-    return `QmMock${Date.now()}`;
-  }
-
-  /**
-   * Download snapshot from IPFS
+   * After every `uploadInterval` insertions, triggers an async upload
+   * of the insertion log to all configured pinning services.
    *
-   * TODO SA-008: Implement actual IPFS download
-   * - Use ipfs-http-client or helia for direct IPFS access
-   * - Fall back to gateway with timeout
-   * - Verify CID matches downloaded content
-   * - Stream large files to avoid memory issues
-   * - Implement retry with exponential backoff
+   * The upload is fire-and-forget — registration is not blocked.
    */
-  private async downloadSnapshot(cid: string): Promise<DownloadResult> {
-    logger.warn('SA-008: IPFS download is stubbed - returning mock data', { cid });
+  notifyInsertion(log: InsertionLog): void {
+    this.insertionsSinceLastUpload++;
 
-    try {
-      const localPath = join(this.snapshotsDir, cid);
-
-      // Ensure snapshots directory exists
-      await fs.mkdir(this.snapshotsDir, { recursive: true });
-
-      // Download from IPFS gateway
-      const url = `${this.ipfsGateway}/ipfs/${cid}/shadow-atlas-v1.db`;
-      logger.info('SyncService downloading snapshot', { url, cid });
-
-      // TODO SA-008: Implement actual download
-      // const response = await fetch(url);
-      // const buffer = await response.arrayBuffer();
-      // await fs.writeFile(join(localPath, 'shadow-atlas-v1.db'), Buffer.from(buffer));
-
-      // Mock metadata - STUBBED
-      const metadata: SnapshotMetadata = {
-        cid,
-        merkleRoot: BigInt('0x1234567890abcdef'),
-        timestamp: Date.now(),
-        districtCount: 10000,
-        version: '1.0.0',
-      };
-
-      // Validate snapshot
-      const isValid = await this.validateSnapshot(join(localPath, 'shadow-atlas-v1.db'), metadata);
-
-      if (!isValid) {
-        return {
-          success: false,
-          localPath,
-          metadata,
-          error: 'Snapshot validation failed',
-        };
-      }
-
-      return {
-        success: true,
-        localPath,
-        metadata,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        localPath: '',
-        metadata: {
-          cid,
-          merkleRoot: BigInt(0),
-          timestamp: Date.now(),
-          districtCount: 0,
-          version: 'unknown',
+    if (this.insertionsSinceLastUpload >= this.uploadInterval) {
+      // Don't reset counter until upload succeeds (HIGH-003 fix).
+      // Prevents unbounded data-loss window when uploads fail repeatedly.
+      this.uploadLog(log).then(
+        (metadata) => {
+          if (metadata) {
+            this.insertionsSinceLastUpload = 0;
+          } else {
+            logger.error('SyncService: all pinning services failed, counter NOT reset');
+          }
         },
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+        (error) => {
+          logger.error('SyncService: background upload failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+      );
     }
   }
 
   /**
-   * Validate snapshot database
+   * Upload the insertion log to all configured pinning services.
    *
-   * TODO SA-008: Implement actual snapshot validation
-   * - Open SQLite database and verify schema
-   * - Query district count matches metadata
-   * - Recompute Merkle root and verify against metadata
-   * - Check R-tree spatial index integrity
-   * - Validate CID matches on-chain registered roots
+   * Returns the CID from the first successful upload.
+   * Persists the metadata locally for recovery.
    */
-  private async validateSnapshot(dbPath: string, metadata: SnapshotMetadata): Promise<boolean> {
-    logger.warn('SA-008: Snapshot validation is stubbed - returning true without verification', {
-      dbPath,
-      expectedDistrictCount: metadata.districtCount,
+  async uploadLog(log: InsertionLog): Promise<PinnedLogMetadata | null> {
+    if (this.pinningServices.length === 0) {
+      logger.warn('SyncService: no pinning services configured, skipping upload');
+      return null;
+    }
+
+    const logBuffer = await log.export();
+    const blob = new Blob([logBuffer], { type: 'application/x-ndjson' });
+    const name = `insertion-log-${log.count}.ndjson`;
+
+    const successfulServices: string[] = [];
+    let cid = '';
+
+    // Upload to all services in parallel
+    const results = await Promise.allSettled(
+      this.pinningServices.map(async (service) => {
+        const result = await service.pin(blob, { name });
+        if (result.success) {
+          return { service: service.type, cid: result.cid };
+        }
+        throw new Error(result.error ?? 'Pin failed');
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        successfulServices.push(result.value.service);
+        if (!cid) cid = result.value.cid;
+      } else {
+        logger.warn('SyncService: pin failed on one service', {
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    }
+
+    if (!cid) {
+      logger.error('SyncService: all pinning services failed');
+      return null;
+    }
+
+    const metadata: PinnedLogMetadata = {
+      cid,
+      entryCount: log.count,
+      uploadedAt: Date.now(),
+      services: successfulServices,
+    };
+
+    // Persist metadata locally
+    await this.saveMetadata(metadata);
+    this.latestMetadata = metadata;
+
+    logger.info('SyncService: insertion log uploaded', {
+      cid,
+      entryCount: log.count,
+      services: successfulServices,
+    });
+
+    return metadata;
+  }
+
+  /**
+   * Recover the insertion log from IPFS.
+   *
+   * Fetches the log from the IPFS gateway using the last known CID.
+   * Writes the recovered log to the specified local path.
+   *
+   * @returns Path to the recovered log file, or null if recovery failed
+   */
+  async recoverLog(localLogPath: string): Promise<string | null> {
+    if (!this.latestMetadata) {
+      logger.info('SyncService: no previous CID known, cannot recover');
+      return null;
+    }
+
+    const cid = this.latestMetadata.cid;
+    const url = `${this.ipfsGateway}/ipfs/${cid}`;
+
+    logger.info('SyncService: attempting log recovery from IPFS', {
+      cid,
+      url,
+      expectedEntries: this.latestMetadata.entryCount,
     });
 
     try {
-      // Check file exists
-      await fs.access(dbPath);
-
-      // TODO SA-008: Implement actual validation
-      // 1. Open SQLite database
-      // 2. Query district count
-      // 3. Verify Merkle root matches metadata
-      // 4. Check R-tree index integrity
-
-      logger.info('SyncService validating snapshot (STUBBED)', { dbPath });
-      return true; // STUBBED - always returns true
-    } catch (error) {
-      logger.error('SyncService validation failed', {
-        dbPath,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
       });
-      return false;
-    }
-  }
 
-  /**
-   * Atomic database swap
-   *
-   * Strategy: Symlink swap for zero-downtime updates
-   */
-  private async swapDatabase(newDbPath: string): Promise<void> {
-    const currentDbPath = join(this.snapshotsDir, 'current', 'shadow-atlas-v1.db');
-    const newSymlink = `${currentDbPath}.new`;
+      if (!response.ok) {
+        throw new Error(`IPFS gateway returned ${response.status}`);
+      }
 
-    try {
-      // Create symlink to new database
-      await fs.symlink(newDbPath, newSymlink);
+      const buffer = Buffer.from(await response.arrayBuffer());
 
-      // Atomic rename (POSIX guarantees atomicity)
-      await fs.rename(newSymlink, currentDbPath);
+      // Verify the recovered log has content
+      const lineCount = buffer.toString('utf8').trim().split('\n').length;
+      if (lineCount === 0) {
+        throw new Error('Recovered log is empty');
+      }
 
-      logger.info('SyncService database swapped', {
-        newDbPath,
-        currentDbPath,
+      // Write to local path
+      await fs.mkdir(dirname(localLogPath), { recursive: true });
+      await fs.writeFile(localLogPath, buffer);
+
+      logger.info('SyncService: log recovered from IPFS', {
+        cid,
+        lines: lineCount,
+        localPath: localLogPath,
       });
-    } catch (error) {
-      logger.error('SyncService database swap failed', {
-        newDbPath,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      throw error;
-    }
-  }
 
-  /**
-   * Get latest snapshot metadata
-   */
-  async getLatestSnapshot(): Promise<SnapshotMetadata | null> {
-    try {
-      const metadataPath = join(this.snapshotsDir, 'current', 'metadata.json');
-      const data = await fs.readFile(metadataPath, 'utf-8');
-      return JSON.parse(data) as SnapshotMetadata;
+      return localLogPath;
     } catch (error) {
-      logger.error('SyncService failed to load metadata', {
+      logger.error('SyncService: log recovery failed', {
+        cid,
         error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
       return null;
     }
   }
 
   /**
-   * List all available snapshots
+   * Perform a final upload on graceful shutdown.
    */
-  async listSnapshots(): Promise<SnapshotMetadata[]> {
+  async shutdown(log: InsertionLog | null): Promise<void> {
+    if (log && log.count > 0) {
+      logger.info('SyncService: uploading final state before shutdown');
+      await this.uploadLog(log);
+    }
+    logger.info('SyncService stopped');
+  }
+
+  /** Get the latest pinned log metadata */
+  getLatestMetadata(): PinnedLogMetadata | null {
+    return this.latestMetadata;
+  }
+
+  // ============================================================================
+  // Legacy API compatibility (used by ShadowAtlasAPI)
+  // ============================================================================
+
+  /** Start periodic sync checks (legacy — now driven by insertion notifications) */
+  start(): void {
+    // No-op: sync is now driven by notifyInsertion()
+    logger.info('SyncService started (event-driven mode)');
+  }
+
+  /** Stop sync service */
+  stop(): void {
+    // No-op in event-driven mode
+    logger.info('SyncService stopped');
+  }
+
+  /** Get latest snapshot metadata (legacy compat) */
+  async getLatestSnapshot(): Promise<{
+    cid: string;
+    merkleRoot: bigint;
+    timestamp: number;
+    districtCount: number;
+    version: string;
+  } | null> {
+    if (!this.latestMetadata) return null;
+    return {
+      cid: this.latestMetadata.cid,
+      merkleRoot: 0n,
+      timestamp: this.latestMetadata.uploadedAt,
+      districtCount: this.latestMetadata.entryCount,
+      version: '1.0.0',
+    };
+  }
+
+  /** List snapshots (legacy compat) */
+  async listSnapshots(): Promise<readonly {
+    cid: string;
+    merkleRoot: bigint;
+    timestamp: number;
+    districtCount: number;
+    version: string;
+  }[]> {
+    const latest = await this.getLatestSnapshot();
+    return latest ? [latest] : [];
+  }
+
+  // ============================================================================
+  // Internal
+  // ============================================================================
+
+  private async loadMetadata(): Promise<PinnedLogMetadata | null> {
     try {
-      const entries = await fs.readdir(this.snapshotsDir, { withFileTypes: true });
-      const snapshots: SnapshotMetadata[] = [];
-
-      for (const entry of entries) {
-        if (entry.isDirectory() && entry.name !== 'current') {
-          const metadataPath = join(this.snapshotsDir, entry.name, 'metadata.json');
-          try {
-            const data = await fs.readFile(metadataPath, 'utf-8');
-            snapshots.push(JSON.parse(data) as SnapshotMetadata);
-          } catch {
-            // Skip invalid snapshots
-            continue;
-          }
-        }
-      }
-
-      return snapshots.sort((a, b) => b.timestamp - a.timestamp);
-    } catch (error) {
-      logger.error('SyncService failed to list snapshots', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      return [];
+      const data = await fs.readFile(this.metadataPath, 'utf8');
+      return JSON.parse(data) as PinnedLogMetadata;
+    } catch {
+      return null;
     }
   }
 
   /**
-   * Get current CID
+   * Atomic metadata write: write to .tmp then rename (HIGH-001 fix).
+   * Prevents metadata corruption if process crashes mid-write.
    */
-  getCurrentCID(): string | null {
-    return this.currentCID;
-  }
-
-  /**
-   * Set current CID (for initialization)
-   */
-  setCurrentCID(cid: string): void {
-    this.currentCID = cid;
+  private async saveMetadata(metadata: PinnedLogMetadata): Promise<void> {
+    const tmpPath = this.metadataPath + '.tmp';
+    await fs.writeFile(tmpPath, JSON.stringify(metadata, null, 2));
+    await fs.rename(tmpPath, this.metadataPath);
   }
 }

@@ -54,7 +54,7 @@ export interface RegionConfig {
 /**
  * Supported pinning services
  */
-export type PinningServiceType = 'storacha' | 'pinata' | 'web3storage' | 'nftstorage' | 'fleek';
+export type PinningServiceType = 'storacha' | 'pinata' | 'web3storage' | 'nftstorage' | 'fleek' | 'lighthouse';
 
 /**
  * Pinning service configuration

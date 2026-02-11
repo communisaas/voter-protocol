@@ -19,6 +19,7 @@ import type {
   SMTProof,
 } from '@voter-protocol/crypto';
 import { logger } from '../core/utils/logger.js';
+import { InsertionLog, type InsertionLogEntry, type InsertionLogOptions } from './insertion-log.js';
 
 // ============================================================================
 // Constants
@@ -103,6 +104,8 @@ export class RegistrationService {
   private lockChain: Promise<void> = Promise.resolve();
   /** Current root hash */
   private root: bigint;
+  /** Optional append-only insertion log for persistence (BR5-007) */
+  private insertionLog: InsertionLog | null = null;
 
   private constructor(
     hasher: Poseidon2Hasher,
@@ -120,8 +123,14 @@ export class RegistrationService {
    * Create a new RegistrationService with an empty Tree 1.
    *
    * Precomputes empty subtree hashes (O(depth) Poseidon2 calls).
+   *
+   * If `logOptions` is provided, opens (or creates) the insertion log
+   * and replays any existing entries to restore previous state (BR5-007).
    */
-  static async create(depth: number = 20): Promise<RegistrationService> {
+  static async create(
+    depth: number = 20,
+    logOptions?: InsertionLogOptions,
+  ): Promise<RegistrationService> {
     const hasher = await getHasher();
 
     // Precompute empty hashes: level 0 = hashPair(0, 0), level i = hashPair(empty[i-1], empty[i-1])
@@ -132,13 +141,42 @@ export class RegistrationService {
       emptyHashes[i] = await hasher.hashPair(emptyHashes[i - 1], emptyHashes[i - 1]);
     }
 
+    const service = new RegistrationService(hasher, emptyHashes, depth);
+
+    // BR5-007: Open insertion log and replay if entries exist
+    if (logOptions) {
+      service.insertionLog = await InsertionLog.open(logOptions);
+      const entries = await service.insertionLog.replay();
+
+      if (entries.length > 0) {
+        logger.info('RegistrationService replaying insertion log', {
+          entries: entries.length,
+        });
+
+        for (const entry of entries) {
+          if (entry.type === 'replace' && entry.oldIndex !== undefined) {
+            await service.replayReplace(entry.leaf, entry.oldIndex);
+          } else {
+            await service.replayLeaf(entry.leaf);
+          }
+        }
+
+        logger.info('RegistrationService replay complete', {
+          treeSize: service.nextLeafIndex,
+          rootPrefix: '0x' + service.root.toString(16).slice(0, 16) + '...',
+        });
+      }
+    }
+
     logger.info('RegistrationService initialized', {
       depth,
       capacity: 2 ** depth,
+      treeSize: service.nextLeafIndex,
+      persistent: logOptions != null,
       emptyRoot: '0x' + emptyHashes[depth].toString(16).slice(0, 16) + '...',
     });
 
-    return new RegistrationService(hasher, emptyHashes, depth);
+    return service;
   }
 
   /**
@@ -184,6 +222,152 @@ export class RegistrationService {
     };
   }
 
+  /**
+   * Replace an existing leaf in Tree 1 with a new leaf.
+   *
+   * Atomically zeros the old leaf (sets it to padding), removes it from the
+   * duplicate tracking set, and inserts the new leaf at the next available index.
+   * This allows users to re-register with a new derived leaf while invalidating
+   * the old one (e.g., after cell boundary changes or salt rotation).
+   *
+   * **Authorization boundary:** This method trusts the caller to enforce
+   * per-leaf ownership. Shadow Atlas validates API access (Bearer token) but
+   * cannot verify that the caller owns the leaf at oldLeafIndex. The communique
+   * layer must enforce ownership via OAuth session + Postgres record lookup.
+   *
+   * @param oldLeafIndex - Index of the leaf to replace (must be in [0, nextLeafIndex))
+   * @param newLeafHex - Hex-encoded new leaf hash (with or without 0x prefix)
+   * @returns Registration result for the NEW leaf (at nextLeafIndex)
+   * @throws Error if oldLeafIndex is invalid, old leaf is already empty,
+   *         new leaf is duplicate/same as old, or tree is full
+   */
+  async replaceLeaf(
+    oldLeafIndex: number,
+    newLeafHex: string,
+  ): Promise<RegistrationResult> {
+    // Parse and validate new leaf (BN254 bounds, non-zero, valid hex)
+    const newLeaf = this.parseLeaf(newLeafHex);
+
+    // Validate oldLeafIndex is in range BEFORE acquiring lock
+    if (oldLeafIndex < 0 || oldLeafIndex >= this.nextLeafIndex) {
+      throw new Error('INVALID_OLD_INDEX');
+    }
+
+    // Acquire mutex for serialized operation
+    const release = await this.acquireLock();
+    try {
+      // Re-validate state inside the lock
+      if (oldLeafIndex >= this.nextLeafIndex) {
+        throw new Error('INVALID_OLD_INDEX');
+      }
+
+      // Get old leaf value BEFORE zeroing
+      const oldLeafValue = this.getNode(0, oldLeafIndex);
+
+      // Validate old position is NOT already empty/padding
+      if (oldLeafValue === this.emptyHashes[0]) {
+        throw new Error('OLD_LEAF_ALREADY_EMPTY');
+      }
+
+      // Check new leaf isn't a duplicate (in leafSet)
+      const newLeafHexNorm = newLeaf.toString(16);
+      if (this.leafSet.has(newLeafHexNorm)) {
+        throw new Error('DUPLICATE_LEAF');
+      }
+
+      // Note: SAME_LEAF is unreachable — if newLeaf === oldLeafValue, the
+      // DUPLICATE_LEAF check above fires first (old leaf is still in leafSet).
+      // Kept as defense-in-depth for clarity.
+      if (newLeaf === oldLeafValue) {
+        throw new Error('SAME_LEAF');
+      }
+
+      // Capacity check for the NEW insertion
+      if (this.nextLeafIndex >= this.capacity) {
+        throw new Error('Tree capacity exceeded');
+      }
+
+      // ========================================================================
+      // Step 1: Zero the old leaf (set to padding)
+      // ========================================================================
+      this.setNode(0, oldLeafIndex, this.emptyHashes[0]);
+
+      // Recompute path from old index to root
+      let currentIndex = oldLeafIndex;
+      for (let level = 0; level < this.depth; level++) {
+        const parentIndex = currentIndex >> 1;
+        const leftIndex = parentIndex << 1;
+        const rightIndex = leftIndex + 1;
+        const left = this.getNode(level, leftIndex);
+        const right = this.getNode(level, rightIndex);
+        const parentHash = await this.hasher.hashPair(left, right);
+        this.setNode(level + 1, parentIndex, parentHash);
+        currentIndex = parentIndex;
+      }
+
+      // Remove old leaf from duplicate tracking set
+      const oldLeafHex = oldLeafValue.toString(16);
+      this.leafSet.delete(oldLeafHex);
+
+      // ========================================================================
+      // Step 2: Insert the new leaf at nextLeafIndex
+      // ========================================================================
+      const newLeafIndex = this.nextLeafIndex;
+
+      // Set new leaf node
+      this.setNode(0, newLeafIndex, newLeaf);
+      this.leafSet.add(newLeafHexNorm);
+      this.nextLeafIndex++;
+
+      // Recompute path from new index to root
+      currentIndex = newLeafIndex;
+      for (let level = 0; level < this.depth; level++) {
+        const parentIndex = currentIndex >> 1;
+        const leftIndex = parentIndex << 1;
+        const rightIndex = leftIndex + 1;
+        const left = this.getNode(level, leftIndex);
+        const right = this.getNode(level, rightIndex);
+        const parentHash = await this.hasher.hashPair(left, right);
+        this.setNode(level + 1, parentIndex, parentHash);
+        currentIndex = parentIndex;
+      }
+
+      // Update root
+      this.root = this.getNode(this.depth, 0);
+
+      // Generate proof for the new leaf
+      const { siblings, pathIndices } = this.computeProof(newLeafIndex);
+
+      // BR5-007: Persist to insertion log (with replacement metadata)
+      if (this.insertionLog) {
+        await this.insertionLog.append({
+          leaf: '0x' + newLeaf.toString(16),
+          index: newLeafIndex,
+          ts: Date.now(),
+          type: 'replace',
+          oldIndex: oldLeafIndex,
+        });
+      }
+
+      logger.info('Leaf replaced', {
+        oldLeafIndex,
+        newLeafIndex,
+        treeSize: this.nextLeafIndex,
+        persistent: this.insertionLog != null,
+        rootPrefix: '0x' + this.root.toString(16).slice(0, 16) + '...',
+      });
+
+      return {
+        leafIndex: newLeafIndex,
+        userRoot: '0x' + this.root.toString(16),
+        userPath: siblings.map(s => '0x' + s.toString(16)),
+        pathIndices,
+      };
+    } finally {
+      release();
+    }
+  }
+
   /** Current Tree 1 root hash */
   getRoot(): bigint {
     return this.root;
@@ -192,6 +376,19 @@ export class RegistrationService {
   /** Current Tree 1 root as hex string */
   getRootHex(): string {
     return '0x' + this.root.toString(16);
+  }
+
+  /** Get the insertion log (for IPFS export) */
+  getInsertionLog(): InsertionLog | null {
+    return this.insertionLog;
+  }
+
+  /** Close the insertion log (call on shutdown) */
+  async close(): Promise<void> {
+    if (this.insertionLog) {
+      await this.insertionLog.close();
+      this.insertionLog = null;
+    }
   }
 
   /** Number of registered leaves */
@@ -207,6 +404,126 @@ export class RegistrationService {
   // ============================================================================
   // Internal
   // ============================================================================
+
+  /**
+   * Replay a leaf from the insertion log (no re-logging, no mutex).
+   *
+   * Used during startup to rebuild tree from persisted log.
+   * Skips the insertion log write since the entry already exists.
+   */
+  private async replayLeaf(leafHex: string): Promise<void> {
+    const leaf = this.parseLeaf(leafHex);
+    const leafHexNorm = leaf.toString(16);
+
+    if (this.leafSet.has(leafHexNorm)) {
+      logger.warn('InsertionLog replay: skipping duplicate leaf', {
+        leaf: leafHex,
+      });
+      return;
+    }
+
+    if (this.nextLeafIndex >= this.capacity) {
+      throw new Error('Tree capacity exceeded during replay');
+    }
+
+    const leafIndex = this.nextLeafIndex;
+    this.setNode(0, leafIndex, leaf);
+    this.leafSet.add(leafHexNorm);
+    this.nextLeafIndex++;
+
+    let currentIndex = leafIndex;
+    for (let level = 0; level < this.depth; level++) {
+      const parentIndex = currentIndex >> 1;
+      const leftIndex = parentIndex << 1;
+      const rightIndex = leftIndex + 1;
+      const left = this.getNode(level, leftIndex);
+      const right = this.getNode(level, rightIndex);
+      const parentHash = await this.hasher.hashPair(left, right);
+      this.setNode(level + 1, parentIndex, parentHash);
+      currentIndex = parentIndex;
+    }
+
+    this.root = this.getNode(this.depth, 0);
+  }
+
+  /**
+   * Replay a replace entry from the insertion log (no re-logging, no mutex).
+   *
+   * Replace entries zero an old leaf position and insert a new leaf at the
+   * next available index. Used during startup to rebuild tree from persisted log.
+   */
+  private async replayReplace(newLeafHex: string, oldLeafIndex: number): Promise<void> {
+    // Parse and validate new leaf
+    const newLeaf = this.parseLeaf(newLeafHex);
+    const newLeafHexNorm = newLeaf.toString(16);
+
+    // Validate old index is in range
+    if (oldLeafIndex < 0 || oldLeafIndex >= this.nextLeafIndex) {
+      throw new Error(`Replace replay: old index ${oldLeafIndex} out of range [0, ${this.nextLeafIndex})`);
+    }
+
+    // Get old leaf value
+    const oldLeaf = this.getNode(0, oldLeafIndex);
+    const oldLeafHex = oldLeaf.toString(16);
+
+    // Remove old leaf from set (unless it's the padding hash)
+    if (oldLeaf !== this.emptyHashes[0]) {
+      this.leafSet.delete(oldLeafHex);
+    }
+
+    // Zero old position
+    this.setNode(0, oldLeafIndex, this.emptyHashes[0]);
+
+    // Recompute path from old index to root
+    let currentIndex = oldLeafIndex;
+    for (let level = 0; level < this.depth; level++) {
+      const parentIndex = currentIndex >> 1;
+      const leftIndex = parentIndex << 1;
+      const rightIndex = leftIndex + 1;
+      const left = this.getNode(level, leftIndex);
+      const right = this.getNode(level, rightIndex);
+      const parentHash = await this.hasher.hashPair(left, right);
+      this.setNode(level + 1, parentIndex, parentHash);
+      currentIndex = parentIndex;
+    }
+
+    // Check new leaf not duplicate
+    if (this.leafSet.has(newLeafHexNorm)) {
+      logger.warn('InsertionLog replay: skipping duplicate leaf in replace', {
+        leaf: newLeafHex,
+        oldLeafIndex,
+        nextLeafIndex: this.nextLeafIndex,
+      });
+      return;
+    }
+
+    // Check capacity
+    if (this.nextLeafIndex >= this.capacity) {
+      throw new Error('Tree capacity exceeded during replace replay');
+    }
+
+    // Insert new leaf at next available index
+    const newLeafIndex = this.nextLeafIndex;
+    this.setNode(0, newLeafIndex, newLeaf);
+    this.leafSet.add(newLeafHexNorm);
+    this.nextLeafIndex++;
+
+    // Recompute path from new index to root
+    currentIndex = newLeafIndex;
+    for (let level = 0; level < this.depth; level++) {
+      const parentIndex = currentIndex >> 1;
+      const leftIndex = parentIndex << 1;
+      const rightIndex = leftIndex + 1;
+      const left = this.getNode(level, leftIndex);
+      const right = this.getNode(level, rightIndex);
+      const parentHash = await this.hasher.hashPair(left, right);
+      this.setNode(level + 1, parentIndex, parentHash);
+      currentIndex = parentIndex;
+    }
+
+    // Update root
+    this.root = this.getNode(this.depth, 0);
+  }
 
   private parseLeaf(leafHex: string): bigint {
     const normalized = leafHex.startsWith('0x') ? leafHex.slice(2) : leafHex;
@@ -266,9 +583,19 @@ export class RegistrationService {
     // Generate proof
     const { siblings, pathIndices } = this.computeProof(leafIndex);
 
+    // BR5-007: Persist to insertion log (after tree update, before returning)
+    if (this.insertionLog) {
+      await this.insertionLog.append({
+        leaf: '0x' + leaf.toString(16),
+        index: leafIndex,
+        ts: Date.now(),
+      });
+    }
+
     logger.info('Leaf registered', {
       leafIndex,
       treeSize: this.nextLeafIndex,
+      persistent: this.insertionLog != null,
       rootPrefix: '0x' + this.root.toString(16).slice(0, 16) + '...',
     });
 

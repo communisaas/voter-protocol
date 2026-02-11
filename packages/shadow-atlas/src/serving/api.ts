@@ -24,7 +24,7 @@ import { URL } from 'url';
 import { z } from 'zod';
 import { DistrictLookupService } from './district-service';
 import { ProofService, toCompactProof } from './proof-generator';
-import { SyncService } from './sync-service';
+import { SyncService, type SyncServiceConfig } from './sync-service';
 import { HealthMonitor } from './health';
 import { RegistrationService, type CellMapState, type CellProofResult } from './registration-service';
 import type {
@@ -121,6 +121,23 @@ const registerSchema = z.object({
         return n > 0n && n < BN254_MODULUS_API;
       } catch { return false; }
     }, 'Leaf must be a valid BN254 field element (0 < leaf < p)'),
+});
+
+/**
+ * POST /v1/register/replace request body: { newLeaf: "0x...", oldLeafIndex: N }
+ * Replaces an existing leaf (zeroed) with a new one (appended).
+ */
+const registerReplaceSchema = z.object({
+  newLeaf: z.string()
+    .min(3, 'Leaf hash is required')
+    .regex(/^(0x)?[0-9a-fA-F]+$/, 'newLeaf must be a hex-encoded field element')
+    .refine((val) => {
+      try {
+        const n = BigInt(val.startsWith('0x') ? val : '0x' + val);
+        return n > 0n && n < BN254_MODULUS_API;
+      } catch { return false; }
+    }, 'newLeaf must be a valid BN254 field element (0 < leaf < p)'),
+  oldLeafIndex: z.number().int().nonnegative('oldLeafIndex must be a non-negative integer'),
 });
 
 /**
@@ -230,8 +247,15 @@ export class ShadowAtlasAPI {
       );
     }
 
-    // C-01: Warn when registration auth is disabled (tree-filling attack surface)
+    // BR5-012: Fail closed — reject registrations in production when auth is unconfigured.
+    // Previously this was a warning-only log, leaving the tree open to filling attacks.
     if (this.registrationService && !this.registrationAuthToken) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'BR5-012: REGISTRATION_AUTH_TOKEN must be set in production. ' +
+          'Registration without auth enables tree-filling attacks (CR-004).',
+        );
+      }
       logger.warn(
         'Registration auth token not configured. POST /v1/register is unauthenticated. ' +
         'Set REGISTRATION_AUTH_TOKEN in production to prevent tree-filling attacks (CR-004).',
@@ -264,6 +288,7 @@ export class ShadowAtlasAPI {
       ];
       if (this.registrationService) {
         endpoints.push(`POST /${v}/register - User registration (Tree 1 leaf insertion)`);
+        endpoints.push(`POST /${v}/register/replace - Leaf replacement (credential recovery)`);
       }
       if (this.cellMapState) {
         endpoints.push(`GET /${v}/cell-proof?cell_id={id} - Cell SMT proof (Tree 2)`);
@@ -348,6 +373,8 @@ export class ShadowAtlasAPI {
         await this.handleLookup(url, res, req, requestId, startTime);
       } else if (basePath === '/register' && req.method === 'POST') {
         await this.handleRegister(req, res, requestId, startTime);
+      } else if (basePath === '/register/replace' && req.method === 'POST') {
+        await this.handleRegisterReplace(req, res, requestId, startTime);
       } else if (basePath === '/cell-proof' && req.method === 'GET') {
         await this.handleCellProof(url, res, req, requestId, startTime);
       } else if (basePath.match(/^\/districts\/[\w-]+$/) && req.method === 'GET') {
@@ -355,7 +382,7 @@ export class ShadowAtlasAPI {
       } else if (basePath === '/health' && req.method === 'GET') {
         this.handleHealth(res, requestId, startTime);
       } else if (basePath === '/metrics' && req.method === 'GET') {
-        this.handleMetrics(res);
+        this.handleMetrics(res, req);
       } else if (basePath === '/snapshot' && req.method === 'GET') {
         await this.handleSnapshot(res, requestId, startTime);
       } else if (basePath === '/snapshots' && req.method === 'GET') {
@@ -375,13 +402,13 @@ export class ShadowAtlasAPI {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
+      // BR5-014: Never leak error.message to client — log internally only
       this.sendErrorResponse(
         res,
         500,
         'INTERNAL_ERROR',
         'Internal server error',
         requestId,
-        error instanceof Error ? error.message : undefined
       );
     }
   }
@@ -455,14 +482,14 @@ export class ShadowAtlasAPI {
       const result = this.lookupService.lookup(lat, lng);
 
       if (!result.district) {
-        this.healthMonitor.recordError('District not found', lat, lng);
+        // BR5-013: Don't pass lat/lon to error samples (exposed via /v1/health)
+        this.healthMonitor.recordError('District not found');
         this.sendErrorResponse(
           res,
           404,
           'DISTRICT_NOT_FOUND',
           'No district found at coordinates',
           requestId,
-          { lat, lng }
         );
         return;
       }
@@ -495,12 +522,14 @@ export class ShadowAtlasAPI {
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      this.healthMonitor.recordError(errorMsg, lat, lng);
+      this.healthMonitor.recordError(errorMsg);
+      // BR5-014: Log details internally, return generic message to client
+      logger.error('Lookup failed', { requestId, error: errorMsg });
       this.sendErrorResponse(
         res,
         500,
         'INTERNAL_ERROR',
-        errorMsg,
+        'Lookup failed',
         requestId,
       );
     }
@@ -555,14 +584,18 @@ export class ShadowAtlasAPI {
         false
       );
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      // BR5-014: Don't leak internal error details to client
+      logger.error('District lookup failed', {
+        requestId,
+        districtId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       this.sendErrorResponse(
         res,
         404,
         'DISTRICT_NOT_FOUND',
-        `District not found: ${districtId}`,
+        'District not found',
         requestId,
-        { districtId, error: errorMsg }
       );
     }
   }
@@ -611,6 +644,8 @@ export class ShadowAtlasAPI {
     if (this.registrationAuthToken) {
       const authHeader = req.headers['authorization'];
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // 27M-002: RFC 7235 requires WWW-Authenticate on 401 responses
+        res.setHeader('WWW-Authenticate', 'Bearer');
         this.sendErrorResponse(
           res, 401, 'UNAUTHORIZED',
           'Authorization required',
@@ -666,6 +701,12 @@ export class ShadowAtlasAPI {
     try {
       const result = await this.registrationService.insertLeaf(validation.data.leaf);
 
+      // BR5-007: Notify sync service for periodic IPFS backup
+      const log = this.registrationService.getInsertionLog();
+      if (log) {
+        this.syncService.notifyInsertion(log);
+      }
+
       // No cache for mutations
       res.setHeader('Cache-Control', 'no-store');
 
@@ -701,6 +742,151 @@ export class ShadowAtlasAPI {
         this.sendErrorResponse(
           res, 500, 'INTERNAL_ERROR',
           'Registration failed',
+          requestId,
+        );
+      }
+    }
+  }
+
+  /**
+   * Handle POST /v1/register/replace endpoint
+   */
+  private async handleRegisterReplace(
+    req: IncomingMessage,
+    res: ServerResponse,
+    requestId: string,
+    startTime: number,
+  ): Promise<void> {
+    // Check service availability
+    if (!this.registrationService) {
+      this.sendErrorResponse(
+        res, 501, 'REGISTRATION_UNAVAILABLE',
+        'Registration service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting (same as /register: 5/min per IP)
+    const clientId = this.getClientId(req);
+    const rateResult = this.registrationRateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', 5);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Registration rate limit exceeded. Please try again later.',
+        requestId,
+        { limit: 5, remaining: 0, resetAt: new Date(rateResult.resetAt).toISOString() },
+      );
+      return;
+    }
+
+    // CR-004: Authenticate registration requests
+    if (this.registrationAuthToken) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        this.sendErrorResponse(
+          res, 401, 'UNAUTHORIZED',
+          'Authorization required',
+          requestId,
+        );
+        return;
+      }
+      const token = authHeader.slice(7);
+      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
+        this.sendErrorResponse(
+          res, 403, 'FORBIDDEN',
+          'Invalid authorization token',
+          requestId,
+        );
+        return;
+      }
+    }
+
+    // CR-014: Validate Content-Type before reading body
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      this.sendErrorResponse(
+        res, 415, 'INVALID_BODY',
+        'Content-Type must be application/json',
+        requestId,
+      );
+      return;
+    }
+
+    // Parse request body
+    const body = await this.readBody(req);
+    if (body === null) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_BODY',
+        'Request body must be valid JSON',
+        requestId,
+      );
+      return;
+    }
+
+    // Validate with Zod
+    const validation = registerReplaceSchema.safeParse(body);
+    if (!validation.success) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_PARAMETERS',
+        'Invalid replacement parameters',
+        requestId,
+      );
+      return;
+    }
+
+    try {
+      const result = await this.registrationService.replaceLeaf(
+        validation.data.oldLeafIndex,
+        validation.data.newLeaf,
+      );
+
+      // BR5-007: Notify sync service for periodic IPFS backup
+      const log = this.registrationService.getInsertionLog();
+      if (log) {
+        this.syncService.notifyInsertion(log);
+      }
+
+      // No cache for mutations
+      res.setHeader('Cache-Control', 'no-store');
+
+      this.sendSuccessResponse(
+        res, result, requestId, false,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+
+      if (
+        msg === 'DUPLICATE_LEAF' ||
+        msg === 'INVALID_OLD_INDEX' ||
+        msg === 'OLD_LEAF_ALREADY_EMPTY' ||
+        msg === 'SAME_LEAF' ||
+        msg.includes('Zero leaf') ||
+        msg.includes('exceeds BN254') ||
+        msg.includes('Invalid hex')
+      ) {
+        // Oracle-resistant: identical message for all validation failures
+        this.sendErrorResponse(
+          res, 400, 'INVALID_PARAMETERS',
+          'Invalid replacement parameters',
+          requestId,
+        );
+      } else if (msg.includes('capacity')) {
+        this.sendErrorResponse(
+          res, 503, 'TREE_FULL',
+          'Registration tree is at capacity',
+          requestId,
+        );
+      } else {
+        this.healthMonitor.recordError(msg);
+        this.sendErrorResponse(
+          res, 500, 'INTERNAL_ERROR',
+          'Replacement failed',
           requestId,
         );
       }
@@ -832,6 +1018,9 @@ export class ShadowAtlasAPI {
 
   /**
    * Handle /v1/health endpoint
+   *
+   * BR5-013: Returns sanitized health data — no coordinates, no error messages.
+   * Full details are only available via /v1/metrics (auth-gated).
    */
   private handleHealth(
     res: ServerResponse,
@@ -840,9 +1029,28 @@ export class ShadowAtlasAPI {
   ): void {
     const metrics = this.healthMonitor.getMetrics();
 
+    // BR5-013: Strip sensitive data from public health endpoint.
+    // Only expose status, uptime, aggregate counts — not error samples or coordinates.
+    const sanitized = {
+      status: metrics.status,
+      uptime: metrics.uptime,
+      queries: {
+        total: metrics.queries.total,
+        successful: metrics.queries.successful,
+        failed: metrics.queries.failed,
+      },
+      errors: {
+        last5m: metrics.errors.last5m,
+        last1h: metrics.errors.last1h,
+        last24h: metrics.errors.last24h,
+        // recentErrors intentionally omitted — contains error messages
+      },
+      timestamp: metrics.timestamp,
+    };
+
     this.sendSuccessResponse(
       res,
-      metrics,
+      sanitized,
       requestId,
       false
     );
@@ -850,10 +1058,36 @@ export class ShadowAtlasAPI {
 
   /**
    * Handle /v1/metrics endpoint (Prometheus format)
+   *
+   * BR5-013: Auth-gated — requires METRICS_AUTH_TOKEN or trusted proxy.
    */
-  private handleMetrics(res: ServerResponse): void {
-    const prometheusMetrics = this.healthMonitor.exportPrometheus();
+  private handleMetrics(res: ServerResponse, req?: IncomingMessage): void {
+    // BR5-013: Only allow metrics from trusted proxies (internal network) or with auth token
+    const metricsToken = process.env.METRICS_AUTH_TOKEN;
+    const socketAddr = req?.socket.remoteAddress || '';
 
+    if (metricsToken) {
+      // 27M-001: When token is configured, REQUIRE it — no trusted-proxy bypass.
+      // Previous code allowed internal-network callers to skip token auth, which
+      // means a compromised internal service could scrape metrics without credentials.
+      const authHeader = req?.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ') ||
+          !this.constantTimeEqual(authHeader.slice(7), metricsToken)) {
+        res.writeHead(401, {
+          'Content-Type': 'text/plain',
+          'WWW-Authenticate': 'Bearer',
+        });
+        res.end('Unauthorized\n');
+        return;
+      }
+    } else if (!this.isTrustedProxy(socketAddr)) {
+      // No token configured: restrict to internal networks only
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden: metrics only available from internal network\n');
+      return;
+    }
+
+    const prometheusMetrics = this.healthMonitor.exportPrometheus();
     res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
     res.end(prometheusMetrics);
   }
@@ -1139,10 +1373,12 @@ export async function createShadowAtlasAPI(
     rateLimitPerMinute?: number;
     ipfsGateway?: string;
     snapshotsDir?: string;
+    dataDir?: string;
     apiVersion?: APIVersion;
     registrationService?: RegistrationService;
     cellMapState?: CellMapState;
     registrationAuthToken?: string;
+    syncService?: SyncService;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services
@@ -1153,7 +1389,14 @@ export async function createShadowAtlasAPI(
   const mockAddresses: string[] = [];
   const proofService = await ProofService.create(mockDistricts, mockAddresses);
 
-  const syncService = new SyncService(options.ipfsGateway, options.snapshotsDir);
+  const syncService = options.syncService ?? new SyncService({
+    dataDir: options.dataDir ?? options.snapshotsDir ?? '/tmp/shadow-atlas',
+  });
+
+  // H-002: Ensure SyncService is initialized when created internally
+  if (!options.syncService) {
+    await syncService.init();
+  }
 
   // Create API server
   const api = new ShadowAtlasAPI(

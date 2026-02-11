@@ -102,6 +102,9 @@ function createMockResponse(): {
     setHeader: vi.fn((key: string, value: string | string[]) => {
       headers[key.toLowerCase()] = value;
     }),
+    getHeader: vi.fn((key: string) => {
+      return headers[key.toLowerCase()];
+    }),
     end: vi.fn((data?: string) => {
       if (data) body = data;
     }),
@@ -164,11 +167,8 @@ describe('Shadow Atlas API v2 - Request Validation', () => {
     const body = response.body as APIResponse<never>;
     expect(body.success).toBe(false);
     expect(body.error?.code).toBe('INVALID_PARAMETERS');
-    expect(body.error?.details).toMatchObject({
-      fieldErrors: {
-        lat: expect.arrayContaining([expect.stringContaining('Latitude must be >= -90')]),
-      },
-    });
+    // CR-007: Zod field errors are NOT exposed to client (anti-oracle)
+    expect(body.error?.details).toBeUndefined();
   });
 
   it('validates latitude bounds (max)', async () => {
@@ -187,11 +187,8 @@ describe('Shadow Atlas API v2 - Request Validation', () => {
     const body = response.body as APIResponse<never>;
     expect(body.success).toBe(false);
     expect(body.error?.code).toBe('INVALID_PARAMETERS');
-    expect(body.error?.details).toMatchObject({
-      fieldErrors: {
-        lng: expect.arrayContaining([expect.stringContaining('Longitude must be >= -180')]),
-      },
-    });
+    // CR-007: Zod field errors are NOT exposed to client (anti-oracle)
+    expect(body.error?.details).toBeUndefined();
   });
 
   it('validates longitude bounds (max)', async () => {
@@ -329,6 +326,7 @@ describe('Shadow Atlas API v2 - Response Standardization', () => {
 
 describe('Shadow Atlas API v2 - Security Headers', () => {
   let api: ShadowAtlasAPI;
+  let apiWithCors: ShadowAtlasAPI;
 
   beforeEach(() => {
     const mockLookupService = createMockLookupService();
@@ -341,13 +339,30 @@ describe('Shadow Atlas API v2 - Security Headers', () => {
       mockSyncService as any,
       3003
     );
+
+    apiWithCors = new ShadowAtlasAPI(
+      createMockLookupService() as any,
+      createMockProofService() as any,
+      createMockSyncService() as any,
+      3013,
+      '0.0.0.0',
+      ['http://localhost:5173'],
+    );
   });
 
-  it('sets CORS headers', async () => {
-    const response = await invokeHandleRequest(api, '/v1/health');
+  it('sets CORS headers when origins configured', async () => {
+    const req = createMockRequest('/v1/health');
+    (req.headers as Record<string, string>).origin = 'http://localhost:5173';
+    const { res, getHeaders } = createMockResponse();
+    await (apiWithCors as any).handleRequest(req, res);
 
-    expect(response.headers['access-control-allow-origin']).toBeDefined();
-    expect(response.headers['access-control-allow-methods']).toBeDefined();
+    expect(getHeaders()['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(getHeaders()['access-control-allow-methods']).toBeDefined();
+  });
+
+  it('omits CORS headers when no origins configured', async () => {
+    const response = await invokeHandleRequest(api, '/v1/health');
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('sets security headers', async () => {
@@ -367,10 +382,13 @@ describe('Shadow Atlas API v2 - Security Headers', () => {
     expect(response.headers['x-api-version']).toBe('v1');
   });
 
-  it('exposes CORS headers', async () => {
-    const response = await invokeHandleRequest(api, '/v1/health');
+  it('exposes CORS headers when origins configured', async () => {
+    const req = createMockRequest('/v1/health');
+    (req.headers as Record<string, string>).origin = 'http://localhost:5173';
+    const { res, getHeaders } = createMockResponse();
+    await (apiWithCors as any).handleRequest(req, res);
 
-    const exposedHeaders = response.headers['access-control-expose-headers'] as string;
+    const exposedHeaders = getHeaders()['access-control-expose-headers'] as string;
     expect(exposedHeaders).toContain('X-Request-ID');
     expect(exposedHeaders).toContain('X-RateLimit-Limit');
   });
@@ -543,15 +561,16 @@ describe('Shadow Atlas API v2 - Error Handling', () => {
     const response = await invokeHandleRequest(api, '/v1/health', 'OPTIONS');
 
     expect(response.status).toBe(204);
-    expect(response.headers['access-control-allow-origin']).toBeDefined();
+    // CORS headers only present when corsOrigins configured (default is [])
   });
 
-  it('includes error details in response', async () => {
+  it('returns error code and message without internal details (BR5-014)', async () => {
     const response = await invokeHandleRequest(api, '/v1/lookup?lat=999&lng=0');
 
     expect(response.status).toBe(400);
     const body = response.body as APIResponse<never>;
-    expect(body.error?.details).toBeDefined();
+    // BR5-014 + CR-007: error details are NOT exposed to client
+    expect(body.error?.details).toBeUndefined();
     expect(body.error?.message).toBeTruthy();
     expect(body.error?.code).toBeTruthy();
   });
@@ -653,7 +672,7 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
     }
   });
 
-  it('health endpoint matches OpenAPI spec', async () => {
+  it('health endpoint returns sanitized data (BR5-013)', async () => {
     const response = await invokeHandleRequest(api, '/v1/health');
     const body = response.body as APIResponse<unknown>;
 
@@ -662,10 +681,8 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
       data: {
         status: expect.stringMatching(/^(healthy|degraded|unhealthy)$/),
         uptime: expect.any(Number),
-        queries: expect.any(Object),
-        cache: expect.any(Object),
-        snapshot: expect.any(Object),
-        errors: expect.any(Object),
+        queries: { total: expect.any(Number), successful: expect.any(Number), failed: expect.any(Number) },
+        errors: { last5m: expect.any(Number), last1h: expect.any(Number), last24h: expect.any(Number) },
         timestamp: expect.any(Number),
       },
       meta: {
@@ -674,6 +691,12 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
         version: expect.any(String),
       },
     });
+
+    // BR5-013: Sensitive fields must NOT be exposed in public health endpoint
+    const data = (body as any).data;
+    expect(data.cache).toBeUndefined();
+    expect(data.snapshot).toBeUndefined();
+    expect(data.errors.recentErrors).toBeUndefined();
   });
 
   it('snapshot endpoint matches OpenAPI spec', async () => {
@@ -713,5 +736,188 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
         version: expect.any(String),
       },
     });
+  });
+});
+
+describe('Shadow Atlas API v2 - BR5-012 Production Auth Guard', () => {
+  it('throws in production when registration service is set but auth token is missing', () => {
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      expect(() => {
+        new ShadowAtlasAPI(
+          createMockLookupService() as any,
+          createMockProofService() as any,
+          createMockSyncService() as any,
+          3020,
+          '0.0.0.0',
+          ['http://localhost'],
+          60,
+          { version: 'v1', deprecated: false },
+          { insertLeaf: vi.fn(), getProof: vi.fn(), getInsertionLog: vi.fn() } as any, // registrationService
+          null,
+          null, // no auth token
+        );
+      }).toThrow('BR5-012');
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
+  });
+
+  it('allows registration without auth token in development', () => {
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
+    try {
+      expect(() => {
+        new ShadowAtlasAPI(
+          createMockLookupService() as any,
+          createMockProofService() as any,
+          createMockSyncService() as any,
+          3021,
+          '0.0.0.0',
+          [],
+          60,
+          { version: 'v1', deprecated: false },
+          { insertLeaf: vi.fn(), getProof: vi.fn(), getInsertionLog: vi.fn() } as any,
+          null,
+          null,
+        );
+      }).not.toThrow();
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
+  });
+
+  it('allows registration in production when auth token is provided', () => {
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    try {
+      expect(() => {
+        new ShadowAtlasAPI(
+          createMockLookupService() as any,
+          createMockProofService() as any,
+          createMockSyncService() as any,
+          3022,
+          '0.0.0.0',
+          ['http://localhost'],
+          60,
+          { version: 'v1', deprecated: false },
+          { insertLeaf: vi.fn(), getProof: vi.fn(), getInsertionLog: vi.fn() } as any,
+          null,
+          'secret-token-123',
+        );
+      }).not.toThrow();
+    } finally {
+      process.env.NODE_ENV = origEnv;
+    }
+  });
+});
+
+describe('Shadow Atlas API v2 - Metrics Auth (27M-001)', () => {
+  it('returns 401 with WWW-Authenticate when metrics token is configured and wrong token sent', async () => {
+    process.env.METRICS_AUTH_TOKEN = 'test-metrics-secret';
+
+    try {
+      const api = new ShadowAtlasAPI(
+        createMockLookupService() as any,
+        createMockProofService() as any,
+        createMockSyncService() as any,
+        3023,
+      );
+
+      const req = createMockRequest('/v1/metrics');
+      (req.headers as Record<string, string>).authorization = 'Bearer wrong-token';
+      const { res, getStatus, getHeaders } = createMockResponse();
+      await (api as any).handleRequest(req, res);
+
+      expect(getStatus()).toBe(401);
+      expect(getHeaders()['www-authenticate']).toBe('Bearer');
+    } finally {
+      delete process.env.METRICS_AUTH_TOKEN;
+    }
+  });
+
+  it('allows metrics with correct token', async () => {
+    process.env.METRICS_AUTH_TOKEN = 'test-metrics-secret';
+
+    try {
+      const api = new ShadowAtlasAPI(
+        createMockLookupService() as any,
+        createMockProofService() as any,
+        createMockSyncService() as any,
+        3024,
+      );
+
+      const req = createMockRequest('/v1/metrics');
+      (req.headers as Record<string, string>).authorization = 'Bearer test-metrics-secret';
+      const { res, getStatus } = createMockResponse();
+      await (api as any).handleRequest(req, res);
+
+      expect(getStatus()).toBe(200);
+    } finally {
+      delete process.env.METRICS_AUTH_TOKEN;
+    }
+  });
+
+  it('requires token even from trusted proxy when token is configured (27M-001)', async () => {
+    process.env.METRICS_AUTH_TOKEN = 'test-metrics-secret';
+
+    try {
+      const api = new ShadowAtlasAPI(
+        createMockLookupService() as any,
+        createMockProofService() as any,
+        createMockSyncService() as any,
+        3025,
+      );
+
+      // Request from loopback WITHOUT token — should be rejected
+      const req = createMockRequest('/v1/metrics');
+      (req.socket as any).remoteAddress = '127.0.0.1';
+      const { res, getStatus } = createMockResponse();
+      await (api as any).handleRequest(req, res);
+
+      expect(getStatus()).toBe(401);
+    } finally {
+      delete process.env.METRICS_AUTH_TOKEN;
+    }
+  });
+
+  it('allows metrics from trusted proxy when no token configured', async () => {
+    delete process.env.METRICS_AUTH_TOKEN;
+
+    const api = new ShadowAtlasAPI(
+      createMockLookupService() as any,
+      createMockProofService() as any,
+      createMockSyncService() as any,
+      3026,
+    );
+
+    const req = createMockRequest('/v1/metrics');
+    (req.socket as any).remoteAddress = '127.0.0.1';
+    const { res, getStatus } = createMockResponse();
+    await (api as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(200);
+  });
+
+  it('blocks metrics from external IP when no token configured', async () => {
+    delete process.env.METRICS_AUTH_TOKEN;
+
+    const api = new ShadowAtlasAPI(
+      createMockLookupService() as any,
+      createMockProofService() as any,
+      createMockSyncService() as any,
+      3027,
+    );
+
+    const req = createMockRequest('/v1/metrics');
+    (req.socket as any).remoteAddress = '203.0.113.1';
+    const { res, getStatus } = createMockResponse();
+    await (api as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(403);
   });
 });

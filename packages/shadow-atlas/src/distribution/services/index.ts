@@ -31,11 +31,18 @@ export {
   type FleekConfig,
 } from './fleek.js';
 
+export {
+  LighthousePinningService,
+  createLighthousePinningService,
+  type LighthouseConfig,
+} from './lighthouse.js';
+
 import type { IPinningService } from '../regional-pinning-service.js';
 import type { Region, PinningServiceType } from '../types.js';
 import { createStorachaPinningService } from './storacha.js';
 import { createPinataPinningService } from './pinata.js';
 import { createFleekPinningService } from './fleek.js';
+import { createLighthousePinningService } from './lighthouse.js';
 
 /**
  * Service factory options
@@ -53,6 +60,9 @@ export interface ServiceFactoryOptions {
   readonly fleek?: {
     readonly apiKey?: string;
     readonly apiSecret?: string;
+  };
+  readonly lighthouse?: {
+    readonly apiKey?: string;
   };
   readonly timeoutMs?: number;
 }
@@ -98,6 +108,12 @@ export function createPinningService(
         timeoutMs: options.timeoutMs,
       });
 
+    case 'lighthouse':
+      return createLighthousePinningService(region, {
+        apiKey: options.lighthouse?.apiKey,
+        timeoutMs: options.timeoutMs,
+      });
+
     default: {
       const exhaustiveCheck: never = type;
       throw new Error(`Unknown pinning service type: ${exhaustiveCheck}`);
@@ -122,7 +138,7 @@ export function createConfiguredServices(
   const services: IPinningService[] = [];
 
   // Try to create each service, skip if not configured
-  const serviceTypes: PinningServiceType[] = ['storacha', 'pinata', 'fleek'];
+  const serviceTypes: PinningServiceType[] = ['storacha', 'lighthouse', 'pinata', 'fleek'];
 
   for (const type of serviceTypes) {
     try {
