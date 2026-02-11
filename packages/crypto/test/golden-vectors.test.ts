@@ -105,10 +105,12 @@ const HASH_SINGLE_0 = 1991895553718897464027550227034503701554828086230144254647
 
 /**
  * Vector 7: Hash of 4 values (1, 2, 3, 4)
- * Input: poseidon2_permutation([1, 2, 3, 4], 4)[0]
- * Purpose: Verify full 4-value hashing (used for nullifier computation)
+ * Input: 2-round sponge with DOMAIN_HASH4 (BR5-001)
+ *   Round 1: permute([DOMAIN_HASH4, 1, 2, 3])
+ *   Round 2: state[1] += 4, permute(state), return state[0]
+ * Purpose: Verify authority-bound 4-value hashing (used for user leaf)
  */
-const HASH_4_VALUES = 15505005361706012551741834895355031099510014664842462842053262257331543442865n;
+const HASH_4_VALUES = 870161254014206826379233303393501691020716205279828027714627622785779138559n;
 
 /**
  * Vector 8: Hash of string "hello"
@@ -126,10 +128,12 @@ const HASH_EMPTY = 1991895553718897464027550227034503701554828086230144254647437
 
 /**
  * Vector 10: Hash of 4 zeros
- * Input: poseidon2_permutation([0, 0, 0, 0], 4)[0]
- * Purpose: Verify hash4 with all zeros (should match HASH_0_0)
+ * Input: 2-round sponge with DOMAIN_HASH4 (BR5-001)
+ *   Round 1: permute([DOMAIN_HASH4, 0, 0, 0])
+ *   Round 2: state[1] += 0, permute(state), return state[0]
+ * Purpose: Verify hash4 with all zeros (domain-separated, differs from HASH_0_0)
  */
-const HASH_4_ZEROS = 11250791130336988991462250958918728798886439319225016858543557054782819955502n;
+const HASH_4_ZEROS = 7465331315837042829558636858758355884443749401755522171552460478666633968261n;
 
 /**
  * Vector 11: Hash of string "voter-protocol-cve-006"

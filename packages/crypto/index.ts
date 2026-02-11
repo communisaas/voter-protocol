@@ -15,6 +15,7 @@ export {
   Poseidon2Hasher,
   getHasher,
   hash3,
+  hash4,
   hashPair,
   hashSingle,
   hashString,

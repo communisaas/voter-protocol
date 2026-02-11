@@ -5,18 +5,19 @@
  * The circuit is designed to prevent information leakage while enabling
  * verifiable claims. Key security properties:
  *
- * 1. Leaf computation inside circuit: The leaf is computed as
- *    hash(userSecret, districtId, authorityLevel, registrationSalt)
- *    INSIDE the circuit, not passed in. This prevents attackers from
- *    submitting arbitrary leaves.
+ * 1. Leaf computation inside circuit (two-tree): The user leaf is computed as
+ *    hash4(userSecret, cellId, registrationSalt, authorityLevel) INSIDE the
+ *    circuit, not passed in. This prevents attackers from submitting arbitrary
+ *    leaves and cryptographically binds authority level (BR5-001).
  *
- * 2. Nullifier derivation: The nullifier is computed as
- *    hash(userSecret, actionDomain) INSIDE the circuit, binding the
- *    user's identity to the specific action domain without revealing it.
+ * 2. Nullifier derivation (NUL-001): The nullifier is computed as
+ *    hash2(identityCommitment, actionDomain) INSIDE the circuit. Using
+ *    identityCommitment (deterministic per verified person from self.xyz/didit)
+ *    instead of userSecret prevents Sybil attacks via re-registration.
  *
- * 3. Public outputs: The circuit reveals merkleRoot, nullifier,
- *    authorityLevel, actionDomain, and districtId - all necessary for
- *    on-chain verification without compromising user privacy.
+ * 3. Public outputs: The circuit reveals userRoot, cellMapRoot, districts[24],
+ *    nullifier, actionDomain, and authorityLevel — all necessary for on-chain
+ *    verification without compromising user privacy.
  */
 
 /**
@@ -283,7 +284,7 @@ export interface TwoTreeProofInput {
     /** All 24 district IDs for this cell. Unused slots MUST be 0n. */
     districts: bigint[];
 
-    /** Anti-double-vote nullifier = hash(user_secret, action_domain) */
+    /** Anti-double-vote nullifier = H2(identity_commitment, action_domain) (NUL-001) */
     nullifier: bigint;
 
     /** Contract-controlled action scope for nullifier derivation */
@@ -304,6 +305,14 @@ export interface TwoTreeProofInput {
 
     /** Random salt assigned during registration */
     registrationSalt: bigint;
+
+    /**
+     * Identity commitment from self.xyz/didit verification provider.
+     * Used for nullifier: nullifier = H2(identityCommitment, actionDomain) (NUL-001).
+     * Deterministic per verified person — prevents Sybil via re-registration.
+     * Must be non-zero.
+     */
+    identityCommitment: bigint;
 
     /** Tree 1 Merkle siblings from leaf to root (length = TREE_DEPTH) */
     userPath: bigint[];

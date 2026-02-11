@@ -8,12 +8,13 @@
  * and Noir (ZK circuit verification).
  *
  * CIRCUIT ARCHITECTURE:
- * - Tree 1 (User Tree): leaf = hash3(user_secret, cell_id, registration_salt)
+ * - Tree 1 (User Tree): leaf = hash4(user_secret, cell_id, registration_salt, authority_level) (BR5-001)
  * - Tree 2 (Cell Map):  leaf = hashPair(cell_id, district_commitment)
  *   where district_commitment = poseidon2Sponge([district_1, ..., district_24])
- * - Nullifier: hashPair(user_secret, action_domain)
+ * - Nullifier: hashPair(identity_commitment, action_domain) (NUL-001)
  *
  * HASH FUNCTIONS:
+ * - hash4(a, b, c, d): 2-round sponge with DOMAIN_HASH4 (BR5-001)
  * - hash3(a, b, c):    poseidon2_permutation([a, b, c, DOMAIN_HASH3], 4)[0]
  * - hashPair(a, b):    poseidon2_permutation([a, b, DOMAIN_HASH2, 0], 4)[0]
  * - poseidon2Sponge:   Rate-3 sponge with DOMAIN_SPONGE_24 capacity tag
@@ -21,6 +22,7 @@
  * DOMAIN SEPARATION TAGS:
  * - DOMAIN_HASH2 = 0x48324d ("H2M")
  * - DOMAIN_HASH3 = 0x48334d ("H3M")
+ * - DOMAIN_HASH4 = 0x48344d ("H4M")
  * - DOMAIN_SPONGE_24 = 0x534f4e47455f24 ("SONGE_24")
  *
  * MAINTENANCE:
@@ -64,6 +66,17 @@ const TEST_CELL_ID = 612345678901234567n;
  * Test registration salt - unique per registration
  */
 const TEST_REGISTRATION_SALT = 9999999999n;
+
+/**
+ * Test authority level - voting tier (1-5), cryptographically bound into leaf (BR5-001)
+ */
+const TEST_AUTHORITY_LEVEL = 3n;
+
+/**
+ * Test identity commitment - from self.xyz/didit verification (NUL-001)
+ * Deterministic per verified person, used for nullifier computation
+ */
+const TEST_IDENTITY_COMMITMENT = 77777777777n;
 
 /**
  * Test action domain - contract-controlled scope for nullifier
@@ -156,14 +169,15 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
   // 2. User Leaf Golden Vectors
   // ==========================================================================
 
-  describe('User Leaf: hash3(userSecret, cellId, registrationSalt)', () => {
+  describe('User Leaf: hash4(userSecret, cellId, registrationSalt, authorityLevel) (BR5-001)', () => {
     it('should produce a deterministic golden vector for test inputs', async () => {
       // This matches the circuit's compute_user_leaf() function:
-      // user_leaf = poseidon2_hash3(user_secret, cell_id, registration_salt)
-      const userLeaf = await hasher.hash3(
+      // user_leaf = poseidon2_hash4(user_secret, cell_id, registration_salt, authority_level)
+      const userLeaf = await hasher.hash4(
         TEST_USER_SECRET,
         TEST_CELL_ID,
-        TEST_REGISTRATION_SALT
+        TEST_REGISTRATION_SALT,
+        TEST_AUTHORITY_LEVEL
       );
 
       expect(typeof userLeaf).toBe('bigint');
@@ -171,33 +185,49 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
       expect(userLeaf).toBeLessThan(BN254_MODULUS);
 
       // Determinism
-      const userLeaf2 = await hasher.hash3(
+      const userLeaf2 = await hasher.hash4(
         TEST_USER_SECRET,
         TEST_CELL_ID,
-        TEST_REGISTRATION_SALT
+        TEST_REGISTRATION_SALT,
+        TEST_AUTHORITY_LEVEL
       );
       expect(userLeaf2).toBe(userLeaf);
     });
 
     it('different user secrets should produce different leaves', async () => {
-      const leaf1 = await hasher.hash3(42n, TEST_CELL_ID, TEST_REGISTRATION_SALT);
-      const leaf2 = await hasher.hash3(43n, TEST_CELL_ID, TEST_REGISTRATION_SALT);
+      const leaf1 = await hasher.hash4(42n, TEST_CELL_ID, TEST_REGISTRATION_SALT, TEST_AUTHORITY_LEVEL);
+      const leaf2 = await hasher.hash4(43n, TEST_CELL_ID, TEST_REGISTRATION_SALT, TEST_AUTHORITY_LEVEL);
 
       expect(leaf1).not.toBe(leaf2);
     });
 
     it('different cell IDs should produce different leaves', async () => {
-      const leaf1 = await hasher.hash3(TEST_USER_SECRET, 100n, TEST_REGISTRATION_SALT);
-      const leaf2 = await hasher.hash3(TEST_USER_SECRET, 200n, TEST_REGISTRATION_SALT);
+      const leaf1 = await hasher.hash4(TEST_USER_SECRET, 100n, TEST_REGISTRATION_SALT, TEST_AUTHORITY_LEVEL);
+      const leaf2 = await hasher.hash4(TEST_USER_SECRET, 200n, TEST_REGISTRATION_SALT, TEST_AUTHORITY_LEVEL);
 
       expect(leaf1).not.toBe(leaf2);
     });
 
     it('different salts should produce different leaves', async () => {
-      const leaf1 = await hasher.hash3(TEST_USER_SECRET, TEST_CELL_ID, 1111n);
-      const leaf2 = await hasher.hash3(TEST_USER_SECRET, TEST_CELL_ID, 2222n);
+      const leaf1 = await hasher.hash4(TEST_USER_SECRET, TEST_CELL_ID, 1111n, TEST_AUTHORITY_LEVEL);
+      const leaf2 = await hasher.hash4(TEST_USER_SECRET, TEST_CELL_ID, 2222n, TEST_AUTHORITY_LEVEL);
 
       expect(leaf1).not.toBe(leaf2);
+    });
+
+    it('different authority levels should produce different leaves (BR5-001)', async () => {
+      const leaf1 = await hasher.hash4(TEST_USER_SECRET, TEST_CELL_ID, TEST_REGISTRATION_SALT, 1n);
+      const leaf2 = await hasher.hash4(TEST_USER_SECRET, TEST_CELL_ID, TEST_REGISTRATION_SALT, 5n);
+
+      expect(leaf1).not.toBe(leaf2);
+    });
+
+    it('hash4 leaf differs from hash3 leaf (domain separation)', async () => {
+      // Old: hash3(secret, cell, salt) vs New: hash4(secret, cell, salt, authority)
+      const oldLeaf = await hasher.hash3(TEST_USER_SECRET, TEST_CELL_ID, TEST_REGISTRATION_SALT);
+      const newLeaf = await hasher.hash4(TEST_USER_SECRET, TEST_CELL_ID, TEST_REGISTRATION_SALT, TEST_AUTHORITY_LEVEL);
+
+      expect(oldLeaf).not.toBe(newLeaf);
     });
   });
 
@@ -258,42 +288,40 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
   // 4. Nullifier Golden Vectors
   // ==========================================================================
 
-  describe('Nullifier: hashPair(userSecret, actionDomain)', () => {
+  describe('Nullifier: hashPair(identityCommitment, actionDomain) (NUL-001)', () => {
     it('should produce a deterministic golden vector for test inputs', async () => {
-      // This matches the circuit's compute_nullifier() function:
-      // nullifier = poseidon2_hash2(user_secret, action_domain)
-      const nullifier = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
+      // NUL-001: nullifier = poseidon2_hash2(identity_commitment, action_domain)
+      // Uses identity_commitment (not user_secret) to prevent Sybil via re-registration
+      const nullifier = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
 
       expect(typeof nullifier).toBe('bigint');
       expect(nullifier).toBeGreaterThan(0n);
       expect(nullifier).toBeLessThan(BN254_MODULUS);
 
       // Determinism
-      const nullifier2 = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
+      const nullifier2 = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
       expect(nullifier2).toBe(nullifier);
     });
 
-    it('different user secrets should produce different nullifiers', async () => {
-      const null1 = await hasher.hashPair(42n, TEST_ACTION_DOMAIN);
-      const null2 = await hasher.hashPair(43n, TEST_ACTION_DOMAIN);
+    it('different identity commitments should produce different nullifiers', async () => {
+      const null1 = await hasher.hashPair(77777777777n, TEST_ACTION_DOMAIN);
+      const null2 = await hasher.hashPair(88888888888n, TEST_ACTION_DOMAIN);
 
       expect(null1).not.toBe(null2);
     });
 
     it('different action domains should produce different nullifiers', async () => {
-      const null1 = await hasher.hashPair(TEST_USER_SECRET, 1000n);
-      const null2 = await hasher.hashPair(TEST_USER_SECRET, 2000n);
+      const null1 = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, 1000n);
+      const null2 = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, 2000n);
 
       expect(null1).not.toBe(null2);
     });
 
-    it('nullifier should use the same hashPair as cell map leaf (same domain tag)', async () => {
-      // Both nullifier and cell map leaf use poseidon2_hash2 with DOMAIN_HASH2.
-      // Verify that hashPair is used consistently.
-      const nullifier = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
-
-      // Same inputs should always produce same result
-      const sameAgain = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
+    it('same person re-registering produces same nullifier (NUL-001 anti-Sybil)', async () => {
+      // Key property: identity_commitment is deterministic per verified person.
+      // Even if user_secret changes (re-registration), nullifier stays the same.
+      const nullifier = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
+      const sameAgain = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
       expect(nullifier).toBe(sameAgain);
     });
   });
@@ -342,11 +370,12 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
     it('should compute all circuit primitives consistently', async () => {
       // Simulate the full circuit flow in TypeScript:
 
-      // Step 1: User leaf (Tree 1)
-      const userLeaf = await hasher.hash3(
+      // Step 1: User leaf (Tree 1) — BR5-001: hash4 with authority level
+      const userLeaf = await hasher.hash4(
         TEST_USER_SECRET,
         TEST_CELL_ID,
-        TEST_REGISTRATION_SALT
+        TEST_REGISTRATION_SALT,
+        TEST_AUTHORITY_LEVEL
       );
 
       // Step 2: District commitment (sponge)
@@ -356,8 +385,8 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
       // Step 3: Cell map leaf (Tree 2)
       const cellMapLeaf = await hasher.hashPair(TEST_CELL_ID, districtCommitment);
 
-      // Step 4: Nullifier
-      const nullifier = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
+      // Step 4: Nullifier — NUL-001: identity_commitment, not user_secret
+      const nullifier = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
 
       // All values must be valid field elements
       const allValues = [userLeaf, districtCommitment, cellMapLeaf, nullifier];
@@ -372,14 +401,15 @@ describe('Two-Tree Membership Circuit - Cross-Language Golden Vectors', () => {
       expect(uniqueValues.size).toBe(4);
 
       // Determinism: running again should produce same results
-      const userLeaf2 = await hasher.hash3(
+      const userLeaf2 = await hasher.hash4(
         TEST_USER_SECRET,
         TEST_CELL_ID,
-        TEST_REGISTRATION_SALT
+        TEST_REGISTRATION_SALT,
+        TEST_AUTHORITY_LEVEL
       );
       const districtCommitment2 = await hasher.poseidon2Sponge(DISTRICTS_SEQUENTIAL);
       const cellMapLeaf2 = await hasher.hashPair(TEST_CELL_ID, districtCommitment2);
-      const nullifier2 = await hasher.hashPair(TEST_USER_SECRET, TEST_ACTION_DOMAIN);
+      const nullifier2 = await hasher.hashPair(TEST_IDENTITY_COMMITMENT, TEST_ACTION_DOMAIN);
 
       expect(userLeaf2).toBe(userLeaf);
       expect(districtCommitment2).toBe(districtCommitment);

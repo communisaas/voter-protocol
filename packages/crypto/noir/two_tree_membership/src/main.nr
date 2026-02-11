@@ -6,16 +6,18 @@
 //
 // ARCHITECTURE:
 // - Tree 1 (User Tree): Standard Merkle tree mapping user identity to a cell.
-//   Leaf = H3(user_secret, cell_id, registration_salt)
+//   Leaf = H4(user_secret, cell_id, registration_salt, authority_level)
+//   Authority level is cryptographically bound to the leaf (BR5-001/BR5-004).
 // - Tree 2 (Cell Map): Sparse Merkle tree mapping cells to district commitments.
 //   Leaf = H2(cell_id, district_commitment)
 //   where district_commitment = poseidon2_sponge_24(districts)
 //
 // SECURITY:
 // - SA-011: user_secret cannot be zero (prevents predictable nullifiers)
+// - NUL-001: nullifier uses identity_commitment (not user_secret) to prevent Sybil
 // - ISSUE-006: authority_level range-checked to [1, 5]
+// - BR5-001: authority_level bound into leaf hash (H4) — can't upgrade without re-registration
 // - CVE-001/CVE-003: Leaves computed inside circuit from user_secret
-// - CVE-002: nullifier uses only user_secret + public action_domain
 // - BA-003: Domain separation tags prevent cross-arity hash collisions
 // - BA-007: Authority level cast through u64 to prevent truncation attacks
 
@@ -45,15 +47,21 @@ global MAX_AUTHORITY_LEVEL: Field = 5;
 // MUST match district_membership circuit for nullifier compatibility.
 global DOMAIN_HASH2: Field = 0x48324d;
 
-// Domain separation tag for 3-input hash.
-// Used for user leaf computation: H3(user_secret, cell_id, registration_salt).
-// All 4 state slots are filled so the tag goes in the 4th position.
-// Value: 0x48334d = "H3M" (Hash-3 Marker), following the pattern:
+// Domain separation tag for 3-input hash (legacy, kept for test compatibility).
+// Value: 0x48334d = "H3M" (Hash-3 Marker)
+global DOMAIN_HASH3: Field = 0x48334d;
+
+// Domain separation tag for 4-input hash (BR5-001).
+// Used for user leaf computation: H4(user_secret, cell_id, registration_salt, authority_level).
+// Uses 2-round sponge construction (rate=3, capacity=1) because width-4 Poseidon2
+// cannot fit 4 inputs + domain tag in a single permutation.
+// Value: 0x48344d = "H4M" (Hash-4 Marker), following the pattern:
 //   DOMAIN_HASH1 = 0x48314d ("H1M")
 //   DOMAIN_HASH2 = 0x48324d ("H2M")
 //   DOMAIN_HASH3 = 0x48334d ("H3M")
-// MUST match poseidon2.ts DOMAIN_HASH3 for cross-language parity.
-global DOMAIN_HASH3: Field = 0x48334d;
+//   DOMAIN_HASH4 = 0x48344d ("H4M")
+// MUST match poseidon2.ts DOMAIN_HASH4 for cross-language parity.
+global DOMAIN_HASH4: Field = 0x48344d;
 
 // ===============================================================================
 // HASH FUNCTIONS
@@ -68,13 +76,27 @@ fn poseidon2_hash2(left: Field, right: Field) -> Field {
     out[0]
 }
 
-/// Domain-separated 3-input Poseidon2 hash.
+/// Domain-separated 3-input Poseidon2 hash (legacy, kept for test compatibility).
 /// State layout: [a, b, c, DOMAIN_HASH3]
-/// Used for: user leaf commitment (user_secret, cell_id, registration_salt)
 fn poseidon2_hash3(a: Field, b: Field, c: Field) -> Field {
     let state: [Field; 4] = [a, b, c, DOMAIN_HASH3];
     let out = poseidon2_permutation(state, 4);
     out[0]
+}
+
+/// Domain-separated 4-input Poseidon2 hash (BR5-001).
+/// Uses 2-round sponge construction: capacity=DOMAIN_HASH4, rate=3.
+///   Round 1: state = [DOMAIN_HASH4, a, b, c] → permute
+///   Round 2: state[1] += d → permute → output state[0]
+/// Used for: user leaf commitment (user_secret, cell_id, registration_salt, authority_level)
+fn poseidon2_hash4(a: Field, b: Field, c: Field, d: Field) -> Field {
+    // Round 1: absorb first 3 inputs, domain tag in capacity slot
+    let mut state: [Field; 4] = [DOMAIN_HASH4, a, b, c];
+    state = poseidon2_permutation(state, 4);
+    // Round 2: absorb 4th input into rate position
+    state[1] = state[1] + d;
+    state = poseidon2_permutation(state, 4);
+    state[0]
 }
 
 // ===============================================================================
@@ -143,16 +165,21 @@ fn compute_smt_root(
 /// ownership. Without this binding, an attacker could use any valid leaf from the
 /// tree without proving they control the corresponding secret.
 ///
+/// SECURITY (BR5-001/BR5-004): Authority level is cryptographically bound to the
+/// leaf. Users cannot upgrade their authority without re-registering a new leaf.
+///
 /// @param user_secret - The user's private key material (proves identity ownership)
 /// @param cell_id - The geographic cell the user is registered in
 /// @param registration_salt - Unique salt assigned during registration (prevents rainbow attacks)
+/// @param authority_level - User's verified voting tier [1-5]
 /// @returns The user leaf commitment
 fn compute_user_leaf(
     user_secret: Field,
     cell_id: Field,
     registration_salt: Field,
+    authority_level: Field,
 ) -> Field {
-    poseidon2_hash3(user_secret, cell_id, registration_salt)
+    poseidon2_hash4(user_secret, cell_id, registration_salt, authority_level)
 }
 
 /// Computes the cell map leaf for Tree 2.
@@ -172,16 +199,19 @@ fn compute_cell_map_leaf(cell_id: Field, district_commitment: Field) -> Field {
 
 /// Computes a domain-separated nullifier to prevent double-voting.
 ///
-/// SECURITY (CVE-002): The nullifier is derived from user_secret and a PUBLIC
-/// action_domain that is controlled by the verifying contract. This prevents
-/// users from manipulating private inputs to generate multiple valid proofs
-/// for the same action.
+/// SECURITY (NUL-001): The nullifier is derived from identity_commitment (NOT
+/// user_secret) to prevent Sybil attacks via re-registration. identity_commitment
+/// is deterministic per verified person (from self.xyz/didit), so re-registering
+/// with a new user_secret still produces the SAME nullifier.
 ///
-/// @param user_secret - The user's private key material
+/// action_domain is controlled by the verifying contract, preventing users from
+/// manipulating private inputs to generate multiple valid proofs for the same action.
+///
+/// @param identity_commitment - Deterministic hash from identity verification provider
 /// @param action_domain - Contract-controlled scope (encodes epoch, campaign, authority hash)
-/// @returns Unique nullifier for this user+action combination
-fn compute_nullifier(user_secret: Field, action_domain: Field) -> Field {
-    poseidon2_hash2(user_secret, action_domain)
+/// @returns Unique nullifier for this person+action combination
+fn compute_nullifier(identity_commitment: Field, action_domain: Field) -> Field {
+    poseidon2_hash2(identity_commitment, action_domain)
 }
 
 // ===============================================================================
@@ -215,14 +245,15 @@ fn validate_authority_level(authority_level: Field) {
 /// - user_root: Tree 1 Merkle root (user identity tree)
 /// - cell_map_root: Tree 2 SMT root (cell-to-districts mapping)
 /// - districts: All 24 district IDs for this cell
-/// - nullifier: Anti-double-vote token
+/// - nullifier: Anti-double-vote token (identity-bound, NUL-001)
 /// - action_domain: Contract-controlled scope for nullifier
-/// - authority_level: User's voting tier (1-5)
+/// - authority_level: User's voting tier (1-5, bound in leaf hash BR5-001)
 ///
 /// PRIVATE INPUTS (user-provided witnesses):
 /// - user_secret: User's private key material
 /// - cell_id: The geographic cell identifier
 /// - registration_salt: Salt from registration
+/// - identity_commitment: Deterministic hash from identity provider (NUL-001)
 /// - user_path: Merkle siblings for Tree 1
 /// - user_index: Leaf position in Tree 1
 /// - cell_map_path: SMT siblings for Tree 2
@@ -244,6 +275,7 @@ fn main(
     user_secret: Field,
     cell_id: Field,
     registration_salt: Field,
+    identity_commitment: Field,
 
     // Tree 1: Standard Merkle proof
     user_path: [Field; TREE_DEPTH],
@@ -257,10 +289,12 @@ fn main(
     // PRE-CHECKS
     // =======================================================================
 
-    // SA-011 FIX: Reject zero user_secret to prevent predictable nullifiers.
-    // A zero secret makes nullifier = hash(0, action_domain), which is guessable.
-    // The security model requires high-entropy secrets.
+    // SA-011 FIX: Reject zero user_secret to prevent predictable leaf values.
     assert(user_secret != 0, "user_secret cannot be zero");
+
+    // NUL-001 FIX: Reject zero identity_commitment to prevent predictable nullifiers.
+    // identity_commitment is deterministic per verified person (from self.xyz/didit).
+    assert(identity_commitment != 0, "identity_commitment cannot be zero");
 
     // ISSUE-006 FIX: Validate authority_level is in valid range [1, 5]
     validate_authority_level(authority_level);
@@ -270,7 +304,8 @@ fn main(
     // =======================================================================
     // Compute leaf inside circuit from user_secret (CVE-001/CVE-003 fix).
     // The user must know the secret used during registration.
-    let user_leaf = compute_user_leaf(user_secret, cell_id, registration_salt);
+    // BR5-001: authority_level is bound into the leaf hash.
+    let user_leaf = compute_user_leaf(user_secret, cell_id, registration_salt, authority_level);
     let computed_user_root = compute_merkle_root(user_leaf, user_path, user_index);
     assert(computed_user_root == user_root, "Tree 1: Merkle proof verification failed");
 
@@ -295,8 +330,10 @@ fn main(
     // =======================================================================
     // STEP 4: Verify nullifier
     // =======================================================================
-    // Nullifier binds user identity to action scope, preventing double-voting.
-    let computed_nullifier = compute_nullifier(user_secret, action_domain);
+    // NUL-001: Nullifier uses identity_commitment (not user_secret) to prevent
+    // Sybil attacks. Re-registration with a new user_secret produces the same
+    // nullifier because identity_commitment is deterministic per verified person.
+    let computed_nullifier = compute_nullifier(identity_commitment, action_domain);
     assert(computed_nullifier == nullifier, "Nullifier verification failed");
 }
 
@@ -353,6 +390,42 @@ fn test_hash2_hash3_no_collision() {
 }
 
 #[test]
+fn test_hash4_deterministic() {
+    // Verify that poseidon2_hash4 produces consistent output for same inputs
+    let a: Field = 1;
+    let b: Field = 2;
+    let c: Field = 3;
+    let d: Field = 4;
+
+    let result1 = poseidon2_hash4(a, b, c, d);
+    let result2 = poseidon2_hash4(a, b, c, d);
+    assert(result1 == result2, "hash4 must be deterministic");
+
+    // Verify different inputs produce different outputs
+    let result3 = poseidon2_hash4(d, c, b, a);
+    assert(result1 != result3, "hash4 input order must matter");
+
+    // Verify non-zero output
+    assert(result1 != 0, "hash4 should produce non-zero output for non-zero inputs");
+}
+
+#[test]
+fn test_hash4_domain_separation() {
+    // H4 must not collide with H3 or H2 for overlapping inputs
+    let a: Field = 1;
+    let b: Field = 2;
+    let c: Field = 3;
+
+    let h3 = poseidon2_hash3(a, b, c);
+    let h4 = poseidon2_hash4(a, b, c, 0);
+    assert(h3 != h4, "hash3 and hash4 must not collide due to domain separation");
+
+    let h2 = poseidon2_hash2(a, b);
+    let h4b = poseidon2_hash4(a, b, 0, 0);
+    assert(h2 != h4b, "hash2 and hash4 must not collide due to domain separation");
+}
+
+#[test]
 fn test_sponge_integration() {
     // Verify that the sponge module can be called from main and produces expected output.
     // Uses the same golden vector as sponge.nr's own test.
@@ -400,15 +473,20 @@ fn test_compute_user_leaf() {
     let secret: Field = 12345;
     let cell: Field = 67890;
     let salt: Field = 11111;
+    let auth: Field = 3;
 
-    let leaf1 = compute_user_leaf(secret, cell, salt);
-    let leaf2 = compute_user_leaf(secret, cell, salt);
+    let leaf1 = compute_user_leaf(secret, cell, salt, auth);
+    let leaf2 = compute_user_leaf(secret, cell, salt, auth);
     assert(leaf1 == leaf2, "user leaf must be deterministic");
     assert(leaf1 != 0, "user leaf should be non-zero for non-zero inputs");
 
     // Different salt must produce different leaf
-    let leaf3 = compute_user_leaf(secret, cell, 22222);
+    let leaf3 = compute_user_leaf(secret, cell, 22222, auth);
     assert(leaf1 != leaf3, "different salt must produce different leaf");
+
+    // BR5-001: Different authority level must produce different leaf
+    let leaf4 = compute_user_leaf(secret, cell, salt, 4);
+    assert(leaf1 != leaf4, "different authority level must produce different leaf");
 }
 
 #[test]
@@ -428,15 +506,20 @@ fn test_compute_cell_map_leaf() {
 
 #[test]
 fn test_nullifier_deterministic() {
-    // Verify nullifier computation matches the pattern from district_membership
-    let secret: Field = 42;
+    // NUL-001: Nullifier uses identity_commitment, not user_secret.
+    // Same identity_commitment + same action_domain = same nullifier.
+    let identity: Field = 42;
     let domain: Field = 100;
 
-    let null1 = compute_nullifier(secret, domain);
-    let null2 = compute_nullifier(secret, domain);
+    let null1 = compute_nullifier(identity, domain);
+    let null2 = compute_nullifier(identity, domain);
     assert(null1 == null2, "nullifier must be deterministic");
 
     // Different domain must produce different nullifier
-    let null3 = compute_nullifier(secret, 200);
+    let null3 = compute_nullifier(identity, 200);
     assert(null1 != null3, "different action_domain must produce different nullifier");
+
+    // Different identity must produce different nullifier
+    let null4 = compute_nullifier(99, domain);
+    assert(null1 != null4, "different identity_commitment must produce different nullifier");
 }

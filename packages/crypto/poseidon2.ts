@@ -47,9 +47,21 @@ const DOMAIN_HASH1 = '0x' + (0x48314d).toString(16).padStart(64, '0');
  * Domain separation tag for hash3 (3-input hash, two-tree architecture).
  * Prevents collision between hash3(a, b, c) and hash4(a, b, c, 0).
  * Tag value: 0x48334d = "H3M" (Hash-3 Marker)
- * Used for user leaf computation: hash3(user_secret, cell_id, registration_salt)
  */
 const DOMAIN_HASH3 = '0x' + (0x48334d).toString(16).padStart(64, '0');
+
+/**
+ * Domain separation tag for hash4 (4-input hash, BR5-001 authority binding).
+ * Tag value: 0x48344d = "H4M" (Hash-4 Marker)
+ * Used for user leaf computation: hash4(user_secret, cell_id, registration_salt, authority_level)
+ *
+ * 2-round sponge construction:
+ *   Round 1: permute([DOMAIN_HASH4, a, b, c])
+ *   Round 2: state[1] += d, permute(state), return state[0]
+ *
+ * Must match Noir circuit: global DOMAIN_HASH4: Field = 0x48344d
+ */
+const DOMAIN_HASH4 = '0x' + (0x48344d).toString(16).padStart(64, '0');
 
 /**
  * Domain separation tag for Poseidon2 sponge with 24 inputs.
@@ -245,12 +257,18 @@ export class Poseidon2Hasher {
   }
 
   /**
-   * Hash four field elements: Poseidon2(a, b, c, d)
+   * Hash four field elements using 2-round Poseidon2 sponge (BR5-001).
    *
-   * @param a - First input
-   * @param b - Second input
-   * @param c - Third input
-   * @param d - Fourth input
+   * Matches Noir circuit poseidon2_hash4:
+   *   Round 1: state = permute([DOMAIN_HASH4, a, b, c])
+   *   Round 2: state[1] += d, state = permute(state), return state[0]
+   *
+   * Used for user leaf: hash4(user_secret, cell_id, registration_salt, authority_level)
+   *
+   * @param a - First input (user_secret)
+   * @param b - Second input (cell_id)
+   * @param c - Third input (registration_salt)
+   * @param d - Fourth input (authority_level)
    * @returns Poseidon2 hash as bigint
    */
   async hash4(
@@ -259,16 +277,34 @@ export class Poseidon2Hasher {
     c: bigint | string,
     d: bigint | string
   ): Promise<bigint> {
-    const inputs = [
+    // Round 1: permute([DOMAIN_HASH4, a, b, c]) — uses sponge helper for full state
+    const round1Inputs = [
+      DOMAIN_HASH4,
       this.toHex(a),
       this.toHex(b),
       this.toHex(c),
-      this.toHex(d),
     ];
 
-    const result = await this.noir.execute({ inputs });
-    const returnValue = (result as { returnValue?: string }).returnValue ??
-      (result as { return_value?: string }).return_value;
+    const r1 = await this.spongeHelperNoir.execute({ inputs: round1Inputs });
+    const r1State = (r1 as { returnValue?: string[] }).returnValue ??
+      (r1 as { return_value?: string[] }).return_value;
+
+    if (!r1State || !Array.isArray(r1State) || r1State.length !== 4) {
+      throw new Error('Sponge helper circuit returned invalid state array');
+    }
+
+    // Round 2: state[1] += d, then permute — uses fixtures for state[0] only
+    const s1PlusD = (BigInt(r1State[1]) + BigInt(this.toHex(d))) % Poseidon2Hasher.BN254_MODULUS;
+    const round2Inputs = [
+      r1State[0],
+      this.toHex(s1PlusD),
+      r1State[2],
+      r1State[3],
+    ];
+
+    const r2 = await this.noir.execute({ inputs: round2Inputs });
+    const returnValue = (r2 as { returnValue?: string }).returnValue ??
+      (r2 as { return_value?: string }).return_value;
 
     if (!returnValue) {
       throw new Error('Noir circuit returned no value');
@@ -539,11 +575,19 @@ export async function hashPair(left: bigint, right: bigint): Promise<bigint> {
 
 /**
  * Convenience function: Hash three elements (one-off usage)
- * Two-tree architecture: user_leaf = hash3(user_secret, cell_id, salt)
  */
 export async function hash3(a: bigint, b: bigint, c: bigint): Promise<bigint> {
   const hasher = await Poseidon2Hasher.getInstance();
   return hasher.hash3(a, b, c);
+}
+
+/**
+ * Convenience function: Hash four elements (one-off usage)
+ * Two-tree architecture: user_leaf = hash4(user_secret, cell_id, salt, authority_level)
+ */
+export async function hash4(a: bigint, b: bigint, c: bigint, d: bigint): Promise<bigint> {
+  const hasher = await Poseidon2Hasher.getInstance();
+  return hasher.hash4(a, b, c, d);
 }
 
 /**

@@ -103,6 +103,34 @@ function detectThreads(): number {
  *
  * @throws {Error} If value is negative or >= BN254_MODULUS
  */
+/**
+ * Parse a hex string from public inputs into a validated bigint.
+ *
+ * 28M-001 + 28M-002 FIX: Public inputs from proof results may come from
+ * deserialized network data (not always directly from UltraHonk backend).
+ * Validates:
+ * 1. Canonical 0x-prefixed hex format
+ * 2. Value is within BN254 scalar field (prevents field aliasing)
+ *
+ * @throws {Error} If format is invalid or value >= BN254_MODULUS
+ */
+function parsePublicInput(hex: string, label: string): bigint {
+    if (typeof hex !== 'string' || !/^0x[0-9a-fA-F]+$/.test(hex)) {
+        throw new Error(
+            `BR5-006: Invalid public input format for ${label}: expected 0x-prefixed hex string, ` +
+            `got ${typeof hex === 'string' ? `"${hex.slice(0, 20)}"` : typeof hex}`
+        );
+    }
+    const val = BigInt(hex);
+    if (val >= BN254_MODULUS) {
+        throw new Error(
+            `BR5-006: Public input ${label} (${val}) exceeds BN254 scalar field modulus. ` +
+            `Possible field aliasing attack.`
+        );
+    }
+    return val;
+}
+
 function toHex(value: bigint): string {
     if (value < 0n) {
         throw new Error('Field element cannot be negative');
@@ -206,6 +234,13 @@ export class TwoTreeNoirProver {
                 'registration_salt cannot be zero. A zero salt reduces leaf preimage entropy.'
             );
         }
+        // NUL-001: identity_commitment must be non-zero for Sybil prevention
+        if (inputs.identityCommitment === 0n) {
+            throw new Error(
+                'identity_commitment cannot be zero. NUL-001 requires a verified identity commitment ' +
+                'from self.xyz/didit to prevent Sybil attacks via re-registration.'
+            );
+        }
 
         // Validate authority level range
         validateAuthorityLevel(inputs.authorityLevel);
@@ -215,6 +250,53 @@ export class TwoTreeNoirProver {
             throw new Error(
                 `districts array must have exactly ${DISTRICT_SLOT_COUNT} elements, got ${inputs.districts?.length ?? 'non-array'}`
             );
+        }
+
+        // BR5-017: Validate district array integrity — non-zero districts must be unique.
+        // The 24 slots are positional (per DISTRICT-TAXONOMY.md), so duplicate non-zero
+        // values indicate a translation pipeline bug. Zero values indicate unused slots.
+        //
+        // 28M-003 NOTE: All-zero districts (empty cell) are allowed at the prover level.
+        // The prover should prove whatever the inputs are. Application-level checks
+        // (RegistrationService, communique client) must ensure cells have >= 1 district.
+        const nonZeroDistricts = new Set<bigint>();
+        for (let i = 0; i < inputs.districts.length; i++) {
+            const d = inputs.districts[i];
+            if (d < 0n) {
+                throw new Error(`districts[${i}] cannot be negative`);
+            }
+            if (d >= BN254_MODULUS) {
+                throw new Error(`districts[${i}] exceeds BN254 scalar field modulus`);
+            }
+            if (d !== 0n) {
+                if (nonZeroDistricts.has(d)) {
+                    throw new Error(
+                        `BR5-017: Duplicate district ID at slot ${i}: 0x${d.toString(16)}. ` +
+                        `Each non-zero district must appear in exactly one positional slot.`
+                    );
+                }
+                nonZeroDistricts.add(d);
+            }
+        }
+
+        // Validate BN254 field bounds for all bigint fields
+        const fieldChecks: [bigint, string][] = [
+            [inputs.userRoot, 'userRoot'],
+            [inputs.cellMapRoot, 'cellMapRoot'],
+            [inputs.nullifier, 'nullifier'],
+            [inputs.actionDomain, 'actionDomain'],
+            [inputs.userSecret, 'userSecret'],
+            [inputs.cellId, 'cellId'],
+            [inputs.registrationSalt, 'registrationSalt'],
+            [inputs.identityCommitment, 'identityCommitment'],
+        ];
+        for (const [val, name] of fieldChecks) {
+            if (val < 0n) {
+                throw new Error(`${name} cannot be negative`);
+            }
+            if (val >= BN254_MODULUS) {
+                throw new Error(`${name} exceeds BN254 scalar field modulus`);
+            }
         }
 
         // Validate userPath (Tree 1 Merkle siblings)
@@ -267,6 +349,18 @@ export class TwoTreeNoirProver {
                 `userIndex out of range: must be 0 to ${2 ** this.depth - 1}, got ${inputs.userIndex}`
             );
         }
+
+        // Validate Merkle path siblings are within BN254 field
+        for (let i = 0; i < inputs.userPath.length; i++) {
+            if (inputs.userPath[i] < 0n || inputs.userPath[i] >= BN254_MODULUS) {
+                throw new Error(`userPath[${i}] outside BN254 scalar field`);
+            }
+        }
+        for (let i = 0; i < inputs.cellMapPath.length; i++) {
+            if (inputs.cellMapPath[i] < 0n || inputs.cellMapPath[i] >= BN254_MODULUS) {
+                throw new Error(`cellMapPath[${i}] outside BN254 scalar field`);
+            }
+        }
     }
 
     // ========================================================================
@@ -287,12 +381,13 @@ export class TwoTreeNoirProver {
             districts: inputs.districts.map(toHex),
             nullifier: toHex(inputs.nullifier),
             action_domain: toHex(inputs.actionDomain),
-            authority_level: inputs.authorityLevel.toString(),
+            authority_level: toHex(BigInt(inputs.authorityLevel)),
 
             // Private inputs (witnesses)
             user_secret: toHex(inputs.userSecret),
             cell_id: toHex(inputs.cellId),
             registration_salt: toHex(inputs.registrationSalt),
+            identity_commitment: toHex(inputs.identityCommitment),
 
             // Tree 1: Standard Merkle proof
             user_path: inputs.userPath.map(toHex),
@@ -312,10 +407,10 @@ export class TwoTreeNoirProver {
      * Generate a ZK proof for two-tree membership.
      *
      * The circuit internally verifies:
-     * 1. User leaf in Tree 1: hash3(user_secret, cell_id, registration_salt)
+     * 1. User leaf in Tree 1: hash4(user_secret, cell_id, registration_salt, authority_level)
      * 2. District commitment: poseidon2_sponge_24(districts)
      * 3. Cell map leaf in Tree 2: hash2(cell_id, district_commitment)
-     * 4. Nullifier: hash2(user_secret, action_domain)
+     * 4. Nullifier: hash2(identity_commitment, action_domain) (NUL-001)
      * 5. Authority level in [1, 5]
      *
      * @param inputs - All public and private inputs for the circuit
@@ -364,15 +459,96 @@ export class TwoTreeNoirProver {
     /**
      * Verify a two-tree membership proof.
      *
+     * BR5-006: Validates public input count before backend verification.
+     * For full public input binding (matching proof outputs to expected values),
+     * use verifyProofWithExpectedInputs().
+     *
      * @param proofResult - The proof result from generateProof()
      * @returns true if the proof is valid
      */
     async verifyProof(proofResult: TwoTreeProofResult): Promise<boolean> {
+        // BR5-006: Reject proofs with wrong public input count before hitting the backend
+        if (proofResult.publicInputs.length !== TWO_TREE_PUBLIC_INPUT_COUNT) {
+            throw new Error(
+                `BR5-006: Public input count mismatch: expected ${TWO_TREE_PUBLIC_INPUT_COUNT}, ` +
+                `got ${proofResult.publicInputs.length}. Possible proof tampering.`
+            );
+        }
+
         await this.init();
         return this.backend!.verifyProof({
             proof: proofResult.proof,
             publicInputs: proofResult.publicInputs,
         });
+    }
+
+    /**
+     * Verify a proof AND validate that public inputs match expected values.
+     *
+     * BR5-006 FIX: The base verifyProof() only checks that the proof is
+     * cryptographically valid for its public inputs. It does NOT verify that
+     * those inputs match what the caller intended. An attacker could substitute
+     * a valid proof generated for different inputs (e.g., different districts
+     * or a different authority level).
+     *
+     * This method binds the proof to the caller's expected values by checking:
+     * - user_root matches
+     * - cell_map_root matches
+     * - All 24 districts match
+     * - nullifier matches
+     * - action_domain matches
+     * - authority_level matches
+     *
+     * @param proofResult - The proof from generateProof()
+     * @param expectedInputs - The original inputs used for proof generation
+     * @returns true if proof is valid AND public inputs match expectations
+     */
+    async verifyProofWithExpectedInputs(
+        proofResult: TwoTreeProofResult,
+        expectedInputs: TwoTreeProofInput,
+    ): Promise<boolean> {
+        // First, cryptographic verification
+        const valid = await this.verifyProof(proofResult);
+        if (!valid) return false;
+
+        // BR5-006: Bind public inputs to expected values.
+        // Public input layout: [0] user_root, [1] cell_map_root, [2-25] districts,
+        //   [26] nullifier, [27] action_domain, [28] authority_level
+        const pi = proofResult.publicInputs;
+
+        const checks: [number, bigint, string][] = [
+            [0, expectedInputs.userRoot, 'user_root'],
+            [1, expectedInputs.cellMapRoot, 'cell_map_root'],
+            [26, expectedInputs.nullifier, 'nullifier'],
+            [27, expectedInputs.actionDomain, 'action_domain'],
+            [28, BigInt(expectedInputs.authorityLevel), 'authority_level'],
+        ];
+
+        for (const [idx, expected, name] of checks) {
+            // 28M-001: Validate canonical hex format + BN254 bounds before comparison
+            const actual = parsePublicInput(pi[idx], `${name}[${idx}]`);
+            if (actual !== expected) {
+                throw new Error(
+                    `BR5-006: Public input mismatch at index ${idx} (${name}): ` +
+                    `expected ${expected}, got ${actual}`
+                );
+            }
+        }
+
+        // Check all 24 districts
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            // 28M-001: Validate canonical hex format + BN254 bounds before comparison
+            const actual = parsePublicInput(pi[2 + i], `district[${i}]`);
+            const expected = expectedInputs.districts[i];
+            if (actual !== expected) {
+                throw new Error(
+                    `BR5-006: District mismatch at slot ${i} (public input index ${2 + i}): ` +
+                    `expected ${expected}, got ${actual}`
+                );
+            }
+        }
+
+        return true;
     }
 
     // ========================================================================

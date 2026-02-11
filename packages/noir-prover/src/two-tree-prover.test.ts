@@ -59,6 +59,7 @@ function createMockTwoTreeInputs(
         userSecret: 42n,
         cellId: 67890n,
         registrationSalt: 11111n,
+        identityCommitment: 99999n,
         userPath: Array(depth).fill(0n),
         userIndex: 0,
         cellMapPath: Array(depth).fill(0n),
@@ -365,11 +366,12 @@ describe('TwoTreeNoirProver', () => {
             expect(userRoot).toHaveLength(66); // 0x + 64 chars
         });
 
-        it('should format authority_level as string', () => {
+        it('should format authority_level as hex field element', () => {
             const inputs = createMockTwoTreeInputs(20, { authorityLevel: 3 });
             const formatted = prover.formatInputs(inputs);
 
-            expect(formatted.authority_level).toBe('3');
+            // authority_level is a Noir Field, so it must be a 0x-prefixed hex string
+            expect(formatted.authority_level).toBe('0x' + '3'.padStart(64, '0'));
             expect(typeof formatted.authority_level).toBe('string');
         });
 
@@ -552,5 +554,409 @@ describe.skipIf(!process.env.RUN_HEAVY_TESTS)('TwoTreeNoirProver - Heavy Tests',
                 'userPath length mismatch: expected 24, got 20'
             );
         });
+    });
+});
+
+// ============================================================================
+// Wave 28a: BR5-006, BR5-017 Tests (outside heavy-test block)
+// ============================================================================
+
+describe('BR5-006: Public Input Binding', () => {
+    let prover: TwoTreeNoirProver;
+
+    beforeAll(() => {
+        prover = new TwoTreeNoirProver({ depth: 20 });
+    });
+
+    it('verifyProof rejects wrong public input count', async () => {
+        const badResult = {
+            proof: new Uint8Array(32),
+            publicInputs: ['0x1', '0x2'], // Too few
+        };
+
+        await expect(prover.verifyProof(badResult)).rejects.toThrow(
+            'BR5-006: Public input count mismatch'
+        );
+    });
+
+    it('verifyProofWithExpectedInputs detects user_root mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + (999n).toString(16); // Wrong user_root (expected 1n)
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Public input mismatch at index 0 (user_root)');
+    });
+
+    it('verifyProofWithExpectedInputs detects district mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[2 + 5] = '0x' + (888n).toString(16); // Tamper with district slot 5
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: District mismatch at slot 5');
+    });
+
+    it('verifyProofWithExpectedInputs accepts matching inputs', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        const result = await prover.verifyProofWithExpectedInputs(
+            { proof: new Uint8Array(32), publicInputs: pi },
+            inputs,
+        );
+        expect(result).toBe(true);
+    });
+
+    it('verifyProofWithExpectedInputs detects nullifier mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + (777n).toString(16); // Wrong nullifier (expected 3n)
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Public input mismatch at index 26 (nullifier)');
+    });
+
+    it('verifyProofWithExpectedInputs detects actionDomain mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + (555n).toString(16); // Wrong actionDomain (expected 4n)
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Public input mismatch at index 27 (action_domain)');
+    });
+
+    it('verifyProofWithExpectedInputs detects authorityLevel mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + (5n).toString(16); // Wrong authority (expected 1)
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Public input mismatch at index 28 (authority_level)');
+    });
+
+    it('verifyProofWithExpectedInputs detects cellMapRoot mismatch', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + (444n).toString(16); // Wrong cellMapRoot (expected 2n)
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Public input mismatch at index 1 (cell_map_root)');
+    });
+
+    it('verifyProofWithExpectedInputs rejects non-hex public input (28M-001)', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = 'not-hex'; // Invalid format
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('BR5-006: Invalid public input format');
+    });
+
+    it('verifyProofWithExpectedInputs rejects BN254-overflowed public input (28M-002)', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        // BN254 modulus as hex — exceeds the field
+        pi[0] = '0x' + BN254_MODULUS.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => true,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        await expect(
+            prover.verifyProofWithExpectedInputs(
+                { proof: new Uint8Array(32), publicInputs: pi },
+                inputs,
+            )
+        ).rejects.toThrow('exceeds BN254 scalar field modulus');
+    });
+
+    it('verifyProofWithExpectedInputs returns false when crypto verification fails', async () => {
+        const inputs = createMockTwoTreeInputs(20);
+
+        const pi = Array(TWO_TREE_PUBLIC_INPUT_COUNT).fill('0x0');
+        pi[0] = '0x' + inputs.userRoot.toString(16);
+        pi[1] = '0x' + inputs.cellMapRoot.toString(16);
+        for (let i = 0; i < DISTRICT_SLOT_COUNT; i++) {
+            pi[2 + i] = '0x' + inputs.districts[i].toString(16);
+        }
+        pi[26] = '0x' + inputs.nullifier.toString(16);
+        pi[27] = '0x' + inputs.actionDomain.toString(16);
+        pi[28] = '0x' + BigInt(inputs.authorityLevel).toString(16);
+
+        const mockBackend = {
+            verifyProof: async () => false,
+            generateProof: async () => ({ proof: new Uint8Array(), publicInputs: [] }),
+            destroy: async () => {},
+        };
+        (prover as any).backend = mockBackend;
+        (prover as any).noir = {};
+
+        const result = await prover.verifyProofWithExpectedInputs(
+            { proof: new Uint8Array(32), publicInputs: pi },
+            inputs,
+        );
+        expect(result).toBe(false);
+    });
+});
+
+describe('BR5-017: District Ordering Validation', () => {
+    let prover: TwoTreeNoirProver;
+
+    beforeAll(() => {
+        prover = new TwoTreeNoirProver({ depth: 20 });
+    });
+
+    it('accepts unique non-zero districts', () => {
+        const inputs = createMockTwoTreeInputs(20);
+        expect(() => prover.validateInputs(inputs)).not.toThrow();
+    });
+
+    it('accepts all-zero districts (empty cell)', () => {
+        const inputs = createMockTwoTreeInputs(20, {
+            districts: Array(DISTRICT_SLOT_COUNT).fill(0n),
+        });
+        expect(() => prover.validateInputs(inputs)).not.toThrow();
+    });
+
+    it('accepts mix of zero and non-zero districts', () => {
+        const districts = Array(DISTRICT_SLOT_COUNT).fill(0n);
+        districts[0] = 100n;
+        districts[3] = 200n;
+        districts[7] = 300n;
+        const inputs = createMockTwoTreeInputs(20, { districts });
+        expect(() => prover.validateInputs(inputs)).not.toThrow();
+    });
+
+    it('rejects duplicate non-zero districts', () => {
+        const districts = Array(DISTRICT_SLOT_COUNT).fill(0n);
+        districts[0] = 100n;
+        districts[3] = 100n;
+        const inputs = createMockTwoTreeInputs(20, { districts });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'BR5-017: Duplicate district ID at slot 3'
+        );
+    });
+
+    it('rejects district exceeding BN254 modulus', () => {
+        const districts = Array(DISTRICT_SLOT_COUNT).fill(0n);
+        districts[0] = BN254_MODULUS;
+        const inputs = createMockTwoTreeInputs(20, { districts });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'districts[0] exceeds BN254 scalar field modulus'
+        );
+    });
+
+    it('rejects negative district value', () => {
+        const districts = Array(DISTRICT_SLOT_COUNT).fill(0n);
+        districts[2] = -1n;
+        const inputs = createMockTwoTreeInputs(20, { districts });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'districts[2] cannot be negative'
+        );
+    });
+});
+
+describe('BN254 Validation for All Fields', () => {
+    let prover: TwoTreeNoirProver;
+
+    beforeAll(() => {
+        prover = new TwoTreeNoirProver({ depth: 20 });
+    });
+
+    it('rejects userRoot at BN254 modulus', () => {
+        const inputs = createMockTwoTreeInputs(20, { userRoot: BN254_MODULUS });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'userRoot exceeds BN254 scalar field modulus'
+        );
+    });
+
+    it('rejects cellMapRoot at BN254 modulus', () => {
+        const inputs = createMockTwoTreeInputs(20, { cellMapRoot: BN254_MODULUS });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'cellMapRoot exceeds BN254 scalar field modulus'
+        );
+    });
+
+    it('rejects identityCommitment at BN254 modulus', () => {
+        const inputs = createMockTwoTreeInputs(20, { identityCommitment: BN254_MODULUS });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'identityCommitment exceeds BN254 scalar field modulus'
+        );
+    });
+
+    it('rejects userPath sibling at BN254 modulus via validateInputs', () => {
+        const userPath = Array(20).fill(0n);
+        userPath[10] = BN254_MODULUS;
+        const inputs = createMockTwoTreeInputs(20, { userPath });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'userPath[10] outside BN254 scalar field'
+        );
+    });
+
+    it('rejects cellMapPath sibling at BN254 modulus via validateInputs', () => {
+        const cellMapPath = Array(20).fill(0n);
+        cellMapPath[5] = BN254_MODULUS;
+        const inputs = createMockTwoTreeInputs(20, { cellMapPath });
+        expect(() => prover.validateInputs(inputs)).toThrow(
+            'cellMapPath[5] outside BN254 scalar field'
+        );
     });
 });
