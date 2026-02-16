@@ -5,6 +5,8 @@
   "private": true,
   "workspaces": [
     "packages/crypto",
+    "packages/client",
+    "packages/indexer",
     "packages/noir-prover",
     "packages/shadow-atlas"
   ],

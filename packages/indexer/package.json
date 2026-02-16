@@ -1,6 +1,7 @@
 {
   "name": "@voter-protocol/indexer",
   "version": "0.1.0",
+  "private": true,
   "description": "The Graph subgraph indexer for voter-protocol on-chain events",
   "license": "MIT",
   "scripts": {
