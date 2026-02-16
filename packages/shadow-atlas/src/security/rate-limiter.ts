@@ -332,23 +332,38 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
   }
 
   /**
-   * Cleanup stale buckets (haven't been used in 10+ minutes)
+   * Cleanup stale buckets to prevent memory leak under sustained load.
+   *
+   * Two-pass strategy:
+   * 1. Remove fully-refilled buckets (definitely idle)
+   * 2. Remove any bucket not accessed in 10+ minutes (time-based staleness)
+   *
+   * Under DDoS with 100K+ unique IPs, this prevents unbounded Map growth.
    */
   private cleanup(): void {
     const now = Date.now();
-    const staleThreshold = 10 * 60 * 1000; // 10 minutes
+    const staleThresholdMs = 10 * 60 * 1000; // 10 minutes
 
     // Cleanup IP buckets
     for (const [ip, bucket] of this.ipBuckets.entries()) {
-      // If bucket is full, it hasn't been used recently
-      if (bucket.getRemaining() === this.ipConfig.maxRequests) {
+      // Pass 1: fully refilled → definitely idle
+      if (bucket.getRemaining() >= this.ipConfig.maxRequests) {
+        this.ipBuckets.delete(ip);
+        continue;
+      }
+      // Pass 2: time-based staleness via lastRefill (updated on every access)
+      if (now - bucket.getLastAccessTime() > staleThresholdMs) {
         this.ipBuckets.delete(ip);
       }
     }
 
     // Cleanup API key buckets
     for (const [apiKey, bucket] of this.apiKeyBuckets.entries()) {
-      if (bucket.getRemaining() === this.apiKeyConfig.maxRequests) {
+      if (bucket.getRemaining() >= this.apiKeyConfig.maxRequests) {
+        this.apiKeyBuckets.delete(apiKey);
+        continue;
+      }
+      if (now - bucket.getLastAccessTime() > staleThresholdMs) {
         this.apiKeyBuckets.delete(apiKey);
       }
     }

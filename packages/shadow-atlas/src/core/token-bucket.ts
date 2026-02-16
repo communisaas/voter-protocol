@@ -119,6 +119,14 @@ export class TokenBucket {
   }
 
   /**
+   * Get timestamp of last access (refill/consume/check).
+   * Used by cleanup logic to detect stale buckets.
+   */
+  getLastAccessTime(): number {
+    return this.lastRefill;
+  }
+
+  /**
    * Get current configuration
    */
   getConfig(): UnifiedRateLimiterConfig {

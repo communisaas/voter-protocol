@@ -140,7 +140,7 @@ export class SyncService {
     }
 
     const logBuffer = await log.export();
-    const blob = new Blob([logBuffer], { type: 'application/x-ndjson' });
+    const blob = new Blob([new Uint8Array(logBuffer)], { type: 'application/x-ndjson' });
     const name = `insertion-log-${log.count}.ndjson`;
 
     const successfulServices: string[] = [];

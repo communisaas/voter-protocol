@@ -80,7 +80,7 @@ describe('InsertionLog', () => {
 
   describe('replay', () => {
     it('returns empty array for empty log', async () => {
-      const entries = await log.replay();
+      const { entries } = await log.replay();
       expect(entries).toHaveLength(0);
     });
 
@@ -90,7 +90,7 @@ describe('InsertionLog', () => {
         await log.append({ leaf: leaves[i], index: i, ts: 1000 + i });
       }
 
-      const entries = await log.replay();
+      const { entries } = await log.replay();
       expect(entries).toHaveLength(5);
       for (let i = 0; i < 5; i++) {
         expect(entries[i].leaf).toBe(leaves[i]);
@@ -109,7 +109,7 @@ describe('InsertionLog', () => {
 
       // Reopen and replay
       log = await InsertionLog.open({ path: logPath, fsync: false });
-      const entries = await log.replay();
+      const { entries } = await log.replay();
 
       // Should have 2 valid entries (skipping the garbage)
       expect(entries).toHaveLength(2);
@@ -126,7 +126,7 @@ describe('InsertionLog', () => {
       await fs.appendFile(logPath, '{"leaf":"0xbbb","index":1,"ts":1001}\n');
 
       log = await InsertionLog.open({ path: logPath, fsync: false });
-      const entries = await log.replay();
+      const { entries } = await log.replay();
 
       expect(entries).toHaveLength(1);
       expect(entries[0].leaf).toBe('0xbbb');
@@ -156,7 +156,7 @@ describe('InsertionLog', () => {
       log = await InsertionLog.open({ path: logPath, fsync: false });
       expect(log.count).toBe(3);
 
-      const entries = await log.replay();
+      const { entries } = await log.replay();
       expect(entries).toHaveLength(3);
       expect(entries[2].leaf).toBe('0x333');
     });
@@ -168,7 +168,7 @@ describe('InsertionLog', () => {
       log = await InsertionLog.open({ path: logPath, fsync: false });
       await log.append({ leaf: '0x222', index: 1, ts: 1001 });
 
-      const entries = await log.replay();
+      const { entries } = await log.replay();
       expect(entries).toHaveLength(2);
       expect(entries[0].leaf).toBe('0x111');
       expect(entries[1].leaf).toBe('0x222');
@@ -185,7 +185,7 @@ describe('InsertionLog', () => {
 
       expect(log.count).toBe(20);
 
-      const entries = await log.replay();
+      const { entries } = await log.replay();
       expect(entries).toHaveLength(20);
 
       // All indices should be present (order may vary due to concurrency)

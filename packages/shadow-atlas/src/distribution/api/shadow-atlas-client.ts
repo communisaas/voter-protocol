@@ -26,8 +26,17 @@
  * ```
  */
 
-import { poseidon } from 'circomlibjs';
+import type { Poseidon2Hasher as Poseidon2HasherType } from '@voter-protocol/crypto/poseidon2';
 import { logger } from '../../core/utils/logger.js';
+
+let _hasher: Poseidon2HasherType | null = null;
+async function getHasher(): Promise<Poseidon2HasherType> {
+  if (!_hasher) {
+    const { Poseidon2Hasher } = await import('@voter-protocol/crypto/poseidon2');
+    _hasher = await Poseidon2Hasher.getInstance();
+  }
+  return _hasher;
+}
 
 /**
  * API Response wrapper
@@ -378,21 +387,20 @@ export class ShadowAtlasClient {
   /**
    * Verify Merkle proof
    */
-  verifyProof(districtId: string, proof: MerkleProof): boolean {
+  async verifyProof(districtId: string, proof: MerkleProof): Promise<boolean> {
     try {
       // Compute leaf hash
-      const leafHash = this.hashDistrictId(districtId);
+      let currentHash = await this.hashDistrictId(districtId);
 
       // Walk Merkle proof
-      let currentHash = leafHash;
       for (let i = 0; i < proof.siblings.length; i++) {
         const sibling = BigInt(proof.siblings[i]);
         const isLeftChild = proof.pathIndices[i] === 0;
 
         if (isLeftChild) {
-          currentHash = this.hashPair(currentHash, sibling);
+          currentHash = await this.hashPair(currentHash, sibling);
         } else {
-          currentHash = this.hashPair(sibling, currentHash);
+          currentHash = await this.hashPair(sibling, currentHash);
         }
       }
 
@@ -542,7 +550,7 @@ export class ShadowAtlasClient {
   /**
    * Hash district ID (Poseidon)
    */
-  private hashDistrictId(districtId: string): bigint {
+  private async hashDistrictId(districtId: string): Promise<bigint> {
     // Convert district ID to bytes
     const encoder = new TextEncoder();
     const bytes = encoder.encode(districtId);
@@ -554,15 +562,17 @@ export class ShadowAtlasClient {
     // Convert to bigint
     const value = BigInt('0x' + Buffer.from(padded).toString('hex'));
 
-    // Hash with Poseidon
-    return poseidon([value]);
+    // Hash with Poseidon2
+    const hasher = await getHasher();
+    return hasher.hashSingle(value);
   }
 
   /**
-   * Hash pair (Poseidon)
+   * Hash pair (Poseidon2)
    */
-  private hashPair(left: bigint, right: bigint): bigint {
-    return poseidon([left, right]);
+  private async hashPair(left: bigint, right: bigint): Promise<bigint> {
+    const hasher = await getHasher();
+    return hasher.hashPair(left, right);
   }
 }
 

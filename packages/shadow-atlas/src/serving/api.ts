@@ -35,6 +35,7 @@ import type {
 } from './types';
 import { randomBytes, timingSafeEqual, createHmac } from 'crypto';
 import { logger } from '../core/utils/logger.js';
+import type { ServerSigner } from './signing.js';
 
 /**
  * Standardized API response wrapper
@@ -105,8 +106,9 @@ const districtIdSchema = z.object({
 });
 
 /**
- * POST /v1/register request body: { leaf: "0x..." }
- * The leaf is a Poseidon2_H3(user_secret, cell_id, registration_salt) computed client-side.
+ * POST /v1/register request body: { leaf: "0x...", attestationHash?: "0x..." }
+ * The leaf is a Poseidon2_H4(user_secret, cell_id, registration_salt, authority_level) computed client-side.
+ * attestationHash (optional) binds this insertion to a real identity verification event.
  */
 /** BN254 scalar field modulus for Zod-level validation (CR-011) */
 const BN254_MODULUS_API = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
@@ -121,6 +123,9 @@ const registerSchema = z.object({
         return n > 0n && n < BN254_MODULUS_API;
       } catch { return false; }
     }, 'Leaf must be a valid BN254 field element (0 < leaf < p)'),
+  attestationHash: z.string()
+    .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
+    .optional(),
 });
 
 /**
@@ -138,6 +143,9 @@ const registerReplaceSchema = z.object({
       } catch { return false; }
     }, 'newLeaf must be a valid BN254 field element (0 < leaf < p)'),
   oldLeafIndex: z.number().int().nonnegative('oldLeafIndex must be a non-negative integer'),
+  attestationHash: z.string()
+    .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
+    .optional(),
 });
 
 /**
@@ -204,6 +212,7 @@ export class ShadowAtlasAPI {
   private readonly registrationService: RegistrationService | null;
   private readonly cellMapState: CellMapState | null;
   private readonly registrationAuthToken: string | null;
+  private readonly signer: ServerSigner | null;
   private readonly port: number;
   private readonly host: string;
   private readonly corsOrigins: readonly string[];
@@ -224,6 +233,7 @@ export class ShadowAtlasAPI {
     registrationService: RegistrationService | null = null,
     cellMapState: CellMapState | null = null,
     registrationAuthToken: string | null = null,
+    signer: ServerSigner | null = null,
   ) {
     this.lookupService = lookupService;
     this.proofService = proofService;
@@ -234,6 +244,7 @@ export class ShadowAtlasAPI {
     this.registrationService = registrationService;
     this.cellMapState = cellMapState;
     this.registrationAuthToken = registrationAuthToken;
+    this.signer = signer;
     this.port = port;
     this.host = host;
     this.corsOrigins = corsOrigins;
@@ -292,6 +303,9 @@ export class ShadowAtlasAPI {
       }
       if (this.cellMapState) {
         endpoints.push(`GET /${v}/cell-proof?cell_id={id} - Cell SMT proof (Tree 2)`);
+      }
+      if (this.signer) {
+        endpoints.push(`GET /${v}/signing-key - Server Ed25519 public key (verifiable operator)`);
       }
       logger.info('API endpoints registered', { endpoints });
 
@@ -383,6 +397,8 @@ export class ShadowAtlasAPI {
         this.handleHealth(res, requestId, startTime);
       } else if (basePath === '/metrics' && req.method === 'GET') {
         this.handleMetrics(res, req);
+      } else if (basePath === '/signing-key' && req.method === 'GET') {
+        this.handleSigningKey(res, requestId, req);
       } else if (basePath === '/snapshot' && req.method === 'GET') {
         await this.handleSnapshot(res, requestId, startTime);
       } else if (basePath === '/snapshots' && req.method === 'GET') {
@@ -699,7 +715,10 @@ export class ShadowAtlasAPI {
     }
 
     try {
-      const result = await this.registrationService.insertLeaf(validation.data.leaf);
+      const result = await this.registrationService.insertLeaf(
+        validation.data.leaf,
+        { attestationHash: validation.data.attestationHash },
+      );
 
       // BR5-007: Notify sync service for periodic IPFS backup
       const log = this.registrationService.getInsertionLog();
@@ -707,11 +726,28 @@ export class ShadowAtlasAPI {
         this.syncService.notifyInsertion(log);
       }
 
+      // Wave 39d: Generate signed registration receipt (anti-censorship proof).
+      // W40-001: Return both the signed data AND the signature so clients
+      // can independently verify the receipt with the server's public key.
+      let receipt: { data: string; sig: string } | undefined;
+      if (this.signer) {
+        const receiptData = JSON.stringify({
+          leafIndex: result.leafIndex,
+          leaf: validation.data.leaf,
+          userRoot: result.userRoot,
+          ts: Date.now(),
+        });
+        receipt = {
+          data: receiptData,
+          sig: this.signer.sign(receiptData),
+        };
+      }
+
       // No cache for mutations
       res.setHeader('Cache-Control', 'no-store');
 
       this.sendSuccessResponse(
-        res, result, requestId, false,
+        res, { ...result, receipt }, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -844,6 +880,7 @@ export class ShadowAtlasAPI {
       const result = await this.registrationService.replaceLeaf(
         validation.data.oldLeafIndex,
         validation.data.newLeaf,
+        { attestationHash: validation.data.attestationHash }, // W40-002: forward attestationHash
       );
 
       // BR5-007: Notify sync service for periodic IPFS backup
@@ -852,11 +889,26 @@ export class ShadowAtlasAPI {
         this.syncService.notifyInsertion(log);
       }
 
+      // W40-003: Generate signed receipt for replacements (parity with /v1/register)
+      let receipt: { data: string; sig: string } | undefined;
+      if (this.signer) {
+        const receiptData = JSON.stringify({
+          leafIndex: result.leafIndex,
+          leaf: validation.data.newLeaf,
+          userRoot: result.userRoot,
+          ts: Date.now(),
+        });
+        receipt = {
+          data: receiptData,
+          sig: this.signer.sign(receiptData),
+        };
+      }
+
       // No cache for mutations
       res.setHeader('Cache-Control', 'no-store');
 
       this.sendSuccessResponse(
-        res, result, requestId, false,
+        res, { ...result, receipt }, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -1140,6 +1192,46 @@ export class ShadowAtlasAPI {
   }
 
   /**
+   * Handle GET /v1/signing-key endpoint
+   *
+   * Returns the server's Ed25519 public key so anyone can independently
+   * verify insertion log signatures and registration receipts.
+   * This is the foundation of the "verifiable solo operator" trust model.
+   */
+  private handleSigningKey(res: ServerResponse, requestId: string, req?: IncomingMessage): void {
+    // W40-009: Rate limit to prevent DoS
+    if (req) {
+      const clientId = this.getClientId(req);
+      const rateResult = this.rateLimiter.check(clientId);
+      if (!rateResult.allowed) {
+        this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+        return;
+      }
+    }
+
+    if (!this.signer) {
+      this.sendErrorResponse(
+        res, 501, 'SIGNING_UNAVAILABLE',
+        'Server signing not configured',
+        requestId,
+      );
+      return;
+    }
+
+    this.sendSuccessResponse(
+      res,
+      {
+        publicKey: this.signer.info.publicKey,
+        publicKeyHex: this.signer.getPublicKeyHex(),
+        fingerprint: this.signer.info.fingerprint,
+        algorithm: 'Ed25519',
+      },
+      requestId,
+      true, // Cache-friendly — public key doesn't change
+    );
+  }
+
+  /**
    * Set comprehensive security headers
    */
   private setSecurityHeaders(res: ServerResponse, requestId: string, req?: IncomingMessage): void {
@@ -1379,6 +1471,7 @@ export async function createShadowAtlasAPI(
     cellMapState?: CellMapState;
     registrationAuthToken?: string;
     syncService?: SyncService;
+    signer?: ServerSigner;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services
@@ -1411,6 +1504,7 @@ export async function createShadowAtlasAPI(
     options.registrationService ?? null,
     options.cellMapState ?? null,
     options.registrationAuthToken ?? process.env.REGISTRATION_AUTH_TOKEN ?? null,
+    options.signer ?? null,
   );
 
   return api;

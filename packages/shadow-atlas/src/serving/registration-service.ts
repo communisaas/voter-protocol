@@ -146,7 +146,14 @@ export class RegistrationService {
     // BR5-007: Open insertion log and replay if entries exist
     if (logOptions) {
       service.insertionLog = await InsertionLog.open(logOptions);
-      const entries = await service.insertionLog.replay();
+      const { entries, verification } = await service.insertionLog.replay();
+
+      if (verification.brokenLinks > 0 || verification.invalidSignatures > 0) {
+        logger.error('RegistrationService: insertion log integrity compromised', {
+          brokenLinks: verification.brokenLinks,
+          invalidSignatures: verification.invalidSignatures,
+        });
+      }
 
       if (entries.length > 0) {
         logger.info('RegistrationService replaying insertion log', {
@@ -182,21 +189,23 @@ export class RegistrationService {
   /**
    * Insert a precomputed leaf hash into Tree 1.
    *
-   * The leaf is the client-computed Poseidon2_H3(user_secret, cell_id, registration_salt).
+   * The leaf is the client-computed Poseidon2_H4(user_secret, cell_id, registration_salt, authority_level).
    * The operator sees ONLY this hash value.
    *
    * @param leafHex - Hex-encoded leaf hash (with or without 0x prefix)
+   * @param options - Optional metadata to record with the insertion
+   * @param options.attestationHash - Hash of the identity attestation that authorized this insertion
    * @returns Registration result with Merkle proof
    * @throws Error if leaf is zero, exceeds field, is duplicate, or tree is full
    */
-  async insertLeaf(leafHex: string): Promise<RegistrationResult> {
+  async insertLeaf(leafHex: string, options?: { attestationHash?: string }): Promise<RegistrationResult> {
     // Parse and validate
     const leaf = this.parseLeaf(leafHex);
 
     // Acquire mutex for serialized insertion
     const release = await this.acquireLock();
     try {
-      return await this.insertLeafInternal(leaf);
+      return await this.insertLeafInternal(leaf, options);
     } finally {
       release();
     }
@@ -244,6 +253,7 @@ export class RegistrationService {
   async replaceLeaf(
     oldLeafIndex: number,
     newLeafHex: string,
+    options?: { attestationHash?: string },
   ): Promise<RegistrationResult> {
     // Parse and validate new leaf (BN254 bounds, non-zero, valid hex)
     const newLeaf = this.parseLeaf(newLeafHex);
@@ -346,6 +356,7 @@ export class RegistrationService {
           ts: Date.now(),
           type: 'replace',
           oldIndex: oldLeafIndex,
+          attestationHash: options?.attestationHash,
         });
       }
 
@@ -354,6 +365,7 @@ export class RegistrationService {
         newLeafIndex,
         treeSize: this.nextLeafIndex,
         persistent: this.insertionLog != null,
+        attestationBound: !!options?.attestationHash,
         rootPrefix: '0x' + this.root.toString(16).slice(0, 16) + '...',
       });
 
@@ -545,7 +557,7 @@ export class RegistrationService {
     return leaf;
   }
 
-  private async insertLeafInternal(leaf: bigint): Promise<RegistrationResult> {
+  private async insertLeafInternal(leaf: bigint, options?: { attestationHash?: string }): Promise<RegistrationResult> {
     const leafHex = leaf.toString(16);
 
     // Duplicate check
@@ -589,6 +601,7 @@ export class RegistrationService {
         leaf: '0x' + leaf.toString(16),
         index: leafIndex,
         ts: Date.now(),
+        attestationHash: options?.attestationHash,
       });
     }
 
@@ -596,6 +609,7 @@ export class RegistrationService {
       leafIndex,
       treeSize: this.nextLeafIndex,
       persistent: this.insertionLog != null,
+      attestationBound: !!options?.attestationHash,
       rootPrefix: '0x' + this.root.toString(16).slice(0, 16) + '...',
     });
 

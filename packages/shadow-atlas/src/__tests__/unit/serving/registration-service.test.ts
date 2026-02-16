@@ -407,7 +407,7 @@ describe('RegistrationService', () => {
         await serviceWithLog.replaceLeaf(0, '0x' + 'ff'.padStart(64, '0'));
 
         const log = serviceWithLog.getInsertionLog()!;
-        const entries = await log.replay();
+        const { entries } = await log.replay();
 
         expect(entries).toHaveLength(2);
         expect(entries[0].index).toBe(0);

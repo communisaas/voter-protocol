@@ -56,9 +56,9 @@ export interface ZKProofResult {
   readonly publicInputs: {
     readonly merkleRoot: string;
     readonly nullifier: string;
-    readonly authorityHash: string;
-    readonly epochId: string;
-    readonly campaignId: string;
+    readonly authorityLevel: string;
+    readonly actionDomain: string;
+    readonly districtId: string;
   };
 }
 
@@ -131,9 +131,9 @@ export class ZKProofService {
       publicInputs: {
         merkleRoot: districtProof.publicInputs[0],
         nullifier: districtProof.publicInputs[1],
-        authorityHash: districtProof.publicInputs[2],
-        epochId: districtProof.publicInputs[3],
-        campaignId: districtProof.publicInputs[4],
+        authorityLevel: districtProof.publicInputs[2],
+        actionDomain: districtProof.publicInputs[3],
+        districtId: districtProof.publicInputs[4],
       },
     };
   }
@@ -156,18 +156,18 @@ export class ZKProofService {
       publicInputs: [
         publicInputs.merkleRoot,
         publicInputs.nullifier,
-        publicInputs.authorityHash,
-        publicInputs.epochId,
-        publicInputs.campaignId,
+        publicInputs.authorityLevel,
+        publicInputs.actionDomain,
+        publicInputs.districtId,
       ],
     };
 
-    const verificationConfig = {
+    const verificationConfig: import('@voter-protocol/crypto/district-prover').VerificationConfig = {
       expectedRoot: publicInputs.merkleRoot,
       expectedNullifier: publicInputs.nullifier,
-      expectedAuthorityHash: publicInputs.authorityHash,
-      expectedEpochId: publicInputs.epochId,
-      expectedCampaignId: publicInputs.campaignId,
+      expectedAuthorityLevel: Number(publicInputs.authorityLevel),
+      expectedActionDomain: publicInputs.actionDomain,
+      expectedDistrictId: publicInputs.districtId,
     };
 
     return this.prover!.verifyProof(districtProof, verificationConfig);
@@ -389,32 +389,24 @@ export class ProofService {
   }
 
   /**
-   * Convert Merkle proof to Circuit inputs
+   * Convert Merkle proof to Circuit inputs (single-tree DistrictWitness format)
    *
    * @param merkleProof - Merkle proof from generateProof()
-   * @param userSecret - User secret for nullifier generation
-   * @param campaignId - Campaign ID
-   * @param authorityHash - Authority hash
-   * @param epochId - Epoch ID
+   * @param userSecret - User secret for leaf computation
+   * @param actionDomain - Contract-controlled action domain separator
+   * @param districtId - District identifier
+   * @param authorityLevel - Authority tier (1-5)
+   * @param registrationSalt - Salt assigned during registration
    * @returns Circuit inputs ready for ZK proof generation
    */
   async mapToCircuitInputs(
     merkleProof: MerkleProof,
     userSecret: string,
-    campaignId: string,
-    authorityHash: string,
-    epochId: string
+    actionDomain: string,
+    districtId: string,
+    authorityLevel: number,
+    registrationSalt: string
   ): Promise<CircuitInputs> {
-    // SECURITY FIX: Compute actual nullifier using Poseidon2 hash
-    // Nullifier = hash_4(userSecret, campaignId, authorityHash, epochId)
-    // This ensures deterministic but unique nullifier per (user, campaign, authority, epoch)
-    const nullifier = await this.hashMultiple([
-      userSecret,
-      campaignId,
-      authorityHash,
-      epochId,
-    ]);
-
     // Convert merkle_path to array of hex strings
     const ZERO_HASH = '0x' + BigInt(0).toString(16).padStart(64, '0');
     const merklePath = merkleProof.siblings.map((sibling) =>
@@ -436,14 +428,13 @@ export class ProofService {
 
     return {
       merkle_root: '0x' + merkleProof.root.toString(16).padStart(64, '0'),
-      nullifier,
-      authority_hash: authorityHash,
-      epoch_id: epochId,
-      campaign_id: campaignId,
-      leaf: '0x' + merkleProof.leaf.toString(16).padStart(64, '0'),
+      action_domain: actionDomain,
+      user_secret: userSecret,
+      district_id: districtId,
+      authority_level: authorityLevel,
+      registration_salt: registrationSalt,
       merkle_path: merklePath,
       leaf_index: merkleProof.pathIndices.reduce((acc, bit, i) => acc | (bit << i), 0),
-      user_secret: userSecret,
     };
   }
 
@@ -454,18 +445,18 @@ export class ProofService {
    *
    * @param districtId - District ID to prove
    * @param userSecret - User secret for nullifier
-   * @param campaignId - Campaign ID
-   * @param authorityHash - Authority hash
-   * @param epochId - Epoch ID
+   * @param actionDomain - Contract-controlled action domain separator
+   * @param authorityLevel - Authority tier (1-5)
+   * @param registrationSalt - Salt assigned during registration
    * @returns ZK proof with public inputs
    * @throws Error if ZK service not initialized (must pass zkConfig to create())
    */
   async generateZKProof(
     districtId: string,
     userSecret: string,
-    campaignId: string,
-    authorityHash: string,
-    epochId: string
+    actionDomain: string,
+    authorityLevel: number,
+    registrationSalt: string
   ): Promise<ZKProofResult> {
     if (!this.zkService) {
       throw new Error(
@@ -476,13 +467,14 @@ export class ProofService {
     // 1. Get Merkle inclusion proof
     const merkleProof = await this.generateProof(districtId);
 
-    // 2. Convert to circuit inputs (now async due to nullifier computation)
+    // 2. Convert to circuit inputs
     const circuitInputs = await this.mapToCircuitInputs(
       merkleProof,
       userSecret,
-      campaignId,
-      authorityHash,
-      epochId
+      actionDomain,
+      districtId,
+      authorityLevel,
+      registrationSalt
     );
 
     // 3. Generate ZK proof
