@@ -41,15 +41,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Extract TIGER data for all 50 states
         id: extract
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Create extraction directory
           mkdir -p .shadow-atlas/tiger-quarterly
@@ -77,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tiger-extraction
-          path: packages/crypto/.shadow-atlas/tiger-quarterly/
+          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
           retention-days: 90
 
   validate-extraction:
@@ -94,20 +93,19 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Download extraction data
         uses: actions/download-artifact@v4
         with:
           name: tiger-extraction
-          path: packages/crypto/.shadow-atlas/tiger-quarterly/
+          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
 
       - name: Validate all 50 states
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Run comprehensive validation
           REPORT=".shadow-atlas/tiger-quarterly/multi-state-validation-report.json"
@@ -138,7 +136,7 @@ jobs:
           echo "✅ Validation passed with $PASS_RATE% pass rate"
 
       - name: Check for data quality issues
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           REPORT=".shadow-atlas/tiger-quarterly/multi-state-validation-report.json"
 
@@ -177,21 +175,20 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Download extraction data
         uses: actions/download-artifact@v4
         with:
           name: tiger-extraction
-          path: packages/crypto/.shadow-atlas/tiger-quarterly/
+          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
 
       - name: Build Merkle tree
         id: merkle
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Build Merkle tree from TIGER data
           # This should invoke the merkle-tree-builder service
@@ -211,7 +208,7 @@ jobs:
           echo "  Root Hash: $ROOT_HASH"
 
       - name: Generate Merkle proofs
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Generate sample proofs for testing
           echo "Generating Merkle proofs..."
@@ -225,7 +222,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: merkle-tree
-          path: packages/crypto/.shadow-atlas/tiger-quarterly/
+          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
           retention-days: 180
 
   publish-ipfs:
@@ -242,7 +239,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: merkle-tree
-          path: packages/crypto/.shadow-atlas/tiger-quarterly/
+          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
 
       - name: Setup IPFS
         uses: ibnesayeed/setup-ipfs@master
@@ -258,7 +255,7 @@ jobs:
           sleep 10
 
           # Add directory to IPFS
-          CID=$(ipfs add -r packages/crypto/.shadow-atlas/tiger-quarterly/ | tail -n 1 | awk '{print $2}')
+          CID=$(ipfs add -r packages/shadow-atlas/.shadow-atlas/tiger-quarterly/ | tail -n 1 | awk '{print $2}')
 
           echo "IPFS CID: $CID"
           echo "cid=$CID" >> $GITHUB_OUTPUT
@@ -303,14 +300,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Update on-chain registry
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         env:
           PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
           RPC_URL: ${{ secrets.SCROLL_RPC_URL }}

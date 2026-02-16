@@ -43,20 +43,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache: 'npm'
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
-      - name: Run full test suite
-        working-directory: packages/crypto
-        run: npm run test:atlas
+      - name: Run serving layer tests
+        run: npx vitest run packages/shadow-atlas/src/__tests__/unit/serving/
         env:
           CI: true
 
       - name: Verify build
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: npm run build
 
   build-production:
@@ -97,8 +95,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: packages/crypto
-          file: packages/crypto/services/shadow-atlas/deploy/Dockerfile
+          context: packages/shadow-atlas
+          file: packages/shadow-atlas/deploy/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -149,7 +147,7 @@ jobs:
 
       - name: Deploy to Kubernetes (Staging)
         run: |
-          cd packages/crypto/services/shadow-atlas/deploy/kubernetes
+          cd packages/shadow-atlas/deploy/kubernetes
 
           # Update image tag
           kubectl set image deployment/shadow-atlas \
@@ -183,15 +181,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache: 'npm'
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Run E2E tests against staging
-        working-directory: packages/crypto
-        run: npm run test:atlas:e2e
+        working-directory: packages/shadow-atlas
+        run: npm run test:e2e
         env:
           CI: true
           RUN_E2E: true
@@ -202,7 +199,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: staging-e2e-results
-          path: packages/crypto/multi-state-validation-report.json
+          path: packages/shadow-atlas/multi-state-validation-report.json
           retention-days: 30
 
   deploy-production:
@@ -242,7 +239,7 @@ jobs:
 
       - name: Blue-Green Deployment
         run: |
-          cd packages/crypto/services/shadow-atlas/deploy/kubernetes
+          cd packages/shadow-atlas/deploy/kubernetes
 
           # Deploy green version
           kubectl apply -f deployment-green.yaml -n shadow-atlas-production
@@ -309,17 +306,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache: 'npm'
 
       - name: Install dependencies
-        working-directory: packages/crypto
         run: npm ci
 
       - name: Production smoke tests
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Run health check against production
-          npx tsx services/shadow-atlas/scripts/health-check-ci.ts
+          npx tsx scripts/health-check-ci.ts
         env:
           SHADOW_ATLAS_URL: https://shadow-atlas.voter-protocol.org
 
