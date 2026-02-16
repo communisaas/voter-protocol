@@ -222,3 +222,12 @@ analysis-output/
 packages/noir-prover/profiler.html
 packages/noir-prover/serve-profiler.js
 packages/noir-prover/profiler-entry.ts
+
+# Test/runtime artifacts (SQLite :memory: path, discovery logs, snapshots)
+:memory:/
+.shadow-atlas/
+test-discovery-attempts/
+provenance/
+
+# Vendor submodules (use npm packages instead)
+vendor/

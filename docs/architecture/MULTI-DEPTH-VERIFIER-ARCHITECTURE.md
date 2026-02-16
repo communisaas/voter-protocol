@@ -1,5 +1,11 @@
 # Multi-Depth ZK Verifier Architecture
 
+> **PARTIALLY STALE (2026-02-11)**: This document was written for the **single-tree** circuit with **5 public inputs**.
+> The codebase has migrated to the **two-tree** circuit with **29 public inputs** (see `DistrictGate.sol:184`).
+> The registry-based depth routing and deployment patterns described here remain accurate, but all references to
+> `verifyProof(bytes,uint256[5])` should be read as `verifyProof(bytes,uint256[29])` for the two-tree path.
+> See `specs/PUBLIC-INPUT-FIELD-REFERENCE.md` for the canonical 29-input naming.
+
 **Classification**: Technical Architecture - Smart Contract Design
 **Last Updated**: 2026-01-25
 **Status**: Proposed Design for International Support

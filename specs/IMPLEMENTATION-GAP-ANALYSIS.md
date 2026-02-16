@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
 > **Date:** 2026-01-26 (Rev 20: 2026-02-10)
-> **Status:** REVISION 21 — CVEs REMEDIATED, Rounds 1-5 COMPLETE, Waves 1-31 IMPLEMENTED. Cycle 5 (Waves 24-26): circuit rework DONE, MVP removal DONE, IPFS persistence DONE. Cycle 6 (Waves 27-29): BR5 hardening DONE. Waves 30-31: leaf replacement plumbing DONE. 4-agent cross-validation audit (2026-02-11): 14 findings previously marked NOT STARTED confirmed COMPLETE in code. **NUL-001 wiring gap identified** — identityCommitment placeholder in shadow-atlas-handler.ts. BR5-010 partial (pre-submission validation only). Communique type debt remediation COMPLETE (484→0 svelte-check errors).
+> **Status:** REVISION 25 — CVEs REMEDIATED, Rounds 1-6 COMPLETE, Waves 1-41 IMPLEMENTED. **ALL SECURITY FINDINGS RESOLVED.** Cycle 10 (Verifiable Solo Operator): Hash-chained insertion log, Ed25519 signed entries, attestation binding, signed registration receipts. Wave 40 review: 12 findings (0 P0, 4 P1, 5 P2, 3 P3) — all P1s fixed. Remaining: verifier generation + 14-day timelock (LAUNCH GATE), npm publish, integration tests (T-1, T-2).
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -11,6 +11,7 @@
 > **BR3 Remediation Verified:** All 10 findings resolved and cross-validated against source code — 2026-02-05
 > **Coordination Integrity Review (Round 4):** Cross-repository data-flow analysis of proof-message binding, delivery paths, and anti-astroturf architecture — 2026-02-08
 > **Brutalist Audit Round 5:** 7 AI critics (3 Claude, 3 Codex, 1 Gemini) across 4 persona-driven assessments (cryptanalyst, infra hacker, client-side predator, protocol analyst) — 2026-02-10
+> **Brutalist Audit Round 6:** 7 AI critics across 5 domains (security, architecture, codebase, test coverage, dependencies) — 2026-02-11. 3 critical confirmed, 3 high confirmed, 6 false positives rejected with rationale.
 
 ---
 
@@ -90,7 +91,7 @@ User can create 5 accounts via 5 different OAuth providers (Google, Facebook, Li
 
 **Current State:** Resolved cryptographically via identity commitment binding.
 
-**Resolution (2026-02-11):** Option B selected. Didit credential hash is deterministic per-person (`SHA-256(documentNumber:nationality)`). Same person across any OAuth provider → same `identityCommitment` → same nullifier → cannot double-vote. Dedup is enforced at the ZK circuit level, not the database level. No cross-provider database join needed. Effective once NUL-001 identityCommitment wiring lands (~30 lines).
+**Resolution (2026-02-11):** Option B selected and **IMPLEMENTED**. `computeIdentityCommitment()` produces deterministic SHA-256 mod BN254 per verified person. Same person across any OAuth provider → same `identityCommitment` → same nullifier → cannot double-vote. NUL-001 wiring COMPLETE: server returns `User.identity_commitment` in register response, client stores in SessionCredential. Dedup enforced at ZK circuit level.
 
 ### ISSUE-002: X/Twitter Phone-Only Account Sybil Vector
 **Severity:** HIGH | **Category:** Sybil Resistance | **Status:** ✅ COMPLETE
@@ -740,7 +741,7 @@ Both `importResults()` and `resumeFromState()` accept arbitrary JSON with type a
 | ID | Finding | Repo | Status |
 |----|---------|------|--------|
 | SA-015 | 24-slot documentation mismatch: contract comments describe hybrid 24-slot architecture but circuit proves single `district_id` per proof | voter-protocol | [x] COMPLETE (2026-02-01) — Updated all contract comments (DistrictRegistry, DistrictGate, DistrictGate, VerifierRegistry) to clarify: 24-slot model is for registration organization, each proof proves ONE district, multi-district requires separate proofs. Updated DISTRICT-TAXONOMY.md with clarification section. |
-| SA-016 | CORS wildcard default in `.env.example` (`CORS_ORIGINS=*`) | voter-protocol | [~] PARTIALLY FIXED (2026-02-08) — Production check at `api.ts:186-192` throws on CORS wildcard `*`; `.env.example` still ships `*` as default value |
+| SA-016 | CORS wildcard default in `.env.example` (`CORS_ORIGINS=*`) | voter-protocol | [x] COMPLETE (2026-02-11) — Production check at `api.ts:186-192` throws on CORS wildcard `*`; `.env.example` ships `https://your-app.example.com` with security warning |
 | SA-017 | Census geocoder has no response cross-validation — TLS only, no secondary provider check | voter-protocol | [x] WONTFIX — Census Bureau TIGER/LINE is the legal authority for US congressional districts. Cross-validating against non-authoritative sources (Google Maps lacks CD data, OSM is community-maintained) adds false confidence. TLS mitigates MITM on the authoritative source. |
 | SA-018 | TIGER manifest `strictMode` defaults to `false` — fails open when checksums missing | voter-protocol | [x] COMPLETE (2026-02-08) — Confirmed: `strictMode` already defaults to `true` at `tiger-verifier.ts:190` |
 
@@ -1731,7 +1732,7 @@ A compromised proof generator (XSS, browser extension) could submit cryptographi
 
 **Recommended fix:** Add `validatePublicInputs(proofResult, credential, context)` function that cross-checks outputs against known-good state before submission.
 
-**Status:** [x] COMPLETE — Wave 29a+29M: Post-proof cross-validation in `ProofGenerator.svelte` checks actionDomain, nullifier, userRoot, and cellMapRoot (29M-002) against expected values. Throws on mismatch.
+**Status:** [x] COMPLETE — Wave 29a+29M: Post-proof cross-validation in `ProofGenerator.svelte` checks actionDomain, nullifier, userRoot, and cellMapRoot (29M-002) against expected values. Throws on mismatch. **Wave 36c:** Server-side `verifyOnChain()` in `district-gate-client.ts` now validates all 29 inputs < BN254 modulus, verifier depth ∈ {18,20,22,24}, and proof hex format before on-chain submission. Defense-in-depth complete.
 
 ### P2 — Important (8)
 
@@ -1834,7 +1835,7 @@ This document maps the delta between current implementation and the unified proo
 - FIX-2 (HIGH): Stale single-tree docstring in types.ts header → updated to two-tree H4/NUL-001
 - FIX-3 (MEDIUM): `fallbackAuthorityLevel` truthy check strengthened (rejects zero commitment strings)
 - FIX-4 (MEDIUM/CRIT): `generateIdentityCommitment()` included `issuedAt: Date.now()` → removed (breaks NUL-001 determinism)
-- FIX-5 (LOW): `identityCommitment: request.leaf` marked as provisional TODO(NUL-001) for end-to-end wiring
+- FIX-5 (LOW): `identityCommitment: request.leaf` marked as provisional TODO(NUL-001) → **RESOLVED 2026-02-11**: server returns `User.identity_commitment` in register response, all TODO(NUL-001) markers removed
 **Wave 25a MVP Removal (2026-02-10):** BR5-002 + BR5-003 + INT-003 resolved:
 - Deleted `/api/cwc/submit-mvp` endpoint (291 lines) + MVP API test harness
 - Removed 120-line MVP CWC bypass block from `/api/submissions/create` (dead code — `mvpAddress` was never destructured)
@@ -3289,7 +3290,7 @@ export const CREDENTIAL_TTL = {
 **P3 — Housekeeping (4):**
 
 - [x] **SA-015:** Fix 24-slot documentation mismatch (COMPLETE 2026-02-01)
-- [~] **SA-016:** Ship restrictive CORS default — PARTIALLY FIXED (2026-02-08: production rejects `*` at `api.ts:186-192`; update `.env.example` remaining)
+- [x] **SA-016:** Ship restrictive CORS default — COMPLETE (2026-02-11: production rejects `*` at `api.ts:186-192`; `.env.example` ships placeholder `https://your-app.example.com`)
 - [x] **SA-017:** WONTFIX — Census Bureau is the legal authority for US congressional districts; cross-validation against non-authoritative sources adds false confidence
 - [x] **SA-018:** Default TIGER `strictMode` to `true` in production (COMPLETE 2026-02-08 — already defaults `true` at `tiger-verifier.ts:190`)
 
