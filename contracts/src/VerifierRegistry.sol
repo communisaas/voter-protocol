@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19;
 
 import "./TimelockGovernance.sol";
 
@@ -24,24 +24,31 @@ import "./TimelockGovernance.sol";
 /// The 24-slot model describes the registration taxonomy, not the circuit output.
 /// Multi-district verification requires separate proof verifications per district.
 ///
-/// SECURITY MODEL (HIGH-001 FIX):
-/// ALL verifier registrations (initial AND upgrades) require 14-day timelock.
-/// This prevents front-running attacks where a compromised governance key could
-/// instantly register a malicious verifier that accepts all proofs.
+/// SECURITY MODEL:
+/// Two-phase registration with genesis bootstrapping:
 ///
-/// ATTACK SCENARIO (PREVENTED):
+/// GENESIS PHASE (pre-sealGenesis):
+///   registerVerifier() — direct registration, no timelock.
+///   At genesis there are no users to front-run and the deployer IS governance.
+///   Deployment tx is publicly visible on-chain for auditability.
+///
+/// POST-GENESIS (after sealGenesis):
+///   proposeVerifier() + 14-day timelock for NEW depths (HIGH-001 fix).
+///   proposeVerifierUpgrade() + 14-day timelock for existing depths.
+///   Community has 14 days to audit bytecode and respond to proposals.
+///
+/// ATTACK SCENARIO (PREVENTED POST-GENESIS):
 /// 1. Protocol announces support for new depth (e.g., depth 26)
 /// 2. Attacker compromises governance key
-/// 3. Attacker attempts to front-run with registerVerifier(26, maliciousVerifier)
-/// 4. FIX: 14-day timelock gives community time to detect and respond
+/// 3. Attacker attempts to front-run with proposeVerifier(26, maliciousVerifier)
+/// 4. 14-day timelock gives community time to detect and respond
 ///
 /// VERIFIER LIFECYCLE:
 /// 1. Noir circuit compiled with DEPTH constant (e.g., DEPTH=20)
 /// 2. Generates UltraPlonkVerifier_Depth{N}.sol with embedded VK
-/// 3. Deployed to Scroll, governance proposes registration
-/// 4. 14-day timelock: Community audits new verifier bytecode
-/// 5. After timelock: Anyone can execute registration
-/// 6. DistrictGate looks up verifier by depth during verification
+/// 3a. GENESIS: Deploy verifier, call registerVerifier(depth, addr)
+/// 3b. POST-GENESIS: Deploy verifier, proposeVerifier(depth, addr), wait 14 days
+/// 4. DistrictGate looks up verifier by depth during verification
 contract VerifierRegistry is TimelockGovernance {
     /// @notice Maximum district types a user can be registered in (20 defined + 4 overflow)
     /// @dev Each proof proves ONE district. This constant defines the registration model.
@@ -59,9 +66,16 @@ contract VerifierRegistry is TimelockGovernance {
     /// @notice Execution timestamps for verifier proposals
     mapping(uint8 => uint256) public verifierExecutionTime;
 
-    /// @notice Verifier registration/upgrade timelock (14 days)
-    /// @dev All verifier changes require timelock - no instant registration (HIGH-001 fix)
+    /// @notice Verifier upgrade timelock (14 days)
+    /// @dev Upgrades to existing verifiers require 14-day timelock (HIGH-001 fix).
+    ///      Initial registration uses direct registerVerifier() — at genesis there
+    ///      are no users to protect, and the deployer IS the governance.
+    ///      Post-genesis NEW depths use proposeVerifier() + timelock.
     uint256 public constant VERIFIER_TIMELOCK = 14 days;
+
+    /// @notice Whether genesis registration phase is complete
+    /// @dev Once sealed, all new registrations require the timelock path
+    bool public genesisSealed;
 
     /// @notice Minimum supported depth
     uint8 public constant MIN_DEPTH = 18;
@@ -74,6 +88,7 @@ contract VerifierRegistry is TimelockGovernance {
     event VerifierRegistered(uint8 indexed depth, address indexed verifier);
     event VerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
     event VerifierProposalCancelled(uint8 indexed depth, address indexed target);
+    event GenesisSealed();
 
     // Errors
     error InvalidDepth();
@@ -81,22 +96,52 @@ contract VerifierRegistry is TimelockGovernance {
     error VerifierAlreadyRegistered();
     error ProposalNotInitiated();
     error ProposalAlreadyPending();
+    error GenesisAlreadySealed();
 
     constructor(address _governance) {
         _initializeGovernance(_governance);
     }
 
     // ============================================================================
-    // Verifier Registration (14-day timelock - HIGH-001 FIX)
+    // Genesis Registration (no timelock — deployer IS governance)
     // ============================================================================
 
-    /// @notice Propose initial verifier registration (starts 14-day timelock)
+    /// @notice Direct verifier registration during genesis phase
     /// @param depth Merkle tree depth (18, 20, 22, or 24)
     /// @param verifier Address of deployed verifier contract
-    /// @dev HIGH-001 FIX: Initial registration now requires timelock
-    ///      This prevents front-running attacks with malicious verifiers
-    ///      Monitor VerifierProposed events - community has 14 days to audit
+    /// @dev Only available before sealGenesis(). At genesis there are no users
+    ///      to protect from front-running — the deployer IS the sole operator.
+    ///      Once sealed, all future registrations require the timelock path.
+    function registerVerifier(uint8 depth, address verifier) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        _validateDepth(depth);
+        if (verifier == address(0)) revert ZeroAddress();
+        if (verifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+
+        verifierByDepth[depth] = verifier;
+
+        emit VerifierRegistered(depth, verifier);
+    }
+
+    /// @notice Seal genesis phase — all future changes require timelocks
+    /// @dev Irreversible. Call after initial verifiers are registered.
+    function sealGenesis() external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        genesisSealed = true;
+        emit GenesisSealed();
+    }
+
+    // ============================================================================
+    // Post-Genesis Registration (14-day timelock - HIGH-001 FIX)
+    // ============================================================================
+
+    /// @notice Propose new verifier registration (starts 14-day timelock)
+    /// @param depth Merkle tree depth (18, 20, 22, or 24)
+    /// @param verifier Address of deployed verifier contract
+    /// @dev Only for post-genesis NEW depth registrations.
+    ///      Monitor VerifierProposed events - community has 14 days to audit.
     function proposeVerifier(uint8 depth, address verifier) external onlyGovernance {
+        require(genesisSealed, "Seal genesis first");
         _validateDepth(depth);
         if (verifier == address(0)) revert ZeroAddress();
         if (verifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();

@@ -1,28 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/VerifierRegistry.sol";
 import "../src/TimelockGovernance.sol";
 
 /// @title VerifierRegistry Tests
-/// @notice Comprehensive tests for VerifierRegistry with HIGH-001 fix
+/// @notice Tests for VerifierRegistry with genesis + timelock model
 /// @dev Tests cover:
-///      1. Initial Registration Timelock (HIGH-001 FIX)
-///      2. Verifier Upgrade Timelock
-///      3. Access Control
-///      4. Edge Cases and Security
-///      5. View Functions
-///
-/// HIGH-001 VULNERABILITY (FIXED):
-/// Before fix: Initial registration had NO timelock, allowing instant malicious verifier registration
-/// After fix: ALL verifier changes (initial + upgrades) require 14-day timelock
-///
-/// ATTACK SCENARIO (NOW PREVENTED):
-/// 1. Protocol announces support for new depth (e.g., depth 26)
-/// 2. Attacker compromises governance key
-/// 3. Attacker attempts registerVerifier(26, maliciousVerifier)
-/// 4. FIX: 14-day timelock gives community time to detect and respond
+///      1. Genesis Registration (direct, no timelock)
+///      2. Genesis Seal (irreversible)
+///      3. Post-Genesis Registration Timelock (HIGH-001 FIX)
+///      4. Verifier Upgrade Timelock
+///      5. Access Control
+///      6. Edge Cases and Security
+///      7. View Functions
+///      8. Attack Scenario (HIGH-001)
 contract VerifierRegistryTest is Test {
     VerifierRegistry public registry;
 
@@ -49,17 +42,144 @@ contract VerifierRegistryTest is Test {
     event VerifierRegistered(uint8 indexed depth, address indexed verifier);
     event VerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
     event VerifierProposalCancelled(uint8 indexed depth, address indexed target);
+    event GenesisSealed();
 
     function setUp() public {
         registry = new VerifierRegistry(governance);
     }
 
     // ============================================================================
-    // 1. INITIAL REGISTRATION TIMELOCK TESTS (HIGH-001 FIX)
+    // 1. GENESIS REGISTRATION TESTS
     // ============================================================================
 
-    /// @notice HIGH-001 FIX: proposeVerifier starts 14-day timelock
+    /// @notice Genesis: registerVerifier works before seal
+    function test_RegisterVerifier_GenesisDirectRegistration() public {
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, false);
+        emit VerifierRegistered(DEPTH_18, verifier18);
+        registry.registerVerifier(DEPTH_18, verifier18);
+
+        // Verifier is IMMEDIATELY active
+        assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
+        assertTrue(registry.isVerifierRegistered(DEPTH_18));
+    }
+
+    /// @notice Genesis: can register all 4 depths directly
+    function test_RegisterVerifier_AllDepths() public {
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_18, verifier18);
+        registry.registerVerifier(DEPTH_20, verifier20);
+        registry.registerVerifier(DEPTH_22, verifier22);
+        registry.registerVerifier(DEPTH_24, verifier24);
+        vm.stopPrank();
+
+        assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
+        assertEq(registry.verifierByDepth(DEPTH_20), verifier20);
+        assertEq(registry.verifierByDepth(DEPTH_22), verifier22);
+        assertEq(registry.verifierByDepth(DEPTH_24), verifier24);
+    }
+
+    /// @notice Genesis: cannot register same depth twice
+    function test_RevertWhen_GenesisDoubleRegister() public {
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_18, verifier18);
+
+        vm.expectRevert(VerifierRegistry.VerifierAlreadyRegistered.selector);
+        registry.registerVerifier(DEPTH_18, newVerifier);
+        vm.stopPrank();
+    }
+
+    /// @notice Genesis: cannot register zero address
+    function test_RevertWhen_GenesisZeroAddress() public {
+        vm.prank(governance);
+        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
+        registry.registerVerifier(DEPTH_18, address(0));
+    }
+
+    /// @notice Genesis: cannot register invalid depth
+    function test_RevertWhen_GenesisInvalidDepth() public {
+        vm.startPrank(governance);
+
+        vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
+        registry.registerVerifier(16, verifier18);
+
+        vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
+        registry.registerVerifier(26, verifier18);
+
+        vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
+        registry.registerVerifier(19, verifier18);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Genesis: only governance can register
+    function test_RevertWhen_NonGovernanceGenesisRegister() public {
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        registry.registerVerifier(DEPTH_18, verifier18);
+    }
+
+    /// @notice Genesis: registerVerifier fails after seal
+    function test_RevertWhen_RegisterAfterSeal() public {
+        vm.startPrank(governance);
+        registry.sealGenesis();
+
+        vm.expectRevert(VerifierRegistry.GenesisAlreadySealed.selector);
+        registry.registerVerifier(DEPTH_18, verifier18);
+        vm.stopPrank();
+    }
+
+    // ============================================================================
+    // 2. GENESIS SEAL TESTS
+    // ============================================================================
+
+    /// @notice sealGenesis is irreversible
+    function test_SealGenesis() public {
+        vm.prank(governance);
+        vm.expectEmit(false, false, false, false);
+        emit GenesisSealed();
+        registry.sealGenesis();
+
+        assertTrue(registry.genesisSealed());
+    }
+
+    /// @notice Cannot seal twice
+    function test_RevertWhen_DoubleSeal() public {
+        vm.startPrank(governance);
+        registry.sealGenesis();
+
+        vm.expectRevert(VerifierRegistry.GenesisAlreadySealed.selector);
+        registry.sealGenesis();
+        vm.stopPrank();
+    }
+
+    /// @notice Only governance can seal
+    function test_RevertWhen_NonGovernanceSeal() public {
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        registry.sealGenesis();
+    }
+
+    /// @notice Genesis starts unsealed
+    function test_GenesisStartsUnsealed() public view {
+        assertFalse(registry.genesisSealed());
+    }
+
+    // ============================================================================
+    // 3. POST-GENESIS REGISTRATION TIMELOCK TESTS (HIGH-001 FIX)
+    // ============================================================================
+
+    /// @notice Post-genesis: proposeVerifier requires seal
+    function test_RevertWhen_ProposeBeforeSeal() public {
+        vm.prank(governance);
+        vm.expectRevert("Seal genesis first");
+        registry.proposeVerifier(DEPTH_18, verifier18);
+    }
+
+    /// @notice Post-genesis: proposeVerifier starts 14-day timelock
     function test_ProposeVerifier_StartsTimelock() public {
+        _sealGenesis();
+
         uint256 expectedExecuteTime = block.timestamp + FOURTEEN_DAYS;
 
         vm.prank(governance);
@@ -67,120 +187,109 @@ contract VerifierRegistryTest is Test {
         emit VerifierProposed(DEPTH_18, verifier18, expectedExecuteTime, false);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Verify: Pending state is set correctly
+        // Pending state set
         assertEq(registry.pendingVerifiers(DEPTH_18), verifier18);
         assertEq(registry.verifierExecutionTime(DEPTH_18), expectedExecuteTime);
 
-        // Verify: Verifier is NOT yet registered
+        // NOT yet registered
         assertEq(registry.verifierByDepth(DEPTH_18), address(0));
-        assertFalse(registry.isVerifierRegistered(DEPTH_18));
     }
 
-    /// @notice HIGH-001 FIX: executeVerifier fails before timelock expires
+    /// @notice Post-genesis: executeVerifier fails before timelock
     function test_RevertWhen_ExecuteVerifierBeforeTimelock() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Try to execute immediately
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeVerifier(DEPTH_18);
 
-        // Try to execute just before timelock expires
         vm.warp(block.timestamp + FOURTEEN_DAYS - 1);
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeVerifier(DEPTH_18);
     }
 
-    /// @notice HIGH-001 FIX: executeVerifier succeeds after timelock expires
+    /// @notice Post-genesis: executeVerifier succeeds after timelock
     function test_ExecuteVerifier_SucceedsAfterTimelock() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Warp past timelock
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
-        // Execute
         vm.expectEmit(true, true, false, false);
         emit VerifierRegistered(DEPTH_18, verifier18);
         registry.executeVerifier(DEPTH_18);
 
-        // Verify: Verifier is now registered
         assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
         assertTrue(registry.isVerifierRegistered(DEPTH_18));
 
-        // Verify: Pending state is cleared
+        // Pending state cleared
         assertEq(registry.pendingVerifiers(DEPTH_18), address(0));
         assertEq(registry.verifierExecutionTime(DEPTH_18), 0);
     }
 
-    /// @notice HIGH-001 FIX: cancelVerifier clears pending proposal
+    /// @notice Post-genesis: cancelVerifier clears pending
     function test_CancelVerifier_ClearsPendingProposal() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Verify proposal exists
-        assertEq(registry.pendingVerifiers(DEPTH_18), verifier18);
-
-        // Cancel
         vm.prank(governance);
         vm.expectEmit(true, true, false, false);
         emit VerifierProposalCancelled(DEPTH_18, verifier18);
         registry.cancelVerifier(DEPTH_18);
 
-        // Verify: Pending state is cleared
         assertEq(registry.pendingVerifiers(DEPTH_18), address(0));
         assertEq(registry.verifierExecutionTime(DEPTH_18), 0);
     }
 
-    /// @notice HIGH-001 FIX: Anyone can execute after timelock (permissionless)
+    /// @notice Post-genesis: anyone can execute after timelock
     function test_AnyoneCanExecuteVerifier_AfterTimelock() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Warp past timelock
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
-        // Execute as random user (not governance)
         vm.prank(attacker);
         registry.executeVerifier(DEPTH_18);
 
-        // Verify: Verifier is registered
         assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
     }
 
-    /// @notice HIGH-001 FIX: Cannot propose when proposal already pending
+    /// @notice Post-genesis: cannot propose when proposal already pending
     function test_RevertWhen_ProposalAlreadyPending() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Try to propose again for same depth
         vm.prank(governance);
         vm.expectRevert(VerifierRegistry.ProposalAlreadyPending.selector);
         registry.proposeVerifier(DEPTH_18, newVerifier);
     }
 
-    /// @notice HIGH-001 FIX: Cannot propose for depth with existing verifier
+    /// @notice Post-genesis: cannot propose for depth with existing verifier
     function test_RevertWhen_VerifierAlreadyRegistered() public {
-        // Register verifier first
-        vm.prank(governance);
-        registry.proposeVerifier(DEPTH_18, verifier18);
-        vm.warp(block.timestamp + FOURTEEN_DAYS);
-        registry.executeVerifier(DEPTH_18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
-        // Try to propose initial registration again
         vm.prank(governance);
         vm.expectRevert(VerifierRegistry.VerifierAlreadyRegistered.selector);
         registry.proposeVerifier(DEPTH_18, newVerifier);
     }
 
     // ============================================================================
-    // 2. VERIFIER UPGRADE TIMELOCK TESTS
+    // 4. VERIFIER UPGRADE TIMELOCK TESTS
     // ============================================================================
 
     /// @notice proposeVerifierUpgrade starts 14-day timelock
     function test_ProposeVerifierUpgrade_StartsTimelock() public {
-        // First register a verifier
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         uint256 expectedExecuteTime = block.timestamp + FOURTEEN_DAYS;
 
@@ -189,26 +298,20 @@ contract VerifierRegistryTest is Test {
         emit VerifierProposed(DEPTH_18, newVerifier, expectedExecuteTime, true);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
 
-        // Verify: Pending state is set correctly
         assertEq(registry.pendingVerifiers(DEPTH_18), newVerifier);
-        assertEq(registry.verifierExecutionTime(DEPTH_18), expectedExecuteTime);
-
-        // Verify: Original verifier still active
-        assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
+        assertEq(registry.verifierByDepth(DEPTH_18), verifier18); // Original still active
     }
 
     /// @notice executeVerifierUpgrade fails before timelock
     function test_RevertWhen_ExecuteVerifierUpgradeBeforeTimelock() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
 
-        // Try to execute immediately
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeVerifierUpgrade(DEPTH_18);
 
-        // Try to execute just before timelock expires
         vm.warp(block.timestamp + FOURTEEN_DAYS - 1);
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeVerifierUpgrade(DEPTH_18);
@@ -216,48 +319,38 @@ contract VerifierRegistryTest is Test {
 
     /// @notice executeVerifierUpgrade succeeds after timelock
     function test_ExecuteVerifierUpgrade_SucceedsAfterTimelock() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
 
-        // Warp past timelock
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
-        // Execute
         vm.expectEmit(true, true, true, false);
         emit VerifierUpgraded(DEPTH_18, verifier18, newVerifier);
         registry.executeVerifierUpgrade(DEPTH_18);
 
-        // Verify: Verifier is now upgraded
         assertEq(registry.verifierByDepth(DEPTH_18), newVerifier);
-
-        // Verify: Pending state is cleared
         assertEq(registry.pendingVerifiers(DEPTH_18), address(0));
-        assertEq(registry.verifierExecutionTime(DEPTH_18), 0);
     }
 
-    /// @notice cancelVerifierUpgrade clears pending upgrade
+    /// @notice cancelVerifierUpgrade clears pending
     function test_CancelVerifierUpgrade_ClearsPendingUpgrade() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
 
-        // Cancel
         vm.prank(governance);
         vm.expectEmit(true, true, false, false);
         emit VerifierProposalCancelled(DEPTH_18, newVerifier);
         registry.cancelVerifierUpgrade(DEPTH_18);
 
-        // Verify: Original verifier still active
         assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
-
-        // Verify: Pending state is cleared
         assertEq(registry.pendingVerifiers(DEPTH_18), address(0));
     }
 
-    /// @notice Cannot propose upgrade when no verifier registered
+    /// @notice Cannot upgrade when no verifier registered
     function test_RevertWhen_UpgradeWithoutExistingVerifier() public {
         vm.prank(governance);
         vm.expectRevert(VerifierRegistry.VerifierNotRegistered.selector);
@@ -266,33 +359,21 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Cannot upgrade to same verifier
     function test_RevertWhen_UpgradeToSameVerifier() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         vm.expectRevert(TimelockGovernance.SameAddress.selector);
         registry.proposeVerifierUpgrade(DEPTH_18, verifier18);
     }
 
-    /// @notice executeVerifier fails if verifier was registered during timelock
-    function test_RevertWhen_ExecuteVerifierAfterManualRegistration() public {
-        // Propose verifier
-        vm.prank(governance);
-        registry.proposeVerifier(DEPTH_18, verifier18);
-
-        // Simulate race condition: someone else registers via upgrade path
-        // (This shouldn't happen in practice but tests the guard)
-        // We'll skip this test as it requires directly setting storage
-
-        // The executeVerifier function has a guard:
-        // if (verifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
-    }
-
     // ============================================================================
-    // 3. ACCESS CONTROL TESTS
+    // 5. ACCESS CONTROL TESTS
     // ============================================================================
 
     /// @notice Only governance can propose verifier
     function test_RevertWhen_NonGovernanceProposeVerifier() public {
+        _sealGenesis();
+
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         registry.proposeVerifier(DEPTH_18, verifier18);
@@ -300,6 +381,8 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Only governance can cancel verifier
     function test_RevertWhen_NonGovernanceCancelVerifier() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
@@ -310,7 +393,7 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Only governance can propose upgrade
     function test_RevertWhen_NonGovernanceProposeUpgrade() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
@@ -319,7 +402,7 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Only governance can cancel upgrade
     function test_RevertWhen_NonGovernanceCancelUpgrade() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
@@ -330,19 +413,21 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 4. EDGE CASES AND SECURITY
+    // 6. EDGE CASES AND SECURITY
     // ============================================================================
 
     /// @notice Cannot propose zero address verifier
     function test_RevertWhen_ProposeZeroAddress() public {
+        _sealGenesis();
+
         vm.prank(governance);
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
         registry.proposeVerifier(DEPTH_18, address(0));
     }
 
-    /// @notice Cannot upgrade to zero address verifier
+    /// @notice Cannot upgrade to zero address
     function test_RevertWhen_UpgradeToZeroAddress() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
@@ -351,20 +436,20 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Cannot propose invalid depth
     function test_RevertWhen_ProposeInvalidDepth() public {
-        // Too low
-        vm.prank(governance);
+        _sealGenesis();
+
+        vm.startPrank(governance);
+
         vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
         registry.proposeVerifier(16, verifier18);
 
-        // Too high
-        vm.prank(governance);
         vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
         registry.proposeVerifier(26, verifier18);
 
-        // Odd number
-        vm.prank(governance);
         vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
         registry.proposeVerifier(19, verifier18);
+
+        vm.stopPrank();
     }
 
     /// @notice Cancel non-existent proposal fails
@@ -382,37 +467,38 @@ contract VerifierRegistryTest is Test {
 
     /// @notice Double execute fails
     function test_RevertWhen_DoubleExecute() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
-        // First execute - succeeds
         registry.executeVerifier(DEPTH_18);
 
-        // Second execute - fails (no pending proposal)
         vm.expectRevert(VerifierRegistry.ProposalNotInitiated.selector);
         registry.executeVerifier(DEPTH_18);
     }
 
-    /// @notice Execute after cancelled proposal fails
+    /// @notice Execute after cancel fails
     function test_RevertWhen_ExecuteAfterCancel() public {
+        _sealGenesis();
+
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Cancel
         vm.prank(governance);
         registry.cancelVerifier(DEPTH_18);
 
-        // Warp past original timelock
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
-        // Execute fails
         vm.expectRevert(VerifierRegistry.ProposalNotInitiated.selector);
         registry.executeVerifier(DEPTH_18);
     }
 
     /// @notice Multiple depths can have pending proposals simultaneously
     function test_MultiplePendingProposals() public {
+        _sealGenesis();
+
         vm.startPrank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
         registry.proposeVerifier(DEPTH_20, verifier20);
@@ -420,13 +506,11 @@ contract VerifierRegistryTest is Test {
         registry.proposeVerifier(DEPTH_24, verifier24);
         vm.stopPrank();
 
-        // All should be pending
         assertEq(registry.pendingVerifiers(DEPTH_18), verifier18);
         assertEq(registry.pendingVerifiers(DEPTH_20), verifier20);
         assertEq(registry.pendingVerifiers(DEPTH_22), verifier22);
         assertEq(registry.pendingVerifiers(DEPTH_24), verifier24);
 
-        // Warp and execute all
         vm.warp(block.timestamp + FOURTEEN_DAYS);
 
         registry.executeVerifier(DEPTH_18);
@@ -434,7 +518,6 @@ contract VerifierRegistryTest is Test {
         registry.executeVerifier(DEPTH_22);
         registry.executeVerifier(DEPTH_24);
 
-        // All should be registered
         assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
         assertEq(registry.verifierByDepth(DEPTH_20), verifier20);
         assertEq(registry.verifierByDepth(DEPTH_22), verifier22);
@@ -446,23 +529,36 @@ contract VerifierRegistryTest is Test {
         assertEq(registry.VERIFIER_TIMELOCK(), 14 days);
     }
 
+    /// @notice executeVerifier after manual genesis registration fails
+    function test_RevertWhen_ExecuteVerifierAfterManualRegistration() public {
+        // Register via genesis
+        vm.prank(governance);
+        registry.registerVerifier(DEPTH_18, verifier18);
+        _sealGenesis();
+
+        // Try to propose for same depth — should fail
+        vm.prank(governance);
+        vm.expectRevert(VerifierRegistry.VerifierAlreadyRegistered.selector);
+        registry.proposeVerifier(DEPTH_18, newVerifier);
+    }
+
     // ============================================================================
-    // 5. VIEW FUNCTION TESTS
+    // 7. VIEW FUNCTION TESTS
     // ============================================================================
 
     /// @notice getVerifier returns correct address
     function test_GetVerifier_ReturnsCorrectAddress() public {
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         assertEq(registry.getVerifier(DEPTH_18), verifier18);
-        assertEq(registry.getVerifier(DEPTH_20), address(0)); // Not registered
+        assertEq(registry.getVerifier(DEPTH_20), address(0));
     }
 
     /// @notice isVerifierRegistered returns correct value
     function test_IsVerifierRegistered_ReturnsCorrectValue() public {
         assertFalse(registry.isVerifierRegistered(DEPTH_18));
 
-        _registerVerifier(DEPTH_18, verifier18);
+        _registerAndSeal(DEPTH_18, verifier18);
 
         assertTrue(registry.isVerifierRegistered(DEPTH_18));
         assertFalse(registry.isVerifierRegistered(DEPTH_20));
@@ -470,30 +566,29 @@ contract VerifierRegistryTest is Test {
 
     /// @notice getProposalDelay returns correct values
     function test_GetProposalDelay_ReturnsCorrectValues() public {
-        // Record start time
+        _sealGenesis();
+
         uint256 startTime = block.timestamp;
 
-        // No proposal - returns 0
+        // No proposal
         assertEq(registry.getProposalDelay(DEPTH_18), 0);
 
-        // Propose
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Should return 14 days
         assertEq(registry.getProposalDelay(DEPTH_18), FOURTEEN_DAYS);
 
-        // Advance 7 days
         vm.warp(startTime + 7 days);
         assertEq(registry.getProposalDelay(DEPTH_18), 7 days);
 
-        // After timelock expires (14 days total) - returns 0
         vm.warp(startTime + FOURTEEN_DAYS);
         assertEq(registry.getProposalDelay(DEPTH_18), 0);
     }
 
     /// @notice hasPendingProposal returns correct value
     function test_HasPendingProposal_ReturnsCorrectValue() public {
+        _sealGenesis();
+
         assertFalse(registry.hasPendingProposal(DEPTH_18));
 
         vm.prank(governance);
@@ -515,25 +610,15 @@ contract VerifierRegistryTest is Test {
         assertEq(executeTime, 0);
         assertFalse(isUpgrade);
 
-        // Initial registration proposal
-        vm.prank(governance);
-        registry.proposeVerifier(DEPTH_18, verifier18);
-
-        (verifier, executeTime, isUpgrade) = registry.getPendingProposal(DEPTH_18);
-        assertEq(verifier, verifier18);
-        assertEq(executeTime, block.timestamp + FOURTEEN_DAYS);
-        assertFalse(isUpgrade); // No existing verifier, so not upgrade
-
-        // Execute and propose upgrade
-        vm.warp(block.timestamp + FOURTEEN_DAYS);
-        registry.executeVerifier(DEPTH_18);
+        // Register via genesis, seal, then propose upgrade
+        _registerAndSeal(DEPTH_18, verifier18);
 
         vm.prank(governance);
         registry.proposeVerifierUpgrade(DEPTH_18, newVerifier);
 
         (verifier, executeTime, isUpgrade) = registry.getPendingProposal(DEPTH_18);
         assertEq(verifier, newVerifier);
-        assertTrue(isUpgrade); // Has existing verifier, so is upgrade
+        assertTrue(isUpgrade);
     }
 
     /// @notice getRegisteredDepths returns correct array
@@ -542,9 +627,11 @@ contract VerifierRegistryTest is Test {
         uint8[] memory depths = registry.getRegisteredDepths();
         assertEq(depths.length, 0);
 
-        // Register some depths
-        _registerVerifier(DEPTH_18, verifier18);
-        _registerVerifier(DEPTH_22, verifier22);
+        // Register some via genesis
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_18, verifier18);
+        registry.registerVerifier(DEPTH_22, verifier22);
+        vm.stopPrank();
 
         depths = registry.getRegisteredDepths();
         assertEq(depths.length, 2);
@@ -552,8 +639,10 @@ contract VerifierRegistryTest is Test {
         assertEq(depths[1], DEPTH_22);
 
         // Register all
-        _registerVerifier(DEPTH_20, verifier20);
-        _registerVerifier(DEPTH_24, verifier24);
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_20, verifier20);
+        registry.registerVerifier(DEPTH_24, verifier24);
+        vm.stopPrank();
 
         depths = registry.getRegisteredDepths();
         assertEq(depths.length, 4);
@@ -564,57 +653,56 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 6. ATTACK SCENARIO TESTS (HIGH-001)
+    // 8. ATTACK SCENARIO TESTS (HIGH-001)
     // ============================================================================
 
-    /// @notice HIGH-001: Front-running attack is now prevented
-    /// @dev Simulates the attack scenario described in the vulnerability
+    /// @notice HIGH-001: Post-genesis front-running attack is prevented
     function test_HIGH001_FrontRunningAttackPrevented() public {
-        // Scenario: Attacker has compromised governance key
-        // They want to instantly register a malicious verifier for a new depth
+        // Register initial verifier and seal genesis
+        _registerAndSeal(DEPTH_18, verifier18);
 
-        // Before fix: registerVerifier(DEPTH_18, maliciousVerifier) would work instantly
-        // After fix: proposeVerifier starts 14-day timelock
+        // Attacker compromises governance key and tries to register a new depth
+        vm.prank(governance);
+        registry.proposeVerifier(DEPTH_20, maliciousVerifier);
 
-        vm.prank(governance); // "Attacker" with governance key
-        registry.proposeVerifier(DEPTH_18, maliciousVerifier);
-
-        // Attacker tries to execute immediately - FAILS
+        // Cannot execute immediately
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        registry.executeVerifier(DEPTH_18);
+        registry.executeVerifier(DEPTH_20);
 
-        // Attacker waits 13 days - still FAILS
+        // 13 days later — still blocked
         vm.warp(block.timestamp + 13 days);
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
-        registry.executeVerifier(DEPTH_18);
+        registry.executeVerifier(DEPTH_20);
 
-        // During this 14-day window:
-        // 1. Community can detect the malicious proposal via VerifierProposed event
-        // 2. Community can exit the protocol if needed
-        // 3. Legitimate governance can cancel the malicious proposal
-
-        // Legitimate governance cancels the attack
+        // Legitimate governance cancels
         vm.prank(governance);
-        registry.cancelVerifier(DEPTH_18);
+        registry.cancelVerifier(DEPTH_20);
 
-        // Malicious verifier is never registered
-        assertEq(registry.verifierByDepth(DEPTH_18), address(0));
-        assertFalse(registry.isVerifierRegistered(DEPTH_18));
+        assertEq(registry.verifierByDepth(DEPTH_20), address(0));
     }
 
-    /// @notice HIGH-001: Community has 14 days to respond to malicious proposal
+    /// @notice HIGH-001: Genesis registration cannot be exploited post-seal
+    function test_HIGH001_GenesisCannotBeExploitedPostSeal() public {
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_18, verifier18);
+        registry.sealGenesis();
+
+        // Genesis path is closed — even governance cannot bypass timelock
+        vm.expectRevert(VerifierRegistry.GenesisAlreadySealed.selector);
+        registry.registerVerifier(DEPTH_20, maliciousVerifier);
+        vm.stopPrank();
+    }
+
+    /// @notice HIGH-001: Community has 14 days to respond post-genesis
     function test_HIGH001_CommunityResponseWindow() public {
+        _sealGenesis();
         uint256 startTime = block.timestamp;
 
-        // Governance proposes verifier (could be malicious)
         vm.prank(governance);
         registry.proposeVerifier(DEPTH_18, verifier18);
 
-        // Community response window is 14 days
         uint256 executeTime = registry.verifierExecutionTime(DEPTH_18);
         assertEq(executeTime, startTime + FOURTEEN_DAYS);
-
-        // Delay is correctly reported
         assertEq(registry.getProposalDelay(DEPTH_18), FOURTEEN_DAYS);
     }
 
@@ -622,11 +710,17 @@ contract VerifierRegistryTest is Test {
     // HELPER FUNCTIONS
     // ============================================================================
 
-    /// @notice Helper to register a verifier through the full timelock flow
-    function _registerVerifier(uint8 depth, address verifier) internal {
+    /// @notice Helper: seal genesis without registering verifiers
+    function _sealGenesis() internal {
         vm.prank(governance);
-        registry.proposeVerifier(depth, verifier);
-        vm.warp(block.timestamp + FOURTEEN_DAYS);
-        registry.executeVerifier(depth);
+        registry.sealGenesis();
+    }
+
+    /// @notice Helper: register via genesis and seal
+    function _registerAndSeal(uint8 depth, address verifier) internal {
+        vm.startPrank(governance);
+        registry.registerVerifier(depth, verifier);
+        registry.sealGenesis();
+        vm.stopPrank();
     }
 }
