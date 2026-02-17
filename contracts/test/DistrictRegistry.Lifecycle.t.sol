@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictRegistry.sol";
@@ -113,12 +113,13 @@ contract DistrictRegistryLifecycleTest is Test {
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Try after 6 days (should fail)
-        vm.warp(block.timestamp + 6 days);
+        uint256 t1 = block.timestamp + 6 days;
+        vm.warp(t1);
         vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Execute after exactly 7 days (should succeed)
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.expectEmit(true, false, false, false);
         emit RootDeactivated(DISTRICT_ROOT_1);
 
@@ -214,11 +215,12 @@ contract DistrictRegistryLifecycleTest is Test {
         vm.prank(governance);
         registry.initiateRootExpiry(DISTRICT_ROOT_1, 0);
 
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(DISTRICT_ROOT_1);
 
         // Fast forward 100 years
-        vm.warp(block.timestamp + 100 * 365 days);
+        vm.warp(t1 + 100 * 365 days);
 
         assertTrue(registry.isValidRoot(DISTRICT_ROOT_1), "Root with expiresAt=0 should never expire");
     }
@@ -276,24 +278,31 @@ contract DistrictRegistryLifecycleTest is Test {
     // ============ Root Reactivation Tests ============
 
     function test_CanReactivateDeactivatedRoot() public {
+        uint256 startTime = 100 days;
+        vm.warp(startTime);
+
         // First deactivate
         vm.prank(governance);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+
+        uint256 afterDeactivationTimelock = startTime + 7 days;
+        vm.warp(afterDeactivationTimelock);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         assertFalse(registry.isValidRoot(DISTRICT_ROOT_1), "Root should be invalid after deactivation");
 
         // Now reactivate
-        vm.warp(block.timestamp + 1 days);
+        uint256 reactivationStart = afterDeactivationTimelock + 1 days;
+        vm.warp(reactivationStart);
         vm.prank(governance);
         registry.initiateRootReactivation(DISTRICT_ROOT_1);
 
         (uint8 opType, uint64 executeTime, ) = registry.pendingRootOperations(DISTRICT_ROOT_1);
         assertEq(opType, 3, "Operation type should be reactivate (3)");
-        assertEq(executeTime, block.timestamp + 7 days, "Execute time should be 7 days from now");
+        assertEq(uint256(executeTime), reactivationStart + 7 days, "Execute time should be 7 days from now");
 
-        vm.warp(block.timestamp + 7 days);
+        uint256 afterReactivationTimelock = reactivationStart + 7 days;
+        vm.warp(afterReactivationTimelock);
 
         vm.expectEmit(true, false, false, false);
         emit RootReactivated(DISTRICT_ROOT_1);
@@ -367,11 +376,12 @@ contract DistrictRegistryLifecycleTest is Test {
         // Deactivate first
         vm.prank(governance);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Initiate reactivation
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.prank(governance);
         registry.initiateRootReactivation(DISTRICT_ROOT_1);
 
@@ -496,15 +506,18 @@ contract DistrictRegistryLifecycleTest is Test {
         // Deactivate root1
         vm.prank(governance);
         registry.initiateRootDeactivation(root1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootDeactivation(root1);
 
         // Set expiry on root2
-        uint64 expiry = uint64(block.timestamp + 30 days);
-        vm.warp(block.timestamp + 1 days);
+        uint256 t2 = t1 + 1 days;
+        uint64 expiry = uint64(t2 + 30 days);
+        vm.warp(t2);
         vm.prank(governance);
         registry.initiateRootExpiry(root2, expiry);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t3 = t2 + 7 days;
+        vm.warp(t3);
         registry.executeRootExpiry(root2);
 
         // Verify independent states
@@ -612,7 +625,8 @@ contract DistrictRegistryLifecycleTest is Test {
         uint64 expiry = uint64(block.timestamp + 30 days);
         vm.prank(governance);
         registry.initiateRootExpiry(DISTRICT_ROOT_1, expiry);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(DISTRICT_ROOT_1);
 
         // Wait for expiry
@@ -622,14 +636,17 @@ contract DistrictRegistryLifecycleTest is Test {
         // Deactivate the expired root
         vm.prank(governance);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t2 = expiry + 1 + 7 days;
+        vm.warp(t2);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Try to reactivate (this sets isActive = true, but expiresAt remains)
-        vm.warp(block.timestamp + 1 days);
+        uint256 t3 = t2 + 1 days;
+        vm.warp(t3);
         vm.prank(governance);
         registry.initiateRootReactivation(DISTRICT_ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t4 = t3 + 7 days;
+        vm.warp(t4);
         registry.executeRootReactivation(DISTRICT_ROOT_1);
 
         // Root is active but still expired
@@ -658,11 +675,12 @@ contract DistrictRegistryLifecycleTest is Test {
         // Deactivate
         vm.prank(governance);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Now can initiate reactivation (no operation pending)
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.prank(governance);
         registry.initiateRootReactivation(DISTRICT_ROOT_1);
 

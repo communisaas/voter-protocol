@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -74,11 +74,10 @@ contract DistrictGateActionDomainTest is Test {
             governance
         );
 
-        // Setup: Register verifier for depth 18 (with 14-day timelock - HIGH-001 fix)
+        // Setup: Register verifier for depth 18 (genesis registration)
         vm.startPrank(governance);
-        verifierRegistry.proposeVerifier(DEPTH_18, verifier);
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(DEPTH_18);
+        verifierRegistry.registerVerifier(DEPTH_18, verifier);
+        verifierRegistry.sealGenesis();
 
         // Setup: Register district (depth 18, USA, no timelock for initial registration)
         districtRegistry.registerDistrict(DISTRICT_ROOT, USA, DEPTH_18);
@@ -199,12 +198,13 @@ contract DistrictGateActionDomainTest is Test {
         gate.executeActionDomain(newDomain);
 
         // Verify: Cannot execute before timelock expires
-        vm.warp(block.timestamp + 6 days + 23 hours);
+        uint256 t1 = block.timestamp + 6 days + 23 hours;
+        vm.warp(t1);
         vm.expectRevert(DistrictGate.ActionDomainTimelockNotExpired.selector);
         gate.executeActionDomain(newDomain);
 
         // Verify: Can execute after timelock
-        vm.warp(block.timestamp + 1 hours + 1);
+        vm.warp(t1 + 1 hours + 1);
         vm.expectEmit(true, false, false, false);
         emit ActionDomainActivated(newDomain);
         gate.executeActionDomain(newDomain);
@@ -251,7 +251,7 @@ contract DistrictGateActionDomainTest is Test {
         );
 
         // Advance time to avoid rate limit
-        vm.warp(block.timestamp + 61 seconds);
+        vm.warp(_lastWarpTime + 61 seconds);
 
         // Second vote with SAME nullifier: Should fail
         (bytes memory signature2, uint256 deadline2) = _generateSignature(
@@ -434,7 +434,7 @@ contract DistrictGateActionDomainTest is Test {
         );
 
         // Advance time to avoid rate limit
-        vm.warp(block.timestamp + 61 seconds);
+        vm.warp(_lastWarpTime + 61 seconds);
 
         // User 2 votes with different nullifier
         uint256 user2PrivateKey = 0xBBB;
@@ -478,12 +478,15 @@ contract DistrictGateActionDomainTest is Test {
     // Helper Functions
     // ============================================================================
 
+    uint256 internal _lastWarpTime;
+
     /// @notice Helper to whitelist an action domain (propose + execute)
     function _whitelistActionDomain(bytes32 actionDomain) internal {
         vm.prank(governance);
         gate.proposeActionDomain(actionDomain);
 
-        vm.warp(block.timestamp + 7 days + 1);
+        _lastWarpTime = block.timestamp + 7 days + 1;
+        vm.warp(_lastWarpTime);
         gate.executeActionDomain(actionDomain);
     }
 
@@ -555,7 +558,7 @@ contract DistrictGateActionDomainTest is Test {
 
 /// @notice Mock verifier that always returns true
 contract MockVerifier {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }

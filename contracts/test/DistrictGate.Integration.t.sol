@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -117,18 +117,13 @@ contract DistrictGateIntegrationTest is Test {
         // Setup registries
         vm.startPrank(governance);
 
-        // Register verifiers for all depths (with 14-day timelock - HIGH-001 fix)
-        verifierRegistry.proposeVerifier(DEPTH_18, address(verifier18));
-        verifierRegistry.proposeVerifier(DEPTH_20, address(verifier20));
-        verifierRegistry.proposeVerifier(DEPTH_22, address(verifier22));
-        verifierRegistry.proposeVerifier(DEPTH_24, address(verifier24));
+        // Register verifiers for all depths (genesis registration)
+        verifierRegistry.registerVerifier(DEPTH_18, address(verifier18));
+        verifierRegistry.registerVerifier(DEPTH_20, address(verifier20));
+        verifierRegistry.registerVerifier(DEPTH_22, address(verifier22));
+        verifierRegistry.registerVerifier(DEPTH_24, address(verifier24));
+        verifierRegistry.sealGenesis();
         vm.stopPrank();
-
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(DEPTH_18);
-        verifierRegistry.executeVerifier(DEPTH_20);
-        verifierRegistry.executeVerifier(DEPTH_22);
-        verifierRegistry.executeVerifier(DEPTH_24);
 
         vm.startPrank(governance);
 
@@ -279,12 +274,16 @@ contract DistrictGateIntegrationTest is Test {
         _whitelistActionDomain(ACTION_DOMAIN_1);
 
         // Test each depth routes to correct verifier
+        uint256 t = _lastWarpTime;
         _testDepthRouting(DISTRICT_ROOT_DEPTH_18, SGP, DEPTH_18);
-        vm.warp(block.timestamp + 61 seconds);
+        t += 61 seconds;
+        vm.warp(t);
         _testDepthRouting(DISTRICT_ROOT_DEPTH_20, GBR, DEPTH_20);
-        vm.warp(block.timestamp + 61 seconds);
+        t += 61 seconds;
+        vm.warp(t);
         _testDepthRouting(DISTRICT_ROOT_DEPTH_22, USA, DEPTH_22);
-        vm.warp(block.timestamp + 61 seconds);
+        t += 61 seconds;
+        vm.warp(t);
         _testDepthRouting(DISTRICT_ROOT_DEPTH_24, JPN, DEPTH_24);
     }
 
@@ -344,7 +343,8 @@ contract DistrictGateIntegrationTest is Test {
         // Whitelist action domain for new gate
         vm.prank(governance);
         newGate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + 7 days + 1);
+        uint256 t = block.timestamp + 7 days + 1;
+        vm.warp(t);
         newGate.executeActionDomain(ACTION_DOMAIN_1);
 
         bytes memory proof = hex"aabbccdd";
@@ -387,10 +387,7 @@ contract DistrictGateIntegrationTest is Test {
         CampaignRegistry newCampaignRegistry = new CampaignRegistry(governance);
 
         // Set campaign registry on gate (but don't authorize gate)
-        vm.prank(governance);
-        gate.proposeCampaignRegistry(address(newCampaignRegistry));
-        vm.warp(block.timestamp + 7 days + 1);
-        gate.executeCampaignRegistry();
+        _setCampaignRegistry(address(newCampaignRegistry));
 
         // Create campaign (as governance since gate not authorized)
         bytes32[] memory actionIds = new bytes32[](1);
@@ -529,7 +526,7 @@ contract DistrictGateIntegrationTest is Test {
         // Then remove it
         vm.prank(governance);
         gate.proposeCampaignRegistry(address(0));
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.warp(_lastWarpTime + 7 days + 1);
 
         vm.expectEmit(true, true, false, false);
         emit CampaignRegistrySet(address(campaignRegistry), address(0));
@@ -699,7 +696,8 @@ contract DistrictGateIntegrationTest is Test {
             );
 
             // Advance time between submissions to avoid rate limit
-            vm.warp(block.timestamp + 61 seconds);
+            _lastWarpTime += 61 seconds;
+            vm.warp(_lastWarpTime);
         }
 
         // Verify all nullifiers recorded
@@ -726,7 +724,7 @@ contract DistrictGateIntegrationTest is Test {
         _submitProof(DISTRICT_ROOT_DEPTH_22, nullifier, ACTION_DOMAIN_1, USA);
 
         // Wait for rate limit
-        vm.warp(block.timestamp + 61 seconds);
+        vm.warp(_lastWarpTime + 61 seconds);
 
         // Second vote with same nullifier fails
         bytes memory proof = hex"11223344";
@@ -797,7 +795,7 @@ contract DistrictGateIntegrationTest is Test {
         );
 
         // Wait for rate limit
-        vm.warp(block.timestamp + 61 seconds);
+        vm.warp(_lastWarpTime + 61 seconds);
 
         // Vote on action 2 with different nullifier
         bytes32 nullifier2 = keccak256("user-action2-null");
@@ -843,7 +841,7 @@ contract DistrictGateIntegrationTest is Test {
         // Deactivate district root
         vm.prank(governance);
         districtRegistry.initiateRootDeactivation(DISTRICT_ROOT_DEPTH_20);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(_lastWarpTime + 7 days);
         districtRegistry.executeRootDeactivation(DISTRICT_ROOT_DEPTH_20);
 
         // Verify root is invalid
@@ -887,10 +885,10 @@ contract DistrictGateIntegrationTest is Test {
         _whitelistActionDomain(ACTION_DOMAIN_1);
 
         // Set expiry on district root
-        uint64 expiryTime = uint64(block.timestamp + 30 days);
+        uint64 expiryTime = uint64(_lastWarpTime + 30 days);
         vm.prank(governance);
         districtRegistry.initiateRootExpiry(DISTRICT_ROOT_EXPIRING, expiryTime);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(_lastWarpTime + 7 days);
         districtRegistry.executeRootExpiry(DISTRICT_ROOT_EXPIRING);
 
         // Fast forward past expiry
@@ -937,10 +935,10 @@ contract DistrictGateIntegrationTest is Test {
         _whitelistActionDomain(ACTION_DOMAIN_1);
 
         // Set expiry on district root (in the future)
-        uint64 expiryTime = uint64(block.timestamp + 60 days);
+        uint64 expiryTime = uint64(_lastWarpTime + 60 days);
         vm.prank(governance);
         districtRegistry.initiateRootExpiry(DISTRICT_ROOT_EXPIRING, expiryTime);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(_lastWarpTime + 7 days);
         districtRegistry.executeRootExpiry(DISTRICT_ROOT_EXPIRING);
 
         // Verify root is still valid (expiry is in future)
@@ -985,10 +983,10 @@ contract DistrictGateIntegrationTest is Test {
         _whitelistActionDomain(ACTION_DOMAIN_1);
 
         // Set expiry 30 days from now
-        uint64 expiryTime = uint64(block.timestamp + 30 days);
+        uint64 expiryTime = uint64(_lastWarpTime + 30 days);
         vm.prank(governance);
         districtRegistry.initiateRootExpiry(DISTRICT_ROOT_EXPIRING, expiryTime);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(_lastWarpTime + 7 days);
         districtRegistry.executeRootExpiry(DISTRICT_ROOT_EXPIRING);
 
         // Submit proof before expiry - should succeed
@@ -1157,11 +1155,11 @@ contract DistrictGateIntegrationTest is Test {
         // with registry that doesn't have depth 18 registered
         VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
 
-        // Only register depth 20, not 18 (with 14-day timelock - HIGH-001 fix)
-        vm.prank(governance);
-        newVerifierRegistry.proposeVerifier(DEPTH_20, address(verifier20));
-        vm.warp(block.timestamp + 14 days);
-        newVerifierRegistry.executeVerifier(DEPTH_20);
+        // Only register depth 20, not 18 (genesis registration)
+        vm.startPrank(governance);
+        newVerifierRegistry.registerVerifier(DEPTH_20, address(verifier20));
+        newVerifierRegistry.sealGenesis();
+        vm.stopPrank();
 
         DistrictGate newGate = new DistrictGate(
             address(newVerifierRegistry),
@@ -1173,13 +1171,15 @@ contract DistrictGateIntegrationTest is Test {
         // Authorize new gate (with 7-day timelock)
         vm.prank(governance);
         nullifierRegistry.proposeCallerAuthorization(address(newGate));
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         nullifierRegistry.executeCallerAuthorization(address(newGate));
 
         // Whitelist action domain
         vm.prank(governance);
         newGate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + 7 days + 1);
+        uint256 t2 = t1 + 7 days + 1;
+        vm.warp(t2);
         newGate.executeActionDomain(ACTION_DOMAIN_1);
 
         bytes memory proof = hex"aabbccdd";
@@ -1263,6 +1263,7 @@ contract DistrictGateIntegrationTest is Test {
         _whitelistActionDomain(ACTION_DOMAIN_1);
 
         uint256 numParticipants = (seed % 5) + 1; // 1-5 participants
+        uint256 t = _lastWarpTime;
 
         for (uint256 i = 0; i < numParticipants; i++) {
             bytes32 nullifier = keccak256(abi.encodePacked(seed, i, "nullifier"));
@@ -1274,7 +1275,8 @@ contract DistrictGateIntegrationTest is Test {
             _submitProofWithKey(DISTRICT_ROOT_DEPTH_22, nullifier, ACTION_DOMAIN_1, USA, privateKey);
 
             // Advance time to avoid rate limit
-            vm.warp(block.timestamp + 61 seconds);
+            t += 61 seconds;
+            vm.warp(t);
         }
 
         assertEq(gate.getParticipantCount(ACTION_DOMAIN_1), numParticipants);
@@ -1284,17 +1286,21 @@ contract DistrictGateIntegrationTest is Test {
     // Helper Functions
     // ============================================================================
 
+    uint256 internal _lastWarpTime;
+
     function _whitelistActionDomain(bytes32 actionDomain) internal {
         vm.prank(governance);
         gate.proposeActionDomain(actionDomain);
-        vm.warp(block.timestamp + 7 days + 1);
+        _lastWarpTime = block.timestamp + 7 days + 1;
+        vm.warp(_lastWarpTime);
         gate.executeActionDomain(actionDomain);
     }
 
     function _setCampaignRegistry(address registry) internal {
         vm.prank(governance);
         gate.proposeCampaignRegistry(registry);
-        vm.warp(block.timestamp + 7 days + 1);
+        _lastWarpTime = block.timestamp + 7 days + 1;
+        vm.warp(_lastWarpTime);
         gate.executeCampaignRegistry();
     }
 
@@ -1477,14 +1483,14 @@ contract DistrictGateIntegrationTest is Test {
 
 /// @notice Mock verifier that always returns true
 contract MockVerifier {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }
 
 /// @notice Mock verifier that always returns false (for failure testing)
 contract FailingMockVerifier {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return false;
     }
 }

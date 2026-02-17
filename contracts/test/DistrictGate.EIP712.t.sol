@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -107,12 +107,11 @@ contract DistrictGateEIP712Test is Test {
             governance
         );
 
-        // Setup: Register verifier for depth 18 (with 14-day timelock - HIGH-001 fix)
+        // Setup: Register verifier for depth 18 (genesis registration)
         vm.startPrank(governance);
-        verifierRegistry.proposeVerifier(DEPTH_18, verifier);
+        verifierRegistry.registerVerifier(DEPTH_18, verifier);
+        verifierRegistry.sealGenesis();
         vm.stopPrank();
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(DEPTH_18);
 
         vm.startPrank(governance);
 
@@ -122,14 +121,15 @@ contract DistrictGateEIP712Test is Test {
         // Setup: Authorize gate as caller on NullifierRegistry (with 7-day timelock)
         nullifierRegistry.proposeCallerAuthorization(address(gate));
         vm.stopPrank();
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         nullifierRegistry.executeCallerAuthorization(address(gate));
 
         // Setup: Whitelist action domain (propose + fast-forward + execute)
         vm.prank(governance);
         gate.proposeActionDomain(ACTION_DOMAIN);
 
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.warp(t1 + 7 days + 1);
         gate.executeActionDomain(ACTION_DOMAIN);
     }
 
@@ -1552,11 +1552,12 @@ contract DistrictGateEIP712Test is Test {
     function testFuzz_Nonce_IncrementsCorrectly(uint8 numSubmissions) public {
         numSubmissions = uint8(bound(numSubmissions, 1, 10));
 
+        uint256 t = block.timestamp;
         for (uint256 i = 0; i < numSubmissions; i++) {
             assertEq(gate.nonces(user), i, "Nonce should match iteration");
 
             bytes32 uniqueNullifier = bytes32(i + 0x1000);
-            uint256 deadline = block.timestamp + 1 hours;
+            uint256 deadline = t + 1 hours;
 
             bytes memory signature = _generateSignature(
                 USER_PRIVATE_KEY,
@@ -1585,7 +1586,8 @@ contract DistrictGateEIP712Test is Test {
             );
 
             // Advance time to avoid rate limit
-            vm.warp(block.timestamp + 61 seconds);
+            t += 61 seconds;
+            vm.warp(t);
         }
 
         assertEq(gate.nonces(user), numSubmissions, "Final nonce should equal submissions");
@@ -1626,22 +1628,48 @@ contract DistrictGateEIP712Test is Test {
         userRootRegistry = new MockUserRootRegistry();
         cellMapRegistry = new MockCellMapRegistry();
 
-        // Register two-tree verifier
+        // Register two-tree verifier (using new registry since genesis is sealed)
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
         vm.startPrank(governance);
-        verifierRegistry.proposeVerifier(TWO_TREE_DEPTH, address(twoTreeVerifier));
+        newVerifierRegistry.registerVerifier(DEPTH_18, verifier);
+        newVerifierRegistry.registerVerifier(TWO_TREE_DEPTH, address(twoTreeVerifier));
+        newVerifierRegistry.sealGenesis();
         vm.stopPrank();
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(TWO_TREE_DEPTH);
+
+        // Deploy new gate with new verifier registry
+        DistrictGate newGate = new DistrictGate(
+            address(newVerifierRegistry),
+            address(districtRegistry),
+            address(nullifierRegistry),
+            governance
+        );
+
+        // Authorize new gate
+        vm.prank(governance);
+        nullifierRegistry.proposeCallerAuthorization(address(newGate));
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
+        nullifierRegistry.executeCallerAuthorization(address(newGate));
 
         // Configure gate with two-tree registries
         vm.prank(governance);
-        gate.proposeTwoTreeRegistries(address(userRootRegistry), address(cellMapRegistry));
-        vm.warp(block.timestamp + 7 days);
-        gate.executeTwoTreeRegistries();
+        newGate.proposeTwoTreeRegistries(address(userRootRegistry), address(cellMapRegistry));
+        uint256 t2 = t1 + 7 days + 1;
+        vm.warp(t2);
+        newGate.executeTwoTreeRegistries();
+
+        // Whitelist action domain on new gate
+        vm.prank(governance);
+        newGate.proposeActionDomain(ACTION_DOMAIN);
+        vm.warp(t2 + 7 days + 2);
+        newGate.executeActionDomain(ACTION_DOMAIN);
 
         // Register valid roots
         userRootRegistry.registerUserRoot(USER_ROOT);
         cellMapRegistry.registerCellMapRoot(CELL_MAP_ROOT);
+
+        // Update gate reference
+        gate = newGate;
     }
 
     /// @notice Valid two-tree signature succeeds
@@ -1877,12 +1905,45 @@ contract DistrictGateEIP712Test is Test {
     function test_TwoTree_DifferentVerifierDepthInvalidates() public {
         _setupTwoTreeInfrastructure();
 
-        // Register additional depth
+        // Register additional depth (using new registry)
+        VerifierRegistry newVerifierRegistry2 = new VerifierRegistry(governance);
         vm.startPrank(governance);
-        verifierRegistry.proposeVerifier(22, address(twoTreeVerifier));
+        newVerifierRegistry2.registerVerifier(DEPTH_18, verifier);
+        newVerifierRegistry2.registerVerifier(TWO_TREE_DEPTH, address(twoTreeVerifier));
+        newVerifierRegistry2.registerVerifier(22, address(twoTreeVerifier));
+        newVerifierRegistry2.sealGenesis();
         vm.stopPrank();
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(22);
+
+        // Deploy another new gate
+        DistrictGate newGate2 = new DistrictGate(
+            address(newVerifierRegistry2),
+            address(districtRegistry),
+            address(nullifierRegistry),
+            governance
+        );
+
+        // Authorize new gate
+        vm.prank(governance);
+        nullifierRegistry.proposeCallerAuthorization(address(newGate2));
+        uint256 tt1 = block.timestamp + 7 days;
+        vm.warp(tt1);
+        nullifierRegistry.executeCallerAuthorization(address(newGate2));
+
+        // Configure two-tree registries on new gate
+        vm.prank(governance);
+        newGate2.proposeTwoTreeRegistries(address(userRootRegistry), address(cellMapRegistry));
+        uint256 tt2 = tt1 + 7 days + 1;
+        vm.warp(tt2);
+        newGate2.executeTwoTreeRegistries();
+
+        // Whitelist action domain
+        vm.prank(governance);
+        newGate2.proposeActionDomain(ACTION_DOMAIN);
+        vm.warp(tt2 + 7 days + 2);
+        newGate2.executeActionDomain(ACTION_DOMAIN);
+
+        // Update gate reference
+        gate = newGate2;
 
         uint256[29] memory publicInputs = _createTwoTreePublicInputs();
         uint256 deadline = block.timestamp + 1 hours;
@@ -2099,14 +2160,14 @@ contract DistrictGateEIP712Test is Test {
 
 /// @notice Mock verifier that always returns true for testing (single-tree)
 contract MockVerifierEIP712 {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }
 
 /// @notice Mock verifier for two-tree proofs
 contract MockTwoTreeVerifier {
-    function verifyProof(bytes calldata, uint256[29] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }

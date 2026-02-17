@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -112,17 +112,12 @@ contract DistrictGateTwoTreeTest is Test {
             governance
         );
 
-        // Register verifier at VERIFIER_DEPTH (14-day timelock)
-        vm.prank(governance);
-        verifierRegistry.proposeVerifier(VERIFIER_DEPTH, address(passingVerifier));
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(VERIFIER_DEPTH);
-
-        // Also register a single-tree verifier at depth 18 (for backwards compatibility test)
-        vm.prank(governance);
-        verifierRegistry.proposeVerifier(18, address(singleTreeVerifier));
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(18);
+        // Register verifiers (genesis registration)
+        vm.startPrank(governance);
+        verifierRegistry.registerVerifier(VERIFIER_DEPTH, address(passingVerifier));
+        verifierRegistry.registerVerifier(18, address(singleTreeVerifier));
+        verifierRegistry.sealGenesis();
+        vm.stopPrank();
 
         // Register a district for single-tree backwards compatibility test
         vm.prank(governance);
@@ -147,12 +142,18 @@ contract DistrictGateTwoTreeTest is Test {
         // Configure two-tree registries on DistrictGate via timelock
         vm.prank(governance);
         gate.proposeTwoTreeRegistries(address(userRootRegistry), address(cellMapRegistry));
-        vm.warp(block.timestamp + 7 days);
-        gate.executeTwoTreeRegistries();
 
-        // Whitelist action domains
-        _whitelistActionDomain(ACTION_DOMAIN_1);
-        _whitelistActionDomain(ACTION_DOMAIN_2);
+        // Batch all remaining proposals before warping
+        vm.startPrank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        gate.proposeActionDomain(ACTION_DOMAIN_2);
+        vm.stopPrank();
+
+        // Single warp to cover both 7-day timelocks (registries + action domains)
+        vm.warp(block.timestamp + 14 days + 1);
+        gate.executeTwoTreeRegistries();
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+        gate.executeActionDomain(ACTION_DOMAIN_2);
     }
 
     // ============================================================================
@@ -701,11 +702,46 @@ contract DistrictGateTwoTreeTest is Test {
         cellMapRegistry.registerCellMapRoot(cellMapRootDepth24, USA, 24);
         vm.stopPrank();
 
-        // Register the failing verifier at depth 24
+        // Register the failing verifier at depth 24 (using new registry)
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        vm.startPrank(governance);
+        newVerifierRegistry.registerVerifier(VERIFIER_DEPTH, address(passingVerifier));
+        newVerifierRegistry.registerVerifier(18, address(singleTreeVerifier));
+        newVerifierRegistry.registerVerifier(22, address(passingVerifier));
+        newVerifierRegistry.registerVerifier(24, address(failingVerifier));
+        newVerifierRegistry.sealGenesis();
+        vm.stopPrank();
+
+        // Deploy new gate with new verifier registry
+        DistrictGate newGate = new DistrictGate(
+            address(newVerifierRegistry),
+            address(districtRegistry),
+            address(nullifierRegistry),
+            governance
+        );
+
+        // Authorize new gate
         vm.prank(governance);
-        verifierRegistry.proposeVerifier(24, address(failingVerifier));
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(24);
+        nullifierRegistry.proposeCallerAuthorization(address(newGate));
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
+        nullifierRegistry.executeCallerAuthorization(address(newGate));
+
+        // Configure two-tree registries on new gate
+        vm.prank(governance);
+        newGate.proposeTwoTreeRegistries(address(userRootRegistry), address(cellMapRegistry));
+        uint256 t2 = t1 + 7 days;
+        vm.warp(t2);
+        newGate.executeTwoTreeRegistries();
+
+        // Whitelist action domain on new gate
+        vm.prank(governance);
+        newGate.proposeActionDomain(ACTION_DOMAIN_1);
+        vm.warp(t2 + 7 days + 1);
+        newGate.executeActionDomain(ACTION_DOMAIN_1);
+
+        // Use new gate for test
+        gate = newGate;
 
         bytes memory proof = hex"deadbeef";
         uint256[29] memory publicInputs = _buildPublicInputs(
@@ -953,6 +989,14 @@ contract DistrictGateTwoTreeTest is Test {
         gate.executeActionDomain(actionDomain);
     }
 
+    /// @notice Helper to whitelist an action domain for a specific gate
+    function _whitelistActionDomainForGate(DistrictGate _gate, bytes32 actionDomain) internal {
+        vm.prank(governance);
+        _gate.proposeActionDomain(actionDomain);
+        vm.warp(block.timestamp + 7 days + 1);
+        _gate.executeActionDomain(actionDomain);
+    }
+
     /// @notice Helper to generate EIP-712 signature for single-tree proof submission
     function _generateSignature(
         uint256 privateKey,
@@ -1038,14 +1082,14 @@ contract MockTwoTreeVerifier {
         shouldPass = _shouldPass;
     }
 
-    function verifyProof(bytes calldata, uint256[29] calldata) external view returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external view returns (bool) {
         return shouldPass;
     }
 }
 
 /// @notice Mock single-tree verifier (for backwards compatibility test)
 contract MockVerifierSingleTree {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }

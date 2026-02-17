@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/CellMapRegistry.sol";
@@ -199,11 +199,12 @@ contract CellMapRegistryTest is Test {
         vm.stopPrank();
 
         // Wait for timelock
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(ROOT_1);
 
         // Both roots valid during 90-day grace
-        vm.warp(block.timestamp + 45 days); // 45 days into grace period
+        vm.warp(t1 + 45 days); // 45 days into grace period
         assertTrue(registry.isValidCellMapRoot(ROOT_1), "Old root should be valid during grace period");
         assertTrue(registry.isValidCellMapRoot(ROOT_2), "New root should be valid");
     }
@@ -221,7 +222,8 @@ contract CellMapRegistryTest is Test {
 
         // The deprecateCellMapRoot sets expiresAt = block.timestamp + 90 days (at initiation)
         // After 7-day timelock + grace period, old root expires
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(ROOT_1);
 
         // Go past the 90-day grace (from start time)
@@ -265,12 +267,13 @@ contract CellMapRegistryTest is Test {
         registry.executeRootDeactivation(ROOT_1);
 
         // Cannot execute after 6 days
-        vm.warp(block.timestamp + 6 days);
+        uint256 t1 = block.timestamp + 6 days;
+        vm.warp(t1);
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeRootDeactivation(ROOT_1);
 
         // Can execute after 7 days
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.expectEmit(true, false, false, false);
         emit RootDeactivated(ROOT_1);
         registry.executeRootDeactivation(ROOT_1);
@@ -381,10 +384,11 @@ contract CellMapRegistryTest is Test {
 
         vm.prank(governance);
         registry.initiateRootExpiry(ROOT_1, 0);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(ROOT_1);
 
-        vm.warp(block.timestamp + 100 * 365 days);
+        vm.warp(t1 + 100 * 365 days);
         assertTrue(registry.isValidCellMapRoot(ROOT_1));
     }
 
@@ -534,17 +538,19 @@ contract CellMapRegistryTest is Test {
         vm.stopPrank();
 
         // Wait for timelock
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(ROOT_1);
 
         // During grace period: both roots valid
         // Users with cached old data still work
-        vm.warp(block.timestamp + 60 days); // 60 days into grace
+        uint256 t2 = t1 + 60 days; // 60 days into grace
+        vm.warp(t2);
         assertTrue(registry.isValidCellMapRoot(ROOT_1), "Old root valid during grace");
         assertTrue(registry.isValidCellMapRoot(ROOT_2), "New root valid");
 
         // After grace: only new root valid
-        vm.warp(block.timestamp + 90 days); // well past grace
+        vm.warp(t2 + 90 days); // well past grace
         assertFalse(registry.isValidCellMapRoot(ROOT_1), "Old root expired");
         assertTrue(registry.isValidCellMapRoot(ROOT_2), "New root still valid");
     }
@@ -664,11 +670,12 @@ contract CellMapRegistryTest is Test {
         // Deactivate
         vm.prank(governance);
         registry.initiateRootDeactivation(ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootDeactivation(ROOT_1);
 
         // Now can initiate reactivation
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.prank(governance);
         registry.initiateRootReactivation(ROOT_1);
 

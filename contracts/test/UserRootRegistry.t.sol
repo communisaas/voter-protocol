@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/UserRootRegistry.sol";
@@ -213,12 +213,13 @@ contract UserRootRegistryTest is Test {
         registry.executeRootDeactivation(ROOT_1);
 
         // Cannot execute after 6 days
-        vm.warp(block.timestamp + 6 days);
+        uint256 t1 = block.timestamp + 6 days;
+        vm.warp(t1);
         vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeRootDeactivation(ROOT_1);
 
         // Can execute after 7 days
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.expectEmit(true, false, false, false);
         emit RootDeactivated(ROOT_1);
         registry.executeRootDeactivation(ROOT_1);
@@ -322,11 +323,12 @@ contract UserRootRegistryTest is Test {
 
         vm.prank(governance);
         registry.initiateRootExpiry(ROOT_1, 0);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootExpiry(ROOT_1);
 
         // Fast forward 100 years
-        vm.warp(block.timestamp + 100 * 365 days);
+        vm.warp(t1 + 100 * 365 days);
         assertTrue(registry.isValidUserRoot(ROOT_1));
     }
 
@@ -639,11 +641,12 @@ contract UserRootRegistryTest is Test {
         // Deactivate
         vm.prank(governance);
         registry.initiateRootDeactivation(ROOT_1);
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         registry.executeRootDeactivation(ROOT_1);
 
         // Now can initiate reactivation
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(t1 + 1 days);
         vm.prank(governance);
         registry.initiateRootReactivation(ROOT_1);
 

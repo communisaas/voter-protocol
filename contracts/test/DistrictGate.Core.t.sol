@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -92,18 +92,13 @@ contract DistrictGateCoreTest is Test {
         // Setup registries
         vm.startPrank(governance);
 
-        // Register verifiers for all supported depths (with 14-day timelock - HIGH-001 fix)
-        verifierRegistry.proposeVerifier(18, address(verifierDepth18));
-        verifierRegistry.proposeVerifier(20, address(verifierDepth20));
-        verifierRegistry.proposeVerifier(22, address(verifierDepth22));
-        verifierRegistry.proposeVerifier(24, address(verifierDepth24));
+        // Register verifiers for all supported depths (genesis registration)
+        verifierRegistry.registerVerifier(18, address(verifierDepth18));
+        verifierRegistry.registerVerifier(20, address(verifierDepth20));
+        verifierRegistry.registerVerifier(22, address(verifierDepth22));
+        verifierRegistry.registerVerifier(24, address(verifierDepth24));
+        verifierRegistry.sealGenesis();
         vm.stopPrank();
-
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(18);
-        verifierRegistry.executeVerifier(20);
-        verifierRegistry.executeVerifier(22);
-        verifierRegistry.executeVerifier(24);
 
         vm.startPrank(governance);
 
@@ -126,10 +121,17 @@ contract DistrictGateCoreTest is Test {
         vm.warp(block.timestamp + 7 days);
         nullifierRegistry.executeCallerAuthorization(address(gate));
 
-        // Whitelist action domains for tests
-        _whitelistActionDomain(ACTION_DOMAIN_1);
-        _whitelistActionDomain(ACTION_DOMAIN_2);
-        _whitelistActionDomain(ACTION_DOMAIN_3);
+        // Whitelist action domains for tests (batch propose, single warp, batch execute)
+        vm.startPrank(governance);
+        gate.proposeActionDomain(ACTION_DOMAIN_1);
+        gate.proposeActionDomain(ACTION_DOMAIN_2);
+        gate.proposeActionDomain(ACTION_DOMAIN_3);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 7 days + 1);
+        gate.executeActionDomain(ACTION_DOMAIN_1);
+        gate.executeActionDomain(ACTION_DOMAIN_2);
+        gate.executeActionDomain(ACTION_DOMAIN_3);
     }
 
     // ============================================================================
@@ -348,22 +350,22 @@ contract DistrictGateCoreTest is Test {
         );
 
         vm.startPrank(governance);
-        // Only register depth 20, not 18 (with 14-day timelock - HIGH-001 fix)
-        newVerifierRegistry.proposeVerifier(20, address(verifierDepth20));
+        // Only register depth 20, not 18 (genesis registration)
+        newVerifierRegistry.registerVerifier(20, address(verifierDepth20));
+        newVerifierRegistry.sealGenesis();
         vm.stopPrank();
-        vm.warp(block.timestamp + 14 days);
-        newVerifierRegistry.executeVerifier(20);
 
         vm.startPrank(governance);
         nullifierRegistry.proposeCallerAuthorization(address(newGate));
         vm.stopPrank();
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         nullifierRegistry.executeCallerAuthorization(address(newGate));
 
         // Whitelist action domain for newGate
         vm.prank(governance);
         newGate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.warp(t1 + 7 days + 1);
         newGate.executeActionDomain(ACTION_DOMAIN_1);
 
         bytes memory proof = hex"deadbeef";
@@ -977,22 +979,22 @@ contract DistrictGateCoreTest is Test {
         );
 
         vm.startPrank(governance);
-        // Register rejecting verifier (with 14-day timelock - HIGH-001 fix)
-        rejectingVerifierRegistry.proposeVerifier(18, address(rejectingVerifier));
+        // Register rejecting verifier (genesis registration)
+        rejectingVerifierRegistry.registerVerifier(18, address(rejectingVerifier));
+        rejectingVerifierRegistry.sealGenesis();
         vm.stopPrank();
-        vm.warp(block.timestamp + 14 days);
-        rejectingVerifierRegistry.executeVerifier(18);
 
         vm.startPrank(governance);
         nullifierRegistry.proposeCallerAuthorization(address(rejectingGate));
         vm.stopPrank();
-        vm.warp(block.timestamp + 7 days);
+        uint256 t1 = block.timestamp + 7 days;
+        vm.warp(t1);
         nullifierRegistry.executeCallerAuthorization(address(rejectingGate));
 
         // Whitelist action domain
         vm.prank(governance);
         rejectingGate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.warp(t1 + 7 days + 1);
         rejectingGate.executeActionDomain(ACTION_DOMAIN_1);
 
         bytes memory proof = hex"deadbeef";
@@ -1030,9 +1032,9 @@ contract DistrictGateCoreTest is Test {
     /// @notice Verify MockVerifier correctly returns true and records proof
     function test_MockVerifierAcceptsValidProofs() public {
         bytes memory proof = hex"74657374";
-        uint256[5] memory publicInputs;
+        bytes32[] memory publicInputs = new bytes32[](5);
 
-        bool result = verifierDepth18.verifyProof(proof, publicInputs);
+        bool result = verifierDepth18.verify(proof, publicInputs);
         assertTrue(result);
         assertTrue(verifierDepth18.wasCalledWith(proof));
     }
@@ -1040,9 +1042,9 @@ contract DistrictGateCoreTest is Test {
     /// @notice Verify MockRejectingVerifier correctly returns false
     function test_MockRejectingVerifierRejectsProofs() public view {
         bytes memory proof = hex"74657374";
-        uint256[5] memory publicInputs;
+        bytes32[] memory publicInputs = new bytes32[](5);
 
-        bool result = rejectingVerifier.verifyProof(proof, publicInputs);
+        bool result = rejectingVerifier.verify(proof, publicInputs);
         assertFalse(result);
     }
 
@@ -1078,12 +1080,13 @@ contract DistrictGateCoreTest is Test {
         );
 
         // Verify the public inputs passed to verifier
-        uint256[5] memory capturedInputs = verifierDepth18.getLastPublicInputs();
-        assertEq(capturedInputs[0], uint256(DISTRICT_ROOT_18), "merkleRoot mismatch");
-        assertEq(capturedInputs[1], uint256(NULLIFIER_1), "nullifier mismatch");
-        assertEq(capturedInputs[2], uint256(AUTHORITY_LEVEL), "authorityLevel mismatch");
-        assertEq(capturedInputs[3], uint256(ACTION_DOMAIN_1), "actionDomain mismatch");
-        assertEq(capturedInputs[4], uint256(DISTRICT_ID), "districtId mismatch");
+        bytes32[] memory capturedInputs = verifierDepth18.getLastPublicInputs();
+        assertEq(capturedInputs.length, 5, "publicInputs length mismatch");
+        assertEq(capturedInputs[0], DISTRICT_ROOT_18, "merkleRoot mismatch");
+        assertEq(capturedInputs[1], NULLIFIER_1, "nullifier mismatch");
+        assertEq(capturedInputs[2], bytes32(uint256(AUTHORITY_LEVEL)), "authorityLevel mismatch");
+        assertEq(capturedInputs[3], ACTION_DOMAIN_1, "actionDomain mismatch");
+        assertEq(capturedInputs[4], DISTRICT_ID, "districtId mismatch");
     }
 
     // ============================================================================
@@ -1201,14 +1204,17 @@ contract DistrictGateCoreTest is Test {
 /// @notice Mock verifier that accepts all proofs and records calls
 contract MockVerifier {
     mapping(bytes32 => bool) public calledWithProof;
-    uint256[5] public lastPublicInputs;
+    bytes32[] public lastPublicInputs;
     bytes public lastProof;
 
-    function verifyProof(bytes calldata proof, uint256[5] calldata publicInputs) external returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs) external returns (bool) {
         bytes32 proofHash = keccak256(proof);
         calledWithProof[proofHash] = true;
         lastProof = proof;
-        lastPublicInputs = publicInputs;
+        delete lastPublicInputs;
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            lastPublicInputs.push(publicInputs[i]);
+        }
         return true;
     }
 
@@ -1216,7 +1222,7 @@ contract MockVerifier {
         return calledWithProof[keccak256(proof)];
     }
 
-    function getLastPublicInputs() external view returns (uint256[5] memory) {
+    function getLastPublicInputs() external view returns (bytes32[] memory) {
         return lastPublicInputs;
     }
 
@@ -1227,7 +1233,7 @@ contract MockVerifier {
 
 /// @notice Mock verifier that rejects all proofs
 contract MockRejectingVerifier {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return false;
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
@@ -75,11 +75,10 @@ contract DistrictGateGovernanceTest is Test {
         campaignRegistry = new CampaignRegistry(governance);
         newCampaignRegistry = new CampaignRegistry(governance);
 
-        // Setup: Register verifier for depth 18 (with 14-day timelock - HIGH-001 fix)
+        // Setup: Register verifier for depth 18 (genesis registration)
         vm.startPrank(governance);
-        verifierRegistry.proposeVerifier(DEPTH_18, verifier);
-        vm.warp(block.timestamp + 14 days);
-        verifierRegistry.executeVerifier(DEPTH_18);
+        verifierRegistry.registerVerifier(DEPTH_18, verifier);
+        verifierRegistry.sealGenesis();
 
         // Setup: Register district
         districtRegistry.registerDistrict(DISTRICT_ROOT, USA, DEPTH_18);
@@ -204,7 +203,8 @@ contract DistrictGateGovernanceTest is Test {
         // First set a campaign registry
         vm.prank(governance);
         gate.proposeCampaignRegistry(address(campaignRegistry));
-        vm.warp(block.timestamp + SEVEN_DAYS);
+        uint256 t1 = block.timestamp + SEVEN_DAYS + 1;
+        vm.warp(t1);
         gate.executeCampaignRegistry();
 
         assertEq(address(gate.campaignRegistry()), address(campaignRegistry));
@@ -212,7 +212,8 @@ contract DistrictGateGovernanceTest is Test {
         // Now propose setting it to zero
         vm.prank(governance);
         gate.proposeCampaignRegistry(address(0));
-        vm.warp(block.timestamp + SEVEN_DAYS);
+        uint256 targetTime = t1 + SEVEN_DAYS + 1;
+        vm.warp(targetTime);
 
         vm.expectEmit(true, true, false, false);
         emit CampaignRegistrySet(address(campaignRegistry), address(0));
@@ -849,7 +850,7 @@ contract DistrictGateGovernanceTest is Test {
 
 /// @notice Mock verifier that always returns true
 contract MockVerifierGov {
-    function verifyProof(bytes calldata, uint256[5] calldata) external pure returns (bool) {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
     }
 }

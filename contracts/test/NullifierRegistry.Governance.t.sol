@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/NullifierRegistry.sol";
@@ -189,11 +189,12 @@ contract NullifierRegistryGovernanceTest is Test {
         assertEq(registry.getGovernanceTransferDelay(newGovernance), SEVEN_DAYS);
 
         // After 3 days
-        vm.warp(block.timestamp + 3 days);
+        uint256 t1 = block.timestamp + 3 days;
+        vm.warp(t1);
         assertEq(registry.getGovernanceTransferDelay(newGovernance), 4 days);
 
         // After timelock expires
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(t1 + 5 days);
         assertEq(registry.getGovernanceTransferDelay(newGovernance), 0);
     }
 
@@ -324,11 +325,12 @@ contract NullifierRegistryGovernanceTest is Test {
         assertEq(registry.getCallerAuthorizationDelay(districtGate), SEVEN_DAYS);
 
         // After 3 days
-        vm.warp(block.timestamp + 3 days);
+        uint256 t1 = block.timestamp + 3 days;
+        vm.warp(t1);
         assertEq(registry.getCallerAuthorizationDelay(districtGate), 4 days);
 
         // After timelock expires
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(t1 + 5 days);
         assertEq(registry.getCallerAuthorizationDelay(districtGate), 0);
     }
 
@@ -367,7 +369,7 @@ contract NullifierRegistryGovernanceTest is Test {
         registry.executeCallerRevocation(districtGate);
 
         // Try to execute just before timelock expires
-        vm.warp(block.timestamp + SEVEN_DAYS - 1);
+        vm.warp(_lastWarpTime + SEVEN_DAYS - 1);
         vm.expectRevert(NullifierRegistry.CallerRevocationTimelockNotExpired.selector);
         registry.executeCallerRevocation(districtGate);
     }
@@ -468,11 +470,12 @@ contract NullifierRegistryGovernanceTest is Test {
         assertEq(registry.getCallerRevocationDelay(districtGate), SEVEN_DAYS);
 
         // After 3 days
-        vm.warp(block.timestamp + 3 days);
+        uint256 t1 = _lastWarpTime + 3 days;
+        vm.warp(t1);
         assertEq(registry.getCallerRevocationDelay(districtGate), 4 days);
 
         // After timelock expires
-        vm.warp(block.timestamp + 5 days);
+        vm.warp(t1 + 5 days);
         assertEq(registry.getCallerRevocationDelay(districtGate), 0);
     }
 
@@ -864,7 +867,7 @@ contract NullifierRegistryGovernanceTest is Test {
         uint256 originalExecuteTime = registry.pendingCallerRevocation(districtGate);
 
         // Fast forward 6 days
-        vm.warp(block.timestamp + 6 days);
+        vm.warp(_lastWarpTime + 6 days);
 
         // Attacker tries to reset the revocation timelock
         vm.prank(governance);
@@ -879,11 +882,14 @@ contract NullifierRegistryGovernanceTest is Test {
     // Helper Functions
     // ============================================================================
 
+    uint256 internal _lastWarpTime;
+
     /// @notice Helper to authorize a caller through the full timelock process
     function _authorizeCallerWithTimelock(address caller) internal {
         vm.prank(governance);
         registry.proposeCallerAuthorization(caller);
-        vm.warp(block.timestamp + SEVEN_DAYS);
+        _lastWarpTime = block.timestamp + SEVEN_DAYS;
+        vm.warp(_lastWarpTime);
         registry.executeCallerAuthorization(caller);
     }
 }
