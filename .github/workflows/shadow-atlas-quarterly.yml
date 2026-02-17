@@ -50,27 +50,13 @@ jobs:
         id: extract
         working-directory: packages/shadow-atlas
         run: |
-          # Create extraction directory
-          mkdir -p .shadow-atlas/tiger-quarterly
-
-          # Extract all states
-          npx tsx services/shadow-atlas/scripts/multi-state-validation.ts
-
-          # Generate summary
-          SUMMARY=$(cat multi-state-validation-report.json | jq -c '{
-            totalStates: .totalStates,
-            totalTests: .totalTests,
-            passed: .summary.passed,
-            failed: (.totalTests - .summary.passed),
-            timestamp: .timestamp
-          }')
-
-          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
-
-          # Move extraction report
-          mv multi-state-validation-report.json .shadow-atlas/tiger-quarterly/
-
-          echo "✅ TIGER extraction complete"
+          # TODO: BR7-020 — multi-state-validation.ts does not exist yet.
+          # This workflow is DISABLED (manual trigger only) and should not be
+          # re-enabled until the TIGER pipeline is production-ready.
+          # The build-merkle job also uses mock Merkle data (random CID/hash)
+          # which would write garbage to the on-chain registry.
+          echo "ERROR: TIGER pipeline not yet implemented. This workflow is a placeholder."
+          exit 1
 
       - name: Upload extraction data
         uses: actions/upload-artifact@v4
@@ -160,6 +146,8 @@ jobs:
 
   build-merkle:
     name: Build Merkle Tree
+    # WARNING: This job uses MOCK data (random CID/hash). Do NOT enable
+    # update_registry until real Merkle tree builder is implemented.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: [validate-extraction]
