@@ -123,9 +123,13 @@ const registerSchema = z.object({
         return n > 0n && n < BN254_MODULUS_API;
       } catch { return false; }
     }, 'Leaf must be a valid BN254 field element (0 < leaf < p)'),
-  attestationHash: z.string()
-    .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
-    .optional(),
+  attestationHash: process.env.NODE_ENV === 'production'
+    ? z.string()
+        .regex(/^(0x)?[0-9a-fA-F]{64}$/, 'attestationHash must be 32-byte hex (SHA-256)')
+        .transform(s => s.startsWith('0x') ? s : '0x' + s)
+    : z.string()
+        .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
+        .optional(),
 });
 
 /**
@@ -143,9 +147,13 @@ const registerReplaceSchema = z.object({
       } catch { return false; }
     }, 'newLeaf must be a valid BN254 field element (0 < leaf < p)'),
   oldLeafIndex: z.number().int().nonnegative('oldLeafIndex must be a non-negative integer'),
-  attestationHash: z.string()
-    .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
-    .optional(),
+  attestationHash: process.env.NODE_ENV === 'production'
+    ? z.string()
+        .regex(/^(0x)?[0-9a-fA-F]{64}$/, 'attestationHash must be 32-byte hex (SHA-256)')
+        .transform(s => s.startsWith('0x') ? s : '0x' + s)
+    : z.string()
+        .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
+        .optional(),
 });
 
 /**
@@ -164,10 +172,24 @@ class RateLimiter {
   private readonly requests: Map<string, number[]> = new Map();
   private readonly maxRequests: number;
   private readonly windowMs: number;
+  private readonly cleanupInterval: ReturnType<typeof setInterval>;
 
   constructor(maxRequests: number, windowMs = 60000) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
+
+    // BR7-012: Sweep stale entries every 5 minutes to prevent memory leak
+    this.cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [key, timestamps] of this.requests) {
+        const recent = timestamps.filter(t => now - t < this.windowMs);
+        if (recent.length === 0) {
+          this.requests.delete(key);
+        } else {
+          this.requests.set(key, recent);
+        }
+      }
+    }, 5 * 60 * 1000);
   }
 
   check(clientId: string): {
@@ -196,6 +218,11 @@ class RateLimiter {
   reset(clientId: string): void {
     this.requests.delete(clientId);
   }
+
+  /** BR7-012: Clear cleanup interval to prevent dangling timers */
+  destroy(): void {
+    clearInterval(this.cleanupInterval);
+  }
 }
 
 /**
@@ -217,6 +244,7 @@ export class ShadowAtlasAPI {
   private readonly host: string;
   private readonly corsOrigins: readonly string[];
   private readonly apiVersion: APIVersion;
+  private shuttingDown = false;
 
   constructor(
     lookupService: DistrictLookupService,
@@ -274,6 +302,10 @@ export class ShadowAtlasAPI {
     }
 
     this.server = createServer((req, res) => this.handleRequest(req, res));
+    // BR7-010: Server-level timeout protection against slowloris
+    this.server.requestTimeout = 30_000;   // 30s total request timeout
+    this.server.headersTimeout = 10_000;   // 10s for headers
+    this.server.keepAliveTimeout = 5_000;  // 5s keep-alive
   }
 
   /**
@@ -323,11 +355,34 @@ export class ShadowAtlasAPI {
   }
 
   /**
-   * Stop HTTP server
+  /**
+   * Stop HTTP server with graceful shutdown.
+   * BR7-013: Closes pending connections, flushes insertion log, uploads final state.
    */
-  stop(): void {
+  async stop(): Promise<void> {
+    // Prevent double-shutdown
+    if (this.shuttingDown) return;
+    this.shuttingDown = true;
+
+    logger.info('API server shutting down...');
+
+    // 1. Stop accepting new connections
     this.server.close();
+
+    // 2. Clear rate limiter intervals (BR7-012)
+    this.rateLimiter.destroy();
+    this.registrationRateLimiter.destroy();
+
+    // 3. Flush insertion log and close
+    if (this.registrationService) {
+      await this.registrationService.close();
+    }
+
+    // 4. Final IPFS upload + stop sync service
+    const insertionLog = this.registrationService?.getInsertionLog() ?? null;
+    await this.syncService.shutdown(insertionLog);
     this.syncService.stop();
+
     logger.info('API server stopped');
   }
 
@@ -1044,18 +1099,35 @@ export class ShadowAtlasAPI {
       const chunks: Buffer[] = [];
       let size = 0;
       const maxSize = 1024; // 1KB max for registration body
+      let resolved = false;
+
+      // BR7-010: Slowloris protection — abort if body isn't received within 10s
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          req.destroy();
+          resolve(null);
+        }
+      }, 10_000);
 
       req.on('data', (chunk: Buffer) => {
         size += chunk.length;
         if (size > maxSize) {
-          resolve(null);
-          req.destroy();
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            resolve(null);
+            req.destroy();
+          }
           return;
         }
         chunks.push(chunk);
       });
 
       req.on('end', () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
         try {
           const raw = Buffer.concat(chunks).toString('utf8');
           resolve(JSON.parse(raw));
@@ -1064,7 +1136,13 @@ export class ShadowAtlasAPI {
         }
       });
 
-      req.on('error', () => resolve(null));
+      req.on('error', () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(null);
+        }
+      });
     });
   }
 
@@ -1237,6 +1315,8 @@ export class ShadowAtlasAPI {
   private setSecurityHeaders(res: ServerResponse, requestId: string, req?: IncomingMessage): void {
     // CORS headers - only set if origins are configured
     if (this.corsOrigins.length > 0) {
+      // BR7-011: Vary header for correct CDN/proxy cache behavior with dynamic CORS
+      res.setHeader('Vary', 'Origin');
       // CR-012: Validate against actual request origin, not just first in list
       const requestOrigin = req?.headers.origin;
       let origin: string;

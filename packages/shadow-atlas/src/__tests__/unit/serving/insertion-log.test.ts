@@ -195,4 +195,186 @@ describe('InsertionLog', () => {
       }
     });
   });
+
+  describe('v2 integrity', () => {
+    describe('hash chain integrity', () => {
+      it('validates complete hash chain without signer', async () => {
+        // Append 5 entries without a signer
+        for (let i = 0; i < 5; i++) {
+          await log.append({ leaf: `0x${i}`, index: i, ts: 1000 + i });
+        }
+
+        const { verification } = await log.replay();
+        expect(verification.validChainLinks).toBe(5);
+        expect(verification.brokenLinks).toBe(0);
+        expect(verification.unsignedEntries).toBe(5);
+        expect(verification.totalEntries).toBe(5);
+      });
+
+      it('detects tampering in middle of chain', async () => {
+        // Append 5 entries
+        for (let i = 0; i < 5; i++) {
+          await log.append({ leaf: `0x${i}`, index: i, ts: 1000 + i });
+        }
+        await log.close();
+
+        // Tamper with middle entry (change leaf but keep prevHash)
+        const content = await fs.readFile(logPath, 'utf8');
+        const lines = content.trim().split('\n');
+        const middle = JSON.parse(lines[2]);
+        middle.leaf = '0xTAMPERED';
+        lines[2] = JSON.stringify(middle);
+        await fs.writeFile(logPath, lines.join('\n') + '\n');
+
+        // Reopen and replay
+        log = await InsertionLog.open({ path: logPath, fsync: false });
+        const { verification } = await log.replay();
+
+        // The entry AFTER the tampered one will have wrong prevHash
+        expect(verification.brokenLinks).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    describe('signature verification', () => {
+      it('signs and verifies entries round-trip', async () => {
+        const { ServerSigner } = await import('../../../serving/signing');
+        const signer = await ServerSigner.init(); // ephemeral key
+
+        await log.close();
+        log = await InsertionLog.open({ path: logPath, fsync: false, signer });
+
+        // Append 3 signed entries
+        await log.append({ leaf: '0xa', index: 0, ts: 1000 });
+        await log.append({ leaf: '0xb', index: 1, ts: 1001 });
+        await log.append({ leaf: '0xc', index: 2, ts: 1002 });
+
+        const { verification } = await log.replay(signer);
+        expect(verification.validSignatures).toBe(3);
+        expect(verification.unsignedEntries).toBe(0);
+        expect(verification.invalidSignatures).toBe(0);
+        expect(verification.totalEntries).toBe(3);
+      });
+
+      it('detects signature tampering', async () => {
+        const { ServerSigner } = await import('../../../serving/signing');
+        const signer = await ServerSigner.init();
+
+        await log.close();
+        log = await InsertionLog.open({ path: logPath, fsync: false, signer });
+
+        // Append 3 signed entries
+        await log.append({ leaf: '0xa', index: 0, ts: 1000 });
+        await log.append({ leaf: '0xb', index: 1, ts: 1001 });
+        await log.append({ leaf: '0xc', index: 2, ts: 1002 });
+        await log.close();
+
+        // Tamper with entry 2's leaf but keep its signature
+        const content = await fs.readFile(logPath, 'utf8');
+        const lines = content.trim().split('\n');
+        const entry = JSON.parse(lines[1]);
+        entry.leaf = '0xTAMPERED';
+        lines[1] = JSON.stringify(entry);
+        await fs.writeFile(logPath, lines.join('\n') + '\n');
+
+        // Reopen and replay with signer
+        log = await InsertionLog.open({ path: logPath, fsync: false });
+        const { verification } = await log.replay(signer);
+
+        expect(verification.invalidSignatures).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    describe('attestation hash support', () => {
+      it('preserves attestationHash round-trip', async () => {
+        await log.append({
+          leaf: '0xabc',
+          index: 0,
+          ts: 1000,
+          attestationHash: '0xdeadbeef'
+        });
+
+        const { entries } = await log.replay();
+        expect(entries).toHaveLength(1);
+        expect(entries[0].attestationHash).toBe('0xdeadbeef');
+      });
+    });
+
+    describe('backward compatibility', () => {
+      it('handles mixed v1 and v2 entries', async () => {
+        const { ServerSigner } = await import('../../../serving/signing');
+        const signer = await ServerSigner.init();
+
+        await log.close();
+
+        // Write 2 v1 entries manually (no prevHash, no sig)
+        await fs.appendFile(logPath, '{"leaf":"0xv1a","index":0,"ts":1000}\n');
+        await fs.appendFile(logPath, '{"leaf":"0xv1b","index":1,"ts":1001}\n');
+
+        // Reopen with signer and append v2 entries
+        log = await InsertionLog.open({ path: logPath, fsync: false, signer });
+        await log.append({ leaf: '0xv2a', index: 2, ts: 1002 });
+        await log.append({ leaf: '0xv2b', index: 3, ts: 1003 });
+        await log.append({ leaf: '0xv2c', index: 4, ts: 1004 });
+
+        const { verification } = await log.replay(signer);
+        expect(verification.legacyEntries).toBe(2);
+        expect(verification.validSignatures).toBe(3);
+        expect(verification.totalEntries).toBe(5);
+      });
+    });
+
+    describe('crash recovery detection', () => {
+      it('sets lastEntryBroken=true when only last entry is corrupted', async () => {
+        // Append 5 entries
+        for (let i = 0; i < 5; i++) {
+          await log.append({ leaf: `0x${i}`, index: i, ts: 1000 + i });
+        }
+        await log.close();
+
+        // Corrupt ONLY the last entry's prevHash
+        const content = await fs.readFile(logPath, 'utf8');
+        const lines = content.trim().split('\n');
+        const lastEntry = JSON.parse(lines[4]);
+        lastEntry.prevHash = '0xCORRUPTED';
+        lines[4] = JSON.stringify(lastEntry);
+        await fs.writeFile(logPath, lines.join('\n') + '\n');
+
+        // Reopen and replay
+        log = await InsertionLog.open({ path: logPath, fsync: false });
+        const { verification } = await log.replay();
+
+        expect(verification.lastEntryBroken).toBe(true);
+        expect(verification.brokenLinks).toBe(1);
+      });
+
+      it('sets lastEntryBroken=false when multiple entries are corrupted', async () => {
+        // Append 5 entries
+        for (let i = 0; i < 5; i++) {
+          await log.append({ leaf: `0x${i}`, index: i, ts: 1000 + i });
+        }
+        await log.close();
+
+        // Corrupt entries 2 and 4 (0-indexed)
+        const content = await fs.readFile(logPath, 'utf8');
+        const lines = content.trim().split('\n');
+        
+        const entry2 = JSON.parse(lines[2]);
+        entry2.prevHash = '0xCORRUPT_A';
+        lines[2] = JSON.stringify(entry2);
+
+        const entry4 = JSON.parse(lines[4]);
+        entry4.prevHash = '0xCORRUPT_B';
+        lines[4] = JSON.stringify(entry4);
+
+        await fs.writeFile(logPath, lines.join('\n') + '\n');
+
+        // Reopen and replay
+        log = await InsertionLog.open({ path: logPath, fsync: false });
+        const { verification } = await log.replay();
+
+        expect(verification.lastEntryBroken).toBe(false);
+        expect(verification.brokenLinks).toBeGreaterThanOrEqual(2);
+      });
+    });
+  });
 });

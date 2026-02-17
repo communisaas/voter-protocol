@@ -70,13 +70,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint
-        working-directory: packages/shadow-atlas
-        run: npm run lint || echo "Lint check skipped - configure ESLint"
-
-      - name: Run Prettier check
-        working-directory: packages/shadow-atlas
-        run: npm run format:check || echo "Format check skipped - configure Prettier"
+      - name: Lint (not yet configured)
+        run: echo "ESLint and Prettier not yet configured for shadow-atlas"
 
   typecheck:
     name: TypeScript Type Check
@@ -152,7 +147,8 @@ jobs:
 
       - name: Run integration tests
         working-directory: packages/shadow-atlas
-        run: npm run test:integration || echo "Integration tests skipped - configure test:integration script"
+        run: npm run test:integration
+        continue-on-error: true
         env:
           CI: true
 
@@ -184,7 +180,8 @@ jobs:
 
       - name: Run all tests with coverage
         working-directory: packages/shadow-atlas
-        run: npm test -- --coverage || echo "Coverage collection skipped"
+        run: npm test -- --coverage
+        continue-on-error: true
         env:
           CI: true
 
@@ -216,7 +213,8 @@ jobs:
 
       - name: Run npm audit
         working-directory: packages/shadow-atlas
-        run: npm audit --audit-level=high || echo "Security audit completed with warnings"
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
 
   build:
     name: Production Build

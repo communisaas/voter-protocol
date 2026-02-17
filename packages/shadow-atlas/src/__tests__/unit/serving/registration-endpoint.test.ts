@@ -566,3 +566,144 @@ describe('GET /v1/cell-proof', () => {
     expect(body.error?.code).toBe('CELL_NOT_FOUND');
   });
 });
+
+describe('registration receipts (BR7-009)', () => {
+  let api: ShadowAtlasAPI;
+  let registrationService: RegistrationService;
+  let signer: any; // ServerSigner
+
+  beforeEach(async () => {
+    // Import ServerSigner dynamically
+    const { ServerSigner } = await import('../../../serving/signing.js');
+    signer = await ServerSigner.init(); // ephemeral key, no persistence
+
+    registrationService = await RegistrationService.create(4); // depth=4
+
+    // Create mock sync service with notifyInsertion
+    const mockSyncService = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      getLatestSnapshot: vi.fn().mockResolvedValue(null),
+      listSnapshots: vi.fn().mockResolvedValue([]),
+      notifyInsertion: vi.fn(), // BR7-009: required for receipt tests
+    };
+
+    api = new ShadowAtlasAPI(
+      createMockLookupService() as any,
+      createMockProofService() as any,
+      mockSyncService as any,
+      3000,
+      '0.0.0.0',
+      ['*'],
+      60,
+      { version: 'v1', deprecated: false },
+      registrationService,
+      createMockCellMapState() as any,
+      TEST_AUTH_TOKEN,
+      signer, // Pass signer to API
+    );
+  });
+
+  it('returns receipt with data and sig fields', async () => {
+    const req = createMockRequest('/v1/register', 'POST',
+      JSON.stringify({ leaf: VALID_LEAF }),
+      {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TEST_AUTH_TOKEN}`,
+      },
+    );
+    const { res, getStatus, getBody } = createMockResponse();
+
+    await (api as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(200);
+    const body = getBody() as any;
+    expect(body.success).toBe(true);
+    expect(body.data.receipt).toBeDefined();
+    expect(typeof body.data.receipt.data).toBe('string');
+    expect(typeof body.data.receipt.sig).toBe('string');
+  });
+
+  it('receipt signature is valid', async () => {
+    const req = createMockRequest('/v1/register', 'POST',
+      JSON.stringify({ leaf: VALID_LEAF }),
+      {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TEST_AUTH_TOKEN}`,
+      },
+    );
+    const { res, getStatus, getBody } = createMockResponse();
+
+    await (api as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(200);
+    const body = getBody() as any;
+    const { receipt } = body.data;
+
+    // Verify signature using the signer's public key
+    const isValid = signer.verify(receipt.data, receipt.sig);
+    expect(isValid).toBe(true);
+  });
+
+  it('receipt data contains leafIndex, leaf, userRoot, ts', async () => {
+    const req = createMockRequest('/v1/register', 'POST',
+      JSON.stringify({ leaf: VALID_LEAF }),
+      {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TEST_AUTH_TOKEN}`,
+      },
+    );
+    const { res, getStatus, getBody } = createMockResponse();
+
+    await (api as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(200);
+    const body = getBody() as any;
+    const { receipt } = body.data;
+
+    // Parse receipt data
+    const receiptData = JSON.parse(receipt.data);
+
+    expect(typeof receiptData.leafIndex).toBe('number');
+    expect(receiptData.leafIndex).toBe(0); // First registration
+    expect(receiptData.leaf).toBe(VALID_LEAF);
+    expect(typeof receiptData.userRoot).toBe('string');
+    expect(receiptData.userRoot).toMatch(/^0x[0-9a-f]+$/);
+    expect(typeof receiptData.ts).toBe('number');
+    expect(receiptData.ts).toBeGreaterThan(0);
+  });
+
+  it('no receipt when signer not configured', async () => {
+    // Create API without signer
+    const noSignerApi = new ShadowAtlasAPI(
+      createMockLookupService() as any,
+      createMockProofService() as any,
+      createMockSyncService() as any,
+      3000,
+      '0.0.0.0',
+      ['*'],
+      60,
+      { version: 'v1', deprecated: false },
+      registrationService,
+      createMockCellMapState() as any,
+      TEST_AUTH_TOKEN,
+      undefined, // No signer
+    );
+
+    const req = createMockRequest('/v1/register', 'POST',
+      JSON.stringify({ leaf: makeLeaf(999) }), // Different leaf to avoid duplicate
+      {
+        'content-type': 'application/json',
+        authorization: `Bearer ${TEST_AUTH_TOKEN}`,
+      },
+    );
+    const { res, getStatus, getBody } = createMockResponse();
+
+    await (noSignerApi as any).handleRequest(req, res);
+
+    expect(getStatus()).toBe(200);
+    const body = getBody() as any;
+    expect(body.success).toBe(true);
+    expect(body.data.receipt).toBeUndefined();
+  });
+});
