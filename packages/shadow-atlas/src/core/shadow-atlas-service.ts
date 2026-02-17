@@ -2342,84 +2342,19 @@ export class ShadowAtlasService {
       );
     }
 
-    // Build Merkle tree (flat or global depending on config)
+    // Build Merkle tree (flat — global tree removed in Cycle 13)
     this.log.info('Building Merkle tree', {
       layers: Object.keys(boundaryLayers),
-      globalTreeEnabled: this.config.globalTree?.enabled ?? false,
     });
 
-    let merkleRoot: bigint;
-    let treeDepth: number;
-    let totalBoundaries: number;
-    let layerCounts: Record<string, number>;
-    let treeType: 'flat' | 'global';
-    let countryRoots: ReadonlyMap<string, bigint> | undefined;
-    let continentalRoots: ReadonlyMap<string, bigint> | undefined;
-    // Keep reference to flat tree for proof generation (only set for flat trees)
-    let flatTree: MultiLayerMerkleTree | undefined;
-
-    if (this.config.globalTree?.enabled) {
-      // Global hierarchical tree
-      const { GlobalMerkleTreeBuilder } = await import('./global-merkle-tree.js');
-      const { GlobalTreeAdapter, extractCountryRoots, extractContinentalRoots } = await import('./global-tree-adapter.js');
-
-      const globalBuilder = new GlobalMerkleTreeBuilder();
-      const adapter = new GlobalTreeAdapter(globalBuilder, {
-        countries: this.config.globalTree.countries,
-        useSingleCountryOptimization: this.config.globalTree.countries.length === 1,
-      });
-
-      // Flatten all boundaries for conversion
-      const allBoundaries: MerkleBoundaryInput[] = [
-        ...(boundaryLayers.congressionalDistricts ?? []),
-        ...(boundaryLayers.stateLegislativeUpper ?? []),
-        ...(boundaryLayers.stateLegislativeLower ?? []),
-        ...(boundaryLayers.counties ?? []),
-        ...(boundaryLayers.cityCouncilDistricts ?? []),
-      ];
-
-      // Build unified tree
-      const unifiedTree = await adapter.build(allBoundaries, this.config.globalTree.countries[0] ?? 'US');
-
-      if (unifiedTree.type === 'global') {
-        // Global tree built
-        merkleRoot = unifiedTree.tree.globalRoot;
-        treeDepth = 0; // Global tree doesn't have single depth (varies by country)
-        totalBoundaries = unifiedTree.tree.totalDistricts;
-        treeType = 'global';
-        countryRoots = extractCountryRoots(unifiedTree.tree);
-        continentalRoots = extractContinentalRoots(unifiedTree.tree);
-
-        // Compute layer counts from global tree
-        layerCounts = {};
-        for (const continent of unifiedTree.tree.continents) {
-          for (const country of continent.countries) {
-            for (const region of country.regions) {
-              for (const district of region.districts) {
-                const type = district.boundaryType;
-                layerCounts[type] = (layerCounts[type] ?? 0) + 1;
-              }
-            }
-          }
-        }
-      } else {
-        // Flat tree used (single-country optimization)
-        flatTree = unifiedTree.tree;
-        merkleRoot = flatTree.root;
-        treeDepth = flatTree.tree.length;
-        totalBoundaries = flatTree.boundaryCount;
-        layerCounts = flatTree.layerCounts;
-        treeType = 'flat';
-      }
-    } else {
-      // Flat tree (backwards compatible)
-      flatTree = await builder.buildTree(boundaryLayers as BoundaryLayers);
-      merkleRoot = flatTree.root;
-      treeDepth = flatTree.tree.length;
-      totalBoundaries = flatTree.boundaryCount;
-      layerCounts = flatTree.layerCounts;
-      treeType = 'flat';
-    }
+    const flatTree = await builder.buildTree(boundaryLayers as BoundaryLayers);
+    const merkleRoot = flatTree.root;
+    const treeDepth = flatTree.tree.length;
+    const totalBoundaries = flatTree.boundaryCount;
+    const layerCounts = flatTree.layerCounts;
+    const treeType: 'flat' | 'global' = 'flat';
+    const countryRoots: ReadonlyMap<string, bigint> | undefined = undefined;
+    const continentalRoots: ReadonlyMap<string, bigint> | undefined = undefined;
 
     const duration = Date.now() - startTime;
 
@@ -2586,7 +2521,7 @@ export class ShadowAtlasService {
             : {},
           metadata: {
             generatedAt: new Date().toISOString(),
-            countries: this.config.globalTree?.countries ?? [],
+            countries: ['US'],
           },
         };
         const json = JSON.stringify(exportData, null, 2);

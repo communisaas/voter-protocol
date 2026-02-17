@@ -245,5 +245,8 @@ packages/noir-prover/profiler-entry.ts
 test-discovery-attempts/
 provenance/
 
+# Census BAF/BEF cache (downloaded by hydration pipeline)
+packages/shadow-atlas/data/baf-cache/
+
 # Vendor submodules (use npm packages instead)
 vendor/

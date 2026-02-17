@@ -41,23 +41,6 @@ export {
     type BoundaryLayers,
 } from './core/multi-layer-builder.js';
 
-// Global Merkle Tree (for multi-country support)
-export {
-    GlobalMerkleTreeBuilder,
-    AUTHORITY_LEVELS as GLOBAL_AUTHORITY_LEVELS, // Backward compat alias
-    REGION_NAMES,
-    type GlobalBoundaryType,
-    type AuthorityLevel,
-    type ContinentalRegion,
-    type GlobalDistrictInput,
-    type DistrictLeafHash,
-    type RegionalTree,
-    type CountryTree,
-    type ContinentalTree,
-    type GlobalMerkleTree,
-    type GlobalDistrictProof,
-    type GlobalTreeUpdateResult,
-} from './core/global-merkle-tree.js';
 
 // TIGER boundary types
 export type { TIGERBoundaryType } from './provenance/tiger-authority-rules.js';
@@ -144,14 +127,6 @@ export {
     type CheckpointState,
 } from './acquisition/tiger-ingestion-orchestrator.js';
 
-// Global Tree Adapter (multi-country support)
-export {
-    GlobalTreeAdapter,
-    extractCountryRoots,
-    extractContinentalRoots,
-    type GlobalTreeConfig,
-    type UnifiedMerkleTree,
-} from './core/global-tree-adapter.js';
 
 // Cross-Validation and School District Validation
 export {

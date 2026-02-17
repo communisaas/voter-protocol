@@ -1,9 +1,10 @@
 /**
  * Cell-District Mapping Loader
  *
- * Loads census tract to district mappings from TIGER boundary data
- * and transforms them into the CellDistrictMapping format needed
- * by the dual-tree builder.
+ * Loads census tract to district mappings from Census Block Assignment Files (BAFs)
+ * and transforms them into the CellDistrictMapping format needed by the dual-tree builder.
+ *
+ * Data pipeline: BAF download → parse → BEF overlay → cell resolution → CellDistrictMapping[]
  *
  * The 24-slot district taxonomy is defined in DISTRICT-TAXONOMY.md:
  *   Slot 0:  Congressional District
@@ -37,6 +38,10 @@
  */
 
 import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from './dual-tree-builder.js';
+import { downloadBAFs } from './hydration/baf-downloader.js';
+import { parseBAFFilesAsync } from './hydration/baf-parser.js';
+import { overlayBEFs } from './hydration/bef-overlay.js';
+import { resolveCells } from './hydration/cell-resolver.js';
 
 // ============================================================================
 // Types
@@ -230,56 +235,54 @@ export function generateMockMappings(
 }
 
 // ============================================================================
-// TIGER Data Loader
+// BAF Pipeline Loader
 // ============================================================================
 
 /**
- * Load cell-district mappings from TIGER boundary data.
+ * Load cell-district mappings from Census Block Assignment Files.
  *
- * This function reads from the existing TIGER data in shadow-atlas
- * (downloaded by TIGERBoundaryProvider) and builds the 24-slot
- * district array for each census tract.
+ * Full pipeline:
+ * 1. Download BAF zip files from Census Bureau (cached)
+ * 2. Parse pipe-delimited block records per entity type
+ * 3. Overlay 119th Congress BEFs for redistricted states
+ * 4. Resolve blocks to tract-level cells (with virtual cells for boundary splits)
  *
- * IMPLEMENTATION NOTE:
- * The full implementation requires spatial join operations between
- * census tracts and district boundaries (point-in-polygon or
- * polygon overlap). This depends on having TIGER data already
- * downloaded and cached. For the initial implementation, we provide:
- *
- * 1. The data model and encoding functions (above)
- * 2. A mock data generator for testing
- * 3. A fromRawDistricts() converter for use with external spatial
- *    join tools (e.g., PostGIS, GDAL, Turf.js)
- *
- * Full spatial join integration will be added in a follow-up PR
- * when the TIGER ingestion pipeline outputs tract-level assignments.
- *
- * @param options - Loader configuration
- * @returns Array of CellDistrictMapping
+ * @param options - Loader configuration (stateCode to filter, cacheDir for downloads)
+ * @returns Array of CellDistrictMapping ready for buildCellMapTree()
  */
 export async function loadCellDistrictMappings(
-  options: CellDistrictLoaderOptions = {},
+  options: CellDistrictLoaderOptions & { cacheDir?: string } = {},
 ): Promise<CellDistrictMapping[]> {
-  // For now, return empty array with a clear message.
-  // In production, this would:
-  // 1. Read cached TIGER GeoJSON from TIGERBoundaryProvider cache dir
-  // 2. Load census tract boundaries
-  // 3. For each tract, spatial-join with each district layer
-  // 4. Assemble 24-slot arrays
-  // 5. Encode GEOIDs as field elements
+  const cacheDir = options.cacheDir ?? 'data/baf-cache';
 
-  // The actual spatial join is deferred because:
-  // - Requires TIGER data to be downloaded first
-  // - Spatial operations need ogr2ogr or Turf.js
-  // - This is a separate concern from tree building
-  console.warn(
-    '[cell-district-loader] Full TIGER spatial join not yet implemented. ' +
-    'Use generateMockMappings() for testing or fromRawDistricts() with ' +
-    'externally computed district assignments.'
-  );
+  // Step 1: Download BAFs
+  const downloadResults = await downloadBAFs({
+    cacheDir,
+    stateCode: options.stateCode,
+  });
 
-  return [];
+  // Step 2: Parse all states' BAF files
+  const allBlocks = new Map<string, import('./hydration/baf-parser.js').BlockRecord>();
+
+  for (const result of downloadResults) {
+    const stateBlocks = await parseBAFFilesAsync(result.files);
+    for (const [blockId, record] of stateBlocks) {
+      allBlocks.set(blockId, record);
+    }
+  }
+
+  // Step 3: Overlay BEFs for redistricted states (119th Congress)
+  await overlayBEFs(allBlocks, { cacheDir });
+
+  // Step 4: Resolve to tract-level cells
+  const { mappings } = resolveCells(allBlocks);
+
+  return mappings;
 }
+
+// ============================================================================
+// Raw District Converter
+// ============================================================================
 
 /**
  * Convert raw district assignments to CellDistrictMapping format.
