@@ -12,7 +12,7 @@
 > | 5 | Communique registration UI integration | Complete (Wave 17c) |
 > | 5b | Communique two-tree proof generation | Complete (Wave 19a) |
 > | 5c | Registration auth (CR-004) | Complete (Wave 19b) |
-> | 5d | Identity verification (self.xyz/didit) mandatory for CWC | Partial — didit webhook generates shadowAtlasCommitment, but NOT wired to registration path (NUL-001 placeholder in shadow-atlas-handler.ts:136) |
+> | 5d | Identity verification (self.xyz/didit) mandatory for CWC | Complete — NUL-001 RESOLVED (2026-02-15): Server fetches User.identity_commitment from Postgres, passes as attestationHash to Shadow Atlas. Sybil dedup enforced at ZK circuit level. |
 > | 6 | On-chain verification via DistrictGate client | Complete (Wave 15a) |
 > | 7 | Coordination metrics indexer (The Graph) | Complete (Wave 15c/15d) |
 > | 8 | Anti-astroturf hardening (Waves 13-15) | Complete — all 11 gaps closed |
@@ -20,14 +20,14 @@
 > **INT-002 RESOLVED (Wave 17b):** `POST /v1/register` endpoint implemented in shadow-atlas.
 > `GET /v1/cell-proof` endpoint implemented for Tree 2 proofs.
 > **CR-004 RESOLVED (Wave 19b):** Bearer token auth on `POST /v1/register` with HMAC constant-time comparison.
-> **BR5-011 IMPLEMENTED (Waves 30-31):** Leaf replacement credential recovery plumbing complete — replaceLeaf(), POST /v1/register/replace, recoverTwoTree(). Wave 24 circuit rework DONE (H4 leaf + identity-bound nullifier). **NUL-001 wiring gap:** identityCommitment uses placeholder (request.leaf) in shadow-atlas-handler.ts:136 instead of provider-derived commitment. Sybil safety pending this wiring. See TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8.
+> **BR5-011 IMPLEMENTED (Waves 30-31):** Leaf replacement credential recovery plumbing complete — replaceLeaf(), POST /v1/register/replace, recoverTwoTree(). Wave 24 circuit rework DONE (H4 leaf + identity-bound nullifier). **NUL-001 RESOLVED (2026-02-15):** Server fetches User.identity_commitment from Postgres, passes as attestationHash to Shadow Atlas. Registration receipts (Ed25519 signed) stored in SessionCredential. See Section 2.5 and TWO-TREE-ARCHITECTURE-SPEC.md §8.4-8.8.
 > See `specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md` for detailed progress.
 
 ---
 
-**Version:** 0.3.0
-**Date:** 2026-02-11
-**Status:** ACTIVE — Recovery plumbing complete (Waves 30-31), circuit rework complete (Wave 24), NUL-001 identityCommitment wiring gap open
+**Version:** 0.4.0
+**Date:** 2026-02-16
+**Status:** ACTIVE — Verifiable Solo Operator complete (Waves 39-41), recovery plumbing complete (Waves 30-31), circuit rework complete (Wave 24). NUL-001 RESOLVED: identity_commitment wired via attestationHash.
 **Depends on:** TWO-TREE-ARCHITECTURE-SPEC.md v0.4.0
 
 ---
@@ -185,6 +185,69 @@ Client                           Server                    Email Provider
 ```
 
 **No ZK proof.** No address collection. No on-chain transaction.
+
+### 2.5 Verifiable Operator Integration (Wave 39-41)
+
+The Shadow Atlas serving layer provides cryptographic auditability for all registration operations. These features are transparent to the end user but critical for independent verification.
+
+#### Registration Request (Updated)
+
+`POST /v1/register` now accepts an optional `attestationHash` parameter:
+
+```json
+{
+  "leaf": "0x7a3f...",
+  "attestationHash": "0xabc..."
+}
+```
+
+- `attestationHash` (optional): Binds the insertion to a real identity verification event. Communique sends `User.identity_commitment` from Postgres as this value.
+
+#### Registration Response (Updated)
+
+`POST /v1/register` now returns a signed receipt alongside the existing fields:
+
+```json
+{
+  "leafIndex": 1234,
+  "merklePath": ["0x...", "0x...", "..."],
+  "merkleRoot": "0x...",
+  "districtId": "CA-12",
+  "depth": 20,
+  "receipt": {
+    "data": "{\"leaf\":\"0x7a3f...\",\"index\":1234,\"ts\":1707945600000,\"prevHash\":\"d4e5...\",\"attestationHash\":\"0xabc...\"}",
+    "sig": "a3b2f1d8e9c3..."
+  }
+}
+```
+
+- `receipt.data`: Canonical JSON of the insertion log entry (as appended to the hash-chained log)
+- `receipt.sig`: Ed25519 signature over `data` (128 hex chars = 64 bytes)
+
+Communique stores the receipt in `SessionCredential` (encrypted IndexedDB). If the operator later censors the user, the signed receipt proves malfeasance.
+
+The same schema applies to `POST /v1/register/replace`.
+
+#### Server Signing Key
+
+`GET /v1/signing-key` returns the operator's Ed25519 public key for independent verification:
+
+```json
+{
+  "publicKey": "YpX3kL...",
+  "publicKeyHex": "62957b...",
+  "fingerprint": "abc123def456...",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n..."
+}
+```
+
+#### Environment Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SIGNING_KEY_PATH` | **Yes** (production) | Path to Ed25519 private key (PEM/PKCS#8). Server fails closed if unset in production. |
+
+See `docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` for the complete trust model, verification walkthrough, and attack resistance analysis.
 
 ---
 

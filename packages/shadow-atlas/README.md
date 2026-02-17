@@ -141,7 +141,31 @@ const server = await startServer({
 // GET /v1/health
 ```
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment instructions.
+### 5. Verifiable Solo Operator (Wave 39-41)
+
+Shadow Atlas uses a hash-chained insertion log with Ed25519 signatures for tamper-evident, auditable registration:
+
+- Every leaf insertion is signed and hash-chained (SHA-256 chain + Ed25519 signatures)
+- Clients receive signed registration receipts (anti-censorship provenance)
+- Public key exposed at `GET /v1/signing-key` for independent verification
+- Insertion log published to IPFS via Storacha/Lighthouse for external audit
+
+**Required environment variable (production):**
+```bash
+export SIGNING_KEY_PATH=/data/shadow-atlas-signing.pem
+```
+
+The server **fails closed** in production without `SIGNING_KEY_PATH`. On first start, if the file doesn't exist, the server auto-generates an Ed25519 keypair and saves it (mode 0o600).
+
+**API Endpoints (Serving Layer):**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/register` | POST | Register leaf (accepts `attestationHash`) |
+| `/v1/register/replace` | POST | Replace existing leaf |
+| `/v1/signing-key` | GET | Server's Ed25519 public key |
+| `/v1/health` | GET | Health check |
+
+See [`docs/architecture/VERIFIABLE-SOLO-OPERATOR.md`](../../docs/architecture/VERIFIABLE-SOLO-OPERATOR.md) for the complete trust model.
 
 ---
 

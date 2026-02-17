@@ -1,7 +1,7 @@
 # Trust Model and Operator Integrity Specification
 
-**Version:** 1.0.0
-**Date:** 2026-02-05
+**Version:** 1.1.0
+**Date:** 2026-02-16
 **Status:** NORMATIVE
 **Companion Documents:** DATA-INTEGRITY-SPEC, ADVERSARIAL-ATTACK-DOMAINS, TWO-TREE-ARCHITECTURE-SPEC, COORDINATION-INTEGRITY-SPEC
 
@@ -264,6 +264,8 @@ The operator builds Merkle trees from Census TIGER data and registers roots on-c
 - No publication of intermediate build artifacts (cell-district mapping tables)
 - No on-chain mechanism that requires proof of correct construction
 
+**Partial mitigation (deployed):** The Verifiable Solo Operator model (Section 6.8) makes insertion operations transparent and auditable via hash-chained, Ed25519-signed log entries with attestation binding. This addresses insertion censorship and log tampering but does NOT address tree construction correctness.
+
 ### 5.2 Gap: Immediate Root Registration
 
 **Severity:** Critical
@@ -495,6 +497,33 @@ These metrics are published as a public dashboard, not used for access control. 
 
 **Delivery path security:** The `mailto:` delivery path (used for state/local officials without CWC integration) currently bypasses blockchain proof submission. This path must be fenced: messages sent via `mailto:` should carry a visible label indicating they are unverified by the on-chain system, preserving the distinction between verified and unverified channels.
 
+### 6.8 Verifiable Solo Operator (Insertion Log Integrity)
+
+**Target:** v1.0 launch — **IMPLEMENTED (Wave 39-41, 2026-02-15)**
+**Addresses:** Gap 5.1 (partial — insertion transparency, not tree construction) and Gap 5.5 (partial — anti-censorship receipts)
+**Cost:** $0 infrastructure (Ed25519 signing in Node.js built-ins)
+
+While Mitigations 6.1 and 6.6 address the correctness of tree construction, this mitigation addresses the integrity of the insertion process. Even with a correctly built tree, a malicious operator could:
+- Silently refuse to insert specific users (censorship)
+- Rewrite the insertion log retroactively (history falsification)
+- Show different log states to different users (equivocation)
+
+**Four integrity layers deployed:**
+
+**Hash-chained insertion log.** Each entry includes `prevHash = SHA-256(previous_entry_JSON)`. The chain starts at `SHA-256("genesis")`. Modifying any entry breaks the chain for all subsequent entries. Implemented in `packages/shadow-atlas/src/serving/insertion-log.ts`.
+
+**Ed25519 signed entries.** Each entry includes an Ed25519 signature over the canonical JSON (excluding the `sig` field itself). The server's public key is available at `GET /v1/signing-key`. Anyone can verify every entry was signed by the operator. Implemented in `packages/shadow-atlas/src/serving/signing.ts`.
+
+**Attestation binding.** Each entry may include `attestationHash` linking the insertion to a real identity verification event (the user's `identityCommitment`). This creates a public audit trail: anyone can verify that a specific verified identity was registered. Implemented in `api.ts` POST /v1/register.
+
+**Signed registration receipts.** Every registration returns `receipt: { data, sig }` — an Ed25519-signed receipt that the user stores locally. If the operator later censors the user (removes their entry from the published log), the user can present the signed receipt as proof of malfeasance.
+
+**Production guardrail:** The server refuses to start in production without a persistent signing key (`SIGNING_KEY_PATH` env var). Ephemeral keys destroy the integrity chain on restart.
+
+**What this does NOT address:** This mitigation makes insertion operations verifiable but does not prove that the tree was correctly constructed from Census data (that's 6.1/6.6) or that the on-chain root matches the published tree (that's 6.5).
+
+See `docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` for complete architecture documentation.
+
 ---
 
 ## 7. The Walkaway Roadmap
@@ -514,6 +543,8 @@ The protocol launches with a single operator who builds trees from public Census
 - Full event transparency for all governance actions
 - Public monitoring infrastructure (governance event bot)
 - User-cached Merkle proof paths for resilience
+- Hash-chained, Ed25519-signed insertion log with attestation binding (Section 6.8)
+- Signed registration receipts for anti-censorship provenance
 
 What passes: The protocol operates correctly as long as the operator is honest.
 What fails: If the operator disappears, new users cannot register and existing users cannot generate proofs for new action domains (cached proofs still work).

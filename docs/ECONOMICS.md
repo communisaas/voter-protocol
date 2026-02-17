@@ -4,7 +4,11 @@
 
 **Phase 1 (3 months)**: Reputation-only system. No tokens, no challenge markets, no outcome markets.
 
-**Phase 2 (12-18 months post-launch)**: Token economics, challenge markets, outcome markets launch after proving civic utility.
+**Phase 2 (12-18 months post-launch)**: Token economics launch in **four sequential phases** (E0-E3).
+See [CHALLENGE-MARKET-ARCHITECTURE.md](CHALLENGE-MARKET-ARCHITECTURE.md) for the complete deployment
+sequence, gate criteria between phases, and scrutiny analysis.
+
+This document defines the economic formulas. CHALLENGE-MARKET-ARCHITECTURE.md defines the deployment sequence.
 
 ---
 
@@ -453,6 +457,11 @@ Outcomes:
 
 ## Challenge Mechanism
 
+> **Deployment Phase:** Challenge markets launch in **Phase E3** (the final economic phase).
+> Prerequisites: E1 (retroactive impact rewards) and E2 (template creation bonds) must be
+> operational with passing gate criteria before E3 activates. See
+> [CHALLENGE-MARKET-ARCHITECTURE.md](CHALLENGE-MARKET-ARCHITECTURE.md) Sections 5-7 for gate criteria.
+
 ### Challenge Economics
 
 **Challenge Formula:**
@@ -668,6 +677,23 @@ If inactive > 90 days:
 ```
 
 Prevents abandoned high-reputation accounts from skewing metrics.
+
+---
+
+## Relationship to CHALLENGE-MARKET-ARCHITECTURE.md
+
+This document defines the **economic formulas and algorithms** for Phase 2 mechanisms.
+
+[CHALLENGE-MARKET-ARCHITECTURE.md](CHALLENGE-MARKET-ARCHITECTURE.md) defines the **deployment sequence, gate criteria, and failure modes**.
+
+Key difference: This document treats Phase 2 as a single launch event. CHALLENGE-MARKET-ARCHITECTURE.md proposes four sequential phases (E0-E3), each gated by measurable success criteria:
+
+- **E0**: Reputation-only (current Phase 1)
+- **E1**: Retroactive impact rewards (retroactive funding before prospective incentives)
+- **E2**: Template creation bonds (staking primitive without adversarial challenges)
+- **E3**: Challenge markets (full adversarial stake + dispute resolution)
+
+If Phase 2 proceeds, the sequencing in CHALLENGE-MARKET-ARCHITECTURE.md supersedes the monolithic Phase 2 launch described here.
 
 ---
 

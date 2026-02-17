@@ -255,6 +255,17 @@ Note: authority_level now cryptographically committed (not self-claimed)
 - Solution: self.xyz/didit mandatory for CWC. identityCommitment derived from verification credential anchors nullifier — cryptographic Sybil resistance.
 - Status: DECIDED — identity verification mandatory, nullifier = H2(identityCommitment, actionDomain)
 
+**Challenge Market Attack Vectors (Phase E3):**
+- Front-running: Challenger sees valid root tx in mempool, submits identical root first
+- Sybil challenge swarms: 1000 micro-challenges exhaust defender bond capacity
+- Time-based attacks: Submit challenge at end of period when defender cannot respond
+- Whale attacks: Large bondholder dominates challenge market, censors via economic power
+- Political weaponization: Challenge as censorship tool against legitimate civic content
+- Speculation dominance: Trading volume eclipses civic utility (>10x ratio triggers circuit breaker)
+- AI consensus gaming: Train models to predict and exploit jury voting patterns
+
+Full attack surface documented in [CHALLENGE-MARKET-ARCHITECTURE.md](../docs/CHALLENGE-MARKET-ARCHITECTURE.md) Section 13.
+
 ---
 
 ### Domain 9: Client-Side Security
@@ -789,6 +800,34 @@ Phase 3: Reporting (15 min per agent)
 - **No MVP mode**: mvpAddress bypass, skipCredentialCheck, mock verification all marked for removal.
 - **IPFS log replay**: Storacha (free 5GB, Filecoin-backed) primary + Lighthouse Beacon ($20 perpetual) backup.
 
+### Wave 6: Verifiable Solo Operator Review (2026-02-15) — Cycle 10
+
+**Agents Deployed:** Inter-wave engineering review of Wave 39-41 (Verifiable Solo Operator model)
+
+**Scope:** Hash-chained insertion log, Ed25519 server signing, attestation binding, signed registration receipts
+
+**Findings (12 total):**
+- 0 P0 (Critical)
+- 4 P1 (High) — ALL FIXED:
+  - W40-002: Replace operation missing attestationHash forwarding
+  - W40-004: Ephemeral signing key allowed in production (fail-closed guardrail added)
+  - W40-005: Signature verification used engine-specific key ordering (explicit ordering)
+  - W40-009: Missing rate limiting on GET /v1/signing-key endpoint
+- 5 P2 (Medium) — Addressed:
+  - W40-003: Rate limiter token-bucket refactored
+  - Insertion log v2 backward compatibility verified
+  - Registration receipt format standardized
+  - CORS production guardrail strengthened
+  - Error response parity for registration endpoints
+- 3 P3 (Low) — Documented
+
+**Key Implementation:**
+- `packages/shadow-atlas/src/serving/signing.ts` — 170-line Ed25519 ServerSigner
+- `packages/shadow-atlas/src/serving/insertion-log.ts` — v2 format (prevHash, sig, attestationHash)
+- `packages/shadow-atlas/src/serving/api.ts` — Receipt generation, GET /v1/signing-key
+
+**Status:** ALL P1s RESOLVED. See `docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` for architecture documentation.
+
 ---
 
 ## Appendix A: Quick Reference
@@ -820,6 +859,6 @@ Phase 3: Reporting (15 min per agent)
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** 2026-02-10
+**Document Version:** 1.3
+**Last Updated:** 2026-02-16
 **Maintainer:** Distinguished Engineering Review

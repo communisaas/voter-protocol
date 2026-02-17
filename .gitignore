@@ -58,6 +58,17 @@ ENV/
 private/
 secrets/
 
+# Ed25519 signing keys (Wave 39-41 verifiable operator)
+id_ed25519
+id_ed25519.pub
+*signing-key*
+*.jwk
+jwks.json
+!**/*signing-key-example*
+
+# npm auth tokens
+.npmrc
+
 # Temporary files
 tmp/
 temp/

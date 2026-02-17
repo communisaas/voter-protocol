@@ -1,6 +1,6 @@
 # Architecture Documentation Index
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 This directory serves as the navigation hub for VOTER Protocol architecture documentation. The documentation is organized hierarchically from strategic overview to implementation specifics.
 
@@ -51,7 +51,22 @@ This directory serves as the navigation hub for VOTER Protocol architecture docu
 
 ---
 
-#### 2.2 Shadow Atlas (Governance Boundary Resolution)
+#### 2.2 Verifiable Solo Operator (Phase 1 Trust Model)
+
+**File:** [`/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md`](VERIFIABLE-SOLO-OPERATOR.md)
+**Audience:** Security auditors, operators, integration developers
+**Scope:**
+- Hash-chained insertion log with Ed25519 signatures
+- Registration receipts for anti-censorship
+- Public key auditability and log verification
+- Key management (`SIGNING_KEY_PATH`)
+- Residual trust assumptions vs TEE/MPC (Phase 2+)
+
+**When to read:** Deploying Shadow Atlas in production, auditing operator integrity, or verifying registration receipts.
+
+---
+
+#### 2.3 Shadow Atlas (Governance Boundary Resolution)
 
 **File:** [`/packages/shadow-atlas/docs/ARCHITECTURE.md`](../../packages/shadow-atlas/docs/ARCHITECTURE.md)
 **Audience:** Shadow Atlas maintainers, data pipeline engineers
@@ -103,7 +118,9 @@ This directory serves as the navigation hub for VOTER Protocol architecture docu
 
 **Planning international expansion?** → `/specs/GLOBAL-SCALING-ARCHITECTURE.md`
 
-**Conducting security audit?** → `/docs/ZK-PRODUCTION-ARCHITECTURE.md` (threat model and formal verification requirements)
+**Deploying Shadow Atlas?** → `/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` (operator integrity) + `/packages/shadow-atlas/docs/ARCHITECTURE.md`
+
+**Conducting security audit?** → `/docs/ZK-PRODUCTION-ARCHITECTURE.md` (threat model and formal verification requirements) + `/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` (operator trust model)
 
 ---
 

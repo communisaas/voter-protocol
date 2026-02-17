@@ -8,7 +8,8 @@
 - **February 2026**: Added "Privacy Guarantees & Limitations" section documenting anonymity set calculations and small district risks (SA-013)
 - **January 2026**: Documentation restructured with comprehensive architecture docs added to `/docs/`
 - **Phase 1 Implementation**: Core cryptographic infrastructure complete (Noir circuits, browser proving, Shadow Atlas)
-- **Trail of Bits Audit**: Scheduling in progress as of Q1 2026. Three rounds of internal Brutalist security audits have been completed (51 total findings; see `specs/IMPLEMENTATION-GAP-ANALYSIS.md` Rev 8 for tracking)
+- **Trail of Bits Audit**: Scheduling in progress as of Q1 2026. Six rounds of internal Brutalist security audits have been completed plus a Cycle 10 inter-wave review (all findings resolved; see `specs/IMPLEMENTATION-GAP-ANALYSIS.md` for tracking)
+- **February 2026 (Cycle 10)**: Verifiable Solo Operator security review — 12 findings (0 P0, 4 P1, 5 P2, 3 P3). All P1s fixed: receipt verification, replace attestation/receipt parity, production key guard, explicit key ordering. Ed25519 signing, hash-chained insertion log, and attestation binding deployed.
 - **Content Moderation**: 3-layer stack operational with cost-benefit validation
 
 **Phase 1 Focus**: Privacy is enforced by cryptography, not promises. Identity never leaves the device; offices receive verified signal without surveillance; reputation records, not identity, land on‑chain. Phase 2 adds economic mechanisms and is clearly marked.
@@ -869,6 +870,14 @@ Users should understand these trade-offs before participating. If your threat mo
 - Stored in AWS KMS with audit logging
 - Rotated quarterly
 - Multi-region redundancy
+
+**Shadow Atlas operator signing key (Phase 1):**
+- Ed25519 keypair for insertion log signatures and registration receipts
+- Private key stored at `SIGNING_KEY_PATH` (PEM/PKCS#8 format, mode 0o600)
+- **Production guardrail:** Server refuses to start if `SIGNING_KEY_PATH` is not set in production (fail-closed)
+- Public key exposed via `GET /v1/signing-key` for independent verification
+- Key rotation: manual (replace file, restart; note historical entries remain verifiable only with old key)
+- See `docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` for complete trust model
 
 ### Access Control
 
