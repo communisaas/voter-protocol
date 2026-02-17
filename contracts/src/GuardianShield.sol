@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19;
 
 /// @title GuardianShield
 /// @notice Multi-jurisdiction guardian system with veto power

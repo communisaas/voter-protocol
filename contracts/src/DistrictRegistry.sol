@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19;
 
 /// @title DistrictRegistry
 /// @notice Immutable on-chain registry mapping district Merkle roots to country identifiers and tree depths

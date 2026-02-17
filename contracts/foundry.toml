@@ -6,11 +6,15 @@ test = "test"
 cache_path = "cache"
 
 # Solidity compiler settings
-solc_version = "0.8.19"
+solc_version = "0.8.28"
 evm_version = "paris"
 optimizer = true
 optimizer_runs = 200
-via_ir = true  # Enable intermediate representation for better optimization
+via_ir = true  # Required for DistrictGate (stack depth)
+
+# NOTE: Auto-generated HonkVerifier contracts in src/verifiers/ must be compiled
+# without via_ir. Use: forge build --skip 'src/verifiers/**'
+# Verifiers are deployed from pre-compiled bytecode via forge create or cast send.
 
 # Testing settings
 verbosity = 2
