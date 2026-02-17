@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity >=0.8.19;
 
 import "./DistrictRegistry.sol";
 import "./NullifierRegistry.sol";
@@ -324,17 +324,16 @@ contract DistrictGate is Pausable, TimelockGovernance {
 
         // Step 3: Verify ZK proof with depth-specific verifier
         // Public inputs: (merkle_root, nullifier, authority_level, action_domain, district_id)
-        uint256[5] memory publicInputs = [
-            uint256(districtRoot),
-            uint256(nullifier),
-            uint256(authorityLevel),
-            uint256(actionDomain),
-            uint256(districtId)
-        ];
+        bytes32[] memory publicInputs = new bytes32[](5);
+        publicInputs[0] = districtRoot;
+        publicInputs[1] = nullifier;
+        publicInputs[2] = bytes32(uint256(authorityLevel));
+        publicInputs[3] = actionDomain;
+        publicInputs[4] = districtId;
 
         (bool success, bytes memory result) = verifier.call(
             abi.encodeWithSignature(
-                "verifyProof(bytes,uint256[5])",
+                "verify(bytes,bytes32[])",
                 proof,
                 publicInputs
             )
@@ -708,13 +707,17 @@ contract DistrictGate is Pausable, TimelockGovernance {
         address verifier = verifierRegistry.getVerifier(verifierDepth);
         if (verifier == address(0)) revert VerifierNotFound();
 
-        // Encode the call with 29 public inputs
-        // The verifier expects: verifyProof(bytes proof, uint256[29] publicInputs)
+        // Convert uint256[29] calldata to bytes32[] for Honk verifier interface
+        bytes32[] memory honkInputs = new bytes32[](29);
+        for (uint256 i = 0; i < 29; i++) {
+            honkInputs[i] = bytes32(publicInputs[i]);
+        }
+
         (bool success, bytes memory result) = verifier.call(
             abi.encodeWithSignature(
-                "verifyProof(bytes,uint256[29])",
+                "verify(bytes,bytes32[])",
                 proof,
-                publicInputs
+                honkInputs
             )
         );
 
