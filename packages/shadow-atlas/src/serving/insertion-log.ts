@@ -88,6 +88,8 @@ export interface ChainVerificationResult {
   readonly invalidSignatures: number;
   /** Number of unsigned entries */
   readonly unsignedEntries: number;
+  /** True if the only broken link is the very last entry (indicates crash recovery scenario) */
+  readonly lastEntryBroken: boolean;
 }
 
 // ============================================================================
@@ -224,6 +226,7 @@ export class InsertionLog {
     let validSignatures = 0;
     let invalidSignatures = 0;
     let unsignedEntries = 0;
+    let lastBrokenLineNumber = -1;
 
     const verifier = signer ?? this.signer;
 
@@ -260,6 +263,7 @@ export class InsertionLog {
             validChainLinks++;
           } else {
             brokenLinks++;
+            lastBrokenLineNumber = lineNumber;
             logger.error('InsertionLog: HASH CHAIN BROKEN', {
               lineNumber,
               expected: prevHash.slice(0, 16) + '...',
@@ -330,6 +334,9 @@ export class InsertionLog {
       }
     }
 
+    // Determine if the only broken link is the last entry (crash recovery scenario)
+    const lastEntryBroken = brokenLinks === 1 && lastBrokenLineNumber === lineNumber;
+
     const verification: ChainVerificationResult = {
       totalEntries: entries.length,
       validChainLinks,
@@ -338,6 +345,7 @@ export class InsertionLog {
       validSignatures,
       invalidSignatures,
       unsignedEntries,
+      lastEntryBroken,
     };
 
     if (brokenLinks > 0) {

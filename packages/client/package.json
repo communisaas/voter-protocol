@@ -25,21 +25,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@near-js/accounts": "^2.3.3",
     "@near-js/biometric-ed25519": "^2.3.4",
-    "@near-js/crypto": "^2.3.3",
-    "@near-js/keystores-browser": "^2.3.3",
     "@noir-lang/noir_js": "1.0.0-beta.16",
     "@voter-protocol/noir-prover": "^0.2.0",
     "ethers": "^6.15.0",
-    "idb": "^8.0.3",
-    "libsodium-wrappers": "^0.7.13",
-    "near-api-js": "^6.3.0",
-    "pako": "^2.1.0"
+    "js-sha256": "^0.11.1",
+    "near-api-js": "^6.3.0"
   },
   "devDependencies": {
     "@types/node": "^24.3.2",
-    "js-sha256": "^0.11.1",
     "typescript": "^5.7.2",
     "vite": "^5.4.10",
     "vite-plugin-dts": "^4.3.0",

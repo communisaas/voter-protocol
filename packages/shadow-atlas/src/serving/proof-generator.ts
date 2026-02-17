@@ -24,6 +24,7 @@ import {
   type DistrictProof,
   type CircuitDepth as CryptoCircuitDepth,
 } from '@voter-protocol/crypto/district-prover';
+import { Poseidon2Hasher } from '@voter-protocol/crypto/poseidon2';
 import { logger } from '../core/utils/logger.js';
 
 /**
@@ -329,19 +330,14 @@ export class ProofService {
   }
 
   /**
-   * Hash two values using Poseidon2 (via Noir circuit)
+   * Hash two values using Poseidon2
    *
    * SECURITY: Uses cryptographic Poseidon2 hash, NOT XOR.
-   * Delegates to hash_pair from crypto package mock (which uses real Poseidon2Hasher).
+   * Uses Poseidon2Hasher singleton from @voter-protocol/crypto.
    */
   private async hashPair(left: bigint, right: bigint): Promise<bigint> {
-    const leftHex = '0x' + left.toString(16).padStart(64, '0');
-    const rightHex = '0x' + right.toString(16).padStart(64, '0');
-
-    // Import from crypto circuits mock (wraps Poseidon2Hasher)
-    const { hash_pair } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
-    const hashHex = await hash_pair(leftHex, rightHex);
-    return BigInt(hashHex);
+    const hasher = await Poseidon2Hasher.getInstance();
+    return hasher.hashPair(left, right);
   }
 
   /**
@@ -358,11 +354,17 @@ export class ProofService {
       throw new Error('Cannot hash empty array');
     }
 
-    const { hash_4 } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
+    const hasher = await Poseidon2Hasher.getInstance();
 
-    // Use hash_4 for 4 values (optimal for Poseidon2)
+    // Use hash4 for 4 values (optimal for Poseidon2)
     if (values.length === 4) {
-      return hash_4(values[0], values[1], values[2], values[3]);
+      const result = await hasher.hash4(
+        BigInt(values[0]),
+        BigInt(values[1]),
+        BigInt(values[2]),
+        BigInt(values[3])
+      );
+      return '0x' + result.toString(16).padStart(64, '0');
     }
 
     // For other lengths, use iterative hashing

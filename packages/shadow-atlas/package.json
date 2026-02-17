@@ -78,9 +78,10 @@
         "zod": "^3.24.1"
     },
     "peerDependencies": {
-        "@aztec/bb.js": "^2.1.8",
-        "@noir-lang/noir_js": "^1.0.0-beta.16",
-        "@voter-protocol/crypto": "^0.1.0"
+        "@aztec/bb.js": "2.1.8",
+        "@noir-lang/noir_js": "1.0.0-beta.16",
+        "@voter-protocol/crypto": "^0.1.0",
+        "pg": "^8.0.0"
     },
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.11",
@@ -89,7 +90,8 @@
         "@types/pdf-parse": "^1.1.5",
         "tsx": "^4.7.0",
         "typescript": "^5.7.2",
-        "vitest": "^2.1.8"
+        "vitest": "^2.1.8",
+        "@types/pg": "^8.0.0"
     },
     "keywords": [
         "voter-protocol",
@@ -101,5 +103,10 @@
         "tiger"
     ],
     "author": "VOTER Protocol",
-    "license": "MIT"
+    "license": "MIT",
+    "peerDependenciesMeta": {
+        "pg": {
+            "optional": true
+        }
+    }
 }

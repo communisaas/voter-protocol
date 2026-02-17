@@ -149,9 +149,23 @@ export class RegistrationService {
       const { entries, verification } = await service.insertionLog.replay();
 
       if (verification.brokenLinks > 0 || verification.invalidSignatures > 0) {
-        logger.error('RegistrationService: insertion log integrity compromised', {
+        // Allow single broken last entry (incomplete write from crash)
+        const isRecoverableCrash = verification.brokenLinks === 1
+          && verification.invalidSignatures === 0
+          && verification.lastEntryBroken === true;
+
+        if (!isRecoverableCrash) {
+          throw new Error(
+            `FATAL: Insertion log integrity compromised. ` +
+            `${verification.brokenLinks} broken chain links, ` +
+            `${verification.invalidSignatures} invalid signatures. ` +
+            `Manual investigation required before service can start. ` +
+            `See TRUST-MODEL-AND-OPERATOR-INTEGRITY.md for recovery procedures.`
+          );
+        }
+
+        logger.warn('RegistrationService: last log entry truncated (likely crash recovery)', {
           brokenLinks: verification.brokenLinks,
-          invalidSignatures: verification.invalidSignatures,
         });
       }
 
@@ -297,6 +311,20 @@ export class RegistrationService {
         throw new Error('Tree capacity exceeded');
       }
 
+      const newLeafIndex = this.nextLeafIndex;
+      // BR7-017: Write-ahead logging — persist BEFORE tree mutation
+      if (this.insertionLog) {
+        await this.insertionLog.append({
+          leaf: '0x' + newLeaf.toString(16),
+          index: newLeafIndex,
+          ts: Date.now(),
+          type: 'replace',
+          oldIndex: oldLeafIndex,
+          attestationHash: options?.attestationHash,
+        });
+      }
+
+
       // ========================================================================
       // Step 1: Zero the old leaf (set to padding)
       // ========================================================================
@@ -322,7 +350,6 @@ export class RegistrationService {
       // ========================================================================
       // Step 2: Insert the new leaf at nextLeafIndex
       // ========================================================================
-      const newLeafIndex = this.nextLeafIndex;
 
       // Set new leaf node
       this.setNode(0, newLeafIndex, newLeaf);
@@ -348,17 +375,6 @@ export class RegistrationService {
       // Generate proof for the new leaf
       const { siblings, pathIndices } = this.computeProof(newLeafIndex);
 
-      // BR5-007: Persist to insertion log (with replacement metadata)
-      if (this.insertionLog) {
-        await this.insertionLog.append({
-          leaf: '0x' + newLeaf.toString(16),
-          index: newLeafIndex,
-          ts: Date.now(),
-          type: 'replace',
-          oldIndex: oldLeafIndex,
-          attestationHash: options?.attestationHash,
-        });
-      }
 
       logger.info('Leaf replaced', {
         oldLeafIndex,
@@ -572,6 +588,17 @@ export class RegistrationService {
 
     const leafIndex = this.nextLeafIndex;
 
+
+    // BR7-017: Write-ahead logging — persist BEFORE tree mutation
+    if (this.insertionLog) {
+      await this.insertionLog.append({
+        leaf: '0x' + leaf.toString(16),
+        index: leafIndex,
+        ts: Date.now(),
+        attestationHash: options?.attestationHash,
+      });
+    }
+
     // Set leaf node
     this.setNode(0, leafIndex, leaf);
     this.leafSet.add(leafHex);
@@ -595,15 +622,6 @@ export class RegistrationService {
     // Generate proof
     const { siblings, pathIndices } = this.computeProof(leafIndex);
 
-    // BR5-007: Persist to insertion log (after tree update, before returning)
-    if (this.insertionLog) {
-      await this.insertionLog.append({
-        leaf: '0x' + leaf.toString(16),
-        index: leafIndex,
-        ts: Date.now(),
-        attestationHash: options?.attestationHash,
-      });
-    }
 
     logger.info('Leaf registered', {
       leafIndex,

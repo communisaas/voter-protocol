@@ -25,7 +25,7 @@
 #   - nargo (Noir compiler) installed and in PATH
 #   - Run from packages/crypto directory
 #
-# Requires: nargo 1.0.0-beta.18 (must match bb verifier generation)
+# Requires: nargo 1.0.0-beta.16 (must match @noir-lang/* npm packages)
 #
 
 set -e  # Exit on error
@@ -60,6 +60,16 @@ log_error() {
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
+
+    # Verify nargo version matches npm packages
+    REQUIRED_NARGO="1.0.0-beta.16"
+    if command -v nargo &> /dev/null; then
+        ACTUAL_NARGO=$(nargo --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+' || echo "unknown")
+        if [ "$ACTUAL_NARGO" != "$REQUIRED_NARGO" ]; then
+            log_warn "nargo $REQUIRED_NARGO required (matching @noir-lang/* npm packages), got $ACTUAL_NARGO"
+            log_warn "Version mismatch may produce incompatible circuit artifacts."
+        fi
+    fi
 
     # Check nargo is installed
     if ! command -v nargo &> /dev/null; then
