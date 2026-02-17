@@ -1959,38 +1959,38 @@ Deferred findings (tracked for future waves):
 - FALSE POSITIVE: HIGH-INT-001 (BN254 hex 0x prefix) — Shadow Atlas always returns 0x-prefixed values
 - FALSE POSITIVE: HIGH-INT-002 (hex format mismatch in BR5-010) — both paths use same frToHex() format
 
-**Combined open issues: 27** (1 integration blocker + 26 from Round 7. 20 pre-Round 7 items resolved: NUL-001, BR5-001 through BR5-018, SA-008, INT-002, INT-003)
+**Combined open issues: 2** (1 backlog + 1 deferred. All P0/P1/P2 from Rounds 1-7 resolved.)
 
-**🔴 P0 — Deployment blocking (6 OPEN, 4 RESOLVED):**
+**✅ P0 — Deployment blocking (0 OPEN, 10 RESOLVED):**
 - ~~NUL-001: NULLIFIER SYBIL~~ → ✅ COMPLETE (Wave 24 — H2(identityCommitment, actionDomain))
 - ~~BR5-001: Authority level not bound to leaf hash~~ → ✅ COMPLETE (Wave 24 — H4 leaf binding + DOMAIN_HASH4)
 - ~~BR5-002: Server-side proof non-verification~~ → ✅ COMPLETE (Wave 25a — MVP bypass removed, chain-only verification)
-- INT-001: Package.json `file:` paths → IN PROGRESS (communique updated to ^0.2.0, awaits npm publish)
+- ~~INT-001: Package.json `file:` paths~~ → ✅ COMPLETE (npm publish: crypto@0.1.3, noir-prover@0.2.0, client@0.1.0)
 - ~~INT-002: Shadow Atlas `POST /v1/register`~~ → ✅ COMPLETE (Wave 17b)
-- BR7-001: proof-generator imports from `__mocks__/` → NOT STARTED
-- BR7-002: `js-sha256` misclassified as devDep → NOT STARTED
-- BR7-003: nargo beta.18 vs npm beta.16 mismatch → NOT STARTED
-- BR7-004: Log integrity failure non-fatal → NOT STARTED
-- BR7-005: ZK peerDep caret ranges → NOT STARTED
+- ~~BR7-001: proof-generator imports from `__mocks__/`~~ → ✅ RESOLVED (Wave 42)
+- ~~BR7-002: `js-sha256` misclassified as devDep~~ → ✅ RESOLVED (Wave 42)
+- ~~BR7-003: nargo beta.18 vs npm beta.16 mismatch~~ → ✅ RESOLVED (Wave 42)
+- ~~BR7-004: Log integrity failure non-fatal~~ → ✅ RESOLVED (Wave 42)
+- ~~BR7-005: ZK peerDep caret ranges~~ → ✅ RESOLVED (Wave 42)
 
-**🔴 P1 — Security critical (7 OPEN, 8 RESOLVED from Round 5):**
+**✅ P1 — Security critical (0 OPEN, 15 RESOLVED):**
 - ~~BR5-003: skipCredentialCheck mock credentials~~ → ✅ COMPLETE (Wave 25a — removed from ProofGenerator + TemplateModal)
 - ~~BR5-004: hash4 lacks domain tag (collision with hash3)~~ → ✅ COMPLETE (Wave 24 — DOMAIN_HASH4 added)
 - ~~BR5-005: Registration timing oracle~~ → ✅ COMPLETE (Wave 22 — latencyMs removed)
 - ~~INT-003: `mvpAddress` cleartext bypass~~ → ✅ COMPLETE (Wave 25a — mvpAddress removed from all code paths)
 - ~~BR5-007: Registration state non-persistent~~ → ✅ COMPLETE (Wave 26a — InsertionLog + SyncService + Lighthouse)
 - ~~BR5-006: verifyProof doesn't check public inputs~~ → ✅ COMPLETE (Wave 28a+28M — verifyProofWithExpectedInputs + parsePublicInput + 11 tests)
-- BR5-008: npm package names not claimed → NOT STARTED (npm scope @voter-protocol claimed)
+- ~~BR5-008: npm package names not claimed~~ → ✅ COMPLETE (npm scope @voter-protocol claimed + published)
 - ~~BR5-009: No BN254 validation on server responses~~ → ✅ COMPLETE (Wave 29a+29M — validateBN254Hex + lookupDistrict + anti-oracle)
 - ~~BR5-010: 29 public inputs not validated pre-submission~~ → ✅ COMPLETE (Wave 29a+29M — post-proof cross-validation + cellMapRoot)
-- BR7-006: CI audit `|| echo` escape hatches → NOT STARTED
-- BR7-007: `signing.ts` zero test coverage → NOT STARTED
-- BR7-008: Insertion log v2 untested → NOT STARTED
-- BR7-009: Registration receipts untested → NOT STARTED
-- BR7-010: No body read timeout (slowloris) → NOT STARTED
-- BR7-011: No `Vary: Origin` with dynamic CORS → NOT STARTED
+- ~~BR7-006: CI audit `|| echo` escape hatches~~ → ✅ RESOLVED (Wave 43)
+- ~~BR7-007: `signing.ts` zero test coverage~~ → ✅ RESOLVED (Wave 43 — 25 tests)
+- ~~BR7-008: Insertion log v2 untested~~ → ✅ RESOLVED (Wave 43 — 8 new tests)
+- ~~BR7-009: Registration receipts untested~~ → ✅ RESOLVED (Wave 43 — 4 new tests)
+- ~~BR7-010: No body read timeout (slowloris)~~ → ✅ RESOLVED (Wave 43)
+- ~~BR7-011: No `Vary: Origin` with dynamic CORS~~ → ✅ RESOLVED (Wave 43)
 
-**🟠 P2 — Important (11 OPEN from Round 7, 10 RESOLVED):**
+**✅ P2 — Important (0 OPEN, 20 RESOLVED + 1 DEFERRED + 1 BACKLOG):**
 - ~~BA-014: Rate limiting~~ → ✅ COMPLETE (sliding window + Redis, 11 endpoint configs)
 - BA-017: Depth-24 proof generation test (CI BACKLOG — test written, needs BB in CI runner)
 - ~~BR5-011: No credential recovery path (account lockout)~~ → ✅ PLUMBING COMPLETE (Wave 30-31 — replaceLeaf + endpoint + recovery handler; Sybil safety pending NUL-001)
@@ -2001,17 +2001,17 @@ Deferred findings (tracked for future waves):
 - ~~BR5-016: Cell-proof endpoint not rate limited~~ → ✅ COMPLETE (Wave 29a+29M — 10 req/min user-based + anti-oracle)
 - ~~BR5-017: Array ordering not validated~~ → ✅ COMPLETE (Wave 28a — district uniqueness + BN254 bounds + 11 tests)
 - ~~BR5-018: Wildcard dependency "*"~~ → ✅ COMPLETE (Wave 22 — pinned)
-- BR7-012: Rate limiter memory leak → NOT STARTED
-- BR7-013: No graceful shutdown in API class → NOT STARTED
-- BR7-014: IPFS recovery no CID verification → NOT STARTED
-- BR7-015: ci.yml missing permissions + jobs → NOT STARTED
-- BR7-016: Publish workflow version input unused → NOT STARTED
-- BR7-017: WAL inversion → NOT STARTED
+- ~~BR7-012: Rate limiter memory leak~~ → ✅ RESOLVED (Wave 45)
+- ~~BR7-013: No graceful shutdown in API class~~ → ✅ RESOLVED (Wave 45)
+- ~~BR7-014: IPFS recovery no CID verification~~ → ✅ RESOLVED (Wave 45)
+- ~~BR7-015: ci.yml missing permissions + jobs~~ → ✅ RESOLVED (Wave 44)
+- ~~BR7-016: Publish workflow version input unused~~ → ✅ RESOLVED (Wave 44)
+- ~~BR7-017: WAL inversion~~ → ✅ RESOLVED (Wave 45)
 - BR7-018: Replace endpoint no ownership proof → DEFERRED (Phase 2)
-- BR7-019: attestationHash optional in production → NOT STARTED
-- BR7-020: Quarterly workflow dead path → NOT STARTED
-- BR7-021: 12+ dead production dependencies → NOT STARTED
-- BR7-022: `pg` imported but undeclared → NOT STARTED
+- ~~BR7-019: attestationHash optional in production~~ → ✅ RESOLVED (Wave 45)
+- ~~BR7-020: Quarterly workflow dead path~~ → ✅ RESOLVED (Wave 44)
+- ~~BR7-021: 12+ dead production dependencies~~ → ✅ RESOLVED (Wave 44)
+- ~~BR7-022: `pg` imported but undeclared~~ → ✅ RESOLVED (Wave 44)
 
 **⚠️ P3 — Hardening (3 legacy + 2 Round 5 + 4 Round 7):**
 - SA-016: CORS restrictive default → PARTIALLY FIXED
