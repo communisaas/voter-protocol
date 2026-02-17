@@ -1,0 +1,30 @@
+{
+  "scroll-sepolia": {
+    "chainId": 534351,
+    "DistrictRegistry": "",
+    "NullifierRegistry": "",
+    "VerifierRegistry": "",
+    "DistrictGate": "",
+    "CampaignRegistry": "",
+    "HonkVerifier_18": "",
+    "HonkVerifier_20": "",
+    "HonkVerifier_22": "",
+    "HonkVerifier_24": "",
+    "deployedAt": "",
+    "deployer": ""
+  },
+  "scroll-mainnet": {
+    "chainId": 534352,
+    "DistrictRegistry": "",
+    "NullifierRegistry": "",
+    "VerifierRegistry": "",
+    "DistrictGate": "",
+    "CampaignRegistry": "",
+    "HonkVerifier_18": "",
+    "HonkVerifier_20": "",
+    "HonkVerifier_22": "",
+    "HonkVerifier_24": "",
+    "deployedAt": "",
+    "deployer": ""
+  }
+}

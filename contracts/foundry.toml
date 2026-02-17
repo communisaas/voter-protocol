@@ -12,9 +12,10 @@ optimizer = true
 optimizer_runs = 200
 via_ir = true  # Required for DistrictGate (stack depth)
 
-# NOTE: Auto-generated HonkVerifier contracts in src/verifiers/ must be compiled
-# without via_ir. Use: forge build --skip 'src/verifiers/**'
-# Verifiers are deployed from pre-compiled bytecode via forge create or cast send.
+# Auto-generated HonkVerifier contracts in src/verifiers/ are excluded from default
+# builds (incompatible with via_ir). Compile them separately:
+#   FOUNDRY_PROFILE=verifiers forge build
+skip = ["HonkVerifier"]
 
 # Testing settings
 verbosity = 2
@@ -48,3 +49,19 @@ scroll_mainnet = "https://rpc.scroll.io"
 [etherscan]
 scroll_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.scrollscan.com/api" }
 scroll_mainnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.scrollscan.com/api" }
+
+# Profile for compiling auto-generated HonkVerifier contracts.
+# These CANNOT use via_ir (stack too deep / codegen incompatibility).
+# Usage: FOUNDRY_PROFILE=verifiers forge build
+[profile.verifiers]
+src = "src/verifiers"
+test = "src/verifiers"    # no tests — isolates from DistrictGate
+script = "src/verifiers"  # no scripts — isolates from DistrictGate
+out = "out-verifiers"
+libs = ["lib"]
+skip = []                 # override default skip — we WANT HonkVerifier here
+solc_version = "0.8.28"
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 1
+via_ir = false

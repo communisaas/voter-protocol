@@ -10,8 +10,10 @@
 # Foundry/Forge
 cache/
 out/
+out-verifiers/
 broadcast/
 deployments/
+contracts/deployed-addresses.json
 
 # Node modules
 node_modules/
