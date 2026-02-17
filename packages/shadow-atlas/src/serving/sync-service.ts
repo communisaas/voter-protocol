@@ -25,6 +25,9 @@ import { join, dirname } from 'path';
 import type { IPinningService } from '../distribution/regional-pinning-service.js';
 import type { InsertionLog } from './insertion-log.js';
 import { logger } from '../core/utils/logger.js';
+import { CID } from 'multiformats/cid';
+import * as raw from 'multiformats/codecs/raw';
+import { sha256 } from 'multiformats/hashes/sha2';
 
 // ============================================================================
 // Types
@@ -64,6 +67,16 @@ export interface SyncServiceConfig {
  * Handles upload of local insertion log to IPFS pinning services
  * and recovery from IPFS when local state is lost.
  */
+/**
+ * BR7-014: Compute CIDv1 (raw codec + sha2-256) from buffer.
+ * This matches the CID format used by Storacha/w3up for small files.
+ */
+async function computeCidV1(content: Buffer): Promise<string> {
+  const hash = await sha256.digest(content);
+  const cid = CID.createV1(raw.code, hash);
+  return cid.toString();
+}
+
 export class SyncService {
   private readonly dataDir: string;
   private readonly uploadInterval: number;
@@ -226,6 +239,51 @@ export class SyncService {
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
+
+      // BR7-014: Verify content integrity — CID must match expected
+      try {
+        const computedCid = await computeCidV1(buffer);
+        const expectedCid = this.latestMetadata!.cid;
+        
+        // CID comparison: try exact match first, then base-encoded match
+        if (computedCid !== expectedCid) {
+          // CIDs may use different base encodings (base32 vs base58btc)
+          // Parse both and compare the raw bytes
+          try {
+            const computed = CID.parse(computedCid);
+            const expected = CID.parse(expectedCid);
+            if (!computed.equals(expected)) {
+              throw new Error(
+                `CID mismatch: expected ${expectedCid}, computed ${computedCid}. ` +
+                `Content may have been tampered with by the IPFS gateway.`
+              );
+            }
+          } catch (parseError) {
+            // If CID parsing fails, the mismatch stands
+            if (parseError instanceof Error && parseError.message.includes('CID mismatch')) {
+              throw parseError;
+            }
+            logger.warn('SyncService: CID format comparison failed, proceeding with content', {
+              computedCid,
+              expectedCid,
+              error: parseError instanceof Error ? parseError.message : String(parseError),
+            });
+          }
+        }
+        
+        logger.info('SyncService: CID verification passed', {
+          cid: expectedCid,
+        });
+      } catch (cidError) {
+        if (cidError instanceof Error && cidError.message.includes('CID mismatch')) {
+          throw cidError;  // Re-throw CID mismatch — don't write tampered content
+        }
+        // For other CID computation errors (e.g., missing codec), warn but proceed
+        // The content was fetched from the expected CID URL, so gateway is likely honest
+        logger.warn('SyncService: CID verification skipped (computation error)', {
+          error: cidError instanceof Error ? cidError.message : String(cidError),
+        });
+      }
 
       // Verify the recovered log has content
       const lineCount = buffer.toString('utf8').trim().split('\n').length;

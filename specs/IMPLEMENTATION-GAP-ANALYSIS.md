@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 20: 2026-02-10)
-> **Status:** REVISION 25 — CVEs REMEDIATED, Rounds 1-6 COMPLETE, Waves 1-41 IMPLEMENTED. **ALL SECURITY FINDINGS RESOLVED.** Cycle 10 (Verifiable Solo Operator): Hash-chained insertion log, Ed25519 signed entries, attestation binding, signed registration receipts. Wave 40 review: 12 findings (0 P0, 4 P1, 5 P2, 3 P3) — all P1s fixed. Remaining: verifier generation + 14-day timelock (LAUNCH GATE), npm publish, integration tests (T-1, T-2).
+> **Date:** 2026-01-26 (Rev 26: 2026-02-16)
+> **Status:** REVISION 26 — CVEs REMEDIATED, Rounds 1-7 COMPLETE, Waves 1-41 IMPLEMENTED + Cycle 11 CI/CD + dependency cleanup. Brutalist Round 7: 10 critics (4 Claude, 4 Gemini, 2 Codex failed) across 5 verticals (CI/CD, serving layer, dependencies, security, test coverage). 5 P0, 6 P1, 11 P2, 4 P3 confirmed; 11 false positives rejected. Key new findings: proof-generator imports from `__mocks__/` (deployment crash), `js-sha256` misclassified as devDep (consumer crash), nargo version mismatch, log integrity failure non-fatal, signing module untested.
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -12,6 +12,7 @@
 > **Coordination Integrity Review (Round 4):** Cross-repository data-flow analysis of proof-message binding, delivery paths, and anti-astroturf architecture — 2026-02-08
 > **Brutalist Audit Round 5:** 7 AI critics (3 Claude, 3 Codex, 1 Gemini) across 4 persona-driven assessments (cryptanalyst, infra hacker, client-side predator, protocol analyst) — 2026-02-10
 > **Brutalist Audit Round 6:** 7 AI critics across 5 domains (security, architecture, codebase, test coverage, dependencies) — 2026-02-11. 3 critical confirmed, 3 high confirmed, 6 false positives rejected with rationale.
+> **Brutalist Audit Round 7:** 10 AI critics (4 Claude, 4 Gemini, 2 Codex failed) across 5 verticals (CI/CD workflows, serving layer, dependencies, security, test coverage) — 2026-02-16. Post-CI/CD rework + dependency cleanup audit. 5 P0, 6 P1, 11 P2, 4 P3 confirmed; 11 false positives rejected with rationale.
 
 ---
 
@@ -1958,16 +1959,21 @@ Deferred findings (tracked for future waves):
 - FALSE POSITIVE: HIGH-INT-001 (BN254 hex 0x prefix) — Shadow Atlas always returns 0x-prefixed values
 - FALSE POSITIVE: HIGH-INT-002 (hex format mismatch in BR5-010) — both paths use same frToHex() format
 
-**Combined open issues: 5** (1 integration blocker, 1 P1 from Round 5, 3 P2 — 20 items resolved: NUL-001, BR5-001, BR5-002, BR5-003, BR5-004, BR5-005, BR5-006, BR5-007, BR5-009, BR5-010, BR5-012, BR5-013, BR5-014, BR5-015, BR5-016, BR5-017, BR5-018, SA-008, INT-002, INT-003)
+**Combined open issues: 27** (1 integration blocker + 26 from Round 7. 20 pre-Round 7 items resolved: NUL-001, BR5-001 through BR5-018, SA-008, INT-002, INT-003)
 
-**🔴 P0 — Deployment blocking (1 OPEN, 4 RESOLVED):**
+**🔴 P0 — Deployment blocking (6 OPEN, 4 RESOLVED):**
 - ~~NUL-001: NULLIFIER SYBIL~~ → ✅ COMPLETE (Wave 24 — H2(identityCommitment, actionDomain))
 - ~~BR5-001: Authority level not bound to leaf hash~~ → ✅ COMPLETE (Wave 24 — H4 leaf binding + DOMAIN_HASH4)
 - ~~BR5-002: Server-side proof non-verification~~ → ✅ COMPLETE (Wave 25a — MVP bypass removed, chain-only verification)
 - INT-001: Package.json `file:` paths → IN PROGRESS (communique updated to ^0.2.0, awaits npm publish)
 - ~~INT-002: Shadow Atlas `POST /v1/register`~~ → ✅ COMPLETE (Wave 17b)
+- BR7-001: proof-generator imports from `__mocks__/` → NOT STARTED
+- BR7-002: `js-sha256` misclassified as devDep → NOT STARTED
+- BR7-003: nargo beta.18 vs npm beta.16 mismatch → NOT STARTED
+- BR7-004: Log integrity failure non-fatal → NOT STARTED
+- BR7-005: ZK peerDep caret ranges → NOT STARTED
 
-**🔴 P1 — Security critical (1 OPEN, 8 RESOLVED from Round 5):**
+**🔴 P1 — Security critical (7 OPEN, 8 RESOLVED from Round 5):**
 - ~~BR5-003: skipCredentialCheck mock credentials~~ → ✅ COMPLETE (Wave 25a — removed from ProofGenerator + TemplateModal)
 - ~~BR5-004: hash4 lacks domain tag (collision with hash3)~~ → ✅ COMPLETE (Wave 24 — DOMAIN_HASH4 added)
 - ~~BR5-005: Registration timing oracle~~ → ✅ COMPLETE (Wave 22 — latencyMs removed)
@@ -1977,8 +1983,14 @@ Deferred findings (tracked for future waves):
 - BR5-008: npm package names not claimed → NOT STARTED (npm scope @voter-protocol claimed)
 - ~~BR5-009: No BN254 validation on server responses~~ → ✅ COMPLETE (Wave 29a+29M — validateBN254Hex + lookupDistrict + anti-oracle)
 - ~~BR5-010: 29 public inputs not validated pre-submission~~ → ✅ COMPLETE (Wave 29a+29M — post-proof cross-validation + cellMapRoot)
+- BR7-006: CI audit `|| echo` escape hatches → NOT STARTED
+- BR7-007: `signing.ts` zero test coverage → NOT STARTED
+- BR7-008: Insertion log v2 untested → NOT STARTED
+- BR7-009: Registration receipts untested → NOT STARTED
+- BR7-010: No body read timeout (slowloris) → NOT STARTED
+- BR7-011: No `Vary: Origin` with dynamic CORS → NOT STARTED
 
-**🟠 P2 — Important (0 OPEN, 10 RESOLVED):**
+**🟠 P2 — Important (11 OPEN from Round 7, 10 RESOLVED):**
 - ~~BA-014: Rate limiting~~ → ✅ COMPLETE (sliding window + Redis, 11 endpoint configs)
 - BA-017: Depth-24 proof generation test (CI BACKLOG — test written, needs BB in CI runner)
 - ~~BR5-011: No credential recovery path (account lockout)~~ → ✅ PLUMBING COMPLETE (Wave 30-31 — replaceLeaf + endpoint + recovery handler; Sybil safety pending NUL-001)
@@ -1989,12 +2001,27 @@ Deferred findings (tracked for future waves):
 - ~~BR5-016: Cell-proof endpoint not rate limited~~ → ✅ COMPLETE (Wave 29a+29M — 10 req/min user-based + anti-oracle)
 - ~~BR5-017: Array ordering not validated~~ → ✅ COMPLETE (Wave 28a — district uniqueness + BN254 bounds + 11 tests)
 - ~~BR5-018: Wildcard dependency "*"~~ → ✅ COMPLETE (Wave 22 — pinned)
+- BR7-012: Rate limiter memory leak → NOT STARTED
+- BR7-013: No graceful shutdown in API class → NOT STARTED
+- BR7-014: IPFS recovery no CID verification → NOT STARTED
+- BR7-015: ci.yml missing permissions + jobs → NOT STARTED
+- BR7-016: Publish workflow version input unused → NOT STARTED
+- BR7-017: WAL inversion → NOT STARTED
+- BR7-018: Replace endpoint no ownership proof → DEFERRED (Phase 2)
+- BR7-019: attestationHash optional in production → NOT STARTED
+- BR7-020: Quarterly workflow dead path → NOT STARTED
+- BR7-021: 12+ dead production dependencies → NOT STARTED
+- BR7-022: `pg` imported but undeclared → NOT STARTED
 
-**⚠️ P3 — Hardening (3 legacy + 2 new documented):**
+**⚠️ P3 — Hardening (3 legacy + 2 Round 5 + 4 Round 7):**
 - SA-016: CORS restrictive default → PARTIALLY FIXED
 - ~~SA-017: Census geocoder cross-validation~~ → WONTFIX (Census Bureau is authoritative)
 - BR5-019: IndexedDB same-origin access → DOCUMENTED
 - BR5-020: Triple-rename confusion → DOCUMENTED
+- BR7-023: NODE_ENV only production guard → DOCUMENTED
+- BR7-024: Duplicate YAML keys in CD workflow → DOCUMENTED
+- BR7-025: O(n) shift() in latency ring buffer → DOCUMENTED
+- BR7-026: Signing key cache TTL delays rotation → DOCUMENTED
 
 **Design Issues: 0 remaining (both resolved)**
 - ~~ISSUE-001: Cross-provider identity deduplication~~ → RESOLVED BY NUL-001 (cryptographic dedup via identity commitment)
@@ -2015,6 +2042,761 @@ Deferred findings (tracked for future waves):
 **TEE Address Handling:** Address is sent to decision-makers (Congress, healthcare, corporations, HOAs) via TEE. Address is never stored by the platform.
 
 **Two-Tree Architecture: IMPLEMENTATION COMPLETE.** E2E integration test added (`packages/crypto/test/two-tree-e2e.test.ts`). Round 3 brutalist review completed — 1 P0 (front-running), 2 P1 (prover validation), 5 P2 (defense-in-depth), 2 P3 (hardening). 9 findings rejected as invalid with documented rationale.
+
+---
+
+## 🔴 Brutalist Audit Round 7: Post-CI/CD & Dependency Cleanup (2026-02-16)
+
+> **Scope:** 5 parallel verticals — CI/CD workflows, serving layer, dependency graph, security posture, test coverage.
+> **Method:** 5 brutalist instances with 10 critic agents (4 Claude, 4 Gemini, 2 Codex — Codex failed on all 5). Each instance targeted a specific vertical of changes made during Cycle 11 (CI/CD rework, dependency cleanup, serving layer hardening, stale artifact removal).
+> **Trigger:** Post-commit audit of 4 commits: `bd1d943` (serving hardening), `2e6fc4f` (dep cleanup), `66eb8ee` (CI/CD), `51bed9d` (stale artifacts).
+> **Triage:** 26 findings confirmed (5 P0, 6 P1, 11 P2, 4 P3), 11 false positives rejected with rationale. Cross-vertical consensus: 4 findings flagged by 3+ critics independently.
+
+### P0 — Deployment Blocking (5)
+
+#### BR7-001: proof-generator.ts imports from `__mocks__/` in production code
+
+**Severity:** CRITICAL | **Repo:** voter-protocol | **Source:** Gemini (serving layer vertical) | **Confirmed by:** source code inspection
+**File:** `packages/shadow-atlas/src/serving/proof-generator.ts:342,361`
+
+**Problem:**
+
+```typescript
+const { hash_pair } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
+const { hash_4 } = await import('../__mocks__/@voter-protocol-crypto-circuits.js');
+```
+
+Production code dynamically imports from `__mocks__/`. If `__mocks__/` is excluded from production builds (via `.npmignore`, `tsconfig.json` exclude, or Docker layer pruning), the proof-generator crashes at runtime with `Module not found`. This is the serving layer's Merkle proof generation — a crash here means no proofs served to any user.
+
+**Best solution:**
+
+Import from the real `@voter-protocol/crypto` package. The mock exists because the crypto package's Poseidon2 WASM singleton has a heavy init cost — but this is the wrong optimization layer. The proof-generator should import `Poseidon2Hasher` directly and initialize once at service startup.
+
+```typescript
+import { Poseidon2Hasher } from '@voter-protocol/crypto';
+// Initialize once in ProofService constructor, not per-call
+```
+
+**Pitfalls:**
+- The WASM singleton may not initialize correctly in all Node.js environments (missing `--experimental-wasm-modules` flag). **Mitigation:** Test in CI with the exact Node.js version and flags used in production Docker image.
+- If `@voter-protocol/crypto` isn't published yet (INT-001), this import fails in non-workspace contexts. **Mitigation:** Publish the package first (task #90), or use workspace protocol `workspace:^` during development.
+- Performance regression if Poseidon2 WASM init is called per-request instead of once. **Mitigation:** Singleton pattern with lazy init in ProofService constructor.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-002: `js-sha256` misclassified as devDependency in client package
+
+**Severity:** CRITICAL | **Repo:** voter-protocol | **Source:** Claude (dependency vertical) | **Confirmed by:** grep verification
+**File:** `packages/client/package.json:42` (devDependencies), `packages/client/src/account/near-account.ts:8` (production import)
+
+**Problem:**
+
+```typescript
+// packages/client/src/account/near-account.ts:8
+import * as sha256Module from 'js-sha256';
+```
+
+`js-sha256` is in `devDependencies` but imported in production code (NEAR account ID derivation). Any npm consumer of `@voter-protocol/client` will get `Module not found: js-sha256` at runtime because devDependencies are not installed by consumers.
+
+**Best solution:**
+
+Move `js-sha256` from `devDependencies` to `dependencies` in `packages/client/package.json`.
+
+```json
+"dependencies": {
+  "js-sha256": "^0.11.1",
+  // ...
+}
+```
+
+**Pitfalls:**
+- None. This is a 1-line move between JSON sections.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-003: nargo compiler version (beta.18) mismatches npm packages (beta.16)
+
+**Severity:** CRITICAL | **Repo:** voter-protocol | **Source:** Gemini (dependency vertical) | **Confirmed by:** grep verification
+**Files:** `packages/crypto/scripts/build-circuits.sh:28`, `packages/crypto/scripts/build-two-tree-circuits.sh:28` — require nargo `1.0.0-beta.18`. Root `package.json` and all workspaces pin `@noir-lang/noir_js` and `@noir-lang/noir_wasm` to `1.0.0-beta.16`.
+
+**Problem:**
+
+Noir circuits compiled with `nargo 1.0.0-beta.18` may produce artifacts (ACIR bytecode) that are incompatible with the `1.0.0-beta.16` TypeScript prover. Noir betas frequently change ABI encoding, witness generation, and proof format. If the compiled circuit's bytecode format doesn't match the prover's expected format, proofs will either fail to generate or fail to verify on-chain.
+
+**Best solution:**
+
+Align all versions to the same beta. Two options:
+
+- **Option A (preferred):** Update npm packages to `1.0.0-beta.18` to match nargo. This pulls in the latest WASM prover matching the circuit compiler.
+- **Option B:** Downgrade nargo to `1.0.0-beta.16` and recompile circuits. Risk: beta.16 may have bugs fixed in beta.18.
+
+Either way, the build scripts should assert the nargo version at the top:
+```bash
+REQUIRED_NARGO="1.0.0-beta.18"
+ACTUAL_NARGO=$(nargo --version | grep -oP '\d+\.\d+\.\d+-beta\.\d+')
+if [ "$ACTUAL_NARGO" != "$REQUIRED_NARGO" ]; then
+  echo "ERROR: nargo $REQUIRED_NARGO required, got $ACTUAL_NARGO" && exit 1
+fi
+```
+
+**Pitfalls:**
+- Upgrading `@noir-lang/*` may introduce breaking API changes in the TypeScript prover (method signatures, proof format). **Mitigation:** Run all 53 crypto tests + 69 prover tests after upgrade.
+- The circuit artifacts (compiled ACIR) checked into the repo may have been compiled with an older nargo and never recompiled. **Mitigation:** Recompile circuits after version alignment and verify golden vectors still pass.
+- `@aztec/bb.js` version may also need to match. Check the Noir-BB compatibility matrix for the target beta version.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-004: Insertion log integrity failure is non-fatal — tampered data loads silently
+
+**Severity:** CRITICAL | **Repo:** voter-protocol | **Source:** Claude (serving + security verticals), Gemini (serving + test coverage verticals) — **4/10 critics flagged independently**
+**File:** `packages/shadow-atlas/src/serving/registration-service.ts:151-156`
+
+**Problem:**
+
+```typescript
+if (verification.brokenLinks > 0 || verification.invalidSignatures > 0) {
+  logger.error('RegistrationService: insertion log integrity compromised', {
+    brokenLinks: verification.brokenLinks,
+    invalidSignatures: verification.invalidSignatures,
+  });
+}
+// Replay continues regardless — ALL entries loaded into tree, including tampered ones
+for (const entry of entries) {
+  await service.replayLeaf(entry.leaf);
+}
+```
+
+When the insertion log has broken hash chains or invalid Ed25519 signatures — clear indicators of tampering — the service logs an error but proceeds to rebuild the Merkle tree from the corrupted data. An attacker who gains disk access can modify, insert, or reorder entries in the NDJSON log, and the service will accept the changes on restart.
+
+The entire Wave 39-41 verifiable operator trust model (hash chains + Ed25519 signatures) becomes observational-only — detects tampering but doesn't prevent it.
+
+**Best solution:**
+
+Fail-closed. When integrity is compromised, abort startup with a fatal error requiring operator investigation:
+
+```typescript
+if (verification.brokenLinks > 0 || verification.invalidSignatures > 0) {
+  throw new Error(
+    `FATAL: Insertion log integrity compromised. ` +
+    `${verification.brokenLinks} broken chain links, ` +
+    `${verification.invalidSignatures} invalid signatures. ` +
+    `Manual investigation required before service can start. ` +
+    `See TRUST-MODEL-AND-OPERATOR-INTEGRITY.md for recovery procedures.`
+  );
+}
+```
+
+Provide a `--force-replay` CLI flag for operator override after manual investigation, with an audit log entry recording the override.
+
+**Pitfalls:**
+- Legitimate causes of broken chains: file corruption from power loss, incomplete writes during ungraceful shutdown. If the service refuses to start after a crash, it creates a chicken-and-egg problem. **Mitigation:** The last entry may have a broken chain (incomplete write). Allow `brokenLinks === 1 && it's the last entry` as a recoverable condition — truncate the incomplete last line and proceed. Multiple broken links or mid-log breaks are genuine tampering.
+- Operators may routinely use `--force-replay` to bypass the check, defeating the purpose. **Mitigation:** Log `--force-replay` usage to the audit trail with operator identity. Rate-limit: only allow once per 24 hours without a second operator confirmation.
+- Test environments use unsigned logs. **Mitigation:** Only enforce in production (`process.env.NODE_ENV === 'production'` or when `signing` is enabled).
+
+**Cross-reference:** Related to deferred finding from Wave 26R ("Log integrity signing — significant scope"). Now implemented but enforcement was deferred — this finding closes that gap.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-005: shadow-atlas peerDependencies use caret ranges for ZK libraries
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude + Gemini (dependency vertical) — **2/2 dependency critics flagged**
+**File:** `packages/shadow-atlas/package.json:80-83`
+
+**Problem:**
+
+```json
+"peerDependencies": {
+  "@aztec/bb.js": "^2.1.8",
+  "@noir-lang/noir_js": "^1.0.0-beta.16"
+}
+```
+
+Every other package in the monorepo uses exact pins (`2.1.8`, `1.0.0-beta.16`). The caret (`^`) in shadow-atlas's peerDependencies allows consumers to resolve `@aztec/bb.js@2.5.0` or `@noir-lang/noir_js@1.0.0-beta.20` — versions that may produce incompatible WASM backends, different proof formats, or different hash outputs. In a ZK stack where the circuit, prover, and verifier must use byte-identical implementations, version drift is a proof-of-nothing attack vector.
+
+**Best solution:**
+
+Pin exact versions matching the rest of the monorepo:
+
+```json
+"peerDependencies": {
+  "@aztec/bb.js": "2.1.8",
+  "@noir-lang/noir_js": "1.0.0-beta.16"
+}
+```
+
+**Pitfalls:**
+- Exact peer dep pins cause npm warnings when consumers have slightly different versions. **Mitigation:** This is the intended behavior — the warning is the security feature. Consumers should be forced to align.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P1 — Security & Correctness (6)
+
+#### BR7-006: CI audit steps silently swallow failures via `|| echo`
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude + Gemini (CI/CD vertical) — **2/2 CI critics flagged**
+**Files:** `ci.yml:103`, `publish-crypto.yml:36`, `publish-noir-prover.yml:36`, `publish-client.yml:36`, `shadow-atlas-ci.yml:75,79,155,219`
+
+**Problem:**
+
+```yaml
+run: npm audit --audit-level=high || echo "::warning::Security audit found high-severity vulnerabilities"
+```
+
+The `|| echo` swallows the exit code. The step always succeeds. This pattern appears in **8 places** across 5 workflow files: `npm audit` (4 places), `npm run lint` (1), `npm run format:check` (1), `npm run test:integration` (1), and shadow-atlas's `npm audit` (1). Every safety gate built with this pattern can never close.
+
+**Best solution:**
+
+For gates that should block: remove `|| echo`, let the exit code propagate:
+
+```yaml
+run: npm audit --audit-level=high
+```
+
+For gates that should warn but not block (e.g., lint during initial setup): use `continue-on-error: true` at the step level. This marks the step as failed (visible) but doesn't fail the job:
+
+```yaml
+- name: Run npm audit
+  run: npm audit --audit-level=high
+  continue-on-error: true
+```
+
+**Pitfalls:**
+- `npm audit` frequently reports vulnerabilities in transitive dev dependencies that are false positives (e.g., `@graphprotocol/graph-cli` pulling deprecated IPFS packages). Strict enforcement causes CI to fail on unfixable upstream issues. **Mitigation:** Use `npm audit --omit=dev --audit-level=high` to only audit production dependencies. Or maintain an `.npmrc` with `audit-level=critical` and only block on critical.
+- The shadow-atlas `lint` and `format:check` scripts may not exist yet. **Mitigation:** Remove the steps if the scripts aren't configured. Dead CI steps that "pass" are worse than no step.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-007: `signing.ts` has zero test coverage (169 lines)
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude (test coverage vertical) — **2/2 test critics flagged**
+**File:** `packages/shadow-atlas/src/serving/signing.ts` (169 lines, untested)
+
+**Problem:**
+
+The `ServerSigner` module is the foundation of the verifiable solo operator trust model (Wave 39-41). It handles:
+- Ed25519 key generation and persistence (`generateKeyPair`, `loadFromPem`)
+- Entry signing and verification (`sign`, `verify`)
+- Production guardrail (`NODE_ENV === 'production'` without `SIGNING_KEY_PATH` throws)
+- Public key fingerprint computation and PEM export
+
+No test file exists. Zero occurrences of "signing", "ServerSigner", or "signer" in any test file.
+
+**Best solution:**
+
+Create `packages/shadow-atlas/src/__tests__/unit/serving/signing.test.ts` covering:
+
+1. **Key generation round-trip:** Generate keypair → export PEM → load PEM → verify key matches
+2. **Sign/verify:** Sign data → verify succeeds with correct key → verify fails with wrong key
+3. **Determinism:** Same data + same key → same signature
+4. **Production guardrail:** `NODE_ENV=production` without `SIGNING_KEY_PATH` → throws
+5. **Ephemeral key warning:** `NODE_ENV !== production` → warns but doesn't throw
+6. **Public key fingerprint:** Consistent across load/reload
+7. **Malformed PEM rejection:** Corrupt PEM file → graceful error
+
+**Pitfalls:**
+- Ed25519 key generation is non-deterministic (random seed). Tests must verify properties (round-trip, verify-after-sign), not exact byte values. **Mitigation:** Use `crypto.createPrivateKey` with a fixed seed for deterministic test vectors, and random keys for property tests.
+- Filesystem tests (PEM load/save) need temp directory cleanup. **Mitigation:** Use `os.tmpdir()` + `afterEach` cleanup, matching the pattern in `insertion-log.test.ts`.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-008: Insertion log v2 format (hash chain + signatures) completely untested
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude + Gemini (test coverage vertical) — **2/2 test critics flagged**
+**File:** `packages/shadow-atlas/src/__tests__/unit/serving/insertion-log.test.ts`
+
+**Problem:**
+
+The test file covers v1 behavior (basic append/replay, concurrent writes, malformed line handling). Zero test cases exercise:
+- `prevHash` chain linking
+- `brokenLinks` detection (mid-log corruption)
+- Ed25519 signature generation on entries
+- `invalidSignatures` detection (tampered entry with valid chain)
+- `attestationHash` binding
+- `ChainVerificationResult` assertions
+
+The Wave 41 test fix (8 call sites) only destructured `{ entries }` from `replay()` — the `verification` object is never asserted against.
+
+**Best solution:**
+
+Add test cases to existing `insertion-log.test.ts`:
+
+1. **Hash chain integrity:** Append 5 entries → replay → assert `verification.validChainLinks === 5`, `brokenLinks === 0`
+2. **Tamper detection:** Append 5 entries → manually corrupt middle entry bytes in the NDJSON file → replay → assert `brokenLinks > 0`
+3. **Signed entries:** Pass `ServerSigner` to `InsertionLog.open()` → append → replay → assert `verification.validSignatures > 0`, `unsignedEntries === 0`
+4. **Signature tampering:** Append signed entries → modify an entry's leaf but keep its signature → replay → assert `invalidSignatures > 0`
+5. **Attestation hash round-trip:** Append entry with `attestationHash` → replay → assert entry contains `attestationHash`
+6. **Mixed signed/unsigned:** Replay log with some signed entries (newer) and some unsigned (legacy) → assert correct counts
+
+**Pitfalls:**
+- Corrupting NDJSON mid-file requires byte-level file manipulation. **Mitigation:** Use `fs.readFile` → split lines → modify target line → `fs.writeFile` → replay. The insertion-log test already uses temp directories.
+- `ServerSigner` initialization needs a real keypair. **Mitigation:** Generate an ephemeral keypair in test setup (the signer supports this in non-production mode).
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-009: Registration receipts never tested
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude (test coverage vertical)
+**File:** `packages/shadow-atlas/src/serving/api.ts:729-750,892-911`
+
+**Problem:**
+
+The API returns signed receipts on every `POST /v1/register` and `POST /v1/register/replace`:
+```typescript
+const receiptData = JSON.stringify({ leafIndex, leaf, userRoot, ts: Date.now() });
+const receipt = this.signer ? { data: receiptData, sig: this.signer.sign(receiptData) } : undefined;
+```
+
+No test checks for the `receipt` field in responses, validates the signature against the server's public key, or verifies the receipt data matches the registration result. Receipts are the anti-censorship mechanism — if the server stops returning them or returns invalid signatures, clients have no proof of registration.
+
+**Best solution:**
+
+Add test cases to `api.test.ts` or `registration-endpoint.test.ts`:
+
+1. **Receipt presence:** `POST /v1/register` response contains `receipt.data` and `receipt.sig`
+2. **Receipt signature validity:** Verify `receipt.sig` against server's public key (from `GET /v1/signing-key`)
+3. **Receipt data correctness:** Parse `receipt.data` JSON → assert `leafIndex`, `leaf`, `userRoot` match registration result
+4. **No signer → no receipt:** When signer is not configured, `receipt` is `undefined`
+
+**Pitfalls:**
+- Tests need a `ServerSigner` instance to be injected into the API. The current test setup may not initialize one. **Mitigation:** Create a signer in test setup with an ephemeral keypair and pass it to `createShadowAtlasAPI()`.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-010: No body read timeout (slowloris vector)
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude (serving + security verticals) — **2/4 critics flagged**
+**File:** `packages/shadow-atlas/src/serving/api.ts:1042-1069`
+
+**Problem:**
+
+`readBody()` creates a Promise that resolves when the request stream emits `end`. No timeout is set. A slow client can trickle data one byte at a time, keeping the connection and handler alive indefinitely. Enough slow connections exhaust the event loop's ability to accept new registrations.
+
+Additionally, no `server.requestTimeout` or `server.headersTimeout` is configured on the HTTP server (line 276).
+
+**Best solution:**
+
+Add a read timeout to `readBody()`:
+
+```typescript
+private readBody(req: IncomingMessage): Promise<unknown | null> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      req.destroy();
+      resolve(null);
+    }, 10_000); // 10 second body read timeout
+
+    // ... existing data/end/error handlers ...
+    req.on('end', () => { clearTimeout(timeout); /* existing logic */ });
+    req.on('error', () => { clearTimeout(timeout); resolve(null); });
+  });
+}
+```
+
+And set server-level timeouts:
+
+```typescript
+this.server = createServer((req, res) => this.handleRequest(req, res));
+this.server.requestTimeout = 30_000;  // 30s total request
+this.server.headersTimeout = 10_000;  // 10s for headers
+this.server.keepAliveTimeout = 5_000; // 5s keep-alive
+```
+
+**Pitfalls:**
+- Too aggressive a timeout may reject legitimate slow connections (mobile, high-latency networks). **Mitigation:** 10 seconds for a 1KB body is extremely generous — even 100ms would suffice for any real client. The timeout protects against intentional slowloris, not legitimate latency.
+- `req.destroy()` after timeout may cause `ECONNRESET` errors in logs. **Mitigation:** The existing error handler already catches stream errors gracefully.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-011: No `Vary: Origin` header with dynamic CORS
+
+**Severity:** HIGH | **Repo:** voter-protocol | **Source:** Claude (serving vertical)
+**File:** `packages/shadow-atlas/src/serving/api.ts:1237-1257`
+
+**Problem:**
+
+When `corsOrigins` contains multiple allowed origins, the server dynamically sets `Access-Control-Allow-Origin` based on the request's `Origin` header. Without `Vary: Origin`, a CDN or reverse proxy will cache the first response with its specific `Access-Control-Allow-Origin` value and serve it to requests from different origins — either blocking legitimate cross-origin requests or allowing unauthorized origins.
+
+**Best solution:**
+
+Add `Vary: Origin` whenever the CORS origin is dynamically selected:
+
+```typescript
+if (this.corsOrigins.length > 0) {
+  res.setHeader('Vary', 'Origin');
+  // ... existing origin matching logic
+}
+```
+
+**Pitfalls:**
+- If no CDN is used (direct client-to-server), this has no effect. **Mitigation:** Adding `Vary: Origin` is harmless without a CDN and correct with one — always safe to include.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P2 — Important (11)
+
+#### BR7-012: Rate limiter Map never cleans stale entries (memory leak)
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (serving + security verticals), Gemini (serving vertical) — **3/4 critics flagged**
+**File:** `packages/shadow-atlas/src/serving/api.ts:163-199`
+
+**Problem:** The `RateLimiter` stores `Map<string, number[]>` keyed by client IP. The `filter()` in `check()` removes old timestamps from the array but never deletes the Map key when the array is empty. Over days of operation with diverse client IPs, the Map grows without bound.
+
+**Best solution:** Add a periodic cleanup interval:
+
+```typescript
+constructor() {
+  // Sweep stale entries every 5 minutes
+  this.cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, timestamps] of this.requests) {
+      const recent = timestamps.filter(t => now - t < this.windowMs);
+      if (recent.length === 0) this.requests.delete(key);
+    }
+  }, 5 * 60 * 1000);
+}
+```
+
+**Pitfalls:** The cleanup interval must be cleared on server shutdown to prevent dangling timers. Add `clearInterval(this.cleanupInterval)` to `stop()`.
+
+**Cross-reference:** Related to CR-005 (persistent rate limiting via Redis) — backlogged. This is the in-memory stopgap.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-013: No graceful shutdown handler (SIGTERM)
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (serving vertical)
+**File:** `packages/shadow-atlas/src/serving/api.ts:326-332`
+
+**Problem:** `stop()` calls `server.close()` but doesn't await pending requests, doesn't flush the insertion log, and doesn't trigger a final IPFS upload. No `process.on('SIGTERM', ...)` handler exists. Ungraceful shutdown can lose the last few insertions.
+
+**Best solution:** Add SIGTERM/SIGINT handler in the CLI `serve` command that calls `api.stop()` with proper async teardown:
+
+```typescript
+async stop(): Promise<void> {
+  this.server.close();
+  await this.registrationService?.close();  // flushes insertion log
+  await this.syncService?.shutdown(this.insertionLog);  // final IPFS upload
+  this.syncService?.stop();
+}
+```
+
+**Pitfalls:** Double-shutdown on SIGTERM followed by SIGINT. **Mitigation:** Track shutdown state with a boolean flag; ignore second signal.
+
+**Cross-reference:** Wave 26M fix #5 added async shutdown handler, but only in `bin/shadow-atlas.ts` CLI — not in the API class itself. The API's `stop()` method is synchronous and doesn't await async cleanup.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-014: IPFS recovery doesn't verify CID of downloaded content
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (security vertical)
+**File:** `packages/shadow-atlas/src/serving/sync-service.ts:219-238`
+
+**Problem:** When recovering from IPFS, the downloaded log content is written to disk without verifying its CID matches the expected CID stored in metadata. A compromised IPFS gateway could return crafted content.
+
+**Best solution:** Compute the CID of downloaded content and verify it matches `this.latestMetadata.cid` before writing. Use the `multiformats` package for CID computation.
+
+**Pitfalls:** CID computation requires knowing the exact codec and hashing algorithm used during upload (typically `dag-pb` + `sha2-256`). If Storacha uses a different codec than expected, verification will fail on valid content. **Mitigation:** Store the codec in `PinnedLogMetadata` alongside the CID.
+
+**Cross-reference:** Deferred from Wave 26R. Requires `multiformats` dependency.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-015: `ci.yml` missing `permissions: read-all` and missing client/noir-prover test jobs
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (CI/CD vertical)
+**File:** `.github/workflows/ci.yml`
+
+**Problem:** (a) No top-level `permissions` declaration — inherits repository default (potentially `write-all`). (b) No test jobs for `packages/client` or `packages/noir-prover` — their tests only run in publish workflows, meaning bugs are caught at release time, not at PR time. (c) Typecheck job only covers crypto + shadow-atlas.
+
+**Best solution:** Add `permissions: read-all` at workflow level. Add `test-client` and `test-noir-prover` jobs. Extend typecheck to all packages.
+
+**Pitfalls:** client and noir-prover tests may require WASM binaries or heavy dependencies that increase CI time. **Mitigation:** Run them in parallel with other test jobs (no serial dependency).
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-016: `workflow_dispatch` `version` input accepted but never used in publish workflows
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (CI/CD vertical)
+**Files:** `publish-crypto.yml`, `publish-noir-prover.yml`, `publish-client.yml`
+
+**Problem:** All 3 publish workflows accept a `version` input from `workflow_dispatch` but never reference it. The operator types "0.3.0" thinking they're publishing that version, but `npm publish` uses whatever version is in `package.json`.
+
+**Best solution:** Either remove the input (tags should drive version) or use it:
+```yaml
+- name: Set version
+  if: github.event_name == 'workflow_dispatch'
+  run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+  working-directory: packages/crypto
+```
+
+**Pitfalls:** Using the input creates a second source of truth for version. Tags are more reliable. **Mitigation:** Remove the input; document that version is controlled exclusively by `package.json` + git tag.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-017: WAL inversion — tree mutation before log persistence
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (serving vertical)
+**File:** `packages/shadow-atlas/src/serving/registration-service.ts:560-606`
+
+**Problem:** `insertLeafInternal()` mutates the in-memory Merkle tree (lines 576-593), then writes to the insertion log (lines 599-605). If the process crashes between tree mutation and log write, the tree state diverges from the log. On restart, the log replays to a different tree state than what was served to the client — the client's proof is now invalid against the new root.
+
+**Best solution:** Write-ahead logging: write to the insertion log first, then mutate the tree. On crash recovery, replay the log to rebuild tree state deterministically.
+
+```typescript
+// 1. Write to log FIRST
+await this.insertionLog.append(entry);
+// 2. Mutate tree AFTER log confirms
+this.nodeMap.set(key, leafHash);
+this.recomputePath(leafIndex);
+```
+
+**Pitfalls:**
+- If log write succeeds but tree mutation fails (e.g., OOM), the log contains an entry for a leaf that was never inserted. On restart, replay will insert it — which is actually the correct behavior (WAL semantics). **This is a feature, not a bug.**
+- Performance: log write involves `fsync()`. Adding it to the critical path increases registration latency. **Mitigation:** The current `fsync()` is already in the critical path — it just happens after tree mutation instead of before. No net latency change.
+- Concurrent requests: the promise chain serializes writes, so WAL ordering is preserved. No additional locking needed.
+
+**Cross-reference:** Deferred from Wave 26R ("Write-ahead logging — significant refactor of insertLeafInternal"). The refactor is actually minimal — swap two lines and handle the error path.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-018: Replace endpoint has no per-leaf ownership verification
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (security vertical)
+**File:** `packages/shadow-atlas/src/serving/registration-service.ts:242-245`, `api.ts:880`
+
+**Problem:** Any client with the shared `REGISTRATION_AUTH_TOKEN` can call `POST /v1/register/replace` with any `oldLeafIndex`. A leaked or compromised token gives full tree manipulation — zero any voter's leaf and insert a replacement. There's no per-user ownership check.
+
+**Best solution:** Require the caller to prove knowledge of the old leaf's preimage. The communique backend (which holds the user's session) should sign the replacement request with a server-side HMAC derived from the user's `identityCommitment`. Shadow Atlas verifies the HMAC before allowing the replacement.
+
+**Pitfalls:**
+- This creates a dependency between Shadow Atlas and communique's identity system. **Mitigation:** Use a shared HMAC secret (separate from the auth token) and sign `HMAC(secret, oldLeafIndex || identityCommitment)`. Shadow Atlas verifies without needing direct access to user identity.
+- If the user has lost their secret (browser cleared), they can't prove ownership of the old leaf. **Mitigation:** The recovery flow (Wave 30-31) already handles this — it requires re-verification with self.xyz/didit before replacement.
+
+**Cross-reference:** Phase 2 item. Current architecture accepts this as a trust boundary — communique is the only bearer of the auth token. Document the risk and defer.
+
+**Status:** [ ] DEFERRED (Phase 2 — requires cross-service auth design)
+
+---
+
+#### BR7-019: `attestationHash` validation is optional with no production enforcement
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (security vertical)
+**File:** `packages/shadow-atlas/src/serving/api.ts:126-129`
+
+**Problem:**
+
+```typescript
+attestationHash: z.string()
+  .regex(/^(0x)?[0-9a-fA-F]+$/, 'attestationHash must be hex-encoded')
+  .optional(),
+```
+
+`attestationHash` is entirely optional. Any authenticated client can register leaves without identity binding. The W40-007 spec item notes this should be enforced in production.
+
+**Best solution:** In production mode, require `attestationHash` and validate its length (64 hex chars = SHA-256):
+
+```typescript
+attestationHash: process.env.NODE_ENV === 'production'
+  ? z.string().regex(/^(0x)?[0-9a-fA-F]{64}$/, 'attestationHash must be 32-byte hex').transform(s => s.startsWith('0x') ? s : '0x' + s)
+  : z.string().regex(/^(0x)?[0-9a-fA-F]+$/).optional(),
+```
+
+**Pitfalls:** Enforcing in production means the communique backend must always send `attestationHash`. If there's a code path where it's not available (e.g., recovery flow before re-verification), registration will fail. **Mitigation:** Verify all communique registration code paths send the hash before enabling enforcement.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-020: Quarterly workflow references non-existent script path
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (CI/CD vertical), verified by filesystem check
+**File:** `.github/workflows/shadow-atlas-quarterly.yml:57`
+
+**Problem:** `npx tsx services/shadow-atlas/scripts/multi-state-validation.ts` — this path doesn't exist under `packages/shadow-atlas/`. The workflow is DISABLED (manual trigger only) but would fail on any run.
+
+**Best solution:** Fix the path or remove the workflow until the TIGER pipeline is operational. The workflow also contains a mock Merkle tree builder (generates random CID/hash) that could write garbage to the on-chain registry if the `update_registry` input is set to true.
+
+**Pitfalls:** Fixing the path without fixing the mock Merkle builder creates a different failure mode — the script runs but publishes fake data. **Mitigation:** Fix both: correct the path AND replace mock logic with real Merkle tree builder, or delete the workflow and recreate it when the pipeline is production-ready.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-021: 12+ dead production dependencies across 3 packages
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (dependency vertical)
+
+**Dead dependencies confirmed by import analysis:**
+
+| Package | Dependency | Evidence |
+|---------|-----------|----------|
+| crypto | `@bokuweb/zstd-wasm` | Zero imports anywhere |
+| crypto | `@msgpack/msgpack` | Zero imports anywhere |
+| crypto | `@noble/hashes` | Zero imports in crypto (used in shadow-atlas) |
+| crypto | `pako` | Zero imports in crypto (used in shadow-atlas) |
+| crypto | `zod` | Zero imports in crypto (used in shadow-atlas) |
+| client | `@noir-lang/noir_js` | Zero imports (peer dep satisfaction only) |
+| client | `idb` | Zero imports (`// TODO: Implement IndexedDB caching`) |
+| client | `libsodium-wrappers` | Zero imports (CVE-2025-69277, Ed25519 bypass) |
+| client | `pako` | Zero imports |
+| client | `@near-js/accounts` | Zero imports (re-exported by near-api-js) |
+| client | `@near-js/crypto` | Zero imports (re-exported by near-api-js) |
+| client | `@near-js/keystores-browser` | Zero imports (re-exported by near-api-js) |
+| root | `@noir-lang/noir_wasm` | Zero imports |
+| root | `ajv` | Zero imports |
+| root | `yargs` | Zero imports |
+
+**Best solution:** Remove all listed dependencies. Run `npm install` to regenerate lockfile. Run all tests.
+
+**Pitfalls:** Some may be used via dynamic `import()` not caught by grep. **Mitigation:** Remove one at a time and run tests after each removal. `@noir-lang/noir_js` in client may be needed to satisfy noir-prover's peer dep at install time — verify before removing.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+#### BR7-022: `pg` imported but undeclared in shadow-atlas
+
+**Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (dependency vertical)
+**File:** `packages/shadow-atlas/src/persistence/adapters/postgresql.ts:8`
+
+**Problem:** `import { Pool } from 'pg'` — but `pg` is not in shadow-atlas's `dependencies`, `devDependencies`, or `peerDependencies`. Works in the workspace because another package might install it transitively, but will crash at runtime if the PostgreSQL adapter is loaded in a standalone install.
+
+**Best solution:** Add `pg` as an optional peer dependency:
+
+```json
+"peerDependencies": {
+  "pg": "^8.0.0"
+},
+"peerDependenciesMeta": {
+  "pg": { "optional": true }
+}
+```
+
+**Pitfalls:** The PostgreSQL adapter may be dead code (SQLite is the primary persistence). **Mitigation:** Verify if it's used anywhere. If dead code, delete the file instead of adding the dependency.
+
+**Status:** [ ] NOT STARTED
+
+---
+
+### P3 — Hardening (4)
+
+#### BR7-023: `NODE_ENV` is the only production guard
+
+**Severity:** LOW | **Repo:** voter-protocol | **Source:** Claude (security vertical)
+**Files:** `api.ts:254,264`, `signing.ts:107`
+
+All production safety checks gate on `process.env.NODE_ENV === 'production'`. If `NODE_ENV` is set to `staging`, `prod`, or `PRODUCTION`, all guards are bypassed (CORS wildcard, no auth token required, ephemeral signing key).
+
+**Disposition:** Document as operational requirement. Add to deployment checklist: `NODE_ENV` must be exactly `production`.
+
+---
+
+#### BR7-024: Duplicate `cache: 'npm'` keys in CD workflow
+
+**Severity:** LOW | **Repo:** voter-protocol | **Source:** Claude (CI/CD vertical)
+**File:** `shadow-atlas-cd.yml:46,184,309`
+
+YAML duplicate keys (last value wins). Harmless but signals copy-paste issues. Fix during next CD workflow revision.
+
+---
+
+#### BR7-025: `latencies` array uses O(n) `shift()` for ring buffer
+
+**Severity:** LOW | **Repo:** voter-protocol | **Source:** Claude (serving vertical)
+**File:** `packages/shadow-atlas/src/serving/district-service.ts:273-280`
+
+`Array.shift()` on 1000-element array is O(n). Replace with circular buffer index if query rate exceeds 1000 qps. Current system will never hit this threshold.
+
+---
+
+#### BR7-026: Signing key cache TTL (1 hour) delays key rotation
+
+**Severity:** LOW | **Repo:** voter-protocol | **Source:** Claude (serving vertical)
+
+`GET /v1/signing-key` returns `Cache-Control: public, max-age=3600`. After key rotation, clients serve stale public key for up to 1 hour. Reduce `max-age` to 300 (5 minutes) for faster rotation propagation.
+
+---
+
+### Findings Assessed as INVALID — Round 7 (Preserved for Future Auditors)
+
+| Claimed Finding | Critic | Why Invalid |
+|----------------|--------|-------------|
+| "Provenance injection via delimiter collision in `computeLeafHash`" (VULN-1) | Gemini (security) | `source.url` is operator-controlled (Census Bureau TIGER data), not user input. The delimiter is in the data ingestion pipeline, not the API serving layer. No user-reachable code path constructs provenance strings from untrusted input. |
+| "District ID collision via hex encoding ambiguity" (VULN-2) | Gemini (security) | `encodeGeoidAsField` processes GEOIDs from Census Bureau, not user input. The numeric vs hex encoding paths can't collide with real Census GEOIDs (which are always numeric FIPS codes). No user-facing API exposes this function. |
+| "SSRF via DNS rebinding in `isPublicURL`" (VULN-6) | Gemini (security) | `isPublicURL` is called in the data ingestion pipeline (CLI `discover` command), not in the serving layer. The serving API has no outbound HTTP requests controlled by user input. |
+| "DoS via JSON serialization of depth-24 Merkle tree" (VULN-5) | Gemini (security) | `exportToIPFS` is a batch CLI operation invoked by the operator, not an API endpoint. Cannot be triggered remotely. Operator-initiated resource exhaustion is not a vulnerability. |
+| "constantTimeEqual HMAC key is hardcoded — timing attack" | Claude (serving) | Both Claude critics correctly self-assessed as impractical. The HMAC provides length normalization for `timingSafeEqual`, not secrecy. Exploiting this requires sub-nanosecond timing on HMAC digest comparison — infeasible over network. |
+| "BigInt === comparison engine-dependent" | Claude (serving) | Claude correctly self-noted this is safe. `SameValueZero` comparison for BigInt works correctly in all modern JS engines. |
+| "Merkle tree odd-element self-hash (Bitcoin CVE-2012-2459)" | Claude (security) | District tree is built deterministically from sorted Census data by the operator, not from untrusted user input. Second-preimage attack requires adversarial tree construction. Informational only. |
+| "Turbo not used in publish workflows — dependency builds missing" | Gemini (CI/CD) | Packages don't import built artifacts from each other at build time. Workspace links provide TypeScript sources resolved by the consumer's own `tsc`. `npm run build` in a single package is sufficient. |
+| "Log audit PII leak via shallow sanitization" (VULN-4) | Gemini (security) | The sanitizer handles the specific fields logged by the serving layer (flat objects: leaf, cellId, attestationHash). Nested user objects with passwords are never passed to the logger — registration bodies are validated by Zod before any logging. No user-controlled nested objects reach `sanitizePII`. |
+| "Sparse tree string keys are slow" | Gemini (serving) | The `"${level}:${index}"` Map key pattern handles up to 2^20 entries (1M tree capacity). V8's Map with string keys is O(1) lookup. GC pressure from short-lived strings is negligible at this scale — the system is designed for <1M registrations in Phase 1. |
+| "Hash chain fragility to line ending changes" | Claude (serving) | Byte-level sensitivity to line endings is a **feature** for tamper detection, not a bug. The log is always written and read by the same system — no cross-platform line ending conversion occurs. If an editor modifies the log, the chain breaks, which is the intended behavior. |
+
+### Summary Table: Brutalist Round 7
+
+| Priority | ID | Issue | Vertical | Status |
+|----------|-----|-------|----------|--------|
+| **P0** | BR7-001 | proof-generator imports from `__mocks__/` | Serving | [x] RESOLVED (Wave 42) |
+| **P0** | BR7-002 | `js-sha256` misclassified as devDep | Dependencies | [x] RESOLVED (Wave 42) |
+| **P0** | BR7-003 | nargo beta.18 vs npm beta.16 mismatch | Dependencies | [x] RESOLVED (Wave 42) |
+| **P0** | BR7-004 | Log integrity failure non-fatal | Security | [x] RESOLVED (Wave 42) |
+| **P0** | BR7-005 | ZK peerDep caret ranges | Dependencies | [x] RESOLVED (Wave 42) |
+| **P1** | BR7-006 | CI audit `\|\| echo` escape hatches | CI/CD | [x] RESOLVED (Wave 43) |
+| **P1** | BR7-007 | `signing.ts` zero test coverage | Tests | [x] RESOLVED (Wave 43) — 25 tests |
+| **P1** | BR7-008 | Insertion log v2 untested | Tests | [x] RESOLVED (Wave 43) — 8 new tests |
+| **P1** | BR7-009 | Registration receipts untested | Tests | [x] RESOLVED (Wave 43) — 4 new tests |
+| **P1** | BR7-010 | No body read timeout (slowloris) | Security | [x] RESOLVED (Wave 43) |
+| **P1** | BR7-011 | No `Vary: Origin` with dynamic CORS | Serving | [x] RESOLVED (Wave 43) |
+| **P2** | BR7-012 | Rate limiter memory leak | Serving | [x] RESOLVED (Wave 45) |
+| **P2** | BR7-013 | No graceful shutdown in API class | Serving | [x] RESOLVED (Wave 45) |
+| **P2** | BR7-014 | IPFS recovery no CID verification | Security | [x] RESOLVED (Wave 45) |
+| **P2** | BR7-015 | ci.yml missing permissions + jobs | CI/CD | [x] RESOLVED (Wave 44) |
+| **P2** | BR7-016 | Publish workflow version input unused | CI/CD | [x] RESOLVED (Wave 44) |
+| **P2** | BR7-017 | WAL inversion | Architecture | [x] RESOLVED (Wave 45) |
+| **P2** | BR7-018 | Replace endpoint no ownership proof | Security | [ ] DEFERRED (Phase 2) |
+| **P2** | BR7-019 | attestationHash optional in production | Security | [x] RESOLVED (Wave 45) |
+| **P2** | BR7-020 | Quarterly workflow dead path | CI/CD | [x] RESOLVED (Wave 44) |
+| **P2** | BR7-021 | 12+ dead production dependencies | Dependencies | [x] RESOLVED (Wave 44) |
+| **P2** | BR7-022 | `pg` imported but undeclared | Dependencies | [x] RESOLVED (Wave 44) |
+| **P3** | BR7-023 | NODE_ENV only production guard | Security | DOCUMENTED |
+| **P3** | BR7-024 | Duplicate YAML keys in CD workflow | CI/CD | DOCUMENTED |
+| **P3** | BR7-025 | O(n) shift() in latency ring buffer | Serving | DOCUMENTED |
+| **P3** | BR7-026 | Signing key cache TTL delays rotation | Serving | DOCUMENTED |
 
 ---
 
