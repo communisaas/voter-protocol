@@ -16,7 +16,7 @@
 // - SA-011: user_secret cannot be zero (prevents predictable nullifiers)
 // - NUL-001: nullifier uses identity_commitment (not user_secret) to prevent Sybil
 // - ISSUE-006: authority_level range-checked to [1, 5]
-// - BR5-001: authority_level bound into leaf hash (H4) — can't upgrade without re-registration
+// - BR5-001: authority_level bound into leaf hash (H4) -- can't upgrade without re-registration
 // - CVE-001/CVE-003: Leaves computed inside circuit from user_secret
 // - BA-003: Domain separation tags prevent cross-arity hash collisions
 // - BA-007: Authority level cast through u64 to prevent truncation attacks
@@ -86,8 +86,8 @@ fn poseidon2_hash3(a: Field, b: Field, c: Field) -> Field {
 
 /// Domain-separated 4-input Poseidon2 hash (BR5-001).
 /// Uses 2-round sponge construction: capacity=DOMAIN_HASH4, rate=3.
-///   Round 1: state = [DOMAIN_HASH4, a, b, c] → permute
-///   Round 2: state[1] += d → permute → output state[0]
+///   Round 1: state = [DOMAIN_HASH4, a, b, c] -> permute
+///   Round 2: state[1] += d -> permute -> output state[0]
 /// Used for: user leaf commitment (user_secret, cell_id, registration_salt, authority_level)
 fn poseidon2_hash4(a: Field, b: Field, c: Field, d: Field) -> Field {
     // Round 1: absorb first 3 inputs, domain tag in capacity slot

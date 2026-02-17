@@ -155,6 +155,9 @@ public
 tmp/
 temp/
 
+# Noir build artifacts
+packages/crypto/noir/*/target/
+
 # Rust build artifacts
 packages/crypto/circuits/target/
 packages/crypto/circuits/.cargo/
