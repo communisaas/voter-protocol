@@ -1,0 +1,32 @@
+name: Contracts CI
+on:
+  push:
+    branches: [main]
+    paths: ['contracts/**']
+  pull_request:
+    paths: ['contracts/**']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Build contracts
+        run: forge build
+        working-directory: contracts
+      - name: Run tests
+        run: forge test -vvv
+        working-directory: contracts
+      - name: Build verifiers profile
+        run: forge build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: verifiers
+      - name: Check gas snapshots
+        run: forge snapshot --check || true
+        working-directory: contracts
+        continue-on-error: true
