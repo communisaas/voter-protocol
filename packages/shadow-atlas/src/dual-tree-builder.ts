@@ -26,6 +26,7 @@ import {
   type SMTProof,
   type Field,
 } from '@voter-protocol/crypto';
+import type { CellMapState } from './serving/registration-service.js';
 
 // ============================================================================
 // Types
@@ -86,6 +87,8 @@ export interface CellMapTreeResult {
   readonly cellCount: number;
   /** Map from cellId to its district commitment for quick lookup */
   readonly commitments: ReadonlyMap<string, bigint>;
+  /** Map from cellId to the 24-slot district array (needed for CellMapState) */
+  readonly districtMap: ReadonlyMap<string, readonly bigint[]>;
 }
 
 /**
@@ -237,8 +240,9 @@ export async function buildCellMapTree(
   // Create SMT
   const smt = await createSparseMerkleTree({ depth, hasher });
 
-  // Track commitments for proof generation
+  // Track commitments and district arrays for proof generation
   const commitments = new Map<string, bigint>();
+  const districtMap = new Map<string, readonly bigint[]>();
 
   // Insert each cell mapping
   for (const mapping of mappings) {
@@ -260,7 +264,9 @@ export async function buildCellMapTree(
     await smt.insert(mapping.cellId, cellMapLeaf);
 
     // Track for later proof generation
-    commitments.set(mapping.cellId.toString(), districtCommitment);
+    const cellIdStr = mapping.cellId.toString();
+    commitments.set(cellIdStr, districtCommitment);
+    districtMap.set(cellIdStr, [...mapping.districts]);
   }
 
   const root = await smt.getRoot();
@@ -271,6 +277,23 @@ export async function buildCellMapTree(
     depth,
     cellCount: mappings.length,
     commitments,
+    districtMap,
+  };
+}
+
+/**
+ * Convert a CellMapTreeResult into the CellMapState shape needed by the serving layer.
+ *
+ * @param result - Output from buildCellMapTree()
+ * @returns CellMapState ready for createShadowAtlasAPI()
+ */
+export function toCellMapState(result: CellMapTreeResult): CellMapState {
+  return {
+    tree: result.tree,
+    root: result.root,
+    commitments: result.commitments,
+    districtMap: result.districtMap,
+    depth: result.depth,
   };
 }
 

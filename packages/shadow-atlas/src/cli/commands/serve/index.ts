@@ -1,12 +1,16 @@
 /**
  * Shadow Atlas Serve Command
  *
- * Start the production HTTP API server
+ * Start the production HTTP API server with both trees and Ed25519 signing.
  */
 
 import { createShadowAtlasAPI } from '../../../serving/api.js';
-import { RegistrationService } from '../../../serving/registration-service.js';
+import { RegistrationService, type CellMapState } from '../../../serving/registration-service.js';
 import { SyncService } from '../../../serving/sync-service.js';
+import { ServerSigner } from '../../../serving/signing.js';
+import { loadCellDistrictMappings } from '../../../cell-district-loader.js';
+import { buildCellMapTree, toCellMapState } from '../../../dual-tree-builder.js';
+import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader.js';
 import { logger } from '../../../core/utils/logger.js';
 import { promises as fsPromises } from 'fs';
 
@@ -19,6 +23,9 @@ export interface ServeOptions {
   ipfsGateway?: string;
   snapshotsDir?: string;
   dataDir?: string;
+  cellMapSnapshot?: string;
+  cellMapState?: string;
+  bafCacheDir?: string;
 }
 
 export async function serveCommand(options: ServeOptions): Promise<void> {
@@ -44,6 +51,14 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
   });
 
   try {
+    // Initialize Ed25519 signer for verifiable operator
+    const signingKeyPath = process.env.SIGNING_KEY_PATH;
+    const signer = await ServerSigner.init(signingKeyPath);
+    logger.info('Ed25519 signer initialized', {
+      persistent: !!signingKeyPath,
+      fingerprint: signer.info.fingerprint,
+    });
+
     // BR5-007: Initialize sync service and registration with persistent log
     const syncService = new SyncService({
       dataDir,
@@ -65,10 +80,49 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       }
     }
 
-    // Create registration service with persistent insertion log (replays on open)
+    // Create registration service with persistent insertion log + signer
     const registrationService = await RegistrationService.create(20, {
       path: logPath,
+      signer,
     });
+
+    // Build Tree 2 (Cell-District Map) if configured
+    let cellMapState: CellMapState | null = null;
+    const snapshotPath = options.cellMapSnapshot ?? process.env.CELL_MAP_SNAPSHOT;
+    const stateCode = options.cellMapState ?? process.env.CELL_MAP_STATE;
+
+    if (snapshotPath) {
+      // Fast path: load pre-built snapshot (seconds, not minutes)
+      logger.info('Loading Tree 2 from snapshot...', { path: snapshotPath });
+      cellMapState = await loadCellMapStateFromSnapshot(snapshotPath);
+      logger.info('Tree 2 loaded from snapshot', {
+        root: '0x' + cellMapState.root.toString(16).slice(0, 16) + '...',
+        cellCount: cellMapState.commitments.size,
+        depth: cellMapState.depth,
+      });
+    } else if (stateCode) {
+      // Build from BAFs (use for dev/single-state testing)
+      const bafCacheDir = options.bafCacheDir ?? process.env.BAF_CACHE_DIR ?? 'data/baf-cache';
+      const filterState = stateCode === 'all' ? undefined : stateCode;
+      logger.info('Building Tree 2 from BAFs...', {
+        stateFilter: filterState ?? 'ALL',
+        cacheDir: bafCacheDir,
+      });
+      const mappings = await loadCellDistrictMappings({
+        stateCode: filterState,
+        cacheDir: bafCacheDir,
+      });
+      const result = await buildCellMapTree(mappings);
+      cellMapState = toCellMapState(result);
+      logger.info('Tree 2 built from BAFs', {
+        root: '0x' + cellMapState.root.toString(16).slice(0, 16) + '...',
+        cellCount: cellMapState.commitments.size,
+        depth: cellMapState.depth,
+      });
+    } else {
+      logger.warn('Tree 2 not configured — cell proof endpoint will return 501. ' +
+        'Set CELL_MAP_SNAPSHOT or CELL_MAP_STATE to enable.');
+    }
 
     // Create and start API server
     const api = await createShadowAtlasAPI(dbPath, {
@@ -80,6 +134,8 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       dataDir,
       syncService,
       registrationService,
+      cellMapState,
+      signer,
     });
 
     api.start();
@@ -107,8 +163,11 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       endpoints: {
         health: `http://${host}:${port}/v1/health`,
         lookup: `http://${host}:${port}/v1/lookup?lat={lat}&lng={lng}`,
+        cellMapInfo: `http://${host}:${port}/v1/cell-map-info`,
         metrics: `http://${host}:${port}/v1/metrics`,
       },
+      tree2: cellMapState ? 'enabled' : 'disabled',
+      signer: 'enabled',
     });
   } catch (error) {
     logger.error('Failed to start server', {

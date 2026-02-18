@@ -333,6 +333,7 @@ export class ShadowAtlasAPI {
         endpoints.push(`POST /${v}/register - User registration (Tree 1 leaf insertion)`);
         endpoints.push(`POST /${v}/register/replace - Leaf replacement (credential recovery)`);
       }
+      endpoints.push(`GET /${v}/cell-map-info - Tree 2 metadata (root, depth, cellCount)`);
       if (this.cellMapState) {
         endpoints.push(`GET /${v}/cell-proof?cell_id={id} - Cell SMT proof (Tree 2)`);
       }
@@ -446,6 +447,8 @@ export class ShadowAtlasAPI {
         await this.handleRegisterReplace(req, res, requestId, startTime);
       } else if (basePath === '/cell-proof' && req.method === 'GET') {
         await this.handleCellProof(url, res, req, requestId, startTime);
+      } else if (basePath === '/cell-map-info' && req.method === 'GET') {
+        this.handleCellMapInfo(res, requestId);
       } else if (basePath.match(/^\/districts\/[\w-]+$/) && req.method === 'GET') {
         await this.handleDistrictById(basePath, res, req, requestId, startTime);
       } else if (basePath === '/health' && req.method === 'GET') {
@@ -1089,6 +1092,29 @@ export class ShadowAtlasAPI {
         requestId,
       );
     }
+  }
+
+  /**
+   * Handle GET /v1/cell-map-info endpoint.
+   *
+   * Returns Tree 2 metadata (root, depth, cellCount) so clients can
+   * verify they have the correct public input for ZK proofs.
+   */
+  private handleCellMapInfo(
+    res: ServerResponse,
+    requestId: string,
+  ): void {
+    if (!this.cellMapState) {
+      this.sendSuccessResponse(res, { available: false }, requestId, false);
+      return;
+    }
+
+    this.sendSuccessResponse(res, {
+      available: true,
+      root: '0x' + this.cellMapState.root.toString(16),
+      depth: this.cellMapState.depth,
+      cellCount: this.cellMapState.commitments.size,
+    }, requestId, false);
   }
 
   /**

@@ -148,7 +148,7 @@ async function main(): Promise<void> {
   // Export snapshot
   await mkdir(dirname(opts.outputPath), { recursive: true });
   const snapshot = {
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     stateFilter: opts.stateCode ?? null,
     root: '0x' + treeResult.root.toString(16),
@@ -159,6 +159,10 @@ async function main(): Promise<void> {
       redistrictedStates: [...REDISTRICTED_STATES.keys()],
       totalUpdated: befResult.totalUpdated,
     },
+    mappings: mappings.map(m => ({
+      cellId: m.cellId.toString(),
+      districts: m.districts.map(d => d.toString()),
+    })),
   };
 
   await writeFile(opts.outputPath, JSON.stringify(snapshot, null, 2) + '\n');
