@@ -5,7 +5,7 @@ services:
   shadow-atlas:
     build:
       context: ../../..
-      dockerfile: services/shadow-atlas/deploy/Dockerfile
+      dockerfile: packages/shadow-atlas/Dockerfile
     container_name: shadow-atlas
     ports:
       - "3000:3000"
