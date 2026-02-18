@@ -1,7 +1,7 @@
 # Implementation Gap Analysis: Unified Proof Architecture
 
-> **Date:** 2026-01-26 (Rev 26: 2026-02-16)
-> **Status:** REVISION 26 — CVEs REMEDIATED, Rounds 1-7 COMPLETE, Waves 1-41 IMPLEMENTED + Cycle 11 CI/CD + dependency cleanup. Brutalist Round 7: 10 critics (4 Claude, 4 Gemini, 2 Codex failed) across 5 verticals (CI/CD, serving layer, dependencies, security, test coverage). 5 P0, 6 P1, 11 P2, 4 P3 confirmed; 11 false positives rejected. Key new findings: proof-generator imports from `__mocks__/` (deployment crash), `js-sha256` misclassified as devDep (consumer crash), nargo version mismatch, log integrity failure non-fatal, signing module untested.
+> **Date:** 2026-01-26 (Rev 27: 2026-02-18)
+> **Status:** REVISION 27 — CVEs REMEDIATED, Rounds 1-7 COMPLETE, Waves 1-41 + Cycles 12-15 IMPLEMENTED. Cycle 14: Tree 2 wired into serving layer (cell proofs servable, snapshot hydration, server bootstrap with Ed25519 + IPFS recovery). Cycle 15: IPFS pinning wired into serve command (Storacha + Lighthouse auto-discovery), CI/CD re-enabled (shadow-atlas-ci + shadow-atlas-cd + new contracts-ci), contract deployment checklist + deploy scripts validated, .env.example updated with all production env vars. All 5 P0 + 6 P1 from Round 7 RESOLVED.
 > **Related:** UNIFIED-PROOF-ARCHITECTURE.md, CROSS-REPO-IDENTITY-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
 > **Security Review:** Multi-expert adversarial analysis completed 2026-01-26
 > **Expert Reviewers:** Identity Systems Architect, ZK Cryptography Expert, Civic Tech Architect
@@ -2019,7 +2019,7 @@ Deferred findings (tracked for future waves):
 - BR5-019: IndexedDB same-origin access → DOCUMENTED
 - BR5-020: Triple-rename confusion → DOCUMENTED
 - BR7-023: NODE_ENV only production guard → DOCUMENTED
-- BR7-024: Duplicate YAML keys in CD workflow → DOCUMENTED
+- ~~BR7-024: Duplicate YAML keys in CD workflow~~ → ✅ RESOLVED (Cycle 15 — Wave 59 removed 3 duplicate `cache: 'npm'` lines)
 - BR7-025: O(n) shift() in latency ring buffer → DOCUMENTED
 - BR7-026: Signing key cache TTL delays rotation → DOCUMENTED
 
@@ -2028,8 +2028,16 @@ Deferred findings (tracked for future waves):
 - ~~ISSUE-003: Redistricting emergency protocol~~ → ARCHITECTURE HANDLES (two-tree design; operational runbook pre-deployment)
 
 **Other tracked (non-blocking):**
-- ~~SA-008: IPFS sync~~ → ✅ COMPLETE (Wave 26a — SyncService rewritten, log-based persistence)
+- ~~SA-008: IPFS sync~~ → ✅ COMPLETE (Wave 26a — SyncService rewritten; Cycle 15 — pinning services wired into serve command)
 - SA-009: Discovery URL allowlist → COMPLETE (50 domains in `ALLOWED_DOMAINS`, 12 call sites validated)
+
+**Cycle 14-15 additions (2026-02-16 to 2026-02-18):**
+- Tree 2 wired into serving layer (cell proofs servable, snapshot hydration)
+- Server bootstrap with Ed25519 signer + IPFS recovery
+- IPFS pinning (Storacha + Lighthouse) auto-discovered from env vars and wired into serve command
+- CI/CD re-enabled: shadow-atlas-ci (push+PR triggers), shadow-atlas-cd (manual dispatch), contracts-ci (new)
+- Contract deployment checklist + deploy scripts validated (both forge profiles compile cleanly)
+- `.env.example` updated with all production env vars (SIGNING_KEY_PATH, IPFS keys, auth tokens, CORS, Tree 2)
 
 **Key Design Principle:** Identity verification (self.xyz or didit) is **mandatory for CWC-path messages**. Authority level is cryptographically bound to the leaf hash via H4, attested by the identity provider at registration. The nullifier is derived from `identityCommitment` (not `userSecret`) to provide cryptographic Sybil resistance across re-registrations. The mailto: path remains available without verification but is labeled "unverified."
 
@@ -2794,7 +2802,7 @@ YAML duplicate keys (last value wins). Harmless but signals copy-paste issues. F
 | **P2** | BR7-021 | 12+ dead production dependencies | Dependencies | [x] RESOLVED (Wave 44) |
 | **P2** | BR7-022 | `pg` imported but undeclared | Dependencies | [x] RESOLVED (Wave 44) |
 | **P3** | BR7-023 | NODE_ENV only production guard | Security | DOCUMENTED |
-| **P3** | BR7-024 | Duplicate YAML keys in CD workflow | CI/CD | DOCUMENTED |
+| **P3** | BR7-024 | Duplicate YAML keys in CD workflow | CI/CD | [x] RESOLVED (Cycle 15 — Wave 59) |
 | **P3** | BR7-025 | O(n) shift() in latency ring buffer | Serving | DOCUMENTED |
 | **P3** | BR7-026 | Signing key cache TTL delays rotation | Serving | DOCUMENTED |
 
@@ -2830,7 +2838,7 @@ YAML duplicate keys (last value wins). Harmless but signals copy-paste issues. F
 | self.xyz / Didit.me SDK | ⚠️ PARTIAL | — | Didit.me integrated with HMAC; self.xyz interface only |
 | IPFS sync service | ✅ IMPLEMENTED | SA-008 | Wave 26a — InsertionLog + Storacha/Lighthouse upload + IPFS recovery |
 | TEE (AWS Nitro Enclaves) | ❌ NOT DEPLOYED | — | Phase 2 target architecture (SECURITY.md updated) |
-| Package.json CI/CD | ❌ BLOCKED | INT-001 | `file:` paths must become npm registry refs before deploy |
+| Package.json CI/CD | ⚠️ PARTIAL | INT-001 | `file:` paths in communique; voter-protocol CI/CD re-enabled (Cycle 15) |
 
 ### Integration Blockers (INT-00x)
 
@@ -4061,7 +4069,7 @@ export const CREDENTIAL_TTL = {
 
 **P2 — Important (7):**
 
-- [ ] **SA-008:** Implement IPFS sync service (or document as intentionally deferred)
+- [x] **SA-008:** IPFS sync service — COMPLETE (Wave 26a: SyncService rewritten + Cycle 15: pinning services wired into serve command via `createConfiguredServices()`)
 - [x] **SA-009:** Route discovery fetches through URL allowlist (COMPLETE 2026-02-08 — 50 domains in `ALLOWED_DOMAINS` at `input-validator.ts:213-263`, `validateURL()` at line 430, 12 call sites)
 - [ ] **SA-010:** Fix rate limiter `consume()` to actually consume tokens
 - [ ] **SA-011:** Add `user_secret != 0` check (circuit or registration)
