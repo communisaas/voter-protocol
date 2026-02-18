@@ -11,6 +11,7 @@ import { ServerSigner } from '../../../serving/signing.js';
 import { loadCellDistrictMappings } from '../../../cell-district-loader.js';
 import { buildCellMapTree, toCellMapState } from '../../../dual-tree-builder.js';
 import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader.js';
+import { createConfiguredServices } from '../../../distribution/services/index.js';
 import { logger } from '../../../core/utils/logger.js';
 import { promises as fsPromises } from 'fs';
 
@@ -59,10 +60,24 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       fingerprint: signer.info.fingerprint,
     });
 
+    // Auto-discover IPFS pinning services from env vars
+    // STORACHA_SPACE_DID + STORACHA_AGENT_KEY → Storacha
+    // LIGHTHOUSE_API_KEY → Lighthouse
+    const pinningServices = createConfiguredServices('americas-east');
+    if (pinningServices.length > 0) {
+      logger.info('IPFS pinning services configured', {
+        services: pinningServices.map(s => s.type),
+      });
+    } else {
+      logger.warn('No IPFS pinning services configured. Insertion log will NOT be backed up to IPFS. ' +
+        'Set STORACHA_SPACE_DID + STORACHA_AGENT_KEY or LIGHTHOUSE_API_KEY to enable.');
+    }
+
     // BR5-007: Initialize sync service and registration with persistent log
     const syncService = new SyncService({
       dataDir,
       ipfsGateway,
+      pinningServices,
     });
     await syncService.init();
 
