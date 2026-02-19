@@ -7,6 +7,9 @@
 !.env.example
 !.env.sample
 
+# Build pipeline data (BAF cache, ward cache, snapshots — 1.6GB+)
+data/
+
 # Foundry/Forge
 cache/
 out/
