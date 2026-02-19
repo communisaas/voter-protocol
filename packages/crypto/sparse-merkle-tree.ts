@@ -111,8 +111,10 @@ export class SparseMerkleTree {
   private rootCache: Field | null = null;
   private subtreeCache: Map<string, Field>; // Memoization for subtree hashes
 
-  /** Maximum collision attempts before failing */
-  private static readonly MAX_ATTEMPTS = 16;
+  /** Maximum collision attempts before failing.
+   * At 44% fill (460K/1M), per-probe collision probability is ~0.44.
+   * P(fail after N) = 0.44^N: N=16 → ~1e-5 (6 failures/460K), N=32 → ~1e-11 (zero). */
+  private static readonly MAX_ATTEMPTS = 32;
 
   /** Domain separation tag for empty cell hashing */
   private static readonly EMPTY_CELL_TAG = 0x454d50545943454c4cn; // "EMPTYCELL"

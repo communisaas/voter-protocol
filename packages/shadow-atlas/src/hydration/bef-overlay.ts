@@ -18,26 +18,27 @@
  */
 
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
+import JSZip from 'jszip';
 import type { BlockRecord } from './baf-parser.js';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const BEF_BASE_URL =
-  'https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2023/119-congressional-district-bef';
+const BEF_ZIP_URL =
+  'https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2025/119-congressional-district-befs/cd119.zip';
 
 /**
  * States redistricted for the 119th Congress.
- * Key = state FIPS, value = BEF filename.
+ * Key = state FIPS, value = BEF filename inside the cd119.zip archive.
  */
 export const REDISTRICTED_STATES: ReadonlyMap<string, string> = new Map([
-  ['01', 'BlockAssign_ST01_AL_CD_119.txt'],
-  ['13', 'BlockAssign_ST13_GA_CD_119.txt'],
-  ['22', 'BlockAssign_ST22_LA_CD_119.txt'],
-  ['36', 'BlockAssign_ST36_NY_CD_119.txt'],
-  ['37', 'BlockAssign_ST37_NC_CD_119.txt'],
+  ['01', '01_AL_CD119.txt'],
+  ['13', '13_GA_CD119.txt'],
+  ['22', '22_LA_CD119.txt'],
+  ['36', '36_NY_CD119.txt'],
+  ['37', '37_NC_CD119.txt'],
 ]);
 
 // ============================================================================
@@ -94,6 +95,30 @@ export async function overlayBEFs(
     }
   }
 
+  // Download and extract the BEF zip if any state files are missing
+  const neededStates = [...REDISTRICTED_STATES.entries()].filter(([fips]) => statesInData.has(fips));
+  const missingChecks = await Promise.all(
+    neededStates.map(async ([, filename]) => {
+      try { return !(await stat(join(befDir, filename))).isFile(); } catch { return true; }
+    }),
+  );
+  const missingFiles = neededStates.filter((_, i) => missingChecks[i]);
+
+  if (missingFiles.length > 0) {
+    log('[BEF] Downloading 119th Congress BEF archive...');
+    const zipBuffer = await fetchWithRetry(BEF_ZIP_URL, maxRetries);
+    const zip = await JSZip.loadAsync(zipBuffer);
+
+    for (const [, befFilename] of REDISTRICTED_STATES) {
+      const entry = zip.file(befFilename);
+      if (entry) {
+        const content = await entry.async('nodebuffer');
+        await writeFile(join(befDir, befFilename), content);
+      }
+    }
+    log('[BEF] Extracted 5 state BEF files');
+  }
+
   const updatedByState = new Map<string, number>();
   let totalUpdated = 0;
 
@@ -102,30 +127,30 @@ export async function overlayBEFs(
 
     log(`[BEF] Overlaying 119th Congress CD for state ${fips}...`);
 
-    // Download or read from cache
+    // Read from cache
     const befPath = join(befDir, befFilename);
     let content: string;
 
     try {
-      await stat(befPath);
       content = await readFile(befPath, 'utf-8');
     } catch {
-      const url = `${BEF_BASE_URL}/${befFilename}`;
-      const buffer = await fetchWithRetry(url, maxRetries);
-      await writeFile(befPath, buffer);
-      content = buffer.toString('utf-8');
+      log(`[BEF] Warning: BEF file not found for state ${fips}, skipping`);
+      continue;
     }
 
     // Parse BEF and overlay
-    // BEF format: BLOCKID|DISTRICT (same as BAF _CD.txt)
+    // BEF format (2025): GEOID,CDFP (comma-delimited)
     const lines = content.split('\n');
     let stateUpdated = 0;
+
+    // Detect delimiter: new format uses comma, old format uses pipe
+    const delimiter = lines[0]?.includes(',') ? ',' : '|';
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const parts = line.split('|');
+      const parts = line.split(delimiter);
       const blockId = parts[0];
       const district = parts[1]?.trim();
 

@@ -123,7 +123,18 @@ export async function downloadBAFs(
 
     log(`[${i + 1}/${states.length}] Downloading ${zipName}...`);
 
-    const zipBuffer = await fetchWithRetry(url, maxRetries);
+    let zipBuffer: Buffer;
+    try {
+      zipBuffer = await fetchWithRetry(url, maxRetries);
+    } catch (err) {
+      // Territories (AS, GU, MP, VI) may not have BAF files — skip gracefully
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('404')) {
+        log(`  → Skipped ${abbr} (${fips}): BAF file not available (404)`);
+        continue;
+      }
+      throw err;
+    }
     const zip = await JSZip.loadAsync(zipBuffer);
 
     // Extract .txt files
