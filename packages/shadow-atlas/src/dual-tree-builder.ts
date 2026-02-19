@@ -9,10 +9,11 @@
  *   Uses the existing ShadowAtlasMerkleTree infrastructure.
  *
  * TREE 2 (Cell-District Mapping Tree):
- *   Sparse Merkle Tree mapping census tract cell IDs to 24-slot district arrays.
+ *   Sparse Merkle Tree mapping geographic cell IDs to 24-slot district arrays.
  *   Leaf = Poseidon2Hash2(cell_id, district_commitment)
  *   where district_commitment = poseidon2Sponge(districts[0..24])
  *   Uses SparseMerkleTree from @voter-protocol/crypto.
+ *   Jurisdiction-agnostic: cell IDs and slot semantics defined by JurisdictionConfig.
  *
  * SPEC REFERENCE: TWO-TREE-ARCHITECTURE-SPEC.md Sections 2, 3, 10
  *
@@ -33,15 +34,15 @@ import type { CellMapState } from './serving/registration-service.js';
 // ============================================================================
 
 /**
- * Number of district slots per cell in the 24-slot registration model.
- * Per DISTRICT-TAXONOMY.md:
- *   Slots 0-6:   Core governance (federal through municipal)
- *   Slots 7-10:  Education districts
- *   Slots 11-16: Core special districts
- *   Slots 17-19: Extended special districts
- *   Slots 20-21: Administrative boundaries
- *   Slots 22-23: Overflow/international
+ * Number of district slots per cell.
+ *
+ * Protocol constant — structurally embedded in the Noir circuit, Poseidon2 sponge,
+ * and on-chain verifier. Not jurisdiction-specific. See jurisdiction.ts for details.
+ *
+ * Re-exported from jurisdiction.ts as PROTOCOL_DISTRICT_SLOTS for new code.
+ * This alias is kept for backward compatibility across the codebase.
  */
+export { PROTOCOL_DISTRICT_SLOTS } from './jurisdiction.js';
 export const DISTRICT_SLOT_COUNT = 24;
 
 // User leaf hashing uses hash3(secret, cellId, salt) which internally applies
@@ -49,13 +50,17 @@ export const DISTRICT_SLOT_COUNT = 24;
 // This matches the Noir circuit: poseidon2_hash3(user_secret, cell_id, registration_salt).
 
 /**
- * Cell-to-district mapping for a single census tract cell.
+ * Cell-to-district mapping for a single geographic cell.
  *
- * Each cell represents a geographic area (Census Tract / Block Group)
- * and is mapped to exactly 24 district slots per the DISTRICT-TAXONOMY spec.
+ * Each cell represents a geographic area (US Census Tract, UK Output Area,
+ * or any jurisdiction-specific geographic unit) mapped to exactly 24 district
+ * slots. Slot semantics are defined by the jurisdiction's JurisdictionConfig.
+ *
+ * This is the interface boundary between jurisdiction-specific hydration
+ * pipelines and the jurisdiction-agnostic tree builder / proof system.
  */
 export interface CellDistrictMapping {
-  /** Census Tract FIPS code encoded as a BN254 field element */
+  /** Geographic unit ID encoded as a BN254 field element (via JurisdictionConfig.encodeCellId) */
   readonly cellId: bigint;
   /** Exactly 24 district IDs; unused slots MUST be 0n */
   readonly districts: bigint[];
@@ -67,7 +72,7 @@ export interface CellDistrictMapping {
 export interface UserRegistration {
   /** User's secret (private, never revealed) */
   readonly userSecret: bigint;
-  /** Census tract cell ID the user belongs to */
+  /** Geographic cell ID the user belongs to (jurisdiction-specific encoding) */
   readonly cellId: bigint;
   /** Random salt for registration uniqueness */
   readonly registrationSalt: bigint;

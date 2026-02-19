@@ -1,36 +1,13 @@
 /**
- * Cell-District Mapping Loader
+ * Cell-District Mapping Loader (US Implementation)
  *
- * Loads census tract to district mappings from Census Block Assignment Files (BAFs)
- * and transforms them into the CellDistrictMapping format needed by the dual-tree builder.
+ * US-specific hydration pipeline that loads Census Bureau data and transforms
+ * it into jurisdiction-agnostic CellDistrictMapping[] for the dual-tree builder.
  *
  * Data pipeline: BAF download → parse → BEF overlay → cell resolution → CellDistrictMapping[]
  *
- * The 24-slot district taxonomy is defined in DISTRICT-TAXONOMY.md:
- *   Slot 0:  Congressional District
- *   Slot 1:  Federal Senate (state-wide)
- *   Slot 2:  State Senate
- *   Slot 3:  State House / Assembly
- *   Slot 4:  County
- *   Slot 5:  City / Municipality
- *   Slot 6:  City Council Ward
- *   Slot 7:  Unified School District
- *   Slot 8:  Elementary School District
- *   Slot 9:  Secondary School District
- *   Slot 10: Community College District
- *   Slot 11: Water/Sewer District
- *   Slot 12: Fire/EMS District
- *   Slot 13: Transit District
- *   Slot 14: Hospital District
- *   Slot 15: Library District
- *   Slot 16: Park/Recreation District
- *   Slot 17: Conservation District
- *   Slot 18: Utility District
- *   Slot 19: Judicial District
- *   Slot 20: Township
- *   Slot 21: Voting Precinct
- *   Slot 22: Overflow 1 (additional special districts)
- *   Slot 23: Overflow 2 (international/supranational)
+ * Slot assignments are defined by US_JURISDICTION in jurisdiction.ts.
+ * The 24-slot capacity is a protocol constant (see jurisdiction.ts).
  *
  * SPEC REFERENCE: DISTRICT-TAXONOMY.md, TWO-TREE-ARCHITECTURE-SPEC.md Section 3
  *
@@ -38,6 +15,7 @@
  */
 
 import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from './dual-tree-builder.js';
+import { US_JURISDICTION } from './jurisdiction.js';
 import { downloadBAFs } from './hydration/baf-downloader.js';
 import { parseBAFFilesAsync } from './hydration/baf-parser.js';
 import { overlayBEFs } from './hydration/bef-overlay.js';
@@ -85,58 +63,16 @@ export interface RawCellDistricts {
 }
 
 /**
- * District type to slot index mapping.
+ * District type to slot index mapping (US jurisdiction).
  *
- * Maps TIGER layer names and common district type identifiers
- * to their canonical slot in the 24-slot taxonomy.
+ * Derived from US_JURISDICTION.aliases — the canonical source of truth for
+ * US slot semantics. Exported for backward compatibility with code that
+ * imports this directly.
+ *
+ * For new jurisdiction implementations, define aliases in your JurisdictionConfig
+ * instead of duplicating this pattern.
  */
-export const DISTRICT_TYPE_TO_SLOT: Record<string, number> = {
-  // Core governance
-  'congressional': 0,
-  'cd': 0,
-  'federal_senate': 1,
-  'senate': 1,
-  'state_senate': 2,
-  'sldu': 2,
-  'state_house': 3,
-  'sldl': 3,
-  'county': 4,
-  'city': 5,
-  'place': 5,
-  'city_council': 6,
-
-  // Education
-  'school_unified': 7,
-  'unsd': 7,
-  'school_elementary': 8,
-  'elsd': 8,
-  'school_secondary': 9,
-  'scsd': 9,
-  'community_college': 10,
-
-  // Special districts - core
-  'water_sewer': 11,
-  'fire_ems': 12,
-  'transit': 13,
-  'hospital': 14,
-  'library': 15,
-  'park_recreation': 16,
-
-  // Special districts - extended
-  'conservation': 17,
-  'utility': 18,
-  'judicial': 19,
-
-  // Administrative
-  'township': 20,
-  'cousub': 20,
-  'voting_precinct': 21,
-  'vtd': 21,
-
-  // Overflow
-  'overflow_1': 22,
-  'overflow_2': 23,
-};
+export const DISTRICT_TYPE_TO_SLOT: Record<string, number> = { ...US_JURISDICTION.aliases };
 
 // ============================================================================
 // GEOID Encoding

@@ -159,6 +159,17 @@ export type {
     BuildIfChangedResult,
 } from './core/types.js';
 
+// Jurisdiction Abstraction Layer
+export {
+    PROTOCOL_DISTRICT_SLOTS,
+    PROTOCOL_TWO_TREE_PUBLIC_INPUTS,
+    US_JURISDICTION,
+    type JurisdictionConfig,
+    type SlotDefinition,
+    type HydrationPipeline,
+    type HydrationResult,
+} from './jurisdiction.js';
+
 // Configuration
 export { DEFAULT_CONFIG, createConfig, type ShadowAtlasConfig } from './core/config.js';
 

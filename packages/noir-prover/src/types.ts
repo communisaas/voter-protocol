@@ -230,31 +230,23 @@ export interface ProofResult {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Number of district slots per cell in the 24-slot registration model.
- * Per DISTRICT-TAXONOMY.md:
- *   Slots 0-6:   Core governance (federal through municipal)
- *   Slots 7-10:  Education districts
- *   Slots 11-16: Core special districts
- *   Slots 17-19: Extended special districts
- *   Slots 20-21: Administrative boundaries
- *   Slots 22-23: Overflow/international
+ * Number of district slots per cell.
+ *
+ * Protocol constant — structurally embedded in the Noir circuit ([Field; 24]),
+ * the Poseidon2 sponge (24/3 = 8 absorb rounds), and the on-chain verifier.
+ * Not jurisdiction-specific. All jurisdictions use 24 slots; unused slots are 0n.
  */
 export const DISTRICT_SLOT_COUNT = 24;
 
 /**
  * Number of public inputs in the two-tree circuit proof result.
  *
- * Public inputs layout (in circuit order):
- *   user_root          (1)
- *   cell_map_root      (1)
- *   districts          (24)
- *   nullifier          (1)
- *   action_domain      (1)
- *   authority_level     (1)
- *   ───────────────────────
- *   Total:             29
+ * Derived from protocol constants:
+ *   user_root(1) + cell_map_root(1) + districts(24) + nullifier(1) + action_domain(1) + authority_level(1) = 29
+ *
+ * This is a protocol constant, not jurisdiction-specific.
  */
-export const TWO_TREE_PUBLIC_INPUT_COUNT = 29;
+export const TWO_TREE_PUBLIC_INPUT_COUNT = 2 + DISTRICT_SLOT_COUNT + 3;  // = 29
 
 /**
  * Inputs required to generate a two-tree membership proof.
