@@ -10,7 +10,7 @@
  *
  * ARCHITECTURE:
  * - Tree 1 (User Tree): Standard Merkle tree.
- *   Leaf = H3(user_secret, cell_id, registration_salt)
+ *   Leaf = H4(user_secret, cell_id, registration_salt, authority_level)
  * - Tree 2 (Cell Map): Sparse Merkle tree.
  *   Leaf = H2(cell_id, district_commitment)
  *   where district_commitment = poseidon2_sponge_24(districts)
