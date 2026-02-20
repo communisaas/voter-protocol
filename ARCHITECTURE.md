@@ -271,6 +271,9 @@ await tx.wait();
 
 ### Layer 4: Universal Account Access
 
+> [!NOTE]
+> NEAR Chain Signatures are NOT included in Phase 1. This is a Phase 2+ capability. See SECURITY.md Section "Phase 1 Reality."
+
 **Problem**: Users come from different chains. Some have ETH wallets, some hold Bitcoin, some use Solana, many have no wallet at all.
 
 **Solution**: NEAR Chain Signatures provides optional account abstraction while protocol settles on Scroll (Ethereum L2).
@@ -633,6 +636,9 @@ Communiqué backend servers are deployed with static Elastic IP addresses in us-
 - Client-side proof generation flow
 
 See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs/architecture/zk-infrastructure.md#client-side-proof-generation)
+
+> [!WARNING]
+> **Phase 1 Status:** Nitro Enclave infrastructure is NOT yet deployed. Phase 1 uses standard encrypted storage with operational key management. The architecture described below is the Phase 2 target. See SECURITY.md for the current privacy posture.
 
 ### AWS Nitro Enclaves Processing
 

@@ -152,7 +152,7 @@ The operator controls the following off-chain systems:
 
 **Tree Construction.** The `dual-tree-builder.ts` module constructs both Merkle trees. Tree 1 leaves are `Poseidon2_Hash3(userSecret, cellId, registrationSalt)`. Tree 2 leaves are `Poseidon2_Hash2(cellId, districtCommitment)` where `districtCommitment = poseidon2Sponge(districts[0..24])`. The operator controls leaf ordering, tree depth, and whether all cells and users are included.
 
-**Proof Generation API.** The operator runs the HTTP API that serves Merkle proofs to clients. Users cannot generate proofs without their sibling path from leaf to root. If the operator refuses to serve proof data, users cannot participate. There is no alternative data source (IPFS pinning is deferred to Phase 2 under SA-008).
+**Proof Generation API.** The operator runs the HTTP API that serves Merkle proofs to clients. Users cannot generate proofs without their sibling path from leaf to root. If the operator refuses to serve proof data, users cannot participate. Tree data is replicated to IPFS via Storacha/Lighthouse integration (SA-008, completed Wave 26a). IPFS gateway recovery provides an alternative data source if the primary operator is unavailable.
 
 **User Registration.** When a user registers, they transmit their cell ID to the operator (derived from their address via Census geocoding). The operator includes this user's leaf in the next tree build. The operator could omit the user (censorship) or include the user in the wrong cell (misattribution).
 
@@ -287,7 +287,7 @@ The convenience argument doesn't outweigh the security risk. Batch tree rebuilds
 **Severity:** High
 **Layer:** 2 (Off-Chain)
 
-If the operator disappears, users lose the ability to generate new proofs. Tree data (leaf values, sibling paths) exists only in the operator's local database. There is no IPFS pinning, no Arweave archival, no Filecoin deal. SA-008 (IPFS/Storacha integration) is deferred to Phase 2.
+If the operator disappears, users lose the ability to generate new proofs from a live API. However, tree data (leaf values, sibling paths) is now replicated to IPFS via the SyncService Storacha/Lighthouse integration (SA-008, completed Wave 26a), and an append-only NDJSON insertion log with hash chaining provides an auditable record. IPFS gateway recovery can serve Merkle proof data if the primary operator is unavailable. Arweave archival and Filecoin deals remain Phase 2 items.
 
 **The impact of operator disappearance:**
 

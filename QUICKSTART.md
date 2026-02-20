@@ -216,6 +216,9 @@ Tap "Send to My Representative"
 
 ## Privacy: What Staffers See vs. What's Private
 
+> [!NOTE]
+> **Current Phase 1 implementation** uses encrypted storage with operational key management. The full Nitro Enclave isolation described here is the Phase 2 target architecture. Your privacy is protected by encryption and access controls, with TEE isolation coming in Phase 2.
+
 **Congressional office sees (Phase 1):**
 - "Verified constituent in TX-18" (cryptographic district proof, browser-native generation)
 - "Reputation score: 8,500 in healthcare policy" (domain expertise from on-chain actions)

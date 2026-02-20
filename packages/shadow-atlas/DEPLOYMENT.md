@@ -438,3 +438,102 @@ curl http://localhost:3000/v1/health
 ---
 
 **Goal:** Maximum cost efficiency. Run locally for zero cloud costs, or deploy to a $5/month VPS if needed.
+
+---
+
+## Appendix: Docker Quick Reference
+
+Quick-reference commands for day-to-day Docker operations.
+
+### Build
+
+```bash
+docker build -t shadow-atlas .
+docker build -t shadow-atlas:v0.1.0 .
+```
+
+### Run
+
+```bash
+# Basic
+docker run -d --name shadow-atlas -p 3000:3000 shadow-atlas
+
+# With named volume
+docker run -d -p 3000:3000 -v shadow-atlas-data:/data shadow-atlas
+
+# With env file
+docker run -d -p 3000:3000 --env-file .env shadow-atlas
+
+# With custom CORS
+docker run -d -p 3000:3000 \
+  -e CORS_ORIGINS=https://voter-protocol.org \
+  shadow-atlas
+```
+
+### Manage
+
+```bash
+# View logs
+docker logs -f shadow-atlas
+
+# Stop / Start / Restart
+docker stop shadow-atlas
+docker start shadow-atlas
+docker restart shadow-atlas
+
+# Remove
+docker rm shadow-atlas
+
+# Shell access
+docker exec -it shadow-atlas sh
+```
+
+### Inspect
+
+```bash
+# Container stats
+docker stats shadow-atlas
+
+# Full inspect
+docker inspect shadow-atlas
+
+# Health status only
+docker inspect --format='{{.State.Health.Status}}' shadow-atlas
+docker inspect --format='{{json .State.Health}}' shadow-atlas | jq
+```
+
+### Volume Management
+
+```bash
+# Create named volume
+docker volume create shadow-atlas-data
+
+# List contents
+docker run --rm -v shadow-atlas-data:/data alpine ls -la /data
+
+# Fix permissions (if needed)
+docker run --rm -v shadow-atlas-data:/data alpine chown -R 1000:1000 /data
+```
+
+### Docker Compose Commands
+
+```bash
+docker-compose up -d
+docker-compose logs -f
+docker-compose down
+```
+
+### Dockerfile Features
+
+- **Multi-stage build**: Minimal runtime image (~200MB)
+- **Non-root user**: `shadow-atlas` user for security
+- **Volume mount**: `/data` for SQLite database persistence
+- **Health check**: Automatic container monitoring runs every 30 seconds
+- **Node.js 22 slim**: Latest LTS with minimal footprint
+
+### Image Size
+
+```bash
+docker images shadow-atlas
+# Expected: ~200MB (multi-stage build optimized)
+```

@@ -164,10 +164,11 @@ Tree 1 stores **user identity commitments** that bind a user's secret to their g
 ### 2.2 Leaf Structure
 
 ```
-user_leaf = Poseidon2_Hash3(
-    user_secret,     // 254-bit field element from identity verification
-    cell_id,         // Census Tract FIPS code (e.g., 06075061200)
-    registration_salt // Random 254-bit field element
+user_leaf = Poseidon2_Hash4(
+    user_secret,      // 254-bit field element from identity verification
+    cell_id,          // Census Tract FIPS code (e.g., 06075061200)
+    registration_salt, // Random 254-bit field element
+    authority_level   // Integer in [1, 5] indicating credential authority
 )
 ```
 
@@ -178,6 +179,7 @@ user_leaf = Poseidon2_Hash3(
 | `user_secret` | 254 bits | Didit/self.xyz | Derived from identity verification |
 | `cell_id` | 37 bits | Client geocoding | Census Tract FIPS (11 digits, ~4K people per tract) |
 | `registration_salt` | 254 bits | Client RNG | Prevents rainbow table attacks |
+| `authority_level` | 8 bits | Credential issuer | Integer in [1, 5] indicating credential authority |
 
 **Why Census Tract (not Block Group):**
 
@@ -336,7 +338,7 @@ cell_map_root lifecycle:
 ### 4.1 Circuit Interface
 
 > **NOTE:** The following matches the actual implementation in
-> `packages/crypto/noir/two_tree_membership/src/main.nr` as of 2026-02-03.
+> `packages/crypto/noir/two_tree_membership/src/main.nr` as of 2026-02-20.
 > The sponge construction lives in `src/sponge.nr` and is imported via `mod sponge`.
 
 ```noir
@@ -386,16 +388,16 @@ fn poseidon2_hash3(a: Field, b: Field, c: Field) -> Field {
 // LEAF & NULLIFIER COMPUTATION
 // ═══════════════════════════════════════════════════════════════════════
 
-fn compute_user_leaf(user_secret: Field, cell_id: Field, registration_salt: Field) -> Field {
-    poseidon2_hash3(user_secret, cell_id, registration_salt)
+fn compute_user_leaf(user_secret: Field, cell_id: Field, registration_salt: Field, authority_level: Field) -> Field {
+    poseidon2_hash4(user_secret, cell_id, registration_salt, authority_level)
 }
 
 fn compute_cell_map_leaf(cell_id: Field, district_commitment: Field) -> Field {
     poseidon2_hash2(cell_id, district_commitment)
 }
 
-fn compute_nullifier(user_secret: Field, action_domain: Field) -> Field {
-    poseidon2_hash2(user_secret, action_domain)
+fn compute_nullifier(identity_commitment: Field, action_domain: Field) -> Field {
+    poseidon2_hash2(identity_commitment, action_domain)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -468,6 +470,7 @@ fn main(
     user_secret: Field,
     cell_id: Field,
     registration_salt: Field,
+    identity_commitment: Field,
 
     // Tree 1: Standard Merkle proof
     user_path: [Field; TREE_DEPTH],
@@ -484,7 +487,7 @@ fn main(
     validate_authority_level(authority_level);
 
     // STEP 1: Verify user identity (Tree 1)
-    let user_leaf = compute_user_leaf(user_secret, cell_id, registration_salt);
+    let user_leaf = compute_user_leaf(user_secret, cell_id, registration_salt, authority_level);
     let computed_user_root = compute_merkle_root(user_leaf, user_path, user_index);
     assert(computed_user_root == user_root, "Tree 1: Merkle proof verification failed");
 
@@ -501,7 +504,7 @@ fn main(
     assert(computed_map_root == cell_map_root, "Tree 2: SMT proof verification failed");
 
     // STEP 4: Verify nullifier
-    let computed_nullifier = compute_nullifier(user_secret, action_domain);
+    let computed_nullifier = compute_nullifier(identity_commitment, action_domain);
     assert(computed_nullifier == nullifier, "Nullifier verification failed");
 }
 ```
@@ -514,7 +517,7 @@ The current single-tree circuit measures ~500 constraints per Poseidon2 permutat
 ```
 Component                              Hashes    Constraints (est.)
 ──────────────────────────────────────────────────────────────────────
-User leaf (H3)                            1            500
+User leaf (H4)                            1            500
 User Merkle path (depth 20)              20         10,000
 District commitment (sponge, 8 rounds)    8          4,000
 Cell map leaf (H2)                        1            500
@@ -1308,7 +1311,7 @@ export class TwoTreeProver {
   async generateProof(inputs: TwoTreeProofInputs): Promise<TwoTreeProofResult> {
     // 1. Compute nullifier locally (for UI preview)
     const nullifier = poseidon2Hash2(
-      BigInt(inputs.userSecret),
+      BigInt(inputs.identityCommitment),
       BigInt(inputs.actionDomain)
     );
 

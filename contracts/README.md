@@ -8,7 +8,7 @@ Solidity contracts for on-chain verification of browser-generated Noir/Barretenb
 - Verifies UltraPlonk proofs via pluggable verifier (300-500k gas)
 - Tracks nullifiers to prevent double-actions
 - Manages Shadow Atlas Merkle root updates
-- **Permissionless actions**: Any `bytes32` actionId is valid (no authorization required)
+- **Governance-whitelisted action domains**: `actionDomains` must be proposed via `proposeActionDomain()` and pass a 7-day timelock before they can be used with `verifyAndRecord()` (SA-001 fix)
 - EIP-712 signatures for MEV protection
 - TimelockGovernance (Phase 1): 7-day governance transfer, 14-day verifier upgrade timelocks
 
@@ -200,20 +200,26 @@ districtGate.verifyAndAuthorizeWithSignature(
 );
 ```
 
-### Permissionless Actions
+### Action Domain Whitelisting (SA-001)
 
-Actions are **permissionless** - any `bytes32` can be used as an actionId:
+Action domains must be governance-whitelisted before use. An `actionDomain` is proposed via `proposeActionDomain()` and becomes active only after a 7-day timelock elapses. Only whitelisted action domains are accepted by `verifyAndRecord()`.
 
 ```solidity
-// These all work without pre-authorization:
-bytes32 actionId1 = keccak256("contact_representative");
-bytes32 actionId2 = keccak256(abi.encodePacked(templateId)); // Hash of template
-bytes32 actionId3 = bytes32(campaignId); // Direct campaign identifier
+// Step 1: Propose an action domain (starts 7-day timelock)
+districtGate.proposeActionDomain(keccak256("contact_representative"));
+
+// Step 2: After 7 days, activate the domain
+districtGate.activateActionDomain(keccak256("contact_representative"));
+
+// Step 3: Use the whitelisted action domain in verifyAndRecord()
+bytes32 actionId = keccak256("contact_representative"); // Must be whitelisted
+// Unwhitelisted actionIds will revert
 
 // Spam mitigation is handled by:
-// 1. Rate limits (60s between actions per user)
-// 2. Gas costs (~$0.003-0.05 per tx)
-// 3. ZK proof generation time (8-15s in browser)
+// 1. Governance whitelisting (7-day timelock prevents unauthorized action types)
+// 2. Rate limits (60s between actions per user)
+// 3. Gas costs (~$0.003-0.05 per tx)
+// 4. ZK proof generation time (8-15s in browser)
 ```
 
 ### Check Verification Status
@@ -260,18 +266,19 @@ See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4 for compos
 5. **Nation-State Coercion**: Phase 1 uses TimelockGovernance (7-day detection window). Phase 2 adds GuardianShield (multi-jurisdiction veto)
 6. **Spam Actions**: Mitigated by rate limits + gas costs + proof generation time
 
-### Permissionless Security Model
+### Action Domain Security Model
 
-Actions are permissionless because:
+Action domains require governance whitelisting (SA-001 fix):
+- **Governance gate**: `proposeActionDomain()` + 7-day timelock before any domain is active
 - **Economic spam resistance**: Gas costs + rate limits make spam expensive
 - **Proof generation barrier**: 8-15 seconds per proof prevents mass generation
 - **Nullifier uniqueness**: Same person can't act twice on same action
 - **District verification**: Only valid district members can participate
 
-No authorization bottleneck means:
-- Protocol works on deployment (no bootstrap problem)
-- Templates can be created permissionlessly (Communique integration)
-- New action types don't require governance votes
+The whitelisting model means:
+- New action types require a governance proposal and 7-day community detection window
+- Templates in Communique use pre-whitelisted domains (e.g., `contact_representative`)
+- Unauthorized action domains revert at the contract level, preventing uncontrolled action namespace proliferation
 
 ### Audit Checklist
 
