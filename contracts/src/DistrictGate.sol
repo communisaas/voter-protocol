@@ -137,7 +137,17 @@ contract DistrictGate is Pausable, TimelockGovernance {
     /// @notice Nonces for replay protection
     mapping(address => uint256) public nonces;
 
+    /// @notice Whether genesis phase is complete
+    /// @dev Once sealed, campaign registry, action domain, and two-tree registry
+    ///      changes all require their respective timelock paths.
+    bool public genesisSealed;
+
     // Events
+    event GenesisSealed();
+    event CampaignRegistrySetGenesis(address indexed registry);
+    event ActionDomainActivatedGenesis(bytes32 indexed actionDomain);
+    event TwoTreeRegistriesSetGenesis(address userRootRegistry, address cellMapRegistry);
+
     event ActionVerified(
         address indexed user,
         address indexed submitter,
@@ -177,6 +187,7 @@ contract DistrictGate is Pausable, TimelockGovernance {
     error ActionDomainTimelockNotExpired();
     error OperationAlreadyPending();
     error InsufficientAuthority(uint8 submitted, uint8 required);
+    error GenesisAlreadySealed();
 
     /// @notice Number of public inputs for two-tree proofs
     /// @dev [0] user_root, [1] cell_map_root, [2-25] districts[24],
@@ -236,6 +247,62 @@ contract DistrictGate is Pausable, TimelockGovernance {
                 address(this)
             )
         );
+    }
+
+    // ============================================================================
+    // Genesis Configuration (no timelock — deployer IS governance)
+    // ============================================================================
+
+    /// @notice Set campaign registry directly during genesis phase
+    /// @param _campaignRegistry Address of CampaignRegistry contract
+    /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
+    function setCampaignRegistryGenesis(address _campaignRegistry) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+
+        address previous = address(campaignRegistry);
+        campaignRegistry = CampaignRegistry(_campaignRegistry);
+
+        emit CampaignRegistrySetGenesis(_campaignRegistry);
+        emit CampaignRegistrySet(previous, _campaignRegistry);
+    }
+
+    /// @notice Register an action domain directly during genesis phase
+    /// @param actionDomain Action domain to whitelist
+    /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
+    function registerActionDomainGenesis(bytes32 actionDomain) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+
+        allowedActionDomains[actionDomain] = true;
+
+        emit ActionDomainActivatedGenesis(actionDomain);
+        emit ActionDomainActivated(actionDomain);
+    }
+
+    /// @notice Set two-tree registries directly during genesis phase
+    /// @param _userRootRegistry Address of UserRootRegistry
+    /// @param _cellMapRegistry Address of CellMapRegistry
+    /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
+    function setTwoTreeRegistriesGenesis(
+        address _userRootRegistry,
+        address _cellMapRegistry
+    ) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        if (_userRootRegistry == address(0)) revert ZeroAddress();
+        if (_cellMapRegistry == address(0)) revert ZeroAddress();
+
+        userRootRegistry = UserRootRegistry(_userRootRegistry);
+        cellMapRegistry = CellMapRegistry(_cellMapRegistry);
+
+        emit TwoTreeRegistriesSetGenesis(_userRootRegistry, _cellMapRegistry);
+        emit TwoTreeRegistriesSet(_userRootRegistry, _cellMapRegistry);
+    }
+
+    /// @notice Seal genesis phase — all future changes require timelocks
+    /// @dev Irreversible. Call after initial configuration is complete.
+    function sealGenesis() external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        genesisSealed = true;
+        emit GenesisSealed();
     }
 
     // ============================================================================

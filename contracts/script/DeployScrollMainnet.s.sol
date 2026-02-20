@@ -43,17 +43,20 @@ import "../src/CampaignRegistry.sol";
 ///   --verify \
 ///   --slow
 ///
-/// GENESIS FLOW (no timelock for initial verifier registration):
+/// GENESIS FLOW (no timelocks — all contracts operational immediately):
 /// 1. Deploy with deployer as initial governance
 /// 2. Register verifiers directly (registerVerifier — no timelock)
-/// 3. Seal genesis (sealGenesis — irreversible)
-/// 4. Transfer governance to multisig (7-day timelock)
+/// 3. Authorize DistrictGate on NullifierRegistry (authorizeCallerGenesis — no timelock)
+/// 4. Set CampaignRegistry on DistrictGate (setCampaignRegistryGenesis — no timelock)
+/// 5. Seal genesis on all three registries (irreversible)
+/// 6. Transfer governance to multisig (7-day timelock)
 ///
 /// POST-GENESIS TIMELOCKS:
 /// - Verifier upgrades: 14-day timelock
 /// - New depth registration: 14-day timelock
-/// - DistrictGate caller authorization: 7-day timelock
+/// - Caller authorization changes: 7-day timelock
 /// - ActionDomain registration: 7-day timelock
+/// - CampaignRegistry changes: 7-day timelock
 /// - District registration: Immediate (governance only)
 contract DeployScrollMainnet is Script {
     // =========================================================================
@@ -232,9 +235,9 @@ contract DeployScrollMainnet is Script {
         // =====================================================================
 
         console.log("");
-        console.log("Genesis phase: registering verifiers directly...");
+        console.log("Genesis phase: configuring all contracts directly (no timelocks)...");
 
-        // Try each depth — register if address is provided
+        // --- VerifierRegistry genesis ---
         _tryRegisterVerifier(verifierRegistry, DEPTH_18, verifier18);
         _tryRegisterVerifier(verifierRegistry, DEPTH_20, verifier20);
         _tryRegisterVerifier(verifierRegistry, DEPTH_22, verifier22);
@@ -243,18 +246,25 @@ contract DeployScrollMainnet is Script {
         console.log("");
         console.log("  Registered", registeredDepths.length, "verifier(s) during genesis.");
 
-        // Seal genesis — all future registrations require 14-day timelock
         require(registeredDepths.length >= 1, "No verifiers registered - cannot seal genesis");
-        console.log("  - Sealing genesis (irreversible)");
+        console.log("  - Sealing VerifierRegistry genesis (irreversible)");
         verifierRegistry.sealGenesis();
 
-        // Propose DistrictGate as caller on NullifierRegistry (7-day timelock)
-        console.log("  - Proposing DistrictGate caller authorization (7-day timelock)");
-        nullifierRegistry.proposeCallerAuthorization(address(gate));
+        // --- NullifierRegistry genesis ---
+        console.log("  - Authorizing DistrictGate as caller on NullifierRegistry (ACTIVE IMMEDIATELY)");
+        nullifierRegistry.authorizeCallerGenesis(address(gate));
+        console.log("  - Sealing NullifierRegistry genesis (irreversible)");
+        nullifierRegistry.sealGenesis();
 
-        // Authorize DistrictGate as caller on CampaignRegistry
+        // --- CampaignRegistry ---
         console.log("  - Authorizing DistrictGate on CampaignRegistry");
         campaignRegistry.authorizeCaller(address(gate));
+
+        // --- DistrictGate genesis ---
+        console.log("  - Setting CampaignRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
+        gate.setCampaignRegistryGenesis(address(campaignRegistry));
+        console.log("  - Sealing DistrictGate genesis (irreversible)");
+        gate.sealGenesis();
 
         // Initiate governance transfer if target is set
         if (governanceTarget != address(0) && governanceTarget != deployer) {
@@ -289,37 +299,27 @@ contract DeployScrollMainnet is Script {
             console.log("  Verifier depth", registeredDepths[i], ": ACTIVE");
             console.log("    Address:", registeredAddresses[i]);
         }
-        console.log("  Genesis sealed:      YES (future changes require 14-day timelock)");
+        console.log("  VerifierRegistry genesis:   SEALED");
+        console.log("  NullifierRegistry genesis:  SEALED (DistrictGate authorized)");
+        console.log("  DistrictGate genesis:       SEALED (CampaignRegistry set)");
         console.log("");
-        console.log("============================================================");
-        console.log("  POST-DEPLOYMENT ACTIONS REQUIRED");
-        console.log("============================================================");
-        console.log("");
-        console.log("TIMELOCK OPERATIONS (7-day wait):");
-        console.log("");
-        console.log("1. AFTER 7 DAYS - Execute DistrictGate caller authorization:");
-        console.log("   nullifierRegistry.executeCallerAuthorization(", address(gate), ")");
-        console.log("   Address:", address(nullifierRegistry));
-        console.log("");
-        console.log("2. AFTER STEP 1 - Propose CampaignRegistry on DistrictGate:");
-        console.log("   gate.proposeCampaignRegistry(", address(campaignRegistry), ")");
-        console.log("   Address:", address(gate));
-        console.log("");
-        console.log("3. AFTER 7 MORE DAYS - Execute CampaignRegistry integration:");
-        console.log("   gate.executeCampaignRegistry()");
-        console.log("   Address:", address(gate));
+        console.log("  ==> ALL CONTRACTS FULLY OPERATIONAL - NO TIMELOCKS PENDING");
         console.log("");
         if (governanceTarget != address(0) && governanceTarget != deployer) {
-            console.log("4. AFTER 7 DAYS - Execute governance transfer:");
-            console.log("   *.executeGovernanceTransfer(", governanceTarget, ")");
-            console.log("   (call on all 5 contracts)");
+            console.log("============================================================");
+            console.log("  POST-DEPLOYMENT: GOVERNANCE TRANSFER (7-day timelock)");
+            console.log("============================================================");
+            console.log("");
+            console.log("  AFTER 7 DAYS - Execute governance transfer:");
+            console.log("  *.executeGovernanceTransfer(", governanceTarget, ")");
+            console.log("  (call on all 5 contracts)");
             console.log("");
         }
         console.log("ONGOING - Register districts (no timelock, governance only):");
         console.log("   districtRegistry.registerDistrict(root, country, depth)");
         console.log("   Address:", address(districtRegistry));
         console.log("");
-        console.log("AS NEEDED - Register action domains (7-day timelock each):");
+        console.log("POST-GENESIS - Register action domains (7-day timelock each):");
         console.log("   gate.proposeActionDomain(actionDomain)");
         console.log("   ... wait 7 days ...");
         console.log("   gate.executeActionDomain(actionDomain)");

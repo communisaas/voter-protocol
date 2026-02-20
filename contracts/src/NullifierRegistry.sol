@@ -79,6 +79,10 @@ contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     event CallerRevoked(address indexed caller);
     event CallerRevocationCancelled(address indexed caller);
 
+    // Genesis events
+    event GenesisSealed();
+    event CallerAuthorizedGenesis(address indexed caller);
+
     // Errors
     error NullifierAlreadyUsed();
     error RateLimitExceeded();
@@ -90,6 +94,7 @@ contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     error CallerRevocationTimelockNotExpired();
     error CallerAuthorizationAlreadyPending();
     error CallerRevocationAlreadyPending();
+    error GenesisAlreadySealed();
 
     modifier onlyAuthorizedCaller() {
         if (!authorizedCallers[msg.sender]) revert UnauthorizedCaller();
@@ -99,11 +104,42 @@ contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Timelock duration for caller authorization/revocation
     uint256 public constant CALLER_AUTHORIZATION_TIMELOCK = 7 days;
 
+    /// @notice Whether genesis registration phase is complete
+    /// @dev Once sealed, all caller authorizations require the timelock path
+    bool public genesisSealed;
+
     constructor(address _governance) {
         if (_governance == address(0)) revert ZeroAddress();
         _initializeGovernance(_governance);
         // Governance is always authorized
         authorizedCallers[_governance] = true;
+    }
+
+    // ============================================================================
+    // Genesis Registration (no timelock — deployer IS governance)
+    // ============================================================================
+
+    /// @notice Direct caller authorization during genesis phase
+    /// @param caller Address to authorize (e.g., DistrictGate contract)
+    /// @dev Only available before sealGenesis(). At genesis there are no users
+    ///      to protect from front-running — the deployer IS the sole operator.
+    ///      Once sealed, all future authorizations require the timelock path.
+    function authorizeCallerGenesis(address caller) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        if (caller == address(0)) revert ZeroAddress();
+        if (authorizedCallers[caller]) revert CallerAlreadyAuthorized();
+
+        authorizedCallers[caller] = true;
+
+        emit CallerAuthorizedGenesis(caller);
+    }
+
+    /// @notice Seal genesis phase — all future caller changes require timelocks
+    /// @dev Irreversible. Call after initial callers are authorized.
+    function sealGenesis() external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        genesisSealed = true;
+        emit GenesisSealed();
     }
 
     /// @notice Record a nullifier as used (called by DistrictGate or authorized contract)
