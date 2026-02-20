@@ -2,109 +2,314 @@
 pragma solidity >=0.8.19;
 
 import "forge-std/Script.sol";
+import "../src/DistrictRegistry.sol";
 import "../src/NullifierRegistry.sol";
 import "../src/VerifierRegistry.sol";
 import "../src/DistrictGate.sol";
-import "../src/DistrictRegistry.sol";
 import "../src/CampaignRegistry.sol";
 
-/// @title DeployScrollSepolia
-/// @notice Deployment script for Scroll Sepolia testnet (Phase 1)
-/// @dev Run with: forge script script/DeployScrollSepolia.s.sol --rpc-url scroll_sepolia --broadcast
+/// @title Deploy to Scroll Sepolia — Genesis Model
+/// @notice Mirrors the exact mainnet deployment flow on Scroll Sepolia testnet.
+/// @dev Identical to DeployScrollMainnet.s.sol except for chain ID validation.
+///      This ensures testnet validates the real deployment path:
+///        1. Deploy 5 contracts with deployer as governance
+///        2. Register verifiers directly (no timelock — genesis phase)
+///        3. Seal genesis (irreversible — future changes require 14-day timelock)
+///        4. Propose caller authorizations (7-day timelock)
 ///
-/// PHASE 1 DEPLOYMENT (Solo Founder):
-/// - TimelockGovernance: 7-day governance timelock, 14-day verifier timelock
-/// - No GuardianShield: Nation-state resistance requires real multi-jurisdiction guardians
-/// - Honest threat model: Founder key compromise = governance compromise
+/// ENVIRONMENT VARIABLES:
+///   PRIVATE_KEY             — Deployer private key (funded with Scroll Sepolia ETH)
+///   GOVERNANCE_ADDRESS      — (optional) Post-genesis governance target; defaults to deployer
+///   ETHERSCAN_API_KEY       — (optional) For Scrollscan contract verification
 ///
-/// VERIFIER DEPTHS:
-/// - VERIFIER_DEPTH_18: For depth-18 circuits (262K addresses)
-/// - VERIFIER_DEPTH_20: For depth-20 circuits (1M addresses) - most common
-/// - VERIFIER_DEPTH_22: For depth-22 circuits (4M addresses)
-/// - VERIFIER_DEPTH_24: For depth-24 circuits (16M addresses)
+/// VERIFIER ADDRESSES (set one or more):
+///   VERIFIER_ADDRESS_18     — Pre-deployed HonkVerifier for depth 18
+///   VERIFIER_ADDRESS_20     — Pre-deployed HonkVerifier for depth 20
+///   VERIFIER_ADDRESS_22     — Pre-deployed HonkVerifier for depth 22
+///   VERIFIER_ADDRESS_24     — Pre-deployed HonkVerifier for depth 24
+///
+/// BACKWARD COMPATIBILITY (legacy single-verifier):
+///   VERIFIER_ADDRESS        — Single verifier address
+///   VERIFIER_DEPTH          — Depth for single verifier (default: 20)
+///
+/// USAGE:
+///   forge script script/DeployScrollSepolia.s.sol:DeployScrollSepolia \
+///     --rpc-url scroll_sepolia --private-key $PRIVATE_KEY --broadcast --verify --slow
 contract DeployScrollSepolia is Script {
-    // Default verifier depth (can be overridden via environment)
+    // =========================================================================
+    // Constants
+    // =========================================================================
+
+    uint256 constant SCROLL_SEPOLIA_CHAIN_ID = 534351;
     uint8 constant DEFAULT_VERIFIER_DEPTH = 20;
+    uint8 constant DEPTH_18 = 18;
+    uint8 constant DEPTH_20 = 20;
+    uint8 constant DEPTH_22 = 22;
+    uint8 constant DEPTH_24 = 24;
+
+    // =========================================================================
+    // State for tracking registered verifiers
+    // =========================================================================
+
+    uint8[] internal registeredDepths;
+    address[] internal registeredAddresses;
+
+    // =========================================================================
+    // Deployment
+    // =========================================================================
 
     function run() external {
-        // Configuration
-        address governance = vm.envAddress("GOVERNANCE_ADDRESS");
-        address verifier = vm.envAddress("VERIFIER_ADDRESS");
+        // =====================================================================
+        // Pre-flight Checks
+        // =====================================================================
 
-        // Optional: specify verifier depth (defaults to 20)
-        uint8 verifierDepth = DEFAULT_VERIFIER_DEPTH;
-        try vm.envUint("VERIFIER_DEPTH") returns (uint256 depth) {
-            verifierDepth = uint8(depth);
-        } catch {}
+        require(
+            block.chainid == SCROLL_SEPOLIA_CHAIN_ID,
+            "WRONG NETWORK: Must deploy to Scroll Sepolia (chainId 534351)"
+        );
 
-        // If no verifier deployed yet, use a placeholder
-        if (verifier == address(0)) {
-            console.log("WARNING: Using placeholder verifier address");
-            verifier = address(0xdead);
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
+        // Post-genesis governance target. If unset, deployer retains governance.
+        address governanceTarget;
+        try vm.envAddress("GOVERNANCE_ADDRESS") returns (address g) {
+            governanceTarget = g;
+        } catch {
+            governanceTarget = address(0);
         }
 
-        require(verifierDepth >= 18 && verifierDepth <= 24 && verifierDepth % 2 == 0, "Invalid verifier depth");
+        address deployer = vm.addr(deployerPrivateKey);
 
-        vm.startBroadcast();
+        // =====================================================================
+        // Resolve Verifier Addresses
+        // =====================================================================
+
+        address verifier18 = _tryEnvAddress("VERIFIER_ADDRESS_18");
+        address verifier20 = _tryEnvAddress("VERIFIER_ADDRESS_20");
+        address verifier22 = _tryEnvAddress("VERIFIER_ADDRESS_22");
+        address verifier24 = _tryEnvAddress("VERIFIER_ADDRESS_24");
+
+        // Backward compatibility: legacy single-verifier mode
+        if (verifier18 == address(0) && verifier20 == address(0)
+            && verifier22 == address(0) && verifier24 == address(0))
+        {
+            address legacyVerifier = _tryEnvAddress("VERIFIER_ADDRESS");
+            if (legacyVerifier != address(0)) {
+                uint8 legacyDepth = DEFAULT_VERIFIER_DEPTH;
+                try vm.envUint("VERIFIER_DEPTH") returns (uint256 d) {
+                    legacyDepth = uint8(d);
+                } catch {}
+
+                console.log("NOTE: Using legacy VERIFIER_ADDRESS for depth", legacyDepth);
+
+                if (legacyDepth == DEPTH_18) verifier18 = legacyVerifier;
+                else if (legacyDepth == DEPTH_20) verifier20 = legacyVerifier;
+                else if (legacyDepth == DEPTH_22) verifier22 = legacyVerifier;
+                else if (legacyDepth == DEPTH_24) verifier24 = legacyVerifier;
+                else revert("Invalid VERIFIER_DEPTH (must be 18, 20, 22, or 24)");
+            }
+        }
+
+        uint8 verifierCount = 0;
+        if (verifier18 != address(0)) verifierCount++;
+        if (verifier20 != address(0)) verifierCount++;
+        if (verifier22 != address(0)) verifierCount++;
+        if (verifier24 != address(0)) verifierCount++;
+
+        require(
+            verifierCount >= 1,
+            "At least one verifier address required. Set VERIFIER_ADDRESS_18, _20, _22, or _24."
+        );
+
+        // =====================================================================
+        // Banner
+        // =====================================================================
+
+        console.log("============================================================");
+        console.log("  SCROLL SEPOLIA DEPLOYMENT - VOTER PROTOCOL (GENESIS)");
+        console.log("============================================================");
+        console.log("");
+        console.log("Chain ID:", block.chainid);
+        console.log("Deployer:", deployer);
+        console.log("Governance target:", governanceTarget == address(0) ? deployer : governanceTarget);
+        console.log("");
+        console.log("Verifiers to register:", verifierCount);
+        if (verifier18 != address(0)) console.log("  Depth 18:", verifier18);
+        if (verifier20 != address(0)) console.log("  Depth 20:", verifier20);
+        if (verifier22 != address(0)) console.log("  Depth 22:", verifier22);
+        if (verifier24 != address(0)) console.log("  Depth 24:", verifier24);
+        console.log("");
+
+        // Validate each provided verifier has on-chain code
+        if (verifier18 != address(0)) _requireCodeAt(verifier18, "VERIFIER_ADDRESS_18");
+        if (verifier20 != address(0)) _requireCodeAt(verifier20, "VERIFIER_ADDRESS_20");
+        if (verifier22 != address(0)) _requireCodeAt(verifier22, "VERIFIER_ADDRESS_22");
+        if (verifier24 != address(0)) _requireCodeAt(verifier24, "VERIFIER_ADDRESS_24");
+
+        console.log("==> Pre-flight checks PASSED");
+        console.log("");
+
+        // =====================================================================
+        // Deployment
+        // =====================================================================
+
+        vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy DistrictRegistry
-        DistrictRegistry districtRegistry = new DistrictRegistry(governance);
-        console.log("DistrictRegistry deployed at:", address(districtRegistry));
+        console.log("[1/5] Deploying DistrictRegistry...");
+        DistrictRegistry districtRegistry = new DistrictRegistry(deployer);
+        console.log("      DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
-        NullifierRegistry nullifierRegistry = new NullifierRegistry(governance);
-        console.log("NullifierRegistry deployed at:", address(nullifierRegistry));
+        console.log("[2/5] Deploying NullifierRegistry...");
+        NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer);
+        console.log("      NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy VerifierRegistry
-        VerifierRegistry verifierRegistry = new VerifierRegistry(governance);
-        console.log("VerifierRegistry deployed at:", address(verifierRegistry));
+        console.log("[3/5] Deploying VerifierRegistry...");
+        VerifierRegistry verifierRegistry = new VerifierRegistry(deployer);
+        console.log("      VerifierRegistry deployed at:", address(verifierRegistry));
 
-        // 4. Propose verifier in VerifierRegistry (requires 7-day timelock)
-        console.log("Proposing verifier for depth", verifierDepth, "...");
-        verifierRegistry.proposeVerifier(verifierDepth, verifier);
-        console.log("Verifier proposed for depth", verifierDepth, "(execute after 7 days)");
-
-        // 5. Deploy DistrictGate with VerifierRegistry
+        // 4. Deploy DistrictGate
+        console.log("[4/5] Deploying DistrictGate...");
         DistrictGate gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            deployer
         );
-        console.log("DistrictGate deployed at:", address(gate));
+        console.log("      DistrictGate deployed at:", address(gate));
 
-        // 6. Deploy CampaignRegistry
-        CampaignRegistry campaignRegistry = new CampaignRegistry(governance);
-        console.log("CampaignRegistry deployed at:", address(campaignRegistry));
+        // 5. Deploy CampaignRegistry
+        console.log("[5/5] Deploying CampaignRegistry...");
+        CampaignRegistry campaignRegistry = new CampaignRegistry(deployer);
+        console.log("      CampaignRegistry deployed at:", address(campaignRegistry));
 
-        // 7. Propose DistrictGate as caller on NullifierRegistry (requires 7-day timelock)
+        // =====================================================================
+        // Genesis Configuration (direct — no timelocks)
+        // =====================================================================
+
+        console.log("");
+        console.log("Genesis phase: registering verifiers directly...");
+
+        _tryRegisterVerifier(verifierRegistry, DEPTH_18, verifier18);
+        _tryRegisterVerifier(verifierRegistry, DEPTH_20, verifier20);
+        _tryRegisterVerifier(verifierRegistry, DEPTH_22, verifier22);
+        _tryRegisterVerifier(verifierRegistry, DEPTH_24, verifier24);
+
+        console.log("");
+        console.log("  Registered", registeredDepths.length, "verifier(s) during genesis.");
+
+        // Seal genesis — all future registrations require 14-day timelock
+        require(registeredDepths.length >= 1, "No verifiers registered - cannot seal genesis");
+        console.log("  - Sealing genesis (irreversible)");
+        verifierRegistry.sealGenesis();
+
+        // Propose DistrictGate as caller on NullifierRegistry (7-day timelock)
+        console.log("  - Proposing DistrictGate caller authorization (7-day timelock)");
         nullifierRegistry.proposeCallerAuthorization(address(gate));
-        console.log("DistrictGate caller authorization proposed on NullifierRegistry (execute after 7 days)");
 
-        // 8. Authorize DistrictGate as caller on CampaignRegistry
+        // Authorize DistrictGate as caller on CampaignRegistry
+        console.log("  - Authorizing DistrictGate on CampaignRegistry");
         campaignRegistry.authorizeCaller(address(gate));
-        console.log("DistrictGate authorized as CampaignRegistry caller");
+
+        // Initiate governance transfer if target is set
+        if (governanceTarget != address(0) && governanceTarget != deployer) {
+            console.log("  - Initiating governance transfer to", governanceTarget, "(7-day timelock)");
+            verifierRegistry.initiateGovernanceTransfer(governanceTarget);
+            nullifierRegistry.initiateGovernanceTransfer(governanceTarget);
+            districtRegistry.initiateGovernanceTransfer(governanceTarget);
+            gate.initiateGovernanceTransfer(governanceTarget);
+            campaignRegistry.initiateGovernanceTransfer(governanceTarget);
+        }
 
         vm.stopBroadcast();
 
-        // Output deployment summary
-        console.log("\n=== Deployment Summary (Phase 1) ===");
-        console.log("Network: Scroll Sepolia");
-        console.log("DistrictRegistry:", address(districtRegistry));
-        console.log("NullifierRegistry:", address(nullifierRegistry));
-        console.log("VerifierRegistry:", address(verifierRegistry));
-        console.log("DistrictGate:", address(gate));
-        console.log("CampaignRegistry:", address(campaignRegistry));
-        console.log("Governance:", governance);
-        console.log("\nSECURITY NOTE: Phase 1 has no GuardianShield.");
-        console.log("Founder key compromise = governance compromise.");
-        console.log("Timelocks provide community exit window only.");
-        console.log("\nPOST-DEPLOYMENT (all require 7-day timelock):");
-        console.log("  1. Wait 7 days after deployment");
-        console.log("  2. Call verifierRegistry.executeVerifier(depth)");
-        console.log("  3. Call nullifierRegistry.executeCallerAuthorization(gate)");
-        console.log("  4. Call gate.proposeCampaignRegistry(campaignRegistry)");
-        console.log("  5. Wait 7 days");
-        console.log("  6. Call gate.executeCampaignRegistry()");
+        // =====================================================================
+        // Deployment Summary
+        // =====================================================================
+
+        console.log("");
+        console.log("============================================================");
+        console.log("  DEPLOYMENT COMPLETE - SCROLL SEPOLIA (GENESIS)");
+        console.log("============================================================");
+        console.log("");
+        console.log("Contract Addresses:");
+        console.log("  DistrictRegistry:   ", address(districtRegistry));
+        console.log("  NullifierRegistry:  ", address(nullifierRegistry));
+        console.log("  VerifierRegistry:   ", address(verifierRegistry));
+        console.log("  DistrictGate:       ", address(gate));
+        console.log("  CampaignRegistry:   ", address(campaignRegistry));
+        console.log("");
+        console.log("Genesis Status:");
+        for (uint256 i = 0; i < registeredDepths.length; i++) {
+            console.log("  Verifier depth", registeredDepths[i], ": ACTIVE");
+            console.log("    Address:", registeredAddresses[i]);
+        }
+        console.log("  Genesis sealed:      YES (future changes require 14-day timelock)");
+        console.log("");
+        console.log("============================================================");
+        console.log("  POST-DEPLOYMENT ACTIONS REQUIRED");
+        console.log("============================================================");
+        console.log("");
+        console.log("TIMELOCK OPERATIONS (7-day wait):");
+        console.log("");
+        console.log("1. AFTER 7 DAYS - Execute DistrictGate caller authorization:");
+        console.log("   nullifierRegistry.executeCallerAuthorization(", address(gate), ")");
+        console.log("   Address:", address(nullifierRegistry));
+        console.log("");
+        console.log("2. AFTER STEP 1 - Propose CampaignRegistry on DistrictGate:");
+        console.log("   gate.proposeCampaignRegistry(", address(campaignRegistry), ")");
+        console.log("   Address:", address(gate));
+        console.log("");
+        console.log("3. AFTER 7 MORE DAYS - Execute CampaignRegistry integration:");
+        console.log("   gate.executeCampaignRegistry()");
+        console.log("   Address:", address(gate));
+        console.log("");
+        if (governanceTarget != address(0) && governanceTarget != deployer) {
+            console.log("4. AFTER 7 DAYS - Execute governance transfer:");
+            console.log("   *.executeGovernanceTransfer(", governanceTarget, ")");
+            console.log("   (call on all 5 contracts)");
+            console.log("");
+        }
+        console.log("Use ExecuteTimelocks.s.sol with SCROLL_NETWORK=sepolia for post-deploy steps.");
+        console.log("============================================================");
+    }
+
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+
+    function _tryEnvAddress(string memory envVar) internal view returns (address) {
+        try vm.envAddress(envVar) returns (address addr) {
+            return addr;
+        } catch {
+            return address(0);
+        }
+    }
+
+    function _requireCodeAt(address addr, string memory label) internal view {
+        uint256 codeSize;
+        assembly {
+            codeSize := extcodesize(addr)
+        }
+        require(
+            codeSize > 0,
+            string.concat(label, " has no code - deploy verifier first")
+        );
+    }
+
+    function _tryRegisterVerifier(
+        VerifierRegistry registry,
+        uint8 depth,
+        address verifier
+    ) internal {
+        if (verifier == address(0)) return;
+
+        console.log("  - Registering verifier for depth", depth, "(ACTIVE IMMEDIATELY)");
+        registry.registerVerifier(depth, verifier);
+
+        registeredDepths.push(depth);
+        registeredAddresses.push(verifier);
     }
 }
