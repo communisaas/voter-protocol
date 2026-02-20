@@ -30,6 +30,7 @@ import type {
     TwoTreeProverConfig,
     TwoTreeProofInput,
     TwoTreeProofResult,
+    ProofOptions,
     CircuitDepth,
 } from './types';
 import {
@@ -414,15 +415,17 @@ export class TwoTreeNoirProver {
      * 5. Authority level in [1, 5]
      *
      * @param inputs - All public and private inputs for the circuit
+     * @param options - Proof mode options. Use `{ keccak: true }` for on-chain proofs.
      * @returns Proof bytes and public inputs as hex strings
      */
-    async generateProof(inputs: TwoTreeProofInput): Promise<TwoTreeProofResult> {
+    async generateProof(inputs: TwoTreeProofInput, options?: ProofOptions): Promise<TwoTreeProofResult> {
         // BR3-006: Validate inputs before heavy init() call
         this.validateInputs(inputs);
 
         await this.init();
 
-        console.log('[TwoTreeNoirProver] Generating witness...');
+        const mode = options?.keccak ? 'keccak (on-chain)' : 'default (off-chain)';
+        console.log(`[TwoTreeNoirProver] Generating witness... (mode: ${mode})`);
         const witnessStart = Date.now();
 
         // Format inputs for the Noir circuit
@@ -434,9 +437,11 @@ export class TwoTreeNoirProver {
         console.log('[TwoTreeNoirProver] Generating proof...');
         const proofStart = Date.now();
 
-        const { proof, publicInputs } = await this.backend!.generateProof(witness);
+        const { proof, publicInputs } = options?.keccak
+            ? await this.backend!.generateProof(witness, { keccak: true })
+            : await this.backend!.generateProof(witness);
 
-        console.log(`[TwoTreeNoirProver] Proof generated in ${Date.now() - proofStart}ms`);
+        console.log(`[TwoTreeNoirProver] Proof generated in ${Date.now() - proofStart}ms (${proof.length} bytes)`);
 
         // Validate public input count
         if (publicInputs.length !== TWO_TREE_PUBLIC_INPUT_COUNT) {
@@ -464,9 +469,11 @@ export class TwoTreeNoirProver {
      * use verifyProofWithExpectedInputs().
      *
      * @param proofResult - The proof result from generateProof()
+     * @param options - Must match the options used during proof generation.
+     *                  Use `{ keccak: true }` for on-chain proofs.
      * @returns true if the proof is valid
      */
-    async verifyProof(proofResult: TwoTreeProofResult): Promise<boolean> {
+    async verifyProof(proofResult: TwoTreeProofResult, options?: ProofOptions): Promise<boolean> {
         // BR5-006: Reject proofs with wrong public input count before hitting the backend
         if (proofResult.publicInputs.length !== TWO_TREE_PUBLIC_INPUT_COUNT) {
             throw new Error(
@@ -476,10 +483,13 @@ export class TwoTreeNoirProver {
         }
 
         await this.init();
-        return this.backend!.verifyProof({
+        const proofData = {
             proof: proofResult.proof,
             publicInputs: proofResult.publicInputs,
-        });
+        };
+        return options?.keccak
+            ? this.backend!.verifyProof(proofData, { keccak: true })
+            : this.backend!.verifyProof(proofData);
     }
 
     /**
@@ -506,9 +516,10 @@ export class TwoTreeNoirProver {
     async verifyProofWithExpectedInputs(
         proofResult: TwoTreeProofResult,
         expectedInputs: TwoTreeProofInput,
+        options?: ProofOptions,
     ): Promise<boolean> {
         // First, cryptographic verification
-        const valid = await this.verifyProof(proofResult);
+        const valid = await this.verifyProof(proofResult, options);
         if (!valid) return false;
 
         // BR5-006: Bind public inputs to expected values.

@@ -39,6 +39,7 @@ export type {
     TwoTreeProverConfig,
     TwoTreeProofInput,
     TwoTreeProofResult,
+    ProofOptions,
 } from './types';
 export { DISTRICT_SLOT_COUNT, TWO_TREE_PUBLIC_INPUT_COUNT } from './types';
 
