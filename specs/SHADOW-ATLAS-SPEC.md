@@ -1716,9 +1716,37 @@ Global Merkle Tree
 - Larger proof data (18-24 hashes per district)
 - More complex tree structure (5-level hierarchy)
 
-### 13.3 Decision: District-Based Architecture (Option B)
+
+**Option C: Two-Tree Cell Architecture (Production Implementation)**
+```
+Tree 1 (User Identity): Standard balanced Merkle tree
+├─ Leaf: Poseidon2_Hash4(user_secret, cell_id, registration_salt, authority_level)
+└─ Depth: 18-24 (configurable by jurisdiction)
+
+Tree 2 (Cell-District Mapping): Sparse Merkle tree (SMT)
+├─ Key: Poseidon2(cell_id)
+├─ Value: Poseidon2_sponge(districts[24])
+└─ Depth: matches Tree 1
+```
+
+**Pros:**
+- Single proof for all 24 districts (one ZK proof, two Merkle paths)
+- Census Tract granularity (~4,000 people per cell, better anonymity than Block Groups)
+- 24-slot design covers all US boundary types with room for growth
+- Sparse Merkle Tree enables efficient updates (only changed cells rebuild)
+- 1,115+ lines of working, tested code (`dual-tree-builder.ts`, `cell-district-loader.ts`, `cell-resolver.ts`)
+- Noir circuit validates both trees in a single proof (29 public inputs)
+
+**Cons:**
+- Reveals all 24 district slots per proof (mitigated: unused slots are 0)
+- Cell-level anonymity set (~4,000) smaller than district-level (10K-800K)
+- Two Merkle paths per proof (more constraints than single-tree)
+
+### 13.3 Decision History
 
 **Rationale:**
+
+> **Note:** v3.0.0 adopted Option B (district-based). Subsequent development built Option C (two-tree cell architecture) as the production system for Communique integration. Option C is the current production architecture; Option B remains available for single-district use cases.
 
 **1. Superior Privacy Model**
 - **Selective Disclosure:** Users prove only the districts required by each application. A school board election app doesn't need to know the user's congressional district.
@@ -1771,7 +1799,12 @@ Cell-based model forces ALL applications to reveal ALL 14 districts, violating p
 - ✅ Boundary resolution (point-in-polygon)
 - ✅ IPFS export
 
-**Not Built (Cell-Based Components):**
+- ✅ Cell-district loader (`cell-district-loader.ts`, 260 lines)
+- ✅ Cell resolver (`cell-resolver.ts`, 162 lines)
+- ✅ Dual tree builder (`dual-tree-builder.ts`, 693 lines)
+- ✅ Two-tree Noir circuit (29 public inputs, depth 18-24)
+
+**Not Built (Option A remnants — superseded by Option C):**
 - ❌ Census Block Group lookup (0/242K cells)
 - ❌ BoundaryMap structure (0% complete)
 - ❌ Cell→district mapping (0% complete)
@@ -1813,6 +1846,7 @@ Cell-based model forces ALL applications to reveal ALL 14 districts, violating p
 ---
 
 **Version History:**
+- 3.1.0 (2026-02-20): Option C (two-tree cell architecture) documented as production
 - 3.0.0 (2026-01-26): **MAJOR** - District-based architecture adopted (spec aligned to implementation)
 - 2.0.0 (2026-01-25): Cell-based architecture (Census Block Groups) - **SUPERSEDED**
 - 1.2.0 (2025-12-12): Merkle Forest architecture
