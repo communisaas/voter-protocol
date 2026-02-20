@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Fully executed roadmap. The opening table records "6 validated cities" as the baseline, but the system now has 623+ cities. All phases (registry expansion, governance classification, agent evolution, quality infrastructure) are complete. See the README for current system status.
+
 # Shadow Atlas: Distinguished Engineering Roadmap
 
 ## Current Reality (Brutal Honesty)

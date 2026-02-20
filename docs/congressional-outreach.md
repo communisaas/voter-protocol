@@ -225,6 +225,9 @@ Phase 2 additions (12-18 months):
 
 ### How It Works Technically
 
+> [!NOTE]
+> **Privacy in Phase 1:** Constituent data is currently protected by strong encryption and strict access controls—platform operators cannot access message content or link wallet addresses to real identities. Hardware-level isolation via AWS Nitro Enclaves (described below) is the Phase 2 target, adding a technical enforcement layer on top of these existing protections. In both phases, your constituents' identities remain private.
+
 **Zero-knowledge proofs:**
 - Constituent's device generates mathematical proof: "I live in TX-18"
 - Proof doesn't reveal address, just district membership

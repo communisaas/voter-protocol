@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Coverage numbers are wrong by approximately 18x. This document records "35+ validated cities" as the current state, but the system is now at 623+ cities. The strategic substance — authoritative sources, continuous freshness, deterministic validation — has been absorbed into the README and API documentation. See the README for current competitive positioning.
+
 # Shadow Atlas: Competing with Cicero - 100% Data Accuracy Strategy
 
 ## Current State Assessment

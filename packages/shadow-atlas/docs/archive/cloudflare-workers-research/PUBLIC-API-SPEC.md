@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Unimplemented Cloudflare Workers API specification superseded by self-hosted Docker deployment. This spec describes a Cloudflare Workers + R2 + Storacha/IPFS architecture that was not adopted. Production uses a Node.js HTTP server in Docker. See [DEPLOYMENT.md](../../DEPLOYMENT.md) and `src/serving/api.ts` for current architecture.
+
 > [!IMPORTANT]
 > **DESIGN TARGET — Partial Implementation**
 >

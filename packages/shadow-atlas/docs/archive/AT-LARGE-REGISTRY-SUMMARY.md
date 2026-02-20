@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Sprint closure artifact from 2026-01-16. The at-large city registry is in production. See [at-large-cities-guide.md](at-large-cities-guide.md) and `src/core/registry/at-large-cities.ts` for current information.
+
 # At-Large City Registry - Implementation Summary
 
 **Date**: 2026-01-16

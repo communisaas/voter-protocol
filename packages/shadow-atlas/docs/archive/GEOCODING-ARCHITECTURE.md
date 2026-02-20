@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Describes a Geocodio-based geocoding architecture that was never adopted. Production uses the Census Geocoder API for FIPS resolution. The provider-agnostic abstraction layer described here was not implemented. See `src/validators/council/fips-resolver.ts` for current geocoding approach.
+
 # Geocoding Architecture: Provider-Agnostic Design
 
 **Date:** 2025-11-08

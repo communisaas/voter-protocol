@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Superseded design proposal. This document describes a Fastify/PostgreSQL/Redis/Cloudflare CDN stack that was never adopted. Production uses a Node.js HTTP server with SQLite. See [API_SPECIFICATION.md](API_SPECIFICATION.md) for the current API surface and `src/serving/api.ts` for the implementation.
+
 # Shadow Atlas API - Design Summary
 
 **Mission:** Kill Cicero's business model through superior developer experience and zero-cost access.

@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Completed remediation campaign report from 2026-01-16. All six workstreams (registry quarantine, feature count audit, containment analysis, exclusivity analysis, water area handling, regression test suite) are complete. Pass rate improved from 76.5% to 82.9%. Current validator state is in `src/validators/council/tessellation-proof.ts`.
+
 # Tessellation Validation Remediation Plan
 
 ## Executive Summary

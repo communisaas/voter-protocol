@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Research findings report from 2026-01-09. The analysis of 7,804 ArcGIS Hub layers is complete and the outputs (2,890 validated layers across 704 cities) are now in the production registry. See `src/core/registry/known-portals.ts` for current registry state.
+
 # Council District Edge Case Analysis
 
 > **Status**: Analysis complete

@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Completed refactoring plan from 2026-01-12. All five waves are done: reference data extracted to JSON, validators reorganized into subdirectories, HTTP client centralized, console.log statements migrated to structured logging, and circular dependencies broken. The current codebase reflects all these changes.
+
 # Shadow Atlas Codebase Surgery Plan
 
 **Status**: ✅ ALL WAVES COMPLETE

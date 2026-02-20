@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Quick-reference commands merged into the Appendix section of [DEPLOYMENT.md](DEPLOYMENT.md). All Docker commands are now consolidated there alongside the full deployment guide.
+
 # Docker Deployment - Shadow Atlas
 
 **Quick reference for Docker deployment**

@@ -1,3 +1,5 @@
+> **ARCHIVED [2026-02-20]:** Process document describing how the codebase was built, not how to run it. Development campaign is complete. See [docs/archive/methodology/AGENTIC-WAVE-METHODOLOGY.md](../archive/methodology/AGENTIC-WAVE-METHODOLOGY.md) for the archived version.
+
 # Multi-Agent Wave Orchestration Methodology
 
 > A distinguished engineer's guide to systematic issue remediation using parallel AI agents with context-engineered prompts.

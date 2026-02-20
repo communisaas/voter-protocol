@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Sprint closure artifact. CLI enhancements are shipped and documented. See [docs/ENHANCED-COVERAGE-CLI.md](docs/ENHANCED-COVERAGE-CLI.md) for current CLI documentation.
+
 # Coverage CLI Enhancement - Implementation Summary
 
 ## Mission Accomplished

@@ -1,3 +1,5 @@
+> **ARCHIVED [2026-02-20]:** Sprint completion summary. Key technical decisions have been captured in SPARSE-MERKLE-TREE-README.md. See [SPARSE-MERKLE-TREE-README.md](./SPARSE-MERKLE-TREE-README.md) for current information.
+
 # Sparse Merkle Tree Implementation Summary
 
 **Status:** ✅ COMPLETE - Critical blocker resolved

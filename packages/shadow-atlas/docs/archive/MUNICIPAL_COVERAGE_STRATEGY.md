@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Strategy fully executed. This document records "Currently covered: 62 cities" as the baseline, but the system is now at 623+ cities. All three phases are complete. See [COUNCIL_DISTRICT_COVERAGE.md](COUNCIL_DISTRICT_COVERAGE.md) for current coverage status.
+
 # Municipal District Coverage Strategy
 
 > **Goal**: Maximize coverage of city council districts/wards across all US cities

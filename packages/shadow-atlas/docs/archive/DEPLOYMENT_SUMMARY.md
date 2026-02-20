@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-02-20:** Sprint closure artifact from 2026-01-26. Docker support is now the baseline state and is fully documented. See [DEPLOYMENT.md](../DEPLOYMENT.md) for current deployment information.
+
 # Shadow Atlas Deployment - Summary of Changes
 
 **Date:** 2026-01-26

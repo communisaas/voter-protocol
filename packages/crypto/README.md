@@ -153,8 +153,7 @@ const pii = await decompressPII(compressed);
 
 ## References
 
-- [TEST_STRATEGY.md](../../TEST_STRATEGY.md) - Testing philosophy and WASM Poseidon validation
-- [COMPRESSION-STRATEGY.md](../../COMPRESSION-STRATEGY.md) - Compression analysis
+- [docs/TEST-STRATEGY.md](../../docs/TEST-STRATEGY.md) - Testing philosophy and WASM Poseidon validation
 
 ## License
 
