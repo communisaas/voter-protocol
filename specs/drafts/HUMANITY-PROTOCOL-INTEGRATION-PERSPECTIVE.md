@@ -67,12 +67,14 @@ The pragmatic cypherpunk move: Humanity Protocol becomes the **entry point**, se
 
 | Authority Level | Trust Tier | Identity Source | What It Proves |
 |---|---|---|---|
-| 0 (conceptual) | 0 | None | Guest — no user object |
-| 1 | 1 | Wallet + Humanity Protocol PoH | Unique human (biometric) |
-| 2 | 2 | Self-attested location + Shadow Atlas ZK proof | District claim (weaker) |
-| 3 | 2+ | Didit.me photo ID | Document-verified (photo) |
-| 4 | 3 | self.xyz NFC passport | Document-verified (passport) |
-| 5 | 4 | mDL / government credential | Government-issued |
+| — | 0 | None | Guest — no user object |
+| 1 | 1 | OAuth login | Session authenticated |
+| 2 | 2 | Address attestation + Shadow Atlas ZK proof | District claim (civic data) |
+| 3 | 3 | Didit.me photo ID / self.xyz ID card | Identity verified (document) |
+| 4 | 4 | self.xyz NFC passport | Passport verified |
+| 5 | 5 | mDL / EUDIW / government credential | Government-issued |
+
+> **Note:** Humanity Protocol PoH can supplement any tier as a Sybil-resistance layer. It doesn't define a tier itself — it's an orthogonal signal that strengthens nullifier guarantees.
 
 ### Key Architectural Insight
 
@@ -98,11 +100,15 @@ identityCommitment = SHA256(humanityProtocol.humanId || chainId || salt) mod BN2
 // humanId is the unique, non-transferable on-chain identity from palm verification
 ```
 
-**Wallet connection replaces OAuth + passkey:**
+**Session auth (OAuth) remains unchanged; wallet is additive identity:**
 ```
-Current:  OAuth login → passkey upgrade → self.xyz scan → ZK proof
-Proposed: Connect wallet → Humanity Protocol palm scan → ZK proof
+Current:  OAuth login → session → self.xyz scan → ZK proof
+Proposed: OAuth login → session → wallet connect → Humanity Protocol palm scan → ZK proof
 ```
+
+Wallet does NOT replace OAuth. OAuth answers "who is this session?" (Web2 auth).
+Wallet + Humanity Protocol answers "is this a unique human?" (identity verification).
+These are different concerns. Both stay.
 
 **District verification decoupled from identity:**
 ```
@@ -114,7 +120,7 @@ Proposed: Self-attested address (browser-only) → geocode → cell_id → ZK pr
 
 ## Open Questions
 
-1. **Congressional legitimacy**: Will Hill offices accept "biometrically verified human from this district" without a government document? Or does CWC path still require self.xyz/didit at Tier 3+?
+1. **Congressional legitimacy**: CWC delivery minimum is Tier 2 (address-attested), not passport-only. Authority level is graduated metadata on proofs — congressional offices see the level and can weight responses accordingly. Higher authority = stronger constituent signal, but Tier 2 users can still send. The question is whether offices will voluntarily filter by authority level, and how to present the signal.
 
 2. **Humanity Protocol stability**: Mainnet since August 2025, but the developer ecosystem is thin. Are we comfortable depending on their `isVerified()` oracle? What's our fallback if they go down?
 
@@ -126,11 +132,11 @@ Proposed: Self-attested address (browser-only) → geocode → cell_id → ZK pr
 
 ## Integration Path (If We Proceed)
 
-### Phase A: Wallet-native auth in Communique (no Humanity Protocol yet)
-- Replace OAuth + passkey with EIP-4361 (Sign-In With Ethereum)
-- Any EVM wallet works (MetaMask, OKX, WalletConnect)
-- This alone eliminates the "passkey feels odd" problem
-- Users at Tier 1 (authenticated) immediately
+### Phase A: Wallet connection as identity layer (OAuth stays for session auth)
+- Add EIP-4361 (Sign-In With Ethereum) as optional identity binding
+- OAuth remains the session auth mechanism
+- Wallet address stored alongside OAuth profile
+- Users at Tier 1 (authenticated) via OAuth, wallet adds identity commitment path
 
 ### Phase B: Humanity Protocol PoH check
 - After wallet connection, check `vcContract.isVerified(walletAddress)`
