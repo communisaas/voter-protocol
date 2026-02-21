@@ -37,12 +37,18 @@ contract VerifierRegistryTest is Test {
 
     uint256 public constant FOURTEEN_DAYS = 14 days;
 
-    // Events
+    // Two-tree events
     event VerifierProposed(uint8 indexed depth, address indexed verifier, uint256 executeTime, bool isUpgrade);
     event VerifierRegistered(uint8 indexed depth, address indexed verifier);
     event VerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
     event VerifierProposalCancelled(uint8 indexed depth, address indexed target);
     event GenesisSealed();
+
+    // Three-tree events
+    event ThreeTreeVerifierRegistered(uint8 indexed depth, address indexed verifier);
+    event ThreeTreeVerifierProposed(uint8 indexed depth, address indexed verifier, uint256 executeTime, bool isUpgrade);
+    event ThreeTreeVerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
+    event ThreeTreeVerifierProposalCancelled(uint8 indexed depth, address indexed target);
 
     function setUp() public {
         registry = new VerifierRegistry(governance);
@@ -707,6 +713,349 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
+    // 9. THREE-TREE VERIFIER GENESIS TESTS
+    // ============================================================================
+
+    /// @notice Three-tree genesis: direct registration works
+    function test_ThreeTree_GenesisRegistration() public {
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, false);
+        emit ThreeTreeVerifierRegistered(DEPTH_20, verifier20);
+        registry.registerThreeTreeVerifier(DEPTH_20, verifier20);
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_20), verifier20);
+        assertTrue(registry.isThreeTreeVerifierRegistered(DEPTH_20));
+    }
+
+    /// @notice Three-tree genesis: all 4 depths can be registered
+    function test_ThreeTree_GenesisAllDepths() public {
+        vm.startPrank(governance);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+        registry.registerThreeTreeVerifier(DEPTH_20, verifier20);
+        registry.registerThreeTreeVerifier(DEPTH_22, verifier22);
+        registry.registerThreeTreeVerifier(DEPTH_24, verifier24);
+        vm.stopPrank();
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier18);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_20), verifier20);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_22), verifier22);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_24), verifier24);
+    }
+
+    /// @notice Three-tree genesis: cannot register same depth twice
+    function test_RevertWhen_ThreeTreeGenesisDoubleRegister() public {
+        vm.startPrank(governance);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+        vm.expectRevert(VerifierRegistry.VerifierAlreadyRegistered.selector);
+        registry.registerThreeTreeVerifier(DEPTH_18, newVerifier);
+        vm.stopPrank();
+    }
+
+    /// @notice Three-tree genesis: cannot register zero address
+    function test_RevertWhen_ThreeTreeGenesisZeroAddress() public {
+        vm.prank(governance);
+        vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
+        registry.registerThreeTreeVerifier(DEPTH_18, address(0));
+    }
+
+    /// @notice Three-tree genesis: cannot register invalid depth
+    function test_RevertWhen_ThreeTreeGenesisInvalidDepth() public {
+        vm.startPrank(governance);
+        vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
+        registry.registerThreeTreeVerifier(16, verifier18);
+        vm.expectRevert(VerifierRegistry.InvalidDepth.selector);
+        registry.registerThreeTreeVerifier(19, verifier18);
+        vm.stopPrank();
+    }
+
+    /// @notice Three-tree genesis: only governance can register
+    function test_RevertWhen_ThreeTreeGenesisNonGovernance() public {
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+    }
+
+    /// @notice Three-tree genesis: fails after seal
+    function test_RevertWhen_ThreeTreeRegisterAfterSeal() public {
+        vm.startPrank(governance);
+        registry.sealGenesis();
+        vm.expectRevert(VerifierRegistry.GenesisAlreadySealed.selector);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+        vm.stopPrank();
+    }
+
+    /// @notice Two-tree and three-tree registrations are independent
+    function test_ThreeTree_IndependentFromTwoTree() public {
+        vm.startPrank(governance);
+        registry.registerVerifier(DEPTH_20, verifier20);
+        registry.registerThreeTreeVerifier(DEPTH_20, verifier22); // Different address, same depth
+        vm.stopPrank();
+
+        assertEq(registry.verifierByDepth(DEPTH_20), verifier20);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_20), verifier22);
+        assertFalse(registry.verifierByDepth(DEPTH_20) == registry.threeTreeVerifierByDepth(DEPTH_20));
+    }
+
+    // ============================================================================
+    // 10. THREE-TREE POST-GENESIS REGISTRATION TESTS
+    // ============================================================================
+
+    /// @notice Three-tree post-genesis: propose starts 14-day timelock
+    function test_ThreeTree_ProposeStartsTimelock() public {
+        _sealGenesis();
+        uint256 expectedExecuteTime = block.timestamp + FOURTEEN_DAYS;
+
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, true);
+        emit ThreeTreeVerifierProposed(DEPTH_18, verifier18, expectedExecuteTime, false);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), verifier18);
+        assertEq(registry.threeTreeVerifierExecutionTime(DEPTH_18), expectedExecuteTime);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), address(0)); // NOT yet active
+    }
+
+    /// @notice Three-tree post-genesis: execute fails before timelock
+    function test_RevertWhen_ThreeTreeExecuteBeforeTimelock() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
+        registry.executeThreeTreeVerifier(DEPTH_18);
+
+        vm.warp(block.timestamp + FOURTEEN_DAYS - 1);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
+        registry.executeThreeTreeVerifier(DEPTH_18);
+    }
+
+    /// @notice Three-tree post-genesis: execute succeeds after timelock
+    function test_ThreeTree_ExecuteSucceedsAfterTimelock() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.warp(block.timestamp + FOURTEEN_DAYS);
+
+        vm.expectEmit(true, true, false, false);
+        emit ThreeTreeVerifierRegistered(DEPTH_18, verifier18);
+        registry.executeThreeTreeVerifier(DEPTH_18);
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier18);
+        assertTrue(registry.isThreeTreeVerifierRegistered(DEPTH_18));
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), address(0));
+        assertEq(registry.threeTreeVerifierExecutionTime(DEPTH_18), 0);
+    }
+
+    /// @notice Three-tree post-genesis: anyone can execute after timelock
+    function test_ThreeTree_AnyoneCanExecuteAfterTimelock() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.warp(block.timestamp + FOURTEEN_DAYS);
+
+        vm.prank(attacker);
+        registry.executeThreeTreeVerifier(DEPTH_18);
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier18);
+    }
+
+    /// @notice Three-tree post-genesis: cancel clears pending
+    function test_ThreeTree_CancelClearsPending() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, false);
+        emit ThreeTreeVerifierProposalCancelled(DEPTH_18, verifier18);
+        registry.cancelThreeTreeVerifier(DEPTH_18);
+
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), address(0));
+        assertEq(registry.threeTreeVerifierExecutionTime(DEPTH_18), 0);
+    }
+
+    /// @notice Three-tree post-genesis: cannot propose when already pending
+    function test_RevertWhen_ThreeTreeProposalAlreadyPending() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        vm.expectRevert(VerifierRegistry.ProposalAlreadyPending.selector);
+        registry.proposeThreeTreeVerifier(DEPTH_18, newVerifier);
+    }
+
+    /// @notice Three-tree post-genesis: only governance can propose
+    function test_RevertWhen_ThreeTreeNonGovernancePropose() public {
+        _sealGenesis();
+
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+    }
+
+    /// @notice Three-tree post-genesis: only governance can cancel
+    function test_RevertWhen_ThreeTreeNonGovernanceCancel() public {
+        _sealGenesis();
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier18);
+
+        vm.prank(attacker);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        registry.cancelThreeTreeVerifier(DEPTH_18);
+    }
+
+    // ============================================================================
+    // 11. THREE-TREE VERIFIER UPGRADE TESTS
+    // ============================================================================
+
+    /// @notice Three-tree upgrade: propose starts timelock
+    function test_ThreeTree_ProposeUpgradeStartsTimelock() public {
+        _registerThreeTreeAndSeal(DEPTH_18, verifier18);
+        uint256 expectedExecuteTime = block.timestamp + FOURTEEN_DAYS;
+
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, true);
+        emit ThreeTreeVerifierProposed(DEPTH_18, newVerifier, expectedExecuteTime, true);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, newVerifier);
+
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), newVerifier);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier18); // Original still active
+    }
+
+    /// @notice Three-tree upgrade: execute succeeds after timelock
+    function test_ThreeTree_ExecuteUpgradeSucceeds() public {
+        _registerThreeTreeAndSeal(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, newVerifier);
+
+        vm.warp(block.timestamp + FOURTEEN_DAYS);
+
+        vm.expectEmit(true, true, true, false);
+        emit ThreeTreeVerifierUpgraded(DEPTH_18, verifier18, newVerifier);
+        registry.executeThreeTreeVerifierUpgrade(DEPTH_18);
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), newVerifier);
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), address(0));
+    }
+
+    /// @notice Three-tree upgrade: execute fails before timelock
+    function test_RevertWhen_ThreeTreeUpgradeBeforeTimelock() public {
+        _registerThreeTreeAndSeal(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, newVerifier);
+
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
+        registry.executeThreeTreeVerifierUpgrade(DEPTH_18);
+    }
+
+    /// @notice Three-tree upgrade: cancel clears pending
+    function test_ThreeTree_CancelUpgradeClearsPending() public {
+        _registerThreeTreeAndSeal(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, newVerifier);
+
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, false);
+        emit ThreeTreeVerifierProposalCancelled(DEPTH_18, newVerifier);
+        registry.cancelThreeTreeVerifierUpgrade(DEPTH_18);
+
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier18);
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), address(0));
+    }
+
+    /// @notice Three-tree upgrade: cannot upgrade without existing verifier
+    function test_RevertWhen_ThreeTreeUpgradeNoExisting() public {
+        vm.prank(governance);
+        vm.expectRevert(VerifierRegistry.VerifierNotRegistered.selector);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, newVerifier);
+    }
+
+    /// @notice Three-tree upgrade: cannot upgrade to same verifier
+    function test_RevertWhen_ThreeTreeUpgradeToSame() public {
+        _registerThreeTreeAndSeal(DEPTH_18, verifier18);
+
+        vm.prank(governance);
+        vm.expectRevert(TimelockGovernance.SameAddress.selector);
+        registry.proposeThreeTreeVerifierUpgrade(DEPTH_18, verifier18);
+    }
+
+    // ============================================================================
+    // 12. THREE-TREE VIEW FUNCTION TESTS
+    // ============================================================================
+
+    /// @notice Three-tree views: getThreeTreeVerifier returns correct address
+    function test_ThreeTree_GetVerifier() public {
+        vm.prank(governance);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+
+        assertEq(registry.getThreeTreeVerifier(DEPTH_18), verifier18);
+        assertEq(registry.getThreeTreeVerifier(DEPTH_20), address(0));
+    }
+
+    /// @notice Three-tree views: isThreeTreeVerifierRegistered
+    function test_ThreeTree_IsRegistered() public {
+        assertFalse(registry.isThreeTreeVerifierRegistered(DEPTH_18));
+
+        vm.prank(governance);
+        registry.registerThreeTreeVerifier(DEPTH_18, verifier18);
+
+        assertTrue(registry.isThreeTreeVerifierRegistered(DEPTH_18));
+        assertFalse(registry.isThreeTreeVerifierRegistered(DEPTH_20));
+    }
+
+    /// @notice Three-tree views: getRegisteredThreeTreeDepths
+    function test_ThreeTree_GetRegisteredDepths() public {
+        uint8[] memory depths = registry.getRegisteredThreeTreeDepths();
+        assertEq(depths.length, 0);
+
+        vm.startPrank(governance);
+        registry.registerThreeTreeVerifier(DEPTH_20, verifier20);
+        registry.registerThreeTreeVerifier(DEPTH_24, verifier24);
+        vm.stopPrank();
+
+        depths = registry.getRegisteredThreeTreeDepths();
+        assertEq(depths.length, 2);
+        assertEq(depths[0], DEPTH_20);
+        assertEq(depths[1], DEPTH_24);
+    }
+
+    /// @notice Two-tree and three-tree proposals are fully independent
+    function test_ThreeTree_ProposalsIndependentFromTwoTree() public {
+        _sealGenesis();
+
+        // Propose two-tree depth 18
+        vm.prank(governance);
+        registry.proposeVerifier(DEPTH_18, verifier18);
+
+        // Propose three-tree depth 18 — same depth, different mapping
+        vm.prank(governance);
+        registry.proposeThreeTreeVerifier(DEPTH_18, verifier20);
+
+        assertEq(registry.pendingVerifiers(DEPTH_18), verifier18);
+        assertEq(registry.pendingThreeTreeVerifiers(DEPTH_18), verifier20);
+
+        vm.warp(block.timestamp + FOURTEEN_DAYS);
+
+        registry.executeVerifier(DEPTH_18);
+        registry.executeThreeTreeVerifier(DEPTH_18);
+
+        assertEq(registry.verifierByDepth(DEPTH_18), verifier18);
+        assertEq(registry.threeTreeVerifierByDepth(DEPTH_18), verifier20);
+    }
+
+    // ============================================================================
     // HELPER FUNCTIONS
     // ============================================================================
 
@@ -716,10 +1065,18 @@ contract VerifierRegistryTest is Test {
         registry.sealGenesis();
     }
 
-    /// @notice Helper: register via genesis and seal
+    /// @notice Helper: register two-tree verifier via genesis and seal
     function _registerAndSeal(uint8 depth, address verifier) internal {
         vm.startPrank(governance);
         registry.registerVerifier(depth, verifier);
+        registry.sealGenesis();
+        vm.stopPrank();
+    }
+
+    /// @notice Helper: register three-tree verifier via genesis and seal
+    function _registerThreeTreeAndSeal(uint8 depth, address verifier) internal {
+        vm.startPrank(governance);
+        registry.registerThreeTreeVerifier(depth, verifier);
         registry.sealGenesis();
         vm.stopPrank();
     }

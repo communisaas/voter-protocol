@@ -7,9 +7,11 @@ import "./VerifierRegistry.sol";
 import "./CampaignRegistry.sol";
 import "./UserRootRegistry.sol";
 import "./CellMapRegistry.sol";
+import "./EngagementRootRegistry.sol";
 import "./TimelockGovernance.sol";
 import "openzeppelin/utils/cryptography/ECDSA.sol";
 import "openzeppelin/security/Pausable.sol";
+import "openzeppelin/security/ReentrancyGuard.sol";
 
 /// @title DistrictGate
 /// @notice Multi-depth verifier orchestration for international district support
@@ -41,28 +43,27 @@ import "openzeppelin/security/Pausable.sol";
 /// verify separate proofs for each district. This keeps circuits efficient and allows
 /// flexible multi-district requirements to be enforced at the application layer.
 ///
-/// GAS COSTS FOR MULTI-DISTRICT VERIFICATION:
-/// - Single proof: ~300-400k gas verification
-/// - N districts: N separate verifications = N × (~300-400k) gas
-/// - Example: State + County + Congressional = 3 proofs ≈ 900k-1.2M gas total
+/// GAS COSTS (measured on Scroll Sepolia, 2026-02-20):
+/// - Single two-tree proof (29 public inputs): ~2.2M gas
+/// - Single three-tree proof (31 public inputs): ~2.2M gas (estimated)
+/// - See docs/DOCUMENTATION-COHERENCE-AUDIT.md Section 1 for cost projections
 ///
-/// PUBLIC INPUTS (SAME across all depths, matches circuit output order):
-/// - publicInputs[0]: merkleRoot (district Merkle root)
-/// - publicInputs[1]: nullifier (prevents double-voting)
-/// - publicInputs[2]: authorityLevel (1-5 integer authority level)
-/// - publicInputs[3]: actionDomain (domain separator for nullifier scoping)
-/// - publicInputs[4]: districtId (district identifier)
+/// VERIFICATION PATHS:
+/// 1. verifyTwoTreeProof()     — 29 public inputs (user_root, cell_map_root, districts[24],
+///                                nullifier, action_domain, authority_level)
+/// 2. verifyThreeTreeProof()   — 31 public inputs (above + engagement_root, engagement_tier)
+/// 3. verifyAndAuthorizeWithSignature() — Legacy single-tree path (5 inputs)
 ///
-/// BACKWARDS COMPATIBILITY:
-/// - Existing depth-12 proofs continue to work via fallback verifier
-/// - New proofs use depth-aware routing
+/// DEPTH ROUTING:
+/// - Verifiers registered per depth (18/20/22/24) via VerifierRegistry
+/// - Separate two-tree and three-tree verifier mappings
 /// - Gradual migration: old districts (depth 12) → new districts (depth 18-24)
 ///
 /// UPGRADE PATH:
 /// - Add new depths via VerifierRegistry (14-day timelock)
 /// - Register new districts with depth via DistrictRegistry (7-day timelock)
 /// - No changes to this contract required
-contract DistrictGate is Pausable, TimelockGovernance {
+contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Maximum district types a user can be registered in (20 defined + 4 overflow)
     /// @dev Each proof proves ONE district. This constant defines the registration model.
     ///      Multi-district verification requires separate proofs per district.
@@ -83,6 +84,9 @@ contract DistrictGate is Pausable, TimelockGovernance {
 
     /// @notice Cell map registry (Tree 2 - cell-district mapping roots)
     CellMapRegistry public cellMapRegistry;
+
+    /// @notice Engagement root registry (Tree 3 - engagement data roots)
+    EngagementRootRegistry public engagementRootRegistry;
 
     /// @notice Campaign registry (optional, can be zero)
     CampaignRegistry public campaignRegistry;
@@ -194,6 +198,17 @@ contract DistrictGate is Pausable, TimelockGovernance {
     ///      [26] nullifier, [27] action_domain, [28] authority_level
     uint256 public constant TWO_TREE_PUBLIC_INPUT_COUNT = 29;
 
+    /// @notice Number of public inputs for three-tree proofs
+    /// @dev [0] user_root, [1] cell_map_root, [2-25] districts[24],
+    ///      [26] nullifier, [27] action_domain, [28] authority_level,
+    ///      [29] engagement_root, [30] engagement_tier
+    uint256 public constant THREE_TREE_PUBLIC_INPUT_COUNT = 31;
+
+    /// @notice EIP-712 typehash for three-tree proof submission
+    bytes32 public constant SUBMIT_THREE_TREE_PROOF_TYPEHASH = keccak256(
+        "SubmitThreeTreeProof(bytes32 proofHash,bytes32 publicInputsHash,uint8 verifierDepth,uint256 nonce,uint256 deadline)"
+    );
+
     // Two-tree events
     event TwoTreeProofVerified(
         address indexed signer,
@@ -213,6 +228,33 @@ contract DistrictGate is Pausable, TimelockGovernance {
     error TwoTreeVerificationFailed();
     error CountryMismatch();
     error DepthMismatch();
+
+    // Three-tree events
+    event ThreeTreeProofVerified(
+        address indexed signer,
+        address indexed submitter,
+        bytes32 indexed userRoot,
+        bytes32 cellMapRoot,
+        bytes32 engagementRoot,
+        bytes32 nullifier,
+        bytes32 actionDomain,
+        bytes32 authorityLevel,
+        uint8 engagementTier,
+        uint8 verifierDepth
+    );
+
+    event EngagementRegistrySetGenesis(address indexed engagementRootRegistry);
+    event EngagementRegistryProposed(address indexed proposed, uint256 executeTime);
+    event EngagementRegistrySet(address indexed previousRegistry, address indexed newRegistry);
+    event EngagementRegistryCancelled(address indexed proposed);
+
+    // Three-tree errors
+    error InvalidEngagementRoot();
+    error InvalidEngagementTier();
+    error ThreeTreeVerificationFailed();
+    error ThreeTreeVerifierNotFound();
+    error EngagementRegistryNotProposed();
+    error EngagementRegistryTimelockNotExpired();
 
     /// @notice Deploy multi-depth gate
     /// @param _verifierRegistry Address of VerifierRegistry
@@ -297,6 +339,21 @@ contract DistrictGate is Pausable, TimelockGovernance {
         emit TwoTreeRegistriesSet(_userRootRegistry, _cellMapRegistry);
     }
 
+    /// @notice Set engagement root registry directly during genesis phase
+    /// @param _engagementRootRegistry Address of EngagementRootRegistry
+    /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
+    function setEngagementRegistryGenesis(
+        address _engagementRootRegistry
+    ) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        if (_engagementRootRegistry == address(0)) revert ZeroAddress();
+
+        engagementRootRegistry = EngagementRootRegistry(_engagementRootRegistry);
+
+        emit EngagementRegistrySetGenesis(_engagementRootRegistry);
+        emit EngagementRegistrySet(address(0), _engagementRootRegistry);
+    }
+
     /// @notice Seal genesis phase — all future changes require timelocks
     /// @dev Irreversible. Call after initial configuration is complete.
     function sealGenesis() external onlyGovernance {
@@ -331,7 +388,7 @@ contract DistrictGate is Pausable, TimelockGovernance {
         bytes3 expectedCountry,
         uint256 deadline,
         bytes calldata signature
-    ) external whenNotPaused {
+    ) external whenNotPaused nonReentrant {
         if (signer == address(0)) revert ZeroAddress();
         if (block.timestamp > deadline) revert SignatureExpired();
 
@@ -670,6 +727,52 @@ contract DistrictGate is Pausable, TimelockGovernance {
     }
 
     // ============================================================================
+    // Engagement Registry Configuration
+    // ============================================================================
+
+    /// @notice Pending engagement registry address
+    address public pendingEngagementRegistry;
+    uint256 public pendingEngagementRegistryExecuteTime;
+
+    /// @notice Propose a new engagement root registry (starts 7-day timelock)
+    /// @param _engagementRootRegistry New engagement root registry address
+    function proposeEngagementRegistry(address _engagementRootRegistry) external onlyGovernance {
+        if (_engagementRootRegistry == address(0)) revert ZeroAddress();
+        if (pendingEngagementRegistryExecuteTime != 0) revert OperationAlreadyPending();
+
+        pendingEngagementRegistry = _engagementRootRegistry;
+        pendingEngagementRegistryExecuteTime = block.timestamp + GOVERNANCE_TIMELOCK;
+
+        emit EngagementRegistryProposed(_engagementRootRegistry, pendingEngagementRegistryExecuteTime);
+    }
+
+    /// @notice Execute pending engagement registry change (after 7-day timelock)
+    function executeEngagementRegistry() external {
+        if (pendingEngagementRegistryExecuteTime == 0) revert EngagementRegistryNotProposed();
+        if (block.timestamp < pendingEngagementRegistryExecuteTime) revert EngagementRegistryTimelockNotExpired();
+
+        address previousRegistry = address(engagementRootRegistry);
+        address newRegistry = pendingEngagementRegistry;
+
+        engagementRootRegistry = EngagementRootRegistry(newRegistry);
+        pendingEngagementRegistry = address(0);
+        pendingEngagementRegistryExecuteTime = 0;
+
+        emit EngagementRegistrySet(previousRegistry, newRegistry);
+    }
+
+    /// @notice Cancel pending engagement registry change
+    function cancelEngagementRegistry() external onlyGovernance {
+        if (pendingEngagementRegistryExecuteTime == 0) revert EngagementRegistryNotProposed();
+
+        address proposed = pendingEngagementRegistry;
+        pendingEngagementRegistry = address(0);
+        pendingEngagementRegistryExecuteTime = 0;
+
+        emit EngagementRegistryCancelled(proposed);
+    }
+
+    // ============================================================================
     // Two-Tree Proof Verification
     // ============================================================================
 
@@ -701,7 +804,7 @@ contract DistrictGate is Pausable, TimelockGovernance {
         uint8 verifierDepth,
         uint256 deadline,
         bytes calldata signature
-    ) external whenNotPaused {
+    ) external whenNotPaused nonReentrant {
         if (signer == address(0)) revert ZeroAddress();
         if (block.timestamp > deadline) revert SignatureExpired();
 
@@ -813,6 +916,161 @@ contract DistrictGate is Pausable, TimelockGovernance {
             nullifier,
             actionDomain,
             authorityLevel,
+            verifierDepth
+        );
+    }
+
+    // ============================================================================
+    // Three-Tree Proof Verification
+    // ============================================================================
+
+    /// @notice Verify a three-tree ZK proof (user + cell-map + engagement) with EIP-712 signature
+    /// @param signer Address that signed the proof submission
+    /// @param proof ZK proof bytes from the three-tree circuit
+    /// @param publicInputs Array of 31 public inputs:
+    ///        [0]     user_root          (Tree 1 root)
+    ///        [1]     cell_map_root      (Tree 2 root)
+    ///        [2-25]  districts[24]      (All 24 district IDs)
+    ///        [26]    nullifier          (Action-scoped)
+    ///        [27]    action_domain      (Contract-controlled whitelist)
+    ///        [28]    authority_level    (1-5)
+    ///        [29]    engagement_root    (Tree 3 root)
+    ///        [30]    engagement_tier    (0-4)
+    /// @param verifierDepth Depth to look up the three-tree verifier
+    /// @param deadline Signature expiration timestamp
+    /// @param signature EIP-712 signature from signer
+    function verifyThreeTreeProof(
+        address signer,
+        bytes calldata proof,
+        uint256[31] calldata publicInputs,
+        uint8 verifierDepth,
+        uint256 deadline,
+        bytes calldata signature
+    ) external whenNotPaused nonReentrant {
+        if (signer == address(0)) revert ZeroAddress();
+        if (block.timestamp > deadline) revert SignatureExpired();
+
+        // Step 0: Verify EIP-712 signature
+        bytes32 proofHash = keccak256(proof);
+        bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                SUBMIT_THREE_TREE_PROOF_TYPEHASH,
+                proofHash,
+                publicInputsHash,
+                verifierDepth,
+                nonces[signer],
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+        );
+
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != signer) revert InvalidSignature();
+
+        nonces[signer]++;
+
+        // Step 0b: Validate registries are configured
+        if (address(userRootRegistry) == address(0)) revert InvalidUserRoot();
+        if (address(cellMapRegistry) == address(0)) revert InvalidCellMapRoot();
+        if (address(engagementRootRegistry) == address(0)) revert InvalidEngagementRoot();
+
+        // Extract key fields from public inputs
+        bytes32 userRoot = bytes32(publicInputs[0]);
+        bytes32 cellMapRoot = bytes32(publicInputs[1]);
+        bytes32 nullifier = bytes32(publicInputs[26]);
+        bytes32 actionDomain = bytes32(publicInputs[27]);
+        bytes32 authorityLevel = bytes32(publicInputs[28]);
+        bytes32 engagementRoot = bytes32(publicInputs[29]);
+        uint256 engagementTierRaw = publicInputs[30];
+
+        // Step 1: Validate user_root via UserRootRegistry
+        if (!userRootRegistry.isValidUserRoot(userRoot)) revert InvalidUserRoot();
+
+        // Step 2: Validate cell_map_root via CellMapRegistry
+        if (!cellMapRegistry.isValidCellMapRoot(cellMapRoot)) revert InvalidCellMapRoot();
+
+        // Step 3: Cross-check country between Tree 1 and Tree 2
+        (bytes3 userCountry, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+        (bytes3 cellMapCountry,) = cellMapRegistry.getCountryAndDepth(cellMapRoot);
+        if (userCountry != cellMapCountry) revert CountryMismatch();
+
+        // Step 4: Validate verifierDepth matches registry metadata
+        if (userDepth != verifierDepth) revert DepthMismatch();
+
+        // Step 5: Validate action_domain via whitelist (SA-001)
+        if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        // Step 6: Authority level bounds check and minimum enforcement
+        {
+            uint256 authorityRaw = publicInputs[28];
+            require(authorityRaw >= 1 && authorityRaw <= 5, "Authority level out of range");
+            uint8 submittedAuthority = uint8(authorityRaw);
+            uint8 requiredAuthority = actionDomainMinAuthority[actionDomain];
+            if (requiredAuthority > 0 && submittedAuthority < requiredAuthority) {
+                revert InsufficientAuthority(submittedAuthority, requiredAuthority);
+            }
+        }
+
+        // Step 7: Validate engagement_root via EngagementRootRegistry
+        if (!engagementRootRegistry.isValidEngagementRoot(engagementRoot)) revert InvalidEngagementRoot();
+
+        // Step 7b: Defense-in-depth — engagement root depth must match user root depth
+        {
+            uint8 engagementDepth = engagementRootRegistry.getDepth(engagementRoot);
+            if (engagementDepth != userDepth) revert DepthMismatch();
+        }
+
+        // Step 8: Engagement tier bounds check [0, 4]
+        if (engagementTierRaw > 4) revert InvalidEngagementTier();
+
+        // Step 9: Get three-tree verifier and verify proof
+        address verifier = verifierRegistry.getThreeTreeVerifier(verifierDepth);
+        if (verifier == address(0)) revert ThreeTreeVerifierNotFound();
+
+        // Convert uint256[31] calldata to bytes32[] for Honk verifier interface
+        bytes32[] memory honkInputs = new bytes32[](31);
+        for (uint256 i = 0; i < 31; i++) {
+            honkInputs[i] = bytes32(publicInputs[i]);
+        }
+
+        (bool success, bytes memory result) = verifier.call(
+            abi.encodeWithSignature(
+                "verify(bytes,bytes32[])",
+                proof,
+                honkInputs
+            )
+        );
+
+        if (!success || result.length == 0 || !abi.decode(result, (bool))) {
+            revert ThreeTreeVerificationFailed();
+        }
+
+        // Step 10: Record nullifier (use actionDomain as actionId)
+        nullifierRegistry.recordNullifier(actionDomain, nullifier, userRoot);
+
+        // Step 11: Record campaign participation (if registry is set)
+        if (address(campaignRegistry) != address(0)) {
+            try campaignRegistry.recordParticipation(actionDomain, userRoot) {
+            } catch {
+            }
+        }
+
+        // Step 12: Emit event
+        emit ThreeTreeProofVerified(
+            signer,
+            msg.sender,
+            userRoot,
+            cellMapRoot,
+            engagementRoot,
+            nullifier,
+            actionDomain,
+            authorityLevel,
+            uint8(engagementTierRaw),
             verifierDepth
         );
     }

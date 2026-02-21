@@ -45,7 +45,7 @@ import "./TimelockGovernance.sol";
 ///
 /// VERIFIER LIFECYCLE:
 /// 1. Noir circuit compiled with DEPTH constant (e.g., DEPTH=20)
-/// 2. Generates UltraPlonkVerifier_Depth{N}.sol with embedded VK
+/// 2. Generates HonkVerifier_Depth{N}.sol via bb.js getSolidityVerifier() (keccak mode)
 /// 3a. GENESIS: Deploy verifier, call registerVerifier(depth, addr)
 /// 3b. POST-GENESIS: Deploy verifier, proposeVerifier(depth, addr), wait 14 days
 /// 4. DistrictGate looks up verifier by depth during verification
@@ -65,6 +65,16 @@ contract VerifierRegistry is TimelockGovernance {
 
     /// @notice Execution timestamps for verifier proposals
     mapping(uint8 => uint256) public verifierExecutionTime;
+
+    /// @notice Three-tree verifier mapping: depth -> verifier contract address
+    /// @dev Separate from two-tree verifiers (different circuits, different public input counts)
+    mapping(uint8 => address) public threeTreeVerifierByDepth;
+
+    /// @notice Pending three-tree verifier proposals per depth
+    mapping(uint8 => address) public pendingThreeTreeVerifiers;
+
+    /// @notice Execution timestamps for three-tree verifier proposals
+    mapping(uint8 => uint256) public threeTreeVerifierExecutionTime;
 
     /// @notice Verifier upgrade timelock (14 days)
     /// @dev Upgrades to existing verifiers require 14-day timelock (HIGH-001 fix).
@@ -89,6 +99,12 @@ contract VerifierRegistry is TimelockGovernance {
     event VerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
     event VerifierProposalCancelled(uint8 indexed depth, address indexed target);
     event GenesisSealed();
+
+    // Three-tree events
+    event ThreeTreeVerifierRegistered(uint8 indexed depth, address indexed verifier);
+    event ThreeTreeVerifierProposed(uint8 indexed depth, address indexed verifier, uint256 executeTime, bool isUpgrade);
+    event ThreeTreeVerifierUpgraded(uint8 indexed depth, address indexed previousVerifier, address indexed newVerifier);
+    event ThreeTreeVerifierProposalCancelled(uint8 indexed depth, address indexed target);
 
     // Errors
     error InvalidDepth();
@@ -121,6 +137,22 @@ contract VerifierRegistry is TimelockGovernance {
         verifierByDepth[depth] = verifier;
 
         emit VerifierRegistered(depth, verifier);
+    }
+
+    /// @notice Direct three-tree verifier registration during genesis phase
+    /// @param depth Merkle tree depth (18, 20, 22, or 24)
+    /// @param verifier Address of deployed three-tree verifier contract
+    /// @dev Three-tree verifiers handle 31 public inputs (vs 29 for two-tree).
+    ///      Only available before sealGenesis().
+    function registerThreeTreeVerifier(uint8 depth, address verifier) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        _validateDepth(depth);
+        if (verifier == address(0)) revert ZeroAddress();
+        if (threeTreeVerifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+
+        threeTreeVerifierByDepth[depth] = verifier;
+
+        emit ThreeTreeVerifierRegistered(depth, verifier);
     }
 
     /// @notice Seal genesis phase — all future changes require timelocks
@@ -184,6 +216,53 @@ contract VerifierRegistry is TimelockGovernance {
     }
 
     // ============================================================================
+    // Three-Tree Post-Genesis Registration (14-day timelock)
+    // ============================================================================
+
+    /// @notice Propose new three-tree verifier registration (starts 14-day timelock)
+    /// @param depth Merkle tree depth (18, 20, 22, or 24)
+    /// @param verifier Address of deployed three-tree verifier contract
+    function proposeThreeTreeVerifier(uint8 depth, address verifier) external onlyGovernance {
+        require(genesisSealed, "Seal genesis first");
+        _validateDepth(depth);
+        if (verifier == address(0)) revert ZeroAddress();
+        if (threeTreeVerifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+        if (pendingThreeTreeVerifiers[depth] != address(0)) revert ProposalAlreadyPending();
+
+        pendingThreeTreeVerifiers[depth] = verifier;
+        threeTreeVerifierExecutionTime[depth] = block.timestamp + VERIFIER_TIMELOCK;
+
+        emit ThreeTreeVerifierProposed(depth, verifier, threeTreeVerifierExecutionTime[depth], false);
+    }
+
+    /// @notice Execute three-tree verifier registration (after 14-day timelock)
+    /// @param depth Merkle tree depth
+    function executeThreeTreeVerifier(uint8 depth) external {
+        if (pendingThreeTreeVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+        if (block.timestamp < threeTreeVerifierExecutionTime[depth]) revert TimelockNotExpired();
+        if (threeTreeVerifierByDepth[depth] != address(0)) revert VerifierAlreadyRegistered();
+
+        threeTreeVerifierByDepth[depth] = pendingThreeTreeVerifiers[depth];
+
+        delete pendingThreeTreeVerifiers[depth];
+        delete threeTreeVerifierExecutionTime[depth];
+
+        emit ThreeTreeVerifierRegistered(depth, threeTreeVerifierByDepth[depth]);
+    }
+
+    /// @notice Cancel pending three-tree verifier proposal
+    /// @param depth Merkle tree depth
+    function cancelThreeTreeVerifier(uint8 depth) external onlyGovernance {
+        if (pendingThreeTreeVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+
+        address target = pendingThreeTreeVerifiers[depth];
+        delete pendingThreeTreeVerifiers[depth];
+        delete threeTreeVerifierExecutionTime[depth];
+
+        emit ThreeTreeVerifierProposalCancelled(depth, target);
+    }
+
+    // ============================================================================
     // Verifier Upgrades (14-day timelock)
     // ============================================================================
 
@@ -233,6 +312,54 @@ contract VerifierRegistry is TimelockGovernance {
         delete verifierExecutionTime[depth];
 
         emit VerifierProposalCancelled(depth, target);
+    }
+
+    // ============================================================================
+    // Three-Tree Verifier Upgrades (14-day timelock)
+    // ============================================================================
+
+    /// @notice Initiate three-tree verifier upgrade (starts 14-day timelock)
+    /// @param depth Merkle tree depth
+    /// @param newVerifier New three-tree verifier contract address
+    function proposeThreeTreeVerifierUpgrade(uint8 depth, address newVerifier) external onlyGovernance {
+        _validateDepth(depth);
+        if (newVerifier == address(0)) revert ZeroAddress();
+        if (threeTreeVerifierByDepth[depth] == address(0)) revert VerifierNotRegistered();
+        if (newVerifier == threeTreeVerifierByDepth[depth]) revert SameAddress();
+        if (pendingThreeTreeVerifiers[depth] != address(0)) revert ProposalAlreadyPending();
+
+        pendingThreeTreeVerifiers[depth] = newVerifier;
+        threeTreeVerifierExecutionTime[depth] = block.timestamp + VERIFIER_TIMELOCK;
+
+        emit ThreeTreeVerifierProposed(depth, newVerifier, threeTreeVerifierExecutionTime[depth], true);
+    }
+
+    /// @notice Execute three-tree verifier upgrade (after 14-day timelock)
+    /// @param depth Merkle tree depth
+    function executeThreeTreeVerifierUpgrade(uint8 depth) external {
+        if (pendingThreeTreeVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+        if (block.timestamp < threeTreeVerifierExecutionTime[depth]) revert TimelockNotExpired();
+        if (threeTreeVerifierByDepth[depth] == address(0)) revert VerifierNotRegistered();
+
+        address previousVerifier = threeTreeVerifierByDepth[depth];
+        threeTreeVerifierByDepth[depth] = pendingThreeTreeVerifiers[depth];
+
+        delete pendingThreeTreeVerifiers[depth];
+        delete threeTreeVerifierExecutionTime[depth];
+
+        emit ThreeTreeVerifierUpgraded(depth, previousVerifier, threeTreeVerifierByDepth[depth]);
+    }
+
+    /// @notice Cancel pending three-tree verifier upgrade
+    /// @param depth Merkle tree depth
+    function cancelThreeTreeVerifierUpgrade(uint8 depth) external onlyGovernance {
+        if (pendingThreeTreeVerifiers[depth] == address(0)) revert ProposalNotInitiated();
+
+        address target = pendingThreeTreeVerifiers[depth];
+        delete pendingThreeTreeVerifiers[depth];
+        delete threeTreeVerifierExecutionTime[depth];
+
+        emit ThreeTreeVerifierProposalCancelled(depth, target);
     }
 
     // ============================================================================
@@ -301,6 +428,46 @@ contract VerifierRegistry is TimelockGovernance {
         }
 
         // Trim array to actual count
+        uint8[] memory result = new uint8[](count);
+        for (uint8 i = 0; i < count; i++) {
+            result[i] = depths[i];
+        }
+        return result;
+    }
+
+    // ============================================================================
+    // Three-Tree View Functions
+    // ============================================================================
+
+    /// @notice Get three-tree verifier address for a depth
+    /// @param depth Merkle tree depth
+    /// @return Verifier contract address (address(0) if not registered)
+    function getThreeTreeVerifier(uint8 depth) external view returns (address) {
+        _validateDepth(depth);
+        return threeTreeVerifierByDepth[depth];
+    }
+
+    /// @notice Check if three-tree verifier is registered for depth
+    /// @param depth Merkle tree depth
+    /// @return True if three-tree verifier registered
+    function isThreeTreeVerifierRegistered(uint8 depth) external view returns (bool) {
+        _validateDepth(depth);
+        return threeTreeVerifierByDepth[depth] != address(0);
+    }
+
+    /// @notice Get all registered three-tree depths
+    /// @return Array of depths with registered three-tree verifiers
+    function getRegisteredThreeTreeDepths() external view returns (uint8[] memory) {
+        uint8[] memory depths = new uint8[](4);
+        uint8 count = 0;
+
+        for (uint8 d = MIN_DEPTH; d <= MAX_DEPTH; d += 2) {
+            if (threeTreeVerifierByDepth[d] != address(0)) {
+                depths[count] = d;
+                count++;
+            }
+        }
+
         uint8[] memory result = new uint8[](count);
         for (uint8 i = 0; i < count; i++) {
             result[i] = depths[i];

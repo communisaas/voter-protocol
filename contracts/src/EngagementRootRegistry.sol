@@ -3,26 +3,28 @@ pragma solidity >=0.8.19;
 
 import "./TimelockGovernance.sol";
 
-/// @title UserRootRegistry
-/// @notice On-chain registry for Tree 1 (User Identity) Merkle roots
-/// @dev Manages user identity tree roots with lifecycle states:
-///      PROPOSED -> ACTIVE -> SUNSET -> EXPIRED
+/// @title EngagementRootRegistry
+/// @notice On-chain registry for Tree 3 (Engagement) Merkle roots
+/// @dev Manages engagement tree roots with lifecycle states:
+///      REGISTERED -> ACTIVE -> SUNSET -> EXPIRED
 ///
-/// ARCHITECTURE (Two-Tree Design):
-/// Tree 1 stores user identity commitments: leaf = H4(user_secret, cell_id, registration_salt, authority_level)
-/// This tree is STABLE - only changes when:
-///   - A new user registers
-///   - A user moves to a new address (re-registration)
-///   - Census redefines cell boundaries (every 10 years)
+/// ARCHITECTURE (Three-Tree Design):
+/// Tree 3 stores engagement data commitments:
+///   leaf = H2(identity_commitment, H3(engagement_tier, action_count, diversity_score))
+/// This tree is UPDATED after each batch of verified on-chain actions.
 ///
-/// ROOT LIFECYCLE (Spec Section 2.4):
-///   1. PROPOSED  -> Governance registers root (7-day timelock for deactivation/expiry)
-///   2. ACTIVE    -> Root is valid for proving (isActive=true, not expired)
-///   3. SUNSET    -> Grace period (30 days) before expiry
-///   4. EXPIRED   -> Root no longer accepted (block.timestamp > expiresAt)
+/// ROOT LIFECYCLE:
+///   1. REGISTERED -> Governance registers root (immediate activation)
+///   2. ACTIVE     -> Root is valid for proving (isActive=true, not expired)
+///   3. SUNSET     -> Grace period (7 days) before expiry
+///   4. EXPIRED    -> Root no longer accepted (block.timestamp > expiresAt)
+///
+/// IMPORTANT: Engagement roots change more frequently than user/cell-map roots
+/// because new actions continuously update the engagement tree. The operator
+/// publishes new roots after each batch of nullifier consumption events.
 ///
 /// Multiple roots can be ACTIVE simultaneously to support:
-///   - Batch registration (new users added)
+///   - Batch updates (new engagement data)
 ///   - Grace periods during transitions
 ///
 /// SECURITY:
@@ -30,18 +32,19 @@ import "./TimelockGovernance.sol";
 ///   - Governance-controlled (initially founder, later multisig)
 ///   - Append-only registration (roots cannot be modified after creation)
 ///   - All changes emit events for community audit
-contract UserRootRegistry is TimelockGovernance {
-    /// @notice User root metadata structure
-    struct UserRootMetadata {
-        bytes3 country;         // ISO 3166-1 alpha-3 country code
-        uint8 depth;            // Merkle tree depth (20-24)
+///
+/// See: specs/REPUTATION-ARCHITECTURE-SPEC.md Section 6
+contract EngagementRootRegistry is TimelockGovernance {
+    /// @notice Engagement root metadata structure
+    struct EngagementRootMetadata {
+        uint8 depth;            // Merkle tree depth (18, 20, 22, or 24)
         bool isActive;          // Governance toggle (default true on registration)
         uint32 registeredAt;    // Registration timestamp (packed for gas efficiency)
         uint64 expiresAt;       // Auto-sunset timestamp (0 = never expires)
     }
 
-    /// @notice Maps user Merkle root to metadata
-    mapping(bytes32 => UserRootMetadata) public userRoots;
+    /// @notice Maps engagement Merkle root to metadata
+    mapping(bytes32 => EngagementRootMetadata) public engagementRoots;
 
     /// @notice Pending root operation type
     /// @dev 1 = deactivate, 2 = set expiry, 3 = reactivate
@@ -51,19 +54,19 @@ contract UserRootRegistry is TimelockGovernance {
         uint64 newExpiresAt;    // Only used for expire operations (type 2)
     }
 
-    /// @notice Maps user root to pending lifecycle operation
+    /// @notice Maps engagement root to pending lifecycle operation
     mapping(bytes32 => PendingRootOperation) public pendingRootOperations;
 
-    /// @notice Grace period for sunset state (30 days)
-    /// @dev Users have 30 days after expiry is set to transition to a new root
-    uint256 public constant SUNSET_GRACE_PERIOD = 30 days;
+    /// @notice Grace period for sunset state (7 days)
+    /// @dev Shorter than UserRootRegistry (30 days) because engagement roots
+    ///      change more frequently and clients auto-update
+    uint256 public constant SUNSET_GRACE_PERIOD = 7 days;
 
     // ============ Events ============
 
-    /// @notice Emitted when a new user root is registered
-    event UserRootRegistered(
+    /// @notice Emitted when a new engagement root is registered
+    event EngagementRootRegistered(
         bytes32 indexed root,
-        bytes3 indexed country,
         uint8 depth,
         uint256 timestamp
     );
@@ -87,7 +90,6 @@ contract UserRootRegistry is TimelockGovernance {
     // ============ Errors ============
 
     error RootAlreadyRegistered();
-    error InvalidCountryCode();
     error InvalidDepth();
     error RootNotRegistered();
     error RootAlreadyInactive();
@@ -106,66 +108,60 @@ contract UserRootRegistry is TimelockGovernance {
 
     // ============ Root Registration ============
 
-    /// @notice Register a new user identity tree root
-    /// @param root User identity Merkle root
-    /// @param country ISO 3166-1 alpha-3 country code
+    /// @notice Register a new engagement tree root
+    /// @param root Engagement Merkle root from Shadow Atlas
     /// @param depth Merkle tree depth (18, 20, 22, or 24)
     /// @dev Only callable by governance. Append-only (cannot modify existing).
     ///      New roots are ACTIVE immediately (no timelock for registration).
     ///      Deactivation/expiry require 7-day timelock for safety.
-    function registerUserRoot(bytes32 root, bytes3 country, uint8 depth)
+    function registerEngagementRoot(bytes32 root, uint8 depth)
         external
         onlyGovernance
     {
-        if (country == bytes3(0)) revert InvalidCountryCode();
         if (depth < 18 || depth > 24 || depth % 2 != 0) revert InvalidDepth();
-        if (userRoots[root].registeredAt != 0) revert RootAlreadyRegistered();
+        if (engagementRoots[root].registeredAt != 0) revert RootAlreadyRegistered();
 
-        userRoots[root] = UserRootMetadata({
-            country: country,
+        engagementRoots[root] = EngagementRootMetadata({
             depth: depth,
             isActive: true,
             registeredAt: uint32(block.timestamp),
             expiresAt: 0
         });
 
-        emit UserRootRegistered(root, country, depth, block.timestamp);
+        emit EngagementRootRegistered(root, depth, block.timestamp);
     }
 
     // ============ Root Lifecycle Management ============
 
-    /// @notice Check if a user root is currently valid for proving
-    /// @param root User identity Merkle root
+    /// @notice Check if an engagement root is currently valid for proving
+    /// @param root Engagement Merkle root
     /// @return True if registered, active, and not expired
-    function isValidUserRoot(bytes32 root) public view returns (bool) {
-        UserRootMetadata memory meta = userRoots[root];
+    function isValidEngagementRoot(bytes32 root) public view returns (bool) {
+        EngagementRootMetadata memory meta = engagementRoots[root];
         if (meta.registeredAt == 0) return false;       // Not registered
         if (!meta.isActive) return false;                // Deactivated
         if (meta.expiresAt != 0 && block.timestamp > meta.expiresAt) return false; // Expired
         return true;
     }
 
-    /// @notice Get full metadata for a user root
-    /// @param root User identity Merkle root
+    /// @notice Get full metadata for an engagement root
+    /// @param root Engagement Merkle root
     /// @return metadata Full root metadata struct
-    function getUserRootMetadata(bytes32 root)
+    function getEngagementRootMetadata(bytes32 root)
         external
         view
-        returns (UserRootMetadata memory metadata)
+        returns (EngagementRootMetadata memory metadata)
     {
-        return userRoots[root];
+        return engagementRoots[root];
     }
 
     /// @notice Initiate root deactivation (starts 7-day timelock)
-    /// @param root User identity Merkle root to deactivate
-    /// @dev Only callable by governance.
-    ///      Use cases: compromised tree data, forced re-registration
-    ///      Timelock gives users 7-day warning before root becomes invalid
+    /// @param root Engagement Merkle root to deactivate
     function initiateRootDeactivation(bytes32 root)
         external
         onlyGovernance
     {
-        UserRootMetadata memory meta = userRoots[root];
+        EngagementRootMetadata memory meta = engagementRoots[root];
         if (meta.registeredAt == 0) revert RootNotRegistered();
         if (!meta.isActive) revert RootAlreadyInactive();
         if (pendingRootOperations[root].executeTime != 0) {
@@ -183,30 +179,26 @@ contract UserRootRegistry is TimelockGovernance {
     }
 
     /// @notice Execute pending root deactivation (after 7-day timelock)
-    /// @param root User identity Merkle root to deactivate
-    /// @dev Anyone can execute after timelock expires
+    /// @param root Engagement Merkle root to deactivate
     function executeRootDeactivation(bytes32 root) external {
         PendingRootOperation memory op = pendingRootOperations[root];
         if (op.executeTime == 0 || op.operationType != 1) revert NoOperationPending();
         if (block.timestamp < op.executeTime) revert TimelockNotExpired();
 
-        userRoots[root].isActive = false;
+        engagementRoots[root].isActive = false;
         delete pendingRootOperations[root];
 
         emit RootDeactivated(root);
     }
 
     /// @notice Initiate root expiry setting (starts 7-day timelock)
-    /// @param root User identity Merkle root
+    /// @param root Engagement Merkle root
     /// @param expiresAt Timestamp when root expires (must be future, 0 = never)
-    /// @dev Only callable by governance.
-    ///      Sets the SUNSET state: root remains valid until expiresAt.
-    ///      Recommended: set expiresAt = now + SUNSET_GRACE_PERIOD (30 days)
     function initiateRootExpiry(bytes32 root, uint64 expiresAt)
         external
         onlyGovernance
     {
-        UserRootMetadata memory meta = userRoots[root];
+        EngagementRootMetadata memory meta = engagementRoots[root];
         if (meta.registeredAt == 0) revert RootNotRegistered();
         if (expiresAt != 0 && expiresAt <= block.timestamp) revert InvalidExpiry();
         if (pendingRootOperations[root].executeTime != 0) {
@@ -224,28 +216,25 @@ contract UserRootRegistry is TimelockGovernance {
     }
 
     /// @notice Execute pending root expiry (after 7-day timelock)
-    /// @param root User identity Merkle root
-    /// @dev Anyone can execute after timelock expires
+    /// @param root Engagement Merkle root
     function executeRootExpiry(bytes32 root) external {
         PendingRootOperation memory op = pendingRootOperations[root];
         if (op.executeTime == 0 || op.operationType != 2) revert NoOperationPending();
         if (block.timestamp < op.executeTime) revert TimelockNotExpired();
 
-        userRoots[root].expiresAt = op.newExpiresAt;
+        engagementRoots[root].expiresAt = op.newExpiresAt;
         delete pendingRootOperations[root];
 
         emit RootExpirySet(root, op.newExpiresAt);
     }
 
     /// @notice Initiate root reactivation (starts 7-day timelock)
-    /// @param root User identity Merkle root to reactivate
-    /// @dev Only callable by governance.
-    ///      Use cases: reversing accidental deactivation
+    /// @param root Engagement Merkle root to reactivate
     function initiateRootReactivation(bytes32 root)
         external
         onlyGovernance
     {
-        UserRootMetadata memory meta = userRoots[root];
+        EngagementRootMetadata memory meta = engagementRoots[root];
         if (meta.registeredAt == 0) revert RootNotRegistered();
         if (meta.isActive) revert RootAlreadyActive();
         if (pendingRootOperations[root].executeTime != 0) {
@@ -263,22 +252,20 @@ contract UserRootRegistry is TimelockGovernance {
     }
 
     /// @notice Execute pending root reactivation (after 7-day timelock)
-    /// @param root User identity Merkle root to reactivate
-    /// @dev Anyone can execute after timelock expires
+    /// @param root Engagement Merkle root to reactivate
     function executeRootReactivation(bytes32 root) external {
         PendingRootOperation memory op = pendingRootOperations[root];
         if (op.executeTime == 0 || op.operationType != 3) revert NoOperationPending();
         if (block.timestamp < op.executeTime) revert TimelockNotExpired();
 
-        userRoots[root].isActive = true;
+        engagementRoots[root].isActive = true;
         delete pendingRootOperations[root];
 
         emit RootReactivated(root);
     }
 
     /// @notice Cancel pending root operation
-    /// @param root User identity Merkle root
-    /// @dev Only governance can cancel
+    /// @param root Engagement Merkle root
     function cancelRootOperation(bytes32 root)
         external
         onlyGovernance
@@ -291,42 +278,16 @@ contract UserRootRegistry is TimelockGovernance {
         emit RootOperationCancelled(root);
     }
 
-    // ============ Convenience View Functions ============
+    // ============ View Functions ============
 
-    /// @notice Set user root expiry with default 30-day grace period
-    /// @param root User identity Merkle root
-    /// @dev Convenience: initiates expiry at now + 30 days (after 7-day timelock)
-    function setUserRootExpiry(bytes32 root, uint64 expiresAt)
-        external
-        onlyGovernance
-    {
-        UserRootMetadata memory meta = userRoots[root];
-        if (meta.registeredAt == 0) revert RootNotRegistered();
-        if (expiresAt != 0 && expiresAt <= block.timestamp) revert InvalidExpiry();
-        if (pendingRootOperations[root].executeTime != 0) {
-            revert OperationAlreadyPending();
-        }
-
-        uint64 executeTime = uint64(block.timestamp + GOVERNANCE_TIMELOCK);
-        pendingRootOperations[root] = PendingRootOperation({
-            operationType: 2,
-            executeTime: executeTime,
-            newExpiresAt: expiresAt
-        });
-
-        emit RootOperationInitiated(root, pendingRootOperations[root].operationType, executeTime);
-    }
-
-    /// @notice Get country and depth for a root in single call
-    /// @param root User identity Merkle root
-    /// @return country ISO 3166-1 alpha-3 code
+    /// @notice Get depth for a root
+    /// @param root Engagement Merkle root
     /// @return depth Merkle tree depth
-    function getCountryAndDepth(bytes32 root)
+    function getDepth(bytes32 root)
         external
         view
-        returns (bytes3 country, uint8 depth)
+        returns (uint8 depth)
     {
-        UserRootMetadata memory meta = userRoots[root];
-        return (meta.country, meta.depth);
+        return engagementRoots[root].depth;
     }
 }

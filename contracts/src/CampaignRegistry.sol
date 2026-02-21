@@ -452,6 +452,12 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
 
     /// @notice Authorize a caller (e.g., DistrictGate)
     /// @param caller Address to authorize
+    /// @dev DESIGN DECISION: Immediate (no timelock), unlike NullifierRegistry.authorizeCallerGenesis().
+    ///      Rationale: CampaignRegistry tracks participation counts only. A rogue authorized caller
+    ///      can fabricate participation records but CANNOT: consume nullifiers, forge proofs, or
+    ///      affect identity verification. The blast radius is limited to false campaign metrics.
+    ///      Timelocking would add operational overhead for every campaign deployment with minimal
+    ///      security benefit. See docs/roadmap/AUDIT-RESOLUTION-PLAN.md D4 for full analysis.
     function authorizeCaller(address caller) external onlyGovernance {
         if (caller == address(0)) revert ZeroAddress();
         authorizedCallers[caller] = true;

@@ -33,7 +33,7 @@ import "./TimelockGovernance.sol";
 contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Nested mapping: actionId => userNullifier => used
     /// @dev Action ID serves as the external nullifier (domain separator)
-    ///      User nullifier = H(user_secret, action_id, authority_hash, epoch_id) from circuit
+    ///      User nullifier = H2(identity_commitment, action_domain) from circuit
     mapping(bytes32 => mapping(bytes32 => bool)) public nullifierUsed;
 
     /// @notice Tracks first submission timestamp per action
