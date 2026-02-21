@@ -287,14 +287,10 @@ for depth in $DEPTHS; do
   info "VERIFIER_ADDRESS_${depth}=${VERIFIER_ADDRESSES[$depth]}"
 done
 
-# The DeployScrollMainnet.s.sol script reads VERIFIER_ADDRESS and VERIFIER_DEPTH.
-# We deploy protocol contracts using the first (primary) depth, then register
-# additional verifiers before sealing genesis.
-#
-# For a single depth, this is a single forge script call.
-# For multiple depths, we pass the first depth to the deploy script (which
-# deploys all protocol contracts + registers that verifier), then use cast send
-# to register the remaining verifiers before genesis is sealed.
+# The Solidity deploy scripts read VERIFIER_ADDRESS_{18,20,22,24} env vars.
+# They register all provided verifiers during genesis phase and seal.
+# For backward compatibility, VERIFIER_ADDRESS + VERIFIER_DEPTH (singular)
+# are also supported as a fallback for single-depth deployments.
 
 DEPTHS_ARRAY=($DEPTHS)
 PRIMARY_DEPTH="${DEPTHS_ARRAY[0]}"
@@ -361,9 +357,11 @@ NULLIFIER_REGISTRY=$(parse_address "NullifierRegistry")
 VERIFIER_REGISTRY=$(parse_address "VerifierRegistry")
 DISTRICT_GATE=$(parse_address "DistrictGate")
 CAMPAIGN_REGISTRY=$(parse_address "CampaignRegistry")
+USER_ROOT_REGISTRY=$(parse_address "UserRootRegistry")
+CELL_MAP_REGISTRY=$(parse_address "CellMapRegistry")
 
 # Validate we got addresses
-for name in DISTRICT_REGISTRY NULLIFIER_REGISTRY VERIFIER_REGISTRY DISTRICT_GATE CAMPAIGN_REGISTRY; do
+for name in DISTRICT_REGISTRY NULLIFIER_REGISTRY VERIFIER_REGISTRY DISTRICT_GATE CAMPAIGN_REGISTRY USER_ROOT_REGISTRY CELL_MAP_REGISTRY; do
   addr="${!name}"
   if [[ -z "$addr" ]]; then
     warn "Could not parse ${name} address from forge output."
@@ -416,6 +414,8 @@ echo -e "  NullifierRegistry:  ${GREEN}${NULLIFIER_REGISTRY:-UNKNOWN}${NC}"
 echo -e "  VerifierRegistry:   ${GREEN}${VERIFIER_REGISTRY:-UNKNOWN}${NC}"
 echo -e "  DistrictGate:       ${GREEN}${DISTRICT_GATE:-UNKNOWN}${NC}"
 echo -e "  CampaignRegistry:   ${GREEN}${CAMPAIGN_REGISTRY:-UNKNOWN}${NC}"
+echo -e "  UserRootRegistry:   ${GREEN}${USER_ROOT_REGISTRY:-UNKNOWN}${NC}"
+echo -e "  CellMapRegistry:    ${GREEN}${CELL_MAP_REGISTRY:-UNKNOWN}${NC}"
 echo ""
 echo -e "${BOLD}--- Verifier Addresses ---${NC}"
 echo ""
@@ -424,20 +424,20 @@ for depth in $DEPTHS; do
 done
 echo ""
 
-echo -e "${BOLD}--- Timelock Schedule ---${NC}"
+echo -e "${BOLD}--- Genesis Status ---${NC}"
 echo ""
-echo "  Day 0  (now):    Contracts deployed, verifiers registered, genesis sealed."
-echo "                   NullifierRegistry caller authorization PROPOSED (7-day timelock)."
+echo "  Day 0  (now):    All 7 contracts deployed. Genesis phase complete:"
+echo "                   - Verifiers registered (ACTIVE IMMEDIATELY)"
+echo "                   - NullifierRegistry caller authorization (ACTIVE IMMEDIATELY)"
+echo "                   - CampaignRegistry set on DistrictGate (ACTIVE IMMEDIATELY)"
+echo "                   - UserRootRegistry + CellMapRegistry set on DistrictGate (ACTIVE IMMEDIATELY)"
+echo "                   - Default action domain registered (ACTIVE IMMEDIATELY)"
+echo "                   - Genesis sealed on VerifierRegistry, NullifierRegistry, DistrictGate (IRREVERSIBLE)"
 echo ""
-echo "  Day 7:           Execute nullifier caller authorization, then propose CampaignRegistry:"
-echo "                     cast send $NULLIFIER_REGISTRY 'executeCallerAuthorization(address)' $DISTRICT_GATE --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
-echo "                     cast send $DISTRICT_GATE 'proposeCampaignRegistry(address)' $CAMPAIGN_REGISTRY --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
-echo ""
-echo "  Day 14:          Execute CampaignRegistry integration:"
-echo "                     cast send $DISTRICT_GATE 'executeCampaignRegistry()' --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
-echo ""
-echo "  Or use the timelock helper script:"
-echo "    forge script script/ExecuteTimelocks.s.sol --rpc-url $RPC_URL --private-key \$PRIVATE_KEY --broadcast STEP=1"
+echo "  POST-GENESIS:    All future changes require timelocks:"
+echo "                   - Verifier upgrades: 14-day timelock"
+echo "                   - Action domain registration: 7-day timelock"
+echo "                   - Governance transfer: 7-day timelock"
 echo ""
 
 echo -e "${BOLD}--- Next Steps ---${NC}"
@@ -445,12 +445,16 @@ echo ""
 echo "  1. Save the deployed-addresses.json (written below)"
 echo "  2. Verify contracts on Scrollscan if not already verified:"
 echo "       forge verify-contract <address> <Contract> --chain scroll --watch"
-echo "  3. Register districts:"
-echo "       cast send $DISTRICT_REGISTRY 'registerDistrict(bytes32,bytes32,uint8)' <root> <country> <depth> --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
-echo "  4. Wait 7 days, then execute timelock operations (see schedule above)"
+echo "  3. Register user roots and cell map roots:"
+echo "       cast send $USER_ROOT_REGISTRY 'registerUserRoot(bytes32,bytes3,uint8)' <root> <country> <depth> --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
+echo "       cast send $CELL_MAP_REGISTRY 'registerCellMapRoot(bytes32,bytes3,uint8)' <root> <country> <depth> --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
+echo "  4. Register districts:"
+echo "       cast send $DISTRICT_REGISTRY 'registerDistrict(bytes32,bytes3,uint8)' <root> <country> <depth> --rpc-url $RPC_URL --private-key \$PRIVATE_KEY"
 echo "  5. Update communique .env with contract addresses:"
 echo "       DISTRICT_GATE_ADDRESS=${DISTRICT_GATE:-}"
 echo "       VERIFIER_REGISTRY_ADDRESS=${VERIFIER_REGISTRY:-}"
+echo "       USER_ROOT_REGISTRY_ADDRESS=${USER_ROOT_REGISTRY:-}"
+echo "       CELL_MAP_REGISTRY_ADDRESS=${CELL_MAP_REGISTRY:-}"
 echo ""
 
 # =============================================================================
@@ -484,6 +488,8 @@ jq -n \
   --arg verifierRegistry "${VERIFIER_REGISTRY:-}" \
   --arg districtGate "${DISTRICT_GATE:-}" \
   --arg campaignRegistry "${CAMPAIGN_REGISTRY:-}" \
+  --arg userRootRegistry "${USER_ROOT_REGISTRY:-}" \
+  --arg cellMapRegistry "${CELL_MAP_REGISTRY:-}" \
   --argjson verifiers "$VERIFIER_JSON" \
   '{
     network: $network,
@@ -497,13 +503,18 @@ jq -n \
       NullifierRegistry: $nullifierRegistry,
       VerifierRegistry: $verifierRegistry,
       DistrictGate: $districtGate,
-      CampaignRegistry: $campaignRegistry
+      CampaignRegistry: $campaignRegistry,
+      UserRootRegistry: $userRootRegistry,
+      CellMapRegistry: $cellMapRegistry
     },
     verifiers: $verifiers,
-    timelocks: {
-      "day0": "Contracts deployed, verifiers registered in genesis, genesis sealed",
-      "day7": "Execute nullifierRegistry.executeCallerAuthorization(gate), then gate.proposeCampaignRegistry(campaignRegistry)",
-      "day14": "Execute gate.executeCampaignRegistry()"
+    genesis: {
+      status: "SEALED",
+      verifiers: "Registered and active immediately",
+      nullifierCaller: "DistrictGate authorized immediately",
+      campaignRegistry: "Set on DistrictGate immediately",
+      twoTreeRegistries: "UserRootRegistry + CellMapRegistry set on DistrictGate immediately",
+      actionDomain: "Default domain (100) registered immediately"
     }
   }' > "$ADDRESSES_FILE"
 

@@ -107,7 +107,7 @@ for depth in $DEPTHS; do
     src_file="$CONTRACTS_DIR/src/verifiers/HonkVerifier_${depth}.sol"
     if [[ ! -f "$src_file" ]]; then
         echo "ERROR: Source file not found: $src_file"
-        echo "Generate verifiers first: bb write_vk && bb contract"
+        echo "Generate verifiers first: npx tsx scripts/generate-verifier-sol.ts"
         exit 1
     fi
 done

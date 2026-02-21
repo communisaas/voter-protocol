@@ -84,7 +84,7 @@ forge coverage
 | [ ] Deployed to Scroll Sepolia | | Addresses: |
 | [ ] 100+ valid proofs verified | | Count: |
 | [ ] 50+ invalid proofs rejected | | Count: |
-| [ ] Gas costs within expected range (300-500k) | | Avg: |
+| [ ] Gas costs within expected range (~2.2M) | | Avg: |
 | [ ] All governance timelocks tested | | |
 | [ ] District registration tested | | |
 | [ ] actionDomain workflow tested | | |
@@ -96,13 +96,13 @@ forge coverage
 - VerifierRegistry: `__________________`
 - DistrictGate: `__________________`
 - CampaignRegistry: `__________________`
-- UltraPlonkVerifier: `__________________`
+- HonkVerifier: `__________________`
 
 ### 5. Verifier Contract
 
 | Item | Status | Details |
 |------|--------|---------|
-| [ ] Real UltraPlonk verifier generated (NOT MockVerifier) | | |
+| [ ] Real Honk verifier generated (NOT MockVerifier) | | |
 | [ ] Verifier matches Noir circuit version | | Circuit hash: |
 | [ ] Verifier deployed to mainnet | | Address: |
 | [ ] Verifier contract verified on Scrollscan | | |

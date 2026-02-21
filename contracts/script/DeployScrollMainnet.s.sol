@@ -7,6 +7,8 @@ import "../src/NullifierRegistry.sol";
 import "../src/VerifierRegistry.sol";
 import "../src/DistrictGate.sol";
 import "../src/CampaignRegistry.sol";
+import "../src/UserRootRegistry.sol";
+import "../src/CellMapRegistry.sol";
 
 /// @title Deploy to Scroll Mainnet
 /// @notice Production deployment script for VOTER Protocol on Scroll Mainnet
@@ -44,12 +46,14 @@ import "../src/CampaignRegistry.sol";
 ///   --slow
 ///
 /// GENESIS FLOW (no timelocks — all contracts operational immediately):
-/// 1. Deploy with deployer as initial governance
+/// 1. Deploy with deployer as initial governance (7 contracts)
 /// 2. Register verifiers directly (registerVerifier — no timelock)
 /// 3. Authorize DistrictGate on NullifierRegistry (authorizeCallerGenesis — no timelock)
 /// 4. Set CampaignRegistry on DistrictGate (setCampaignRegistryGenesis — no timelock)
-/// 5. Seal genesis on all three registries (irreversible)
-/// 6. Transfer governance to multisig (7-day timelock)
+/// 5. Set UserRootRegistry + CellMapRegistry on DistrictGate (setTwoTreeRegistriesGenesis — no timelock)
+/// 6. Register initial action domain (registerActionDomainGenesis — no timelock)
+/// 7. Seal genesis on all three registries (irreversible)
+/// 8. Transfer governance to multisig (7-day timelock)
 ///
 /// POST-GENESIS TIMELOCKS:
 /// - Verifier upgrades: 14-day timelock
@@ -201,22 +205,22 @@ contract DeployScrollMainnet is Script {
         // Deployer registers verifiers directly, then seals genesis + transfers governance
 
         // 1. Deploy DistrictRegistry
-        console.log("[1/5] Deploying DistrictRegistry...");
+        console.log("[1/7] Deploying DistrictRegistry...");
         DistrictRegistry districtRegistry = new DistrictRegistry(deployer);
         console.log("      DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
-        console.log("[2/5] Deploying NullifierRegistry...");
+        console.log("[2/7] Deploying NullifierRegistry...");
         NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer);
         console.log("      NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy VerifierRegistry
-        console.log("[3/5] Deploying VerifierRegistry...");
+        console.log("[3/7] Deploying VerifierRegistry...");
         VerifierRegistry verifierRegistry = new VerifierRegistry(deployer);
         console.log("      VerifierRegistry deployed at:", address(verifierRegistry));
 
         // 4. Deploy DistrictGate
-        console.log("[4/5] Deploying DistrictGate...");
+        console.log("[4/7] Deploying DistrictGate...");
         DistrictGate gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
@@ -226,9 +230,19 @@ contract DeployScrollMainnet is Script {
         console.log("      DistrictGate deployed at:", address(gate));
 
         // 5. Deploy CampaignRegistry
-        console.log("[5/5] Deploying CampaignRegistry...");
+        console.log("[5/7] Deploying CampaignRegistry...");
         CampaignRegistry campaignRegistry = new CampaignRegistry(deployer);
         console.log("      CampaignRegistry deployed at:", address(campaignRegistry));
+
+        // 6. Deploy UserRootRegistry (Tree 1)
+        console.log("[6/7] Deploying UserRootRegistry...");
+        UserRootRegistry userRootRegistry = new UserRootRegistry(deployer);
+        console.log("      UserRootRegistry deployed at:", address(userRootRegistry));
+
+        // 7. Deploy CellMapRegistry (Tree 2)
+        console.log("[7/7] Deploying CellMapRegistry...");
+        CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer);
+        console.log("      CellMapRegistry deployed at:", address(cellMapRegistry));
 
         // =====================================================================
         // Genesis Configuration (direct — no timelocks)
@@ -263,6 +277,15 @@ contract DeployScrollMainnet is Script {
         // --- DistrictGate genesis ---
         console.log("  - Setting CampaignRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
         gate.setCampaignRegistryGenesis(address(campaignRegistry));
+        console.log("  - Setting two-tree registries on DistrictGate (ACTIVE IMMEDIATELY)");
+        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+
+        // Register a default action domain (bytes32(uint256(100)))
+        // This matches the ACTION_DOMAIN used in E2E proof tests
+        bytes32 defaultActionDomain = bytes32(uint256(100));
+        console.log("  - Registering default action domain (ACTIVE IMMEDIATELY)");
+        gate.registerActionDomainGenesis(defaultActionDomain);
+
         console.log("  - Sealing DistrictGate genesis (irreversible)");
         gate.sealGenesis();
 
@@ -274,6 +297,8 @@ contract DeployScrollMainnet is Script {
             districtRegistry.initiateGovernanceTransfer(governanceTarget);
             gate.initiateGovernanceTransfer(governanceTarget);
             campaignRegistry.initiateGovernanceTransfer(governanceTarget);
+            userRootRegistry.initiateGovernanceTransfer(governanceTarget);
+            cellMapRegistry.initiateGovernanceTransfer(governanceTarget);
         }
 
         vm.stopBroadcast();
@@ -293,6 +318,8 @@ contract DeployScrollMainnet is Script {
         console.log("  VerifierRegistry:   ", address(verifierRegistry));
         console.log("  DistrictGate:       ", address(gate));
         console.log("  CampaignRegistry:   ", address(campaignRegistry));
+        console.log("  UserRootRegistry:   ", address(userRootRegistry));
+        console.log("  CellMapRegistry:    ", address(cellMapRegistry));
         console.log("");
         console.log("Genesis Status:");
         for (uint256 i = 0; i < registeredDepths.length; i++) {
@@ -301,7 +328,7 @@ contract DeployScrollMainnet is Script {
         }
         console.log("  VerifierRegistry genesis:   SEALED");
         console.log("  NullifierRegistry genesis:  SEALED (DistrictGate authorized)");
-        console.log("  DistrictGate genesis:       SEALED (CampaignRegistry set)");
+        console.log("  DistrictGate genesis:       SEALED (CampaignRegistry + TwoTree registries + action domain)");
         console.log("");
         console.log("  ==> ALL CONTRACTS FULLY OPERATIONAL - NO TIMELOCKS PENDING");
         console.log("");
@@ -312,7 +339,7 @@ contract DeployScrollMainnet is Script {
             console.log("");
             console.log("  AFTER 7 DAYS - Execute governance transfer:");
             console.log("  *.executeGovernanceTransfer(", governanceTarget, ")");
-            console.log("  (call on all 5 contracts)");
+            console.log("  (call on all 7 contracts)");
             console.log("");
         }
         console.log("ONGOING - Register districts (no timelock, governance only):");
@@ -405,22 +432,25 @@ contract DeployScrollMainnet is Script {
         console.log("  VerifierRegistry deployment:    ~1,200,000 gas");
         console.log("  DistrictGate deployment:        ~2,500,000 gas");
         console.log("  CampaignRegistry deployment:    ~2,000,000 gas");
+        console.log("  UserRootRegistry deployment:    ~1,500,000 gas");
+        console.log("  CellMapRegistry deployment:     ~1,200,000 gas");
         console.log("  -----------------------------------------");
-        console.log("  Total deployment:               ~9,000,000 gas");
+        console.log("  Total deployment:               ~11,700,000 gas");
         console.log("");
-        console.log("  Post-deployment transactions:");
+        console.log("  Post-deployment (genesis config):");
         console.log("  registerVerifier (x1-4):        ~50,000 gas each");
-        console.log("  sealGenesis:                    ~30,000 gas");
-        console.log("  proposeCallerAuthorization:     ~50,000 gas");
-        console.log("  authorizeCaller:                ~50,000 gas");
+        console.log("  sealGenesis (x3):               ~30,000 gas each");
+        console.log("  authorizeCallerGenesis:          ~50,000 gas");
+        console.log("  setCampaignRegistryGenesis:      ~50,000 gas");
+        console.log("  setTwoTreeRegistriesGenesis:     ~70,000 gas");
+        console.log("  registerActionDomainGenesis:     ~50,000 gas");
         console.log("  -----------------------------------------");
-        console.log("  Total post-deployment:          ~330,000 gas (4 verifiers)");
+        console.log("  Total genesis config:           ~510,000 gas (4 verifiers)");
         console.log("");
-        console.log("  GRAND TOTAL:                    ~9,330,000 gas");
+        console.log("  GRAND TOTAL:                    ~12,210,000 gas");
         console.log("");
-        console.log("At Scroll L2 gas prices (typically 0.01-0.1 gwei):");
-        console.log("  Estimated cost: ~0.00009 - 0.0009 ETH");
-        console.log("  USD equivalent: ~$0.25 - $2.50 (at $2500/ETH)");
+        console.log("At current Scroll L2 gas prices (~0.00012 gwei L2 + L1 data fees):");
+        console.log("  Estimated cost: ~0.001 - 0.01 ETH (L1 data fees dominate)");
         console.log("");
         console.log("IMPORTANT: These are estimates. Actual costs may vary.");
         console.log("Run deployment with --dry-run first to get exact costs.");

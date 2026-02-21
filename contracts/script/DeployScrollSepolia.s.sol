@@ -250,6 +250,8 @@ contract DeployScrollSepolia is Script {
             districtRegistry.initiateGovernanceTransfer(governanceTarget);
             gate.initiateGovernanceTransfer(governanceTarget);
             campaignRegistry.initiateGovernanceTransfer(governanceTarget);
+            userRootRegistry.initiateGovernanceTransfer(governanceTarget);
+            cellMapRegistry.initiateGovernanceTransfer(governanceTarget);
         }
 
         vm.stopBroadcast();
@@ -290,7 +292,7 @@ contract DeployScrollSepolia is Script {
             console.log("");
             console.log("  AFTER 7 DAYS - Execute governance transfer:");
             console.log("  *.executeGovernanceTransfer(", governanceTarget, ")");
-            console.log("  (call on all 5 contracts)");
+            console.log("  (call on all 7 contracts)");
             console.log("");
         }
         console.log("============================================================");

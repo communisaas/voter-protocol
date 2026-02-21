@@ -7,6 +7,8 @@ import "../src/NullifierRegistry.sol";
 import "../src/VerifierRegistry.sol";
 import "../src/DistrictGate.sol";
 import "../src/CampaignRegistry.sol";
+import "../src/UserRootRegistry.sol";
+import "../src/CellMapRegistry.sol";
 
 /// @title ExecuteTimelocks
 /// @notice Post-deployment script to execute timelocked operations after their windows expire
@@ -16,7 +18,7 @@ import "../src/CampaignRegistry.sol";
 ///   Step 1 — Execute DistrictGate caller authorization on NullifierRegistry (7 days after deploy)
 ///   Step 2 — Propose CampaignRegistry on DistrictGate (requires step 1 complete; onlyGovernance)
 ///   Step 3 — Execute CampaignRegistry integration on DistrictGate (7 days after step 2)
-///   governance — Execute governance transfer on all 5 contracts (7 days after initiateGovernanceTransfer)
+///   governance — Execute governance transfer on all 7 contracts (7 days after initiateGovernanceTransfer)
 ///
 /// USAGE:
 ///   STEP=1 forge script script/ExecuteTimelocks.s.sol:ExecuteTimelocks \
@@ -29,6 +31,8 @@ import "../src/CampaignRegistry.sol";
 ///   CAMPAIGN_REGISTRY    — CampaignRegistry address
 ///   VERIFIER_REGISTRY    — VerifierRegistry address (governance transfer only)
 ///   DISTRICT_REGISTRY    — DistrictRegistry address (governance transfer only)
+///   USER_ROOT_REGISTRY   — UserRootRegistry address (governance transfer only)
+///   CELL_MAP_REGISTRY    — CellMapRegistry address (governance transfer only)
 ///   STEP                 — Which step to execute: "1", "2", "3", or "governance"
 ///   NEW_GOVERNANCE       — New governance address (governance step only)
 ///   SCROLL_NETWORK       — "mainnet" (default) or "sepolia"
@@ -319,7 +323,7 @@ contract ExecuteTimelocks is Script {
     }
 
     // =========================================================================
-    // Governance Transfer: Execute on all 5 contracts
+    // Governance Transfer: Execute on all 7 contracts
     // =========================================================================
 
     function _executeGovernanceTransfer() internal {
@@ -329,6 +333,8 @@ contract ExecuteTimelocks is Script {
         address campaignAddr = vm.envAddress("CAMPAIGN_REGISTRY");
         address verifierAddr = vm.envAddress("VERIFIER_REGISTRY");
         address districtAddr = vm.envAddress("DISTRICT_REGISTRY");
+        address userRootAddr = vm.envAddress("USER_ROOT_REGISTRY");
+        address cellMapAddr = vm.envAddress("CELL_MAP_REGISTRY");
         address newGovernance = vm.envAddress("NEW_GOVERNANCE");
 
         require(newGovernance != address(0), "NEW_GOVERNANCE must be set");
@@ -338,14 +344,18 @@ contract ExecuteTimelocks is Script {
         CampaignRegistry campaignRegistry = CampaignRegistry(campaignAddr);
         VerifierRegistry verifierRegistry = VerifierRegistry(verifierAddr);
         DistrictRegistry districtRegistry = DistrictRegistry(districtAddr);
+        UserRootRegistry userRootRegistry = UserRootRegistry(userRootAddr);
+        CellMapRegistry cellMapRegistry = CellMapRegistry(cellMapAddr);
 
-        console.log("[Governance] Execute governance transfer on all 5 contracts");
-        console.log("  New governance:    ", newGovernance);
-        console.log("  DistrictGate:      ", gateAddr);
-        console.log("  NullifierRegistry: ", nullifierAddr);
-        console.log("  CampaignRegistry:  ", campaignAddr);
-        console.log("  VerifierRegistry:  ", verifierAddr);
-        console.log("  DistrictRegistry:  ", districtAddr);
+        console.log("[Governance] Execute governance transfer on all 7 contracts");
+        console.log("  New governance:      ", newGovernance);
+        console.log("  DistrictGate:        ", gateAddr);
+        console.log("  NullifierRegistry:   ", nullifierAddr);
+        console.log("  CampaignRegistry:    ", campaignAddr);
+        console.log("  VerifierRegistry:    ", verifierAddr);
+        console.log("  DistrictRegistry:    ", districtAddr);
+        console.log("  UserRootRegistry:    ", userRootAddr);
+        console.log("  CellMapRegistry:     ", cellMapAddr);
         console.log("");
 
         // Track which contracts are ready vs not ready
@@ -455,6 +465,46 @@ contract ExecuteTimelocks is Script {
             }
         }
 
+        // 6. UserRootRegistry (inherits TimelockGovernance)
+        {
+            bool alreadyTransferred = userRootRegistry.governance() == newGovernance;
+            if (alreadyTransferred) {
+                console.log("  UserRootRegistry:  ALREADY transferred");
+            } else {
+                uint256 delay = userRootRegistry.getGovernanceTransferDelay(newGovernance);
+                uint256 execTime = userRootRegistry.pendingGovernance(newGovernance);
+                if (execTime == 0) {
+                    console.log("  UserRootRegistry:  NO transfer initiated");
+                    allReady = false;
+                } else if (delay > 0) {
+                    _logTimelockNotReady("UserRootRegistry", delay);
+                    allReady = false;
+                } else {
+                    console.log("  UserRootRegistry:  READY");
+                }
+            }
+        }
+
+        // 7. CellMapRegistry (inherits TimelockGovernance)
+        {
+            bool alreadyTransferred = cellMapRegistry.governance() == newGovernance;
+            if (alreadyTransferred) {
+                console.log("  CellMapRegistry:   ALREADY transferred");
+            } else {
+                uint256 delay = cellMapRegistry.getGovernanceTransferDelay(newGovernance);
+                uint256 execTime = cellMapRegistry.pendingGovernance(newGovernance);
+                if (execTime == 0) {
+                    console.log("  CellMapRegistry:   NO transfer initiated");
+                    allReady = false;
+                } else if (delay > 0) {
+                    _logTimelockNotReady("CellMapRegistry", delay);
+                    allReady = false;
+                } else {
+                    console.log("  CellMapRegistry:   READY");
+                }
+            }
+        }
+
         console.log("");
 
         if (!allReady) {
@@ -492,6 +542,16 @@ contract ExecuteTimelocks is Script {
             console.log("  DistrictRegistry:  transferred");
         }
 
+        if (userRootRegistry.governance() != newGovernance) {
+            userRootRegistry.executeGovernanceTransfer(newGovernance);
+            console.log("  UserRootRegistry:  transferred");
+        }
+
+        if (cellMapRegistry.governance() != newGovernance) {
+            cellMapRegistry.executeGovernanceTransfer(newGovernance);
+            console.log("  CellMapRegistry:   transferred");
+        }
+
         vm.stopBroadcast();
 
         // Verify all transfers
@@ -502,8 +562,10 @@ contract ExecuteTimelocks is Script {
         require(campaignRegistry.governance() == newGovernance, "CampaignRegistry governance not transferred");
         require(verifierRegistry.governance() == newGovernance, "VerifierRegistry governance not transferred");
         require(districtRegistry.governance() == newGovernance, "DistrictRegistry governance not transferred");
+        require(userRootRegistry.governance() == newGovernance, "UserRootRegistry governance not transferred");
+        require(cellMapRegistry.governance() == newGovernance, "CellMapRegistry governance not transferred");
 
-        console.log("  All 5 contracts now governed by:", newGovernance);
+        console.log("  All 7 contracts now governed by:", newGovernance);
         console.log("");
         console.log("  DONE: Governance transfer complete.");
     }
