@@ -1,8 +1,8 @@
 # Reputation System Specification
 
-> **⚠️ PHASE 2 SPECIFICATION - NOT IMPLEMENTED ⚠️**
+> **⚠️ PHASE 2 SPECIFICATION - PARTIALLY IMPLEMENTED ⚠️**
 >
-> This describes the **future reputation system** that requires the VOTER token (not yet launched). The current implementation has only client-side interfaces. This is Phase 2 architecture requiring token deployment and smart contract implementation.
+> Core engagement infrastructure (Three-Tree prover, EngagementRootRegistry contract, engagement tree builder, chain scanner, composite score model) was implemented in Cycles 18-22. Application-layer reputation signals (professional credentials, bill tracking, challenge markets) and the VOTER token remain unimplemented. See implementation status below.
 
 **Phase 1 (3 months)**: Reputation-only signals (template adoption, bill tracking, professional credentials, civic velocity, peer endorsements).
 
@@ -16,8 +16,13 @@
 **Implementation Progress:**
 - ✅ Client contract interface (ERC-8004 ABI definitions)
 - ✅ TypeScript types for reputation scores and tiers
-- ❌ Smart contract deployment
-- ❌ On-chain reputation tracking
+- ✅ EngagementRootRegistry contract (Tree 3 root management — Cycle 18)
+- ✅ Three-tree Noir prover (`three-tree-prover.ts` — 31 public inputs, Cycle 19)
+- ✅ Engagement tree builder (`engagement-tree-builder.ts` — Cycle 20)
+- ✅ Chain scanner (`chain-scanner.ts` — DistrictGate event polling, Cycle 20)
+- ✅ Composite score model (log2 actions x Shannon diversity x tenure x adoption — Cycle 18)
+- ⏳ Integration with communique (auto-registration wired, full engagement flow PENDING)
+- ❌ Application-layer reputation registry (ReputationRegistry.sol — not deployed)
 - ❌ Professional credential verification
 - ❌ Template adoption counters
 - ❌ Bill tracking registry
@@ -25,10 +30,10 @@
 - ❌ Challenge markets (Phase 2 feature)
 - ❌ Impact verification (Phase 2 feature)
 
-**Note:** Only the client-side interface exists in `/packages/client/src/contracts/reputation-registry.ts`. No backend implementation, smart contracts, or actual reputation tracking is deployed.
+**Note:** The `@voter-protocol/client` package was removed in Cycle 17. Core engagement infrastructure (contract, prover, tree builder, scanner, score model) is implemented. Application-layer reputation signals remain unimplemented.
 **Standard**: ERC-8004 (three-registry system: identity, reputation, validation)
 **Research Basis**: McDonald 2018 congressional staffer needs, Gitcoin quadratic funding
-**Last Updated**: December 2025
+**Last Updated**: February 2026
 **Principle**: **Concrete, verifiable signals only. No abstract AI-determined quality scores.**
 
 ---
@@ -64,6 +69,45 @@ Phase 2 (Challenge Markets + Impact Verification):
 Phase 2+ (Congressional CMS Required):
 9. **Citation Count**: Congressional Record citations (objective scraping)
 10. **Response Correlation**: Office response rate (email tracking)
+
+---
+
+## ZK Engagement Integration (Three-Tree Architecture)
+
+> **Status:** PARTIALLY IMPLEMENTED — Core engagement infrastructure (prover, contract, tree builder, scanner) complete. See [specs/REPUTATION-ARCHITECTURE-SPEC.md](../../specs/REPUTATION-ARCHITECTURE-SPEC.md) for canonical specification.
+
+The reputation signals defined in this document operate at two architectural layers. The protocol layer (ZK circuit) carries a coarse engagement commitment in the proof. The application layer (communique server) maintains rich reputation signals for congressional office display.
+
+### Signal Mapping: In-Proof vs. Server-Side
+
+| Signal | Layer | In ZK Proof | Notes |
+|--------|-------|-------------|-------|
+| **engagement_tier** (0-4) | Protocol | **Public output** [30] | Coarse bucket derived from action_count + diversity_score + tenure |
+| **action_count** | Protocol | Private input | Total nullifier consumption events |
+| **diversity_score** | Protocol | Private input | Shannon diversity index H = -sum(pi * ln(pi)), stored as floor(H * 1000) |
+| **authority_level** (1-5) | Protocol | **Public output** [28] | From identity verification (existing) |
+| Template adoption | Application | No | Server-side counter (adoption-tracker.ts) |
+| Bill tracking depth | Application | No | On-chain registry (Phase 2) |
+| Professional credentials | Application | No | License verification via state API |
+| Civic velocity | Application | No | Active months metric |
+| Peer endorsements | Application | No | On-chain attestations |
+| Challenge accuracy | Application | No | Challenge market win rate (Phase E3) |
+| Impact verified | Application | No | Retroactive funding outcome (Phase E1) |
+
+### Architectural Boundary
+
+The protocol layer (Tree 3 in the ZK circuit) commits to a minimal engagement summary — three numbers hashed into a Poseidon2 commitment. This provides a tamper-proof credibility signal without exposing behavioral detail.
+
+The application layer maintains the full 8-signal reputation model defined in this document. These signals are displayed to congressional offices alongside the ZK-verified engagement tier but are not cryptographically committed. They provide richer context (professional credentials, bill tracking patterns, citation count) that would be impractical to verify inside a circuit.
+
+**Key insight:** The engagement tier in the proof answers "has this person genuinely participated?" The application-layer signals answer "in what domain and how effectively?"
+
+### Privacy Properties
+
+- **Public:** engagement_tier (5 coarse buckets) + authority_level (5 levels) = 25 possible combinations
+- **Private:** action_count, diversity_score (never revealed on-chain)
+- **Server-side:** All 8+ reputation signals (visible to congressional offices, not committed in proof)
+- **Not leaked:** Action timing, action categories, specific bills tracked, specific templates created
 
 ---
 

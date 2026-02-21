@@ -7,6 +7,8 @@
 > **Phase 1 (Current)**: Browser-native ZK proofs, reputation system, congressional delivery, impact tracking
 >
 > **Phase 2 (This Document)**: VOTER token, challenge markets, outcome markets, token-based incentives
+>
+> **Token model superseded** by `specs/REPUTATION-ARCHITECTURE-SPEC.md` Section 7 (dual: VOTER ERC-20 transferable + soulbound engagement credential via ERC-8004).
 
 ---
 
