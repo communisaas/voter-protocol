@@ -1,341 +1,159 @@
-# VOTER Protocol - Smart Contracts
+# VOTER Protocol — Smart Contracts
 
-Solidity contracts for on-chain verification of browser-generated Noir/Barretenberg zero-knowledge proofs.
+Solidity contracts for on-chain verification of browser-generated Noir/Barretenberg zero-knowledge proofs on Scroll L2.
 
-## Architecture
+## Contract System (10 Contracts)
 
-**DistrictGate.sol** - Main verification contract
-- Verifies UltraPlonk proofs via pluggable verifier (300-500k gas)
-- Tracks nullifiers to prevent double-actions
-- Manages Shadow Atlas Merkle root updates
-- **Governance-whitelisted action domains**: `actionDomains` must be proposed via `proposeActionDomain()` and pass a 7-day timelock before they can be used with `verifyAndRecord()` (SA-001 fix)
-- EIP-712 signatures for MEV protection
-- TimelockGovernance (Phase 1): 7-day governance transfer, 14-day verifier upgrade timelocks
+### Core Verification
 
-**DistrictRegistry.sol** - District management (Phase 1)
-- Maps single district roots to countries
+**DistrictGate.sol** — Main verification entry point
+- Verifies UltraHonk proofs via VerifierRegistry (~2.2M gas on Scroll)
+- Two-tree path: 29 public inputs (user root, cell map root, district commitment, nullifier, etc.)
+- Three-tree path: 31 public inputs (adds engagement root + engagement tier)
+- EIP-712 signatures for MEV protection (separate typehashes per proof path)
+- Governance-whitelisted action domains with genesis + timelock model
+- Delegates nullifier recording to NullifierRegistry, participation to CampaignRegistry
+
+**VerifierRegistry.sol** — Multi-depth verifier management
+- Maps circuit depth (18/20/22/24) to HonkVerifier contract address
+- Genesis model: `registerVerifier()` + `sealGenesis()` for initial deploy
+- Post-genesis: 14-day timelock for verifier changes
+- Interface: `verify(bytes calldata proof, bytes32[] calldata publicInputs)`
+
+### Registries
+
+**NullifierRegistry.sol** — Double-action prevention
+- Action-scoped nullifiers: `nullifierUsed[actionId][nullifier]`
+- Nullifier formula: `H2(identity_commitment, action_domain)`
+- Rate limiting: 60s between actions per user
+- Genesis + seal + 7-day timelock for caller authorization
+
+**UserRootRegistry.sol** — Tree 1 root management
+- Stores user Merkle tree roots (Tree 1)
+- Leaf: `H4(user_secret, cell_id, registration_salt, authority_level)`
+- Genesis + seal + 7-day timelock model
+
+**CellMapRegistry.sol** — Tree 2 root management
+- Stores cell map SMT roots (Tree 2)
+- Census-based cell-to-multi-district assignment mapping
+- Genesis + seal + 7-day timelock model
+
+**DistrictRegistry.sol** — District configuration
+- Maps district roots to country codes (bytes3)
 - Governance-controlled with 7-day timelock
-- **Phase 2 evolution**: Replaced by ShadowAtlasRegistry for ~2M multi-boundary support
 
-**NullifierRegistry.sol** - Double-action prevention
-- Records nullifiers per action namespace
-- Rate limiting (60s between actions per user)
-- Authorized caller pattern for DistrictGate integration
+**CampaignRegistry.sol** — Participation tracking
+- Records participation counts per campaign
+- Immediate caller authorization (no timelock — see NatSpec for rationale)
 
-**TimelockGovernance.sol** - Phase 1 governance
+**EngagementRootRegistry.sol** — Tree 3 root management (three-tree)
+- Stores engagement tree roots with lifecycle: REGISTERED -> ACTIVE -> SUNSET -> EXPIRED
+- Timelocked deactivation (no immediate revocation)
+
+### Infrastructure
+
+**TimelockGovernance.sol** — Base governance contract
 - 7-day governance transfer timelock
-- 14-day verifier upgrade timelock
+- Inherited by all registry contracts
 - Community detection window for malicious changes
 
-**GuardianShield.sol** - Phase 2 nation-state resistance (planned)
-- Multi-jurisdiction guardian veto power
-- Single guardian veto blocks malicious transfers
-- Requires recruiting real human guardians across jurisdictions
+**HonkVerifier_{18,20,22,24}.sol** — Generated verifier contracts
+- Auto-generated via `scripts/generate-verifier-sol.ts` (bb.js `getSolidityVerifier()`)
+- Keccak transcript mode (non-ZK, on-chain compatible)
+- One contract per supported circuit depth
 
-### What Contracts Verify (and Don't)
+## Deployed Addresses (Scroll Sepolia v4)
 
-**Contracts verify:**
-- ZK proofs of district membership (UltraPlonkVerifier.sol)
-- Nullifier uniqueness (one action per user per campaign)
-- District-to-country mappings (DistrictRegistry.sol)
+| Contract | Address |
+|----------|---------|
+| DistrictGate | `0x0085DFAd6DB867e7486A460579d768BD7C37181e` |
+| VerifierRegistry | `0xe7B18F488E44eE33f5B7B0d73b3714716b88423d` |
+| HonkVerifier_20 | `0x0B8adBD18C6A667f9bCC547AB0eC59D0758146c4` |
+| UserRootRegistry | `0x19318d473b07e622751Fb5047e7929833cE687c9` |
+| CellMapRegistry | `0xbe0970996F18D37F4E8d261E1d579702f74cf364` |
+| NullifierRegistry | `0x4D9060de86Adf846786E32BaFe753D944496D00e` |
+| DistrictRegistry | `0x793516Ea1f9D2845F149684Fbe84f7Bb5C938AE1` |
+| CampaignRegistry | `0xcF02ae94AF65d1f4be79F5C64Db2c4C8aEABa512` |
 
-**Contracts do NOT handle:**
-- User's street address (never touches chain - stays in browser)
-- Identity verification (Phase 2, application layer via self.xyz/Didit.me)
-- Message content (separate system via AWS Nitro Enclaves)
-
-Smart contracts are the trustless verification layer. Identity and message delivery happen off-chain.
-
-### Shadow Atlas Evolution
-
-**Phase 1 (Current)**
-- **Registry**: DistrictRegistry.sol (single boundary per proof)
-- **Root Management**: Simple 1:1 mapping (districtRoot → country)
-- **Update Strategy**: Ad-hoc governance updates
-
-**Phase 2 (Planned)**
-- **Registry**: ShadowAtlasRegistry (see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5)
-- **Scope**: ~2 million governance boundary trees worldwide
-- **Root Management**: Epoch-based versioning with global commitment
-- **Composite Proofs**: Single circuit proves up to 4 boundaries (400k gas vs 4×300k batched)
-
-**Proof Cost Comparison:**
-| Strategy | Boundaries | Gas Cost |
-|----------|------------|----------|
-| Single | 1 | ~300-500k |
-| Composite | Up to 4 | ~400k |
-| Batched | N | N × 300k |
+E2E proof TX: `0xc6ef86a3cf2c3d09f52150b5fce81debc9dc3ff29b15b5958ba749f5a1a9da64` (gas: 2,200,522)
 
 ## Setup
 
-### Prerequisites
-
 ```bash
-# Install Foundry (Solidity development toolkit)
+# Install Foundry
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 
-# Install OpenZeppelin contracts
-forge install OpenZeppelin/openzeppelin-contracts
-```
-
-### Install Dependencies
-
-```bash
+# Install dependencies
 cd contracts
 forge install
 ```
 
 ## Development
 
-### Build Contracts
-
 ```bash
+# Build (requires via_ir for DistrictGate stack depth)
 forge build
-```
 
-### Run Tests
-
-```bash
-# Run all tests
+# Run all tests (~600 tests across 16 suites)
 forge test
 
 # Run with gas reporting
 forge test --gas-report
 
-# Run specific test
-forge test --match-test testVerifyValidProof
-
-# Run with detailed output
-forge test -vvv
+# Run specific test suite
+forge test --match-path test/DistrictGate.t.sol -vvv
 ```
 
-### Test Coverage
+### Compiler Configuration
 
-```bash
-forge coverage
-```
-
-Expected coverage: **>95%** (all critical paths tested)
-
-### Gas Profiling
-
-```bash
-# Profile gas usage for single verification
-forge test --match-test testGasSingleVerification -vvv
-```
-
-Expected gas costs:
-- **Single verification**: 300-500k gas (with real verifier)
-- **Fee (Scroll mainnet)**: ~$0.0047-$0.0511 per verification
+- **solc 0.8.28** with `via_ir = true` (required — DistrictGate exceeds stack depth without IR)
+- Verifiers compiled separately: `FOUNDRY_PROFILE=verifiers forge build --force` (via_ir=false, optimizer_runs=1)
 
 ## Deployment
 
-### Testnet Deployment (Scroll Sepolia)
+### Genesis Model
+
+Deployment follows a two-phase governance model:
+
+1. **Genesis phase** — Deployer configures contracts directly (no timelocks)
+   - Register verifiers, authorize callers, set registries, register action domains
+   - Call `sealGenesis()` on each contract (irreversible)
+
+2. **Post-genesis** — All changes require timelocks
+   - 14-day for verifier changes
+   - 7-day for governance transfers and caller authorization
 
 ```bash
-# Set environment variables
-export PRIVATE_KEY=<deployer_private_key>
-export SCROLLSCAN_API_KEY=<scrollscan_api_key>
+# Deploy verifiers first
+PRIVATE_KEY=0x... ./script/deploy-verifiers.sh --network sepolia --depths "20"
 
-# Deploy using script
+# Then deploy protocol contracts
 forge script script/DeployScrollSepolia.s.sol:DeployScrollSepolia \
-  --rpc-url scroll_sepolia \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --verify
+  --rpc-url scroll_sepolia --private-key $PRIVATE_KEY --broadcast --verify --slow
 ```
 
-### Mainnet Deployment (Scroll)
-
-Before mainnet deployment:
-
-1. **Generate real verifier** from Noir circuit (NOT MockVerifier)
-2. **Complete security audit** (professional firm)
-3. **Deploy to testnet** and verify 100+ valid/invalid proofs
-4. **Gas cost verification** (confirm 300-500k range)
-5. **Governance multisig setup** for administration
-6. **Guardian setup** (min 2 guardians in different jurisdictions)
-
-## Contract Addresses
-
-### Scroll Sepolia (Testnet)
-- **DistrictGate**: `<deployed_address>`
-- **DistrictRegistry**: `<deployed_address>`
-- **NullifierRegistry**: `<deployed_address>`
-- **UltraPlonkVerifier**: `<deployed_address>`
-
-### Scroll Mainnet (Production)
-- **DistrictGate**: `<deployed_address>`
-- **DistrictRegistry**: `<deployed_address>`
-- **NullifierRegistry**: `<deployed_address>`
-- **UltraPlonkVerifier**: `<deployed_address>`
-
-## Usage Examples
-
-### Verify District Membership Proof
-
-```solidity
-// User submits browser-generated proof with EIP-712 signature
-bytes memory proof = <noir_proof_bytes>;
-bytes32 districtRoot = <merkle_root>;
-bytes32 nullifier = <poseidon_nullifier>;
-bytes32 actionId = keccak256("contact_representative"); // Any actionId works
-bytes3 country = "USA";
-
-// Generate EIP-712 signature off-chain
-bytes memory signature = <user_signature>;
-uint256 deadline = block.timestamp + 1 hours;
-
-// Verify proof on-chain (signer gets credit, not submitter - MEV resistant)
-districtGate.verifyAndAuthorizeWithSignature(
-    signer,
-    proof,
-    districtRoot,
-    nullifier,
-    actionId,
-    country,
-    deadline,
-    signature
-);
-```
-
-### Action Domain Whitelisting (SA-001)
-
-Action domains must be governance-whitelisted before use. An `actionDomain` is proposed via `proposeActionDomain()` and becomes active only after a 7-day timelock elapses. Only whitelisted action domains are accepted by `verifyAndRecord()`.
-
-```solidity
-// Step 1: Propose an action domain (starts 7-day timelock)
-districtGate.proposeActionDomain(keccak256("contact_representative"));
-
-// Step 2: After 7 days, activate the domain
-districtGate.activateActionDomain(keccak256("contact_representative"));
-
-// Step 3: Use the whitelisted action domain in verifyAndRecord()
-bytes32 actionId = keccak256("contact_representative"); // Must be whitelisted
-// Unwhitelisted actionIds will revert
-
-// Spam mitigation is handled by:
-// 1. Governance whitelisting (7-day timelock prevents unauthorized action types)
-// 2. Rate limits (60s between actions per user)
-// 3. Gas costs (~$0.003-0.05 per tx)
-// 4. ZK proof generation time (8-15s in browser)
-```
-
-### Check Verification Status
-
-```solidity
-// Check if nullifier was used for an action
-bool used = districtGate.isNullifierUsed(actionId, nullifier);
-
-// Get participant count for an action
-uint256 count = districtGate.getParticipantCount(actionId);
-```
-
-### Multi-Boundary Verification (Phase 2)
-
-```solidity
-// Phase 2: Composite proof verification (up to 4 boundaries)
-bytes memory compositeProof = <noir_composite_proof>;
-bytes32[4] memory merkleRoots = [congressRoot, stateRoot, countyRoot, cityRoot];
-bytes32 boundaryMask = 0x0F;  // All 4 boundaries active
-
-// Single verification call for 4 boundaries (~400k gas)
-shadowAtlasRegistry.verifyCompositeProof(
-    compositeProof,
-    merkleRoots,
-    boundaryMask,
-    nullifier,
-    actionId
-);
-```
-
-See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4 for composite circuit specification.
-
-## Security Considerations
-
-### Threat Model
-
-1. **Forged Proofs**: Mitigated by UltraPlonk cryptographic soundness
-2. **Nullifier Replay**: Mitigated by on-chain nullifier tracking
-3. **Shadow Atlas Poisoning**:
-   - Phase 1: Mitigated by governance multisig + quarterly review
-   - Phase 2: Mitigated by epoch-based versioning + oracle quorum + 7-day timelock
-   (see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 10)
-4. **MEV Attacks**: Mitigated by EIP-712 signatures binding rewards to signer
-5. **Nation-State Coercion**: Phase 1 uses TimelockGovernance (7-day detection window). Phase 2 adds GuardianShield (multi-jurisdiction veto)
-6. **Spam Actions**: Mitigated by rate limits + gas costs + proof generation time
-
-### Action Domain Security Model
-
-Action domains require governance whitelisting (SA-001 fix):
-- **Governance gate**: `proposeActionDomain()` + 7-day timelock before any domain is active
-- **Economic spam resistance**: Gas costs + rate limits make spam expensive
-- **Proof generation barrier**: 8-15 seconds per proof prevents mass generation
-- **Nullifier uniqueness**: Same person can't act twice on same action
-- **District verification**: Only valid district members can participate
-
-The whitelisting model means:
-- New action types require a governance proposal and 7-day community detection window
-- Templates in Communique use pre-whitelisted domains (e.g., `contact_representative`)
-- Unauthorized action domains revert at the contract level, preventing uncontrolled action namespace proliferation
-
-### Audit Checklist
-
-Before production deployment:
-
-- [ ] **Security audit completed** (professional firm)
-- [ ] **Gas costs verified** (300-500k confirmed on testnet)
-- [ ] **100+ test cases passing** (valid + invalid proofs)
-- [ ] **Governance multisig configured** (3/5 or 4/7 signature threshold)
-- [ ] **Guardians configured** (Phase 2: min 2, different legal jurisdictions)
-- [ ] **Shadow Atlas roots verified**
-  - Phase 1: Root matches deployed DistrictRegistry
-  - Phase 2: Epoch roots match ShadowAtlasRegistry + IPFS CID
-- [ ] **Verifier auto-generated** (NOT using MockVerifier)
-- [ ] **Contract ownership transferred** to governance multisig
-
-## Gas Optimization
-
-### Current Optimizations
-
-1. **Immutable registry addresses**: Saves ~2.1k gas per SLOAD
-2. **ReentrancyGuard**: Prevents reentrancy attacks (standard security)
-3. **Via IR compilation**: Enables advanced optimizer features
-
-### Expected Gas Costs (Mainnet)
-
-At typical Scroll L2 gas prices:
-- **Single verification**: ~$0.0047-$0.0511 per verification
-
-Platform subsidizes gas costs (users pay $0).
-
-## Contributing
-
-### Code Style
-
-Run formatter before committing:
+### Verifier Generation
 
 ```bash
-forge fmt
+# Generate HonkVerifier Solidity from compiled Noir circuits
+npx tsx scripts/generate-verifier-sol.ts
 ```
 
-### Testing Requirements
+Uses bb.js `UltraHonkBackend.getSolidityVerifier()` in keccak mode. Do NOT use `bb contract` CLI (incompatible proof format).
 
-All PRs must:
-- Pass all tests: `forge test`
-- Maintain >95% coverage: `forge coverage`
-- Gas costs documented: Include gas profiling for new functions
-- Security reviewed: Flag any new attack vectors
+## Security
+
+- **Proof system**: UltraHonk via @aztec/bb.js (keccak transcript for on-chain, Poseidon2 for off-chain)
+- **MEV protection**: EIP-712 signatures bind proof credit to signer address
+- **Reentrancy**: NullifierRegistry uses OpenZeppelin ReentrancyGuard
+- **Governance**: TimelockGovernance with genesis/seal pattern prevents premature timelock overhead
+- **Rate limiting**: 60s cooldown per nullifier across all actions
 
 ## References
 
-- **Noir Documentation**: https://noir-lang.org/
-- **Barretenberg**: https://github.com/AztecProtocol/barretenberg
-- **Foundry Book**: https://book.getfoundry.sh/
-- **Scroll L2 Docs**: https://docs.scroll.io/
-- **OpenZeppelin Contracts**: https://docs.openzeppelin.com/contracts/
-
-## License
-
-MIT License - See LICENSE file for details
+- [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) — Canonical circuit and contract architecture
+- [REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md) — Three-tree engagement system
+- [Noir Documentation](https://noir-lang.org/)
+- [Foundry Book](https://book.getfoundry.sh/)
+- [Scroll L2 Docs](https://docs.scroll.io/)

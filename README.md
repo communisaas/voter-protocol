@@ -56,12 +56,12 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 ### If You're Technical
 
 **Privacy advocate** who knows surveillance capitalism is the enemy: Privacy through architecture, not promises.
-- **On-chain identity (zero AWS dependency)**: Browser-native Noir/Barretenberg ZK proofs with UltraPlonk. Address never leaves your device. Proof verified on-chain by smart contracts. Aztec ceremony (100K+ participants), production-grade since 2024.
+- **On-chain identity (zero AWS dependency)**: Browser-native Noir/Barretenberg ZK proofs with UltraHonk on Scroll L2. Address never leaves your device. Proof verified on-chain by smart contracts (~2.2M gas, ~$0.01 on Scroll). Aztec ceremony (100K+ participants), production-grade since 2024.
 - **Message delivery (AWS Nitro Enclaves)**: Separate system for congressional CWC API delivery. Address verified in enclave then destroyed. Message content plaintext for congressional offices—privacy protects your identity, not your voice. Enclave attestation proves correct code.
 - **Clear separation**: ZK proof verification = 100% on-chain (zero AWS). Message delivery = Nitro Enclaves (congressional SOAP API requirement). Two different systems with different privacy properties.
 - **Privacy limitation**: Proofs are pseudonymous, not anonymous. Each proof reveals district and authority level, creating an anonymity set of `(district_voters × authority_tier_proportion)`. Small districts (<100 voters at your tier) may have trivial anonymity. See [SECURITY.md](SECURITY.md#privacy-guarantees--limitations) for details and mitigations.
 
-**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon commitments). Optional NEAR chain signatures for cross-chain UX. Noir/Barretenberg proofs with UltraPlonk for district verification (8–15s mobile browser WASM, 300–400k gas, KZG ceremony via Ethereum's 141K-participant setup). Phase 1: Reputation-only. Phase 2: Token economics. See the canonical document carrying the detail.
+**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon2 commitments, two-tree architecture). Noir/Barretenberg proofs with UltraHonk for district verification (8-15s mobile browser WASM, ~2.2M gas on Scroll, KZG ceremony via Ethereum's 141K-participant setup). 10 contracts deployed on Scroll Sepolia with genesis/timelock governance model. Phase 1: Reputation-only. Phase 2: Token economics. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 
 ## Why Now
@@ -88,12 +88,13 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 
 ## Go Deeper
 
-- **[QUICKSTART.md](QUICKSTART.md)** - Non-technical users: Face ID to first reward in 4 minutes
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete technical architecture
-- **[CONGRESSIONAL.md](CONGRESSIONAL.md)** - Legislative staff: Solving the 66% spam problem
-- **[SECURITY.md](SECURITY.md)** - Living threat model: Attack vectors, mitigations, incident response
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Protocol designers: Complete technical architecture
-- **[SOURCES.md](SOURCES.md)** - All academic citations and research backing these claims
+- **[QUICKSTART.md](QUICKSTART.md)** — Non-technical users: Face ID to first reward in 4 minutes
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Protocol designers: Complete technical architecture
+- **[CONGRESSIONAL.md](CONGRESSIONAL.md)** — Legislative staff: Solving the 66% spam problem
+- **[SECURITY.md](SECURITY.md)** — Living threat model: Attack vectors, mitigations, incident response
+- **[SOURCES.md](SOURCES.md)** — All academic citations and research backing these claims
+- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** — Canonical two-tree ZK architecture
+- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement/reputation system
 
 ### How It Works (Phase 1)
 - You prove membership without surrendering identity — cryptography, not permission.
@@ -103,19 +104,21 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 
 ## Repository Structure
 
-**This Repository** (voter-protocol):
-- Strategic vision and technical architecture
-- Smart contract implementations (Solidity)
-- Agent system specifications
-- Economic mechanism designs
+**This Repository** (voter-protocol) — cryptographic backend monorepo:
+- `contracts/` — 10 Solidity contracts (DistrictGate, registries, timelocks) on Scroll L2
+- `packages/crypto` — Poseidon2 hasher (domain-separated H1/H2/H3/H4/sponge) via Noir stdlib
+- `packages/noir-prover` — Two-tree and three-tree Noir circuit provers with UltraHonk backend
+- `packages/shadow-atlas` — Census-based Merkle tree builder, serving API, chain scanner
+- `specs/` — Canonical architecture specs (TWO-TREE-ARCHITECTURE-SPEC, REPUTATION-ARCHITECTURE-SPEC)
 
-**Communique Repository** (Frontend - external repo):
-- User-facing web application
+**Communique Repository** (Frontend — SvelteKit 5):
+- User-facing web application on Cloudflare Pages
 - Template browser and message composition
-- Wallet integration and identity verification
-- No smart contracts (frontend-only)
+- Identity verification (self.xyz NFC passport, didit.me)
+- Browser-side ZK proof generation via `@voter-protocol/noir-prover`
+- Congressional delivery via CWC API (Senate SOAP + House proxy)
 
-**Relationship**: Communique is the interface. VOTER Protocol (this repo) is the blockchain infrastructure Communique interacts with.
+**Relationship**: Communique is the interface. VOTER Protocol (this repo) is the cryptographic and blockchain infrastructure Communique interacts with.
 
 -----
 

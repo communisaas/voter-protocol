@@ -1,5 +1,9 @@
 # Zero-Knowledge Infrastructure
 
+> **SUPERSEDED** — This document describes the pre-two-tree single-circuit architecture.
+> Current architecture: see `specs/TWO-TREE-ARCHITECTURE-SPEC.md` and `specs/REPUTATION-ARCHITECTURE-SPEC.md`.
+> Proof system: UltraHonk/Noir via @aztec/bb.js (not UltraPlonk/Halo2).
+
 **Complete specification for Voter Protocol's browser-native zero-knowledge proving system.**
 
 **Classification**: Technical Architecture
@@ -9,7 +13,7 @@
 > - Main architecture overview: `/ARCHITECTURE.md`
 > - Production deployment details: `/docs/ZK-PRODUCTION-ARCHITECTURE.md`
 > - Noir proving infrastructure: `/docs/NOIR-PROVING-INFRASTRUCTURE.md`
-> - Merkle forest specification: `/docs/operations/MERKLE-FOREST-SPEC.md`
+> - Merkle tree specification: `specs/TWO-TREE-ARCHITECTURE-SPEC.md`
 
 ---
 
@@ -213,7 +217,7 @@ impl DistrictMembershipCircuit {
 | **Hash operations** | 13 (12 Merkle + 1 nullifier) |
 | **Verifier bytecode** | 20,142 bytes |
 | **EIP-170 compliance** | ✅ (18% under 24KB limit) |
-| **Verification gas** | ~300-400k (estimated) |
+| **Verification gas** | ~2.2M (measured on Scroll Sepolia) |
 | **Mobile proving** | 8-15 seconds (estimated) |
 | **WASM memory** | <600MB |
 
@@ -304,7 +308,7 @@ sequenceDiagram
     Note over Chain: MPC network 2-3 sec Threshold signature
     Chain-->>Browser: Signed transaction
     Browser->>Scroll: Submit ZK proof + receipt hashes
-    Scroll->>Scroll: Verify UltraPlonk proof on-chain 300-500K gas
+    Scroll->>Scroll: Verify UltraHonk proof on-chain ~2.2M gas
     Scroll->>Scroll: Record action with receipt hashes
     Scroll-->>Agents: ActionSubmitted event
 
@@ -462,7 +466,7 @@ const tx = await districtGate.verifyAndAuthorizeWithSignature(
 );
 
 // Result: Proof verified, action authorized
-// Gas cost: ~200-300k (ZK verification + registry lookup + nullifier tracking)
+// Gas cost: ~2.2M (UltraHonk verification + registry lookup + nullifier tracking)
 ```
 
 ---
@@ -565,7 +569,7 @@ Spam resistance without authorization:
 - **Proof characteristics**:
   - Proof size: 384-512 bytes (KZG commitments + evaluations)
   - Public inputs: 3 field elements (district_root, nullifier, action_id)
-  - Verification gas: **300-400k gas** on Scroll zkEVM (estimated)
+  - Verification gas: **~2.2M gas** on Scroll zkEVM (measured on Scroll Sepolia)
   - Verifier bytecode: **20,142 bytes** (fits EIP-170 24KB limit with 18% margin)
 
 - **Resource usage**:
@@ -618,5 +622,5 @@ Spam resistance without authorization:
 
 - **Production Architecture**: `/docs/ZK-PRODUCTION-ARCHITECTURE.md` - Detailed security model, governance, and production deployment
 - **Noir Infrastructure**: `/docs/NOIR-PROVING-INFRASTRUCTURE.md` - Noir/Barretenberg proving system details
-- **Merkle Forest**: `/docs/operations/MERKLE-FOREST-SPEC.md` - Multi-boundary composite proofs and tree structure
+- **Two-Tree Architecture**: `specs/TWO-TREE-ARCHITECTURE-SPEC.md` - Two-tree Merkle proof architecture and tree structure
 - **Main Architecture**: `/ARCHITECTURE.md` - Complete protocol overview with all components

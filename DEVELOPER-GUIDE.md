@@ -355,7 +355,7 @@ class NoirProver {
         };
         let { witness } = await this.noir!.execute(noirInputs);
 
-        // 2. Generate UltraPlonk proof with Barretenberg
+        // 2. Generate UltraHonk proof with Barretenberg
         const result = await this.api!.acirProveWithPk({
             circuit: { name: 'district_membership', bytecode: this.bytecode! },
             witness,
@@ -711,7 +711,7 @@ Report vulnerabilities: security@voter-protocol.org
 
 - **Architecture Overview:** [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Noir Circuit Spec:** [docs/specs/NOIR-CIRCUIT-SPEC.md](docs/specs/NOIR-CIRCUIT-SPEC.md)
-- **Shadow Atlas Spec:** [packages/shadow-atlas/docs/specs/MERKLE-FOREST-SPEC.md](packages/shadow-atlas/docs/specs/MERKLE-FOREST-SPEC.md)
+- **Shadow Atlas Spec:** [specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)
 - **API Documentation:** [docs/api/](docs/api/)
 
 **Questions?** Join our [Discord](https://discord.gg/voter-protocol) or email [dev@voter-protocol.org](mailto:dev@voter-protocol.org)

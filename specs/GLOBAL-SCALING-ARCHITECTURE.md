@@ -87,7 +87,7 @@ const boundaries = await provider.resolve(address, coords);
 
 ## Architecture Overview
 
-**Architectural Relationship:** This document specifies boundary data sourcing—how we acquire and normalize governance boundary data from public sources worldwide. For cryptographic tree architecture (Merkle Forest, epoch-based root management, ZK proofs), see MERKLE-FOREST-SPEC.md.
+**Architectural Relationship:** This document specifies boundary data sourcing—how we acquire and normalize governance boundary data from public sources worldwide. For cryptographic tree architecture (two-tree Merkle architecture, epoch-based root management, ZK proofs), see `specs/TWO-TREE-ARCHITECTURE-SPEC.md`.
 
 **Design Principle:** Public data only. Zero commercial API dependency. We build the replacement for Google Civic/Mapbox/Cicero, not a consumer of them.
 
@@ -636,7 +636,7 @@ export class {Country}BoundaryProvider implements BoundaryProvider {
  *
  * NOTE: Provider selection determines data sourcing priority, not runtime API calls.
  * All boundary data is pre-processed into Merkle trees during epoch generation.
- * See MERKLE-FOREST-SPEC.md for epoch-based tree management.
+ * See specs/TWO-TREE-ARCHITECTURE-SPEC.md for epoch-based tree management.
  *
  * Parallel to GeocodingService provider selection
  */
@@ -1461,7 +1461,7 @@ const validated = crossValidator.validate(boundaries[0], osmBoundaries[0]);
 
 ## Open Questions
 
-### Resolved Questions (See MERKLE-FOREST-SPEC.md)
+### Resolved Questions (See specs/TWO-TREE-ARCHITECTURE-SPEC.md)
 
 1. **IPFS Pinning Strategy** → Resolved: Section 6.1
 2. **Versioning Protocol** → Resolved: Epoch-based, Section 5.1

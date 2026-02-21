@@ -118,7 +118,7 @@ The rate limit (60 seconds between actions per nullifier) does NOT prevent this 
 4. Bot gets slot 999, victim gets slot 1000+
 5. Bot sells slot/NFT advantage
 
-**Gas Cost:** ~300k gas per front-run proof verification
+**Gas Cost:** ~2.2M gas per front-run proof verification
 
 **Recommendation:**
 - Implement commit-reveal scheme for ordering-sensitive actions

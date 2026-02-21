@@ -1,7 +1,7 @@
 # VOTER Protocol: Technical Architecture
 
-**Status**: Active development - Phase 1 implementation (Noir/Barretenberg UltraPlonk, reputation-only)
-**Last Updated**: January 2026
+**Status**: Active development - Phase 1 implementation (Noir/Barretenberg UltraHonk, reputation-only)
+**Last Updated**: February 2026
 **Implementation**: Smart contracts in this repo, frontend in Communique repo (external)
 **Core Decisions**: Scroll settlement, Noir/Barretenberg zero-knowledge proofs, Scroll identity registry (on-chain Sybil resistance), no database PII storage, no NEAR dependency
 
@@ -33,6 +33,8 @@ Democratic infrastructure should not ask for permission to protect its citizens.
 - [Template Storage System](#template-storage-system)
 - [Settlement Layer](#settlement-layer)
 - [Phase 2 Features (Deferred)](#phase-2-features-deferred)
+- [Engagement Pipeline](#engagement-pipeline)
+- [Graduated Trust Discovery Model](#graduated-trust-discovery-model)
 - [Complete Civic Action Flow](#complete-civic-action-flow)
 - [Browser-Native Congressional Delivery](#browser-native-congressional-delivery)
 - [Complete User Flow](#complete-user-flow)
@@ -53,11 +55,11 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 ### Phase 1: Cryptographic Infrastructure (Current - 3 Months to Launch)
 
 **What Ships:**
-- Noir/Barretenberg zero-knowledge district proofs (browser-native WASM, UltraPlonk + KZG, 300–500k gas; Aztec ceremony; production-grade since 2024)
+- Noir/Barretenberg zero-knowledge district proofs (browser-native WASM, UltraHonk + keccak mode, ~2.2M gas on Scroll; production-grade since 2024)
 - Addresses never leave browser, never stored in any database
 - Message content encryption from platform operators (XChaCha20-Poly1305, delivered as plaintext to congressional offices via CWC API)
 - Browser-native proving (zero cloud dependency, $0/month infrastructure cost)
-- Cross-chain account abstraction (NEAR Chain Signatures, optional)
+- Cross-chain account abstraction (NEAR Chain Signatures, explored but not in current implementation)
 - On-chain reputation (ERC-8004 portable credibility, no token rewards)
 - 3-layer content moderation (Section 230 compliant)
 - FREE identity verification (self.xyz passport + Didit.me fallback)
@@ -79,10 +81,34 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 - Outcome markets (retroactive funding for legislative impact)
 - Multi-agent treasury (SupplyAgent + MarketAgent for token economics)
 - Privacy pools (optional shielded transactions with association proofs)
+- **Reputation layer** (Three-Tree ZK Engagement — see below)
 
 **Why Delayed:** Token launches require legal compliance (CLARITY Act framework), liquidity infrastructure, economic security audits. Phase 1 proves civic utility before adding financial layer.
 
 > **📋 See [Phase 2 Design Document](docs/roadmap/phase-2-design.md) for complete specifications, implementation roadmap, smart contracts, and cost analysis.**
+
+#### Reputation Layer (Three-Tree Extension)
+
+> **Status:** DESIGN — See [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) for canonical specification.
+
+The two-tree ZK circuit (29 public inputs) is extended with a **third tree** that commits engagement data into the proof. The circuit grows to 31 public inputs, adding `engagement_root` and `engagement_tier`.
+
+**Three-Tree Architecture:**
+- **Tree 1** (User Identity): Unchanged — H4(user_secret, cell_id, registration_salt, authority_level)
+- **Tree 2** (Cell Mapping): Unchanged — H2(cell_id, district_commitment)
+- **Tree 3** (Engagement): NEW — H2(identity_commitment, engagement_data_commitment)
+
+**Anti-Pay-to-Win Guarantees:**
+
+| Dimension | Source | Purchasable |
+|-----------|--------|-------------|
+| authority_level (1-5) | Identity verification (passport/ID/mDL) | No |
+| engagement_tier (0-4) | On-chain nullifier consumption events | No |
+| VOTER token balance | Market/earning | Yes (cannot boost authority or engagement) |
+
+**Privacy:** Only the coarse `engagement_tier` (5 buckets) is a public output. The underlying `action_count` and `diversity_score` are private inputs — no behavioral fingerprint leaks.
+
+**Dual Token Model:** VOTER (ERC-20, transferable) for civic labor compensation + soulbound engagement credential (ERC-8004, non-transferable) mirroring on-chain engagement tier.
 
 ### Phase 3+: Enhanced Privacy (Speculative - 2+ Years, Only If Community Demands)
 
@@ -164,6 +190,8 @@ flowchart TB
 
 ### Layer 1: NEAR Account Creation (Universal Entry Point)
 
+> **Status Note (February 2026):** NEAR Chain Signatures were explored as a cross-chain account abstraction path but are **not in the current implementation**. Phase 1 uses direct Scroll wallet interaction. This section is preserved as architectural context for potential future integration.
+
 **Implicit Account Architecture** - Optional for cross-chain account abstraction:
 - **Account Type**: Implicit accounts (64-character hex addresses)
 - **Creation Time**: Instant (no on-chain transaction required)
@@ -196,7 +224,7 @@ flowchart TB
 - Cost: $0 (free core KYC) + $0.50 (proof of address)
 - Privacy: Issues Verifiable Credential (VC), no PII storage
 
-**Privacy**: Neither provider stores PII on-chain. Identity commitments (Poseidon hash of passport#, nationality, birthYear) registered on Scroll L2 IdentityRegistry.sol for Sybil resistance. PII never stored anywhere.
+**Privacy**: Neither provider stores PII on-chain. Identity commitments (Poseidon hash of passport#, nationality, birthYear) registered on Scroll L2 for Sybil resistance via UserRootRegistry. PII never stored anywhere.
 
 ---
 
@@ -204,9 +232,9 @@ flowchart TB
 
 > **IMPORTANT**: Phase 1 uses on-chain identity commitments for Sybil resistance. NO PII is stored anywhere (not on-chain, not in database, not on NEAR). This is the ONLY identity storage in the system.
 
-**Contract**: `IdentityRegistry.sol` (Solidity/Scroll L2)
+**Contract**: Identity commitments via on-chain registries (Solidity/Scroll L2)
 
-**Purpose**: On-chain Sybil resistance via Poseidon hash commitments.
+**Purpose**: On-chain Sybil resistance via Poseidon hash commitments. Identity commitment logic is embedded in the UserRootRegistry and DistrictGate flows rather than a standalone IdentityRegistry contract.
 
 **Storage Model**:
 - **Identity commitment** → registered status (mapping)
@@ -265,14 +293,14 @@ await tx.wait();
 - ✅ Pre-image resistant (cannot reverse-engineer passport number from hash)
 - ✅ Collision resistant (128-bit security, equivalent to SHA-256)
 
-**Full implementation**: See `/Users/noot/Documents/voter-protocol/contracts/src/IdentityRegistry.sol`
+**Implementation**: Identity commitments are handled via UserRootRegistry (Tree 1 roots) and the H4 leaf construction in the Noir circuit.
 
 ---
 
 ### Layer 4: Universal Account Access
 
 > [!NOTE]
-> NEAR Chain Signatures are NOT included in Phase 1. This is a Phase 2+ capability. See SECURITY.md Section "Phase 1 Reality."
+> NEAR Chain Signatures were explored as a cross-chain account abstraction path but are **not in the current implementation**. Phase 1 uses direct Scroll wallet interaction (MetaMask/WalletConnect). This section is preserved as architectural context. See SECURITY.md Section "Phase 1 Reality."
 
 **Problem**: Users come from different chains. Some have ETH wallets, some hold Bitcoin, some use Solana, many have no wallet at all.
 
@@ -298,14 +326,15 @@ await tx.wait();
 
 **Browser-native zero-knowledge proof system for privacy-preserving district verification.**
 
-The protocol uses Noir/Barretenberg UltraPlonk proofs to verify district membership without revealing addresses. Proofs are generated entirely in-browser using WASM (8-15 seconds on mobile), with no cloud infrastructure required. The two-layer security model combines cryptographic proofs (ZK) with governance-controlled on-chain registry, avoiding "ZK-maximalism" while maintaining strong privacy guarantees.
+The protocol uses Noir/Barretenberg UltraHonk proofs to verify district membership without revealing addresses. Proofs are generated entirely in-browser using WASM (8-15 seconds on mobile), with no cloud infrastructure required. The two-layer security model combines cryptographic proofs (ZK) with governance-controlled on-chain registry, avoiding "ZK-maximalism" while maintaining strong privacy guarantees.
 
 **Key Features**:
 - **Shadow Atlas**: Global Merkle tree registry of electoral districts (IPFS + on-chain roots)
-- **K=14 Circuit**: 20KB verifier fits EIP-170 with 18% margin, mobile-friendly proving
+- **Multi-depth circuits**: Depths 18/20/22/24 supported via VerifierRegistry routing
 - **Dual-Layer Security**: ZK proof + on-chain district registry prevents both cryptographic and governance attacks
 - **Browser-Native**: Zero server-side proving, addresses never leave client
-- **Performance**: 2-5s desktop, 8-15s mobile, 384-512 byte proofs, ~300-400k gas verification
+- **Performance**: 2-5s desktop, 8-15s mobile, ~7,328 byte keccak-mode proofs, ~2.2M gas verification
+- **Public inputs**: Two-tree circuit: 29 public inputs; Three-tree circuit: 31 public inputs
 
 **Complete technical specifications, circuit implementation, performance benchmarks, and security model:**
 - **[/docs/architecture/zk-infrastructure.md](/docs/architecture/zk-infrastructure.md)** - Complete ZK system specification
@@ -343,7 +372,7 @@ FREE tier, no API keys required. Supports 120+ countries with NFC-enabled passpo
 3. Cryptographic verification of passport authenticity
 4. Address extraction from MRZ (Machine Readable Zone)
 5. District lookup via Shadow Atlas
-6. User generates UltraPlonk proof (8-15 seconds, K=14 single-tier)
+6. User generates UltraHonk proof (8-15 seconds, K=14 single-tier)
 7. Proof verified on-chain via DistrictGate.sol (Scroll L2)
 8. Verified status recorded (one passport = one account)
 
@@ -367,7 +396,7 @@ FREE Core KYC tier for non-passport users (estimated 30% of US population doesn'
 
 **One Verified Identity = One Account**
 
-Cryptographic binding stored in Scroll Identity Registry (Poseidon hash).
+Cryptographic binding stored in Scroll on-chain registries (Poseidon hash commitments in UserRootRegistry).
 
 **Attack Vectors & Mitigations:**
 - **Stolen passports/IDs:** Liveness detection (Face ID, blink detection) prevents photo attacks
@@ -462,7 +491,7 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 
 ## Template Storage System
 
-### PostgreSQL (Supabase) - Primary Storage
+### PostgreSQL (pgvector/Prisma) - Primary Storage
 
 **Schema**: Templates, template_usage, challenges tables with full-text search, tag filtering, and GIN indexes.
 
@@ -495,16 +524,19 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 
 **Contracts Deployed**:
 
-**Phase 1 Contracts** (launching in 3 months):
-- `DistrictGate.sol` - Master verification (two-step: UltraPlonk proof + registry lookup)
-- `DistrictRegistry.sol` - District root → country mapping (multi-sig governed)
-- `UltraPlonkVerifier.sol` - K=14 single-tier circuit verifier (20,142 bytes, 18% under EIP-170)
-- `NullifierRegistry.sol` - Action-scoped nullifier tracking (prevents double-voting)
-- `IdentityRegistry.sol` - On-chain Sybil resistance via identity commitments
-- `CommuniqueCoreV2.sol` - Civic action orchestration
-- `UnifiedRegistry.sol` - Action/reputation registry
-- `ReputationRegistry.sol` - ERC-8004 portable credibility
-- `AgentConsensus.sol` - Multi-agent coordination (VerificationAgent, ReputationAgent, ImpactAgent only)
+**Phase 1 Contracts** (10-contract stack, deployed on Scroll Sepolia):
+- `DistrictGate.sol` - Proof verification orchestrator (two-tree 29 inputs, three-tree 31 inputs)
+- `VerifierRegistry.sol` - Depth→HonkVerifier routing, genesis+seal model
+- `DistrictRegistry.sol` - District root→country mapping with lifecycle
+- `NullifierRegistry.sol` - Action-scoped nullifier tracking, 60s rate limit
+- `CampaignRegistry.sol` - Civic campaign coordination and participation
+- `UserRootRegistry.sol` - Tree 1 (user identity) Merkle roots
+- `CellMapRegistry.sol` - Tree 2 (cell-district SMT) roots
+- `EngagementRootRegistry.sol` - Tree 3 (engagement) Merkle roots
+- `TimelockGovernance.sol` - Abstract base: 7-day governance transfers
+- `GuardianShield.sol` - Abstract base: multi-jurisdiction veto (Phase 2)
+
+**Three-Tree Deployment Note:** The three-tree `DistrictGate.verifyThreeTreeProof()` entry point emits a `ThreeTreeProofVerified` event with the signature `ThreeTreeProofVerified(address indexed signer, address indexed submitter, bytes32 indexed userRoot, bytes32 cellMapRoot, bytes32 engagementRoot, bytes32 nullifier, bytes32 actionDomain, bytes32 authorityLevel, uint8 engagementTier, uint8 verifierDepth)`. A `uint8 actionCategory` field is **planned for a future deployment** to enable trustless category observation from chain events, replacing the server-side `ActionCategoryRegistry` JSON file for diversity score computation. Until then, category resolution remains server-side.
 
 **Phase 2 Contracts** (12-18 months):
 - `VOTERToken.sol` - ERC-20 token for economic incentives
@@ -518,11 +550,11 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 **Complete contract specifications, deployment strategy, gas costs, and integration points:**
 - **[/docs/architecture/smart-contracts.md](/docs/architecture/smart-contracts.md)** - Complete smart contract architecture
 
-**Cost per Action** (Scroll):
-- ZK proof verification: ~250K gas
-- `submitAction` call: ~150K gas
-- Storage updates: ~50K gas
-- **Total**: Typical on‑chain verification on Scroll: **< $0.01/action** (as of 2025‑11‑15); defer specifics to the canonical costs section
+**Cost per Action** (Scroll — measured February 2026):
+- Proof verification gas: ~2,200,000 (measured on Scroll Sepolia TX `0xc6ef86a3cf2c3d09f52150b5fce81debc9dc3ff29b15b5958ba749f5a1a9da64`)
+- L1 data fee dominates: ~$0.008 vs L2 execution ~$0.002
+- **Total cost per proof: $0.01-0.03** at current rates
+- Scale: 1,000 proofs/day = $10-30/day ($3,650-11,000/year)
 
 **Who Pays Transaction Costs**:
 - **Initially**: Protocol treasury may sponsor ZK verification costs
@@ -589,6 +621,203 @@ Users can challenge verifiable claims in templates by staking VOTER tokens (100-
 
 ---
 
+## Engagement Pipeline
+
+> **Status:** IMPLEMENTED — Chain scanner, engagement tree builder, and engagement service are operational in Shadow Atlas. Auto-registration wired in communique submission flow.
+>
+> **Spec Reference:** [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) Sections 3, 4, 9
+
+The engagement pipeline derives Tree 3 (engagement) state from on-chain proof verification events. It is fully automated: once a user registers for engagement tracking, their metrics update without operator intervention.
+
+### Data Flow
+
+```
+┌──────────────┐     ┌──────────────┐     ┌───────────────────┐     ┌──────────────────┐
+│  DistrictGate│     │ Chain Scanner│     │ EngagementTree    │     │ Engagement       │
+│  (on-chain)  │────>│ (eth_getLogs)│────>│ Builder           │────>│ Service (Tree 3) │
+└──────────────┘     └──────────────┘     └───────────────────┘     └──────────────────┘
+      │                    │                       │                         │
+      │ TwoTreeProof       │ NullifierEvent[]      │ EngagementEntry[]       │ Update leaf
+      │ Verified (event)   │ (signer, nullifier,   │ (IC, tier, counts)      │ in-place
+      │                    │  actionDomain, block)  │                         │ (UPSERT)
+      │                    │                       │                         │
+      │ ThreeTreeProof     │ Cursor persisted      │ Dedup by nullifier      │ WAL before
+      │ Verified (event)   │ (JSON file)           │ Group by signer         │ tree mutation
+      │                    │                       │ Resolve categories      │
+```
+
+### Chain Scanner
+
+Service: `packages/shadow-atlas/src/serving/chain-scanner.ts`
+
+The chain scanner bridges on-chain state to the engagement pipeline. It polls DistrictGate contract events via raw `eth_getLogs` JSON-RPC calls -- no viem or ethers dependency.
+
+**Design properties:**
+- **Cursor persistence**: Last processed block stored as a JSON file. Survives restarts without reprocessing.
+- **Chunked backfill**: Processes blocks in configurable ranges (default 2000) to avoid RPC timeouts on initial sync.
+- **Reorg handling**: Skips `removed: true` log entries, preventing reverted transactions from polluting engagement state.
+- **Deduplication**: Tracks `txHash:logIndex` pairs in a bounded set (100K entries, LRU eviction) to prevent double-counting.
+- **Lifecycle**: Optional service, enabled only when `CHAIN_RPC_URL` + `DISTRICT_GATE_ADDRESS` environment variables are set. Integrates with the serve command's graceful shutdown (cursor persisted on SIGTERM).
+
+**Threat model:**
+- RPC endpoint lies about events: Mitigated by using an L2 with finality guarantees. Chain scanner trusts the RPC provider -- same trust assumption as any indexer. Cross-referencing multiple RPCs is a Phase 2 hardening.
+- RPC endpoint goes offline: Scanner retries on next poll interval. No data loss because cursor only advances after successful processing.
+- Large reorg: Events with `removed: true` are skipped. Stale engagement metrics self-correct on next successful poll cycle because metrics are recomputed from all non-removed events.
+
+### Engagement Tree Builder
+
+Service: `packages/shadow-atlas/src/engagement-tree-builder.ts`
+
+Stateless transformation: takes `NullifierEvent[]` from the chain scanner and produces `EngagementEntry[]` for the engagement service. Per-signer metrics:
+
+| Metric | Derivation | Privacy |
+|--------|------------|---------|
+| `actionCount` | Distinct nullifiers per signer (deduped) | Private input in circuit |
+| `diversityScore` | Shannon diversity index H, encoded as `floor(H × 1000)`, range [0, 1609] | Private input in circuit |
+| `tenureMonths` | `floor((refTime - firstEvent) / 30 days)` | Private input in circuit |
+| `tier` | `deriveTier(actionCount, diversityScore, tenureMonths)` via composite score E | Public output (0-4) |
+
+**Category resolution:** Action domains are keccak256 hashes with no structured prefix byte. Categories are resolved via an `ActionCategoryRegistry` -- a server-side JSON map from action domain hash to category (1-5), loaded at startup from `ACTION_CATEGORY_REGISTRY` env var. Without it, `diversityScore` falls to 0 for all signers (safe degradation, not failure).
+
+### Auto-Registration
+
+After proof submission in communique, a fire-and-forget `POST /v1/engagement/register` call registers the user for engagement tracking using their existing `wallet_address` and `identity_commitment` from the User model.
+
+**Properties:**
+- **Idempotent**: Handles `400 IDENTITY_ALREADY_REGISTERED` gracefully -- no error surfaced to user.
+- **Privacy-safe**: No new information enters or exits the system. Both `wallet_address` and `identity_commitment` are already known to the communique server from the original registration.
+- **Fire-and-forget**: Failure does not block proof submission. Registration can be retried on next action.
+
+### Configuration
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `CHAIN_RPC_URL` | For scanner | -- | JSON-RPC endpoint (e.g., `https://sepolia-rpc.scroll.io`) |
+| `DISTRICT_GATE_ADDRESS` | For scanner | -- | DistrictGate contract address |
+| `CHAIN_START_BLOCK` | No | `0` | Block to begin backfill from |
+| `CHAIN_POLL_INTERVAL_MS` | No | `30000` | Polling interval (ms) |
+| `ACTION_CATEGORY_REGISTRY` | No | -- | JSON file: `{"0xhash": 1, ...}` |
+
+---
+
+## Graduated Trust Discovery Model
+
+The protocol is present at every level of civic action. Discovery, message crafting, and delivery operate across three trust tiers — from anonymous visitors to fully ZK-verified participants. The GAP between trust levels is itself a coordination signal: when thousands care enough to act anonymously but hundreds go through verification, that ratio tells congressional offices something no petition count ever could.
+
+### Level 1: Unverified (No Authentication)
+
+Available to any visitor. Uses public data sources with negligible compute cost. **The protocol tracks anonymous event counts** — not identities, but the fact that an action occurred against a specific action domain.
+
+```
+User Input                    Level 1 Pipeline                       Output
+──────────                    ────────────────                       ──────
+"I care about               ┌─────────────────┐
+ housing policy"  ──────>   │ Subject Line     │
+                            │ Generation       │
+                            │ (template LLM)   │
+                            └────────┬────────┘
+                                     │
+                            ┌────────v────────┐
+                            │ Core Message     │
+                            │ Construction     │
+                            └────────┬────────┘
+                                     │
+                  ┌─────────────────┐│┌──────────────────┐
+                  │ Anonymous Event ││││ mailto: links    │
+                  │ Counter         │←┘│ + decision-maker │
+                  │ (server-side,   │  │  contact info    │
+                  │  no identity)   │  └──────────────────┘
+                  └────────┬────────┘
+                           │
+                  ┌────────v────────┐
+                  │ Coordination    │
+                  │ Signal Layer    │
+                  │ (aggregate only)│
+                  └─────────────────┘
+```
+
+**What's tracked**: Action domain hash → anonymous counter. No IP, no session, no fingerprint. The counter increments when a user clicks "send" on a mailto: link. This is not behavioral surveillance — it's the minimum viable signal that civic intention exists.
+
+**Data sources**: Census geocoding API (public), congressional directory (public), state legislature directories (public). All lookups are deterministic and cacheable.
+
+**Privacy**: No account required. No PII stored. Geocoding is ephemeral. Anonymous counters are keyed by action domain (which encodes jurisdiction + template + session), not by user.
+
+**Why track at Level 1**: A platform where free-tier actions are invisible to the protocol cannot distinguish signal from noise. If 10,000 people generate mailto: links for a housing bill but only 200 verify, that 50:1 ratio IS the coordination signal — it tells decision-makers the sentiment is broad, not manufactured. Zero protocol involvement at the free tier discards this information.
+
+### Level 2: Wallet-Bound (Authentication Required)
+
+Unlocked after wallet connection. Actions are linked to a pseudonymous wallet address via signed attestation, but not yet ZK-verified. This tier gates expensive compute (agent inference, personalized messaging) behind authentication.
+
+```
+Level 2 Pipeline
+─────────────────
+
+┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│ Deep Discovery   │────>│ Agent-Crafted    │────>│ Signed Action    │
+│ Network          │     │ Messages          │     │ Attestation      │
+│ (multi-agent     │     │ (personalized,   │     │ (wallet-bound,   │
+│  inference)      │     │  context-aware)   │     │  not yet on-chain│
+└─────────────────┘     └──────────────────┘     └────────┬─────────┘
+                                                           │
+                                                  ┌────────v─────────┐
+                                                  │ Engagement       │
+                                                  │ Pre-registration │
+                                                  │ (identity map)   │
+                                                  └──────────────────┘
+```
+
+**What's tracked**: Wallet address → action attestation (signed, timestamped). The wallet is pseudonymous — it reveals nothing about the person behind it. Attestations feed the identity map that later enables ZK engagement tracking.
+
+**Cost boundary aligns with compute boundary**: Public data lookups are cheap (Level 1). Agent inference, personalized message crafting, and cross-jurisdiction coalition detection are expensive (Level 2). Authentication gates the expensive operations, not the basic ones.
+
+### Level 3: ZK-Verified (Identity Verification + On-Chain Proof)
+
+Unlocked after identity verification (self.xyz / didit). This is where the protocol's full privacy infrastructure activates — browser-native proof generation, on-chain verification, nullifier-based Sybil resistance.
+
+```
+Level 3 Pipeline
+─────────────────
+
+┌─────────────────┐     ┌──────────────────┐     ┌────────────────────┐
+│ Deep Discovery   │────>│ Agent-Crafted    │────>│ ZK Proof           │
+│ Network          │     │ Messages          │     │ Generation         │
+│ (multi-agent     │     │ (personalized,   │     │ (browser WASM)     │
+│  inference)      │     │  context-aware)   │     │                    │
+└─────────────────┘     └──────────────────┘     └─────────┬──────────┘
+                                                            │
+┌─────────────────┐     ┌──────────────────┐     ┌─────────v──────────┐
+│ Cross-Jurisdiction│<──│ Coalition         │<──│ Shadow Atlas        │
+│ Impact Tracking   │   │ Detection         │   │ Registration        │
+│ (reputation)      │   │ (shared targets)  │   │ + Engagement Track  │
+└─────────────────┘     └──────────────────┘     └────────────────────┘
+```
+
+**What's tracked**: On-chain nullifier consumption events → engagement metrics → tier derivation. Full ZK privacy: address never leaves browser, proof generation client-side, nullifier prevents double-action per domain.
+
+**Privacy boundary**: Level 1 reveals nothing beyond what a user types into a text box. Level 2 links actions to a pseudonymous wallet (no real-world identity). Level 3 operates under full ZK privacy guarantees — proof generation in browser, address never transmitted, nullifier-based Sybil resistance.
+
+### The Coordination Signal
+
+The graduated trust model produces a signal that no single tier can generate alone:
+
+```
+                    Level 1          Level 2          Level 3
+                    (Unverified)     (Wallet-Bound)   (ZK-Verified)
+                    ─────────────    ──────────────   ─────────────
+Housing Bill HR-42  12,847 clicks    1,203 attested   847 proofs
+Climate Act S-15    3,201 clicks     892 attested     601 proofs
+Education HB-7      45,000 clicks   127 attested      23 proofs
+```
+
+Congressional offices receiving these signals can distinguish:
+- **Broad organic sentiment** (HR-42): High ratio across all levels. Real people, graduating through trust.
+- **Deep conviction** (S-15): Moderate volume but high conversion to ZK-verified. Committed constituency.
+- **Astroturf signature** (HB-7): Massive Level 1 volume with near-zero conversion. Anonymous clicks are cheap; maintaining verified identities for months is not.
+
+The ratio `Level3 / Level1` is the **coordination authenticity index** — a metric that improves with every user who graduates through the trust levels. This is what makes the graduated model strictly superior to a binary authenticated/unauthenticated split.
+
+---
+
 ## Complete Civic Action Flow
 
 ### Browser-Native ZK Proving & Encrypted Delivery
@@ -643,7 +872,7 @@ See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs
 ### AWS Nitro Enclaves Processing
 
 **AWS Dependency Boundary:**
-- **On-chain identity** (NO AWS): UltraPlonk proofs generated 100% in browser, addresses never leave device
+- **On-chain identity** (NO AWS): UltraHonk proofs generated 100% in browser, addresses never leave device
 - **Message delivery** (AWS Nitro REQUIRED): E2E encryption maintained, moderation inside isolated enclave
 
 **Plaintext Message Content Visible Only In:**
@@ -751,7 +980,7 @@ See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs
 ### Month 2: ZK Infrastructure
 
 - [ ] Shadow Atlas compiler (district trees, 12 levels each)
-- [ ] Noir/Barretenberg circuit (K=14 single-tier, 20,142 bytes)
+- [ ] Noir/Barretenberg circuit (depths 18/20/22/24, UltraHonk keccak mode)
 - [ ] KZG parameters via Ethereum ceremony (no custom trusted setup)
 - [ ] Browser WASM prover (2-8 seconds mobile proving)
 - [ ] Client-side proof generation library
@@ -761,11 +990,11 @@ See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs
 - [ ] Deploy contracts to Scroll testnet
 - [ ] DistrictGate.sol deployment (two-step verification)
 - [ ] DistrictRegistry.sol deployment (multi-sig governed mapping)
-- [ ] UltraPlonkVerifier.sol deployment (K=14, 20,142 bytes)
-- [ ] NullifierRegistry.sol deployment (action-scoped nullifiers)
-- [ ] IdentityRegistry.sol deployment (Sybil resistance)
-- [ ] CommuniqueCoreV2.sol + UnifiedRegistry.sol + ReputationRegistry.sol
-- [ ] AgentConsensus.sol (VerificationAgent, ReputationAgent, ImpactAgent)
+- [ ] HonkVerifier deployment (depths 18/20/22/24 via VerifierRegistry)
+- [ ] NullifierRegistry.sol deployment (action-scoped nullifiers, 60s rate limit)
+- [ ] UserRootRegistry.sol + CellMapRegistry.sol + EngagementRootRegistry.sol
+- [ ] CampaignRegistry.sol (civic campaign coordination)
+- [ ] VerifierRegistry.sol (genesis+seal, depth routing)
 
 ### Month 4: Information Quality Infrastructure
 
@@ -795,8 +1024,8 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#implementation-road
 
 ### Month 7: Security & Audit
 
-- [ ] Smart contract audit (DistrictGate, CommuniqueCoreV2, UnifiedRegistry)
-- [ ] Noir circuit audit (K=14, Axiom Noir stdlib integration, 20,142 byte verifier)
+- [ ] Smart contract audit (DistrictGate, VerifierRegistry, NullifierRegistry, root registries)
+- [ ] Noir circuit audit (two-tree 29 inputs, three-tree 31 inputs, HonkVerifier)
 - [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity)
 - [ ] Content moderation audit (3-layer stack compliance)
 - [ ] AWS Nitro Enclave security review (attestation verification, enclave code audit)
@@ -814,17 +1043,17 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#implementation-road
 
 **Noir/Barretenberg Proof Generation:**
 - Browser-side proving: $0 (client-side computation)
-- On-chain verification: < $0.01 (Scroll L2 gas)
-- Nullifier storage: < $0.01 (state update)
-- **Total: < $0.02/user one-time**
+- On-chain verification: $0.01-0.03 (Scroll L2 gas, ~2.2M gas)
+- Nullifier storage: included in verification TX
+- **Total: $0.01-0.03/user one-time**
 
 ### Per Civic Action
 
-**UltraPlonk Proof Verification**:
-- ZK proof verification: ~300-400k gas ≈ $0.003-$0.01
-- Registry lookup: ~2.1k gas ≈ $0.00002
-- Nullifier recording: ~22k gas ≈ $0.0002
-- **Total: < $0.01/action**
+**UltraHonk Proof Verification** (measured on Scroll Sepolia, February 2026):
+- Proof verification: ~2,200,000 gas (measured TX `0xc6ef86a3...`)
+- L1 data fee: ~$0.008 (dominates total cost)
+- L2 execution fee: ~$0.002
+- **Total: $0.01-0.03/action** at current rates
 
 **Congressional Delivery**:
 - CWC API: $0 (federal government API)
@@ -846,7 +1075,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#cost-analysis) for:
 **Phase 1 Infrastructure**:
 - AWS Nitro Enclaves: $36,600/year (E2E encryption + moderation)
 - Scroll L2 batch logging: $5,400/year (hourly merkle roots)
-- PostgreSQL (Supabase Pro): $300/year
+- PostgreSQL (pgvector/Prisma): $300/year
 - Shadow Atlas IPFS pinning: $60/year
 - Domain + SSL: $240/year
 - Monitoring: $600/year
@@ -886,7 +1115,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#cost-analysis) for:
 > **PHASED DEPLOYMENT**
 >
 > **Phase 1 Agents (Launching in 3 months)**:
-> - **VerificationAgent**: Validates civic actions, UltraPlonk proofs, identity verification
+> - **VerificationAgent**: Validates civic actions, UltraHonk proofs, identity verification
 > - **ReputationAgent**: Multi-dimensional credibility scoring (reputation-only, no tokens)
 > - **ImpactAgent**: Tracks template adoption and legislative correlation (reputation rewards)
 >
@@ -921,7 +1150,7 @@ Five specialized agents optimize protocol parameters within cryptographically-en
 **Purpose**: Validate civic actions before consensus
 
 **Validation Checks**:
-1. ZK proof validity (UltraPlonk district membership)
+1. ZK proof validity (UltraHonk district membership)
 2. Identity verification status (self.xyz/Didit.me)
 3. CWC delivery receipt confirmation
 4. Duplicate detection
@@ -1014,7 +1243,7 @@ consensus_weights = {
   - 99% cost reduction from batch aggregation
 
 **Infrastructure**:
-- PostgreSQL (Supabase Pro): $25/month
+- PostgreSQL (pgvector/Prisma): $25/month
 - Browser-Native ZK Proving: $0/month
 - Shadow Atlas IPFS Pinning: $5/month
 - Domain + SSL: $20/month
@@ -1025,8 +1254,8 @@ consensus_weights = {
 ### Per-User Costs (Marginal)
 
 **Identity Verification**: $0/user (self.xyz + Didit.me FREE tiers)
-**Proof Generation**: < $0.02/user one-time
-**Civic Actions**: < $0.02/action
+**Proof Generation**: $0.01-0.03/user one-time
+**Civic Actions**: $0.01-0.03/action
 **Reputation Updates**: < $0.01/update
 
 ### Annual Costs at Scale
@@ -1075,11 +1304,11 @@ consensus_weights = {
 ## Critical Integration Points
 
 **Phase 1 Integration Points** (launching in 3 months):
-1. **UltraPlonk + KZG (Browser-Native WASM)** → Zero-knowledge district verification
+1. **UltraHonk + keccak mode (Browser-Native WASM)** → Zero-knowledge district verification
 2. **self.xyz + Didit.me** → FREE identity verification
 3. **AWS Nitro Enclaves** → E2E encryption with moderation
-4. **PostgreSQL (Supabase)** → Template storage, encrypted PII
-5. **Scroll L2** → zkEVM settlement (~$0.02/action)
+4. **PostgreSQL (pgvector/Prisma)** → Template storage, encrypted PII
+5. **Scroll L2** → zkEVM settlement ($0.01-0.03/proof, ~2.2M gas)
 6. **Congressional CWC API** → Federal delivery from Nitro Enclave
 
 **Phase 2 Integration Points** (12-18 months):
@@ -1122,16 +1351,27 @@ consensus_weights = {
 
 **Result**: ARCHITECTURE.md now accurately reflects Phase 1 launch plan while preserving complete Phase 2 vision.
 
+### February 2026: Engagement Pipeline + Discovery Model
+
+**Changes Made**:
+- Added Engagement Pipeline section: chain scanner, engagement tree builder, auto-registration, configuration
+- Replaced Two-Tier Discovery Model with Graduated Trust Discovery Model: three trust levels (unverified → wallet-bound → ZK-verified) where the protocol is present at every level. Anonymous event counters at Level 1, signed attestations at Level 2, full ZK proofs at Level 3. The ratio between levels produces the coordination authenticity index.
+- Added three-tree deployment note with actual event signature; actionCategory marked as planned future addition
+- Updated cross-references to REPUTATION-ARCHITECTURE-SPEC.md
+
 ---
 
-### Costs & Gas (Canonical)
+### Costs & Gas (Canonical — February 2026)
 
-- Typical on‑chain verification on Scroll: < $0.01; conservative range $0.0001–$0.005 (as of 2025‑11‑15)
+- Proof verification gas: ~2,200,000 (measured on Scroll Sepolia TX `0xc6ef86a3...`)
+- L1 data fee dominates: ~$0.008 vs L2 execution ~$0.002
+- Total cost per proof: $0.01-0.03 at current rates
+- Scale: 1,000 proofs/day = $10-30/day ($3,650-11,000/year)
 
 ---
 
 *This is a living document. Update as architecture evolves.*
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
 **Status**: Production architecture reference
-**Next Review**: After Month 1 implementation
+**Next Review**: After three-tree mainnet deployment

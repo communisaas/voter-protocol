@@ -1,6 +1,6 @@
 # Security: Living Threat Model & Response Protocol
 
-**This document evolves with the threat landscape. Last updated: 2026-02-01**
+**This document evolves with the threat landscape. Last updated: 2026-02-20**
 
 ## Recent Updates
 
@@ -158,7 +158,7 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 
 ## Cryptographic Guarantees & Attack Surfaces
 
-### Zero-Knowledge District Verification (Phase 1: Noir/UltraPlonk)
+### Zero-Knowledge District Verification (Phase 1: Noir/UltraHonk)
 
 **Security claim:** Address → district proof reveals only district hash, mathematically impossible to reverse-engineer address. Address never leaves browser, never stored in any database.
 
@@ -327,7 +327,7 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 5. **Provider API key compromise** - Attacker forges verification proofs via stolen API keys
    - *Mitigation*: Cryptographic signatures (verification proofs signed by provider private key)
-   - *On-chain verification*: DistrictGate.sol verifies EIP‑712 signatures and UltraPlonk proofs via UltraVerifier.sol before accepting proofs
+   - *On-chain verification*: DistrictGate.sol verifies EIP‑712 signatures and UltraHonk proofs via HonkVerifier.sol before accepting proofs
    - *Key rotation*: self.xyz + Didit.me rotate signing keys quarterly
    - *Incident response**: If API key compromised, emergency key rotation + invalidate all proofs from compromised period
 
@@ -341,28 +341,6 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 - **If Sybil cluster found**: Slash reputation to zero, publish transparency report (no PII)
 
 ---
-
-### NEAR Chain Signatures (Phase 2 Optional: Threshold ECDSA)
-
-> **⚠️ NOT INCLUDED IN PHASE 1**: NEAR dependency eliminated. Phase 1 uses direct wallet connections (MetaMask, WalletConnect) on Scroll L2. Chain Signatures may be added in Phase 2+ for optional multi-chain expansion.
-
-**Security claim:** No single node sees complete private key. Requires 2/3 NEAR validator collusion to extract keys.
-
-**Attack vectors:**
-1. **MPC protocol break** - Reconstruct private key from signature shares
-   - *Mitigation*: Battle-tested Gennaro-Goldfeder protocol (used by Fireblocks, ZenGo)
-   - *Status*: Production-grade since 2023, no known breaks
-
-2. **Validator set takeover** - Compromise 2/3 of NEAR validators
-   - *Mitigation*: NEAR's 300+ validators across jurisdictions, Sybil-resistant staking
-   - *Status*: Would require $500M+ attack (stake + coordination costs)
-
-3. **~~Passkey phishing~~** - **Phase 1 uses self.xyz/Didit.me (not passkeys)**
-   - *Phase 2 consideration*: If NEAR integration added, transaction preview UI prevents blind signing
-
-**Incident response (Phase 2 only):**
-- **If MPC broken**: Immediate key rotation, migrate all user funds to new addresses
-- **If validator compromise**: NEAR protocol-level response, outside VOTER control
 
 ### Message Content Encryption from Platform Operators via AWS Nitro Enclaves [PLANNED - Phase 2]
 
@@ -570,75 +548,6 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 -----
 
-## Smart Contract Security
-
-### Current Mitigations
-
-**Code quality:**
-- OpenZeppelin libraries for all standard patterns (ERC-20, access control)
-- Formal verification for critical contracts (challenge markets, reputation registry)
-- External audits: Trail of Bits (Q1 2025), Quantstamp (Q2 2025)
-
-**Governance safeguards:**
-- Multi-sig treasury: 5-of-9 signers, geographically distributed
-- Timelock: 72 hours before governance changes execute
-- Emergency pause: Any 3 signers can freeze contracts if exploit detected
-
-**Bug bounties:**
-- Critical (treasury drain, privacy break): $100k - $500k
-- High (reputation manipulation, oracle exploits): $10k - $50k
-- Medium (DoS, gas griefing): $1k - $10k
-- Program managed through Immunefi
-
-### Known Attack Patterns
-
-**Reentrancy:**
-- *Status*: Mitigated via OpenZeppelin ReentrancyGuard on all external calls
-- *Last audit*: 2025-01-20, zero findings
-
-**Integer overflow/underflow:**
-- *Status*: Solidity 0.8+ automatic checks, explicit SafeMath where required
-- *Last audit*: 2025-01-20, zero findings
-
-**Front-running:**
-- *Status*: Challenge markets use commit-reveal scheme (2-block delay)
-- *Last audit*: 2025-01-20, 1 medium finding (fixed)
-
-**Governance attacks:**
-- *Status*: 72-hour timelock + multi-sig prevents single-actor takeover
-- *Scenario tested*: Simulated 30% token holder attempting malicious proposal (rejected via multi-sig)
-
-### Incident Response (Smart Contract Exploit)
-
-**Detection:**
-1. On-chain monitoring alerts (Forta network sensors)
-2. Community reports via security@voter-protocol.org
-3. Automated anomaly detection (unusual token movements)
-
-**Response stages:**
-
-**Stage 1: Freeze (0-30 minutes)**
-- Any 3 multi-sig signers trigger emergency pause
-- All transfers frozen, agent decisions halted
-- Public incident announcement (Twitter, Discord, status page)
-
-**Stage 2: Assessment (30 minutes - 6 hours)**
-- Security team analyzes exploit vector
-- Quantify losses (affected wallets, token amounts)
-- Determine if fix requires contract upgrade or configuration change
-
-**Stage 3: Remediation (6-48 hours)**
-- Deploy patched contracts if needed
-- Restore affected user balances via snapshot
-- Resume operations after multi-sig approval
-
-**Stage 4: Transparency (48 hours - 1 week)**
-- Publish detailed post-mortem (exploit vector, timeline, fix)
-- Compensate affected users (100% reimbursement + 10% bonus)
-- Update audit requirements based on lessons learned
-
------
-
 ## Agent Security
 
 ### Multi-Agent Consensus Vulnerabilities
@@ -677,15 +586,22 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 ### What ZK Proofs Reveal
 
-VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals public outputs that enable verification while narrowing the anonymity set:
+VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals public inputs that enable verification while narrowing the anonymity set.
 
-| Public Output | Purpose | Privacy Impact |
-|---------------|---------|----------------|
-| `merkle_root` | District tree membership | Links proof to specific district snapshot |
-| `nullifier` | Double-participation prevention | Unique per user+campaign (not linkable across different campaigns) |
-| `authority_hash` | Authority level/tier verification | Narrows anonymity set by authority level |
-| `epoch_id` | Temporal binding | Links to specific time period |
-| `campaign_id` | Campaign context | Binds proof to specific campaign/action |
+**Two-tree path (current): 29 public inputs.** Key privacy-relevant fields:
+
+| Public Input | Index | Purpose | Privacy Impact |
+|-------------|-------|---------|----------------|
+| `user_root` | 0 | User tree membership | Links proof to specific user tree snapshot |
+| `cell_map_root` | 1 | Cell map tree membership | Links proof to geographic cell assignment |
+| `districts[0..23]` | 2-25 | 24-slot district commitments | Reveals district membership for active slots |
+| `nullifier` | 26 | Double-participation prevention | Unique per user+action_domain (not linkable across different actions) |
+| `action_domain` | 27 | Action type binding | Binds proof to specific action context |
+| `authority_level` | 28 | Authority level/tier verification | Narrows anonymity set by authority level |
+
+**Three-tree path (planned): 31 public inputs** (adds `engagement_root` at index 29 and `engagement_tier` at index 30). See `specs/REPUTATION-ARCHITECTURE-SPEC.md` for the engagement/reputation extension.
+
+> For the complete public input field list and ordering, see `specs/TWO-TREE-ARCHITECTURE-SPEC.md` Section 7.
 
 **What remains hidden:**
 - Exact address (only Merkle membership proven)
@@ -758,20 +674,24 @@ The following enhancements are planned for future protocol versions to improve a
 
 ### Technical Implementation Notes
 
-The anonymity set limitations stem from the circuit's public output design (see [DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md](/specs/DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md)):
+The anonymity set limitations stem from the circuit's public input design. The two-tree circuit exposes 29 public inputs (see [TWO-TREE-ARCHITECTURE-SPEC.md](/specs/TWO-TREE-ARCHITECTURE-SPEC.md)):
 
 ```
-Public outputs: (merkle_root, nullifier, authority_hash, epoch_id, campaign_id)
+Public inputs (29): user_root, cell_map_root, districts[24], nullifier, action_domain, authority_level
 ```
 
-- `merkle_root` identifies the district tree, effectively revealing district membership
-- `authority_hash` encodes the user's authority level for tier-based access control
+- `user_root` and `cell_map_root` identify the tree snapshots, effectively revealing which registration cohort the user belongs to
+- `districts[0..23]` reveal district commitments for each registered slot (zero-padded for unused slots)
+- `authority_level` encodes the user's authority level for tier-based access control
 - These are necessary for the protocol's verification guarantees
 
 **Why not hide these values?**
-- `merkle_root`: Required to verify proof against correct district tree on-chain
-- `authority_hash`: Required for campaigns that enforce minimum authority levels
+- `user_root`/`cell_map_root`: Required to verify proof against correct on-chain tree roots
+- `districts`: Required for callers to check if the prover belongs to a specific governance boundary
+- `authority_level`: Required for campaigns that enforce minimum authority levels
 - Hiding these would require recursive proofs (significant performance cost) or eliminate tier-based features
+
+> **Note:** The three-tree extension adds `engagement_root` and `engagement_tier` (31 total public inputs). See `specs/REPUTATION-ARCHITECTURE-SPEC.md`.
 
 ### Honest Assessment
 
@@ -856,20 +776,16 @@ Users should understand these trade-offs before participating. If your threat mo
 ### Key Management
 
 **Treasury multi-sig:**
-- 5-of-9 signers required
-- Geographic distribution: USA (2), Europe (3), Asia (2), South America (1), Africa (1)
-- Hardware wallets only (Ledger, Trezor)
-- Annual key rotation ceremony
+- Phase 1: Single deployer key. Multi-sig planned for mainnet launch.
+- Target: 3-of-5 signers with hardware wallets (pre-mainnet requirement)
 
 **Congressional office keys:**
-- Generated via MPC ceremony (no single party sees complete key)
-- IPFS backup with encryption
-- Annual rotation, previous keys retained for legacy decryption
+- Phase 1: Standard encrypted storage with operational key management
+- Phase 2: AWS Nitro Enclave key isolation (see Nitro Enclaves section above)
 
 **Agent signing keys:**
-- Stored in AWS KMS with audit logging
-- Rotated quarterly
-- Multi-region redundancy
+- Phase 1: Not applicable (no autonomous agents in Phase 1)
+- Phase 2: AWS KMS with audit logging planned
 
 **Shadow Atlas operator signing key (Phase 1):**
 - Ed25519 keypair for insertion log signatures and registration receipts
@@ -882,15 +798,9 @@ Users should understand these trade-offs before participating. If your threat mo
 ### Access Control
 
 **Production infrastructure:**
-- Zero standing access (no permanent admin credentials)
-- Time-limited access via Teleport (max 4 hours)
-- Every access logged + reviewed weekly
-- Require 2FA + hardware key
-
-**Database access:**
-- Read-only replicas for analytics (no PII)
-- Write access only via application logic (no direct DB connections)
-- Audit logs retained 7 years
+- Phase 1: Cloudflare Pages (serverless, no standing server access)
+- Database: Neon PostgreSQL with connection pooling, no direct DB access
+- Secrets: Cloudflare Pages environment variables (encrypted at rest)
 
 **Third-party integrations:**
 - API keys rotated monthly
@@ -918,7 +828,7 @@ Users should understand these trade-offs before participating. If your threat mo
 
 ## Security Roadmap
 
-### Phase 1 Launch (Active - Q1 2026)
+### Phase 1 Launch (Active - February 2026)
 
 **Critical Path (Must complete before mainnet launch):**
 - [ ] Noir circuit formal verification (Trail of Bits audit for Merkle membership circuit)
@@ -926,7 +836,6 @@ Users should understand these trade-offs before participating. If your threat mo
 - [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity)
 - [ ] Shadow Atlas Merkle tree generation and IPFS deployment
 - [ ] Content moderation 3-layer stack penetration testing
-- [ ] self.xyz + Didit.me integration security review
 - [ ] Bug bounty program launch (Immunefi, Phase 1 scope)
 
 **Phase 1 Operational Security:**
@@ -954,15 +863,13 @@ Users should understand these trade-offs before participating. If your threat mo
 - [ ] Nested ZK proofs for reputation ranges (only if congressional offices accept weaker signals)
 
 **Cross-Chain Expansion:**
-- [ ] NEAR Chain Signatures security review (threshold ECDSA, MPC protocol)
-- [ ] Cross-chain reputation bridge audits (Ethereum, Polygon, Arbitrum via ERC-8004)
-- [ ] Multi-chain UltraPlonk verification gas benchmarks
+- [ ] Multi-chain UltraHonk verification gas benchmarks
 
 ### Phase 3+ Long-Term (2027+)
 
 **Advanced Cryptography:**
 - [ ] Post-quantum ZK-STARK migration (quantum resistance)
-- [ ] Nested UltraPlonk proofs for reputation ranges (only if community demands + congressional offices accept)
+- [ ] Nested UltraHonk proofs for reputation ranges (only if community demands + congressional offices accept)
 - [ ] Zero-knowledge machine learning (private reputation scoring)
 
 **Decentralization:**
@@ -999,20 +906,18 @@ Users should understand these trade-offs before participating. If your threat mo
 - Social engineering attacks against users
 - Physical attacks against user devices
 - Congressional office system vulnerabilities (report to them directly)
-- NEAR protocol vulnerabilities (report to NEAR Foundation)
 
 -----
 
 ## Appendix: Security Assumptions
 
 **We assume the following are secure (if broken, system security fails):**
-1. **Elliptic curve discrete log** (ECDSA, UltraPlonk proofs, BN254 curve)
+1. **Elliptic curve discrete log** (ECDSA, UltraHonk proofs, BN254 curve)
 2. **XChaCha20-Poly1305** (AEAD encryption for congressional messages)
 3. **RSA-OAEP** (Key encapsulation for congressional office public keys)
-4. **NEAR MPC protocol** (threshold ECDSA, Phase 2+ if adopted)
-5. **Poseidon hash function** (collision resistance, SNARK-friendly)
-6. **KZG commitment scheme** (Polynomial commitments via Aztec's powers-of-tau ceremony, 100K+ participants)
-7. **Browser sandbox security** (WASM isolation, COOP/COEP headers enforced)
+4. **Poseidon hash function** (collision resistance, SNARK-friendly)
+5. **KZG commitment scheme** (Polynomial commitments via Aztec's powers-of-tau ceremony, 100K+ participants)
+6. **Browser sandbox security** (WASM isolation, COOP/COEP headers enforced)
 
 **We do NOT assume:**
 - Users protect seed phrases (we use identity verification instead)
@@ -1023,6 +928,6 @@ Users should understand these trade-offs before participating. If your threat mo
 
 -----
 
-**This document lives and breathes. Threat landscape changes daily. Security team reviews quarterly. Last review: 2026-01-23.**
+**This document lives and breathes. Threat landscape changes daily. Security team reviews quarterly. Last review: 2026-02-20.**
 
 **Questions? Concerns? Paranoia?** security@voter-protocol.org

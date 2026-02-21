@@ -21,7 +21,7 @@ International democracies add further complexity, ranging from 5-12 elected leve
 The Voter Protocol implements a **24-slot district registration model** that balances:
 
 1. **Completeness** — Covers all common US district types plus international variants
-2. **Efficiency** — Single-district proofs keep circuits compact (~300-400k gas verification)
+2. **Efficiency** — Single-district proofs keep circuits compact (approximately 2.2M gas verification)
 3. **Flexibility** — 4 overflow slots handle edge cases without circuit changes
 4. **Privacy** — Each proof reveals only one district membership
 
@@ -42,7 +42,7 @@ This architecture supports **99.7% of US voters** with defined slots, using over
 > **Multi-District Verification:**
 > - Actions requiring multiple districts (e.g., state + county) need **separate proofs** per district
 > - The application layer enforces multi-district requirements by verifying N proofs for N districts
-> - Gas cost scales linearly: N districts ≈ N × 300-400k gas
+> - Gas cost scales linearly: N districts ≈ N x ~2.2M gas
 >
 > **Example:** A state-level action requiring proof of both congressional district and county membership would:
 > 1. User generates proof for congressional district (slot 0)

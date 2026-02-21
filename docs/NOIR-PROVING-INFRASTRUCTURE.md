@@ -1,5 +1,9 @@
 # Noir Proving Infrastructure
 
+> **SUPERSEDED** — This document describes the pre-two-tree single-circuit architecture.
+> Current architecture: see `specs/TWO-TREE-ARCHITECTURE-SPEC.md` and `specs/REPUTATION-ARCHITECTURE-SPEC.md`.
+> Proof system: UltraHonk/Noir via @aztec/bb.js (not UltraPlonk/Halo2).
+
 **Consolidated documentation for Noir/Barretenberg ZK proving system.**
 
 ---
@@ -68,9 +72,9 @@ Users belong to 12-25 governance boundaries simultaneously. Two proof strategies
 
 | Strategy | Boundaries | Gas Cost | Latency |
 |----------|------------|----------|---------|
-| Single | 1 | ~300k | 8-15s |
-| Composite | Up to 4 | ~400k | 12-20s |
-| Batched | N | N × 300k | Parallelizable |
+| Single | 1 | ~2.2M | 8-15s |
+| Composite | Up to 4 | ~2.2M (estimated) | 12-20s |
+| Batched | N | N x ~2.2M | Parallelizable |
 
 ### 3.2 Composite Circuit Specification
 
@@ -102,8 +106,8 @@ fn main(
 ```typescript
 function selectProofStrategy(boundaryCount: number): 'single' | 'composite' | 'batched' {
   if (boundaryCount === 1) return 'single';
-  if (boundaryCount <= 4) return 'composite';  // 400k gas for 4 boundaries
-  return 'batched';  // N × 300k, parallelizable
+  if (boundaryCount <= 4) return 'composite';  // ~2.2M gas for 4 boundaries
+  return 'batched';  // N × ~2.2M, parallelizable
 }
 ```
 
@@ -124,7 +128,7 @@ const proof = await prover.generateCompositeProof({
 });
 ```
 
-See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5 for registry contract specification.
+See [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) for registry contract specification.
 
 ---
 
@@ -268,7 +272,7 @@ The build pipeline generates artifacts for two circuit families:
    - Artifacts: `dist/bbjs/composite/` (unified MAX_DEPTH=22)
    - Use case: Cross-boundary actions (contact state senator AND congressional rep)
 
-For architecture details, see [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4.
+For architecture details, see [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md).
 
 ### Manifest
 Maps `authority_id → depth_class`; loader picks artifacts by depth; no user choice.

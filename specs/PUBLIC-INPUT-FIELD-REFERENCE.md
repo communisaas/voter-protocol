@@ -1,6 +1,9 @@
 # Public Input Field Reference
 
-Canonical naming reference for the 29 public inputs in the two-tree district membership circuit.
+Canonical naming reference for the public inputs in the district membership circuits.
+
+- **Two-tree circuit:** 29 public inputs (indices 0-28)
+- **Three-tree circuit:** 31 public inputs (indices 0-30, extends two-tree)
 
 ## Public Input Layout
 
@@ -13,6 +16,13 @@ Canonical naming reference for the 29 public inputs in the two-tree district mem
 | 27 | `action_domain` | `actionDomain` | `ACTION_DOMAIN` | `actionDomain` | Contract-controlled scope |
 | 28 | `authority_level` | `authorityLevel` | `AUTHORITY_LEVEL` | `authorityLevel` | User voting tier (1-5) |
 
+### Three-Tree Extension (indices 29-30)
+
+| Index | Noir (Circuit) | TypeScript Interface | TypeScript Constant | Solidity Local Var | Description |
+|-------|----------------|----------------------|---------------------|-------------------|-------------|
+| 29 | `engagement_root` | `engagementRoot` | `ENGAGEMENT_ROOT` | `engagementRoot` | Tree 3 Merkle root |
+| 30 | `engagement_tier` | `engagementTier` | `ENGAGEMENT_TIER` | `engagementTierRaw` | Engagement tier (0-4) |
+
 ## Private Inputs (Witnesses)
 
 | Noir (Circuit) | TypeScript Interface | Description |
@@ -24,6 +34,16 @@ Canonical naming reference for the 29 public inputs in the two-tree district mem
 | `user_index` | `userIndex` | Leaf position in Tree 1 |
 | `cell_map_path` | `cellMapPath` | Tree 2 SMT siblings (depth elements) |
 | `cell_map_path_bits` | `cellMapPathBits` | Tree 2 SMT direction bits (0=left, 1=right) |
+| `identity_commitment` | `identityCommitment` | Identity commitment for nullifier derivation (H2(IC, actionDomain)) |
+
+### Three-Tree Additional Witnesses
+
+| Noir (Circuit) | TypeScript Interface | Description |
+|----------------|----------------------|-------------|
+| `engagement_path` | `engagementPath` | Tree 3 Merkle siblings (depth elements) |
+| `engagement_index` | `engagementIndex` | Leaf position in Tree 3 |
+| `action_count` | `actionCount` | Total nullifier consumption events (private) |
+| `diversity_score` | `diversityScore` | Shannon diversity index floor(H*1000) (private) |
 
 ## Naming Convention
 

@@ -1045,6 +1045,87 @@ If this document is accepted, ECONOMICS.md should be updated to reflect the phas
 
 ---
 
+---
+
+## 17. Anti-Pay-to-Win Guarantees
+
+> **Canonical reference:** [specs/REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md)
+
+### 17.1 The Separation Principle
+
+Authority, engagement, and economic participation are cryptographically independent. No function of one dimension can influence another:
+
+| Dimension | Source | In ZK Proof | Purchasable | Transferable |
+|-----------|--------|-------------|-------------|-------------|
+| `authority_level` (1-5) | Identity verification (passport/ID/mDL) | Public input [28] | **No** | No |
+| `engagement_tier` (0-4) | On-chain nullifier consumption events | Public input [30] | **No** | No |
+| VOTER token balance | Market/earning/challenge wins | Not in proof | **Yes** | Yes |
+
+**Why this matters for challenge markets:** If VOTER tokens could boost engagement tier, wealthy challengers would dominate resolution. If engagement tier could be purchased, astroturf operations would buy credibility. The separation principle ensures that economic power, civic standing, and identity verification remain independent dimensions.
+
+### 17.2 Quadratic Influence with Engagement Multiplier
+
+Challenge market influence combines token stake (economic signal) with engagement tier (credibility signal):
+
+```
+effective_influence = sqrt(stake) * engagement_multiplier(tier)
+```
+
+| Engagement Tier | Multiplier | Effect |
+|----------------|------------|--------|
+| 0 (New) | 1.0x | Base influence |
+| 1 (Active) | 1.1x | Slight boost |
+| 2 (Established) | 1.25x | Moderate boost |
+| 3 (Veteran) | 1.5x | Significant boost |
+| 4 (Pillar) | 2.0x | Double influence |
+
+The quadratic root on stake prevents plutocratic dominance (10,000 VOTER provides only 100x the influence of 1 VOTER, not 10,000x). The engagement multiplier rewards civic standing without making it purchasable.
+
+### 17.3 Dual Token Model
+
+| Token | Standard | Transfer | Purpose | Challenge Market Role |
+|-------|----------|----------|---------|----------------------|
+| **VOTER** | ERC-20 | Unrestricted | Civic labor compensation | Stake in challenges, governance voting |
+| **Soulbound Engagement Credential** | ERC-8004 | Prohibited | On-chain attestation of earned standing | Engagement multiplier on influence |
+
+This differs from the original single-token design in `phase-2-design.md`:
+
+| Original Design | Current Design |
+|----------------|----------------|
+| Single VOTER token for everything | VOTER (transferable) + soulbound credential (non-transferable) |
+| Reputation on-chain as ERC-8004 score | Engagement tier in ZK proof (public output) |
+| No separation between stake and credibility | Stake (VOTER) and credibility (tier) are independent |
+| Token balance = influence | `sqrt(stake) * engagement_multiplier` = influence |
+
+### 17.4 Integration with E0-E3 Sequencing
+
+The engagement tree deploys in **Phase E0** — no token required:
+
+```
+E0: Reputation-Only Quality Signals (CURRENT)
+    + Deploy Tree 3 (engagement tree)                    ← NEW
+    + engagement_tier appears in proofs
+    + Congressional offices see credibility signal
+    (No token, no economic stakes)
+
+E1: Retroactive Impact Rewards
+    + VOTER token launched
+    + Engagement tier informs reward distribution
+    (Tier is informational, not gating)
+
+E2: Template Creation Bonds
+    + Engagement multiplier applied to bond thresholds
+    + Higher tier → lower bond required (earned trust)
+
+E3: Challenge Markets
+    + sqrt(stake) * engagement_multiplier for influence
+    + Full anti-pay-to-win system operational
+```
+
+The engagement tree is **deployed before the token** because civic credibility should exist independently of economics. This prevents the failure mode where reputation only matters because of token rewards.
+
+---
+
 *This document is an exploration, not a commitment. The challenge market may never be implemented if Phase E0 proves that reputation-only quality signals are sufficient. The best outcome is that this document is never needed.*
 
-*VOTER Protocol | Challenge Market Architecture | 2026-02-16*
+*VOTER Protocol | Challenge Market Architecture | 2026-02-20*

@@ -29,7 +29,7 @@ This specification defines the ZK circuit for proving geographic cell membership
 - **Multi-depth support:** 18, 20, 22, 24 (compile-time variants for international constituencies)
 - **24 district slots:** Hybrid allocation (20 defined + 4 overflow) for comprehensive governance coverage
 - **Poseidon2 hashing:** BN254-native hash for efficient verification
-- **UltraPlonk proving system:** Via Barretenberg/Noir stack
+- **UltraHonk proving system:** Via Barretenberg/Noir stack
 
 ---
 
@@ -360,10 +360,12 @@ contract DistrictGate {
 
 | Depth | Verifier Size | Verification Gas | Total Tx Gas |
 |-------|--------------|------------------|--------------|
-| 18 | ~22KB | ~280K | ~350K |
-| 20 | ~26KB | ~320K | ~390K |
-| 22 | ~30KB | ~360K | ~430K |
-| 24 | ~34KB | ~400K | ~470K |
+| 18 | ~22KB | ~2.1M | ~2.2M |
+| 20 | ~26KB | ~2.1M | ~2.2M |
+| 22 | ~30KB | ~2.1M | ~2.2M |
+| 24 | ~34KB | ~2.1M | ~2.2M |
+
+> **Note:** UltraHonk verification gas is dominated by the fixed pairing check (~2.1M), so depth has negligible impact on total gas. Measured on Scroll Sepolia.
 
 **L2 Cost Estimates (Scroll):**
 - Depth 20: ~$0.003-0.005 at 10 gwei
@@ -391,7 +393,7 @@ contract DistrictGate {
 |--------|------------|
 | Double voting | Nullifier recorded on-chain |
 | Proof replay | Epoch binding, signature deadline |
-| Merkle forgery | Soundness of Poseidon2 + UltraPlonk |
+| Merkle forgery | Soundness of Poseidon2 + UltraHonk |
 | Timing attacks | Constant-time Poseidon2 in WASM |
 
 ---

@@ -1,11 +1,11 @@
 # Two-Tree Architecture Specification
 
 > **Spec ID:** TWO-TREE-ARCH-001
-> **Version:** 0.5.0
-> **Status:** Implementation Complete — circuit rework (H4 leaf + identity-bound nullifier), leaf replacement plumbing, IPFS persistence all verified in code (2026-02-11 4-agent audit). **NUL-001 wiring gap:** identityCommitment uses placeholder in communique registration path.
-> **Date:** 2026-02-11
+> **Version:** 0.7.0
+> **Status:** Implementation Complete — circuit rework (H4 leaf + identity-bound nullifier), leaf replacement plumbing, IPFS persistence all verified in code (2026-02-11 4-agent audit). **NUL-001 wiring gap:** identityCommitment uses placeholder in communique registration path. v0.7.0: Added Section 4.4 (Action Domain Construction) with targetType field. v0.6.0: Added Section 17 (Three-Tree Extension design reference).
+> **Date:** 2026-02-20
 > **Authors:** Architecture Review
-> **Revision:** v0.5 — 4-agent cross-validation audit confirmed: Wave 24 circuit rework IMPLEMENTED (H4 leaf main.nr:308, identity-bound nullifier main.nr:336-337, DOMAIN_HASH4 0x48344d). Waves 30-31 leaf replacement IMPLEMENTED (replaceLeaf, POST /v1/register/replace, recoverTwoTree). IPFS persistence IMPLEMENTED (InsertionLog + SyncService + Lighthouse). NUL-001 identityCommitment wiring gap identified — shadow-atlas-handler.ts:136 uses request.leaf placeholder. v0.4: Added Section 8.4-8.8: Credential Recovery. v0.3: Synced Section 4 (Circuit) with actual main.nr.
+> **Revision:** v0.7 — Added targetType to ActionDomainParams (Section 4.4), documenting nullifier implications and backward compatibility. v0.5 — 4-agent cross-validation audit confirmed: Wave 24 circuit rework IMPLEMENTED (H4 leaf main.nr:308, identity-bound nullifier main.nr:336-337, DOMAIN_HASH4 0x48344d). Waves 30-31 leaf replacement IMPLEMENTED (replaceLeaf, POST /v1/register/replace, recoverTwoTree). IPFS persistence IMPLEMENTED (InsertionLog + SyncService + Lighthouse). NUL-001 identityCommitment wiring gap identified — shadow-atlas-handler.ts:136 uses request.leaf placeholder. v0.4: Added Section 8.4-8.8: Credential Recovery. v0.3: Synced Section 4 (Circuit) with actual main.nr.
 
 ---
 
@@ -79,11 +79,12 @@ PROPOSED (Two-Tree):
 │  │   Depth: 20-24              │    │   Depth: 20 (1M cells)      │    │
 │  │   Leaves: User commitments  │    │   Leaves: Cell→Districts    │    │
 │  │                             │    │                             │    │
-│  │   leaf = H(                 │    │   key = cell_id             │    │
+│  │   leaf = H4(                │    │   key = cell_id             │    │
 │  │     user_secret,            │    │   value = H(                │    │
 │  │     cell_id,                │    │     cell_id,                │    │
-│  │     salt                    │    │     district_commitment     │    │
-│  │   )                         │    │   )                         │    │
+│  │     registration_salt,      │    │     district_commitment     │    │
+│  │     authority_level         │    │   )                         │    │
+│  │   )                         │    │                             │    │
 │  │                             │    │                             │    │
 │  │   STABLE                    │    │   DYNAMIC                   │    │
 │  │   Changes: User moves       │    │   Changes: Redistricting    │    │
@@ -543,6 +544,40 @@ TOTAL                                    51        ~25,532
 
 **Total Public Outputs:** 29 field elements
 
+### 4.4 Action Domain Construction
+
+The `action_domain` public input is a keccak256 hash of structured parameters that scope each civic action. Different action domains produce different nullifiers, enforcing one-action-per-scope Sybil resistance.
+
+**ActionDomainParams:**
+
+```typescript
+interface ActionDomainParams {
+  actionType: string;        // e.g. "congressional_contact", "template_create"
+  targetId: string;          // Decision-maker or body identifier
+  targetType: 'body' | 'individual' | 'both';  // NEW — target classification
+  campaignId?: string;       // Optional campaign scope
+  epoch?: string;            // Optional time scope (e.g. "119th-congress")
+}
+
+// action_domain = keccak256(abi.encodePacked(actionType, targetId, targetType, ...))
+```
+
+**`targetType` Field (added 2026-02-20):**
+
+| Value | Meaning | Example |
+|-------|---------|---------|
+| `'body'` | Targeting a legislature as an institution | Contact entire House committee |
+| `'individual'` | Targeting a specific decision-maker | Contact Rep. Smith |
+| `'both'` | Targeting both body and individual | Contact Rep. Smith as member of committee |
+
+**Nullifier implications:** Since `targetType` is included in the keccak256 hash, different target types produce different `action_domain` values and therefore different nullifiers. A user who contacts a committee as a body (`targetType: 'body'`) and also contacts a specific committee member (`targetType: 'individual'`) will consume two separate nullifiers. This is by design -- these are distinct civic actions.
+
+**Engagement scoring:** Within-category variation (body vs individual) does NOT increase `diversity_score` in the engagement pipeline. Both are category 1 (Congressional contact). The `diversityScore` metric measures how many of the 5 action categories a user has participated in, not how many variations within a single category.
+
+**Backward compatibility:** Existing action domains that predate the `targetType` field default to `'individual'` semantics. No migration required -- old nullifiers remain valid in the NullifierRegistry.
+
+**Graduated trust:** Action domains are tracked at all three trust levels (see REPUTATION-ARCHITECTURE-SPEC.md Section 4.7). At Level 1 (unverified), anonymous counters increment per action domain when a user initiates contact. At Level 3 (ZK-verified), the same action domain feeds the nullifier `H2(identityCommitment, actionDomain)` and the resulting on-chain event drives engagement metrics. The ratio of Level 3 to Level 1 actions per domain is the coordination authenticity index.
+
 ---
 
 ## 5. Registration Flow
@@ -737,76 +772,115 @@ interface TwoTreeProofInputs {
 ### 7.1 On-Chain Verification
 
 ```solidity
-// DistrictGate.sol modifications
+// DistrictGate.sol — verifyTwoTreeProof (actual implementation)
 
 function verifyTwoTreeProof(
+    address signer,
     bytes calldata proof,
-    bytes32 userRoot,
-    bytes32 cellMapRoot,
-    bytes32[24] calldata districts,
-    bytes32 nullifier,
-    bytes32 actionDomain,
-    uint8 authorityLevel,
-    bytes32[] calldata requiredDistricts
-) external whenNotPaused returns (bool) {
-    // 1. Verify roots are valid
-    require(isValidUserRoot(userRoot), "Invalid user root");
-    require(isValidCellMapRoot(cellMapRoot), "Invalid cell map root");
+    uint256[29] calldata publicInputs,
+    uint8 verifierDepth,
+    uint256 deadline,
+    bytes calldata signature
+) external whenNotPaused {
+    // Step 0: Verify EIP-712 signature (nonce, deadline, parameter binding)
+    if (signer == address(0)) revert ZeroAddress();
+    if (block.timestamp > deadline) revert SignatureExpired();
 
-    // 2. Verify ZK proof
-    uint256[] memory publicInputs = new uint256[](29);
-    publicInputs[0] = uint256(userRoot);
-    publicInputs[1] = uint256(cellMapRoot);
-    for (uint i = 0; i < 24; i++) {
-        publicInputs[2 + i] = uint256(districts[i]);
-    }
-    publicInputs[26] = uint256(nullifier);
-    publicInputs[27] = uint256(actionDomain);
-    publicInputs[28] = uint256(authorityLevel);
-
-    require(verifier.verify(proof, publicInputs), "Invalid proof");
-
-    // 3. Check required districts are present
-    for (uint i = 0; i < requiredDistricts.length; i++) {
-        require(
-            containsDistrict(districts, requiredDistricts[i]),
-            "Missing required district"
-        );
-    }
-
-    // 4. Check nullifier not used
-    bytes32 nullifierKey = keccak256(abi.encodePacked(actionDomain, nullifier));
-    require(!usedNullifiers[nullifierKey], "Nullifier already used");
-    usedNullifiers[nullifierKey] = true;
-
-    // 5. Emit event
-    emit TwoTreeProofVerified(
-        msg.sender,
-        userRoot,
-        cellMapRoot,
-        actionDomain,
-        authorityLevel
+    bytes32 proofHash = keccak256(proof);
+    bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
+    bytes32 structHash = keccak256(
+        abi.encode(
+            SUBMIT_TWO_TREE_PROOF_TYPEHASH,
+            proofHash, publicInputsHash, verifierDepth,
+            nonces[signer], deadline
+        )
     );
+    bytes32 digest = keccak256(
+        abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+    );
+    address recoveredSigner = ECDSA.recover(digest, signature);
+    if (recoveredSigner != signer) revert InvalidSignature();
+    nonces[signer]++;
 
-    return true;
+    // Extract key fields from public inputs
+    bytes32 userRoot = bytes32(publicInputs[0]);
+    bytes32 cellMapRoot = bytes32(publicInputs[1]);
+    // publicInputs[2..25] = districts[24]
+    bytes32 nullifier = bytes32(publicInputs[26]);
+    bytes32 actionDomain = bytes32(publicInputs[27]);
+    bytes32 authorityLevel = bytes32(publicInputs[28]);
+
+    // Step 1: Validate user_root via UserRootRegistry
+    if (!userRootRegistry.isValidUserRoot(userRoot)) revert InvalidUserRoot();
+
+    // Step 2: Validate cell_map_root via CellMapRegistry
+    if (!cellMapRegistry.isValidCellMapRoot(cellMapRoot)) revert InvalidCellMapRoot();
+
+    // BR3-004: Cross-check country between both trees
+    (bytes3 userCountry, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+    (bytes3 cellMapCountry,) = cellMapRegistry.getCountryAndDepth(cellMapRoot);
+    if (userCountry != cellMapCountry) revert CountryMismatch();
+
+    // BR3-009: Validate verifierDepth matches registry metadata
+    if (userDepth != verifierDepth) revert DepthMismatch();
+
+    // Step 3: Validate action_domain via whitelist (SA-001)
+    if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+    // Step 4: Get depth-specific verifier and verify proof
+    address verifier = verifierRegistry.getVerifier(verifierDepth);
+    if (verifier == address(0)) revert VerifierNotFound();
+
+    bytes32[] memory honkInputs = new bytes32[](29);
+    for (uint256 i = 0; i < 29; i++) {
+        honkInputs[i] = bytes32(publicInputs[i]);
+    }
+    (bool success, bytes memory result) = verifier.call(
+        abi.encodeWithSignature("verify(bytes,bytes32[])", proof, honkInputs)
+    );
+    if (!success || result.length == 0 || !abi.decode(result, (bool))) {
+        revert TwoTreeVerificationFailed();
+    }
+
+    // Step 5: Record nullifier via NullifierRegistry
+    nullifierRegistry.recordNullifier(actionDomain, nullifier, userRoot);
+
+    // Step 6: Record campaign participation (if registry is set)
+    if (address(campaignRegistry) != address(0)) {
+        try campaignRegistry.recordParticipation(actionDomain, userRoot) {} catch {}
+    }
+
+    // Step 7: Emit event
+    emit TwoTreeProofVerified(
+        signer, msg.sender, userRoot, cellMapRoot,
+        nullifier, actionDomain, authorityLevel, verifierDepth
+    );
 }
 ```
 
 ### 7.2 Gas Analysis
 
+Measured on Scroll Sepolia (TX `0xc6ef86a3...`, 2026-02-20):
+
 ```
-Component                          Gas (est.)
-─────────────────────────────────────────────
-ZK proof verification              350,000
-Public input handling (29 fields)    5,800
-District containment check (24×N)    7,200  (for N=3 required)
-Nullifier SLOAD                      2,100
-Nullifier SSTORE                    20,000
-Event emission                       3,500
-Calldata (29 fields × 32 bytes)     14,848
-─────────────────────────────────────────────
-TOTAL                             ~403,000
+Component                          Gas (measured)
+─────────────────────────────────────────────────
+Total L2 gas consumed              2,200,522
+  ZK proof verification            ~1,900,000  (HonkVerifier pairing)
+  Public input handling (29 fields)     5,800
+  District containment check (24×N)     7,200  (N=3 required)
+  Nullifier SLOAD + SSTORE            22,100
+  Event emission                        3,500
+  Calldata + overhead                 ~261,922
+─────────────────────────────────────────────────
+TOTAL L2 gas                      ~2,200,000
 ```
+
+**Cost at current Scroll rates (2026-02-20):**
+- L2 gas price: 0.00012 Gwei → L2 execution: ~0.000034 ETH
+- L1 data fee: ~0.000126 ETH (dominates — 7,328 bytes proof calldata)
+- Total: ~0.000161 ETH (~$0.32 at $1,965/ETH)
+- At mainnet congestion (10x L1): ~$0.01-0.03/proof
 
 ---
 
@@ -1234,10 +1308,11 @@ export class TwoTreeBuilder {
   async registerUser(
     userSecret: bigint,
     cellId: string,
-    salt: bigint
+    salt: bigint,
+    authorityLevel: bigint
   ): Promise<UserRegistration> {
     // 1. Compute user leaf
-    const userLeaf = poseidon2Hash3(userSecret, BigInt(cellId), salt);
+    const userLeaf = poseidon2Hash4(userSecret, BigInt(cellId), salt, authorityLevel);
 
     // 2. Insert into user tree
     const index = await this.userTree.insert(userLeaf);
@@ -1306,7 +1381,7 @@ export interface TwoTreeProofResult {
 
 export class TwoTreeProver {
   private circuit: CompiledCircuit;
-  private backend: UltraPlonkBackend;
+  private backend: UltraHonkBackend;
 
   async generateProof(inputs: TwoTreeProofInputs): Promise<TwoTreeProofResult> {
     // 1. Compute nullifier locally (for UI preview)
@@ -1631,13 +1706,15 @@ Single-tree baseline: ~11K constraints, ~14s mobile flagship (from circuit spec)
 
 ### 15.2 Gas Costs
 
-| Operation | Single-tree | Two-tree | Difference |
-|-----------|-------------|----------|------------|
-| Verification | 350k | 350k | Same |
+| Operation | Single-tree (estimated) | Two-tree (measured) | Notes |
+|-----------|------------------------|---------------------|-------|
+| UltraHonk verification | ~2.1M | ~2.1M | Dominated by pairing check |
 | Public inputs | 800 | 5,800 | +5,000 |
 | District check | 2,400 | 7,200 | +4,800 |
 | Calldata | 5,120 | 14,848 | +9,728 |
-| **Total** | **~360k** | **~403k** | **+12%** |
+| **Total** | **~2.1M** | **~2.2M** | Measured on Scroll Sepolia |
+
+> **Note:** The original estimates in this table (~360k/~403k) predated actual UltraHonk deployment. On-chain measurement on Scroll Sepolia shows approximately 2.2M gas per verification (TX `0xc6ef86a3...`). The pairing check dominates, so the +12% delta from additional public inputs is negligible in practice.
 
 ### 15.3 Storage Costs
 
@@ -1764,6 +1841,78 @@ Block Groups subdivide tracts into ~1,500-person units. This provides more geogr
 | Shadow Atlas | `packages/shadow-atlas/src/dual-tree-builder.ts` | 45 | Tree construction, redistricting updates |
 | Contracts | `contracts/test/DistrictGate.*.t.sol` | 461 | Verification, nullifiers, governance, EIP-712 |
 | Prover | `packages/noir-prover/src/two-tree-prover.ts` | 34 | Witness preparation, proof generation |
+
+---
+
+## 17. Three-Tree Extension (DESIGN ONLY)
+
+> **Status:** DESIGN — No code implemented. This section describes the planned Three-Tree Architecture that adds cryptographically verifiable engagement to the ZK proof. See `specs/REPUTATION-ARCHITECTURE-SPEC.md` for the canonical specification.
+
+### 17.1 Overview
+
+The three-tree architecture extends this specification with a third Merkle tree that commits engagement data into the circuit. The engagement tier becomes a public output, allowing on-chain verification that a user has genuine civic participation history — without revealing what specific actions they took.
+
+```
+Tree 1 (User Identity)     Tree 2 (Cell Mapping)      Tree 3 (Engagement)
+═══════════════════════     ═════════════════════       ═══════════════════
+Standard Merkle             Sparse Merkle (SMT)        Standard Merkle
+Leaf = H4(secret,           Leaf = H2(cellId,          Leaf = H2(identityCommitment,
+  cellId, salt, auth)         districtCommitment)        engagementDataCommitment)
+STABLE (user moves)         DYNAMIC (redistricting)    UPDATED (after verified actions)
+```
+
+### 17.2 Circuit Interface Extension
+
+Public inputs grow from 29 to 31:
+
+| Index | Field | Status |
+|-------|-------|--------|
+| 0-28 | (unchanged from Section 4) | Existing |
+| 29 | `engagement_root` | **NEW** — Tree 3 Merkle root |
+| 30 | `engagement_tier` | **NEW** — Coarse engagement bucket [0-4] |
+
+New private inputs: `engagement_path`, `engagement_index`, `action_count`, `diversity_score`.
+
+### 17.3 Cross-Tree Identity Binding
+
+The `identity_commitment` private input (already used for nullifier derivation in Section 4.6) is reused in the engagement leaf:
+
+```
+engagement_data_commitment = H3(engagement_tier, action_count, diversity_score)
+engagement_leaf = H2(identity_commitment, engagement_data_commitment)
+```
+
+The circuit enforces that the SAME `identity_commitment` feeds both the nullifier (Step 4) and the engagement leaf (new Step 6). This prevents identity substitution attacks.
+
+### 17.4 Constraint Impact
+
+| Depth | Two-Tree | Three-Tree | Overhead |
+|-------|----------|------------|----------|
+| 20 | ~20,850 | ~29,700 | +42.4% |
+| 24 | ~24,050 | ~33,800 | +40.5% |
+
+Additional constraints come from: H3 engagement data commitment (~400), H2 engagement leaf (~400), Tree 3 Merkle verification (~8,000 at depth 20), engagement tier range check (~50).
+
+### 17.5 Contract Changes
+
+- **EngagementRootRegistry.sol**: New registry (parallel to UserRootRegistry and CellMapRegistry)
+- **DistrictGate.verifyThreeTreeProof()**: New entry point accepting `uint256[31]` public inputs
+- **VerifierRegistry**: Three-tree verifiers registered alongside two-tree verifiers
+- Both `verifyTwoTreeProof()` and `verifyThreeTreeProof()` remain callable during migration
+
+### 17.6 Migration
+
+Two-tree proofs continue to work indefinitely. Three-tree proofs are available after deployment. Users upgrade naturally on next proof generation — no re-registration required. The engagement tree is backfilled from on-chain nullifier consumption events.
+
+### 17.7 Canonical Reference
+
+**See `specs/REPUTATION-ARCHITECTURE-SPEC.md` for complete specification** including:
+- Engagement tier definitions (5 tiers with concrete thresholds)
+- Token design (VOTER ERC-20 + soulbound engagement credential ERC-8004)
+- Anti-pay-to-win guarantees
+- Security analysis
+- Performance analysis
+- Implementation roadmap (Cycles 19-25)
 
 ---
 

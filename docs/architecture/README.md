@@ -43,9 +43,9 @@ This directory serves as the navigation hub for VOTER Protocol architecture docu
 **Audience:** Frontend engineers, cryptography implementers
 **Scope:**
 - Browser-native Noir/Barretenberg proving system
-- Circuit design (UltraPlonk/UltraHonk on BN254)
+- Circuit design (UltraHonk on BN254)
 - WASM execution requirements (COOP/COEP headers, SharedArrayBuffer)
-- Migration from Halo2 to bb.js
+- Migration from legacy prover to bb.js
 
 **When to read:** Building the browser-based proving interface or optimizing proof generation performance.
 

@@ -1,5 +1,9 @@
 # ZK Production Architecture
 
+> **SUPERSEDED** — This document describes the pre-two-tree single-circuit architecture.
+> Current architecture: see `specs/TWO-TREE-ARCHITECTURE-SPEC.md` and `specs/REPUTATION-ARCHITECTURE-SPEC.md`.
+> Proof system: UltraHonk/Noir via @aztec/bb.js (not UltraPlonk/Halo2).
+
 **Production-grade infrastructure for zero-knowledge proof system deployment.**
 
 **Classification**: Production Architecture  
@@ -17,9 +21,9 @@
 | GuardianShield (Phase 2) | ⏳ Planned | `contracts/src/GuardianShield.sol` |
 | DistrictGate (with timelocked verifier) | ✅ Implemented | `contracts/src/DistrictGate.sol` |
 | DistrictRegistry (Phase 1) | ✅ Implemented | `contracts/src/DistrictRegistry.sol` |
-| ShadowAtlasRegistry (Phase 2) | ⏳ Planned | See MERKLE-FOREST-SPEC.md Section 5 |
+| ShadowAtlasRegistry (Phase 2) | ⏳ Planned | See specs/TWO-TREE-ARCHITECTURE-SPEC.md |
 | Noir Circuit (district_membership) | ✅ Implemented | `packages/crypto/noir/district_membership/` |
-| Noir Circuit (composite_membership) | ⏳ Planned | See MERKLE-FOREST-SPEC.md Section 4 |
+| Noir Circuit (composite_membership) | ⏳ Planned | See specs/TWO-TREE-ARCHITECTURE-SPEC.md |
 | Browser Prover | ✅ Published | `@voter-protocol/noir-prover@0.1.0` |
 | BB.js Fork (stateful keygen) | ✅ Published | `@voter-protocol/bb.js@0.87.0-fork.1` |
 | Chainlink Oracle Integration | ⏳ Planned | — |
@@ -132,7 +136,7 @@ attacker-controlled leaves, enabling fake citizens and ballot stuffing.
 - **Global commitment**: Single hash binding all roots per epoch
 - **IPFS addressing**: Full forest published, enabling public audit
 
-See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 5 for contract specification.
+See [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) for contract specification.
 
 ### Required Mitigation: Oracle Quorum ⏳ TODO
 
@@ -351,12 +355,12 @@ npm install @voter-protocol/noir-prover @voter-protocol/bb.js @noir-lang/noir_js
 ### Single-Boundary Circuit (Current)
 
 ```
-Public Inputs:  [merkle_root, nullifier, authority_hash, epoch_id, campaign_id]
-Private Inputs: [leaf, merkle_path[N], leaf_index, user_secret]
-                where N ∈ {14, 20, 22} per boundary classification
-Constraints:    ~4,000-8,000 (varies by depth: 14→4k, 20→6k, 22→8k)
-Proof Size:     ~2 KB
-Verify Gas:     ~300k
+Public Inputs:  29 fields (two-tree path); see specs/TWO-TREE-ARCHITECTURE-SPEC.md for full list
+Private Inputs: [leaf, merkle_path[N], leaf_index, user_secret, ...]
+                where N ∈ {18, 20, 22, 24} per depth tier
+Constraints:    ~4,000-8,000 (varies by depth)
+Proof Size:     ~7.3 KB (keccak mode)
+Verify Gas:     ~2.2M
 ```
 
 ### Composite Circuit (Phase 2)
@@ -365,11 +369,11 @@ Verify Gas:     ~300k
 Public Inputs:  [merkle_roots[4], nullifier, authority_hash, epoch_id, campaign_id, boundary_mask]
 Private Inputs: [leaves[4], merkle_paths[4][22], leaf_indices[4], user_secret]
 Constraints:    ~12,000-16,000
-Proof Size:     ~2.5 KB
-Verify Gas:     ~400k (4 boundaries)
+Proof Size:     ~7.3 KB (keccak mode, estimated)
+Verify Gas:     ~2.2M (4 boundaries, estimated)
 ```
 
-See [MERKLE-FOREST-SPEC.md](../specs/MERKLE-FOREST-SPEC.md) Section 4 for composite circuit architecture.
+See [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) for circuit architecture.
 
 ### Browser Requirements
 

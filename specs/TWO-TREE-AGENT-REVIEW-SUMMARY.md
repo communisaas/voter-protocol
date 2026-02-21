@@ -211,7 +211,7 @@ Two-tree requires 2 new registry contracts:
 
 ✅ **Existing Poseidon2 implementation is correct** - No changes needed to hash functions
 
-✅ **Gas estimate is reasonable** - ~403K gas on Scroll L2
+✅ **Gas estimate updated** - ~2.2M gas on Scroll L2 (measured; original ~403K estimate predated UltraHonk deployment)
 
 ✅ **SMT and standard Merkle have same constraint cost** - No performance penalty for SMT
 

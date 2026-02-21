@@ -1,10 +1,12 @@
 # Multi-Depth ZK Verifier Architecture
 
-> **PARTIALLY STALE (2026-02-11)**: This document was written for the **single-tree** circuit with **5 public inputs**.
-> The codebase has migrated to the **two-tree** circuit with **29 public inputs** (see `DistrictGate.sol:184`).
-> The registry-based depth routing and deployment patterns described here remain accurate, but all references to
-> `verifyProof(bytes,uint256[5])` should be read as `verifyProof(bytes,uint256[29])` for the two-tree path.
-> See `specs/PUBLIC-INPUT-FIELD-REFERENCE.md` for the canonical 29-input naming.
+> **PARTIALLY STALE (2026-02-20)**: This document was written for the **single-tree** circuit with **5 public inputs**.
+> The codebase has migrated to the **two-tree** circuit with **29 public inputs** and **three-tree** with **31 public inputs**.
+> The registry-based depth routing and deployment patterns described here remain accurate. Key corrections:
+> - Verifier interface: `verify(bytes calldata proof, bytes32[] calldata publicInputs)` (not `uint256` array)
+> - Verifier contract names: `HonkVerifier_Depth{N}` (not `UltraPlonkVerifier_Depth{N}`)
+> - Verifier generation: `scripts/generate-verifier-sol.ts` via bb.js `getSolidityVerifier()` (not `bb contract` CLI)
+> See `specs/PUBLIC-INPUT-FIELD-REFERENCE.md` for the canonical field naming.
 
 **Classification**: Technical Architecture - Smart Contract Design
 **Last Updated**: 2026-01-25

@@ -356,7 +356,7 @@ A: No. VOTER integrates with Fireside, IQ, and Quorum as a credibility layer. Me
 A: Traditional email/phone/mail still works exactly as it does today. VOTER provides additional signal for constituents who choose to participate. You're not losing anything, just gaining better filtering for messages sent through the protocol.
 
 **Q: How do we know zero-knowledge proofs actually work?**
-A: Cryptography is peer‑reviewed and production‑grade (UltraPlonk proofs, same system used by Aztec Protocol since 2024). Congressional IT can verify proofs on‑chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
+A: Cryptography is peer‑reviewed and production‑grade (UltraHonk proofs, same system used by Aztec Protocol since 2024). Congressional IT can verify proofs on‑chain independently (Scroll L2 blockchain, fully transparent). We're happy to arrange technical briefing with your IT security team.
 
 **Q: What about constituents without smartphones?**
 A: Traditional contact methods unchanged. VOTER is additive infrastructure for constituents who want cryptographic privacy and credibility signaling. Not a replacement for existing channels.
