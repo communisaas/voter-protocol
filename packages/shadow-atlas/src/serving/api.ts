@@ -27,6 +27,7 @@ import { ProofService, toCompactProof } from './proof-generator';
 import { SyncService, type SyncServiceConfig } from './sync-service';
 import { HealthMonitor } from './health';
 import { RegistrationService, type CellMapState, type CellProofResult } from './registration-service';
+import { EngagementService } from './engagement-service';
 import type {
   LookupResult,
   ErrorCode,
@@ -166,6 +167,23 @@ const cellProofSchema = z.object({
 });
 
 /**
+ * POST /v1/engagement/register request body
+ */
+const engagementRegisterSchema = z.object({
+  signerAddress: z.string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'signerAddress must be a valid Ethereum address'),
+  identityCommitment: z.string()
+    .min(3, 'identityCommitment is required')
+    .regex(/^(0x)?[0-9a-fA-F]+$/, 'identityCommitment must be hex-encoded')
+    .refine((val) => {
+      try {
+        const n = BigInt(val.startsWith('0x') ? val : '0x' + val);
+        return n > 0n && n < BN254_MODULUS_API;
+      } catch { return false; }
+    }, 'identityCommitment must be a valid BN254 field element (0 < v < p)'),
+});
+
+/**
  * Rate limiter with sliding window
  */
 class RateLimiter {
@@ -238,6 +256,7 @@ export class ShadowAtlasAPI {
   private readonly registrationRateLimiter: RateLimiter;
   private readonly registrationService: RegistrationService | null;
   private readonly cellMapState: CellMapState | null;
+  private readonly engagementService: EngagementService | null;
   private readonly registrationAuthToken: string | null;
   private readonly signer: ServerSigner | null;
   private readonly port: number;
@@ -262,6 +281,7 @@ export class ShadowAtlasAPI {
     cellMapState: CellMapState | null = null,
     registrationAuthToken: string | null = null,
     signer: ServerSigner | null = null,
+    engagementService: EngagementService | null = null,
   ) {
     this.lookupService = lookupService;
     this.proofService = proofService;
@@ -271,6 +291,7 @@ export class ShadowAtlasAPI {
     this.registrationRateLimiter = new RateLimiter(5, 60000); // 5 registrations/min per IP
     this.registrationService = registrationService;
     this.cellMapState = cellMapState;
+    this.engagementService = engagementService;
     this.registrationAuthToken = registrationAuthToken;
     this.signer = signer;
     this.port = port;
@@ -288,7 +309,9 @@ export class ShadowAtlasAPI {
 
     // BR5-012: Fail closed — reject registrations in production when auth is unconfigured.
     // Previously this was a warning-only log, leaving the tree open to filling attacks.
-    if (this.registrationService && !this.registrationAuthToken) {
+    // Applies to BOTH Tree 1 (registration) and Tree 3 (engagement) registration endpoints.
+    const hasRegistrationEndpoint = !!(this.registrationService || this.engagementService);
+    if (hasRegistrationEndpoint && !this.registrationAuthToken) {
       if (process.env.NODE_ENV === 'production') {
         throw new Error(
           'BR5-012: REGISTRATION_AUTH_TOKEN must be set in production. ' +
@@ -296,7 +319,7 @@ export class ShadowAtlasAPI {
         );
       }
       logger.warn(
-        'Registration auth token not configured. POST /v1/register is unauthenticated. ' +
+        'Registration auth token not configured. POST /v1/register and /v1/engagement/register are unauthenticated. ' +
         'Set REGISTRATION_AUTH_TOKEN in production to prevent tree-filling attacks (CR-004).',
       );
     }
@@ -340,6 +363,12 @@ export class ShadowAtlasAPI {
       if (this.signer) {
         endpoints.push(`GET /${v}/signing-key - Server Ed25519 public key (verifiable operator)`);
       }
+      endpoints.push(`GET /${v}/engagement-info - Tree 3 metadata (root, depth, leafCount)`);
+      if (this.engagementService) {
+        endpoints.push(`GET /${v}/engagement-path/:leafIndex - Engagement Merkle proof (Tree 3)`);
+        endpoints.push(`GET /${v}/engagement-metrics/:identityCommitment - Engagement metrics`);
+        endpoints.push(`POST /${v}/engagement/register - Register identity for engagement tracking`);
+      }
       logger.info('API endpoints registered', { endpoints });
 
       if (this.apiVersion.deprecated) {
@@ -377,6 +406,11 @@ export class ShadowAtlasAPI {
     // 3. Flush insertion log and close
     if (this.registrationService) {
       await this.registrationService.close();
+    }
+
+    // 3b. Close engagement service
+    if (this.engagementService) {
+      await this.engagementService.close();
     }
 
     // 4. Final IPFS upload + stop sync service
@@ -461,6 +495,14 @@ export class ShadowAtlasAPI {
         await this.handleSnapshot(res, requestId, startTime);
       } else if (basePath === '/snapshots' && req.method === 'GET') {
         await this.handleSnapshots(res, requestId, startTime);
+      } else if (basePath === '/engagement-info' && req.method === 'GET') {
+        this.handleEngagementInfo(res, req, requestId);
+      } else if (basePath.match(/^\/engagement-path\/\d{1,10}$/) && req.method === 'GET') {
+        this.handleEngagementPath(basePath, res, req, requestId);
+      } else if (basePath.match(/^\/engagement-metrics\/(0x)?[0-9a-fA-F]{1,64}$/) && req.method === 'GET') {
+        this.handleEngagementMetrics(basePath, res, req, requestId);
+      } else if (basePath === '/engagement/register' && req.method === 'POST') {
+        await this.handleEngagementRegister(req, res, requestId);
       } else {
         this.sendErrorResponse(
           res,
@@ -1117,6 +1159,237 @@ export class ShadowAtlasAPI {
     }, requestId, false);
   }
 
+  // ========================================================================
+  // Engagement Tree (Tree 3) Endpoints
+  // ========================================================================
+
+  /**
+   * Handle GET /v1/engagement-info endpoint.
+   * Returns Tree 3 metadata (root, depth, leafCount).
+   */
+  private handleEngagementInfo(
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    // Rate limit info endpoint to prevent real-time tree-growth tracking (API ENG-009)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+    if (!this.engagementService) {
+      this.sendSuccessResponse(res, { available: false }, requestId, false);
+      return;
+    }
+
+    this.sendSuccessResponse(res, {
+      available: true,
+      root: this.engagementService.getRootHex(),
+      depth: this.engagementService.getDepth(),
+      leafCount: this.engagementService.getLeafCount(),
+    }, requestId, false);
+  }
+
+  /**
+   * Handle GET /v1/engagement-path/:leafIndex endpoint.
+   * Returns Merkle proof for an engagement leaf.
+   */
+  private handleEngagementPath(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.engagementService) {
+      this.sendErrorResponse(
+        res, 501, 'ENGAGEMENT_UNAVAILABLE',
+        'Engagement service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
+    const leafIndex = parseInt(basePath.split('/').pop()!, 10);
+    if (isNaN(leafIndex) || leafIndex < 0 || leafIndex > Number.MAX_SAFE_INTEGER) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid leaf index', requestId);
+      return;
+    }
+
+    try {
+      const proof = this.engagementService.getProof(leafIndex);
+      // Proofs are state-dependent — no caching (API ENG-008)
+      res.setHeader('Cache-Control', 'no-store');
+      this.sendSuccessResponse(res, proof, requestId, false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      if (msg.includes('out of range')) {
+        this.sendErrorResponse(res, 404, 'LEAF_NOT_FOUND', 'Leaf index out of range', requestId);
+      } else {
+        this.healthMonitor.recordError(msg);
+        this.sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Engagement proof failed', requestId);
+      }
+    }
+  }
+
+  /**
+   * Handle GET /v1/engagement-metrics/:identityCommitment endpoint.
+   * Returns current engagement metrics for an identity.
+   */
+  private handleEngagementMetrics(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.engagementService) {
+      this.sendErrorResponse(
+        res, 501, 'ENGAGEMENT_UNAVAILABLE',
+        'Engagement service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
+    const icHex = basePath.split('/').pop()!;
+    try {
+      const ic = BigInt(icHex.startsWith('0x') ? icHex : '0x' + icHex);
+      const record = this.engagementService.getMetrics(ic);
+
+      if (!record) {
+        this.sendErrorResponse(res, 404, 'IDENTITY_NOT_FOUND', 'Identity not registered', requestId);
+        return;
+      }
+
+      this.sendSuccessResponse(res, {
+        identityCommitment: '0x' + record.identityCommitment.toString(16),
+        tier: record.tier,
+        actionCount: record.metrics.actionCount,
+        diversityScore: record.metrics.diversityScore,
+        tenureMonths: record.metrics.tenureMonths,
+        leafIndex: record.leafIndex,
+      }, requestId, false);
+    } catch {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid identityCommitment', requestId);
+    }
+  }
+
+  /**
+   * Handle POST /v1/engagement/register endpoint.
+   * Registers an identity for engagement tracking (inserts tier-0 leaf).
+   */
+  private async handleEngagementRegister(
+    req: IncomingMessage,
+    res: ServerResponse,
+    requestId: string,
+  ): Promise<void> {
+    if (!this.engagementService) {
+      this.sendErrorResponse(
+        res, 501, 'ENGAGEMENT_UNAVAILABLE',
+        'Engagement service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting BEFORE auth — prevents unlimited token probing (API ENG-002)
+    const clientId = this.getClientId(req);
+    const rateResult = this.registrationRateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', 5);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
+    // Auth check (same pattern as Tree 1 registration)
+    if (this.registrationAuthToken) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // RFC 7235 requires WWW-Authenticate on 401 (API ENG-003)
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        this.sendErrorResponse(res, 401, 'UNAUTHORIZED', 'Authorization required', requestId);
+        return;
+      }
+      const token = authHeader.slice(7);
+      // Use consistent HMAC-based comparison (API ENG-010)
+      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
+        this.sendErrorResponse(res, 403, 'FORBIDDEN', 'Invalid authorization token', requestId);
+        return;
+      }
+    }
+
+    // Content-Type validation before reading body (API ENG-002)
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      this.sendErrorResponse(res, 415, 'INVALID_BODY', 'Content-Type must be application/json', requestId);
+      return;
+    }
+
+    // Parse body
+    const body = await this.readBody(req);
+    if (!body) {
+      this.sendErrorResponse(res, 400, 'INVALID_BODY', 'Request body is required', requestId);
+      return;
+    }
+
+    const validation = engagementRegisterSchema.safeParse(body);
+    if (!validation.success) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid registration parameters', requestId);
+      return;
+    }
+
+    try {
+      const { signerAddress, identityCommitment: icStr } = validation.data;
+      const ic = BigInt(icStr.startsWith('0x') ? icStr : '0x' + icStr);
+      const leafIndex = await this.engagementService.registerIdentity(signerAddress, ic);
+
+      // Notify sync service for IPFS backup (parity with handleRegister)
+      const engLog = this.engagementService.getInsertionLog();
+      if (engLog) {
+        this.syncService.notifyInsertion(engLog);
+      }
+
+      res.setHeader('Cache-Control', 'no-store');
+      this.sendSuccessResponse(res, {
+        leafIndex,
+        engagementRoot: this.engagementService.getRootHex(),
+      }, requestId, false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      if (msg === 'IDENTITY_ALREADY_REGISTERED' || msg === 'SIGNER_ALREADY_REGISTERED') {
+        // W-004: Oracle-resistant — return identical HTTP status, error code, and message
+        // as Tree 1 duplicate handling (CR-006/S-08) to prevent cross-tree registration oracle.
+        this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid registration parameters', requestId);
+      } else if (msg.includes('BN254')) {
+        this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid field element', requestId);
+      } else if (msg.includes('capacity')) {
+        this.sendErrorResponse(res, 503, 'TREE_FULL', 'Engagement tree is full', requestId);
+      } else {
+        this.healthMonitor.recordError(msg);
+        this.sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Registration failed', requestId);
+      }
+    }
+  }
+
   /**
    * Read and parse JSON request body (max 1KB for registration).
    */
@@ -1538,7 +1811,11 @@ export class ShadowAtlasAPI {
     const hashA = createHmac('sha256', key).update(a).digest();
     const hashB = createHmac('sha256', key).update(b).digest();
     // HMAC outputs are always 32 bytes — safe for timingSafeEqual
-    return timingSafeEqual(hashA, hashB) && a.length === b.length;
+    // W-005: Length check removed — HMAC comparison is sufficient.
+    // Different-length inputs produce different HMACs with overwhelming probability,
+    // and the prior `&& a.length === b.length` was a non-timing-safe comparison
+    // that could leak whether inputs have equal length via short-circuit evaluation.
+    return timingSafeEqual(hashA, hashB);
   }
 
   /**
@@ -1578,6 +1855,7 @@ export async function createShadowAtlasAPI(
     registrationAuthToken?: string;
     syncService?: SyncService;
     signer?: ServerSigner;
+    engagementService?: EngagementService;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services
@@ -1611,6 +1889,7 @@ export async function createShadowAtlasAPI(
     options.cellMapState ?? null,
     options.registrationAuthToken ?? process.env.REGISTRATION_AUTH_TOKEN ?? null,
     options.signer ?? null,
+    options.engagementService ?? null,
   );
 
   return api;

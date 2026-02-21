@@ -432,5 +432,5 @@ When adding new validators or normalizers:
 
 ## References
 
-- [MERKLE-FOREST-SPEC.md](../../../../../specs/MERKLE-FOREST-SPEC.md) - Merkle proof verification
+- [TWO-TREE-ARCHITECTURE-SPEC.md](../../../../../specs/TWO-TREE-ARCHITECTURE-SPEC.md) - Two-tree Merkle proof architecture
 - [Shadow Atlas Core Documentation](../core/README.md) - Core architecture and design

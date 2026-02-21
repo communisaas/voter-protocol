@@ -32,3 +32,14 @@ export {
   type SMTConfig,
   type Field,
 } from './sparse-merkle-tree.js';
+
+export {
+  computeEngagementDataCommitment,
+  computeEngagementLeaf,
+  computeShannonDiversity,
+  encodeShannonDiversity,
+  computeCompositeScore,
+  deriveTier,
+  type EngagementMetrics,
+  type EngagementData,
+} from './engagement.js';

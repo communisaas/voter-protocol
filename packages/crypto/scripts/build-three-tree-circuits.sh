@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Build Two-Tree Membership Circuits - Multi-Depth Compilation
+# Build Three-Tree Membership Circuits - Multi-Depth Compilation
 #
-# Compiles the two_tree_membership Noir circuit at 4 different Merkle depths:
+# Compiles the three_tree_membership Noir circuit at 4 different Merkle depths:
 # - TREE_DEPTH=18: Municipal (city council, ~262K leaves)
 # - TREE_DEPTH=20: State (congressional districts, ~1M leaves)
 # - TREE_DEPTH=22: Federal (national boundaries, ~4M leaves)
@@ -15,11 +15,11 @@
 # 2. For each depth:
 #    a. Replace `global TREE_DEPTH: u32 = <N>` with target depth
 #    b. Compile with nargo
-#    c. Rename output to two_tree_membership_{depth}.json
+#    c. Rename output to three_tree_membership_{depth}.json
 #    d. Restore original
 #
 # USAGE:
-#   ./scripts/build-two-tree-circuits.sh
+#   ./scripts/build-three-tree-circuits.sh
 #
 # REQUIREMENTS:
 #   - nargo (Noir compiler) installed and in PATH
@@ -38,10 +38,11 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-CIRCUIT_DIR="noir/two_tree_membership"
+CIRCUIT_DIR="noir/three_tree_membership"
 CIRCUIT_SRC="${CIRCUIT_DIR}/src/main.nr"
 CIRCUIT_BACKUP="${CIRCUIT_DIR}/src/main.nr.bak"
 TARGET_DIR="${CIRCUIT_DIR}/target"
+OUTPUT_DIR="../noir-prover/circuits"
 DEPTHS=(18 20 22 24)
 
 # Logging functions
@@ -83,6 +84,13 @@ check_prerequisites() {
         log_error "Circuit source not found: ${CIRCUIT_SRC}"
         log_error "Run this script from packages/crypto directory"
         exit 1
+    fi
+
+    # Check output directory exists
+    if [[ ! -d "${OUTPUT_DIR}" ]]; then
+        log_warn "Output directory not found: ${OUTPUT_DIR}"
+        log_info "Creating output directory..."
+        mkdir -p "${OUTPUT_DIR}"
     fi
 
     log_info "Prerequisites OK (nargo $(nargo --version | head -1))"
@@ -135,23 +143,28 @@ compile_for_depth() {
     fi
 
     # Compile circuit
-    log_info "Running: nargo compile --package two_tree_membership"
+    log_info "Running: nargo compile --package three_tree_membership"
     (cd "${CIRCUIT_DIR}" && nargo compile)
 
     # Check compilation succeeded
-    if [[ ! -f "${TARGET_DIR}/two_tree_membership.json" ]]; then
+    if [[ ! -f "${TARGET_DIR}/three_tree_membership.json" ]]; then
         log_error "Compilation failed - no output JSON"
         restore_original
         exit 1
     fi
 
-    # Rename output to depth-specific name
-    local output_file="${TARGET_DIR}/two_tree_membership_${depth}.json"
-    mv "${TARGET_DIR}/two_tree_membership.json" "${output_file}"
-    log_info "Created: ${output_file}"
+    # Rename output to depth-specific name in target dir
+    local target_file="${TARGET_DIR}/three_tree_membership_${depth}.json"
+    mv "${TARGET_DIR}/three_tree_membership.json" "${target_file}"
+    log_info "Created: ${target_file}"
+
+    # Copy to noir-prover circuits directory
+    local output_file="${OUTPUT_DIR}/three_tree_membership_${depth}.json"
+    cp "${target_file}" "${output_file}"
+    log_info "Copied to: ${output_file}"
 
     # Verify output file size is reasonable (should be >10KB)
-    local file_size=$(wc -c < "${output_file}" | tr -d ' ')
+    local file_size=$(wc -c < "${target_file}" | tr -d ' ')
     if [[ ${file_size} -lt 10000 ]]; then
         log_warn "Output file suspiciously small (${file_size} bytes)"
     fi
@@ -161,9 +174,9 @@ compile_for_depth() {
 clean_artifacts() {
     log_info "Cleaning old build artifacts..."
 
-    # Remove old depth-specific JSONs
+    # Remove old depth-specific JSONs from target dir
     for depth in "${DEPTHS[@]}"; do
-        local artifact="${TARGET_DIR}/two_tree_membership_${depth}.json"
+        local artifact="${TARGET_DIR}/three_tree_membership_${depth}.json"
         if [[ -f "${artifact}" ]]; then
             rm "${artifact}"
             log_info "Removed old artifact: ${artifact}"
@@ -171,14 +184,14 @@ clean_artifacts() {
     done
 
     # Remove generic output if exists
-    if [[ -f "${TARGET_DIR}/two_tree_membership.json" ]]; then
-        rm "${TARGET_DIR}/two_tree_membership.json"
+    if [[ -f "${TARGET_DIR}/three_tree_membership.json" ]]; then
+        rm "${TARGET_DIR}/three_tree_membership.json"
     fi
 }
 
 # Main build pipeline
 main() {
-    log_info "=== Two-Tree Membership Circuit Build ==="
+    log_info "=== Three-Tree Membership Circuit Build ==="
     log_info "Building circuits for depths: ${DEPTHS[*]}"
 
     check_prerequisites
@@ -194,29 +207,17 @@ main() {
     # Final cleanup - remove backup
     cleanup_backup
 
-    # Copy compiled circuits to noir-prover/circuits/ so they stay in sync
-    NOIR_PROVER_CIRCUITS_DIR="../../packages/noir-prover/circuits"
-    if [[ -d "${NOIR_PROVER_CIRCUITS_DIR}" ]]; then
-        log_info "Copying compiled circuits to packages/noir-prover/circuits/..."
-        for depth in "${DEPTHS[@]}"; do
-            local src="${TARGET_DIR}/two_tree_membership_${depth}.json"
-            local dst="${NOIR_PROVER_CIRCUITS_DIR}/two_tree_membership_${depth}.json"
-            cp "${src}" "${dst}"
-            log_info "  Copied: ${dst}"
-        done
-        log_info "noir-prover circuits updated (prevents stale-circuit bugs)."
-    else
-        log_warn "packages/noir-prover/circuits/ not found — skipping copy step."
-        log_warn "You may need to manually copy circuits to noir-prover."
-    fi
-
     log_info "=== Build Complete ==="
     log_info "Generated circuits:"
     for depth in "${DEPTHS[@]}"; do
-        local output="${TARGET_DIR}/two_tree_membership_${depth}.json"
-        local size=$(wc -c < "${output}" | tr -d ' ')
-        log_info "  - TREE_DEPTH=${depth}: ${output} (${size} bytes)"
+        local target="${TARGET_DIR}/three_tree_membership_${depth}.json"
+        local size=$(wc -c < "${target}" | tr -d ' ')
+        log_info "  - TREE_DEPTH=${depth}: ${target} (${size} bytes)"
     done
+
+    log_info ""
+    log_info "Circuits also copied to: ${OUTPUT_DIR}/"
+    log_info "Remember to rebuild noir-prover after updating circuits: cd ../noir-prover && npm run build"
 }
 
 # Cleanup trap - ensure original is restored even on error

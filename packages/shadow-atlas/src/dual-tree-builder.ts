@@ -6,9 +6,6 @@
  * TREE 1 (User Identity Tree):
  *   Standard balanced binary Merkle tree containing user registration leaves.
  *   Leaf = Poseidon2_Hash4(userSecret, cellId, registrationSalt, authorityLevel)
- *   NOTE: The circuit uses H4 (BR5-001). The computeUserLeaf() function below
- *   still uses H3 (missing authorityLevel) — this is a known divergence.
- *   Live registration works because clients submit pre-computed H4 leaves.
  *   Uses the existing ShadowAtlasMerkleTree infrastructure.
  *
  * TREE 2 (Cell-District Mapping Tree):
@@ -48,12 +45,6 @@ import type { CellMapState } from './serving/registration-service.js';
 export { PROTOCOL_DISTRICT_SLOTS } from './jurisdiction.js';
 export const DISTRICT_SLOT_COUNT = 24;
 
-// KNOWN ISSUE: computeUserLeaf() below uses hash3(secret, cellId, salt), but the
-// Noir circuit (BR5-001) uses hash4(secret, cellId, salt, authorityLevel).
-// Live registration is unaffected — clients compute H4 leaves and submit them
-// pre-hashed via POST /v1/register. This builder function is only used for
-// testing and bulk tree construction. TODO: Add authorityLevel to UserRegistration
-// and switch to hash4() to match the circuit.
 
 /**
  * Cell-to-district mapping for a single geographic cell.
@@ -82,6 +73,8 @@ export interface UserRegistration {
   readonly cellId: bigint;
   /** Random salt for registration uniqueness */
   readonly registrationSalt: bigint;
+  /** Authority level (1-5). Baked into leaf: H4(secret, cellId, salt, authorityLevel) */
+  readonly authorityLevel: bigint;
 }
 
 /**
@@ -315,21 +308,15 @@ export function toCellMapState(result: CellMapTreeResult): CellMapState {
 /**
  * Compute a user leaf hash for Tree 1.
  *
- * KNOWN ISSUE (BR5-001): This uses H3 (without authorityLevel), but the Noir
- * circuit uses H4(userSecret, cellId, registrationSalt, authorityLevel).
- * Live registration is not affected — clients compute H4 leaves and submit
- * them pre-hashed. This function is only used for testing/bulk construction.
- * TODO: Add authorityLevel to UserRegistration and use hash4() here.
+ * user_leaf = poseidon2_hash4(userSecret, cellId, registrationSalt, authorityLevel)
+ * Matches the Noir circuit (BR5-001) which uses H4 with DOMAIN_HASH4 = 0x48344d.
  *
- * Current: user_leaf = poseidon2_hash3(userSecret, cellId, registrationSalt)
- * Circuit: user_leaf = poseidon2_hash4(userSecret, cellId, registrationSalt, authorityLevel)
- *
- * @param user - User registration data
- * @returns User leaf hash (H3 — does NOT match circuit H4)
+ * @param user - User registration data (including authorityLevel)
+ * @returns User leaf hash (H4)
  */
 export async function computeUserLeaf(user: UserRegistration): Promise<bigint> {
   const hasher = await ensureHasher();
-  return hasher.hash3(user.userSecret, user.cellId, user.registrationSalt);
+  return hasher.hash4(user.userSecret, user.cellId, user.registrationSalt, user.authorityLevel);
 }
 
 /**
@@ -339,8 +326,7 @@ export async function computeUserLeaf(user: UserRegistration): Promise<bigint> {
  * leaves. The tree is built bottom-up with parallel pair hashing.
  *
  * For each user:
- *   user_leaf = hash3(userSecret, cellId, registrationSalt)
- *   NOTE: See computeUserLeaf() — uses H3, not circuit's H4. See BR5-001.
+ *   user_leaf = hash4(userSecret, cellId, registrationSalt, authorityLevel)
  *
  * Leaves are padded with a deterministic padding hash to fill to 2^depth.
  *

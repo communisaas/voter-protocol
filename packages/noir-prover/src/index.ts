@@ -43,6 +43,23 @@ export type {
 } from './types';
 export { DISTRICT_SLOT_COUNT, TWO_TREE_PUBLIC_INPUT_COUNT } from './types';
 
+// Three-tree prover API (three-tree architecture: user tree + cell map tree + engagement tree)
+export {
+    ThreeTreeNoirProver,
+    getThreeTreeProverForDepth,
+    resetThreeTreeProverSingleton,
+    resetThreeTreeProverForDepth,
+} from './three-tree-prover';
+
+// Types - three-tree
+export type {
+    ThreeTreeProverConfig,
+    ThreeTreeProofInput,
+    ThreeTreeProofResult,
+    EngagementTier,
+} from './types';
+export { THREE_TREE_PUBLIC_INPUT_COUNT, validateEngagementTier } from './types';
+
 // Cross-origin isolation utilities (needed for SharedArrayBuffer support)
 export { checkCrossOriginIsolation, requireCrossOriginIsolation } from './cross-origin-isolation';
 

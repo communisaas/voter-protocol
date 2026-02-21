@@ -222,8 +222,9 @@ export class Poseidon2Hasher {
   /**
    * Hash three field elements: Poseidon2(a, b, c, DOMAIN_HASH3)
    *
-   * Two-tree architecture: Used for user leaf computation
-   * user_leaf = hash3(user_secret, cell_id, registration_salt)
+   * Three-tree architecture: Used for engagement inner commitment
+   * engagement_inner = hash3(tier, action_count, diversity_score)
+   * Note: User leaf uses hash4(user_secret, cell_id, registration_salt, authority_level).
    *
    * Domain separation: DOMAIN_HASH3 (0x48334d = "H3M") in slot 3 prevents
    * collision with hash4(a, b, c, 0).

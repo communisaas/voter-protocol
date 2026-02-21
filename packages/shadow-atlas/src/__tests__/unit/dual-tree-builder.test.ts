@@ -91,6 +91,7 @@ function mockUsers(count: number, cellIds: bigint[]): UserRegistration[] {
       userSecret: BigInt(9000 + i * 7),
       cellId: cellIds[i % cellIds.length],
       registrationSalt: BigInt(5000 + i * 13),
+      authorityLevel: 3n,
     });
   }
   return users;
@@ -360,23 +361,24 @@ describe('Dual-Tree Builder', () => {
   // ==========================================================================
 
   describe('User Leaf Computation', () => {
-    it('should compute user_leaf using hash3 (matching Noir circuit)', async () => {
+    it('should compute user_leaf using hash4 (matching Noir circuit BR5-001)', async () => {
       const user: UserRegistration = {
         userSecret: 111n,
         cellId: 222n,
         registrationSalt: 333n,
+        authorityLevel: 3n,
       };
 
       const leaf = await computeUserLeaf(user);
-      // Verify it matches hash3(secret, cellId, salt) which uses DOMAIN_HASH3 = 0x48334d
-      const expected = await hasher.hash3(111n, 222n, 333n);
+      // Verify it matches hash4(secret, cellId, salt, authorityLevel) with DOMAIN_HASH4 = 0x48344d
+      const expected = await hasher.hash4(111n, 222n, 333n, 3n);
 
       expect(leaf).toBe(expected);
     }, 30_000);
 
     it('should be different for different users', async () => {
-      const user1: UserRegistration = { userSecret: 1n, cellId: 100n, registrationSalt: 50n };
-      const user2: UserRegistration = { userSecret: 2n, cellId: 100n, registrationSalt: 50n };
+      const user1: UserRegistration = { userSecret: 1n, cellId: 100n, registrationSalt: 50n, authorityLevel: 3n };
+      const user2: UserRegistration = { userSecret: 2n, cellId: 100n, registrationSalt: 50n, authorityLevel: 3n };
 
       const leaf1 = await computeUserLeaf(user1);
       const leaf2 = await computeUserLeaf(user2);
@@ -453,8 +455,8 @@ describe('Dual-Tree Builder', () => {
       const mappings = mockMappings(3);
       // Users reference cell IDs that are NOT in the mappings
       const users: UserRegistration[] = [
-        { userSecret: 1n, cellId: 999999n, registrationSalt: 10n },
-        { userSecret: 2n, cellId: mappings[0].cellId, registrationSalt: 20n },
+        { userSecret: 1n, cellId: 999999n, registrationSalt: 10n, authorityLevel: 3n },
+        { userSecret: 2n, cellId: mappings[0].cellId, registrationSalt: 20n, authorityLevel: 3n },
       ];
 
       const result = await buildDualTrees(users, mappings, { depth: TEST_DEPTH });
@@ -467,7 +469,7 @@ describe('Dual-Tree Builder', () => {
     it('should throw when user references unknown cell_id (strict mode)', async () => {
       const mappings = mockMappings(3);
       const users: UserRegistration[] = [
-        { userSecret: 1n, cellId: 999999n, registrationSalt: 10n },
+        { userSecret: 1n, cellId: 999999n, registrationSalt: 10n, authorityLevel: 3n },
       ];
 
       await expect(

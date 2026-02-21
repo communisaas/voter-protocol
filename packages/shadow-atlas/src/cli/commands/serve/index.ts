@@ -6,7 +6,14 @@
 
 import { createShadowAtlasAPI } from '../../../serving/api.js';
 import { RegistrationService, type CellMapState } from '../../../serving/registration-service.js';
+import { EngagementService } from '../../../serving/engagement-service.js';
 import { SyncService } from '../../../serving/sync-service.js';
+import { ChainScanner } from '../../../serving/chain-scanner.js';
+import {
+  EngagementTreeBuilder,
+  createActionCategoryRegistry,
+  type ActionCategoryRegistry,
+} from '../../../engagement-tree-builder.js';
 import { ServerSigner } from '../../../serving/signing.js';
 import { loadCellDistrictMappings } from '../../../cell-district-loader.js';
 import { buildCellMapTree, toCellMapState } from '../../../dual-tree-builder.js';
@@ -139,6 +146,106 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         'Set CELL_MAP_SNAPSHOT or CELL_MAP_STATE to enable.');
     }
 
+    // Build Tree 3 (Engagement) with persistent log
+    const engagementLogPath = `${dataDir}/engagement-log.ndjson`;
+    const engagementService = await EngagementService.create(20, {
+      path: engagementLogPath,
+      signer,
+    });
+    logger.info('Engagement service initialized (Tree 3)', {
+      depth: engagementService.getDepth(),
+      identities: engagementService.getLeafCount(),
+      rootPrefix: engagementService.getRootHex().slice(0, 18) + '...',
+    });
+
+    // Start chain event scanner (optional — needs CHAIN_RPC_URL)
+    let chainScanner: ChainScanner | null = null;
+    const chainRpcUrl = process.env.CHAIN_RPC_URL;
+    const districtGateAddr = process.env.DISTRICT_GATE_ADDRESS;
+
+    if (chainRpcUrl && districtGateAddr) {
+      // Load action domain → category registry (JSON file: { "0xhash": 1, ... })
+      // Without this, diversityScore will be 0 for all signers because action
+      // domains are keccak256 hashes with no structured prefix byte.
+      let categoryRegistry: ActionCategoryRegistry = createActionCategoryRegistry();
+      const registryPath = process.env.ACTION_CATEGORY_REGISTRY;
+      if (registryPath) {
+        try {
+          const raw = await fsPromises.readFile(registryPath, 'utf-8');
+          const parsed = JSON.parse(raw) as Record<string, number>;
+          const mutable = createActionCategoryRegistry();
+          for (const [domain, cat] of Object.entries(parsed)) {
+            mutable.set(domain.toLowerCase(), cat);
+          }
+          categoryRegistry = mutable;
+          logger.info('Action category registry loaded', {
+            path: registryPath,
+            entries: mutable.size,
+          });
+        } catch (err) {
+          logger.warn('Failed to load action category registry — diversityScore will be 0', {
+            path: registryPath,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        logger.warn('ACTION_CATEGORY_REGISTRY not set — diversityScore will be 0. ' +
+          'Create a JSON file mapping action domain hashes to category (1-5).');
+      }
+
+      chainScanner = await ChainScanner.create({
+        rpcUrl: chainRpcUrl,
+        districtGateAddress: districtGateAddr,
+        cursorPath: `${dataDir}/chain-scanner-cursor.json`,
+        startBlock: parseInt(process.env.CHAIN_START_BLOCK || '0', 10),
+        pollIntervalMs: parseInt(process.env.CHAIN_POLL_INTERVAL_MS || '30000', 10),
+      });
+
+      // Wire events: chain events → EngagementTreeBuilder → EngagementService
+      // Capture categoryRegistry in closure for use across poll cycles
+      const registry = categoryRegistry;
+      chainScanner.setEventCallback(async (events) => {
+        // Build identity map from EngagementService's registered signers
+        const identityMap = new Map<string, bigint>();
+        for (const event of events) {
+          const record = engagementService.getMetricsBySigner(event.signer);
+          if (record) {
+            identityMap.set(event.signer.toLowerCase(), record.identityCommitment);
+          }
+        }
+
+        if (identityMap.size === 0) return;
+
+        const result = EngagementTreeBuilder.buildFromEvents(
+          events, identityMap, undefined, registry,
+        );
+        for (const entry of result.entries) {
+          await engagementService.updateMetrics(entry.identityCommitment, {
+            actionCount: entry.actionCount,
+            diversityScore: entry.diversityScore,
+            tenureMonths: entry.tenureMonths,
+          });
+        }
+
+        if (result.entries.length > 0) {
+          logger.info('ChainScanner: engagement metrics updated', {
+            updated: result.entries.length,
+            skipped: result.skippedSigners.length,
+          });
+        }
+      });
+
+      chainScanner.start();
+      logger.info('Chain event scanner started', {
+        districtGate: districtGateAddr,
+        pollInterval: process.env.CHAIN_POLL_INTERVAL_MS || '30000',
+        categoryRegistryEntries: (categoryRegistry as Map<string, number>).size,
+      });
+    } else {
+      logger.warn('Chain scanner not configured — engagement metrics will not auto-update. ' +
+        'Set CHAIN_RPC_URL and DISTRICT_GATE_ADDRESS to enable.');
+    }
+
     // Create and start API server
     const api = await createShadowAtlasAPI(dbPath, {
       port,
@@ -151,6 +258,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       registrationService,
       cellMapState,
       signer,
+      engagementService,
     });
 
     api.start();
@@ -159,8 +267,10 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     const shutdown = async () => {
       logger.info('Received shutdown signal, stopping server...');
       try {
+        if (chainScanner) await chainScanner.stop();
         await syncService.shutdown(registrationService.getInsertionLog());
         await registrationService.close();
+        await engagementService.close();
       } catch (err) {
         logger.error('Shutdown error', {
           error: err instanceof Error ? err.message : String(err),
@@ -182,6 +292,8 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         metrics: `http://${host}:${port}/v1/metrics`,
       },
       tree2: cellMapState ? 'enabled' : 'disabled',
+      tree3: 'enabled',
+      chainScanner: chainScanner ? 'enabled' : 'disabled',
       signer: 'enabled',
     });
   } catch (error) {

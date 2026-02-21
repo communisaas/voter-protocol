@@ -832,16 +832,13 @@ for i in 0..14 {
 
 ### 8.4 Verification (On-Chain)
 
-**Scroll L2 Gas Costs**:
-- Verify 18-level proof: ~350k gas (~$0.0025)
-- Verify 14 public outputs: ~50k gas (~$0.0004)
-- Nullifier check: ~20k gas (~$0.0002)
-- **Total**: ~420k gas (~$0.003)
+**Scroll L2 Gas Costs** (measured on Scroll Sepolia):
+- UltraHonk proof verification: ~2.1M gas
+- Public inputs processing: ~50k gas
+- Nullifier check: ~20k gas
+- **Total**: ~2.2M gas (~$0.01-0.03 at current Scroll L2 gas prices)
 
-**Comparison**:
-- Old model: ~400k gas (22-level proof, 1 public output)
-- New model: ~420k gas (18-level proof, 14 public outputs)
-- **Delta**: +5% gas for 14x more disclosed information
+> **Note:** Original estimates (~420k) predated actual UltraHonk deployment. On-chain measurement shows approximately 2.2M gas, dominated by the pairing check. See `docs/DOCUMENTATION-COHERENCE-AUDIT.md` Section 1 for detailed analysis.
 
 ---
 

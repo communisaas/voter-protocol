@@ -380,6 +380,123 @@ export interface TwoTreeProverConfig {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Three-Tree Architecture Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Engagement tiers representing user participation levels (range-checked by circuit to [0, 4]).
+ * Derived from composite engagement score E per REPUTATION-ARCHITECTURE-SPEC.md Section 4.3:
+ *   E = log2(1+actions) * (1+shannonH) * (1+sqrt(tenure/12)) * (1+log2(1+adoptions)/4)
+ *   0: New         — E = 0 (no actions)
+ *   1: Active      — E > 0
+ *   2: Established — E >= 5.0
+ *   3: Veteran     — E >= 12.0
+ *   4: Pillar      — E >= 25.0
+ * where shannonH = Shannon diversity index of action categories, stored as floor(H*1000).
+ */
+export type EngagementTier = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * Validate that a number is a valid EngagementTier (integer 0-4)
+ */
+export function validateEngagementTier(tier: number): EngagementTier {
+    if (tier < 0 || tier > 4 || !Number.isInteger(tier)) {
+        throw new Error(`Invalid engagement tier: ${tier}. Must be integer 0-4.`);
+    }
+    return tier as EngagementTier;
+}
+
+/**
+ * Number of public inputs in the three-tree circuit proof result.
+ *
+ * Derived from protocol constants:
+ *   user_root(1) + cell_map_root(1) + districts(24) + nullifier(1) + action_domain(1)
+ *   + authority_level(1) + engagement_root(1) + engagement_tier(1) = 31
+ */
+export const THREE_TREE_PUBLIC_INPUT_COUNT = TWO_TREE_PUBLIC_INPUT_COUNT + 2;  // = 31
+
+/**
+ * Inputs required to generate a three-tree membership proof.
+ *
+ * Extends the two-tree architecture with Tree 3 (Engagement):
+ * 1. User identity in Tree 1 (standard Merkle tree)
+ * 2. Cell-to-district mapping in Tree 2 (sparse Merkle tree)
+ * 3. Engagement data bound to identity in Tree 3 (standard Merkle tree)
+ * 4. Nullifier correctness (identity_commitment + action_domain per NUL-001)
+ * 5. Authority level range [1, 5] and engagement tier range [0, 4]
+ *
+ * CROSS-TREE IDENTITY BINDING:
+ * A single identityCommitment feeds BOTH:
+ * - Nullifier: H2(identityCommitment, actionDomain)
+ * - Engagement leaf: H2(identityCommitment, H3(engagementTier, actionCount, diversityScore))
+ */
+export interface ThreeTreeProofInput extends TwoTreeProofInput {
+    // ═══════════════════════════════════════════════════════════════════════
+    // PUBLIC INPUTS (additional to two-tree)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Root of Tree 3 (engagement Merkle tree) */
+    engagementRoot: bigint;
+
+    /** User's engagement tier (0-4). Range-checked by the circuit. */
+    engagementTier: EngagementTier;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRIVATE INPUTS (additional to two-tree)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Tree 3 Merkle siblings from leaf to root (length = TREE_DEPTH) */
+    engagementPath: bigint[];
+
+    /** Leaf position in Tree 3 (determines left/right at each level) */
+    engagementIndex: number;
+
+    /** Number of verified on-chain actions (private witness) */
+    actionCount: bigint;
+
+    /** Topic diversity metric (private witness) */
+    diversityScore: bigint;
+}
+
+/**
+ * Result of three-tree proof generation.
+ */
+export interface ThreeTreeProofResult {
+    /** Serialized proof bytes (UltraHonk format) */
+    proof: Uint8Array;
+
+    /**
+     * Public inputs as hex strings, in circuit order.
+     * Total count: 31 (THREE_TREE_PUBLIC_INPUT_COUNT)
+     *
+     * Layout:
+     *   [0]     user_root
+     *   [1]     cell_map_root
+     *   [2-25]  districts[0..24]
+     *   [26]    nullifier
+     *   [27]    action_domain
+     *   [28]    authority_level
+     *   [29]    engagement_root
+     *   [30]    engagement_tier
+     */
+    publicInputs: string[];
+}
+
+/**
+ * Configuration for the ThreeTreeNoirProver.
+ */
+export interface ThreeTreeProverConfig {
+    /** Number of threads for proving (default: auto-detect) */
+    threads?: number;
+
+    /**
+     * Merkle tree depth for circuit selection (default: 20)
+     * All three trees use the same depth.
+     */
+    depth?: CircuitDepth;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Legacy type aliases for migration period
 // ═══════════════════════════════════════════════════════════════════════════
 
