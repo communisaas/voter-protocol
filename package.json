@@ -6,7 +6,8 @@
   "workspaces": [
     "packages/crypto",
     "packages/noir-prover",
-    "packages/shadow-atlas"
+    "packages/shadow-atlas",
+    "packages/ai-evaluator"
   ],
   "scripts": {
     "build": "turbo run build",
