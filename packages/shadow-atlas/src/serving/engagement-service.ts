@@ -18,6 +18,7 @@ import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
 import {
   computeEngagementDataCommitment,
   computeEngagementLeaf,
+  computeCompositeScore,
   deriveTier,
   type EngagementMetrics,
   type EngagementData,
@@ -32,6 +33,15 @@ import { InsertionLog, type InsertionLogOptions } from './insertion-log.js';
 const BN254_MODULUS =
   21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
+/** Tier boundary thresholds (composite score E) — spec Section 4.3.2 */
+const TIER_BOUNDARIES = [
+  { tier: 0 as const, label: 'New',         minScore: 0 },
+  { tier: 1 as const, label: 'Active',      minScore: 0.001 },
+  { tier: 2 as const, label: 'Established', minScore: 5.0 },
+  { tier: 3 as const, label: 'Veteran',     minScore: 12.0 },
+  { tier: 4 as const, label: 'Pillar',      minScore: 25.0 },
+];
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -45,6 +55,32 @@ export interface EngagementProofResult {
   readonly tier: number;
   readonly actionCount: number;
   readonly diversityScore: number;
+}
+
+/** Detailed engagement breakdown for API response */
+export interface EngagementBreakdown {
+  readonly identityCommitment: string;
+  readonly currentTier: 0 | 1 | 2 | 3 | 4;
+  readonly compositeScore: number;
+  readonly metrics: {
+    readonly actionCount: number;
+    readonly diversityScore: number;
+    readonly shannonH: number;
+    readonly tenureMonths: number;
+    readonly adoptionCount: number;
+  };
+  readonly factors: {
+    readonly action: number;
+    readonly diversity: number;
+    readonly tenure: number;
+    readonly adoption: number;
+  };
+  readonly tierBoundaries: readonly {
+    readonly tier: 0 | 1 | 2 | 3 | 4;
+    readonly label: string;
+    readonly minScore: number;
+  }[];
+  readonly leafIndex: number;
 }
 
 /** Internal record per registered identity */
@@ -370,6 +406,46 @@ export class EngagementService {
     const icHex = this.signerMap.get(signerLower);
     if (!icHex) return null;
     return this.identityMap.get(icHex) ?? null;
+  }
+
+  /**
+   * Get detailed engagement breakdown for an identity.
+   * Returns composite score, factor contributions, and tier progression context.
+   */
+  getBreakdown(identityCommitment: bigint): EngagementBreakdown | null {
+    const record = this.getMetrics(identityCommitment);
+    if (!record) return null;
+
+    const { actionCount, diversityScore, tenureMonths, adoptionCount } = record.metrics;
+    const shannonH = diversityScore / 1000;
+    const compositeScore = computeCompositeScore(actionCount, shannonH, tenureMonths, adoptionCount ?? 0);
+
+    // Compute individual factor contributions for explanation
+    const actionFactor = actionCount === 0 ? 0 : Math.log2(1 + actionCount);
+    const diversityFactor = 1 + shannonH;
+    const tenureFactor = 1 + Math.sqrt(tenureMonths / 12);
+    const adoptionFactor = 1 + Math.log2(1 + (adoptionCount ?? 0)) / 4;
+
+    return {
+      identityCommitment: '0x' + record.identityCommitment.toString(16),
+      currentTier: record.tier,
+      compositeScore: Math.round(compositeScore * 1000) / 1000,
+      metrics: {
+        actionCount,
+        diversityScore,
+        shannonH: Math.round(shannonH * 1000) / 1000,
+        tenureMonths,
+        adoptionCount: adoptionCount ?? 0,
+      },
+      factors: {
+        action: Math.round(actionFactor * 1000) / 1000,
+        diversity: Math.round(diversityFactor * 1000) / 1000,
+        tenure: Math.round(tenureFactor * 1000) / 1000,
+        adoption: Math.round(adoptionFactor * 1000) / 1000,
+      },
+      tierBoundaries: TIER_BOUNDARIES,
+      leafIndex: record.leafIndex,
+    };
   }
 
   getRoot(): bigint { return this.root; }

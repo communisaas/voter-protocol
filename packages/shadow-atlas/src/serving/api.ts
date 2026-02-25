@@ -397,6 +397,7 @@ export class ShadowAtlasAPI {
       if (this.engagementService) {
         endpoints.push(`GET /${v}/engagement-path/:leafIndex - Engagement Merkle proof (Tree 3)`);
         endpoints.push(`GET /${v}/engagement-metrics/:identityCommitment - Engagement metrics`);
+        endpoints.push(`GET /${v}/engagement-breakdown/:identityCommitment - Detailed tier breakdown`);
         endpoints.push(`POST /${v}/engagement/register - Register identity for engagement tracking`);
       }
       if (this.debateService) {
@@ -541,6 +542,8 @@ export class ShadowAtlasAPI {
         this.handleEngagementPath(basePath, res, req, requestId);
       } else if (basePath.match(/^\/engagement-metrics\/(0x)?[0-9a-fA-F]{1,64}$/) && req.method === 'GET') {
         this.handleEngagementMetrics(basePath, res, req, requestId);
+      } else if (basePath.match(/^\/engagement-breakdown\/(0x)?[0-9a-fA-F]{1,64}$/) && req.method === 'GET') {
+        this.handleEngagementBreakdown(basePath, res, req, requestId);
       } else if (basePath === '/engagement/register' && req.method === 'POST') {
         await this.handleEngagementRegister(req, res, requestId);
       } else if (basePath === '/officials' && req.method === 'GET') {
@@ -1534,6 +1537,48 @@ export class ShadowAtlasAPI {
         tenureMonths: record.metrics.tenureMonths,
         leafIndex: record.leafIndex,
       }, requestId, false);
+    } catch {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid identityCommitment', requestId);
+    }
+  }
+
+  /**
+   * Handle GET /v1/engagement-breakdown/:identityCommitment endpoint.
+   * Returns detailed tier breakdown with composite score factors and tier boundaries.
+   */
+  private handleEngagementBreakdown(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.engagementService) {
+      this.sendErrorResponse(
+        res, 501, 'ENGAGEMENT_UNAVAILABLE',
+        'Engagement service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
+    const icHex = basePath.split('/').pop()!;
+    try {
+      const ic = BigInt(icHex.startsWith('0x') ? icHex : '0x' + icHex);
+      const breakdown = this.engagementService.getBreakdown(ic);
+
+      if (!breakdown) {
+        this.sendErrorResponse(res, 404, 'IDENTITY_NOT_FOUND', 'Identity not registered', requestId);
+        return;
+      }
+
+      this.sendSuccessResponse(res, breakdown, requestId, false);
     } catch {
       this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid identityCommitment', requestId);
     }
