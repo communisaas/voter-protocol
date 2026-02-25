@@ -15,7 +15,9 @@ via_ir = true  # Required for DistrictGate (stack depth)
 # Auto-generated HonkVerifier contracts in src/verifiers/ are excluded from default
 # builds (incompatible with via_ir). Compile them separately:
 #   FOUNDRY_PROFILE=verifiers forge build
-skip = ["HonkVerifier"]
+# DebateWeightVerifier and PositionNoteVerifier are also auto-generated Honk verifiers
+# (same incompatibility).
+skip = ["HonkVerifier", "DebateWeightVerifier", "PositionNoteVerifier"]
 
 # Testing settings
 verbosity = 2

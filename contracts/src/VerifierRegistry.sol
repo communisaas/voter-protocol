@@ -16,13 +16,13 @@ import "./TimelockGovernance.sol";
 /// MULTI-DISTRICT REGISTRATION MODEL (24 District Slots):
 /// Users can be registered in up to 24 district types (federal, state, county, city, etc.):
 /// - Slots 0-19: 20 defined district types
-/// - Slots 20-21: Reserved for future defined district types
+/// - Slots 20-21: Administrative (Township, Voting Precinct)
 /// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
 ///
-/// IMPORTANT: SINGLE-DISTRICT PROOFS
-/// Each verifier handles proofs that prove membership in exactly ONE district.
-/// The 24-slot model describes the registration taxonomy, not the circuit output.
-/// Multi-district verification requires separate proof verifications per district.
+/// PROOF MODELS (verifier-type dependent):
+/// - Three-tree verifiers [PRIMARY]: All 24 slots + engagement_root + engagement_tier (31 total).
+/// - Two-tree verifiers [DEPRECATED]: All 24 district slots revealed as public inputs (29 total).
+/// - Legacy verifiers [DEPRECATED]: Single-district proofs (one district per proof).
 ///
 /// SECURITY MODEL:
 /// Two-phase registration with genesis bootstrapping:
@@ -56,18 +56,9 @@ contract VerifierRegistry is TimelockGovernance {
     ///      Slots 0-19: Defined types, Slots 20-21: Reserved, Slots 22-23: Overflow
     uint8 public constant MAX_DISTRICT_SLOTS = 24;
 
-    /// @notice Mapping: depth → verifier contract address
-    /// @dev Only even depths supported (18, 20, 22, 24)
-    mapping(uint8 => address) public verifierByDepth;
-
-    /// @notice Pending verifier proposals per depth (for both initial registration and upgrades)
-    mapping(uint8 => address) public pendingVerifiers;
-
-    /// @notice Execution timestamps for verifier proposals
-    mapping(uint8 => uint256) public verifierExecutionTime;
-
-    /// @notice Three-tree verifier mapping: depth -> verifier contract address
-    /// @dev Separate from two-tree verifiers (different circuits, different public input counts)
+    /// @notice Three-tree verifier mapping: depth -> verifier contract address [PRIMARY]
+    /// @dev Three-tree verifiers handle 31 public inputs (user + cell-map + engagement).
+    ///      This is the canonical verification path for new integrations.
     mapping(uint8 => address) public threeTreeVerifierByDepth;
 
     /// @notice Pending three-tree verifier proposals per depth
@@ -75,6 +66,19 @@ contract VerifierRegistry is TimelockGovernance {
 
     /// @notice Execution timestamps for three-tree verifier proposals
     mapping(uint8 => uint256) public threeTreeVerifierExecutionTime;
+
+    /// @notice Mapping: depth -> two-tree verifier contract address
+    /// @dev DEPRECATED: Use threeTreeVerifierByDepth for new integrations.
+    ///      Only even depths supported (18, 20, 22, 24).
+    mapping(uint8 => address) public verifierByDepth;
+
+    /// @notice Pending two-tree verifier proposals per depth
+    /// @dev DEPRECATED: Use pendingThreeTreeVerifiers for new integrations.
+    mapping(uint8 => address) public pendingVerifiers;
+
+    /// @notice Execution timestamps for two-tree verifier proposals
+    /// @dev DEPRECATED: Use threeTreeVerifierExecutionTime for new integrations.
+    mapping(uint8 => uint256) public verifierExecutionTime;
 
     /// @notice Verifier upgrade timelock (14 days)
     /// @dev Upgrades to existing verifiers require 14-day timelock (HIGH-001 fix).
@@ -122,7 +126,8 @@ contract VerifierRegistry is TimelockGovernance {
     // Genesis Registration (no timelock — deployer IS governance)
     // ============================================================================
 
-    /// @notice Direct verifier registration during genesis phase
+    /// @notice Direct two-tree verifier registration during genesis phase
+    /// @dev DEPRECATED: Use registerThreeTreeVerifier for new integrations.
     /// @param depth Merkle tree depth (18, 20, 22, or 24)
     /// @param verifier Address of deployed verifier contract
     /// @dev Only available before sealGenesis(). At genesis there are no users
@@ -164,10 +169,11 @@ contract VerifierRegistry is TimelockGovernance {
     }
 
     // ============================================================================
-    // Post-Genesis Registration (14-day timelock - HIGH-001 FIX)
+    // Two-Tree Post-Genesis Registration [DEPRECATED] (14-day timelock - HIGH-001 FIX)
     // ============================================================================
 
-    /// @notice Propose new verifier registration (starts 14-day timelock)
+    /// @notice Propose new two-tree verifier registration (starts 14-day timelock)
+    /// @dev DEPRECATED: Use proposeThreeTreeVerifier for new integrations.
     /// @param depth Merkle tree depth (18, 20, 22, or 24)
     /// @param verifier Address of deployed verifier contract
     /// @dev Only for post-genesis NEW depth registrations.
@@ -185,7 +191,8 @@ contract VerifierRegistry is TimelockGovernance {
         emit VerifierProposed(depth, verifier, verifierExecutionTime[depth], false);
     }
 
-    /// @notice Execute verifier registration (after 14-day timelock)
+    /// @notice Execute two-tree verifier registration (after 14-day timelock)
+    /// @dev DEPRECATED: Use executeThreeTreeVerifier for new integrations.
     /// @param depth Merkle tree depth
     /// @dev Can be called by anyone after timelock expires
     function executeVerifier(uint8 depth) external {
@@ -203,7 +210,8 @@ contract VerifierRegistry is TimelockGovernance {
         emit VerifierRegistered(depth, verifierByDepth[depth]);
     }
 
-    /// @notice Cancel pending verifier registration
+    /// @notice Cancel pending two-tree verifier registration
+    /// @dev DEPRECATED: Use cancelThreeTreeVerifier for new integrations.
     /// @param depth Merkle tree depth
     function cancelVerifier(uint8 depth) external onlyGovernance {
         if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
@@ -263,10 +271,11 @@ contract VerifierRegistry is TimelockGovernance {
     }
 
     // ============================================================================
-    // Verifier Upgrades (14-day timelock)
+    // Two-Tree Verifier Upgrades [DEPRECATED] (14-day timelock)
     // ============================================================================
 
-    /// @notice Initiate verifier upgrade (starts 14-day timelock)
+    /// @notice Initiate two-tree verifier upgrade (starts 14-day timelock)
+    /// @dev DEPRECATED: Use proposeThreeTreeVerifierUpgrade for new integrations.
     /// @param depth Merkle tree depth
     /// @param newVerifier New verifier contract address
     /// @dev Monitor VerifierProposed events - community has 14 days to respond
@@ -283,7 +292,8 @@ contract VerifierRegistry is TimelockGovernance {
         emit VerifierProposed(depth, newVerifier, verifierExecutionTime[depth], true);
     }
 
-    /// @notice Execute verifier upgrade (after 14-day timelock)
+    /// @notice Execute two-tree verifier upgrade (after 14-day timelock)
+    /// @dev DEPRECATED: Use executeThreeTreeVerifierUpgrade for new integrations.
     /// @param depth Merkle tree depth
     /// @dev Can be called by anyone after timelock expires
     function executeVerifierUpgrade(uint8 depth) external {
@@ -302,7 +312,8 @@ contract VerifierRegistry is TimelockGovernance {
         emit VerifierUpgraded(depth, previousVerifier, verifierByDepth[depth]);
     }
 
-    /// @notice Cancel pending verifier upgrade
+    /// @notice Cancel pending two-tree verifier upgrade
+    /// @dev DEPRECATED: Use cancelThreeTreeVerifierUpgrade for new integrations.
     /// @param depth Merkle tree depth
     function cancelVerifierUpgrade(uint8 depth) external onlyGovernance {
         if (pendingVerifiers[depth] == address(0)) revert ProposalNotInitiated();
@@ -363,10 +374,11 @@ contract VerifierRegistry is TimelockGovernance {
     }
 
     // ============================================================================
-    // View Functions
+    // Two-Tree View Functions [DEPRECATED — use Three-Tree View Functions]
     // ============================================================================
 
-    /// @notice Get verifier address for a depth
+    /// @notice Get two-tree verifier address for a depth
+    /// @dev DEPRECATED: Use getThreeTreeVerifier for new integrations.
     /// @param depth Merkle tree depth
     /// @return Verifier contract address (address(0) if not registered)
     function getVerifier(uint8 depth) external view returns (address) {
@@ -374,7 +386,8 @@ contract VerifierRegistry is TimelockGovernance {
         return verifierByDepth[depth];
     }
 
-    /// @notice Check if verifier is registered for depth
+    /// @notice Check if two-tree verifier is registered for depth
+    /// @dev DEPRECATED: Use isThreeTreeVerifierRegistered for new integrations.
     /// @param depth Merkle tree depth
     /// @return True if verifier registered
     function isVerifierRegistered(uint8 depth) external view returns (bool) {
@@ -414,8 +427,9 @@ contract VerifierRegistry is TimelockGovernance {
         isUpgrade = verifierByDepth[depth] != address(0);
     }
 
-    /// @notice Get all registered depths
-    /// @return Array of depths with registered verifiers
+    /// @notice Get all registered two-tree depths
+    /// @dev DEPRECATED: Use getRegisteredThreeTreeDepths for new integrations.
+    /// @return Array of depths with registered two-tree verifiers
     function getRegisteredDepths() external view returns (uint8[] memory) {
         uint8[] memory depths = new uint8[](4); // Max 4 depths (18, 20, 22, 24)
         uint8 count = 0;

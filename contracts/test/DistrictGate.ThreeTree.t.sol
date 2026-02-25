@@ -871,6 +871,82 @@ contract DistrictGateThreeTreeTest is Test {
         assertTrue(gate.SUBMIT_TWO_TREE_PROOF_TYPEHASH() != gate.SUBMIT_THREE_TREE_PROOF_TYPEHASH());
     }
 
+    /// @notice A valid two-tree EIP-712 signature must not be accepted on the three-tree path.
+    /// @dev The typehash difference causes a different struct hash → different digest →
+    ///      ecrecover produces a random address ≠ signer → InvalidSignature revert.
+    function test_TwoTreeSignature_RevertsOn_ThreeTreePath() public {
+        bytes memory proof = hex"deadbeef";
+
+        // Build two-tree (29-element) public inputs
+        uint256[29] memory twoTreeInputs;
+        twoTreeInputs[0] = uint256(USER_ROOT_1);
+        twoTreeInputs[1] = uint256(CELL_MAP_ROOT_1);
+        twoTreeInputs[26] = uint256(NULLIFIER_1);
+        twoTreeInputs[27] = uint256(ACTION_DOMAIN_1);
+        twoTreeInputs[28] = uint256(AUTHORITY_LEVEL);
+
+        // Generate a valid two-tree signature (uses SUBMIT_TWO_TREE_PROOF_TYPEHASH)
+        (address signer, bytes memory twoTreeSignature, uint256 deadline) = _generateTwoTreeSignature(
+            proof, twoTreeInputs, VERIFIER_DEPTH
+        );
+
+        // Build three-tree (31-element) public inputs from the SAME base data
+        uint256[31] memory threeTreeInputs = _buildThreeTreePublicInputs(
+            USER_ROOT_1,
+            CELL_MAP_ROOT_1,
+            NULLIFIER_1,
+            ACTION_DOMAIN_1,
+            AUTHORITY_LEVEL,
+            ENGAGEMENT_ROOT_1,
+            2 // engagement_tier
+        );
+
+        // Submit the two-tree signature to verifyThreeTreeProof.
+        // The contract computes digest using SUBMIT_THREE_TREE_PROOF_TYPEHASH,
+        // but the signature was made with SUBMIT_TWO_TREE_PROOF_TYPEHASH.
+        // ecrecover yields a different address → InvalidSignature.
+        vm.expectRevert(DistrictGate.InvalidSignature.selector);
+        gate.verifyThreeTreeProof(signer, proof, threeTreeInputs, VERIFIER_DEPTH, deadline, twoTreeSignature);
+    }
+
+    /// @notice A valid three-tree EIP-712 signature must not be accepted on the two-tree path.
+    /// @dev Mirror of the above: three-tree typehash signature submitted to verifyTwoTreeProof.
+    ///      ecrecover recovers a different address → InvalidSignature revert.
+    function test_ThreeTreeSignature_RevertsOn_TwoTreePath() public {
+        bytes memory proof = hex"deadbeef";
+
+        // Build three-tree (31-element) public inputs
+        uint256[31] memory threeTreeInputs = _buildThreeTreePublicInputs(
+            USER_ROOT_1,
+            CELL_MAP_ROOT_1,
+            NULLIFIER_1,
+            ACTION_DOMAIN_1,
+            AUTHORITY_LEVEL,
+            ENGAGEMENT_ROOT_1,
+            2 // engagement_tier
+        );
+
+        // Generate a valid three-tree signature (uses SUBMIT_THREE_TREE_PROOF_TYPEHASH)
+        (address signer, bytes memory threeTreeSignature, uint256 deadline) = _generateThreeTreeSignature(
+            proof, threeTreeInputs, VERIFIER_DEPTH
+        );
+
+        // Build two-tree (29-element) public inputs from the SAME base data
+        uint256[29] memory twoTreeInputs;
+        twoTreeInputs[0] = uint256(USER_ROOT_1);
+        twoTreeInputs[1] = uint256(CELL_MAP_ROOT_1);
+        twoTreeInputs[26] = uint256(NULLIFIER_1);
+        twoTreeInputs[27] = uint256(ACTION_DOMAIN_1);
+        twoTreeInputs[28] = uint256(AUTHORITY_LEVEL);
+
+        // Submit the three-tree signature to verifyTwoTreeProof.
+        // The contract computes digest using SUBMIT_TWO_TREE_PROOF_TYPEHASH,
+        // but the signature was made with SUBMIT_THREE_TREE_PROOF_TYPEHASH.
+        // ecrecover yields a different address → InvalidSignature.
+        vm.expectRevert(DistrictGate.InvalidSignature.selector);
+        gate.verifyTwoTreeProof(signer, proof, twoTreeInputs, VERIFIER_DEPTH, deadline, threeTreeSignature);
+    }
+
     // ============================================================================
     // HELPER FUNCTIONS
     // ============================================================================

@@ -20,7 +20,7 @@ pragma solidity >=0.8.19;
 /// MULTI-DISTRICT REGISTRATION MODEL (24 District Slots):
 /// A user can be registered in up to 24 different district types, organized as:
 /// - Slots 0-19: 20 defined district types (federal, state, county, city, school, etc.)
-/// - Slots 20-21: Reserved for future defined district types
+/// - Slots 20-21: Administrative (Township, Voting Precinct)
 /// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
 ///
 /// IMPORTANT: SINGLE-DISTRICT PROOFS

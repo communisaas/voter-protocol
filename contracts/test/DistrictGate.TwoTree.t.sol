@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.19;
 
+// NOTE: Legacy two-tree verification tests -- retained for backward compatibility.
+// For the primary three-tree verification path, see DistrictGate.ThreeTree.t.sol.
+
 import "forge-std/Test.sol";
 import "../src/DistrictGate.sol";
 import "../src/DistrictRegistry.sol";
@@ -9,8 +12,8 @@ import "../src/VerifierRegistry.sol";
 import "../src/UserRootRegistry.sol";
 import "../src/CellMapRegistry.sol";
 
-/// @title DistrictGate Two-Tree Proof Integration Tests
-/// @notice Tests for verifyTwoTreeProof flow: user identity tree + cell-district mapping tree
+/// @title DistrictGate Two-Tree Proof Integration Tests [DEPRECATED]
+/// @notice Legacy tests for verifyTwoTreeProof flow. See DistrictGate.ThreeTree.t.sol for primary path.
 /// @dev Tests cover:
 ///      1. Happy path - full two-tree proof verification
 ///      2. Registry configuration - propose/execute/cancel timelock flow

@@ -3,8 +3,11 @@ pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DebateMarket.sol";
+import "../src/IDebateWeightVerifier.sol";
+import "../src/IPositionNoteVerifier.sol";
 import "../src/TimelockGovernance.sol";
 import "../src/NullifierRegistry.sol";
+import "../src/IAIEvaluationRegistry.sol";
 
 /// @title DebateMarket Foundry Tests
 /// @notice Comprehensive tests for the staked debate protocol
@@ -75,7 +78,8 @@ contract DebateMarketTest is Test {
         bytes32 indexed debateId,
         bytes32 indexed actionDomain,
         bytes32 propositionHash,
-        uint256 deadline
+        uint256 deadline,
+        bytes32 baseDomain
     );
 
     event ArgumentSubmitted(
@@ -103,13 +107,15 @@ contract DebateMarketTest is Test {
         uint256 jurisdictionSizeHint
     );
 
-    event SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout);
+    event SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout, address indexed recipient);
 
-    event EmergencyWithdrawn(bytes32 indexed debateId, bytes32 nullifier, uint256 amount);
+    event EmergencyWithdrawn(bytes32 indexed debateId, bytes32 nullifier, uint256 amount, address indexed recipient);
 
     event ProposerBondReturned(bytes32 indexed debateId, uint256 bondAmount);
 
     event ProposerBondForfeited(bytes32 indexed debateId, uint256 bondAmount);
+
+    event AppealBondForfeited(bytes32 indexed debateId, address indexed appealer, uint256 bond);
 
     function setUp() public {
         // Deploy real NullifierRegistry
@@ -130,12 +136,23 @@ contract DebateMarketTest is Test {
         // Deploy MockERC20
         token = new MockERC20("Test USD", "TUSD", 6);
 
+        // Deploy mock verifiers for Phase 2
+        MockDebateWeightVerifier dwVerifier = new MockDebateWeightVerifier();
+        MockPositionNoteVerifier pnVerifier = new MockPositionNoteVerifier();
+        MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
+
         // Deploy DebateMarket
         market = new DebateMarket(
             address(mockGate),
             address(token),
+            address(dwVerifier),
+            address(pnVerifier),
+            address(aiRegistry),
             governance
         );
+
+        // Authorize DebateMarket as a derived-domain deriver on MockDistrictGate
+        mockGate.setDeriverAuthorized(address(market), true);
 
         // Mint tokens to all test addresses
         token.mint(proposer, 1_000e6);
@@ -219,10 +236,11 @@ contract DebateMarketTest is Test {
             stake0,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Argument 1: OPPOSE, Tier 3, $5 stake
@@ -237,10 +255,11 @@ contract DebateMarketTest is Test {
             stake1,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Argument 2: AMEND, Tier 1, $20 stake
@@ -255,10 +274,11 @@ contract DebateMarketTest is Test {
             stake2,
             arguer3,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Verify argument count
@@ -316,12 +336,12 @@ contract DebateMarketTest is Test {
         );
     }
 
-    /// @notice Revert when action domain not whitelisted on gate
-    function test_RevertWhen_ActionDomainNotAllowed() public {
+    /// @notice Revert when base domain not whitelisted on gate
+    function test_RevertWhen_BaseDomainNotAllowed() public {
         bytes32 badDomain = keccak256("not-whitelisted-domain");
 
         vm.prank(proposer);
-        vm.expectRevert(DebateMarket.ActionDomainNotAllowed.selector);
+        vm.expectRevert(bytes("MockDistrictGate: base domain not allowed"));
         market.proposeDebate(
             PROPOSITION_HASH,
             STANDARD_DURATION,
@@ -379,10 +399,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Verify argument count incremented
@@ -409,10 +430,11 @@ contract DebateMarketTest is Test {
             stake,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 score = market.getArgumentScore(debateId, 0);
@@ -437,10 +459,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
     }
 
@@ -458,10 +481,11 @@ contract DebateMarketTest is Test {
             0.5e6, // below MIN_ARGUMENT_STAKE (1e6)
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
     }
 
@@ -479,10 +503,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 0), // tier 0
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 0), // tier 0
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
     }
 
@@ -504,10 +529,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 scoreBefore = market.getArgumentScore(debateId, 0);
@@ -521,10 +547,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 scoreAfter = market.getArgumentScore(debateId, 0);
@@ -545,10 +572,11 @@ contract DebateMarketTest is Test {
             1e6, // $1
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 scoreAfterArg = market.getArgumentScore(debateId, 0);
@@ -564,10 +592,11 @@ contract DebateMarketTest is Test {
             1e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 4),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 4),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 scoreAfterCoSign = market.getArgumentScore(debateId, 0);
@@ -593,10 +622,11 @@ contract DebateMarketTest is Test {
             5e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Argument 1: Tier 3, $10 -> sqrt(10e6) * 8 = 25298 (approx)
@@ -610,10 +640,11 @@ contract DebateMarketTest is Test {
             10e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Verify scores
@@ -630,7 +661,7 @@ contract DebateMarketTest is Test {
         //   argumentCount, uniqueParticipants, jurisdictionSizeHint, totalStake,
         //   winningArgumentIndex, winningStance, winningBodyHash, winningAmendmentHash,
         //   status, proposer, proposerBond, bondClaimed
-        (,,,,,,,,, bytes32 winningBodyHash,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBodyHash, keccak256("stronger"));
     }
 
@@ -648,10 +679,11 @@ contract DebateMarketTest is Test {
             4e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Argument 1: Tier 2, $4 -> sqrt(4e6) * 4 = 8000 (same score)
@@ -665,10 +697,11 @@ contract DebateMarketTest is Test {
             4e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Verify equal scores
@@ -681,7 +714,7 @@ contract DebateMarketTest is Test {
         market.resolveDebate(debateId);
 
         // The first argument (index 0) should win on tie
-        (,,,,,,,,, bytes32 winningBodyHash,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBodyHash, keccak256("first"));
     }
 
@@ -708,10 +741,11 @@ contract DebateMarketTest is Test {
             10e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 4), // Tier 4 = high weight
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 4), // Tier 4 = high weight
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Resolve
@@ -719,7 +753,7 @@ contract DebateMarketTest is Test {
         market.resolveDebate(debateId);
 
         // Check amendment hash is stored
-        (,,,,,,,,,, bytes32 storedAmendment,,,, ) = market.debates(debateId);
+        (,,,,,,,,,, bytes32 storedAmendment,,,,,,,,, ) = market.debates(debateId);
         assertEq(storedAmendment, amendmentHash);
     }
 
@@ -780,10 +814,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         vm.prank(arguer1);
@@ -886,16 +921,17 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Second stake with same nullifier reverts (NullifierRegistry rejects)
         vm.warp(block.timestamp + 61);
         vm.prank(arguer2);
-        vm.expectRevert(); // NullifierAlreadyUsed from NullifierRegistry via MockDistrictGate
+        vm.expectRevert(NullifierRegistry.NullifierAlreadyUsed.selector);
         market.submitArgument(
             debateId,
             DebateMarket.Stance.OPPOSE,
@@ -904,10 +940,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2), // same nullifier!
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2), // same nullifier!
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
     }
 
@@ -988,10 +1025,11 @@ contract DebateMarketTest is Test {
             4e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
         assertEq(market.getArgumentScore(debateId, 0), 4000);
 
@@ -1006,10 +1044,11 @@ contract DebateMarketTest is Test {
             1e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
         assertEq(market.getArgumentScore(debateId, 1), 2000);
 
@@ -1024,10 +1063,11 @@ contract DebateMarketTest is Test {
             100e6,
             arguer3,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
         assertEq(market.getArgumentScore(debateId, 2), 20000);
     }
@@ -1049,10 +1089,11 @@ contract DebateMarketTest is Test {
             100e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         assertEq(market.getArgumentScore(debateId, 0), 20000);
@@ -1071,10 +1112,11 @@ contract DebateMarketTest is Test {
             2e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 4),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 4),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 score = market.getArgumentScore(debateId, 0);
@@ -1096,10 +1138,11 @@ contract DebateMarketTest is Test {
             10e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 score = market.getArgumentScore(debateId, 0);
@@ -1122,10 +1165,11 @@ contract DebateMarketTest is Test {
             100e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Pillar: $2, Tier 4
@@ -1139,10 +1183,11 @@ contract DebateMarketTest is Test {
             2e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 4),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 4),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 newcomerScore = market.getArgumentScore(debateId, 0);
@@ -1166,10 +1211,11 @@ contract DebateMarketTest is Test {
             100e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Veteran: $10, Tier 3
@@ -1183,10 +1229,11 @@ contract DebateMarketTest is Test {
             10e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         uint256 newcomerScore = market.getArgumentScore(debateId, 0);
@@ -1223,32 +1270,32 @@ contract DebateMarketTest is Test {
         // Tier 1: 1000 * 2 = 2000
         vm.prank(arguer1);
         market.submitArgument(debateId, DebateMarket.Stance.SUPPORT, keccak256("t1"), bytes32(0),
-            1e6, arguer1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00");
+            1e6, arguer1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00", address(0));
         assertEq(market.getArgumentScore(debateId, 0), 2000);
 
         // Tier 2: 1000 * 4 = 4000
         vm.warp(block.timestamp + 61);
         vm.prank(arguer2);
         market.submitArgument(debateId, DebateMarket.Stance.SUPPORT, keccak256("t2"), bytes32(0),
-            1e6, arguer2, DUMMY_PROOF, _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00");
+            1e6, arguer2, DUMMY_PROOF, _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00", address(0));
         assertEq(market.getArgumentScore(debateId, 1), 4000);
 
         // Tier 3: 1000 * 8 = 8000
         vm.warp(block.timestamp + 61);
         vm.prank(arguer3);
         market.submitArgument(debateId, DebateMarket.Stance.SUPPORT, keccak256("t3"), bytes32(0),
-            1e6, arguer3, DUMMY_PROOF, _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00");
+            1e6, arguer3, DUMMY_PROOF, _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00", address(0));
         assertEq(market.getArgumentScore(debateId, 2), 8000);
 
         // Tier 4: 1000 * 16 = 16000
         vm.warp(block.timestamp + 61);
         vm.prank(cosigner1);
         market.submitArgument(debateId, DebateMarket.Stance.SUPPORT, keccak256("t4"), bytes32(0),
-            1e6, cosigner1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_4, ACTION_DOMAIN, 4),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00");
+            1e6, cosigner1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_4, expectedDebateDomain(), 4),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00", address(0));
         assertEq(market.getArgumentScore(debateId, 3), 16000);
     }
 
@@ -1335,7 +1382,8 @@ contract DebateMarketTest is Test {
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
             _makePublicInputs(NULLIFIER_1, wrongDomain, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -1347,8 +1395,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         bytes32 wrongDomain = keccak256("different-domain");
@@ -1360,7 +1409,8 @@ contract DebateMarketTest is Test {
         market.coSignArgument(
             debateId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
             _makePublicInputs(NULLIFIER_2, wrongDomain, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -1393,14 +1443,14 @@ contract DebateMarketTest is Test {
     // 18. DEBATE ID COLLISION GUARD
     // ============================================================================
 
-    /// @notice Revert when debate ID already exists
+    /// @notice Revert when derived domain already registered (same baseDomain + propositionHash)
     function test_RevertWhen_DebateIdCollision() public {
         // First debate succeeds
         vm.prank(proposer);
         market.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
-        // Same params in same block -> collision
+        // Same params -> derived domain already registered on mock gate
         vm.prank(proposer);
-        vm.expectRevert(DebateMarket.DebateAlreadyExists.selector);
+        vm.expectRevert(bytes("MockDistrictGate: derived already registered"));
         market.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
     }
 
@@ -1469,8 +1519,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // Warp past deadline + 30 days
         vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
@@ -1487,8 +1538,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // Warp past deadline but not past emergency delay
         vm.warp(block.timestamp + STANDARD_DURATION + 15 days);
@@ -1517,16 +1569,18 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + STANDARD_DURATION);
         vm.prank(arguer2);
         vm.expectRevert(DebateMarket.DebateExpired.selector);
         market.coSignArgument(
             debateId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -1542,8 +1596,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 5), // tier 5 = out of range
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 5), // tier 5 = out of range
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -1601,8 +1656,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + STANDARD_DURATION);
         vm.prank(governance);
@@ -1621,8 +1677,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
         // arguer2 tries to withdraw arguer1's stake
@@ -1643,8 +1700,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + STANDARD_DURATION);
         market.resolveDebate(debateId);
@@ -1670,8 +1728,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("loser"), bytes32(0),
             5e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 3, $10 (winner)
@@ -1680,8 +1739,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("winner"), bytes32(0),
             10e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Don't resolve — debate stays ACTIVE
@@ -1715,8 +1775,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("win1"), bytes32(0),
             3e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 1, $10 — OPPOSE (will lose)
@@ -1725,8 +1786,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose"), bytes32(0),
             10e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Co-sign argument 0: cosigner1, Tier 3, $5 — SUPPORT co-sign (winning side)
@@ -1734,8 +1796,9 @@ contract DebateMarketTest is Test {
         vm.prank(cosigner1);
         market.coSignArgument(
             debateId, 0, 5e6, cosigner1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Resolve
@@ -1743,7 +1806,7 @@ contract DebateMarketTest is Test {
         market.resolveDebate(debateId);
 
         // Get debate state
-        (,,,,,, uint256 totalStake,,,,,,,,) = market.debates(debateId);
+        (,,,,,, uint256 totalStake,,,,,,,,,,,,,) = market.debates(debateId);
 
         // Both winners claim
         uint256 contractBalBefore = token.balanceOf(address(market));
@@ -1772,8 +1835,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("winner"), bytes32(0),
             10e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 1, $100 (loser — lower score despite more money)
@@ -1782,8 +1846,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("loser"), bytes32(0),
             100e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Warp past deadline + emergency delay — loser emergency withdraws
@@ -1817,8 +1882,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("winner"), bytes32(0),
             5e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 4),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 4),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 1, $50 (loser 1)
@@ -1827,8 +1893,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("loser1"), bytes32(0),
             50e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Co-sign argument 1: arguer3, Tier 1, $50 (loser 2, co-signing losing argument)
@@ -1836,8 +1903,9 @@ contract DebateMarketTest is Test {
         vm.prank(arguer3);
         market.coSignArgument(
             debateId, 1, 50e6, arguer3, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Warp past deadline + emergency delay
@@ -1870,8 +1938,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("winA"), bytes32(0),
             10e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Co-sign argument 0: cosigner1, Tier 3, $10 (winner B — WILL withdraw)
@@ -1879,8 +1948,9 @@ contract DebateMarketTest is Test {
         vm.prank(cosigner1);
         market.coSignArgument(
             debateId, 0, 10e6, cosigner1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_4, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_4, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 1, $20 (loser — WILL withdraw)
@@ -1889,8 +1959,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose"), bytes32(0),
             20e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Warp past deadline + emergency delay
@@ -1928,24 +1999,27 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("win"), bytes32(0),
             10e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + 61);
         vm.prank(arguer2);
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose1"), bytes32(0),
             30e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         vm.warp(block.timestamp + 61);
         vm.prank(arguer3);
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose2"), bytes32(0),
             60e6, arguer3, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         uint256 totalStaked = 100e6; // 10 + 30 + 60
@@ -1989,8 +2063,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("win"), bytes32(0),
             10e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Loser: arguer2, Tier 1, $5
@@ -1999,8 +2074,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose"), bytes32(0),
             5e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
@@ -2025,8 +2101,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("winA"), bytes32(0),
             6e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Winner B (co-sign): cosigner1, Tier 3, $4
@@ -2034,8 +2111,9 @@ contract DebateMarketTest is Test {
         vm.prank(cosigner1);
         market.coSignArgument(
             debateId, 0, 4e6, cosigner1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Loser: arguer2, Tier 1, $10
@@ -2044,8 +2122,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("lose"), bytes32(0),
             10e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
@@ -2082,8 +2161,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("only"), bytes32(0),
             7e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
@@ -2120,8 +2200,9 @@ contract DebateMarketTest is Test {
                 debateId, DebateMarket.Stance.SUPPORT,
                 keccak256(abi.encodePacked("arg-", i)), bytes32(0),
                 1e6, caller, DUMMY_PROOF,
-                _makePublicInputs(nullifier, ACTION_DOMAIN, 1),
-                VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+                _makePublicInputs(nullifier, expectedDebateDomain(), 1),
+                VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            address(0)
             );
         }
 
@@ -2142,8 +2223,9 @@ contract DebateMarketTest is Test {
             debateId, DebateMarket.Stance.SUPPORT,
             keccak256("arg-501"), bytes32(0),
             1e6, caller501, DUMMY_PROOF,
-            _makePublicInputs(nullifier501, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(nullifier501, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -2173,8 +2255,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("fuzz-a"), bytes32(0),
             stake1, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + 61);
@@ -2182,15 +2265,16 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("fuzz-b"), bytes32(0),
             stake2, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
         market.resolveDebate(debateId);
 
         // Determine which argument won
-        (,,,,,,, uint256 winningIdx,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,) = market.debates(debateId);
 
         // Winner claims
         uint256 totalStake = stake1 + stake2;
@@ -2248,8 +2332,9 @@ contract DebateMarketTest is Test {
         vm.expectRevert(DebateMarket.ArgumentNotFound.selector);
         market.coSignArgument(
             debateId, 1, STANDARD_STAKE, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -2315,8 +2400,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Resolve reverts
@@ -2337,8 +2423,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg1"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Second stake with same nullifier — NullifierRegistry reverts
@@ -2348,8 +2435,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("arg2"), bytes32(0),
             STANDARD_STAKE, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2), // same nullifier
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2), // same nullifier
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
     }
 
@@ -2366,8 +2454,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("s1"), bytes32(0),
             5e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Arg 1: Tier 3, $3 → sqrt(3e6)*8 = 13856
@@ -2376,8 +2465,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("s2"), bytes32(0),
             3e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Arg 2: Tier 2, $2 → sqrt(2e6)*4 = 5656
@@ -2386,15 +2476,16 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("s3"), bytes32(0),
             2e6, arguer3, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
         market.resolveDebate(debateId);
 
         // Arg 1 (Tier 3, $3) should win
-        (,,,,,,,,, bytes32 winningBody,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBody,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBody, keccak256("s2"), "Highest-scoring SUPPORT argument wins");
 
         // Non-winning SUPPORT arguers are losers — cannot claim
@@ -2428,8 +2519,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("main"), bytes32(0),
             4e6, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // score: sqrt(4e6)*4 = 2000*4 = 8000, argStake: 4e6
 
@@ -2438,8 +2530,9 @@ contract DebateMarketTest is Test {
         vm.prank(arguer2);
         market.coSignArgument(
             debateId, 0, 1e6, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // +sqrt(1e6)*2 = 1000*2 = 2000. Total score: 10000, argStake: 5e6
 
@@ -2448,8 +2541,9 @@ contract DebateMarketTest is Test {
         vm.prank(arguer3);
         market.coSignArgument(
             debateId, 0, 1e6, arguer3, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 3),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // +sqrt(1e6)*8 = 1000*8 = 8000. Total score: 18000, argStake: 6e6
 
@@ -2458,8 +2552,9 @@ contract DebateMarketTest is Test {
         vm.prank(cosigner1);
         market.coSignArgument(
             debateId, 0, 2e6, cosigner1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_4, ACTION_DOMAIN, 4),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_4, expectedDebateDomain(), 4),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
         // +sqrt(2e6)*16 = 1414*16 = 22624. Total score: 40624, argStake: 8e6
 
@@ -2477,8 +2572,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("loser"), bytes32(0),
             8e6, cosigner2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_5, ACTION_DOMAIN, 1),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_5, expectedDebateDomain(), 1),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
@@ -2518,12 +2614,14 @@ contract DebateMarketTest is Test {
 
     /// @notice Verify DebateProposed event
     function test_Event_DebateProposed() public {
+        bytes32 derivedDomain = expectedDebateDomain();
         vm.expectEmit(true, true, false, true);
         emit DebateProposed(
-            keccak256(abi.encodePacked(PROPOSITION_HASH, ACTION_DOMAIN, block.timestamp, proposer)),
-            ACTION_DOMAIN,
+            keccak256(abi.encodePacked(PROPOSITION_HASH, derivedDomain, block.timestamp, proposer)),
+            derivedDomain,
             PROPOSITION_HASH,
-            block.timestamp + STANDARD_DURATION
+            block.timestamp + STANDARD_DURATION,
+            ACTION_DOMAIN
         );
         vm.prank(proposer);
         market.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
@@ -2536,8 +2634,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
@@ -2554,13 +2653,15 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
-        vm.expectEmit(true, false, false, true);
-        emit EmergencyWithdrawn(debateId, NULLIFIER_1, STANDARD_STAKE);
+        // beneficiary is address(0) → recipient falls back to submitter (arguer1)
+        vm.expectEmit(true, true, false, true);
+        emit EmergencyWithdrawn(debateId, NULLIFIER_1, STANDARD_STAKE, arguer1);
         vm.prank(arguer1);
         market.emergencyWithdraw(debateId, NULLIFIER_1);
     }
@@ -2572,8 +2673,9 @@ contract DebateMarketTest is Test {
         // arguer2 is the winner with $10 stake
         // totalStake = 15e6, winningArgStake = 10e6, losingPool = 5e6
         // payout = 10e6 + 5e6 = 15e6
-        vm.expectEmit(true, false, false, true);
-        emit SettlementClaimed(debateId, NULLIFIER_2, 15e6);
+        // beneficiary is address(0) → recipient falls back to submitter (arguer2)
+        vm.expectEmit(true, true, false, true);
+        emit SettlementClaimed(debateId, NULLIFIER_2, 15e6, arguer2);
         vm.prank(arguer2);
         market.claimSettlement(debateId, NULLIFIER_2);
     }
@@ -2651,8 +2753,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("fuzz-a"), bytes32(0),
             stake1, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + 61);
@@ -2660,8 +2763,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("fuzz-b"), bytes32(0),
             stake2, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         uint256 contractBalAfterStakes = token.balanceOf(address(market));
@@ -2675,7 +2779,7 @@ contract DebateMarketTest is Test {
         market.resolveDebate(debateId);
 
         // Determine winner and claim
-        (,,,,,,, uint256 winningIdx,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,) = market.debates(debateId);
 
         if (winningIdx == 0) {
             // arguer1 won — claim settlement
@@ -2722,8 +2826,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("fa"), bytes32(0),
             stake1, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Argument 1: arguer2, Tier 2
@@ -2732,8 +2837,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("fb"), bytes32(0),
             stake2, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Co-sign argument 1: arguer3, Tier 2
@@ -2741,8 +2847,9 @@ contract DebateMarketTest is Test {
         vm.prank(arguer3);
         market.coSignArgument(
             debateId, 1, stake3, arguer3, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         uint256 totalStaked = stake1 + stake2 + stake3;
@@ -2755,7 +2862,7 @@ contract DebateMarketTest is Test {
         // Resolve
         market.resolveDebate(debateId);
 
-        (,,,,,,, uint256 winIdx,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winIdx,,,,,,,,,,,,) = market.debates(debateId);
 
         uint256 contractBalBefore = token.balanceOf(address(market));
 
@@ -2825,8 +2932,9 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("dw1"), bytes32(0),
             winner1Stake, arguer1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Winner 2: co-signs, Tier 2
@@ -2834,8 +2942,9 @@ contract DebateMarketTest is Test {
         vm.prank(cosigner1);
         market.coSignArgument(
             debateId, 0, winner2Stake, cosigner1, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_3, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_3, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         // Loser: Tier 2
@@ -2844,15 +2953,16 @@ contract DebateMarketTest is Test {
         market.submitArgument(
             debateId, DebateMarket.Stance.OPPOSE, keccak256("dl"), bytes32(0),
             loserStake, arguer2, DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
-            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
         );
 
         vm.warp(block.timestamp + STANDARD_DURATION);
         market.resolveDebate(debateId);
 
         // Verify argument 0 won (should always be true given our constraints)
-        (,,,,,,, uint256 winIdx,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winIdx,,,,,,,,,,,,) = market.debates(debateId);
         assertEq(winIdx, 0, "Co-signed argument must win");
 
         uint256 totalStake = winner1Stake + winner2Stake + loserStake;
@@ -2894,8 +3004,9 @@ contract DebateMarketTest is Test {
                 debateId, DebateMarket.Stance.SUPPORT,
                 keccak256(abi.encodePacked("gas-", i)), bytes32(0),
                 1e6, caller, DUMMY_PROOF,
-                _makePublicInputs(nullifier, ACTION_DOMAIN, 1),
-                VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00"
+                _makePublicInputs(nullifier, expectedDebateDomain(), 1),
+                VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            address(0)
             );
         }
 
@@ -2914,8 +3025,647 @@ contract DebateMarketTest is Test {
     }
 
     // ============================================================================
+    // 43. Derived Domain Integration
+    // ============================================================================
+
+    /// @notice Two debates from same base domain but different proposition hashes get different derived domains
+    function test_DerivedDomain_DifferentPropositionsProduceDifferentDomains() public {
+        bytes32 propHash1 = keccak256("Proposition A");
+        bytes32 propHash2 = keccak256("Proposition B");
+
+        bytes32 derived1 = market.deriveDomain(ACTION_DOMAIN, propHash1);
+        bytes32 derived2 = market.deriveDomain(ACTION_DOMAIN, propHash2);
+
+        assertTrue(derived1 != derived2, "Different propositions must produce different derived domains");
+
+        // Both should be valid BN254 field elements (< modulus)
+        uint256 BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+        assertLt(uint256(derived1), BN254_MODULUS, "Derived domain 1 must be < BN254_MODULUS");
+        assertLt(uint256(derived2), BN254_MODULUS, "Derived domain 2 must be < BN254_MODULUS");
+    }
+
+    /// @notice Two proposeDebate calls with same baseDomain + same propositionHash revert on the second
+    function test_DerivedDomain_DuplicateDebateReverts() public {
+        vm.prank(proposer);
+        market.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
+
+        // Second call: same baseDomain + same propositionHash -> same derived domain -> already registered
+        vm.prank(proposer);
+        vm.expectRevert(bytes("MockDistrictGate: derived already registered"));
+        market.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
+    }
+
+    /// @notice After proposeDebate, verify debates[debateId].actionDomain == deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH)
+    function test_DerivedDomain_StoredCorrectly() public {
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        vm.prank(proposer);
+        bytes32 debateId = market.proposeDebate(
+            PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+        );
+
+        // Read the stored actionDomain from the debates mapping
+        // Debate struct field order: propositionHash(0), actionDomain(1), deadline(2), ...
+        (, bytes32 storedActionDomain,,,,,,,,,,,,,,,,,,) = market.debates(debateId);
+
+        assertEq(storedActionDomain, derivedDomain, "Stored actionDomain must equal derived domain");
+        assertTrue(storedActionDomain != ACTION_DOMAIN, "Stored actionDomain must differ from base domain");
+    }
+
+    /// @notice Submit argument with derived domain in publicInputs[27] succeeds; base domain reverts
+    function test_DerivedDomain_ArgumentUsesCorrectDomain() public {
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        // Argument with derived domain — succeeds
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("correct-domain"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Verify it was stored
+        (,, uint256 argumentCount,,) = market.getDebateState(debateId);
+        assertEq(argumentCount, 1);
+
+        // Argument with base domain (ACTION_DOMAIN) — reverts ActionDomainMismatch
+        vm.warp(block.timestamp + 61);
+        vm.prank(arguer2);
+        vm.expectRevert(DebateMarket.ActionDomainMismatch.selector);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.OPPOSE, keccak256("wrong-domain"), bytes32(0),
+            STANDARD_STAKE, arguer2, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+    }
+
+    // ============================================================================
+    // 44. REVIEW GAP CLOSURES
+    // ============================================================================
+
+    /// @notice Emergency withdraw succeeds while contract is paused (critical safety property)
+    function test_EmergencyWithdraw_SucceedsWhilePaused() public {
+        bytes32 debateId = _proposeStandardDebate();
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Pause the contract
+        vm.prank(governance);
+        market.pause();
+
+        // Warp past emergency withdrawal delay
+        vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
+
+        // Emergency withdraw must succeed even while paused
+        uint256 balBefore = token.balanceOf(arguer1);
+        vm.prank(arguer1);
+        market.emergencyWithdraw(debateId, NULLIFIER_1);
+        assertEq(token.balanceOf(arguer1) - balBefore, STANDARD_STAKE, "Emergency withdraw must work while paused");
+    }
+
+    /// @notice proposeDebate reverts when DebateMarket is not authorized as deriver
+    function test_RevertWhen_DeriverNotAuthorized() public {
+        // Deploy a second DebateMarket that is NOT authorized as a deriver
+        MockDebateWeightVerifier dwV = new MockDebateWeightVerifier();
+        MockPositionNoteVerifier pnV = new MockPositionNoteVerifier();
+        MockAIEvaluationRegistry aiR = new MockAIEvaluationRegistry();
+        DebateMarket unauthorizedMarket = new DebateMarket(
+            address(mockGate),
+            address(token),
+            address(dwV),
+            address(pnV),
+            address(aiR),
+            governance
+        );
+        // Note: we do NOT call mockGate.setDeriverAuthorized(address(unauthorizedMarket), true)
+
+        token.mint(proposer, 100e6);
+        vm.prank(proposer);
+        token.approve(address(unauthorizedMarket), type(uint256).max);
+
+        vm.prank(proposer);
+        vm.expectRevert(bytes("MockDistrictGate: not authorized deriver"));
+        unauthorizedMarket.proposeDebate(PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND);
+    }
+
+    /// @notice submitArgument and coSignArgument revert with DebateNotFound for bogus debateId
+    function test_RevertWhen_DebateNotFound_SubmitAndCoSign() public {
+        bytes32 bogusId = keccak256("nonexistent");
+
+        // submitArgument with bogus debateId
+        vm.prank(arguer1);
+        vm.expectRevert(DebateMarket.DebateNotFound.selector);
+        market.submitArgument(
+            bogusId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // coSignArgument with bogus debateId
+        vm.prank(arguer2);
+        vm.expectRevert(DebateMarket.DebateNotFound.selector);
+        market.coSignArgument(
+            bogusId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+    }
+
+    /// @notice coSignArgument reverts when contract is paused
+    function test_RevertWhen_Paused_CoSign() public {
+        bytes32 debateId = _proposeStandardDebate();
+        // Submit an argument first (before pausing)
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Pause
+        vm.prank(governance);
+        market.pause();
+
+        // coSign should revert
+        vm.warp(block.timestamp + 61);
+        vm.prank(arguer2);
+        vm.expectRevert("Pausable: paused");
+        market.coSignArgument(
+            debateId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+    }
+
+    /// @notice ArgumentSubmitted event emitted with correct fields
+    function test_Event_ArgumentSubmitted() public {
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+        // sqrt(2e6) = 1414, tier 2 multiplier = 4, weight = 5656
+        uint256 expectedWeight = 1414 * 4;
+
+        vm.expectEmit(true, true, false, true);
+        emit ArgumentSubmitted(
+            debateId, 0, DebateMarket.Stance.SUPPORT, keccak256("arg"), 2, expectedWeight
+        );
+
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+    }
+
+    /// @notice CoSignSubmitted event emitted with correct fields
+    function test_Event_CoSignSubmitted() public {
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        // Submit argument first
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Co-sign: sqrt(2e6) = 1414, tier 3 multiplier = 8, weight = 11312
+        uint256 expectedWeight = 1414 * 8;
+        vm.warp(block.timestamp + 61);
+        vm.expectEmit(true, true, false, true);
+        emit CoSignSubmitted(debateId, 0, 3, expectedWeight);
+
+        vm.prank(arguer2);
+        market.coSignArgument(
+            debateId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_2, derivedDomain, 3),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+    }
+
+    /// @notice StakeRecordNotFound when claiming with unknown nullifier
+    function test_RevertWhen_StakeRecordNotFound() public {
+        (bytes32 debateId,) = _setupResolvedDebateWithTwoArguments();
+        bytes32 unknownNullifier = bytes32(uint256(0xDEAD));
+
+        vm.prank(arguer1);
+        vm.expectRevert(DebateMarket.StakeRecordNotFound.selector);
+        market.claimSettlement(debateId, unknownNullifier);
+    }
+
+    /// @notice StakeRecordNotFound when emergency withdrawing with unknown nullifier
+    function test_RevertWhen_EmergencyWithdraw_StakeRecordNotFound() public {
+        bytes32 debateId = _proposeStandardDebate();
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
+        bytes32 unknownNullifier = bytes32(uint256(0xDEAD));
+        vm.prank(arguer1);
+        vm.expectRevert(DebateMarket.StakeRecordNotFound.selector);
+        market.emergencyWithdraw(debateId, unknownNullifier);
+    }
+
+    /// @notice resolveDebate succeeds at exactly the deadline timestamp
+    function test_ResolveDebate_ExactDeadlineBoundary() public {
+        bytes32 debateId = _proposeStandardDebate();
+        uint256 startTime = block.timestamp;
+
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Warp to EXACTLY the deadline (startTime + STANDARD_DURATION)
+        vm.warp(startTime + STANDARD_DURATION);
+
+        // resolveDebate checks `block.timestamp < debate.deadline` — at exactly deadline, this is false, so it should succeed
+        market.resolveDebate(debateId);
+
+        (DebateMarket.DebateStatus status,,,,) = market.getDebateState(debateId);
+        assertEq(uint8(status), uint8(DebateMarket.DebateStatus.RESOLVED));
+    }
+
+    /// @notice emergencyWithdraw succeeds at exactly the emergency delay boundary
+    function test_EmergencyWithdraw_ExactDelayBoundary() public {
+        bytes32 debateId = _proposeStandardDebate();
+        uint256 startTime = block.timestamp;
+
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        uint256 deadline = startTime + STANDARD_DURATION;
+        uint256 exactEmergencyTime = deadline + 30 days;
+
+        // One second before emergency delay — should revert
+        vm.warp(exactEmergencyTime - 1);
+        vm.prank(arguer1);
+        vm.expectRevert(DebateMarket.DebateStillActive.selector);
+        market.emergencyWithdraw(debateId, NULLIFIER_1);
+
+        // At exactly the emergency delay — should succeed
+        vm.warp(exactEmergencyTime);
+        vm.prank(arguer1);
+        market.emergencyWithdraw(debateId, NULLIFIER_1);
+        assertEq(token.balanceOf(arguer1), 1_000e6, "Should recover original balance");
+    }
+
+    /// @notice sweepForfeitedBond works on stale debates (all stakes emergency-withdrawn, never resolved)
+    function test_SweepForfeitedBond_StaleDebate() public {
+        bytes32 debateId = _proposeStandardDebate();
+
+        // 2 participants submit arguments
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg1"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+        vm.warp(block.timestamp + 61);
+        vm.prank(arguer2);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.OPPOSE, keccak256("arg2"), bytes32(0),
+            STANDARD_STAKE, arguer2, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+        address(0)
+        );
+
+        // Warp past emergency delay, everyone withdraws
+        vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
+        vm.prank(arguer1);
+        market.emergencyWithdraw(debateId, NULLIFIER_1);
+        vm.prank(arguer2);
+        market.emergencyWithdraw(debateId, NULLIFIER_2);
+
+        // Verify totalStake is now 0
+        (,,, uint256 totalStake,) = market.getDebateState(debateId);
+        assertEq(totalStake, 0, "All stakes withdrawn");
+
+        // Governance sweeps the stale bond
+        uint256 govBal = token.balanceOf(governance);
+        vm.prank(governance);
+        market.sweepForfeitedBond(debateId);
+        assertEq(token.balanceOf(governance) - govBal, STANDARD_BOND, "Governance receives forfeited bond");
+    }
+
+    // ============================================================================
+    // 45. BENEFICIARY ROUTING (R-01 fix)
+    // ============================================================================
+
+    /// @notice Non-zero beneficiary receives settlement payout, not the submitter (relayer)
+    function test_Beneficiary_SettlementGoesToBeneficiary() public {
+        address relayer = address(0x501);
+        address user = address(0x502);
+
+        // Relayer submits with user as beneficiary
+        token.mint(relayer, STANDARD_STAKE);
+        vm.prank(relayer);
+        token.approve(address(market), type(uint256).max);
+
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        vm.prank(relayer);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, relayer, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            user   // beneficiary = user wallet, not relayer
+        );
+
+        // Resolve after deadline (only one argument so it wins by default)
+        vm.warp(block.timestamp + STANDARD_DURATION);
+        market.resolveDebate(debateId);
+
+        // User claims — payout must go to user, not relayer
+        uint256 userBalBefore = token.balanceOf(user);
+        uint256 relayerBalBefore = token.balanceOf(relayer);
+        vm.prank(user);
+        market.claimSettlement(debateId, NULLIFIER_1);
+
+        // user receives payout (their original stake back — no losing pool here)
+        assertEq(token.balanceOf(user) - userBalBefore, STANDARD_STAKE, "User must receive payout");
+        assertEq(token.balanceOf(relayer), relayerBalBefore, "Relayer must NOT receive payout");
+    }
+
+    /// @notice Relayer (submitter) can also trigger claimSettlement, but payout goes to beneficiary
+    function test_Beneficiary_RelayerCanTriggerClaimButFundsGoToUser() public {
+        address relayer = address(0x503);
+        address user = address(0x504);
+
+        token.mint(relayer, STANDARD_STAKE);
+        vm.prank(relayer);
+        token.approve(address(market), type(uint256).max);
+
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        vm.prank(relayer);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, relayer, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            user
+        );
+
+        vm.warp(block.timestamp + STANDARD_DURATION);
+        market.resolveDebate(debateId);
+
+        uint256 userBalBefore = token.balanceOf(user);
+        uint256 relayerBalBefore = token.balanceOf(relayer);
+
+        // RELAYER calls claimSettlement (dual authorization) — but funds go to USER
+        vm.prank(relayer);
+        market.claimSettlement(debateId, NULLIFIER_1);
+
+        assertEq(token.balanceOf(user) - userBalBefore, STANDARD_STAKE, "User must receive payout");
+        assertEq(token.balanceOf(relayer), relayerBalBefore, "Relayer balance unchanged despite triggering claim");
+    }
+
+    /// @notice Third-party (not submitter or beneficiary) cannot call claimSettlement
+    function test_Beneficiary_ThirdPartyCannotClaim() public {
+        address relayer = address(0x505);
+        address user = address(0x506);
+        address thirdParty = address(0x507);
+
+        token.mint(relayer, STANDARD_STAKE);
+        vm.prank(relayer);
+        token.approve(address(market), type(uint256).max);
+
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        vm.prank(relayer);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, relayer, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            user
+        );
+
+        vm.warp(block.timestamp + STANDARD_DURATION);
+        market.resolveDebate(debateId);
+
+        vm.prank(thirdParty);
+        vm.expectRevert(DebateMarket.UnauthorizedClaimer.selector);
+        market.claimSettlement(debateId, NULLIFIER_1);
+    }
+
+    /// @notice Non-zero beneficiary receives emergency withdrawal refund, not the relayer
+    function test_Beneficiary_EmergencyWithdrawGoesToBeneficiary() public {
+        address relayer = address(0x508);
+        address user = address(0x509);
+
+        token.mint(relayer, STANDARD_STAKE);
+        vm.prank(relayer);
+        token.approve(address(market), type(uint256).max);
+
+        bytes32 debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
+
+        vm.prank(relayer);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, relayer, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            user
+        );
+
+        vm.warp(block.timestamp + STANDARD_DURATION + 30 days);
+
+        uint256 userBalBefore = token.balanceOf(user);
+        uint256 relayerBalBefore = token.balanceOf(relayer);
+
+        vm.prank(user);
+        market.emergencyWithdraw(debateId, NULLIFIER_1);
+
+        assertEq(token.balanceOf(user) - userBalBefore, STANDARD_STAKE, "User must receive refund");
+        assertEq(token.balanceOf(relayer), relayerBalBefore, "Relayer balance unchanged");
+    }
+
+    // ============================================================================
+    // 46. SWEEP APPEAL BOND (F9 fix)
+    // ============================================================================
+
+    /// @notice sweepAppealBond transfers forfeited bond to governance after finalizeAppeal
+    function test_SweepAppealBond_Success() public {
+        bytes32 debateId = _proposeStandardDebate();
+        // Need at least one argument to escalate
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            address(0)
+        );
+        vm.warp(block.timestamp + STANDARD_DURATION + 1);
+
+        // Escalate to governance, submit resolution
+        market.escalateToGovernance(debateId);
+        vm.prank(governance);
+        market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
+
+        // arguer1 files appeal (2× bond)
+        uint256 requiredBond = STANDARD_BOND * 2;
+        token.mint(arguer1, requiredBond);
+        vm.prank(arguer1);
+        token.approve(address(market), requiredBond);
+        vm.prank(arguer1);
+        market.appealResolution(debateId);
+
+        // Finalize after appeal window
+        vm.warp(block.timestamp + 7 days + 1);
+        market.finalizeAppeal(debateId);
+
+        assertTrue(market.appealFinalized(debateId), "Appeal must be finalized");
+        assertEq(market.appealBonds(debateId, arguer1), requiredBond, "Bond must be recorded");
+
+        // Governance sweeps the forfeited bond
+        uint256 govBalBefore = token.balanceOf(governance);
+        vm.prank(governance);
+        vm.expectEmit(true, true, false, true);
+        emit AppealBondForfeited(debateId, arguer1, requiredBond);
+        market.sweepAppealBond(debateId, arguer1);
+
+        assertEq(token.balanceOf(governance) - govBalBefore, requiredBond, "Governance must receive forfeited bond");
+        assertEq(market.appealBonds(debateId, arguer1), 0, "Bond mapping must be zeroed");
+    }
+
+    /// @notice sweepAppealBond reverts if appeal has not been finalized
+    function test_SweepAppealBond_RevertWhen_AppealNotFinalized() public {
+        bytes32 debateId = _proposeStandardDebate();
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            address(0)
+        );
+        vm.warp(block.timestamp + STANDARD_DURATION + 1);
+
+        market.escalateToGovernance(debateId);
+        vm.prank(governance);
+        market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
+
+        uint256 requiredBond = STANDARD_BOND * 2;
+        token.mint(arguer1, requiredBond);
+        vm.prank(arguer1);
+        token.approve(address(market), requiredBond);
+        vm.prank(arguer1);
+        market.appealResolution(debateId);
+
+        // Do NOT finalize — appeal window still active
+        vm.prank(governance);
+        vm.expectRevert(DebateMarket.AppealNotFinalized.selector);
+        market.sweepAppealBond(debateId, arguer1);
+    }
+
+    /// @notice sweepAppealBond reverts on double-sweep (bond already zeroed)
+    function test_SweepAppealBond_RevertWhen_AlreadySwept() public {
+        bytes32 debateId = _proposeStandardDebate();
+        vm.prank(arguer1);
+        market.submitArgument(
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("arg"), bytes32(0),
+            STANDARD_STAKE, arguer1, DUMMY_PROOF,
+            _makePublicInputs(NULLIFIER_1, expectedDebateDomain(), 2),
+            VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
+            address(0)
+        );
+        vm.warp(block.timestamp + STANDARD_DURATION + 1);
+
+        market.escalateToGovernance(debateId);
+        vm.prank(governance);
+        market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
+
+        uint256 requiredBond = STANDARD_BOND * 2;
+        token.mint(arguer1, requiredBond);
+        vm.prank(arguer1);
+        token.approve(address(market), requiredBond);
+        vm.prank(arguer1);
+        market.appealResolution(debateId);
+
+        vm.warp(block.timestamp + 7 days + 1);
+        market.finalizeAppeal(debateId);
+
+        vm.prank(governance);
+        market.sweepAppealBond(debateId, arguer1);
+
+        // Second sweep must revert
+        vm.prank(governance);
+        vm.expectRevert(DebateMarket.AppealBondAlreadySwept.selector);
+        market.sweepAppealBond(debateId, arguer1);
+    }
+
+    /// @notice sweepAppealBond reverts when caller is not governance
+    function test_SweepAppealBond_RevertWhen_NotGovernance() public {
+        bytes32 debateId = _proposeStandardDebate();
+        vm.warp(block.timestamp + STANDARD_DURATION + 1);
+        // Don't need full setup — just need the function to check authorization first
+        vm.prank(arguer1);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
+        market.sweepAppealBond(debateId, arguer1);
+    }
+
+    // ============================================================================
     // HELPER FUNCTIONS
     // ============================================================================
+
+    /// @notice Compute the derived debate action domain (mirrors DebateMarket.deriveDomain)
+    /// @dev Pure computation — does NOT make an external call to market.deriveDomain(),
+    ///      which would consume vm.prank() when called inside function argument evaluation.
+    function expectedDebateDomain() internal pure returns (bytes32) {
+        uint256 BN254_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+        uint256 raw = uint256(keccak256(abi.encodePacked(ACTION_DOMAIN, "debate", PROPOSITION_HASH)));
+        return bytes32(raw % BN254_MOD);
+    }
 
     /// @notice Build 31-element public inputs with specific nullifier, actionDomain, and tier
     function _makePublicInputs(
@@ -2961,10 +3711,11 @@ contract DebateMarketTest is Test {
             STANDARD_STAKE,
             caller,
             DUMMY_PROOF,
-            _makePublicInputs(nullifier, ACTION_DOMAIN, tier),
+            _makePublicInputs(nullifier, expectedDebateDomain(), tier),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
     }
 
@@ -2976,6 +3727,7 @@ contract DebateMarketTest is Test {
         returns (bytes32 debateId, uint256 winningIndex)
     {
         debateId = _proposeStandardDebate();
+        bytes32 derivedDomain = expectedDebateDomain();
 
         // Argument 0: Tier 1, $5 -> sqrt(5e6) * 2
         vm.prank(arguer1);
@@ -2987,10 +3739,11 @@ contract DebateMarketTest is Test {
             5e6,
             arguer1,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_1, ACTION_DOMAIN, 1),
+            _makePublicInputs(NULLIFIER_1, derivedDomain, 1),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Argument 1: Tier 3, $10 -> sqrt(10e6) * 8 (winner)
@@ -3004,10 +3757,11 @@ contract DebateMarketTest is Test {
             10e6,
             arguer2,
             DUMMY_PROOF,
-            _makePublicInputs(NULLIFIER_2, ACTION_DOMAIN, 3),
+            _makePublicInputs(NULLIFIER_2, derivedDomain, 3),
             VERIFIER_DEPTH,
             block.timestamp + 1 hours,
-            hex"00"
+            hex"00",
+            address(0)
         );
 
         // Resolve
@@ -3027,6 +3781,8 @@ contract DebateMarketTest is Test {
 contract MockDistrictGate {
     NullifierRegistry public nullifierRegistry;
     mapping(bytes32 => bool) public allowedActionDomains;
+    mapping(address => bool) public authorizedDerivers;
+    mapping(bytes32 => bytes32) public derivedDomainBase;
 
     constructor(address _nullifierRegistry) {
         nullifierRegistry = NullifierRegistry(_nullifierRegistry);
@@ -3034,6 +3790,19 @@ contract MockDistrictGate {
 
     function setActionDomainAllowed(bytes32 domain, bool allowed) external {
         allowedActionDomains[domain] = allowed;
+    }
+
+    function setDeriverAuthorized(address deriver, bool authorized) external {
+        authorizedDerivers[deriver] = authorized;
+    }
+
+    function registerDerivedDomain(bytes32 baseDomain, bytes32 derivedDomain) external {
+        require(authorizedDerivers[msg.sender], "MockDistrictGate: not authorized deriver");
+        require(allowedActionDomains[baseDomain], "MockDistrictGate: base domain not allowed");
+        require(!allowedActionDomains[derivedDomain], "MockDistrictGate: derived already registered");
+
+        allowedActionDomains[derivedDomain] = true;
+        derivedDomainBase[derivedDomain] = baseDomain;
     }
 
     /// @notice Mock verifyThreeTreeProof: succeeds without reverting, records nullifier
@@ -3093,4 +3862,42 @@ contract MockERC20 {
         balanceOf[to] += amount;
         return true;
     }
+}
+
+/// @notice Mock debate_weight verifier — always returns true (testing only)
+contract MockDebateWeightVerifier is IDebateWeightVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return true;
+    }
+}
+
+/// @notice Mock position_note verifier — always returns true (testing only)
+contract MockPositionNoteVerifier is IPositionNoteVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return true;
+    }
+}
+
+/// @notice Rejecting debate_weight verifier — always returns false (for negative tests)
+contract RejectingDebateWeightVerifier is IDebateWeightVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return false;
+    }
+}
+
+/// @notice Rejecting position_note verifier — always returns false (for negative tests)
+contract RejectingPositionNoteVerifier is IPositionNoteVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return false;
+    }
+}
+
+/// @notice Mock AI evaluation registry — always registered, sensible defaults (testing only)
+contract MockAIEvaluationRegistry is IAIEvaluationRegistry {
+    function isRegistered(address) external pure returns (bool) { return true; }
+    function quorum() external pure returns (uint256) { return 3; }
+    function modelCount() external pure returns (uint256) { return 5; }
+    function aiWeight() external pure returns (uint256) { return 4000; }
+    function minProviders() external pure returns (uint256) { return 3; }
+    function providerCount() external pure returns (uint256) { return 5; }
 }

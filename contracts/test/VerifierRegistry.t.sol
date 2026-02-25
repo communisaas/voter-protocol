@@ -8,6 +8,7 @@ import "../src/TimelockGovernance.sol";
 /// @title VerifierRegistry Tests
 /// @notice Tests for VerifierRegistry with genesis + timelock model
 /// @dev Tests cover:
+///      --- Two-Tree Verifier Tests (Legacy) ---
 ///      1. Genesis Registration (direct, no timelock)
 ///      2. Genesis Seal (irreversible)
 ///      3. Post-Genesis Registration Timelock (HIGH-001 FIX)
@@ -16,6 +17,11 @@ import "../src/TimelockGovernance.sol";
 ///      6. Edge Cases and Security
 ///      7. View Functions
 ///      8. Attack Scenario (HIGH-001)
+///      --- Three-Tree Verifier Tests (Primary) ---
+///      9. Three-Tree Verifier Genesis
+///      10. Three-Tree Post-Genesis Registration
+///      11. Three-Tree Verifier Upgrades
+///      12. Three-Tree View Functions
 contract VerifierRegistryTest is Test {
     VerifierRegistry public registry;
 
@@ -55,7 +61,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 1. GENESIS REGISTRATION TESTS
+    // 1. GENESIS REGISTRATION TESTS (Two-Tree — Legacy)
     // ============================================================================
 
     /// @notice Genesis: registerVerifier works before seal
@@ -172,7 +178,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 3. POST-GENESIS REGISTRATION TIMELOCK TESTS (HIGH-001 FIX)
+    // 3. POST-GENESIS REGISTRATION TIMELOCK TESTS (Two-Tree — Legacy, HIGH-001 FIX)
     // ============================================================================
 
     /// @notice Post-genesis: proposeVerifier requires seal
@@ -290,7 +296,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 4. VERIFIER UPGRADE TIMELOCK TESTS
+    // 4. VERIFIER UPGRADE TIMELOCK TESTS (Two-Tree — Legacy)
     // ============================================================================
 
     /// @notice proposeVerifierUpgrade starts 14-day timelock
@@ -373,7 +379,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 5. ACCESS CONTROL TESTS
+    // 5. ACCESS CONTROL TESTS (Two-Tree — Legacy)
     // ============================================================================
 
     /// @notice Only governance can propose verifier
@@ -419,7 +425,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 6. EDGE CASES AND SECURITY
+    // 6. EDGE CASES AND SECURITY (Two-Tree — Legacy)
     // ============================================================================
 
     /// @notice Cannot propose zero address verifier
@@ -549,7 +555,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 7. VIEW FUNCTION TESTS
+    // 7. VIEW FUNCTION TESTS (Two-Tree — Legacy)
     // ============================================================================
 
     /// @notice getVerifier returns correct address
@@ -659,7 +665,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 8. ATTACK SCENARIO TESTS (HIGH-001)
+    // 8. ATTACK SCENARIO TESTS (Two-Tree — Legacy, HIGH-001)
     // ============================================================================
 
     /// @notice HIGH-001: Post-genesis front-running attack is prevented
@@ -713,7 +719,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 9. THREE-TREE VERIFIER GENESIS TESTS
+    // 9. THREE-TREE VERIFIER GENESIS TESTS (Primary)
     // ============================================================================
 
     /// @notice Three-tree genesis: direct registration works
@@ -797,7 +803,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 10. THREE-TREE POST-GENESIS REGISTRATION TESTS
+    // 10. THREE-TREE POST-GENESIS REGISTRATION TESTS (Primary)
     // ============================================================================
 
     /// @notice Three-tree post-genesis: propose starts 14-day timelock
@@ -914,7 +920,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 11. THREE-TREE VERIFIER UPGRADE TESTS
+    // 11. THREE-TREE VERIFIER UPGRADE TESTS (Primary)
     // ============================================================================
 
     /// @notice Three-tree upgrade: propose starts timelock
@@ -992,7 +998,7 @@ contract VerifierRegistryTest is Test {
     }
 
     // ============================================================================
-    // 12. THREE-TREE VIEW FUNCTION TESTS
+    // 12. THREE-TREE VIEW FUNCTION TESTS (Primary)
     // ============================================================================
 
     /// @notice Three-tree views: getThreeTreeVerifier returns correct address

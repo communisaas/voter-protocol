@@ -33,26 +33,29 @@ import "openzeppelin/security/ReentrancyGuard.sol";
 /// MULTI-DISTRICT REGISTRATION MODEL (24 District Slots):
 /// Users can be registered in up to 24 district types (federal, state, county, city, etc.):
 /// - Slots 0-19: 20 defined district types
-/// - Slots 20-21: Reserved for future defined district types
+/// - Slots 20-21: Administrative (Township, Voting Precinct)
 /// - Slots 22-23: Overflow slots for rare/regional districts (water districts, etc.)
 ///
-/// IMPORTANT: SINGLE-DISTRICT PROOFS
-/// Each ZK proof proves membership in exactly ONE district. The 24-slot model describes
-/// the registration taxonomy, NOT the circuit output. For actions requiring multiple
-/// district memberships (e.g., state + county eligibility), callers must submit and
-/// verify separate proofs for each district. This keeps circuits efficient and allows
-/// flexible multi-district requirements to be enforced at the application layer.
+/// PROOF MODELS (path-dependent):
+/// - Three-tree path (verifyThreeTreeProof) [PRIMARY]: All 24 district slots
+///   revealed plus engagement_root and engagement_tier (31 public inputs).
+///   This is the canonical verification path for new integrations.
+/// - Two-tree path (verifyTwoTreeProof) [DEPRECATED]: All 24 district slots are
+///   revealed as public inputs (29 total). Superseded by three-tree path.
+/// - Legacy path (verifyAndAuthorizeWithSignature) [DEPRECATED]: Single-district
+///   proof model. Each ZK proof proves membership in exactly ONE district.
 ///
 /// GAS COSTS (measured on Scroll Sepolia, 2026-02-20):
-/// - Single two-tree proof (29 public inputs): ~2.2M gas
-/// - Single three-tree proof (31 public inputs): ~2.2M gas (estimated)
+/// - Single three-tree proof (31 public inputs): ~2.2M gas [PRIMARY]
+/// - Single two-tree proof (29 public inputs): ~2.2M gas [DEPRECATED]
 /// - See docs/DOCUMENTATION-COHERENCE-AUDIT.md Section 1 for cost projections
 ///
 /// VERIFICATION PATHS:
-/// 1. verifyTwoTreeProof()     — 29 public inputs (user_root, cell_map_root, districts[24],
-///                                nullifier, action_domain, authority_level)
-/// 2. verifyThreeTreeProof()   — 31 public inputs (above + engagement_root, engagement_tier)
-/// 3. verifyAndAuthorizeWithSignature() — Legacy single-tree path (5 inputs)
+/// 1. verifyThreeTreeProof()   — 31 public inputs [PRIMARY]
+///                                (user_root, cell_map_root, districts[24], nullifier,
+///                                action_domain, authority_level, engagement_root, engagement_tier)
+/// 2. verifyTwoTreeProof()     — 29 public inputs [DEPRECATED — use verifyThreeTreeProof]
+/// 3. verifyAndAuthorizeWithSignature() — Legacy single-tree path (5 inputs) [DEPRECATED]
 ///
 /// DEPTH ROUTING:
 /// - Verifiers registered per depth (18/20/22/24) via VerifierRegistry
@@ -65,9 +68,9 @@ import "openzeppelin/security/ReentrancyGuard.sol";
 /// - No changes to this contract required
 contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Maximum district types a user can be registered in (20 defined + 4 overflow)
-    /// @dev Each proof proves ONE district. This constant defines the registration model.
-    ///      Multi-district verification requires separate proofs per district.
-    ///      Slots 0-19: Defined types, Slots 20-21: Reserved, Slots 22-23: Overflow
+    /// @dev Two-tree and three-tree proofs reveal ALL 24 slots as public inputs.
+    ///      Legacy single-tree proofs prove one district per proof.
+    ///      Slots 0-19: Defined types, Slots 20-21: Administrative, Slots 22-23: Overflow
     uint8 public constant MAX_DISTRICT_SLOTS = 24;
 
     /// @notice Verifier registry (depth → verifier address)
@@ -125,6 +128,26 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Timestamp when pending authority increase can execute
     mapping(bytes32 => uint256) public pendingMinAuthorityExecuteTime;
 
+    // ============================================================================
+    // Derived Domain Authorization
+    // ============================================================================
+
+    /// @notice Contracts authorized to register derived action domains without timelock
+    /// @dev Derived domains inherit authorization from registered base domains.
+    ///      Authorized derivers can ONLY register domains when the base domain is
+    ///      already in allowedActionDomains. Authorizing a deriver requires 7-day timelock.
+    mapping(address => bool) public authorizedDerivers;
+
+    /// @notice Pending deriver authorization (deriver => execute timestamp)
+    mapping(address => uint256) public pendingDeriverAuthorization;
+
+    /// @notice Pending deriver revocation (deriver => execute timestamp)
+    mapping(address => uint256) public pendingDeriverRevocation;
+
+    /// @notice Tracks which base domain a derived domain was derived from
+    /// @dev For auditability and governance traceability. Zero means not a derived domain.
+    mapping(bytes32 => bytes32) public derivedDomainBase;
+
     /// @notice EIP-712 domain separator
     bytes32 public immutable DOMAIN_SEPARATOR;
 
@@ -134,6 +157,7 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     );
 
     /// @notice EIP-712 typehash for two-tree proof submission
+    /// @dev DEPRECATED: Use SUBMIT_THREE_TREE_PROOF_TYPEHASH for new integrations.
     bytes32 public constant SUBMIT_TWO_TREE_PROOF_TYPEHASH = keccak256(
         "SubmitTwoTreeProof(bytes32 proofHash,bytes32 publicInputsHash,uint8 verifierDepth,uint256 nonce,uint256 deadline)"
     );
@@ -175,6 +199,16 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     event ActionDomainMinAuthoritySet(bytes32 indexed actionDomain, uint8 minLevel);
     event MinAuthorityIncreaseProposed(bytes32 indexed actionDomain, uint8 proposedLevel, uint256 executeTime);
 
+    // Derived domain events
+    event DeriverAuthorizedGenesis(address indexed deriver);
+    event DeriverAuthorizationProposed(address indexed deriver, uint256 executeTime);
+    event DeriverAuthorized(address indexed deriver);
+    event DeriverAuthorizationCancelled(address indexed deriver);
+    event DeriverRevocationProposed(address indexed deriver, uint256 executeTime);
+    event DeriverRevoked(address indexed deriver);
+    event DeriverRevocationCancelled(address indexed deriver);
+    event DerivedDomainRegistered(bytes32 indexed baseDomain, bytes32 indexed derivedDomain, address indexed deriver);
+
     // Errors
     error VerificationFailed();
     error UnauthorizedDistrict();
@@ -193,8 +227,19 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     error InsufficientAuthority(uint8 submitted, uint8 required);
     error GenesisAlreadySealed();
 
+    // Derived domain errors
+    error DeriverNotAuthorized();
+    error DeriverAlreadyAuthorized();
+    error DeriverAuthorizationNotPending();
+    error DeriverAuthorizationAlreadyPending();
+    error DeriverRevocationNotPending();
+    error DeriverRevocationAlreadyPending();
+    error BaseDomainNotAllowed();
+    error DerivedDomainAlreadyRegistered();
+
     /// @notice Number of public inputs for two-tree proofs
-    /// @dev [0] user_root, [1] cell_map_root, [2-25] districts[24],
+    /// @dev DEPRECATED: Use THREE_TREE_PUBLIC_INPUT_COUNT for new integrations.
+    ///      [0] user_root, [1] cell_map_root, [2-25] districts[24],
     ///      [26] nullifier, [27] action_domain, [28] authority_level
     uint256 public constant TWO_TREE_PUBLIC_INPUT_COUNT = 29;
 
@@ -320,7 +365,23 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
         emit ActionDomainActivated(actionDomain);
     }
 
+    /// @notice Authorize a derived-domain deriver during genesis phase
+    /// @param deriver Contract address to authorize (e.g., DebateMarket)
+    /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
+    function authorizeDeriverGenesis(address deriver) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        if (deriver == address(0)) revert ZeroAddress();
+        if (authorizedDerivers[deriver]) revert DeriverAlreadyAuthorized();
+
+        authorizedDerivers[deriver] = true;
+
+        emit DeriverAuthorizedGenesis(deriver);
+        emit DeriverAuthorized(deriver);
+    }
+
     /// @notice Set two-tree registries directly during genesis phase
+    /// @dev DEPRECATED: Use setEngagementRegistryGenesis for three-tree path. Shared registries
+    ///      (UserRootRegistry, CellMapRegistry) are still configured here.
     /// @param _userRootRegistry Address of UserRootRegistry
     /// @param _cellMapRegistry Address of CellMapRegistry
     /// @dev Only available before sealGenesis(). Bypasses 7-day timelock.
@@ -660,7 +721,103 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     }
 
     // ============================================================================
-    // Two-Tree Registry Configuration
+    // Derived Domain Authorization
+    // ============================================================================
+
+    /// @notice Propose authorizing a derived-domain deriver (starts 7-day timelock)
+    /// @param deriver Contract to authorize for derived domain registration
+    /// @dev Derived domains bypass the per-domain 7-day timelock by inheriting
+    ///      authorization from registered base domains. The deriver contract is
+    ///      responsible for computing the derivation deterministically.
+    function proposeDeriverAuthorization(address deriver) external onlyGovernance {
+        if (deriver == address(0)) revert ZeroAddress();
+        if (authorizedDerivers[deriver]) revert DeriverAlreadyAuthorized();
+        if (pendingDeriverAuthorization[deriver] != 0) revert DeriverAuthorizationAlreadyPending();
+
+        pendingDeriverAuthorization[deriver] = block.timestamp + ACTION_DOMAIN_TIMELOCK;
+
+        emit DeriverAuthorizationProposed(deriver, pendingDeriverAuthorization[deriver]);
+    }
+
+    /// @notice Execute pending deriver authorization (after 7-day timelock)
+    /// @param deriver Address to authorize
+    function executeDeriverAuthorization(address deriver) external {
+        uint256 executeTime = pendingDeriverAuthorization[deriver];
+        if (executeTime == 0) revert DeriverAuthorizationNotPending();
+        if (block.timestamp < executeTime) revert ActionDomainTimelockNotExpired();
+
+        authorizedDerivers[deriver] = true;
+        delete pendingDeriverAuthorization[deriver];
+
+        emit DeriverAuthorized(deriver);
+    }
+
+    /// @notice Cancel pending deriver authorization
+    /// @param deriver Address to cancel authorization for
+    function cancelDeriverAuthorization(address deriver) external onlyGovernance {
+        if (pendingDeriverAuthorization[deriver] == 0) revert DeriverAuthorizationNotPending();
+        delete pendingDeriverAuthorization[deriver];
+
+        emit DeriverAuthorizationCancelled(deriver);
+    }
+
+    /// @notice Propose revoking a deriver's authorization (starts 7-day timelock)
+    /// @param deriver Address to revoke
+    function proposeDeriverRevocation(address deriver) external onlyGovernance {
+        if (!authorizedDerivers[deriver]) revert DeriverNotAuthorized();
+        if (pendingDeriverRevocation[deriver] != 0) revert DeriverRevocationAlreadyPending();
+
+        pendingDeriverRevocation[deriver] = block.timestamp + ACTION_DOMAIN_TIMELOCK;
+
+        emit DeriverRevocationProposed(deriver, pendingDeriverRevocation[deriver]);
+    }
+
+    /// @notice Execute pending deriver revocation (after 7-day timelock)
+    /// @param deriver Address to revoke
+    function executeDeriverRevocation(address deriver) external {
+        uint256 executeTime = pendingDeriverRevocation[deriver];
+        if (executeTime == 0) revert DeriverRevocationNotPending();
+        if (block.timestamp < executeTime) revert ActionDomainTimelockNotExpired();
+
+        authorizedDerivers[deriver] = false;
+        delete pendingDeriverRevocation[deriver];
+
+        emit DeriverRevoked(deriver);
+    }
+
+    /// @notice Cancel pending deriver revocation
+    /// @param deriver Address to cancel revocation for
+    function cancelDeriverRevocation(address deriver) external onlyGovernance {
+        if (pendingDeriverRevocation[deriver] == 0) revert DeriverRevocationNotPending();
+        delete pendingDeriverRevocation[deriver];
+
+        emit DeriverRevocationCancelled(deriver);
+    }
+
+    /// @notice Register a derived action domain atomically (no timelock)
+    /// @param baseDomain An already-registered action domain
+    /// @param derivedDomain The derived domain to register
+    /// @dev Only callable by authorized derivers. The baseDomain MUST be in
+    ///      allowedActionDomains. DistrictGate does NOT verify the derivation
+    ///      formula — it trusts the authorized deriver contract's bytecode,
+    ///      which was vetted during the 7-day authorization timelock.
+    function registerDerivedDomain(
+        bytes32 baseDomain,
+        bytes32 derivedDomain
+    ) external {
+        if (!authorizedDerivers[msg.sender]) revert DeriverNotAuthorized();
+        if (!allowedActionDomains[baseDomain]) revert BaseDomainNotAllowed();
+        if (allowedActionDomains[derivedDomain]) revert DerivedDomainAlreadyRegistered();
+
+        allowedActionDomains[derivedDomain] = true;
+        derivedDomainBase[derivedDomain] = baseDomain;
+
+        emit DerivedDomainRegistered(baseDomain, derivedDomain, msg.sender);
+        emit ActionDomainActivated(derivedDomain);
+    }
+
+    // ============================================================================
+    // Two-Tree Registry Configuration [DEPRECATED — use Engagement Registry for three-tree]
     // ============================================================================
 
     /// @notice Pending two-tree registry addresses
@@ -676,6 +833,8 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     error TwoTreeRegistriesTimelockNotExpired();
 
     /// @notice Propose two-tree registry addresses (starts 7-day timelock)
+    /// @dev DEPRECATED: Shared registries (UserRootRegistry, CellMapRegistry) are used by both
+    ///      two-tree and three-tree paths. Use proposeEngagementRegistry for three-tree.
     /// @param _userRootRegistry Address of UserRootRegistry
     /// @param _cellMapRegistry Address of CellMapRegistry
     function proposeTwoTreeRegistries(
@@ -699,6 +858,7 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     }
 
     /// @notice Execute pending two-tree registry configuration (after 7-day timelock)
+    /// @dev DEPRECATED: See proposeTwoTreeRegistries.
     function executeTwoTreeRegistries() external {
         if (pendingTwoTreeRegistriesExecuteTime == 0) revert TwoTreeRegistriesNotProposed();
         if (block.timestamp < pendingTwoTreeRegistriesExecuteTime) {
@@ -716,6 +876,7 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     }
 
     /// @notice Cancel pending two-tree registry configuration
+    /// @dev DEPRECATED: See proposeTwoTreeRegistries.
     function cancelTwoTreeRegistries() external onlyGovernance {
         if (pendingTwoTreeRegistriesExecuteTime == 0) revert TwoTreeRegistriesNotProposed();
 
@@ -773,10 +934,11 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     }
 
     // ============================================================================
-    // Two-Tree Proof Verification
+    // Two-Tree Proof Verification [DEPRECATED — use Three-Tree path]
     // ============================================================================
 
     /// @notice Verify a two-tree ZK proof (user identity + cell-district mapping) with EIP-712 signature
+    /// @dev DEPRECATED: Use verifyThreeTreeProof which adds engagement tree verification (31 public inputs).
     /// @param signer Address that signed the proof submission
     /// @param proof ZK proof bytes from the two-tree circuit
     /// @param publicInputs Array of 29 public inputs:
