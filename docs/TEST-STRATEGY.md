@@ -133,7 +133,7 @@ describe('Prove/Verify Integration', () => {
 contract IntegrationTest is Test {
     function test_fullSubmissionFlow() public {
         // 1. Register district root
-        districtRegistry.registerRoot(VALID_ROOT, "USA");
+        districtRegistry.registerUserRoot(VALID_ROOT, "USA", 20);
         
         // 2. Authorize action
         districtGate.authorizeAction(ACTION_ID);

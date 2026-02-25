@@ -514,6 +514,11 @@ fn main(
 Steps 1-4 are identical to the two-tree circuit. Steps 5-7 are new.
 
 ```
+// PRE-CHECKS (inherited from two-tree circuit):
+//   assert(user_secret != 0)
+//   assert(identity_commitment != 0)   // NUL-001: prevents predictable nullifiers
+//   validate_authority_level(authority_level)  // [1, 5] with overflow guard
+
 // Steps 1-4: UNCHANGED from two-tree circuit
 // Step 1: Verify user identity (Tree 1)
 // Step 2: Compute district commitment (sponge)

@@ -1,9 +1,11 @@
+> **SUPERSEDED** — This specification describes the two-tree (29 public input) architecture. The canonical specification is [THREE-TREE-ARCHITECTURE-SPEC.md](THREE-TREE-ARCHITECTURE-SPEC.md) which extends this with engagement reputation (31 public inputs). This document remains as legacy reference for the two-tree verification path.
+
 # Two-Tree Architecture Specification
 
 > **Spec ID:** TWO-TREE-ARCH-001
 > **Version:** 0.7.0
-> **Status:** Implementation Complete — circuit rework (H4 leaf + identity-bound nullifier), leaf replacement plumbing, IPFS persistence all verified in code (2026-02-11 4-agent audit). **NUL-001 wiring gap:** identityCommitment uses placeholder in communique registration path. v0.7.0: Added Section 4.4 (Action Domain Construction) with targetType field. v0.6.0: Added Section 17 (Three-Tree Extension design reference).
-> **Date:** 2026-02-20
+> **Status:** IMPLEMENTED — Trees 1 and 2 are production. The three-tree extension (Section 17) is also IMPLEMENTED; see [THREE-TREE-ARCHITECTURE-SPEC.md](THREE-TREE-ARCHITECTURE-SPEC.md) for the canonical 31-input specification.
+> **Date:** 2026-02-21
 > **Authors:** Architecture Review
 > **Revision:** v0.7 — Added targetType to ActionDomainParams (Section 4.4), documenting nullifier implications and backward compatibility. v0.5 — 4-agent cross-validation audit confirmed: Wave 24 circuit rework IMPLEMENTED (H4 leaf main.nr:308, identity-bound nullifier main.nr:336-337, DOMAIN_HASH4 0x48344d). Waves 30-31 leaf replacement IMPLEMENTED (replaceLeaf, POST /v1/register/replace, recoverTwoTree). IPFS persistence IMPLEMENTED (InsertionLog + SyncService + Lighthouse). NUL-001 identityCommitment wiring gap identified — shadow-atlas-handler.ts:136 uses request.leaf placeholder. v0.4: Added Section 8.4-8.8: Credential Recovery. v0.3: Synced Section 4 (Circuit) with actual main.nr.
 
@@ -16,13 +18,13 @@ This specification defines a **two-tree architecture** for the Voter Protocol th
 ### Key Innovation
 
 ```
-CURRENT (Single-Tree):
+LEGACY (Single-Tree):
   leaf = H(user_secret, cell_id, district_commitment, salt)
   → Redistricting changes district_commitment
   → User must re-register
 
-PROPOSED (Two-Tree):
-  Tree 1 (User Identity):  leaf = H(user_secret, cell_id, salt)
+CURRENT (Two-Tree):
+  Tree 1 (User Identity):  leaf = H4(user_secret, cell_id, registration_salt, authority_level)
   Tree 2 (Cell Mapping):   SMT[cell_id] = district_commitment
   → Redistricting only updates Tree 2
   → User identity in Tree 1 is UNCHANGED
@@ -363,6 +365,7 @@ global MAX_AUTHORITY_LEVEL: Field = 5;
 
 global DOMAIN_HASH2: Field = 0x48324d;   // "H2M" - matches poseidon2.ts
 global DOMAIN_HASH3: Field = 0x48334d;   // "H3M" - matches poseidon2.ts
+global DOMAIN_HASH4: Field = 0x48344d;   // "H4M" - domain tag for 4-input hash (BR5-001/BR5-004)
 
 // ═══════════════════════════════════════════════════════════════════════
 // HASH FUNCTIONS
@@ -484,6 +487,8 @@ fn main(
     // PRE-CHECKS
     // SA-011: Reject zero user_secret (prevents predictable nullifiers)
     assert(user_secret != 0, "user_secret cannot be zero");
+    // NUL-001: Reject zero identity_commitment (prevents predictable nullifiers)
+    assert(identity_commitment != 0, "identity_commitment cannot be zero");
     // ISSUE-006 + BA-007: Validate authority_level in [1, 5] with overflow guard
     validate_authority_level(authority_level);
 
@@ -1143,9 +1148,9 @@ contract UserRootRegistry {
     uint256 public constant ROOT_TIMELOCK = 7 days;
     uint256 public constant GRACE_PERIOD = 30 days;
 
-    function registerRoot(bytes32 root, bytes3 country, uint8 depth) external;
+    function registerUserRoot(bytes32 root, bytes3 country, uint8 depth) external;
     function deprecateRoot(bytes32 root) external;
-    function isValidRoot(bytes32 root) external view returns (bool);
+    function isValidUserRoot(bytes32 root) external view returns (bool);
 }
 ```
 
@@ -1344,116 +1349,46 @@ export class TwoTreeBuilder {
 
 ## 11. Client (Communique) Changes
 
-### 11.1 New Prover Interface
+### 11.1 Prover Integration
+
+> **Note:** The `@voter-protocol/client` package was removed in Cycle 17. Two-tree proof
+> generation is provided by `@voter-protocol/noir-prover` (`TwoTreeNoirProver`). The
+> communique frontend integrates via `prover-client.ts`, which wraps `TwoTreeNoirProver`
+> and passes `{ keccak: true }` for on-chain proof generation.
 
 ```typescript
-// packages/client/src/zk/two-tree-prover.ts
+// @voter-protocol/noir-prover — TwoTreeNoirProver
+// See packages/noir-prover/src/two-tree-prover.ts
 
-export interface TwoTreeProofInputs {
-  // Public
-  userRoot: string;
-  cellMapRoot: string;
-  districts: string[];
-  actionDomain: string;
-  authorityLevel: number;
+import { TwoTreeNoirProver } from '@voter-protocol/noir-prover';
 
-  // Private
-  userSecret: string;
-  cellId: string;
-  registrationSalt: string;
-  userPath: string[];
-  userIndex: number;
-  cellMapPath: string[];
-  cellMapPathBits: number[];
-}
+const prover = new TwoTreeNoirProver(compiledCircuit);
 
-export interface TwoTreeProofResult {
-  proof: Uint8Array;
-  publicInputs: {
-    userRoot: string;
-    cellMapRoot: string;
-    districts: string[];
-    nullifier: string;
-    actionDomain: string;
-    authorityLevel: number;
-  };
-}
+// Generate proof with keccak mode for on-chain verification
+const { proof, publicInputs } = await prover.generateProof(inputs, { keccak: true });
 
-export class TwoTreeProver {
-  private circuit: CompiledCircuit;
-  private backend: UltraHonkBackend;
-
-  async generateProof(inputs: TwoTreeProofInputs): Promise<TwoTreeProofResult> {
-    // 1. Compute nullifier locally (for UI preview)
-    const nullifier = poseidon2Hash2(
-      BigInt(inputs.identityCommitment),
-      BigInt(inputs.actionDomain)
-    );
-
-    // 2. Prepare witness
-    const witness = this.prepareWitness(inputs, nullifier);
-
-    // 3. Generate proof
-    const proof = await this.backend.prove(this.circuit, witness);
-
-    return {
-      proof,
-      publicInputs: {
-        userRoot: inputs.userRoot,
-        cellMapRoot: inputs.cellMapRoot,
-        districts: inputs.districts,
-        nullifier: nullifier.toString(),
-        actionDomain: inputs.actionDomain,
-        authorityLevel: inputs.authorityLevel,
-      },
-    };
-  }
-}
+// Verify locally (optional, for debugging)
+const valid = await prover.verifyProof(proof, publicInputs, { keccak: true });
 ```
 
-### 11.2 Credential Sync Service
+**Public inputs (29 fields):** `userRoot`, `cellMapRoot`, `districts[24]`, `nullifier`, `actionDomain`, `authorityLevel`.
+
+**Private inputs (witnesses):** `userSecret`, `cellId`, `registrationSalt`, `identityCommitment`, `userPath`, `userIndex`, `cellMapPath`, `cellMapPathBits`.
+
+### 11.2 Credential Sync
+
+> **Note:** Credential sync is handled by the communique server-side registration and
+> proof submission flow. The communique `prover-client.ts` fetches updated Merkle paths
+> from the Shadow Atlas API (`/v2/sync`) when roots become stale. There is no separate
+> `CredentialSyncService` class in a client package.
 
 ```typescript
-// packages/client/src/services/credential-sync.ts
-
-export class CredentialSyncService {
-  private shadowAtlasClient: ShadowAtlasClient;
-  private credentialStore: CredentialStore;
-
-  async syncIfNeeded(): Promise<SyncResult> {
-    const credential = await this.credentialStore.get();
-    const currentRoots = await this.shadowAtlasClient.getRoots();
-
-    const needsUserSync = credential.userRoot !== currentRoots.userRoot;
-    const needsCellSync = credential.cellMapRoot !== currentRoots.cellMapRoot;
-
-    if (!needsUserSync && !needsCellSync) {
-      return { synced: false, reason: 'up-to-date' };
-    }
-
-    const syncData = await this.shadowAtlasClient.sync({
-      userLeafIndex: credential.userLeafIndex,
-      cellId: credential.cellId,
-    });
-
-    await this.credentialStore.update({
-      ...credential,
-      userPath: syncData.userPath,
-      userRoot: syncData.userRoot,
-      districts: syncData.districts,
-      cellMapPath: syncData.cellMapPath,
-      cellMapPathBits: syncData.cellMapPathBits,
-      cellMapRoot: syncData.cellMapRoot,
-      updatedAt: new Date(),
-    });
-
-    return {
-      synced: true,
-      userRootChanged: needsUserSync,
-      cellMapRootChanged: needsCellSync,
-    };
-  }
-}
+// communique integration path (prover-client.ts)
+// 1. Fetch current roots from Shadow Atlas
+// 2. Compare against stored SessionCredential
+// 3. If stale, fetch updated paths via /v2/sync
+// 4. Generate proof via TwoTreeNoirProver with { keccak: true }
+// 5. Submit proof + EIP-712 signature to DistrictGate
 ```
 
 ---
@@ -1844,9 +1779,9 @@ Block Groups subdivide tracts into ~1,500-person units. This provides more geogr
 
 ---
 
-## 17. Three-Tree Extension (DESIGN ONLY)
+## 17. Three-Tree Extension (IMPLEMENTED)
 
-> **Status:** DESIGN — No code implemented. This section describes the planned Three-Tree Architecture that adds cryptographically verifiable engagement to the ZK proof. See `specs/REPUTATION-ARCHITECTURE-SPEC.md` for the canonical specification.
+> **Status:** IMPLEMENTED — Circuit, prover, contracts, and engagement pipeline are operational. See [THREE-TREE-ARCHITECTURE-SPEC.md](THREE-TREE-ARCHITECTURE-SPEC.md) for the canonical three-tree specification and [REPUTATION-ARCHITECTURE-SPEC.md](REPUTATION-ARCHITECTURE-SPEC.md) for engagement scoring details.
 
 ### 17.1 Overview
 

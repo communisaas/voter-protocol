@@ -23,7 +23,7 @@ Total time: 4 minutes. You'll build portable reputation that proves your civic e
 
 ## Step 1: Create Passkey (30 seconds)
 
-Visit communique.app and tap "Get Started"
+Visit communi.email and tap "Get Started"
 
 - **Create a passkey with Face ID, fingerprint, or PIN** - That's it. No passwords, no "write this down on paper."
 - **Passkey controls your wallet** - This biometric/PIN securely manages your wallet addresses across all blockchains
@@ -106,7 +106,7 @@ Example template: "Support Medicare Drug Price Negotiation"
 **You add:**
 > "My mother rations her insulin because it costs $380/month on a fixed income. Medicare negotiation could cut that to $35. This isn't abstract policy to me—it's whether she can afford to stay alive."
 
-**This is what staffers are desperate for** - personal stakes from verified constituents, not form-letter spam. Offices explicitly stated they want ["small surprising things" and "niche issues" with informed reasoning](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf). Your personal connection transforms a template into something they can't ignore.
+**This is what staffers are desperate for** - personal stakes from verified constituents, not form-letter spam. Offices explicitly stated they want ["small surprising things" and "niche issues" with informed reasoning](https://doi.org/10.1080/19331681.2020.1740907). Your personal connection transforms a template into something they can't ignore.
 
 -----
 

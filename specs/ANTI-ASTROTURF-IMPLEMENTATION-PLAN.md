@@ -695,7 +695,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 1. Include unique confirmation link in mailto body footer:
    ```
    ---
-   Confirm delivery: https://communique.app/api/email/confirm/[trackingId]
+   Confirm delivery: https://communi.email/api/email/confirm/[trackingId]
    ```
 
 2. User clicks link after sending email → updates `Submission.delivery_status` to `'user_confirmed'`.

@@ -1,4 +1,4 @@
-# For Congressional Offices: Solving the 66% Problem
+# For Congressional Offices: Solving the Constituent Signal Problem
 
 **You told us the problem. We built the solution.**
 
@@ -10,11 +10,11 @@
 
 ## What Your Office Said
 
-[McDonald's 2018 congressional staff survey](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) documented what you already know:
+[McDonald et al.'s congressional staff research](https://doi.org/10.1080/19331681.2020.1740907) (survey of 200 staff + six months of ethnographic fieldwork) documented what you already know:
 
 > **"We respond to mail, but we don't communicate with constituents."**
 
-**66% of digital contact perceived as campaign mail with minimal policy value.** No systematic pathway for constituent opinions sent through digital channels to influence policymaking. Information reaches policy staff "anecdotally upon discretion" using vague criteria: "big issues," "if something is really important," "enough to make a batch."
+**Staff report that most digital contact has minimal policy value** — redundant advocacy campaign messages, angry callers expressing emotions rather than policy concerns, and messages arriving hours or days after a vote. No systematic pathway for constituent opinions sent through digital channels to influence policymaking. Information reaches policy staff "anecdotally upon discretion" using vague criteria: "big issues," "if something is really important," "enough to make a batch."
 
 Staffers provided logical reasons for dismissing most digital contact:
 - Messages are "under-informed, untimely, or unrelated" to current policy concerns
@@ -25,7 +25,7 @@ Staffers provided logical reasons for dismissing most digital contact:
 **What would actually help?** You told us:
 > **"Small surprising things like bills they may have missed"** or **"more niche issues"** not already on the Member's radar—informed perspectives staffers hadn't considered.
 
-**But current systems can't identify these signals.** Technology designed for monitoring makes it worse: constituent databases are ["painfully slow, hard to learn, confusing to use"](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) and **by design limit what information can be collected**.
+**But current systems can't identify these signals.** Technology designed for monitoring makes it worse: constituent databases are ["painfully slow, hard to learn, confusing to use"](https://doi.org/10.1080/19331681.2020.1740907) and **by design limit what information can be collected**.
 
 VOTER Protocol gives you the filtering infrastructure you're asking for.
 
@@ -335,7 +335,7 @@ Phase 2 additions (12-18 months):
 
 **Current pain points:**
 - Can't tell what district actually wants versus what's loudest nationally
-- "66% perceived as campaign mail with minimal policy value"
+- Most digital contact perceived as low-value campaign mail ([McDonald et al., 2020](https://doi.org/10.1080/19331681.2020.1740907))
 - Authentic constituent priorities buried under coordinated campaigns
 - Building agenda disconnected from real district concerns because no systematic pathway exists
 
@@ -404,6 +404,6 @@ A: Reputation scores are on-chain (permanent). Dashboard is open-source (your IT
 
 -----
 
-*You told us the problem. We built the infrastructure you're asking for. Now let's solve the 66% spam problem together.*
+*You told us the problem. We built the infrastructure you're asking for. Now let's solve the constituent signal problem together.*
 ### Verification Overview (Phase 1)
 Constituents present cryptographic proof of district membership; you receive signal without surveillance. The dashboard surfaces “verified district” and credibility, never PII. Verification is inexpensive on Scroll. Implementation details live in `ARCHITECTURE.md`.

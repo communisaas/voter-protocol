@@ -16,14 +16,14 @@ The United States operates the most complex multi-layered governance system amon
 
 International democracies add further complexity, ranging from 5-12 elected levels depending on the country's federal structure, local governance traditions, and special-purpose district usage.
 
-### The Solution: 24-Slot Registration Model with Single-District Proofs
+### The Solution: 24-Slot Registration Model
 
 The Voter Protocol implements a **24-slot district registration model** that balances:
 
 1. **Completeness** — Covers all common US district types plus international variants
-2. **Efficiency** — Single-district proofs keep circuits compact (approximately 2.2M gas verification)
+2. **Efficiency** — Two-tree and three-tree proofs reveal all 24 slots in a single proof (~2.2M gas verification)
 3. **Flexibility** — 4 overflow slots handle edge cases without circuit changes
-4. **Privacy** — Each proof reveals only one district membership
+4. **Privacy** — Cell ID (geographic binding) remains private; district slots are public outputs by design
 
 **Slot Distribution (Registration Model):**
 - **Slots 0-6:** Core governance (federal through municipal)
@@ -35,20 +35,17 @@ The Voter Protocol implements a **24-slot district registration model** that bal
 
 This architecture supports **99.7% of US voters** with defined slots, using overflow only for rare multi-special-district scenarios.
 
-> **IMPORTANT: Single-District Proofs**
+> **IMPORTANT: Proof Models Are Path-Dependent**
 >
-> The 24-slot model describes **registration organization**, not circuit output. Each ZK proof proves membership in **exactly one district at a time**. The circuit outputs a single `districtRoot` and `districtId`, not all 24 slots.
+> The 24-slot model describes **registration organization**. How district data appears in proofs depends on the verification path:
 >
-> **Multi-District Verification:**
-> - Actions requiring multiple districts (e.g., state + county) need **separate proofs** per district
-> - The application layer enforces multi-district requirements by verifying N proofs for N districts
-> - Gas cost scales linearly: N districts ≈ N x ~2.2M gas
+> **Legacy path (verifyAndAuthorizeWithSignature):** Single-district proof model. Each ZK proof proves membership in exactly one district. The circuit outputs a single `districtRoot` and `districtId`, not all 24 slots. Multi-district verification requires separate proofs per district (gas cost: N districts x ~2.2M gas).
 >
-> **Example:** A state-level action requiring proof of both congressional district and county membership would:
-> 1. User generates proof for congressional district (slot 0)
-> 2. User generates proof for county (slot 4)
-> 3. Verifier calls `DistrictGate.verifyAndAuthorize()` twice, once per proof
-> 4. Application confirms both verifications passed before proceeding
+> **Two-tree path (verifyTwoTreeProof):** All 24 district slots are revealed as public inputs in a single proof (29 public inputs total). The circuit reads the user's cell-to-district mapping from Tree 2 and outputs the full district set. No separate proofs needed.
+>
+> **Three-tree path (verifyThreeTreeProof):** Same as two-tree (all 24 slots revealed) plus `engagement_root` and `engagement_tier` (31 public inputs total).
+>
+> **Example (two-tree):** A single proof submission to `DistrictGate.verifyTwoTreeProof()` reveals congressional district (slot 0), county (slot 4), and all other slots simultaneously. The application layer reads whichever slots are relevant from `publicInputs[2..25]`.
 
 ---
 

@@ -104,8 +104,8 @@ All claims in VOTER Protocol documentation are backed by peer-reviewed research,
 
 ## Congressional Communication & Lobbying
 
-29. **McDonald, S. (2018).** *Constituent Correspondence in the U.S. Congress: A Survey of Staff Perspectives* (Doctoral dissertation). University of California, Irvine.
-    http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf
+29. **McDonald, S., Yin, F., & Mazmanian, M. (2020).** *Communications technology as symbols of institutional legitimacy in the U.S. congress.* Journal of Information Technology & Politics, 17:4, 337-356.
+    https://doi.org/10.1080/19331681.2020.1740907
 
 30. **Fireside (2023).** *Congressional Constituent Communication Statistics 2022*.
     https://www.fireside21.com/resources/congressional-staffer-communication/

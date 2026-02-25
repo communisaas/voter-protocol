@@ -12,7 +12,7 @@
 Democratic infrastructure should not ask for permission to protect its citizens. Phase 1 enforces privacy by construction: proofs replace identities, signals replace surveillance, and reputation records—not people—touch the chain. Institutions get verifiable civic signal; citizens keep sovereignty.
 
 **Settlement**: Scroll zkEVM (Ethereum L2)
-**Identity**: self.xyz (primary) + Didit.me (fallback)
+**Identity**: mDL via Digital Credentials API (browser-native, ISO 18013-5)
 **Privacy**: Browser‑native Noir/Barretenberg proofs; addresses never leave the device
 **Storage**: Minimal metadata only; encrypted where needed
 **Delivery**: CWC API with enclave‑protected processing
@@ -62,13 +62,13 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 - Cross-chain account abstraction (NEAR Chain Signatures, explored but not in current implementation)
 - On-chain reputation (ERC-8004 portable credibility, no token rewards)
 - 3-layer content moderation (Section 230 compliant)
-- FREE identity verification (self.xyz passport + Didit.me fallback)
+- FREE identity verification (mDL via W3C Digital Credentials API, browser-native, $0/user)
 
 **Budget:** $3,500/month for 1,000 users / 10,000 messages (AWS Nitro Enclaves message encryption + moderation)
 
 **What's NOT in Phase 1:**
 - VOTER token (Phase 2)
-- Challenge markets (Phase 2)
+- Staked debates / challenge markets (Phase 2 — contract implemented, frontend integrated off-chain, on-chain settlement pending deployment)
 - Outcome markets (Phase 2)
 - Token rewards (Phase 2)
 - Multi-agent treasury (Phase 2)
@@ -77,21 +77,21 @@ VOTER Protocol launches in phases. Phase 1 establishes cryptographic foundations
 
 **Additions:**
 - VOTER token launch (utility + governance)
-- Challenge markets (multi-AI dispute resolution with economic stakes)
+- Staked debates (DebateMarket.sol — 721 lines, 107 tests, contract ready for deployment; Communiqué frontend integrated off-chain with 9 Svelte 5 components, 6 API routes, debate-scoped ZK proofs)
 - Outcome markets (retroactive funding for legislative impact)
 - Multi-agent treasury (SupplyAgent + MarketAgent for token economics)
 - Privacy pools (optional shielded transactions with association proofs)
-- **Reputation layer** (Three-Tree ZK Engagement — see below)
+- **VOTER token economics** (see below)
 
 **Why Delayed:** Token launches require legal compliance (CLARITY Act framework), liquidity infrastructure, economic security audits. Phase 1 proves civic utility before adding financial layer.
 
 > **📋 See [Phase 2 Design Document](docs/roadmap/phase-2-design.md) for complete specifications, implementation roadmap, smart contracts, and cost analysis.**
 
-#### Reputation Layer (Three-Tree Extension)
+#### Three-Tree ZK Architecture (Production)
 
-> **Status:** DESIGN — See [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) for canonical specification.
+> **Status:** IMPLEMENTED (circuit, prover, contracts, engagement pipeline) — See [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) for engagement scoring and [specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md) for legacy two-tree reference. Token design (§7) is Phase 2.
 
-The two-tree ZK circuit (29 public inputs) is extended with a **third tree** that commits engagement data into the proof. The circuit grows to 31 public inputs, adding `engagement_root` and `engagement_tier`.
+The production ZK circuit uses a **three-tree architecture** with 31 public inputs. Trees 1 and 2 handle user identity and cell-district mapping (unchanged from the legacy two-tree path). Tree 3 adds cryptographically verifiable engagement data, producing `engagement_root` and `engagement_tier` as public outputs.
 
 **Three-Tree Architecture:**
 - **Tree 1** (User Identity): Unchanged — H4(user_secret, cell_id, registration_salt, authority_level)
@@ -207,24 +207,17 @@ flowchart TB
 
 **NOTE:** Identity verification is Phase 2 only (for economic incentives). Phase 1 uses permissionless address verification via browser-native ZK proofs.
 
-**Primary: Self.xyz (Instant Passport Verification)**
-- NFC passport scan (30 seconds)
-- Instant verification of identity (NOT address for ZK proof)
-- Provider reads address to determine congressional district
-- Address NOT stored by provider (used only for district determination)
+**Primary: mDL via W3C Digital Credentials API (Browser-Native)**
+- Mobile driver's license (mDL) presentation via `navigator.identity.get()` (ISO 18013-5)
+- Browser-native selective disclosure: only requested fields (age, address, name) are revealed
+- No third-party SDK or API keys required ($0/user)
 - User's browser generates ZK proof separately (address stays in browser)
-- Cost: $0.50 per verification
-- Privacy: Verifiable Credential issued, no PII storage
+- Cost: $0 per verification (browser-native, no intermediary)
+- Privacy: Selective disclosure per ISO 18013-5; only district-relevant fields requested
 
-**Fallback: Didit.me (Non-Passport KYC)**
-- Government ID + face scan + liveness (for users without NFC-enabled passports)
-- Provider reads address to determine congressional district
-- Address NOT stored by provider (used only for district determination)
-- User's browser generates ZK proof separately (address stays in browser)
-- Cost: $0 (free core KYC) + $0.50 (proof of address)
-- Privacy: Issues Verifiable Credential (VC), no PII storage
+> **Legacy note**: Existing users verified via self.xyz (`verification_method='self.xyz'`) or Didit.me (`verification_method='didit'`) retain their verified status. These providers have been removed from the Communique codebase as of Cycle 15 (February 2026). The protocol architecture supports extensible identity providers for future implementations.
 
-**Privacy**: Neither provider stores PII on-chain. Identity commitments (Poseidon hash of passport#, nationality, birthYear) registered on Scroll L2 for Sybil resistance via UserRootRegistry. PII never stored anywhere.
+**Privacy**: No third-party provider stores PII. Identity commitments (Poseidon hash of passport#, nationality, birthYear) registered on Scroll L2 for Sybil resistance via UserRootRegistry. PII never stored anywhere.
 
 ---
 
@@ -244,8 +237,8 @@ flowchart TB
 **Client-Side Commitment Generation** (browser-only, zero storage):
 
 ```typescript
-// IMPORTANT: This runs in Didit.me webhook (server-side), NOT browser
-// PII is extracted, hashed, and discarded immediately
+// IMPORTANT: This runs server-side after mDL presentation, NOT in browser
+// PII is extracted from selective disclosure response, hashed, and discarded immediately
 import { poseidon2 } from '@noble/curves/abstract/poseidon';
 
 function generateIdentityCommitment(
@@ -326,7 +319,7 @@ await tx.wait();
 
 **Browser-native zero-knowledge proof system for privacy-preserving district verification.**
 
-The protocol uses Noir/Barretenberg UltraHonk proofs to verify district membership without revealing addresses. Proofs are generated entirely in-browser using WASM (8-15 seconds on mobile), with no cloud infrastructure required. The two-layer security model combines cryptographic proofs (ZK) with governance-controlled on-chain registry, avoiding "ZK-maximalism" while maintaining strong privacy guarantees.
+The protocol uses Noir/Barretenberg UltraHonk proofs to verify district membership and engagement reputation without revealing addresses. The production three-tree circuit (31 public inputs) proves user identity, cell-district mapping, and engagement tier in a single proof. Proofs are generated entirely in-browser using WASM (8-15 seconds on mobile), with no cloud infrastructure required. A legacy two-tree verification path (29 public inputs) is maintained for backward compatibility. The two-layer security model combines cryptographic proofs (ZK) with governance-controlled on-chain registry, avoiding "ZK-maximalism" while maintaining strong privacy guarantees.
 
 **Key Features**:
 - **Shadow Atlas**: Global Merkle tree registry of electoral districts (IPFS + on-chain roots)
@@ -334,12 +327,14 @@ The protocol uses Noir/Barretenberg UltraHonk proofs to verify district membersh
 - **Dual-Layer Security**: ZK proof + on-chain district registry prevents both cryptographic and governance attacks
 - **Browser-Native**: Zero server-side proving, addresses never leave client
 - **Performance**: 2-5s desktop, 8-15s mobile, ~7,328 byte keccak-mode proofs, ~2.2M gas verification
-- **Public inputs**: Two-tree circuit: 29 public inputs; Three-tree circuit: 31 public inputs
+- **Public inputs**: Three-tree circuit: 31 public inputs (production); legacy two-tree circuit: 29 public inputs
 
-**Complete technical specifications, circuit implementation, performance benchmarks, and security model:**
-- **[/docs/architecture/zk-infrastructure.md](/docs/architecture/zk-infrastructure.md)** - Complete ZK system specification
-- **[/docs/ZK-PRODUCTION-ARCHITECTURE.md](/docs/ZK-PRODUCTION-ARCHITECTURE.md)** - Production deployment details
-- **[/docs/NOIR-PROVING-INFRASTRUCTURE.md](/docs/NOIR-PROVING-INFRASTRUCTURE.md)** - Noir/Barretenberg implementation
+**Complete technical specifications:**
+- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** - Three-tree engagement/reputation specification (canonical)
+- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** - Legacy two-tree reference (Trees 1 & 2 details)
+- **[docs/archive/zk-infrastructure.md](docs/archive/zk-infrastructure.md)** - Pre-two-tree ZK system specification (archived)
+- **[docs/archive/ZK-PRODUCTION-ARCHITECTURE.md](docs/archive/ZK-PRODUCTION-ARCHITECTURE.md)** - Pre-two-tree production details (archived)
+- **[docs/archive/NOIR-PROVING-INFRASTRUCTURE.md](docs/archive/NOIR-PROVING-INFRASTRUCTURE.md)** - Pre-two-tree Noir infrastructure (archived)
 
 ### High-Level Overview
 
@@ -358,39 +353,33 @@ The ZK infrastructure consists of two main components:
 
 ## Identity Verification Infrastructure (Phase 1)
 
-**Updated October 2025:** FREE identity verification via self.xyz (primary) and Didit.me (fallback).
+**Updated February 2026 (Cycle 15):** FREE identity verification via mDL (mobile driver's license) using the W3C Digital Credentials API. Browser-native, no third-party SDK.
 
-### Two-Method Verification Strategy
+### mDL Verification (Browser-Native)
 
-**Method 1: self.xyz NFC Passport Scanning (Primary - 70% of users)**
+**Method: mDL via W3C Digital Credentials API (ISO 18013-5)**
 
-FREE tier, no API keys required. Supports 120+ countries with NFC-enabled passports.
+Browser-native, no API keys required. $0/user. Supports selective disclosure of identity attributes directly from the mobile driver's license stored on the user's device.
 
 **Flow:**
-1. User taps "Verify with Passport" in app
-2. NFC chip scan (60 seconds, Face ID liveness check)
-3. Cryptographic verification of passport authenticity
-4. Address extraction from MRZ (Machine Readable Zone)
+1. User taps "Verify Identity" in app
+2. Browser calls `navigator.identity.get()` with requested attributes
+3. Device presents mDL credential with selective disclosure (only requested fields)
+4. Address extraction from disclosed attributes
 5. District lookup via Shadow Atlas
 6. User generates UltraHonk proof (8-15 seconds, K=14 single-tier)
 7. Proof verified on-chain via DistrictGate.sol (Scroll L2)
-8. Verified status recorded (one passport = one account)
+8. Verified status recorded (one mDL = one account)
 
 **Privacy:**
 - Full address never stored on servers
 - Only district hash revealed in ZK proof
-- self.xyz processes verification, returns district only
+- Selective disclosure: only district-relevant fields requested (no SSN, no photo unless needed)
 - Congressional offices see: "Verified constituent in TX-18" (no address)
 
-**Cost:** $0 (FREE tier, unlimited verifications)
+**Cost:** $0 (browser-native, no intermediary, no API keys)
 
-**Method 2: Didit.me Photo ID Verification (Fallback - 30% of users)**
-
-FREE Core KYC tier for non-passport users (estimated 30% of US population doesn't have passport).
-
-**Privacy:** Identical to self.xyz (full address never stored, only district hash revealed)
-
-**Cost:** $0 (Core KYC tier, unlimited verifications)
+> **Legacy providers (superseded):** self.xyz and Didit.me were previously used as primary and fallback identity providers. Their code has been removed from the Communique codebase as of Cycle 15. Existing users with `verification_method='self.xyz'` or `verification_method='didit'` retain their verified status. The protocol architecture remains extensible for future identity providers.
 
 ### Sybil Resistance
 
@@ -399,10 +388,10 @@ FREE Core KYC tier for non-passport users (estimated 30% of US population doesn'
 Cryptographic binding stored in Scroll on-chain registries (Poseidon hash commitments in UserRootRegistry).
 
 **Attack Vectors & Mitigations:**
-- **Stolen passports/IDs:** Liveness detection (Face ID, blink detection) prevents photo attacks
-- **Fake IDs:** self.xyz cryptographic verification, Didit.me AI fraud detection
-- **Multiple passports:** Rare (~1% of population), rate limits reduce impact
-- **Borrowed documents:** Liveness check requires document holder present
+- **Stolen IDs:** mDL presentation requires device biometric unlock (Face ID / fingerprint)
+- **Fake IDs:** mDL credentials are cryptographically signed by issuing authority (state DMV)
+- **Multiple IDs:** Rare across states; rate limits reduce impact
+- **Borrowed devices:** Device biometric required for mDL presentation
 
 ### Rate Limiting (Per Verified Identity)
 
@@ -525,7 +514,7 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 **Contracts Deployed**:
 
 **Phase 1 Contracts** (10-contract stack, deployed on Scroll Sepolia):
-- `DistrictGate.sol` - Proof verification orchestrator (two-tree 29 inputs, three-tree 31 inputs)
+- `DistrictGate.sol` - Proof verification orchestrator (three-tree 31 inputs primary, legacy two-tree 29 inputs)
 - `VerifierRegistry.sol` - Depth→HonkVerifier routing, genesis+seal model
 - `DistrictRegistry.sol` - District root→country mapping with lifecycle
 - `NullifierRegistry.sol` - Action-scoped nullifier tracking, 60s rate limit
@@ -539,6 +528,7 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 **Three-Tree Deployment Note:** The three-tree `DistrictGate.verifyThreeTreeProof()` entry point emits a `ThreeTreeProofVerified` event with the signature `ThreeTreeProofVerified(address indexed signer, address indexed submitter, bytes32 indexed userRoot, bytes32 cellMapRoot, bytes32 engagementRoot, bytes32 nullifier, bytes32 actionDomain, bytes32 authorityLevel, uint8 engagementTier, uint8 verifierDepth)`. A `uint8 actionCategory` field is **planned for a future deployment** to enable trustless category observation from chain events, replacing the server-side `ActionCategoryRegistry` JSON file for diversity score computation. Until then, category resolution remains server-side.
 
 **Phase 2 Contracts** (12-18 months):
+- `DebateMarket.sol` - Staked anonymous deliberation (721 lines, 107 tests, **implemented** — deployment pending)
 - `VOTERToken.sol` - ERC-20 token for economic incentives
 - `ChallengeMarket.sol` - Multi-AI dispute resolution with stakes
 - `ImpactRegistry.sol` - Legislative outcome tracking and attestations
@@ -594,9 +584,28 @@ Binary prediction markets on legislative outcomes fund civic infrastructure retr
 
 ---
 
-### Challenge Markets (Multi-AI Information Quality Infrastructure)
+### Debate Market (Continuous Template Contestation)
 
-Users can challenge verifiable claims in templates by staking VOTER tokens (100-5,000 VOTER). Chainlink Functions DON executes off-chain computation, querying 20 AI models across diverse providers (OpenAI GPT-5, Anthropic Claude, xAI Grok, Google Gemini, Alibaba Qwen, DeepSeek, Meta Llama, Mistral). Consensus threshold 67% required. Winner receives 2x stake; loser loses stake and reputation.
+> **Status:** Design phase. Contract foundation (`DebateMarket.sol`, 721 lines, 107 tests) implemented for one-shot staking; being extended with batch LMSR continuous trading and AI-augmented resolution. Frontend has 9 Svelte 5 components for debate interaction. Spec: [`specs/DEBATE-MARKET-SPEC.md`](specs/DEBATE-MARKET-SPEC.md).
+
+When a template gains traction, anyone can open a **debate market** on it — adversarial quality assurance where arguments (SUPPORT / OPPOSE / AMEND) compete via an LMSR automated market maker with epoch-based batch execution. The market produces a real-time validity signal that surfaces alongside the template's send count.
+
+**Scoring formula:** `weighted_shares = sqrt(stake) × 2^engagement_tier` (anti-plutocratic: a Tier 4 Pillar at $2 moves the price more than a Tier 1 newcomer at $100).
+
+**Market mechanics:** Batch LMSR with commit-reveal epochs. Traders commit `H(trade, nonce)` during an epoch, reveal next epoch, all trades execute as a batch at the same average price. No intra-epoch ordering, no front-running, no MEV.
+
+**Resolution:** Hybrid AI evaluation (40%) + tier-weighted community signal (60%). An M-of-N AI panel scores argument quality (reasoning, accuracy, evidence); the community signal is the existing `sqrt(stake) × 2^tier` formula. Neither AI nor money alone determines the outcome.
+
+**Privacy:** Three-tree ZK proof for every trade (identity private). Relayer submission (wallet address unlinkable). Commit-reveal (trade intent hidden until execution). Phase 2 adds shielded position pool via note commitments. Phase 3 adds flow-encrypted batches via threshold decryption.
+
+**Template card signal:** Users see "847 verified sends" alongside "AMEND 62% · SUPPORT 31% · OPPOSE 7%" — the debate signal changes the calculus for user 848.
+
+**Implementation path:**
+- **Phase 1 (now):** Commit-reveal batch LMSR + relayer. Identity private, trade amounts revealed at execution.
+- **Phase 2 (weeks):** Shielded position pool. Positions fully private via Noir circuit extension.
+- **Phase 3 (months):** Flow-encrypted batches. Only aggregate price changes visible.
+
+> **📋 See [`specs/DEBATE-MARKET-SPEC.md`](specs/DEBATE-MARKET-SPEC.md) for complete specification including LMSR mechanics, AI evaluation panel, privacy architecture, and phased deployment.**
 
 **Key Features**:
 - Quadratic scaling: `sqrt(stake_amount)` prevents whale dominance
@@ -637,12 +646,12 @@ The engagement pipeline derives Tree 3 (engagement) state from on-chain proof ve
 │  (on-chain)  │────>│ (eth_getLogs)│────>│ Builder           │────>│ Service (Tree 3) │
 └──────────────┘     └──────────────┘     └───────────────────┘     └──────────────────┘
       │                    │                       │                         │
-      │ TwoTreeProof       │ NullifierEvent[]      │ EngagementEntry[]       │ Update leaf
+      │ ThreeTreeProof     │ NullifierEvent[]      │ EngagementEntry[]       │ Update leaf
       │ Verified (event)   │ (signer, nullifier,   │ (IC, tier, counts)      │ in-place
-      │                    │  actionDomain, block)  │                         │ (UPSERT)
+      │ (primary)          │  actionDomain, block)  │                         │ (UPSERT)
       │                    │                       │                         │
-      │ ThreeTreeProof     │ Cursor persisted      │ Dedup by nullifier      │ WAL before
-      │ Verified (event)   │ (JSON file)           │ Group by signer         │ tree mutation
+      │ TwoTreeProof       │ Cursor persisted      │ Dedup by nullifier      │ WAL before
+      │ Verified (legacy)  │ (JSON file)           │ Group by signer         │ tree mutation
       │                    │                       │ Resolve categories      │
 ```
 
@@ -772,7 +781,7 @@ Level 2 Pipeline
 
 ### Level 3: ZK-Verified (Identity Verification + On-Chain Proof)
 
-Unlocked after identity verification (self.xyz / didit). This is where the protocol's full privacy infrastructure activates — browser-native proof generation, on-chain verification, nullifier-based Sybil resistance.
+Unlocked after identity verification (mDL via Digital Credentials API). This is where the protocol's full privacy infrastructure activates — browser-native proof generation, on-chain verification, nullifier-based Sybil resistance.
 
 ```
 Level 3 Pipeline
@@ -899,8 +908,7 @@ See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs
    - Optional: NEAR implicit account (FREE, instant)
 
 2. **Identity verification** (30 seconds - 3 minutes)
-   - Primary: self.xyz NFC passport scan (30 seconds)
-   - Fallback: Didit.me photo ID (2-3 minutes)
+   - mDL presentation via Digital Credentials API (30-60 seconds, browser-native)
 
 3. **ZK proof generation** (One-time, 8-15 seconds)
    - Browser downloads Shadow Atlas from IPFS (cached)
@@ -1017,7 +1025,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#implementation-road
 
 - [ ] Template browser & search (PostgreSQL full-text)
 - [ ] Reputation dashboard (ERC-8004 attestations)
-- [ ] self.xyz + Didit.me integration (FREE verification)
+- [ ] mDL via Digital Credentials API integration (FREE browser-native verification)
 - [ ] Noir/Barretenberg WASM proof generation UI (2-8s mobile)
 - [ ] Congressional district lookup (Shadow Atlas)
 - [ ] Message encryption UI (XChaCha20-Poly1305)
@@ -1025,7 +1033,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#implementation-road
 ### Month 7: Security & Audit
 
 - [ ] Smart contract audit (DistrictGate, VerifierRegistry, NullifierRegistry, root registries)
-- [ ] Noir circuit audit (two-tree 29 inputs, three-tree 31 inputs, HonkVerifier)
+- [ ] Noir circuit audit (three-tree 31 inputs primary, legacy two-tree 29 inputs, HonkVerifier)
 - [ ] Browser WASM security review (Subresource Integrity, COOP/COEP headers, KZG parameters integrity)
 - [ ] Content moderation audit (3-layer stack compliance)
 - [ ] AWS Nitro Enclave security review (attestation verification, enclave code audit)
@@ -1037,8 +1045,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#implementation-road
 ### Per User (One-Time)
 
 **Identity Verification**:
-- self.xyz NFC passport scan: $0 (FREE tier)
-- Didit.me Core KYC fallback: $0 (FREE tier)
+- mDL via Digital Credentials API: $0 (browser-native, no API keys)
 - **User acquisition: $0/user**
 
 **Noir/Barretenberg Proof Generation:**
@@ -1151,7 +1158,7 @@ Five specialized agents optimize protocol parameters within cryptographically-en
 
 **Validation Checks**:
 1. ZK proof validity (UltraHonk district membership)
-2. Identity verification status (self.xyz/Didit.me)
+2. Identity verification status (mDL via Digital Credentials API; legacy: self.xyz/Didit.me)
 3. CWC delivery receipt confirmation
 4. Duplicate detection
 5. Content moderation (3-layer stack)
@@ -1253,7 +1260,7 @@ consensus_weights = {
 
 ### Per-User Costs (Marginal)
 
-**Identity Verification**: $0/user (self.xyz + Didit.me FREE tiers)
+**Identity Verification**: $0/user (mDL via Digital Credentials API, browser-native)
 **Proof Generation**: $0.01-0.03/user one-time
 **Civic Actions**: $0.01-0.03/action
 **Reputation Updates**: < $0.01/update
@@ -1291,7 +1298,7 @@ consensus_weights = {
 
 **What We Saved:**
 - No NEAR CipherVault: $11,000/year eliminated
-- FREE identity verification: self.xyz + Didit.me partnerships
+- FREE identity verification: mDL via Digital Credentials API (browser-native, no third-party partnerships needed)
 - Browser-native proving: $0/month vs $150/month TEE
 - No token infrastructure: Phase 2 deferred
 - No challenge markets: $57,000/year deferred
@@ -1305,7 +1312,7 @@ consensus_weights = {
 
 **Phase 1 Integration Points** (launching in 3 months):
 1. **UltraHonk + keccak mode (Browser-Native WASM)** → Zero-knowledge district verification
-2. **self.xyz + Didit.me** → FREE identity verification
+2. **mDL via W3C Digital Credentials API** → FREE browser-native identity verification (ISO 18013-5)
 3. **AWS Nitro Enclaves** → E2E encryption with moderation
 4. **PostgreSQL (pgvector/Prisma)** → Template storage, encrypted PII
 5. **Scroll L2** → zkEVM settlement ($0.01-0.03/proof, ~2.2M gas)
@@ -1359,6 +1366,15 @@ consensus_weights = {
 - Added three-tree deployment note with actual event signature; actionCategory marked as planned future addition
 - Updated cross-references to REPUTATION-ARCHITECTURE-SPEC.md
 
+### February 2026: Staked Debates Documentation
+
+**Changes Made**:
+- Added Staked Debates section under Phase 2 Features with implementation status: `DebateMarket.sol` (721 lines, 107 tests), Communiqué frontend (9 components, 6 API routes, off-chain state store), debate-scoped action domains via `buildDebateActionDomain()`
+- Updated Phase 2 contract list to include `DebateMarket.sol` with implementation status
+- Distinguished staked debates (structured deliberation, implemented) from challenge markets (multi-AI fact-checking, design phase)
+- Cross-referenced `specs/DEBATE-MARKET-SPEC.md` and Communiqué `docs/features/debates.md`
+- Documented known gaps: browse-view discovery, co-sign UI, auto-resolution, settlement wiring, event indexer
+
 ---
 
 ### Costs & Gas (Canonical — February 2026)
@@ -1373,5 +1389,5 @@ consensus_weights = {
 *This is a living document. Update as architecture evolves.*
 
 **Last Updated**: February 2026
-**Status**: Production architecture reference
-**Next Review**: After three-tree mainnet deployment
+**Status**: Production architecture reference — three-tree (31 inputs) is the canonical verification path
+**Next Review**: After mainnet deployment

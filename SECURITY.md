@@ -5,7 +5,7 @@
 ## Recent Updates
 
 - **February 2026**: Added `specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` — comprehensive trust stack analysis, operator surface area inventory, walkaway roadmap (Phases 1-3), five identified trust gaps with mitigation architecture, landscape context (zkVM, DA layers, governance patterns as of Feb 2026)
-- **February 2026**: Added "Privacy Guarantees & Limitations" section documenting anonymity set calculations and small district risks (SA-013)
+- **February 2026**: Rewrote "Privacy Guarantees & Limitations" — corrected anonymity set formula to account for 24-slot geographic fingerprint, replaced brittle threshold with distributional analysis, added signer linkability documentation, operator trust boundary, data-at-rest inventory, and Phase 2 mitigation architecture (selective slot disclosure, meta-transaction relayer)
 - **January 2026**: Documentation restructured with comprehensive architecture docs added to `/docs/`
 - **Phase 1 Implementation**: Core cryptographic infrastructure complete (Noir circuits, browser proving, Shadow Atlas)
 - **Trail of Bits Audit**: Scheduling in progress as of Q1 2026. Six rounds of internal Brutalist security audits have been completed plus a Cycle 10 inter-wave review (all findings resolved; see `specs/IMPLEMENTATION-GAP-ANALYSIS.md` for tracking)
@@ -588,7 +588,9 @@ function isValidRoot(bytes32 root) external view returns (bool) {
 
 VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals public inputs that enable verification while narrowing the anonymity set.
 
-**Two-tree path (current): 29 public inputs.** Key privacy-relevant fields:
+**Three-tree path (production): 31 public inputs.** The three-tree circuit is the canonical verification path. It extends the two-tree path with engagement reputation.
+
+**Two-tree path (legacy): 29 public inputs.** Key privacy-relevant fields:
 
 | Public Input | Index | Purpose | Privacy Impact |
 |-------------|-------|---------|----------------|
@@ -599,9 +601,14 @@ VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals
 | `action_domain` | 27 | Action type binding | Binds proof to specific action context |
 | `authority_level` | 28 | Authority level/tier verification | Narrows anonymity set by authority level |
 
-**Three-tree path (planned): 31 public inputs** (adds `engagement_root` at index 29 and `engagement_tier` at index 30). See `specs/REPUTATION-ARCHITECTURE-SPEC.md` for the engagement/reputation extension.
+**Three-tree additional public inputs (indices 29-30):**
 
-> For the complete public input field list and ordering, see `specs/TWO-TREE-ARCHITECTURE-SPEC.md` Section 7.
+| Public Input | Index | Purpose | Privacy Impact |
+|-------------|-------|---------|----------------|
+| `engagement_root` | 29 | Engagement tree membership | Links proof to specific engagement tree snapshot |
+| `engagement_tier` | 30 | Engagement level (0-4) | 5-bucket coarse output — further narrows anonymity set |
+
+> For the complete public input field list and ordering, see `specs/PUBLIC-INPUT-FIELD-REFERENCE.md`.
 
 **What remains hidden:**
 - Exact address (only Merkle membership proven)
@@ -611,78 +618,165 @@ VOTER Protocol ZK proofs are **pseudonymous, not anonymous**. Each proof reveals
 
 ### Anonymity Set Calculation
 
-Your effective anonymity set is determined by the intersection of users sharing your public outputs:
+Your effective anonymity set is determined by the intersection of **all** public outputs — not any single district slot in isolation:
 
 ```
-anonymity_set = voters_in_district × proportion_at_your_authority_level
+anonymity_set = |registered users sharing your exact 24-slot district combination|
+                × proportion_at_your_authority_level
+                × proportion_in_your_user_root_cohort
 ```
 
-**Example calculations:**
+The critical factor is the **24-district fingerprint**. Each proof reveals all 24 district slots simultaneously. Your unique combination of congressional district + state senate + county + city + school board + water district + ... creates a geographic fingerprint whose resolution depends on how governance boundaries overlay your location.
 
-| District Size | Authority Level Distribution | Effective Anonymity Set |
-|---------------|------------------------------|------------------------|
-| Large city (500,000 voters) | 20% at tier 3 | ~100,000 voters |
-| Medium suburb (50,000 voters) | 15% at tier 3 | ~7,500 voters |
-| Small town (5,000 voters) | 10% at tier 3 | ~500 voters |
-| Rural district (500 voters) | 5% at tier 4 | ~25 voters |
+**Why this matters more than single-district analysis:**
 
-### Small District Warning
+A single congressional district contains ~750K people. But the intersection of congressional district + state senate + county + municipality + school district rapidly narrows. In practice, the 24-slot intersection approaches **census-tract resolution (~4,000 people in the general population)**. Among *registered protocol users*, the effective set is smaller still.
 
-**Districts with fewer than 100 voters at your authority tier may have trivially small anonymity sets.** In extreme cases, you may be uniquely identifiable or narrowed to a handful of individuals.
+**The distribution is heteroscedastic** — variance is not constant across geography:
 
-**Risk scenarios:**
-- Rural congressional districts with sparse population
-- Specialized authority tiers (tier 5+) in any district
-- New districts with few registered participants
-- Districts where most voters haven't participated yet
+| Geography | Why | Effective Fingerprint Resolution |
+|-----------|-----|----------------------------------|
+| **Dense urban core** | Governance boundaries nest cleanly — school, city, county, congressional districts all align | Large anonymity sets (thousands+ share the same combination) |
+| **Inner suburb** | Some boundary cross-cutting — school districts may span municipalities | Moderate sets (hundreds sharing) |
+| **Outer suburb / exurb** | Heavy cross-cutting — water districts, school districts, townships cross municipal and county lines | Small sets (tens of users, potentially unique) |
+| **Rural** | Sparse registration + unique governance combinations (township + water district + school district intersection) | May approach singleton among registered users |
 
-**Recommendations for users in small districts:**
+There is no fixed threshold that captures this. A college town of 30K with a single unified school district has better anonymity properties than a suburb of 200K where 6 school districts cross-cut 3 municipalities across 2 counties. **Privacy depends on how communities fold over the land**, not on population density alone.
 
-1. **Assess the privacy trade-off** - Consider whether the reduced anonymity is acceptable for your specific use case and threat model
-2. **Use batch timing** - Submit proofs during high-activity periods when more users are participating
-3. **Monitor anonymity set size** - Future tooling will warn when anonymity sets fall below safe thresholds
-4. **Wait for protocol upgrades** - Future versions will implement mitigation strategies (see below)
+### Geographic Fingerprint Warning
 
-### Future Mitigation Strategies
+**Your 24-district fingerprint is determined by your governance geography, not by a protocol-wide constant.** In areas where governance boundaries cross-cut heavily, you may be narrowed to a small group or — among registered protocol users — potentially unique.
 
-The following enhancements are planned for future protocol versions to improve anonymity in small districts:
+**Contributing factors (cumulative narrowing):**
+- **24-slot intersection**: Each populated slot further narrows the set
+- **Authority level**: Subdivides within the geographic fingerprint
+- **User root cohort**: Users registered in the same tree batch form an identifiable cohort
+- **Engagement tier**: Further narrows by engagement reputation level (5 buckets)
+- **Registration density**: Early adopters in any geography face smaller sets
 
-**1. Authority Level Bucketing**
-- Combine authority levels into broader tiers: "standard" (levels 1-2), "elevated" (levels 3-5), "high" (levels 6+)
-- Increases anonymity set by reducing granularity of revealed authority information
+**Recommendations:**
+
+1. **Assess your governance geography** — Consider how many distinct boundaries cross your location. More cross-cutting = smaller anonymity set.
+2. **Use batch timing** — Submit proofs during high-activity periods when more users are participating in the same tree snapshot.
+3. **Client-side anonymity estimation** (planned) — Before proof submission, the client will compute how many registered users share your exact slot combination and display the result. No guessing, no thresholds — your actual number.
+
+### Signer Linkability (Phase 1 Known Limitation)
+
+Every `verifyTwoTreeProof()` and `verifyThreeTreeProof()` call emits an on-chain event containing the `signer` address — the wallet that signed the EIP-712 message. This creates **cross-action wallet linkability**:
+
+- All actions from the same wallet are linked on-chain
+- An observer can correlate: "wallet 0xABC proved membership in action-domain-X, then action-domain-Y"
+- The nullifier changes per action domain (unlinkable by nullifier), but the signer is constant
+- Combined with the 24-district fingerprint, the signer address becomes a persistent pseudonym with geographic binding
+
+**This is distinct from nullifier linkability** (which the protocol correctly prevents). Nullifiers are action-scoped: `H2(identity_commitment, action_domain)`. Different action domains produce different nullifiers. But the `signer` field is the same wallet across all actions.
+
+**Phase 2 mitigation: meta-transaction relayer.** Users sign proofs locally and submit to a relayer service. The relayer submits on-chain — the `signer` field becomes the relayer's address, not the user's wallet. Nullifiers still prevent double-action. Wallet linkability disappears. The relayer learns the user's IP (mitigated by Tor/VPN) but not their identity commitment (the EIP-712 signature binds the proof, not the user's ZK identity).
+
+### Operator Trust Boundary
+
+The protocol's trust model is documented in detail in `specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md`. The following summarizes what the operator (Communique PBC, running the communique application and Shadow Atlas infrastructure) can observe in Phase 1.
+
+**What the operator can see:**
+
+| Data | Where | Who | Mitigation |
+|------|-------|-----|------------|
+| `cell_id` + `identityCommitment` | Shadow Atlas registration | Operator | Operator knows which geographic cell each identity registered from. Phase 2: DA-layer publication removes operator as sole witness |
+| OAuth email → session → wallet | Communique Supabase DB | Operator with DB access | Login email linked to session, session linked to proof submission. Phase 2: passkey-based auth eliminates email linkage |
+| `signerAddress` ↔ `identityCommitment` | On-chain engagement registration events | Public (on-chain) | Links wallet to ZK identity permanently. Phase 2: relayer severs this link |
+| IPFS insertion log timestamps | Public (IPFS) | Anyone | Registration timing reveals when users joined. Mitigated by batch insertions |
+| Full identity chain (email→session→wallet→IC→proofs) | Operator combining DB + chain data | Operator | Complete deanonymization possible for the operator in Phase 1. This is the MACI-equivalent trust assumption (see trust model spec) |
+
+**What the operator cannot do:**
+- Forge ZK proofs (cryptographic — requires user's secret)
+- Reuse nullifiers (on-chain enforcement — NullifierRegistry)
+- Modify registered roots without 7-day community detection window (on-chain timelocks)
+- Read message plaintext after encryption (XChaCha20-Poly1305, client-side)
+
+**The honest framing:** In Phase 1, the operator holds a position structurally identical to the MACI coordinator. The operator can observe identity linkages but cannot forge proofs or corrupt verification. The walkaway roadmap in `specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` specifies the engineering path to eliminating each trust assumption.
+
+### Data-at-Rest Inventory
+
+| Store | Contents | Retention | Access | Phase 2 Change |
+|-------|----------|-----------|--------|----------------|
+| **Supabase (communique)** | User sessions, OAuth tokens, template data, wallet addresses | Session lifetime + 90 days | Operator (DB credentials) | Passkey auth eliminates OAuth email linkage |
+| **Shadow Atlas (voter-protocol)** | Identity commitments, cell IDs, Merkle paths, insertion log | Indefinite (append-only) | Operator (server access), public (IPFS for insertion log) | DA-layer publication, community-run atlas instances |
+| **Scroll L2 (on-chain)** | Nullifiers, roots, signer addresses, district commitments, engagement tiers, participation counts | Permanent (blockchain) | Public | Relayer removes signer linkability |
+| **IPFS** | Shadow Atlas insertion log (Ed25519-signed entries) | Permanent (content-addressed) | Public | No change needed |
+| **Browser (client)** | User secret, Merkle paths, session credentials | Until user clears | User only | No change needed |
+
+### Mitigation Architecture (Phase 2 Planned)
+
+**1. Selective Slot Disclosure (circuit change)**
+- Reveal only the district slots required by a given action domain — zero out the rest
+- Transforms the 24-slot fingerprint from a fixed geographic property to a per-action choice
+- If your action only needs congressional district verification, the other 23 slots are hidden
+- Trade-off: Requires per-action-domain circuit configuration; increases circuit complexity
+- **This is the primary architectural mitigation for the geographic fingerprint problem**
+
+**2. Meta-Transaction Relayer**
+- Users sign proofs locally, submit to relayer, relayer submits on-chain
+- Severs `signer` ↔ wallet linkability across actions
+- Nullifiers still prevent double-action (no gaming)
+- Relayer learns IP (mitigate with Tor/VPN) but not identity commitment
+
+**3. Client-Side Anonymity Estimation**
+- Before proof submission, compute how many registered users share your exact populated-slot combination
+- Display the actual number — no thresholds, no false precision
+- Let users make informed decisions based on their specific governance geography
+
+**4. Authority Level Bucketing**
+- Combine authority levels into broader tiers to reduce granularity
+- Increases anonymity set within each geographic fingerprint
 - Trade-off: Reduced precision in tier-based access control
 
-**2. District Aggregation**
-- Automatically aggregate small districts into larger regional groupings
-- Example: Combine 5 rural districts of 500 voters each into one 2,500-voter regional pool
-- Requires governance coordination and smart contract updates
+**5. Temporal Batching**
+- Aggregate proof submissions across time windows
+- Prevents timing correlation between Shadow Atlas registration and on-chain proof submission
+- Trade-off: Increased latency
 
-**3. Optional Authority Level Hiding**
-- Allow users to generate proofs that hide authority level entirely
-- Trade-off: Cannot enforce tier-based participation requirements
-- Use case: When tier verification isn't required by the campaign
+### Three-Tree Privacy Analysis
 
-**4. Anonymity Set Warnings**
-- Client-side warnings when computed anonymity set falls below configurable threshold
-- Suggested default threshold: 100 users minimum
-- Allow users to make informed decisions before generating proofs
+The three-tree circuit adds two public outputs that affect privacy:
 
-**5. Temporal Anonymity Sets**
-- Aggregate proofs across time windows (e.g., weekly batches)
-- Prevents timing correlation attacks
-- Trade-off: Increased latency for proof verification
+**`engagement_tier` (index 30) — 5-bucket public output:**
+- Tiers: 0 (New), 1 (Active), 2 (Established), 3 (Veteran), 4 (Pillar)
+- Each tier further subdivides the anonymity set within a geographic fingerprint
+- At steady state, tier distribution concentrates in tiers 1-2 (largest anonymity sets)
+- Tier 4 (Pillar) has the smallest population — users at this tier should be aware of reduced anonymity
+
+**Private engagement metrics (never revealed on-chain):**
+- `action_count` — total nullifier consumption events (private witness input)
+- `diversity_score` — Shannon diversity index H, encoded as `floor(H * 1000)` (private witness input)
+- These cannot be reverse-engineered from the public `engagement_tier` output
+
+**Cross-tree identity binding security:**
+- The same `identity_commitment` feeds both the nullifier derivation (`H2(identity_commitment, action_domain)`) and the engagement leaf (`H2(identity_commitment, engagement_data_commitment)`)
+- The circuit enforces this binding — an attacker cannot substitute a different identity's engagement credentials
+- This prevents "engagement borrowing" where a low-engagement user presents another user's tier
+
+**Anonymity set impact:**
+```
+three_tree_anonymity_set = two_tree_anonymity_set
+                          × proportion_at_your_engagement_tier
+```
+
+With 5 engagement tiers, the worst-case additional narrowing factor is 5x (uniform distribution). In practice, concentration in tiers 1-2 means moderate-engagement users experience less narrowing than extreme tiers.
 
 ### Technical Implementation Notes
 
-The anonymity set limitations stem from the circuit's public input design. The two-tree circuit exposes 29 public inputs (see [TWO-TREE-ARCHITECTURE-SPEC.md](/specs/TWO-TREE-ARCHITECTURE-SPEC.md)):
+The anonymity set limitations stem from the circuit's public input design. The three-tree circuit exposes 31 public inputs (the two-tree legacy path exposes 29). See [PUBLIC-INPUT-FIELD-REFERENCE.md](/specs/PUBLIC-INPUT-FIELD-REFERENCE.md):
 
 ```
-Public inputs (29): user_root, cell_map_root, districts[24], nullifier, action_domain, authority_level
+Public inputs (31): user_root, cell_map_root, districts[24], nullifier, action_domain,
+                    authority_level, engagement_root, engagement_tier
 ```
 
 - `user_root` and `cell_map_root` identify the tree snapshots, effectively revealing which registration cohort the user belongs to
 - `districts[0..23]` reveal district commitments for each registered slot (zero-padded for unused slots)
 - `authority_level` encodes the user's authority level for tier-based access control
+- `engagement_root` identifies the engagement tree snapshot
+- `engagement_tier` reveals the user's coarse engagement level (5 buckets)
 - These are necessary for the protocol's verification guarantees
 
 **Why not hide these values?**
@@ -691,22 +785,25 @@ Public inputs (29): user_root, cell_map_root, districts[24], nullifier, action_d
 - `authority_level`: Required for campaigns that enforce minimum authority levels
 - Hiding these would require recursive proofs (significant performance cost) or eliminate tier-based features
 
-> **Note:** The three-tree extension adds `engagement_root` and `engagement_tier` (31 total public inputs). See `specs/REPUTATION-ARCHITECTURE-SPEC.md`.
-
 ### Honest Assessment
 
 **We are transparent about this limitation:**
 
 | Claim | Status |
 |-------|--------|
-| "Anonymous voting" | ❌ **False** - Proofs are pseudonymous with bounded anonymity sets |
-| "District membership hidden" | ❌ **False** - Merkle root reveals district |
-| "Authority level hidden" | ❌ **False** - Authority hash reveals tier |
-| "Unlinkable across campaigns" | ✅ **True** - Different nullifiers per campaign |
-| "Address never revealed" | ✅ **True** - Only Merkle membership proven |
-| "Exact leaf position hidden" | ✅ **True** - Merkle path reveals no position info |
+| "Anonymous voting" | ❌ **False** — Proofs are pseudonymous with geography-dependent anonymity sets |
+| "District membership hidden" | ❌ **False** — All 24 district slots revealed as public inputs |
+| "Authority level hidden" | ❌ **False** — Authority level is a public input |
+| "Engagement tier hidden" | ❌ **False** — Engagement tier (0-4) is a public input in three-tree proofs |
+| "Engagement details hidden" | ✅ **True** — action_count and diversity_score are private witness inputs |
+| "Actions unlinkable by nullifier" | ✅ **True** — Different nullifiers per action domain (Poseidon2 preimage security) |
+| "Actions unlinkable by wallet" | ❌ **False (Phase 1)** — `signer` address links all actions from same wallet |
+| "Address never revealed" | ✅ **True** — Only Merkle membership proven, address never leaves browser |
+| "Exact leaf position hidden" | ✅ **True** — Merkle path reveals no position info |
+| "Operator cannot forge proofs" | ✅ **True** — Requires user's secret (cryptographic guarantee) |
+| "Operator can observe identity linkages" | ✅ **True (Phase 1)** — MACI-equivalent trust assumption, see trust model spec |
 
-Users should understand these trade-offs before participating. If your threat model requires stronger anonymity guarantees than your district can provide, consider whether participation is appropriate for your situation.
+Users should understand these trade-offs before participating. Privacy is a function of your specific governance geography, not a protocol-wide constant. If your threat model requires stronger anonymity guarantees than your location provides, assess whether participation is appropriate for your situation, and consider waiting for Phase 2 selective slot disclosure.
 
 -----
 
@@ -799,7 +896,7 @@ Users should understand these trade-offs before participating. If your threat mo
 
 **Production infrastructure:**
 - Phase 1: Cloudflare Pages (serverless, no standing server access)
-- Database: Neon PostgreSQL with connection pooling, no direct DB access
+- Database: Supabase PostgreSQL with connection pooling, no direct DB access
 - Secrets: Cloudflare Pages environment variables (encrypted at rest)
 
 **Third-party integrations:**

@@ -2,10 +2,10 @@
 
 Canonical naming reference for the public inputs in the district membership circuits.
 
-- **Two-tree circuit:** 29 public inputs (indices 0-28)
-- **Three-tree circuit:** 31 public inputs (indices 0-30, extends two-tree)
+- **Three-tree circuit (production):** 31 public inputs (indices 0-30)
+- **Two-tree circuit (legacy):** 29 public inputs (indices 0-28)
 
-## Public Input Layout
+## Public Input Layout (Three-Tree — 31 Inputs)
 
 | Index | Noir (Circuit) | TypeScript Interface | TypeScript Constant | Solidity Local Var | Description |
 |-------|----------------|----------------------|---------------------|-------------------|-------------|
@@ -15,13 +15,10 @@ Canonical naming reference for the public inputs in the district membership circ
 | 26 | `nullifier` | `nullifier` | `NULLIFIER` | `nullifier` | Anti-double-vote token |
 | 27 | `action_domain` | `actionDomain` | `ACTION_DOMAIN` | `actionDomain` | Contract-controlled scope |
 | 28 | `authority_level` | `authorityLevel` | `AUTHORITY_LEVEL` | `authorityLevel` | User voting tier (1-5) |
-
-### Three-Tree Extension (indices 29-30)
-
-| Index | Noir (Circuit) | TypeScript Interface | TypeScript Constant | Solidity Local Var | Description |
-|-------|----------------|----------------------|---------------------|-------------------|-------------|
 | 29 | `engagement_root` | `engagementRoot` | `ENGAGEMENT_ROOT` | `engagementRoot` | Tree 3 Merkle root |
 | 30 | `engagement_tier` | `engagementTier` | `ENGAGEMENT_TIER` | `engagementTierRaw` | Engagement tier (0-4) |
+
+> **Legacy two-tree circuit:** Uses indices 0-28 only (no engagement data). See `DistrictGate.verifyTwoTreeProof()` for the deprecated verification path.
 
 ## Private Inputs (Witnesses)
 
@@ -63,8 +60,10 @@ The `formatInputs()` method in `packages/noir-prover/src/two-tree-prover.ts` is 
 
 | Component | File |
 |-----------|------|
-| Circuit | `packages/crypto/noir/two_tree_membership/src/main.nr` |
-| Prover | `packages/noir-prover/src/two-tree-prover.ts` |
+| Three-tree circuit | `packages/crypto/noir/three_tree_membership/src/main.nr` |
+| Three-tree prover | `packages/noir-prover/src/three-tree-prover.ts` |
+| Two-tree circuit (legacy) | `packages/crypto/noir/two_tree_membership/src/main.nr` |
+| Two-tree prover (legacy) | `packages/noir-prover/src/two-tree-prover.ts` |
 | Contract | `contracts/src/DistrictGate.sol` |
 | Client (contract) | `communique: src/lib/core/blockchain/district-gate-client.ts` |
 | Client (prover) | `communique: src/lib/core/zkp/prover-client.ts` |

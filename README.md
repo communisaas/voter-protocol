@@ -8,7 +8,7 @@
 
 Democracy lost the attention game. [TikTok delivers 58 minutes daily](https://www.statista.com/statistics/1485224/tiktok-content-engagement/) with algorithmic precision. Memecoin communities coordinate in real-time with Discord channels and price charts updating every second. [TRUMP token touched $40B in 24 hours](https://www.aljazeera.com/economy/2025/1/20/trumps-new-meme-coin-and-crypto-token-soar-on-his-first-day-in-office) on Inauguration Day.
 
-Democracy offers: 40-day response times. Form letters from offices that [perceive 66% of digital contact as worthless campaign mail](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf). [Zero systematic pathway](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) for constituent opinions to influence policymaking. [More than 80% of Americans](https://www.pewresearch.org/short-reads/2024/04/30/more-than-80-of-americans-believe-elected-officials-dont-care-what-people-like-them-think/) believe elected officials don't care what people like them think.
+Democracy offers: 40-day response times. Form letters from offices where [staff report most digital contact has minimal policy value](https://doi.org/10.1080/19331681.2020.1740907) — redundant advocacy campaigns, angry callers, messages arriving hours after the vote. [No systematic pathway](https://doi.org/10.1080/19331681.2020.1740907) for constituent opinions to influence policymaking. [More than 80% of Americans](https://www.pewresearch.org/short-reads/2024/04/30/more-than-80-of-americans-believe-elected-officials-dont-care-what-people-like-them-think/) believe elected officials don't care what people like them think.
 
 **Participation = Surveillance.** [Cambridge Analytica harvested 87 million Facebook profiles](https://www.firetail.ai/blog/revisiting-cambridge-analytica-in-2024) for political weaponization. Political campaigns paid data brokers [$23 million in 2020](https://www.opensecrets.org/news/2022/04/the-third-party-brokers-who-make-millions-selling-your-data-to-political-groups/) to access "treasure troves of data" on millions of Americans. [87% of employers worried about managing political beliefs among employees](https://www.littler.com/news-analysis/asap/politics-workplace-what-employers-need-know) in 2024. [Federal law doesn't protect private employees from discrimination based on politics](https://www.shrm.org/topics-tools/employment-law-compliance/fired-political-affiliation-activity)—you can be fired for social media posts about democracy. Every advocacy platform, social network, and engagement tool becomes a surveillance node extracting, packaging, selling your political participation.
 
@@ -61,7 +61,7 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 - **Clear separation**: ZK proof verification = 100% on-chain (zero AWS). Message delivery = Nitro Enclaves (congressional SOAP API requirement). Two different systems with different privacy properties.
 - **Privacy limitation**: Proofs are pseudonymous, not anonymous. Each proof reveals district and authority level, creating an anonymity set of `(district_voters × authority_tier_proportion)`. Small districts (<100 voters at your tier) may have trivial anonymity. See [SECURITY.md](SECURITY.md#privacy-guarantees--limitations) for details and mitigations.
 
-**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon2 commitments, two-tree architecture). Noir/Barretenberg proofs with UltraHonk for district verification (8-15s mobile browser WASM, ~2.2M gas on Scroll, KZG ceremony via Ethereum's 141K-participant setup). 10 contracts deployed on Scroll Sepolia with genesis/timelock governance model. Phase 1: Reputation-only. Phase 2: Token economics. See [ARCHITECTURE.md](ARCHITECTURE.md).
+**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon2 commitments, three-tree architecture with 31 public inputs). Noir/Barretenberg proofs with UltraHonk for district + engagement verification (8-15s mobile browser WASM, ~2.2M gas on Scroll, KZG ceremony via Ethereum's 141K-participant setup). 10 contracts deployed on Scroll Sepolia with genesis/timelock governance model. Phase 1: Reputation-only. Phase 2: Token economics. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 
 ## Why Now
@@ -74,7 +74,7 @@ No one else is building this. First mover becomes the standard. When AI systems 
 
 ## What Changes
 
-Congressional staffers desperately need ["small surprising things like bills they may have missed"](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) or "more niche issues" not already on the Member's radar. But current systems can't identify these signals. Technology designed for monitoring makes it worse: constituent databases are ["painfully slow, hard to learn, confusing to use"](http://www.samiam.info/wp-content/uploads/2019/02/ConstiuentCorrespondence_McDonald_Dec_2018.pdf) and by design limit what information can be collected.
+Congressional staffers desperately need ["small surprising things like bills they may have missed"](https://doi.org/10.1080/19331681.2020.1740907) or "more niche issues" not already on the Member's radar. But current systems can't identify these signals. Technology designed for monitoring makes it worse: constituent databases are ["painfully slow, hard to learn, confusing to use"](https://doi.org/10.1080/19331681.2020.1740907) and by design limit what information can be collected.
 
 VOTER gives staffers what they're asking for: cryptographic quality signals. This constituent is verified district resident (zero-knowledge proof, no PII revealed, no database storage) + domain expertise score (portable reputation) + not bot spam (Sybil-resistant verification).
 
@@ -84,17 +84,18 @@ VOTER gives staffers what they're asking for: cryptographic quality signals. Thi
 
 The agricultural worker advocates without employment consequences. The policy expert earns reputation (Phase 1) then rewards (Phase 2) instead of being dismissed as spam. The teacher participates without risking her job. The citizen takes market positions funding civic infrastructure (Phase 2). The staffer finally distinguishes valuable expertise from the 50th identical email.
 
-Not everyone suddenly engaging with democracy. The set of people for whom participation becomes survivable—and the set of messages staffers can distinguish as valuable—expands. Currently: employment risk selects against participation, financial powerlessness makes lobbying competition impossible, surveillance enables retaliation, offices dismiss 66% of contact as spam. With VOTER Phase 1: cryptographic privacy eliminates employment risk, verification gives staffers quality signals. Phase 2 adds: outcome markets enable financial competition, challenge markets make bad faith expensive.
+Not everyone suddenly engaging with democracy. The set of people for whom participation becomes survivable—and the set of messages staffers can distinguish as valuable—expands. Currently: employment risk selects against participation, financial powerlessness makes lobbying competition impossible, surveillance enables retaliation, offices dismiss most digital contact as low-value campaign mail ([McDonald et al., 2020](https://doi.org/10.1080/19331681.2020.1740907)). With VOTER Phase 1: cryptographic privacy eliminates employment risk, verification gives staffers quality signals. Phase 2 adds: outcome markets enable financial competition, challenge markets make bad faith expensive.
 
 ## Go Deeper
 
 - **[QUICKSTART.md](QUICKSTART.md)** — Non-technical users: Face ID to first reward in 4 minutes
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Protocol designers: Complete technical architecture
-- **[CONGRESSIONAL.md](CONGRESSIONAL.md)** — Legislative staff: Solving the 66% spam problem
+- **[CONGRESSIONAL.md](CONGRESSIONAL.md)** — Legislative staff: Solving the constituent signal problem
 - **[SECURITY.md](SECURITY.md)** — Living threat model: Attack vectors, mitigations, incident response
 - **[SOURCES.md](SOURCES.md)** — All academic citations and research backing these claims
-- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** — Canonical two-tree ZK architecture
-- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement/reputation system
+- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement/reputation architecture (canonical)
+- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** — Legacy two-tree ZK architecture (Trees 1 & 2 reference)
+- **[specs/DEBATE-MARKET-SPEC.md](specs/DEBATE-MARKET-SPEC.md)** — Debate market: continuous template contestation (batch LMSR + AI evaluation)
 
 ### How It Works (Phase 1)
 - You prove membership without surrendering identity — cryptography, not permission.
@@ -105,11 +106,11 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 ## Repository Structure
 
 **This Repository** (voter-protocol) — cryptographic backend monorepo:
-- `contracts/` — 10 Solidity contracts (DistrictGate, registries, timelocks) on Scroll L2
+- `contracts/` — 10+ Solidity contracts (DistrictGate, registries, timelocks, DebateMarket) on Scroll L2
 - `packages/crypto` — Poseidon2 hasher (domain-separated H1/H2/H3/H4/sponge) via Noir stdlib
-- `packages/noir-prover` — Two-tree and three-tree Noir circuit provers with UltraHonk backend
-- `packages/shadow-atlas` — Census-based Merkle tree builder, serving API, chain scanner
-- `specs/` — Canonical architecture specs (TWO-TREE-ARCHITECTURE-SPEC, REPUTATION-ARCHITECTURE-SPEC)
+- `packages/noir-prover` — Three-tree (primary) and legacy two-tree Noir circuit provers with UltraHonk backend
+- `packages/shadow-atlas` — Census-based Merkle tree builder, serving API, engagement pipeline, chain scanner
+- `specs/` — Canonical architecture specs (REPUTATION-ARCHITECTURE-SPEC for three-tree, TWO-TREE-ARCHITECTURE-SPEC for legacy)
 
 **Communique Repository** (Frontend — SvelteKit 5):
 - User-facing web application on Cloudflare Pages
@@ -117,6 +118,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - Identity verification (self.xyz NFC passport, didit.me)
 - Browser-side ZK proof generation via `@voter-protocol/noir-prover`
 - Congressional delivery via CWC API (Senate SOAP + House proxy)
+- Staked deliberation UI (9 debate components, 6 API routes, off-chain state with on-chain wiring pending)
 
 **Relationship**: Communique is the interface. VOTER Protocol (this repo) is the cryptographic and blockchain infrastructure Communique interacts with.
 

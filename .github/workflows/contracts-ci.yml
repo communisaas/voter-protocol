@@ -15,6 +15,9 @@ jobs:
           submodules: recursive
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+      - name: Assert via_ir = true (DistrictGate requires IR pipeline)
+        run: grep -q 'via_ir = true' foundry.toml || (echo "FATAL: via_ir must be true for DistrictGate (stack depth)" && exit 1)
+        working-directory: contracts
       - name: Build contracts
         run: forge build
         working-directory: contracts

@@ -17,6 +17,7 @@ out-verifiers/
 broadcast/
 deployments/
 contracts/deployed-addresses.json
+contracts/deployed-verifiers.json
 
 # Node modules
 node_modules/
@@ -253,3 +254,6 @@ packages/shadow-atlas/data/baf-cache/
 
 # Vendor submodules (use npm packages instead)
 vendor/
+
+# Screenshots (demo artifacts, not source)
+*.png

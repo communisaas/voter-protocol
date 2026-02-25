@@ -1,5 +1,14 @@
 # VOTER Protocol Developer Guide
 
+> **SUPERSEDED (2026-02-21):** This guide predates the three-tree architecture and contains outdated contract names, package references, and tooling instructions. **Do not follow the `bb write_solidity_verifier` instructions** — use `scripts/generate-verifier-sol.ts` instead (see contracts/README.md).
+>
+> **Current references:**
+> - Smart contracts: [contracts/README.md](contracts/README.md) (10-contract system, genesis governance)
+> - Three-tree architecture: [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) (canonical 31-input specification)
+> - Legacy two-tree reference: [specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md) (Trees 1 & 2 details)
+> - Package overview: [README.md](README.md) (3 packages: crypto, noir-prover, shadow-atlas)
+> - Three-tree prover: `packages/noir-prover/src/three-tree-prover.ts`
+
 **For developers implementing VOTER Protocol integrations, building on the protocol, or contributing to core infrastructure.**
 
 This guide provides practical implementation guidance for working with VOTER Protocol. For high-level architecture, see [ARCHITECTURE.md](ARCHITECTURE.md).
