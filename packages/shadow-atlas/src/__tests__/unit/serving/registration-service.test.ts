@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { RegistrationService } from '../../../serving/registration-service';
 import { getHasher } from '@voter-protocol/crypto/poseidon2';
-import { verifyUserProof } from '../../../dual-tree-builder';
+import { verifyUserProof } from '../../../tree-builder';
 
 const BN254_MODULUS =
   21888242871839275222246405745257275088548364400416034343698204186575808495617n;

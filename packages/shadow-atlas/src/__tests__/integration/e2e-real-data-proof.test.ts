@@ -28,6 +28,9 @@ import { RegistrationService, type CellMapState } from '../../serving/registrati
 import { getHasher, type Poseidon2Hasher } from '@voter-protocol/crypto';
 
 // Noir prover
+// TODO: Migrate to ThreeTreeNoirProver once engagement pipeline is wired into e2e tests.
+// The TwoTreeNoirProver tests the two-tree subset; a three-tree e2e test should
+// additionally build Tree 3 (Engagement) and use ThreeTreeNoirProver.
 import { TwoTreeNoirProver } from '@voter-protocol/noir-prover';
 import type { TwoTreeProofInput } from '@voter-protocol/noir-prover';
 

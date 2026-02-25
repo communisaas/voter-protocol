@@ -150,6 +150,7 @@ export class EngagementTreeBuilder {
       }
 
       const metrics = EngagementTreeBuilder.computeMetricsForSigner(signerEvts, refTime, categoryRegistry);
+      // adoptionCount defaults to 0 — adoption pipeline is Phase 2 (see REPUTATION-ARCHITECTURE-SPEC.md §4.3)
       const tier = deriveTier(metrics.actionCount, metrics.diversityScore, metrics.tenureMonths);
 
       entries.push({

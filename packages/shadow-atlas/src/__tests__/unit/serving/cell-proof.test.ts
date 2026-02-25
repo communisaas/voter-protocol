@@ -22,7 +22,7 @@ import {
   toCellMapState,
   DISTRICT_SLOT_COUNT,
   type CellDistrictMapping,
-} from '../../../dual-tree-builder.js';
+} from '../../../tree-builder.js';
 import { generateMockMappings } from '../../../cell-district-loader.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 

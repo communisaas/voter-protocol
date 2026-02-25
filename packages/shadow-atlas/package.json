@@ -5,6 +5,10 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "module",
+    "exports": {
+        ".": "./dist/index.js",
+        "./position-tree-builder": "./dist/position-tree-builder.js"
+    },
     "bin": "./bin/shadow-atlas.ts",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
@@ -58,7 +62,9 @@
         "discover:hub": "tsx src/scripts/wave-discovery.ts hub",
         "discover:aggregator": "tsx src/scripts/wave-discovery.ts aggregator",
         "discover:aggregators": "tsx src/scripts/wave-discovery.ts aggregators",
-        "discover:gaps": "tsx src/scripts/wave-discovery.ts gaps"
+        "discover:gaps": "tsx src/scripts/wave-discovery.ts gaps",
+        "ingest:legislators": "tsx src/scripts/ingest-legislators.ts",
+        "ingest:legislators:dry": "tsx src/scripts/ingest-legislators.ts --dry-run"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",

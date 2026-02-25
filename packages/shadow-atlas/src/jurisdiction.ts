@@ -59,7 +59,7 @@
  * @packageDocumentation
  */
 
-import type { CellDistrictMapping } from './dual-tree-builder.js';
+import type { CellDistrictMapping } from './tree-builder.js';
 
 // ============================================================================
 // Protocol Constants

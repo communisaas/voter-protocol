@@ -525,4 +525,390 @@ describe('ChainScanner', () => {
       await scanner.stop(); // still no-op
     });
   });
+
+  // ========================================================================
+  // TST-014: Edge Cases
+  // ========================================================================
+
+  describe('edge cases (TST-014)', () => {
+    // ----------------------------------------------------------------------
+    // TST-014.1: RPC connection failure handling
+    // ----------------------------------------------------------------------
+
+    describe('RPC connection failures', () => {
+      it('throws on HTTP error from RPC endpoint', async () => {
+        const mockFn = vi.fn(async () => ({
+          ok: false,
+          status: 502,
+          statusText: 'Bad Gateway',
+          json: async () => ({}),
+        }));
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        await expect(scanner.pollOnce()).rejects.toThrow('RPC HTTP error: 502 Bad Gateway');
+      });
+
+      it('throws on RPC-level JSON error response', async () => {
+        const mockFn = vi.fn(async () => ({
+          ok: true,
+          json: async () => ({
+            jsonrpc: '2.0',
+            id: 1,
+            error: { code: -32005, message: 'limit exceeded' },
+          }),
+        }));
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        await expect(scanner.pollOnce()).rejects.toThrow('RPC error: -32005 limit exceeded');
+      });
+
+      it('throws on network-level fetch failure (ECONNREFUSED)', async () => {
+        const mockFn = vi.fn(async () => {
+          throw new Error('fetch failed: ECONNREFUSED');
+        });
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        await expect(scanner.pollOnce()).rejects.toThrow('ECONNREFUSED');
+      });
+
+      it('throws on fetch timeout / abort', async () => {
+        const mockFn = vi.fn(async () => {
+          throw new DOMException('The operation was aborted', 'AbortError');
+        });
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        await expect(scanner.pollOnce()).rejects.toThrow('aborted');
+      });
+
+      it('poll() logs error but does not crash on RPC failure', async () => {
+        // The start() method wraps poll in a catch that logs errors.
+        // Verify the scanner survives an RPC failure and can be stopped cleanly.
+        let callCount = 0;
+        const mockFn = vi.fn(async () => {
+          callCount++;
+          if (callCount === 1) {
+            // First call (eth_blockNumber) fails
+            throw new Error('RPC unavailable');
+          }
+          // Subsequent calls succeed (for stop/cursor save)
+          return {
+            ok: true,
+            json: async () => ({ jsonrpc: '2.0', id: 1, result: '0x64' }),
+          };
+        });
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        scanner.start();
+
+        // Wait for the failed poll to execute
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Scanner should still be stoppable (not crashed)
+        await scanner.stop();
+        // Cursor should still be at the start position (no progress made)
+        expect(scanner.getCursor().lastProcessedBlock).toBe(99); // startBlock - 1
+      });
+
+      it('handles null result from eth_blockNumber', async () => {
+        const mockFn = vi.fn(async () => ({
+          ok: true,
+          json: async () => ({
+            jsonrpc: '2.0',
+            id: 1,
+            result: null,
+          }),
+        }));
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        // parseInt(null, 16) = NaN, which will cause fromBlock > latestBlock
+        // to be true (NaN comparisons are always false), so this should
+        // either return empty or throw depending on implementation
+        const events = await scanner.pollOnce();
+        // NaN > 99 is false, so it enters the loop, but NaN comparisons
+        // will cause issues. The key property: it should not hang.
+        expect(Array.isArray(events)).toBe(true);
+      });
+    });
+
+    // ----------------------------------------------------------------------
+    // TST-014.2: Malformed log data handling
+    // ----------------------------------------------------------------------
+
+    describe('malformed log data', () => {
+      it('skips log with missing topics (empty topics array)', async () => {
+        const malformedLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [],
+          data: '0x' + '00'.repeat(160),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'ab'.repeat(32),
+          logIndex: '0x0',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [malformedLog] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+      });
+
+      it('skips log with unrecognized event topic', async () => {
+        const unknownTopicLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [
+            '0x' + 'de'.repeat(32), // Unknown event signature
+            addressToTopic('0xa11ce000000000000000000000000000000a11ce'),
+            addressToTopic('0x5000000000000000000000000000000000000005'),
+            '0x' + pad32('0xuserroot'),
+          ],
+          data: '0x' + '00'.repeat(160),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'ab'.repeat(32),
+          logIndex: '0x0',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [unknownTopicLog] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+      });
+
+      it('skips TwoTree log with truncated data (less than 5 words)', async () => {
+        const truncatedLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [
+            TWO_TREE_TOPIC,
+            addressToTopic('0xa11ce000000000000000000000000000000a11ce'),
+            addressToTopic('0x5000000000000000000000000000000000000005'),
+            '0x' + pad32('0xuserroot'),
+          ],
+          // Only 3 words of data instead of required 5
+          data: '0x' + '00'.repeat(96),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'ab'.repeat(32),
+          logIndex: '0x0',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [truncatedLog] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+      });
+
+      it('skips ThreeTree log with truncated data (less than 7 words)', async () => {
+        const truncatedLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [
+            THREE_TREE_TOPIC,
+            addressToTopic('0xa11ce000000000000000000000000000000a11ce'),
+            addressToTopic('0x5000000000000000000000000000000000000005'),
+            '0x' + pad32('0xuserroot'),
+          ],
+          // Only 5 words of data instead of required 7
+          data: '0x' + '00'.repeat(160),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'ab'.repeat(32),
+          logIndex: '0x0',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [truncatedLog] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+      });
+
+      it('skips log with missing signer topic (topics[1] absent)', async () => {
+        const noSignerLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [TWO_TREE_TOPIC], // Only topic0, no indexed params
+          data: '0x' + '00'.repeat(160),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'ab'.repeat(32),
+          logIndex: '0x0',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [noSignerLog] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+      });
+
+      it('processes valid logs even when mixed with malformed ones', async () => {
+        const validLog = makeTwoTreeLog({ blockNumber: 105, txHash: '0x' + 'ab'.repeat(32) });
+        const malformedLog = {
+          address: '0x0085dfad6db867e7486a460579d768bd7c37181e',
+          topics: [TWO_TREE_TOPIC], // Missing signer topic
+          data: '0x' + '00'.repeat(160),
+          blockNumber: '0x69',
+          transactionHash: '0x' + 'cd'.repeat(32),
+          logIndex: '0x1',
+          removed: false,
+        };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [validLog, malformedLog] },
+          { method: 'eth_getBlockByNumber', result: { timestamp: '0x65b0c9a0' } },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(1);
+        expect(events[0].signer).toContain('a11ce');
+      });
+
+      it('handles data without 0x prefix', async () => {
+        // The mapLogToEvent strips '0x' if present; verify it handles raw hex too
+        const log = makeTwoTreeLog({ blockNumber: 105 });
+        // Manually strip 0x prefix from data
+        const rawDataLog = { ...log, data: log.data.slice(2) };
+
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x69' },
+          { method: 'eth_getLogs', result: [rawDataLog] },
+          { method: 'eth_getBlockByNumber', result: { timestamp: '0x65b0c9a0' } },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(1);
+      });
+    });
+
+    // ----------------------------------------------------------------------
+    // TST-014.3: Empty block range handling
+    // ----------------------------------------------------------------------
+
+    describe('empty block range', () => {
+      it('returns empty when eth_getLogs returns empty array', async () => {
+        const { mockFn } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0xc8' }, // 200
+          { method: 'eth_getLogs', result: [] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+        expect(events).toHaveLength(0);
+        // Cursor should still advance to latest block
+        expect(scanner.getCursor().lastProcessedBlock).toBe(200);
+      });
+
+      it('advances cursor even with no events across multiple batch chunks', async () => {
+        let getLogsCallCount = 0;
+        const mockFn = vi.fn(async (_url: string, init: RequestInit) => {
+          const body = JSON.parse(init.body as string);
+          let result: unknown;
+
+          if (body.method === 'eth_blockNumber') {
+            result = '0x3e8'; // 1000
+          } else if (body.method === 'eth_getLogs') {
+            getLogsCallCount++;
+            result = [];
+          } else {
+            result = { timestamp: '0x65b0c9a0' };
+          }
+
+          return {
+            ok: true,
+            json: async () => ({ jsonrpc: '2.0', id: 1, result }),
+          };
+        });
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create({
+          ...TEST_CONFIG,
+          startBlock: 100,
+          maxBlockRange: 500,
+        });
+
+        await scanner.pollOnce();
+
+        // 1000 - 100 + 1 = 901 blocks / 500 max = 2 batches
+        expect(getLogsCallCount).toBe(2);
+        expect(scanner.getCursor().lastProcessedBlock).toBe(1000);
+        expect(scanner.getCursor().totalEventsProcessed).toBe(0);
+      });
+
+      it('handles fromBlock === toBlock (single block range)', async () => {
+        // Cursor at block 99, latest is 100 → single block to fetch
+        const { mockFn, callLog } = createMockFetch([
+          { method: 'eth_blockNumber', result: '0x64' }, // 100
+          { method: 'eth_getLogs', result: [] },
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+        const events = await scanner.pollOnce();
+
+        expect(events).toHaveLength(0);
+        expect(scanner.getCursor().lastProcessedBlock).toBe(100);
+
+        // Verify the getLogs call used fromBlock === toBlock
+        const getLogsCall = callLog.find(c => c.method === 'eth_getLogs');
+        expect(getLogsCall).toBeDefined();
+        const params = getLogsCall!.params[0] as Record<string, string>;
+        expect(parseInt(params.fromBlock, 16)).toBe(100);
+        expect(parseInt(params.toBlock, 16)).toBe(100);
+      });
+
+      it('returns empty on second immediate poll when no new blocks', async () => {
+        const { mockFn } = createMockFetch([
+          // First poll
+          { method: 'eth_blockNumber', result: '0x69' }, // 105
+          { method: 'eth_getLogs', result: [] },
+          // Second poll — same block
+          { method: 'eth_blockNumber', result: '0x69' }, // still 105
+        ]);
+        vi.stubGlobal('fetch', mockFn);
+
+        const scanner = await ChainScanner.create(TEST_CONFIG);
+
+        const events1 = await scanner.pollOnce();
+        expect(events1).toHaveLength(0);
+        expect(scanner.getCursor().lastProcessedBlock).toBe(105);
+
+        const events2 = await scanner.pollOnce();
+        expect(events2).toHaveLength(0);
+        // No getLogs call should have been made for the second poll
+      });
+    });
+  });
 });

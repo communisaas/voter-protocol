@@ -3,7 +3,7 @@ import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader';
-import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../dual-tree-builder';
+import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../tree-builder';
 import { generateMockMappings } from '../../../cell-district-loader';
 
 describe('loadCellMapStateFromSnapshot', () => {

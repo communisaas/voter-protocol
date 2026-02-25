@@ -6,6 +6,7 @@
  */
 
 import type { MerkleProof } from '../merkle-tree';
+import type { OfficialsResponse } from './officials-service.js';
 
 // ============================================================================
 // Re-export Provenance Types from Core (Single Source of Truth)
@@ -138,10 +139,13 @@ export type ErrorCode =
   | 'INVALID_BODY'
   | 'DISTRICT_NOT_FOUND'
   | 'CELL_NOT_FOUND'
+  | 'DEBATE_NOT_FOUND'
   | 'PROOF_GENERATION_FAILED'
   | 'SNAPSHOT_UNAVAILABLE'
   | 'REGISTRATION_UNAVAILABLE'
   | 'CELL_PROOF_UNAVAILABLE'
+  | 'OFFICIALS_UNAVAILABLE'
+  | 'DEBATE_UNAVAILABLE'
   | 'TREE_FULL'
   | 'INTERNAL_ERROR'
   | 'RATE_LIMIT_EXCEEDED'
@@ -181,4 +185,21 @@ export interface APIConfig {
   readonly host: string;
   readonly corsOrigins: readonly string[];
   readonly rateLimitPerMinute: number;
+}
+
+/**
+ * Composite resolve result — lookup + officials in one call.
+ * Returned by GET /v1/resolve to save a client round-trip.
+ */
+export interface ResolveResult {
+  readonly district: DistrictBoundary;
+  readonly merkleProof: {
+    readonly root: string;
+    readonly leaf: string;
+    readonly siblings: string[];
+    readonly pathIndices: number[];
+    readonly depth: number;
+  };
+  readonly officials?: OfficialsResponse;
+  readonly cacheHit: boolean;
 }

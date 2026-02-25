@@ -14,7 +14,7 @@
  * @packageDocumentation
  */
 
-import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from '../dual-tree-builder.js';
+import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from '../tree-builder.js';
 import { encodeGeoidAsField } from '../cell-district-loader.js';
 import type { BlockRecord } from './baf-parser.js';
 

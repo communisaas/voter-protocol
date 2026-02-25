@@ -26,7 +26,7 @@ import { downloadBAFs } from './baf-downloader.js';
 import { parseBAFFilesAsync } from './baf-parser.js';
 import { overlayBEFs, REDISTRICTED_STATES } from './bef-overlay.js';
 import { resolveCells } from './cell-resolver.js';
-import { buildCellMapTree } from '../dual-tree-builder.js';
+import { buildCellMapTree } from '../tree-builder.js';
 import { loadWardRegistry } from './ward-registry.js';
 import { loadWardBoundaries } from './ward-boundary-loader.js';
 import { overlaySupplementalDistricts } from './supplemental-overlay.js';

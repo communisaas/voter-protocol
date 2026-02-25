@@ -34,6 +34,8 @@ import type {
   DistrictBoundary,
   SnapshotMetadata,
 } from './types';
+import { OfficialsService, toOfficialsResponse } from './officials-service.js';
+import { DebateService } from './debate-service.js';
 import { randomBytes, timingSafeEqual, createHmac } from 'crypto';
 import { logger } from '../core/utils/logger.js';
 import type { ServerSigner } from './signing.js';
@@ -167,6 +169,24 @@ const cellProofSchema = z.object({
 });
 
 /**
+ * GET /v1/officials?district=CA-12
+ */
+const officialsSchema = z.object({
+  district: z.string()
+    .regex(/^[A-Z]{2}-(\d{1,2}|AL|00)$/i, 'district must be format XX-NN (e.g., CA-12)'),
+});
+
+/**
+ * GET /v1/resolve?lat=X&lng=Y&include_officials=true
+ * Composite endpoint: lookup + officials in one call.
+ */
+const resolveSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  include_officials: z.coerce.boolean().optional().default(true),
+});
+
+/**
  * POST /v1/engagement/register request body
  */
 const engagementRegisterSchema = z.object({
@@ -257,6 +277,8 @@ export class ShadowAtlasAPI {
   private readonly registrationService: RegistrationService | null;
   private readonly cellMapState: CellMapState | null;
   private readonly engagementService: EngagementService | null;
+  private readonly officialsService: OfficialsService | null;
+  private readonly debateService: DebateService | null;
   private readonly registrationAuthToken: string | null;
   private readonly signer: ServerSigner | null;
   private readonly port: number;
@@ -282,6 +304,8 @@ export class ShadowAtlasAPI {
     registrationAuthToken: string | null = null,
     signer: ServerSigner | null = null,
     engagementService: EngagementService | null = null,
+    officialsService: OfficialsService | null = null,
+    debateService: DebateService | null = null,
   ) {
     this.lookupService = lookupService;
     this.proofService = proofService;
@@ -292,6 +316,8 @@ export class ShadowAtlasAPI {
     this.registrationService = registrationService;
     this.cellMapState = cellMapState;
     this.engagementService = engagementService;
+    this.officialsService = officialsService;
+    this.debateService = debateService;
     this.registrationAuthToken = registrationAuthToken;
     this.signer = signer;
     this.port = port;
@@ -363,11 +389,20 @@ export class ShadowAtlasAPI {
       if (this.signer) {
         endpoints.push(`GET /${v}/signing-key - Server Ed25519 public key (verifiable operator)`);
       }
+      if (this.officialsService) {
+        endpoints.push(`GET /${v}/officials?district=XX-NN - Federal officials by district code`);
+      }
+      endpoints.push(`GET /${v}/resolve?lat={lat}&lng={lng} - Composite lookup + officials`);
       endpoints.push(`GET /${v}/engagement-info - Tree 3 metadata (root, depth, leafCount)`);
       if (this.engagementService) {
         endpoints.push(`GET /${v}/engagement-path/:leafIndex - Engagement Merkle proof (Tree 3)`);
         endpoints.push(`GET /${v}/engagement-metrics/:identityCommitment - Engagement metrics`);
         endpoints.push(`POST /${v}/engagement/register - Register identity for engagement tracking`);
+      }
+      if (this.debateService) {
+        endpoints.push(`GET /${v}/debate/:debateId - Debate market state`);
+        endpoints.push(`GET /${v}/debate/:debateId/stream - SSE price stream`);
+        endpoints.push(`GET /${v}/debate/:debateId/position-proof/:positionIndex - Position Merkle proof for settlement`);
       }
       logger.info('API endpoints registered', { endpoints });
 
@@ -411,6 +446,11 @@ export class ShadowAtlasAPI {
     // 3b. Close engagement service
     if (this.engagementService) {
       await this.engagementService.close();
+    }
+
+    // 3c. Stop debate service (closes SSE connections)
+    if (this.debateService) {
+      this.debateService.stop();
     }
 
     // 4. Final IPFS upload + stop sync service
@@ -503,6 +543,16 @@ export class ShadowAtlasAPI {
         this.handleEngagementMetrics(basePath, res, req, requestId);
       } else if (basePath === '/engagement/register' && req.method === 'POST') {
         await this.handleEngagementRegister(req, res, requestId);
+      } else if (basePath === '/officials' && req.method === 'GET') {
+        this.handleOfficials(url, res, req, requestId);
+      } else if (basePath === '/resolve' && req.method === 'GET') {
+        await this.handleResolve(url, res, req, requestId, startTime);
+      } else if (basePath.match(/^\/debate\/0x[0-9a-fA-F]{64}\/stream$/) && req.method === 'GET') {
+        this.handleDebateStream(basePath, res, req, requestId);
+      } else if (basePath.match(/^\/debate\/0x[0-9a-fA-F]{64}\/position-proof\/\d{1,10}$/) && req.method === 'GET') {
+        await this.handleDebatePositionProof(basePath, res, req, requestId);
+      } else if (basePath.match(/^\/debate\/0x[0-9a-fA-F]{64}$/) && req.method === 'GET') {
+        this.handleDebateState(basePath, res, req, requestId);
       } else {
         this.sendErrorResponse(
           res,
@@ -711,6 +761,204 @@ export class ShadowAtlasAPI {
         404,
         'DISTRICT_NOT_FOUND',
         'District not found',
+        requestId,
+      );
+    }
+  }
+
+  /**
+   * Handle GET /v1/officials endpoint
+   *
+   * Returns federal officials (House rep + Senators) for a district.
+   * Data sourced from pre-ingested congress-legislators YAML (CC0).
+   * Zero runtime Congress.gov API calls.
+   *
+   * Query params:
+   *   - district: District code (e.g., "CA-12") — required
+   */
+  private handleOfficials(
+    url: URL,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.officialsService) {
+      this.sendErrorResponse(
+        res, 501, 'OFFICIALS_UNAVAILABLE',
+        'Officials service not configured. Run ingest-legislators.ts first.',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting (same as lookup)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', this.rateLimiter['maxRequests']);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId,
+      );
+      return;
+    }
+
+    // Validate query params
+    const params = Object.fromEntries(url.searchParams.entries());
+    const validation = officialsSchema.safeParse(params);
+
+    if (!validation.success) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_PARAMETERS',
+        'district parameter required (e.g., ?district=CA-12)',
+        requestId,
+      );
+      return;
+    }
+
+    try {
+      const { district } = validation.data;
+
+      const parsed = OfficialsService.parseDistrictCode(district);
+      if (!parsed) {
+        this.sendErrorResponse(
+          res, 400, 'INVALID_PARAMETERS',
+          'Invalid district code format. Expected XX-NN (e.g., CA-12)',
+          requestId,
+        );
+        return;
+      }
+
+      const { result, cached } = this.officialsService.getOfficials(parsed.state, parsed.district);
+
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Cache', cached ? 'HIT' : 'MISS');
+
+      this.sendSuccessResponse(
+        res,
+        toOfficialsResponse(result, cached),
+        requestId,
+        false,
+      );
+    } catch (error) {
+      logger.error('Officials lookup failed', {
+        requestId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      this.sendErrorResponse(
+        res, 500, 'INTERNAL_ERROR',
+        'Officials lookup failed',
+        requestId,
+      );
+    }
+  }
+
+  /**
+   * Handle GET /v1/resolve endpoint
+   *
+   * Composite endpoint: district lookup + Merkle proof + officials in one call.
+   * Saves a client round-trip vs. separate /lookup + /officials calls.
+   * Officials failure is non-fatal — response still includes district + proof.
+   */
+  private async handleResolve(
+    url: URL,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+    startTime: number,
+  ): Promise<void> {
+    // Rate limiting (same as lookup)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', this.rateLimiter['maxRequests']);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId,
+      );
+      return;
+    }
+
+    // Validate query parameters
+    const params = Object.fromEntries(url.searchParams.entries());
+    const validation = resolveSchema.safeParse(params);
+
+    if (!validation.success) {
+      this.sendErrorResponse(
+        res, 400, 'INVALID_PARAMETERS',
+        'Invalid parameters. Required: lat, lng',
+        requestId,
+      );
+      return;
+    }
+
+    const { lat, lng, include_officials } = validation.data;
+
+    try {
+      // Step 1: District lookup
+      const result = this.lookupService.lookup(lat, lng);
+
+      if (!result.district) {
+        this.healthMonitor.recordError('District not found');
+        this.sendErrorResponse(
+          res, 404, 'DISTRICT_NOT_FOUND',
+          'No district found at coordinates',
+          requestId,
+        );
+        return;
+      }
+
+      // Step 2: Merkle proof
+      const merkleProof = await this.proofService.generateProof(result.district.id);
+
+      // Step 3: Officials (optional, non-blocking)
+      let officials = undefined;
+      if (include_officials && this.officialsService) {
+        try {
+          const parsed = OfficialsService.parseDistrictCode(result.district.id);
+          if (parsed) {
+            const { result: officialsResult, cached } =
+              this.officialsService.getOfficials(parsed.state, parsed.district);
+            officials = toOfficialsResponse(officialsResult, cached);
+          }
+        } catch (err) {
+          // Officials failure is non-fatal — log and continue
+          logger.warn('Officials lookup failed in resolve', {
+            requestId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      this.healthMonitor.recordQuery(result.latencyMs, result.cacheHit);
+
+      this.sendSuccessResponse(res, {
+        district: result.district,
+        merkleProof: {
+          root: merkleProof.root,
+          leaf: merkleProof.leaf,
+          siblings: merkleProof.siblings,
+          pathIndices: merkleProof.pathIndices,
+          depth: merkleProof.depth,
+        },
+        officials,
+        cacheHit: result.cacheHit,
+      }, requestId, result.cacheHit);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.healthMonitor.recordError(errorMsg);
+      logger.error('Resolve failed', { requestId, error: errorMsg });
+      this.sendErrorResponse(
+        res, 500, 'INTERNAL_ERROR',
+        'Resolve failed',
         requestId,
       );
     }
@@ -1390,6 +1638,237 @@ export class ShadowAtlasAPI {
     }
   }
 
+  // ========================================================================
+  // Debate Market Endpoints
+  // ========================================================================
+
+  /**
+   * Handle GET /v1/debate/:debateId endpoint.
+   * Returns current market state for a debate.
+   */
+  private handleDebateState(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.debateService) {
+      this.sendErrorResponse(
+        res, 501, 'DEBATE_UNAVAILABLE',
+        'Debate market service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', this.rateLimiter['maxRequests']);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId,
+      );
+      return;
+    }
+
+    // Extract debateId from path: /debate/0x... -> 0x...
+    const segments = basePath.split('/');
+    const debateId = segments[2];
+    if (!debateId) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Missing debateId', requestId);
+      return;
+    }
+
+    const state = this.debateService.getMarketState(debateId);
+    if (!state) {
+      this.sendErrorResponse(
+        res, 404, 'DEBATE_NOT_FOUND',
+        'Debate not found',
+        requestId,
+      );
+      return;
+    }
+
+    // Short cache — state changes frequently
+    res.setHeader('Cache-Control', 'public, max-age=5');
+    this.sendSuccessResponse(res, state, requestId, false);
+  }
+
+  /**
+   * Handle GET /v1/debate/:debateId/position-proof/:positionIndex endpoint.
+   *
+   * Returns a Merkle inclusion proof for a position commitment leaf in the
+   * per-debate position tree. The proof is consumed by the position_note
+   * Noir circuit when generating a private settlement proof.
+   *
+   * Path format: /debate/0x{64-hex}/position-proof/{N}
+   *
+   * Response:
+   *   {
+   *     positionPath:  string[],  // sibling hashes as 0x-prefixed hex, leaf→root
+   *     positionIndex: number,    // zero-based leaf index (echoed for confirmation)
+   *     positionRoot:  string     // current Merkle root as 0x-prefixed hex
+   *   }
+   *
+   * Returns 404 if the debate has no position tree yet or if the index is out of range.
+   * Returns 503 if the debate service is not configured.
+   */
+  private async handleDebatePositionProof(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): Promise<void> {
+    if (!this.debateService) {
+      this.sendErrorResponse(
+        res, 501, 'DEBATE_UNAVAILABLE',
+        'Debate market service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting (same budget as debate state endpoint)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    res.setHeader('X-RateLimit-Limit', this.rateLimiter['maxRequests']);
+    res.setHeader('X-RateLimit-Remaining', rateResult.remaining);
+    res.setHeader('X-RateLimit-Reset', Math.floor(rateResult.resetAt / 1000));
+
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId,
+      );
+      return;
+    }
+
+    // Extract path segments: /debate/<debateId>/position-proof/<positionIndex>
+    // segments[0] = '' (leading slash), segments[1] = 'debate', segments[2] = debateId,
+    // segments[3] = 'position-proof', segments[4] = positionIndex
+    const segments = basePath.split('/');
+    const debateId = segments[2];
+    const rawIndex = segments[4];
+
+    if (!debateId || !rawIndex) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Missing debateId or positionIndex', requestId);
+      return;
+    }
+
+    const positionIndex = parseInt(rawIndex, 10);
+    if (!Number.isFinite(positionIndex) || positionIndex < 0) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'positionIndex must be a non-negative integer', requestId);
+      return;
+    }
+
+    try {
+      const proof = await this.debateService.getPositionProof(debateId, positionIndex);
+
+      if (!proof) {
+        this.sendErrorResponse(
+          res, 404, 'POSITION_NOT_FOUND',
+          'Debate has no position tree or positionIndex is out of range',
+          requestId,
+        );
+        return;
+      }
+
+      const root = await this.debateService.getPositionRoot(debateId);
+
+      // Serialize bigint path elements as 0x-prefixed hex — JSON cannot represent bigints
+      const positionPath = proof.path.map((n: bigint) => '0x' + n.toString(16).padStart(64, '0'));
+      const positionRoot = root !== null ? '0x' + root.toString(16).padStart(64, '0') : '0x' + '0'.repeat(64);
+
+      // Position proofs are stable once the leaf is inserted; short cache is safe
+      res.setHeader('Cache-Control', 'public, max-age=30');
+
+      this.sendSuccessResponse(res, {
+        positionPath,
+        positionIndex: proof.index,
+        positionRoot,
+      }, requestId, false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Position proof generation failed', { requestId, debateId, positionIndex, error: msg });
+      this.sendErrorResponse(
+        res, 500, 'INTERNAL_ERROR',
+        'Position proof generation failed',
+        requestId,
+      );
+    }
+  }
+
+  /**
+   * Handle GET /v1/debate/:debateId/stream endpoint.
+   * SSE endpoint for real-time debate price updates.
+   *
+   * Sets appropriate headers for Server-Sent Events and delegates
+   * to DebateService for subscription management.
+   */
+  private handleDebateStream(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.debateService) {
+      this.sendErrorResponse(
+        res, 501, 'DEBATE_UNAVAILABLE',
+        'Debate market service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Rate limiting (SSE connections are long-lived so this controls connection rate)
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(
+        res, 429, 'RATE_LIMIT_EXCEEDED',
+        'Rate limit exceeded. Please try again later.',
+        requestId,
+      );
+      return;
+    }
+
+    // Extract debateId from path: /debate/0x.../stream -> 0x...
+    const segments = basePath.split('/');
+    const debateId = segments[2];
+    if (!debateId) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Missing debateId', requestId);
+      return;
+    }
+
+    // Set SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'X-Request-ID': requestId,
+      'X-API-Version': this.apiVersion.version,
+    });
+
+    // Flush headers immediately
+    res.flushHeaders();
+
+    logger.info('SSE stream opened', {
+      requestId,
+      debateId,
+    });
+
+    // Delegate to debate service for subscription management
+    this.debateService.addSSEClient(debateId, res);
+  }
+
   /**
    * Read and parse JSON request body (max 1KB for registration).
    */
@@ -1856,12 +2335,15 @@ export async function createShadowAtlasAPI(
     syncService?: SyncService;
     signer?: ServerSigner;
     engagementService?: EngagementService;
+    officialsService?: OfficialsService;
+    debateService?: DebateService;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services
   const lookupService = new DistrictLookupService(dbPath);
 
-  // Mock proof service (replace with actual districts/addresses from DB)
+  // Dev/test factory — district lookup Merkle proofs require a real ProofService.
+  // Production wiring: the `serve` CLI command loads districts from DB/snapshot.
   const mockDistricts: DistrictBoundary[] = [];
   const mockAddresses: string[] = [];
   const proofService = await ProofService.create(mockDistricts, mockAddresses);
@@ -1890,6 +2372,8 @@ export async function createShadowAtlasAPI(
     options.registrationAuthToken ?? process.env.REGISTRATION_AUTH_TOKEN ?? null,
     options.signer ?? null,
     options.engagementService ?? null,
+    options.officialsService ?? null,
+    options.debateService ?? null,
   );
 
   return api;

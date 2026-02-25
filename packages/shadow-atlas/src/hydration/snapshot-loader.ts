@@ -9,7 +9,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { buildCellMapTree, toCellMapState, type CellDistrictMapping } from '../dual-tree-builder.js';
+import { buildCellMapTree, toCellMapState, type CellDistrictMapping } from '../tree-builder.js';
 import type { CellMapState } from '../serving/registration-service.js';
 
 /** Shape of the snapshot JSON file (version 2) */

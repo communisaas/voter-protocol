@@ -14,7 +14,7 @@
  * @packageDocumentation
  */
 
-import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from './dual-tree-builder.js';
+import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from './tree-builder.js';
 import { US_JURISDICTION } from './jurisdiction.js';
 import { downloadBAFs } from './hydration/baf-downloader.js';
 import { parseBAFFilesAsync } from './hydration/baf-parser.js';

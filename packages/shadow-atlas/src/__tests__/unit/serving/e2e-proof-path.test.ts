@@ -1,5 +1,9 @@
 /**
- * End-to-End Proof Path Test
+ * End-to-End Proof Path Test (Two-Tree Subset)
+ *
+ * NOTE: This test validates the two-tree subset of the three-tree pipeline.
+ * Trees 1 and 2 are shared by both proof paths. A three-tree e2e test
+ * should additionally exercise Tree 3 (Engagement) via EngagementService.
  *
  * Validates the complete two-tree proof pipeline:
  *   1. Build CellMapState from mock data
@@ -16,9 +20,9 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { ShadowAtlasAPI } from '../../../serving/api';
 import { RegistrationService, type CellMapState } from '../../../serving/registration-service';
-import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../dual-tree-builder';
+import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../tree-builder';
 import { generateMockMappings } from '../../../cell-district-loader';
-import type { CellDistrictMapping } from '../../../dual-tree-builder';
+import type { CellDistrictMapping } from '../../../tree-builder';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 // ============================================================================

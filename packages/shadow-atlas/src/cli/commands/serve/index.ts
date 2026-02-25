@@ -1,14 +1,19 @@
 /**
  * Shadow Atlas Serve Command
  *
- * Start the production HTTP API server with both trees and Ed25519 signing.
+ * Start the production HTTP API server with all three trees and Ed25519 signing.
+ * The three-tree architecture (User, Cell Map, Engagement) is the primary proof path.
+ * Two-tree proofs remain supported as a subset (Trees 1 + 2 only).
  */
 
 import { createShadowAtlasAPI } from '../../../serving/api.js';
 import { RegistrationService, type CellMapState } from '../../../serving/registration-service.js';
+import { OfficialsService } from '../../../serving/officials-service.js';
 import { EngagementService } from '../../../serving/engagement-service.js';
 import { SyncService } from '../../../serving/sync-service.js';
 import { ChainScanner } from '../../../serving/chain-scanner.js';
+import { DebateRelayer } from '../../../serving/relayer.js';
+import { DebateService } from '../../../serving/debate-service.js';
 import {
   EngagementTreeBuilder,
   createActionCategoryRegistry,
@@ -16,7 +21,7 @@ import {
 } from '../../../engagement-tree-builder.js';
 import { ServerSigner } from '../../../serving/signing.js';
 import { loadCellDistrictMappings } from '../../../cell-district-loader.js';
-import { buildCellMapTree, toCellMapState } from '../../../dual-tree-builder.js';
+import { buildCellMapTree, toCellMapState } from '../../../tree-builder.js';
 import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader.js';
 import { createConfiguredServices } from '../../../distribution/services/index.js';
 import { logger } from '../../../core/utils/logger.js';
@@ -242,8 +247,87 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         categoryRegistryEntries: (categoryRegistry as Map<string, number>).size,
       });
     } else {
-      logger.warn('Chain scanner not configured — engagement metrics will not auto-update. ' +
-        'Set CHAIN_RPC_URL and DISTRICT_GATE_ADDRESS to enable.');
+      logger.warn('Chain scanner not configured — Tree 3 (Engagement) metrics will not auto-update. ' +
+        'Three-tree proofs require engagement data. Set CHAIN_RPC_URL and DISTRICT_GATE_ADDRESS to enable.');
+    }
+
+    // Initialize DebateService (lightweight in-memory — always available for API endpoints)
+    const debateService = new DebateService();
+
+    // Start debate relayer + epoch keeper (optional — needs RELAYER_PRIVATE_KEY + DEBATE_MARKET_ADDRESS)
+    let debateRelayer: DebateRelayer | null = null;
+    const relayerPrivateKey = process.env.RELAYER_PRIVATE_KEY;
+    const debateMarketAddr = process.env.DEBATE_MARKET_ADDRESS;
+
+    if (chainRpcUrl && relayerPrivateKey && debateMarketAddr) {
+      debateRelayer = await DebateRelayer.create({
+        rpcUrl: chainRpcUrl,
+        privateKey: relayerPrivateKey,
+        debateMarketAddress: debateMarketAddr,
+        chainId: parseInt(process.env.CHAIN_ID || '534351', 10),
+      });
+
+      debateRelayer.start();
+      logger.info('Debate relayer + epoch keeper started', {
+        address: debateRelayer.getAddress(),
+        debateMarket: debateMarketAddr,
+      });
+    } else if (debateMarketAddr && !relayerPrivateKey) {
+      logger.warn('DEBATE_MARKET_ADDRESS set but RELAYER_PRIVATE_KEY missing — relayer disabled. ' +
+        'Users must submit trades directly.');
+    }
+
+    // Wire chain scanner debate events → DebateService + DebateRelayer (composed callback).
+    // ChainScanner supports a single debate callback, so we compose both consumers here.
+    if (chainScanner) {
+      chainScanner.setDebateEventCallback(async (events) => {
+        // Feed DebateService (in-memory state + SSE push to connected clients)
+        debateService.processEvents(events);
+
+        // Feed DebateRelayer (epoch keeper tracking)
+        if (debateRelayer) {
+          for (const event of events) {
+            if (event.type === 'EpochExecuted') {
+              // After an epoch executes the new epoch starts; epochStartTime is
+              // approximated as the event's block timestamp.
+              debateRelayer.trackDebate(
+                event.debateId,
+                event.epoch + 1,
+                event.timestamp,
+              );
+            } else if (event.type === 'DebateResolved') {
+              debateRelayer.untrackDebate(event.debateId);
+            } else if (event.type === 'TradeCommitted' && event.epoch === 0) {
+              // First commit on a new debate — register with epoch 0 starting now
+              debateRelayer.trackDebate(event.debateId, 0, event.timestamp);
+            }
+          }
+        }
+      });
+    }
+
+    // Initialize Officials Service (pre-ingested Congress data)
+    const officialsDbPath = process.env.OFFICIALS_DB_PATH || `${dataDir}/officials.db`;
+    let officialsService: OfficialsService | null = null;
+    try {
+      officialsService = new OfficialsService(officialsDbPath);
+      const count = officialsService.getMemberCount();
+      if (count > 0) {
+        logger.info('Officials service initialized', {
+          dbPath: officialsDbPath,
+          memberCount: count,
+        });
+      } else {
+        logger.warn('Officials DB exists but is empty. Run: tsx src/scripts/ingest-legislators.ts --db ' + officialsDbPath);
+        officialsService.close();
+        officialsService = null;
+      }
+    } catch (err) {
+      logger.warn('Officials service not available — /v1/officials will return 501. ' +
+        'Run ingest-legislators.ts to populate.', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      officialsService = null;
     }
 
     // Create and start API server
@@ -259,15 +343,23 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       cellMapState,
       signer,
       engagementService,
+      officialsService: officialsService ?? undefined,
+      debateService,
     });
 
     api.start();
+
+    // Start DebateService (keepalive timer for SSE connections)
+    debateService.start();
+    logger.info('Debate service started (SSE + market state)');
 
     // MED-005: Graceful shutdown — await async operations before exiting
     const shutdown = async () => {
       logger.info('Received shutdown signal, stopping server...');
       try {
+        if (debateRelayer) debateRelayer.stop();
         if (chainScanner) await chainScanner.stop();
+        if (officialsService) officialsService.close();
         await syncService.shutdown(registrationService.getInsertionLog());
         await registrationService.close();
         await engagementService.close();
@@ -276,7 +368,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
           error: err instanceof Error ? err.message : String(err),
         });
       }
-      api.stop();
+      await api.stop();
       process.exit(0);
     };
 
@@ -293,7 +385,10 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       },
       tree2: cellMapState ? 'enabled' : 'disabled',
       tree3: 'enabled',
+      officials: officialsService ? 'enabled' : 'disabled',
       chainScanner: chainScanner ? 'enabled' : 'disabled',
+      relayer: debateRelayer ? 'enabled' : 'disabled',
+      debateService: 'enabled',
       signer: 'enabled',
     });
   } catch (error) {
