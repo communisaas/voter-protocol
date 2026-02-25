@@ -9,10 +9,11 @@ import "../src/DistrictGate.sol";
 import "../src/CampaignRegistry.sol";
 import "../src/UserRootRegistry.sol";
 import "../src/CellMapRegistry.sol";
+import "../src/EngagementRootRegistry.sol";
 
 /// @title Deploy to Scroll Mainnet
 /// @notice Production deployment script for VOTER Protocol on Scroll Mainnet
-/// @dev DO NOT execute without completing MAINNET-DEPLOYMENT-CHECKLIST.md
+/// @dev DO NOT execute without completing DEPLOY-CHECKLIST.md
 ///
 /// CRITICAL PRE-DEPLOYMENT REQUIREMENTS:
 /// 1. Security audit completed and all findings addressed
@@ -27,11 +28,17 @@ import "../src/CellMapRegistry.sol";
 /// - GOVERNANCE_ADDRESS: Multisig address for governance control
 /// - ETHERSCAN_API_KEY: For contract verification on Scrollscan
 ///
-/// VERIFIER ADDRESS VARIABLES (set one or more):
-/// - VERIFIER_ADDRESS_18: Pre-deployed HonkVerifier for depth 18
-/// - VERIFIER_ADDRESS_20: Pre-deployed HonkVerifier for depth 20
-/// - VERIFIER_ADDRESS_22: Pre-deployed HonkVerifier for depth 22
-/// - VERIFIER_ADDRESS_24: Pre-deployed HonkVerifier for depth 24
+/// THREE-TREE VERIFIER ADDRESS VARIABLES (primary — set one or more):
+/// - THREE_TREE_VERIFIER_18: Pre-deployed three-tree HonkVerifier for depth 18
+/// - THREE_TREE_VERIFIER_20: Pre-deployed three-tree HonkVerifier for depth 20
+/// - THREE_TREE_VERIFIER_22: Pre-deployed three-tree HonkVerifier for depth 22
+/// - THREE_TREE_VERIFIER_24: Pre-deployed three-tree HonkVerifier for depth 24
+///
+/// TWO-TREE VERIFIER ADDRESS VARIABLES (legacy — optional):
+/// - VERIFIER_ADDRESS_18: Pre-deployed two-tree HonkVerifier for depth 18
+/// - VERIFIER_ADDRESS_20: Pre-deployed two-tree HonkVerifier for depth 20
+/// - VERIFIER_ADDRESS_22: Pre-deployed two-tree HonkVerifier for depth 22
+/// - VERIFIER_ADDRESS_24: Pre-deployed two-tree HonkVerifier for depth 24
 ///
 /// BACKWARD COMPATIBILITY:
 /// - VERIFIER_ADDRESS: (legacy) Single verifier address
@@ -46,13 +53,15 @@ import "../src/CellMapRegistry.sol";
 ///   --slow
 ///
 /// GENESIS FLOW (no timelocks — all contracts operational immediately):
-/// 1. Deploy with deployer as initial governance (7 contracts)
-/// 2. Register verifiers directly (registerVerifier — no timelock)
+/// 1. Deploy with deployer as initial governance (8 contracts)
+/// 2. Register three-tree verifiers (registerThreeTreeVerifier — primary, no timelock)
+/// 2b. Register two-tree verifiers (registerVerifier — legacy, no timelock)
 /// 3. Authorize DistrictGate on NullifierRegistry (authorizeCallerGenesis — no timelock)
 /// 4. Set CampaignRegistry on DistrictGate (setCampaignRegistryGenesis — no timelock)
 /// 5. Set UserRootRegistry + CellMapRegistry on DistrictGate (setTwoTreeRegistriesGenesis — no timelock)
+/// 5b. Set EngagementRootRegistry on DistrictGate (setEngagementRegistryGenesis — no timelock)
 /// 6. Register initial action domain (registerActionDomainGenesis — no timelock)
-/// 7. Seal genesis on all three registries (irreversible)
+/// 7. Seal genesis on all registries (irreversible)
 /// 8. Transfer governance to multisig (7-day timelock)
 ///
 /// POST-GENESIS TIMELOCKS:
@@ -191,7 +200,7 @@ contract DeployScrollMainnet is Script {
         console.log("");
         console.log("SECURITY REMINDER:");
         console.log("  - This is a MAINNET deployment with REAL FUNDS at risk");
-        console.log("  - Ensure MAINNET-DEPLOYMENT-CHECKLIST.md is complete");
+        console.log("  - Ensure DEPLOY-CHECKLIST.md is complete");
         console.log("  - All timelocks will apply - plan for 7-14 day activation");
         console.log("");
 
@@ -205,22 +214,22 @@ contract DeployScrollMainnet is Script {
         // Deployer registers verifiers directly, then seals genesis + transfers governance
 
         // 1. Deploy DistrictRegistry
-        console.log("[1/7] Deploying DistrictRegistry...");
+        console.log("[1/8] Deploying DistrictRegistry...");
         DistrictRegistry districtRegistry = new DistrictRegistry(deployer);
         console.log("      DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
-        console.log("[2/7] Deploying NullifierRegistry...");
+        console.log("[2/8] Deploying NullifierRegistry...");
         NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer);
         console.log("      NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy VerifierRegistry
-        console.log("[3/7] Deploying VerifierRegistry...");
+        console.log("[3/8] Deploying VerifierRegistry...");
         VerifierRegistry verifierRegistry = new VerifierRegistry(deployer);
         console.log("      VerifierRegistry deployed at:", address(verifierRegistry));
 
         // 4. Deploy DistrictGate
-        console.log("[4/7] Deploying DistrictGate...");
+        console.log("[4/8] Deploying DistrictGate...");
         DistrictGate gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
@@ -230,19 +239,24 @@ contract DeployScrollMainnet is Script {
         console.log("      DistrictGate deployed at:", address(gate));
 
         // 5. Deploy CampaignRegistry
-        console.log("[5/7] Deploying CampaignRegistry...");
+        console.log("[5/8] Deploying CampaignRegistry...");
         CampaignRegistry campaignRegistry = new CampaignRegistry(deployer);
         console.log("      CampaignRegistry deployed at:", address(campaignRegistry));
 
         // 6. Deploy UserRootRegistry (Tree 1)
-        console.log("[6/7] Deploying UserRootRegistry...");
+        console.log("[6/8] Deploying UserRootRegistry...");
         UserRootRegistry userRootRegistry = new UserRootRegistry(deployer);
         console.log("      UserRootRegistry deployed at:", address(userRootRegistry));
 
         // 7. Deploy CellMapRegistry (Tree 2)
-        console.log("[7/7] Deploying CellMapRegistry...");
+        console.log("[7/8] Deploying CellMapRegistry...");
         CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer);
         console.log("      CellMapRegistry deployed at:", address(cellMapRegistry));
+
+        // 8. Deploy EngagementRootRegistry (Tree 3 — three-tree primary)
+        console.log("[8/8] Deploying EngagementRootRegistry...");
+        EngagementRootRegistry engagementRootRegistry = new EngagementRootRegistry(deployer);
+        console.log("      EngagementRootRegistry deployed at:", address(engagementRootRegistry));
 
         // =====================================================================
         // Genesis Configuration (direct — no timelocks)
@@ -279,12 +293,20 @@ contract DeployScrollMainnet is Script {
         gate.setCampaignRegistryGenesis(address(campaignRegistry));
         console.log("  - Setting two-tree registries on DistrictGate (ACTIVE IMMEDIATELY)");
         gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        console.log("  - Setting EngagementRootRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
+        gate.setEngagementRegistryGenesis(address(engagementRootRegistry));
 
         // Register a default action domain (bytes32(uint256(100)))
         // This matches the ACTION_DOMAIN used in E2E proof tests
         bytes32 defaultActionDomain = bytes32(uint256(100));
         console.log("  - Registering default action domain (ACTIVE IMMEDIATELY)");
         gate.registerActionDomainGenesis(defaultActionDomain);
+
+        // --- DebateMarket deriver authorization ---
+        // When DebateMarket is deployed, authorize it as a derived-domain deriver:
+        //   DebateMarket debateMarket = new DebateMarket(address(gate), address(stakingToken), deployer);
+        //   console.log("  - Authorizing DebateMarket as derived-domain deriver (ACTIVE IMMEDIATELY)");
+        //   gate.authorizeDeriverGenesis(address(debateMarket));
 
         console.log("  - Sealing DistrictGate genesis (irreversible)");
         gate.sealGenesis();
@@ -299,6 +321,7 @@ contract DeployScrollMainnet is Script {
             campaignRegistry.initiateGovernanceTransfer(governanceTarget);
             userRootRegistry.initiateGovernanceTransfer(governanceTarget);
             cellMapRegistry.initiateGovernanceTransfer(governanceTarget);
+            engagementRootRegistry.initiateGovernanceTransfer(governanceTarget);
         }
 
         vm.stopBroadcast();
@@ -313,13 +336,14 @@ contract DeployScrollMainnet is Script {
         console.log("============================================================");
         console.log("");
         console.log("Contract Addresses:");
-        console.log("  DistrictRegistry:   ", address(districtRegistry));
-        console.log("  NullifierRegistry:  ", address(nullifierRegistry));
-        console.log("  VerifierRegistry:   ", address(verifierRegistry));
-        console.log("  DistrictGate:       ", address(gate));
-        console.log("  CampaignRegistry:   ", address(campaignRegistry));
-        console.log("  UserRootRegistry:   ", address(userRootRegistry));
-        console.log("  CellMapRegistry:    ", address(cellMapRegistry));
+        console.log("  DistrictRegistry:        ", address(districtRegistry));
+        console.log("  NullifierRegistry:       ", address(nullifierRegistry));
+        console.log("  VerifierRegistry:        ", address(verifierRegistry));
+        console.log("  DistrictGate:            ", address(gate));
+        console.log("  CampaignRegistry:        ", address(campaignRegistry));
+        console.log("  UserRootRegistry:        ", address(userRootRegistry));
+        console.log("  CellMapRegistry:         ", address(cellMapRegistry));
+        console.log("  EngagementRootRegistry:  ", address(engagementRootRegistry));
         console.log("");
         console.log("Genesis Status:");
         for (uint256 i = 0; i < registeredDepths.length; i++) {
@@ -328,7 +352,7 @@ contract DeployScrollMainnet is Script {
         }
         console.log("  VerifierRegistry genesis:   SEALED");
         console.log("  NullifierRegistry genesis:  SEALED (DistrictGate authorized)");
-        console.log("  DistrictGate genesis:       SEALED (CampaignRegistry + TwoTree registries + action domain)");
+        console.log("  DistrictGate genesis:       SEALED (CampaignRegistry + registries + action domain)");
         console.log("");
         console.log("  ==> ALL CONTRACTS FULLY OPERATIONAL - NO TIMELOCKS PENDING");
         console.log("");
@@ -339,7 +363,7 @@ contract DeployScrollMainnet is Script {
             console.log("");
             console.log("  AFTER 7 DAYS - Execute governance transfer:");
             console.log("  *.executeGovernanceTransfer(", governanceTarget, ")");
-            console.log("  (call on all 7 contracts)");
+            console.log("  (call on all 8 contracts)");
             console.log("");
         }
         console.log("ONGOING - Register districts (no timelock, governance only):");
@@ -371,7 +395,7 @@ contract DeployScrollMainnet is Script {
         console.log("4. Set up event monitoring for governance actions");
         console.log("5. Document all deployed addresses in version control");
         console.log("");
-        console.log("For full checklist, see: MAINNET-DEPLOYMENT-CHECKLIST.md");
+        console.log("For full checklist, see: DEPLOY-CHECKLIST.md");
         console.log("============================================================");
     }
 

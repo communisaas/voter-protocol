@@ -15,19 +15,26 @@ import "../src/IDebateWeightVerifier.sol";
 import "../src/IPositionNoteVerifier.sol";
 import "../src/IAIEvaluationRegistry.sol";
 
-/// @title Deploy V5 to Scroll Sepolia — Full Stack with DebateMarket
+/// @title Deploy V6 to Scroll Sepolia — Full Stack with DebateMarket (R-01 + F9)
 /// @notice Fresh genesis deployment including three-tree registries + DebateMarket.
-///         Supersedes v4 deployment (7 contracts) with 10 contracts + 3 mocks.
+///         Supersedes v5 deployment with updated DebateMarket interface.
 ///
 /// PURPOSE: End-to-end testnet debugging of the full debate flow.
 ///          Uses mock verifiers and mock ERC-20 — not production.
 ///
-/// WHAT'S NEW vs v4 (DeployScrollSepolia.s.sol):
-///   - EngagementRootRegistry (Tree 3 — required for three-tree proofs)
-///   - MockERC20 (staking token for DebateMarket)
-///   - MockDebateWeightVerifier + MockPositionNoteVerifier (always-pass)
-///   - DebateMarket (staked deliberation protocol)
-///   - DebateMarket authorized as derived-domain deriver during genesis
+/// WHAT'S NEW vs v5 (DeploySepoliaV5.s.sol):
+///   - DebateMarket now requires `address beneficiary` as last param on submitArgument()
+///     and coSignArgument() — fixes R-01 (relayer-submitted tx token routing).
+///   - DebateMarket now has sweepAppealBond(bytes32 debateId, address appealer) — F9 fix.
+///   - DebateMarket now has `mapping(bytes32 => bool) public appealFinalized` state.
+///   - StakeRecord struct has 6 fields: argumentIndex, stakeAmount, engagementTier,
+///     claimed, submitter, beneficiary.
+///   - Deployer receives 10M tUSDC (up from 1M) for broader testnet coverage.
+///
+/// NOTE: Real DebateWeightVerifier.sol and PositionNoteVerifier.sol exist (generated
+///       via bb.js getSolidityVerifier()) but are NOT used here — real verifiers require
+///       real UltraHonk proofs which are tested in a separate cycle. Mock always-pass
+///       verifiers are retained for end-to-end flow testing without proof generation.
 ///
 /// ENVIRONMENT VARIABLES:
 ///   PRIVATE_KEY             — Deployer private key (funded with Scroll Sepolia ETH)
@@ -35,9 +42,9 @@ import "../src/IAIEvaluationRegistry.sol";
 ///
 /// USAGE:
 ///   cd contracts
-///   forge script script/DeploySepoliaV5.s.sol:DeploySepoliaV5 \
+///   forge script script/DeploySepoliaV6.s.sol:DeploySepoliaV6 \
 ///     --rpc-url scroll_sepolia --private-key $PRIVATE_KEY --broadcast --verify --slow
-contract DeploySepoliaV5 is Script {
+contract DeploySepoliaV6 is Script {
     uint256 constant SCROLL_SEPOLIA_CHAIN_ID = 534351;
 
     function run() external {
@@ -50,14 +57,23 @@ contract DeploySepoliaV5 is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Resolve verifier address (at least depth 20 required)
-        address verifier20 = _tryEnvAddress("VERIFIER_ADDRESS_20");
-        if (verifier20 == address(0)) {
-            verifier20 = _tryEnvAddress("VERIFIER_ADDRESS");
+        // If MOCK_HONK_VERIFIER=1 is set, deploy an always-pass mock instead of using a real verifier.
+        // This is required for E2E testing with dummy proofs.
+        address verifier20;
+        bool useMockHonkVerifier = _tryEnvBool("MOCK_HONK_VERIFIER");
+        if (useMockHonkVerifier) {
+            verifier20 = address(0); // will be deployed below after startBroadcast
+        } else {
+            verifier20 = _tryEnvAddress("VERIFIER_ADDRESS_20");
+            if (verifier20 == address(0)) {
+                verifier20 = _tryEnvAddress("VERIFIER_ADDRESS");
+            }
+            require(verifier20 != address(0), "Set VERIFIER_ADDRESS_20, VERIFIER_ADDRESS, or MOCK_HONK_VERIFIER=1");
         }
-        require(verifier20 != address(0), "Set VERIFIER_ADDRESS_20 or VERIFIER_ADDRESS");
 
         console.log("============================================================");
-        console.log("  SCROLL SEPOLIA V5 - FULL STACK WITH DEBATE MARKET");
+        console.log("  SCROLL SEPOLIA V6 - FULL STACK WITH DEBATE MARKET");
+        console.log("  (R-01 beneficiary fix + F9 sweepAppealBond)");
         console.log("============================================================");
         console.log("");
         console.log("Deployer:", deployer);
@@ -66,8 +82,15 @@ contract DeploySepoliaV5 is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        // Deploy mock HonkVerifier if requested (for E2E testing with dummy proofs)
+        if (useMockHonkVerifier) {
+            MockHonkVerifier mockHonk = new MockHonkVerifier();
+            verifier20 = address(mockHonk);
+            console.log("MockHonkVerifier (always-pass):", verifier20);
+        }
+
         // =====================================================================
-        // Core Registries (same as v4)
+        // Core Registries (same as v5)
         // =====================================================================
 
         console.log("[1/10] DistrictRegistry...");
@@ -104,7 +127,7 @@ contract DeploySepoliaV5 is Script {
         console.log("        ", address(cellMapRegistry));
 
         // =====================================================================
-        // NEW: Three-Tree + Debate Infrastructure
+        // Three-Tree + Debate Infrastructure
         // =====================================================================
 
         console.log("[8/10] EngagementRootRegistry...");
@@ -115,6 +138,10 @@ contract DeploySepoliaV5 is Script {
         MockERC20 stakingToken = new MockERC20("Test USDC", "tUSDC", 6);
         console.log("         MockERC20 (tUSDC):", address(stakingToken));
 
+        // Mock verifiers: always-pass, testnet only.
+        // Interface: verify(bytes calldata proof, bytes32[] calldata publicInputs) external returns (bool)
+        // Real DebateWeightVerifier.sol and PositionNoteVerifier.sol (bb.js-generated) are
+        // NOT used here — they require real UltraHonk proofs (separate cycle).
         MockDebateWeightVerifier dwVerifier = new MockDebateWeightVerifier();
         console.log("         MockDebateWeightVerifier:", address(dwVerifier));
 
@@ -124,6 +151,15 @@ contract DeploySepoliaV5 is Script {
         MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
         console.log("         MockAIEvaluationRegistry:", address(aiRegistry));
 
+        // DebateMarket constructor (unchanged from v5):
+        //   (address _districtGate, address _stakingToken, address _debateWeightVerifier,
+        //    address _positionNoteVerifier, address _aiRegistry, address _governance)
+        //
+        // The updated DebateMarket (v6) adds:
+        //   - address beneficiary param to submitArgument() and coSignArgument() [R-01]
+        //   - sweepAppealBond(bytes32 debateId, address appealer) function [F9]
+        //   - mapping(bytes32 => bool) public appealFinalized state
+        //   - 6-field StakeRecord struct (added address beneficiary)
         console.log("[10/10] DebateMarket...");
         DebateMarket debateMarket = new DebateMarket(
             address(gate),
@@ -142,9 +178,11 @@ contract DeploySepoliaV5 is Script {
         console.log("");
         console.log("Genesis configuration...");
 
-        // VerifierRegistry
-        console.log("  - Registering verifier depth 20");
+        // VerifierRegistry — register both two-tree (legacy) and three-tree (primary)
+        console.log("  - Registering two-tree verifier depth 20");
         verifierRegistry.registerVerifier(20, verifier20);
+        console.log("  - Registering three-tree verifier depth 20");
+        verifierRegistry.registerThreeTreeVerifier(20, verifier20);
         console.log("  - Sealing VerifierRegistry genesis");
         verifierRegistry.sealGenesis();
 
@@ -176,9 +214,9 @@ contract DeploySepoliaV5 is Script {
         console.log("  - Sealing DistrictGate genesis");
         gate.sealGenesis();
 
-        // Mint test tokens to deployer (1M tUSDC)
-        console.log("  - Minting 1M tUSDC to deployer");
-        stakingToken.mint(deployer, 1_000_000e6);
+        // Mint test tokens to deployer (10M tUSDC — increased from 1M in v5 for broader testnet coverage)
+        console.log("  - Minting 10M tUSDC to deployer");
+        stakingToken.mint(deployer, 10_000_000e6);
 
         vm.stopBroadcast();
 
@@ -188,7 +226,8 @@ contract DeploySepoliaV5 is Script {
 
         console.log("");
         console.log("============================================================");
-        console.log("  V5 DEPLOYMENT COMPLETE - SCROLL SEPOLIA");
+        console.log("  V6 DEPLOYMENT COMPLETE - SCROLL SEPOLIA");
+        console.log("  (R-01 beneficiary fix + F9 sweepAppealBond)");
         console.log("============================================================");
         console.log("");
         console.log("Core:");
@@ -210,7 +249,7 @@ contract DeploySepoliaV5 is Script {
         console.log("Genesis: ALL SEALED");
         console.log("  DebateMarket authorized as deriver: YES");
         console.log("  EngagementRootRegistry wired: YES");
-        console.log("  Deployer minted 1M tUSDC");
+        console.log("  Deployer minted 10M tUSDC");
         console.log("");
         console.log("Update .env with these addresses:");
         console.log("  DISTRICT_GATE_ADDRESS=", address(gate));
@@ -231,6 +270,14 @@ contract DeploySepoliaV5 is Script {
             return addr;
         } catch {
             return address(0);
+        }
+    }
+
+    function _tryEnvBool(string memory envVar) internal view returns (bool) {
+        try vm.envBool(envVar) returns (bool val) {
+            return val;
+        } catch {
+            return false;
         }
     }
 }
@@ -287,7 +334,19 @@ contract MockERC20 {
     }
 }
 
+/// @notice Mock HonkVerifier — always returns true (testnet only)
+/// @dev Same interface as the real HonkVerifier generated by bb.js getSolidityVerifier().
+///      Used when MOCK_HONK_VERIFIER=true to enable E2E testing with dummy proofs.
+contract MockHonkVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return true;
+    }
+}
+
 /// @notice Mock debate_weight verifier — always returns true (testnet only)
+/// @dev Implements IDebateWeightVerifier: verify(bytes calldata, bytes32[] calldata) external returns (bool)
+///      `pure` satisfies the `view` mutability in the interface (more restrictive is compatible).
+///      The real DebateWeightVerifier.sol (bb.js getSolidityVerifier()) uses the same signature.
 contract MockDebateWeightVerifier is IDebateWeightVerifier {
     function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;
@@ -295,6 +354,9 @@ contract MockDebateWeightVerifier is IDebateWeightVerifier {
 }
 
 /// @notice Mock position_note verifier — always returns true (testnet only)
+/// @dev Implements IPositionNoteVerifier: verify(bytes calldata, bytes32[] calldata) external returns (bool)
+///      `pure` satisfies the `view` mutability in the interface (more restrictive is compatible).
+///      The real PositionNoteVerifier.sol (bb.js getSolidityVerifier()) uses the same signature.
 contract MockPositionNoteVerifier is IPositionNoteVerifier {
     function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
         return true;

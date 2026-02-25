@@ -8,8 +8,8 @@ Solidity contracts for on-chain verification of browser-generated Noir/Barretenb
 
 **DistrictGate.sol** — Main verification entry point
 - Verifies UltraHonk proofs via VerifierRegistry (~2.2M gas on Scroll)
-- Two-tree path: 29 public inputs (user root, cell map root, district commitment, nullifier, etc.)
-- Three-tree path: 31 public inputs (adds engagement root + engagement tier)
+- Three-tree path (primary): 31 public inputs (user root, cell map root, districts, nullifier, action domain, authority level, engagement root, engagement tier)
+- Legacy two-tree path: 29 public inputs (no engagement data)
 - EIP-712 signatures for MEV protection (separate typehashes per proof path)
 - Governance-whitelisted action domains with genesis + timelock model
 - Delegates nullifier recording to NullifierRegistry, participation to CampaignRegistry
@@ -152,8 +152,8 @@ Uses bb.js `UltraHonkBackend.getSolidityVerifier()` in keccak mode. Do NOT use `
 
 ## References
 
-- [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) — Canonical circuit and contract architecture
-- [REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md) — Three-tree engagement system
+- [REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md) — Three-tree engagement architecture (canonical)
+- [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) — Legacy two-tree circuit and contract reference
 - [Noir Documentation](https://noir-lang.org/)
 - [Foundry Book](https://book.getfoundry.sh/)
 - [Scroll L2 Docs](https://docs.scroll.io/)
