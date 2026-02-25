@@ -1,4 +1,6 @@
 /**
+ * Legacy two-tree golden vectors — hash primitives are shared with three-tree.
+ *
  * Two-Tree Membership Circuit - Cross-Language Golden Test Vectors
  *
  * PURPOSE:

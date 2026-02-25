@@ -258,6 +258,59 @@ export class Poseidon2Hasher {
   }
 
   /**
+   * Hash three field elements with a caller-supplied domain tag.
+   *
+   * State layout: [a, b, c, domainTag]
+   *
+   * INTENDED USE: Position-note circuits that require domain tags distinct from
+   * the standard H2M/H3M/H4M set. Specifically:
+   *   - DOMAIN_POS_COMMIT (0x50434d "PCM"): position commitment hash
+   *   - DOMAIN_POS_NUL    (0x504e4c "PNL"): position nullifier hash
+   *
+   * This method exposes the raw 3-input + domain-tag permutation so that new
+   * circuits can introduce custom domain tags without modifying hash2/hash3/hash4.
+   *
+   * SECURITY: The caller is responsible for ensuring domainTag does not collide
+   * with any other domain tag in the protocol (H1M/H2M/H3M/H4M, SONGE_24, etc.).
+   *
+   * CROSS-CIRCUIT PARITY: Must match the Noir circuit's poseidon2_permutation
+   * call with state = [a, b, c, domainTag].
+   *
+   * @param a - First input
+   * @param b - Second input
+   * @param c - Third input
+   * @param domainTag - Custom domain separation tag (caller-controlled)
+   * @returns Poseidon2 hash as bigint
+   */
+  async hashWithCustomDomain3(
+    a: bigint | string,
+    b: bigint | string,
+    c: bigint | string,
+    domainTag: bigint,
+  ): Promise<bigint> {
+    if (domainTag >= Poseidon2Hasher.BN254_MODULUS) {
+      throw new Error(`domainTag exceeds BN254 field modulus: ${domainTag}`);
+    }
+
+    const inputs = [
+      this.toHex(a),
+      this.toHex(b),
+      this.toHex(c),
+      this.toHex(domainTag),
+    ];
+
+    const result = await this.noir.execute({ inputs });
+    const returnValue = (result as { returnValue?: string }).returnValue ??
+      (result as { return_value?: string }).return_value;
+
+    if (!returnValue) {
+      throw new Error('Noir circuit returned no value');
+    }
+
+    return BigInt(returnValue);
+  }
+
+  /**
    * Hash four field elements using 2-round Poseidon2 sponge (BR5-001).
    *
    * Matches Noir circuit poseidon2_hash4:

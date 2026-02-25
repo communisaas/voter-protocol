@@ -1,4 +1,6 @@
 /**
+ * Legacy two-tree E2E pipeline — see three-tree-golden-vectors.test.ts for primary path.
+ *
  * Two-Tree Architecture E2E Integration Test
  *
  * Validates the full cross-package computation pipeline:
@@ -8,13 +10,13 @@
  * WITHOUT running the actual Noir circuit (which requires full BB compilation).
  * It verifies that all cryptographic building blocks connect correctly:
  *
- * 1. User leaf computation: hash3(user_secret, cell_id, salt)
+ * 1. User leaf computation: hash4(user_secret, cell_id, registration_salt, authority_level)
  * 2. District commitment: poseidon2Sponge(districts[24])
  * 3. Cell map leaf: hashPair(cell_id, district_commitment)
  * 4. User tree (standard Merkle): built with hashPair for internal nodes
  * 5. Cell map tree (SMT): built with SparseMerkleTree
- * 6. Nullifier computation: hashPair(user_secret, action_domain)
- * 7. Authority level validation: [1, 5]
+ * 6. Nullifier computation: hashPair(identity_commitment, action_domain) — NUL-001
+ * 7. Authority level validation: [1, 5] with BA-007 truncation guard
  *
  * Cross-references:
  * - Circuit: packages/crypto/noir/two_tree_membership/src/main.nr
@@ -27,7 +29,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import {
   Poseidon2Hasher,
   hashPair,
-  hash3,
+  hash4,
   poseidon2Sponge,
 } from '../poseidon2';
 import {
@@ -200,8 +202,8 @@ describe('Two-Tree Architecture E2E Integration', () => {
     const districts = generateDistrictSet(1);
 
     // STEP 2: Compute user leaf (Tree 1 leaf)
-    // Circuit: user_leaf = poseidon2_hash3(user_secret, cell_id, registration_salt)
-    const userLeaf = await hash3(userSecret, cellId, salt);
+    // Circuit: user_leaf = poseidon2_hash4(user_secret, cell_id, registration_salt, authority_level)
+    const userLeaf = await hash4(userSecret, cellId, salt, authorityLevel);
     expect(typeof userLeaf).toBe('bigint');
     expect(userLeaf).not.toBe(0n);
 
@@ -244,8 +246,8 @@ describe('Two-Tree Architecture E2E Integration', () => {
 
     // STEP 8: Verify all circuit constraints would be satisfied
 
-    // Constraint 1: User leaf recomputed from secret
-    const recomputedUserLeaf = await hasher.hash3(userSecret, cellId, salt);
+    // Constraint 1: User leaf recomputed from secret + authority level
+    const recomputedUserLeaf = await hasher.hash4(userSecret, cellId, salt, authorityLevel);
     expect(recomputedUserLeaf).toBe(userLeaf);
 
     // Constraint 2: User Merkle proof verifies against user_root
@@ -297,10 +299,10 @@ describe('Two-Tree Architecture E2E Integration', () => {
     const districts = generateDistrictSet(1);
 
     // User 1
-    const userLeaf1 = await hash3(USER_SECRET_1, cellId, SALT_1);
+    const userLeaf1 = await hash4(USER_SECRET_1, cellId, SALT_1, AUTHORITY_LEVEL);
 
     // User 2 (different secret and salt, same cell)
-    const userLeaf2 = await hash3(USER_SECRET_2, cellId, SALT_2);
+    const userLeaf2 = await hash4(USER_SECRET_2, cellId, SALT_2, AUTHORITY_LEVEL);
 
     // User leaves must be different (different secrets + salts)
     expect(userLeaf1).not.toBe(userLeaf2);
@@ -396,8 +398,8 @@ describe('Two-Tree Architecture E2E Integration', () => {
     expect(proofSF.value).not.toBe(proofNY.value);
 
     // User leaves also differ (different cell_id bindings)
-    const userLeafSF = await hash3(USER_SECRET_1, cellIdSF, SALT_1);
-    const userLeafNY = await hash3(USER_SECRET_1, cellIdNY, SALT_1);
+    const userLeafSF = await hash4(USER_SECRET_1, cellIdSF, SALT_1, AUTHORITY_LEVEL);
+    const userLeafNY = await hash4(USER_SECRET_1, cellIdNY, SALT_1, AUTHORITY_LEVEL);
     expect(userLeafSF).not.toBe(userLeafNY);
   });
 
@@ -452,9 +454,9 @@ describe('Two-Tree Architecture E2E Integration', () => {
     const cellId = CELL_ID_SF;
     const salt = SALT_1;
 
-    // hash3 with zero secret still produces a valid field element
+    // hash4 with zero secret still produces a valid field element
     // (the hash function itself doesn't reject zero inputs)
-    const leafWithZeroSecret = await hash3(zeroSecret, cellId, salt);
+    const leafWithZeroSecret = await hash4(zeroSecret, cellId, salt, AUTHORITY_LEVEL);
     expect(typeof leafWithZeroSecret).toBe('bigint');
     expect(leafWithZeroSecret).not.toBe(0n); // hash output is non-zero
 
@@ -476,7 +478,7 @@ describe('Two-Tree Architecture E2E Integration', () => {
     // accepts a zero secret, the circuit will reject the proof.
 
     // Verify the zero-secret leaf is DIFFERENT from a non-zero-secret leaf
-    const normalLeaf = await hash3(USER_SECRET_1, cellId, salt);
+    const normalLeaf = await hash4(USER_SECRET_1, cellId, salt, AUTHORITY_LEVEL);
     expect(leafWithZeroSecret).not.toBe(normalLeaf);
   });
 
@@ -524,8 +526,8 @@ describe('Two-Tree Architecture E2E Integration', () => {
     const commitmentNY = await poseidon2Sponge(districtsNY);
 
     // Compute user leaves
-    const userLeafSF = await hash3(USER_SECRET_1, CELL_ID_SF, SALT_1);
-    const userLeafNY = await hash3(USER_SECRET_2, CELL_ID_NY, SALT_2);
+    const userLeafSF = await hash4(USER_SECRET_1, CELL_ID_SF, SALT_1, AUTHORITY_LEVEL);
+    const userLeafNY = await hash4(USER_SECRET_2, CELL_ID_NY, SALT_2, AUTHORITY_LEVEL);
 
     // Compute cell map leaves
     const cellMapLeafSF = await hashPair(CELL_ID_SF, commitmentSF);

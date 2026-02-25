@@ -1,4 +1,6 @@
 /**
+ * @deprecated Legacy two-tree prover. Use ThreeTreeNoirProver from three-tree-prover.ts.
+ *
  * TwoTreeNoirProver - ZK prover for the two-tree architecture
  *
  * Proves that a user belongs to a geographic cell (Tree 1) that maps to a
@@ -146,6 +148,10 @@ function toHex(value: bigint): string {
 // TwoTreeNoirProver
 // ============================================================================
 
+/**
+ * @deprecated Use ThreeTreeNoirProver from three-tree-prover.ts.
+ * The two-tree prover lacks engagement tree support.
+ */
 export class TwoTreeNoirProver {
     private backend: UltraHonkBackend | null = null;
     private noir: Noir | null = null;
@@ -593,6 +599,7 @@ const twoTreeInitPromises: Map<CircuitDepth, Promise<TwoTreeNoirProver>> = new M
  * Get or create a TwoTreeNoirProver instance for the specified depth.
  * Safe for concurrent calls - deduplicates initialization per depth.
  *
+ * @deprecated Use getThreeTreeProverForDepth from three-tree-prover.ts.
  * @param depth - Circuit depth (18, 20, 22, or 24). Defaults to 20.
  * @param config - Optional prover configuration (threads, etc.)
  */
@@ -639,6 +646,8 @@ export async function getTwoTreeProverForDepth(
 
 /**
  * Reset all two-tree singleton instances (for testing or page unload).
+ *
+ * @deprecated Use resetThreeTreeProverSingleton from three-tree-prover.ts.
  */
 export async function resetTwoTreeProverSingleton(): Promise<void> {
     const destroyPromises = Array.from(twoTreeProverInstances.values()).map(
@@ -653,6 +662,7 @@ export async function resetTwoTreeProverSingleton(): Promise<void> {
 /**
  * Reset a specific depth's two-tree singleton instance.
  *
+ * @deprecated Use resetThreeTreeProverForDepth from three-tree-prover.ts.
  * @param depth - Circuit depth to reset
  */
 export async function resetTwoTreeProverForDepth(depth: CircuitDepth): Promise<void> {

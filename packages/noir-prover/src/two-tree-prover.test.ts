@@ -1,5 +1,8 @@
 /**
- * TwoTreeNoirProver Unit Tests
+ * Legacy TwoTreeNoirProver tests.
+ *
+ * These tests cover the deprecated two-tree prover. For the primary three-tree
+ * prover tests, see three-tree-prover.test.ts.
  *
  * Tests the two-tree ZK proving infrastructure with the two_tree_membership circuit.
  *

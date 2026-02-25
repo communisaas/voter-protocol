@@ -1,0 +1,5 @@
+[package]
+name = "position_note"
+authors = ["voter-protocol team"]
+version = "0.1.0"
+type = "bin"

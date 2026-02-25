@@ -1,0 +1,5 @@
+[package]
+name = "debate_weight"
+authors = ["voter-protocol team"]
+version = "0.1.0"
+type = "bin"

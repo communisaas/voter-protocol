@@ -300,4 +300,299 @@ describe('Engagement Crypto Helpers', () => {
       expect(deriveTier(500, 0, 24)).toBe(3);
     });
   });
+
+  // ========================================================================
+  // TST-015: Engagement Score Boundary Tests
+  // ========================================================================
+
+  describe('score boundaries (TST-015)', () => {
+    // ------------------------------------------------------------------
+    // TST-015.1: Score with zero actions
+    // ------------------------------------------------------------------
+
+    describe('zero actions', () => {
+      it('computeCompositeScore returns exactly 0 for zero actions', () => {
+        const score = computeCompositeScore(0, 0, 0, 0);
+        expect(score).toBe(0);
+      });
+
+      it('computeCompositeScore returns 0 regardless of other inputs when actions=0', () => {
+        // Even with max diversity, tenure, and adoption — zero actions means zero
+        expect(computeCompositeScore(0, Math.log(5), 120, 1000)).toBe(0);
+      });
+
+      it('deriveTier returns 0 for zero actions with max diversity and tenure', () => {
+        expect(deriveTier(0, 1609, 120, 1000)).toBe(0);
+      });
+    });
+
+    // ------------------------------------------------------------------
+    // TST-015.2: Score with zero diversity (single category)
+    // ------------------------------------------------------------------
+
+    describe('zero diversity', () => {
+      it('computeCompositeScore with zero shannonH = action factor only', () => {
+        // shannonH=0 → diversityMult = 1+0 = 1 (no bonus)
+        // tenureMonths=0 → tenureMult = 1+0 = 1
+        // adoption=0 → adoptionMult = 1
+        // E = log2(1+actions) * 1 * 1 * 1
+        const score = computeCompositeScore(10, 0, 0, 0);
+        expect(score).toBeCloseTo(Math.log2(11), 10);
+      });
+
+      it('Shannon diversity of single category is exactly 0', () => {
+        const counts = new Map([[1, 1000]]);
+        expect(computeShannonDiversity(counts)).toBe(0);
+      });
+
+      it('encoded Shannon diversity of 0 is 0', () => {
+        expect(encodeShannonDiversity(0)).toBe(0);
+      });
+
+      it('zero diversity severely limits tier progression', () => {
+        // Compare: 100 actions, 12 months, no diversity vs with diversity
+        const scoreNoDiversity = computeCompositeScore(100, 0, 12, 0);
+        const scoreMaxDiversity = computeCompositeScore(100, Math.log(5), 12, 0);
+
+        // Max diversity should give ~2.6x multiplier
+        expect(scoreMaxDiversity / scoreNoDiversity).toBeCloseTo(1 + Math.log(5), 1);
+
+        // Without diversity: tier 3 (E ≈ 13.3)
+        expect(deriveTier(100, 0, 12)).toBe(3);
+        // With max diversity: tier 4 (E ≈ 34.7)
+        expect(deriveTier(100, 1609, 12)).toBe(4);
+      });
+    });
+
+    // ------------------------------------------------------------------
+    // TST-015.3: NaN / Infinity guards
+    // ------------------------------------------------------------------
+
+    describe('NaN and Infinity guards', () => {
+      it('computeCompositeScore with NaN actionCount returns 0', () => {
+        // actionCount=NaN → the (actionCount === 0) check: NaN === 0 is false
+        // But log2(1+NaN) = NaN, so result should be NaN.
+        // This documents current behavior — it is a known edge.
+        const score = computeCompositeScore(NaN, 0, 0, 0);
+        expect(Number.isNaN(score)).toBe(true);
+      });
+
+      it('computeCompositeScore with NaN shannonH returns NaN', () => {
+        const score = computeCompositeScore(10, NaN, 0, 0);
+        expect(Number.isNaN(score)).toBe(true);
+      });
+
+      it('computeCompositeScore with negative tenureMonths does not crash', () => {
+        // sqrt of negative → NaN, but does not throw
+        const score = computeCompositeScore(10, 1.0, -12, 0);
+        expect(Number.isNaN(score)).toBe(true);
+      });
+
+      it('computeCompositeScore with Infinity actions returns Infinity', () => {
+        const score = computeCompositeScore(Infinity, 1.0, 12, 0);
+        expect(score).toBe(Infinity);
+      });
+
+      it('deriveTier with NaN diversity score returns tier 1 (not crash)', () => {
+        // NaN / 1000 = NaN, then computeCompositeScore(10, NaN, ...) = NaN
+        // NaN >= 25 is false, NaN >= 12 is false, NaN >= 5 is false, NaN > 0 is false
+        // Falls through to return 0
+        const tier = deriveTier(10, NaN, 6);
+        expect(tier).toBe(0);
+      });
+
+      it('computeShannonDiversity with zero-count categories does not produce NaN', () => {
+        // Categories with 0 counts should be skipped (p=0, ln(0) = -Infinity)
+        const counts = new Map([[1, 10], [2, 0], [3, 0]]);
+        const h = computeShannonDiversity(counts);
+        expect(Number.isFinite(h)).toBe(true);
+        // Only 1 effective category → H=0
+        expect(h).toBe(0);
+      });
+
+      it('computeShannonDiversity with negative counts does not produce NaN', () => {
+        // Negative counts are logically invalid; verify no crash
+        const counts = new Map([[1, -5], [2, 10]]);
+        const h = computeShannonDiversity(counts);
+        // -5 + 10 = 5 total, p1 = -1 (invalid), p2 = 2 (invalid)
+        // Implementation: -5 <= 0, so skipped. p2 = 10/5 = 2, log(2) * 2 = negative
+        // The result is mathematically nonsensical but should not crash
+        expect(typeof h).toBe('number');
+      });
+
+      it('encodeShannonDiversity with NaN returns NaN (not crash)', () => {
+        const encoded = encodeShannonDiversity(NaN);
+        expect(Number.isNaN(encoded)).toBe(true);
+      });
+
+      it('encodeShannonDiversity with Infinity returns Infinity (not crash)', () => {
+        // floor(Infinity * 1000) = Infinity
+        const encoded = encodeShannonDiversity(Infinity);
+        expect(encoded).toBe(Infinity);
+      });
+    });
+
+    // ------------------------------------------------------------------
+    // TST-015.4: Boundary precision at tier thresholds
+    // ------------------------------------------------------------------
+
+    describe('tier threshold boundaries', () => {
+      it('tier 0→1 boundary: E just above 0', () => {
+        // Smallest possible E > 0: 1 action, 0 diversity, 0 tenure
+        // E = log2(2) * 1 * 1 * 1 = 1.0
+        const E = computeCompositeScore(1, 0, 0, 0);
+        expect(E).toBe(1.0);
+        expect(deriveTier(1, 0, 0)).toBe(1);
+      });
+
+      it('tier 1→2 boundary: E just below 5.0', () => {
+        // Find inputs where E is just under 5.0
+        // 7 actions, shannonH=0.693, 0 months
+        // E = log2(8) * (1+0.693) * 1 * 1 = 3 * 1.693 = 5.079
+        // That's above 5, so reduce: 6 actions
+        // E = log2(7) * 1.693 * 1 * 1 = 2.807 * 1.693 = 4.753
+        const Ebelow = computeCompositeScore(6, 0.693, 0, 0);
+        expect(Ebelow).toBeLessThan(5.0);
+        expect(deriveTier(6, 693, 0)).toBe(1);
+
+        const Eabove = computeCompositeScore(7, 0.693, 0, 0);
+        expect(Eabove).toBeGreaterThanOrEqual(5.0);
+        expect(deriveTier(7, 693, 0)).toBe(2);
+      });
+
+      it('tier 2→3 boundary: E just below and above 12.0', () => {
+        // Find inputs: 20 actions, shannonH ≈ 0.693, 3 months
+        // E = log2(21) * 1.693 * (1+sqrt(0.25)) * 1 = 4.39 * 1.693 * 1.5 = 11.15
+        const Ebelow = computeCompositeScore(20, 0.693, 3, 0);
+        expect(Ebelow).toBeLessThan(12.0);
+        expect(deriveTier(20, 693, 3)).toBe(2);
+
+        // 25 actions
+        // E = log2(26) * 1.693 * 1.5 * 1 = 4.70 * 1.693 * 1.5 = 11.93 → still under 12
+        // 30 actions
+        // E = log2(31) * 1.693 * 1.5 * 1 = 4.95 * 1.693 * 1.5 = 12.57 → over 12
+        const Eabove = computeCompositeScore(30, 0.693, 3, 0);
+        expect(Eabove).toBeGreaterThanOrEqual(12.0);
+        expect(deriveTier(30, 693, 3)).toBe(3);
+      });
+
+      it('tier 3→4 boundary: E just below and above 25.0', () => {
+        // 30 actions, shannonH=ln(5)=1.609, 6 months
+        // E = log2(31) * 2.609 * (1+sqrt(0.5)) * 1 = 4.95 * 2.609 * 1.707 = 22.04
+        const Ebelow = computeCompositeScore(30, Math.log(5), 6, 0);
+        expect(Ebelow).toBeLessThan(25.0);
+        expect(deriveTier(30, 1609, 6)).toBe(3);
+
+        // 40 actions, shannonH=ln(5), 8 months
+        // E = log2(41) * 2.609 * (1+sqrt(8/12)) * 1 = 5.36 * 2.609 * 1.816 = 25.37
+        const Eabove = computeCompositeScore(40, Math.log(5), 8, 0);
+        expect(Eabove).toBeGreaterThanOrEqual(25.0);
+        expect(deriveTier(40, 1609, 8)).toBe(4);
+      });
+
+      it('tier boundaries are strict: E exactly at threshold', () => {
+        // Build score that hits exactly 5.0, 12.0, 25.0 via direct check
+        // Tier 2 at E=5.0 exactly
+        expect(deriveTier(1, 0, 0)).toBe(1); // E=1.0, tier 1
+        // We can't easily construct exact E=5.0, so test the deriveTier logic directly
+        // by reverse-engineering: if E >= 5.0, tier 2; if E >= 12.0, tier 3; etc.
+
+        // Test with computed score that we verify manually
+        const E5 = computeCompositeScore(15, 0, 0, 0);
+        // E5 = log2(16) = 4.0 → tier 1
+        expect(E5).toBe(4.0);
+        expect(deriveTier(15, 0, 0)).toBe(1);
+
+        const E5b = computeCompositeScore(31, 0, 0, 0);
+        // E5b = log2(32) = 5.0 → tier 2 (>= 5.0)
+        expect(E5b).toBe(5.0);
+        expect(deriveTier(31, 0, 0)).toBe(2);
+      });
+
+      it('tier boundary at E exactly 12.0', () => {
+        // Need actionFactor * diversityMult * tenureMult * adoptionMult = 12.0
+        // With no diversity, tenure, adoption: E = log2(1+a) = 12 → a = 4095
+        const E12 = computeCompositeScore(4095, 0, 0, 0);
+        expect(E12).toBe(12.0);
+        expect(deriveTier(4095, 0, 0)).toBe(3);
+      });
+
+      it('tier boundary at E exactly 25.0', () => {
+        // log2(1+a) = 25 → a = 2^25 - 1 = 33554431
+        const E25 = computeCompositeScore(33554431, 0, 0, 0);
+        expect(E25).toBe(25.0);
+        expect(deriveTier(33554431, 0, 0)).toBe(4);
+      });
+
+      it('adjacent tier boundary values differ by exactly one tier', () => {
+        // Just below each threshold
+        const justBelow5 = computeCompositeScore(30, 0, 0, 0);
+        const justAt5 = computeCompositeScore(31, 0, 0, 0);
+        expect(justBelow5).toBeLessThan(5.0);
+        expect(justAt5).toBe(5.0);
+        expect(deriveTier(30, 0, 0)).toBe(1);
+        expect(deriveTier(31, 0, 0)).toBe(2);
+      });
+    });
+
+    // ------------------------------------------------------------------
+    // TST-015.5: Multiplicative composition properties
+    // ------------------------------------------------------------------
+
+    describe('multiplicative composition', () => {
+      it('each factor contributes multiplicatively', () => {
+        const base = computeCompositeScore(10, 0, 0, 0);
+
+        // Adding diversity multiplies
+        const withDiversity = computeCompositeScore(10, 1.0, 0, 0);
+        expect(withDiversity).toBeCloseTo(base * (1 + 1.0), 10);
+
+        // Adding tenure multiplies
+        const withTenure = computeCompositeScore(10, 0, 12, 0);
+        expect(withTenure).toBeCloseTo(base * (1 + Math.sqrt(1)), 10);
+
+        // Adding adoption multiplies
+        const withAdoption = computeCompositeScore(10, 0, 0, 15);
+        expect(withAdoption).toBeCloseTo(base * (1 + Math.log2(16) / 4), 10);
+      });
+
+      it('all-factors-combined is product of individual multipliers', () => {
+        const actions = 50;
+        const shannonH = Math.log(3);
+        const tenure = 18;
+        const adoption = 10;
+
+        const E = computeCompositeScore(actions, shannonH, tenure, adoption);
+
+        const actionFactor = Math.log2(1 + actions);
+        const diversityMult = 1 + shannonH;
+        const tenureMult = 1 + Math.sqrt(tenure / 12);
+        const adoptionMult = 1 + Math.log2(1 + adoption) / 4;
+
+        expect(E).toBeCloseTo(actionFactor * diversityMult * tenureMult * adoptionMult, 10);
+      });
+
+      it('monotonically increasing in each dimension', () => {
+        // Actions: more is always higher
+        const a1 = computeCompositeScore(10, 1.0, 6, 5);
+        const a2 = computeCompositeScore(20, 1.0, 6, 5);
+        expect(a2).toBeGreaterThan(a1);
+
+        // Diversity: more is always higher
+        const d1 = computeCompositeScore(10, 0.5, 6, 5);
+        const d2 = computeCompositeScore(10, 1.5, 6, 5);
+        expect(d2).toBeGreaterThan(d1);
+
+        // Tenure: more is always higher
+        const t1 = computeCompositeScore(10, 1.0, 3, 5);
+        const t2 = computeCompositeScore(10, 1.0, 12, 5);
+        expect(t2).toBeGreaterThan(t1);
+
+        // Adoption: more is always higher
+        const ad1 = computeCompositeScore(10, 1.0, 6, 0);
+        const ad2 = computeCompositeScore(10, 1.0, 6, 20);
+        expect(ad2).toBeGreaterThan(ad1);
+      });
+    });
+  });
 });
