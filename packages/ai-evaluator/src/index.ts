@@ -29,6 +29,7 @@ export { GoogleProvider } from './models/google.js';
 export { DeepSeekProvider } from './models/deepseek.js';
 export { MistralProvider } from './models/mistral.js';
 export { AnthropicProvider } from './models/anthropic.js';
+export { OpenRouterProvider } from './models/openrouter.js';
 
 // Aggregation
 export { median, computeWeightedScore, aggregateEvaluations } from './aggregation/median.js';
@@ -47,4 +48,4 @@ export type { EIP712Domain, AIEvaluationMessage } from './attestation/eip712.js'
 export { submitAndResolve } from './attestation/submitter.js';
 
 // Config
-export { loadModelConfigs, loadEIP712Domain, MODEL_PANEL } from './config.js';
+export { loadModelConfigs, loadEIP712Domain, createProviders, MODEL_PANEL, OPENROUTER_MODEL_MAP } from './config.js';
