@@ -18,7 +18,7 @@
  */
 
 import { ShadowAtlasMerkleTree, createShadowAtlasMerkleTree, type MerkleProof, type CircuitDepth } from '../merkle-tree.js';
-import type { DistrictBoundary } from './types';
+import type { DistrictBoundary } from './types.js';
 import {
   DistrictProver,
   type DistrictProof,

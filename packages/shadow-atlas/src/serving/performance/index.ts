@@ -29,13 +29,13 @@ export {
   HierarchicalRTree,
   type HierarchicalRTreeConfig,
   type HierarchicalRTreeMetrics,
-} from './hierarchical-rtree';
+} from './hierarchical-rtree.js';
 
 export {
   RegionalCache,
   type RegionalCacheConfig,
   type RegionalCacheMetrics,
-} from './regional-cache';
+} from './regional-cache.js';
 
 export {
   BatchOptimizer,
@@ -44,7 +44,7 @@ export {
   type CoordinateLookup,
   type BatchLookupResult,
   type LookupFunction,
-} from './batch-optimizer';
+} from './batch-optimizer.js';
 
 export {
   PreloadStrategy,
@@ -55,4 +55,4 @@ export {
   type PreloadEvent,
   PreloadPriority,
   US_METRO_PRELOAD_TARGETS,
-} from './preload-strategy';
+} from './preload-strategy.js';

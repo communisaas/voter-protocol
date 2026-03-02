@@ -12,7 +12,7 @@
  * PRODUCTION READY: Prometheus-compatible metrics export.
  */
 
-import type { HealthMetrics, QueryMetrics, CacheMetrics, SnapshotMetrics, ErrorMetrics, ErrorSample } from './types';
+import type { HealthMetrics, QueryMetrics, CacheMetrics, SnapshotMetrics, ErrorMetrics, ErrorSample } from './types.js';
 
 /**
  * Health monitoring service

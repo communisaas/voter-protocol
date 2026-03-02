@@ -21,8 +21,8 @@
  * CRITICAL: Reduces cold-start latency during traffic spikes.
  */
 
-import type { DistrictBoundary } from '../types';
-import type { RegionalCache } from './regional-cache';
+import type { DistrictBoundary } from '../types.js';
+import type { RegionalCache } from './regional-cache.js';
 import { logger } from '../../core/utils/logger.js';
 import type Database from 'better-sqlite3';
 

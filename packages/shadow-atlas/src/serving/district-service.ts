@@ -15,15 +15,47 @@
 import Database from 'better-sqlite3';
 import * as turf from '@turf/turf';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
-import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from './types';
+import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from './types.js';
 import type { ProvenanceMetadata } from '../core/types.js';
 import { logger } from '../core/utils/logger.js';
 
 /**
- * Cache entry with TTL
+ * Layer priority for sorting multi-hit results.
+ * Lower number = finer grain = first in array.
+ */
+const LAYER_PRIORITY: Record<string, number> = {
+  ward: 1,
+  elsd: 5,
+  scsd: 6,
+  unsd: 7,
+  place: 10,
+  cousub: 11,
+  submcd: 12,
+  concity: 13,
+  county: 20,
+  sldl: 25,
+  sldu: 26,
+  cd: 30,
+  vtd: 15,
+  aiannh: 18,
+  anrc: 19,
+  // Special districts sort after congressional — they overlap irregularly with
+  // existing layers and are supplemental (civic engagement, not primary representation).
+  fire: 32,
+  library: 33,
+  park: 33,
+  hospital: 34,
+  water: 34,
+  utility: 34,
+  transit: 34,
+  'can': 35, // can-fed prefix extracts as "can"
+};
+
+/**
+ * Cache entry with TTL (multi-hit: stores ALL matching districts)
  */
 interface CacheEntry {
-  readonly district: DistrictBoundary;
+  readonly districts: DistrictBoundary[];
   readonly timestamp: number;
 }
 
@@ -98,14 +130,36 @@ export class DistrictLookupService {
   }
 
   /**
-   * Lookup district for coordinates
+   * Lookup district for coordinates (backward-compatible: returns primary match)
    *
    * @param lat - Latitude (WGS84, -90 to 90)
    * @param lon - Longitude (WGS84, -180 to 180)
-   * @returns District boundary or null if not found
+   * @returns Primary district boundary or null if not found
    * @throws Error if coordinates invalid
    */
   lookup(lat: number, lon: number): { district: DistrictBoundary | null; latencyMs: number; cacheHit: boolean } {
+    const result = this.lookupAll(lat, lon);
+    return {
+      district: result.districts[0] ?? null,
+      latencyMs: result.latencyMs,
+      cacheHit: result.cacheHit,
+    };
+  }
+
+  /**
+   * Multi-hit lookup: returns ALL districts containing the given point.
+   *
+   * A single point can belong to a congressional district, state senate,
+   * state house, county, city, school district, and ward simultaneously.
+   * This method returns all of them, ordered by layer specificity
+   * (finest-grain first: ward → school → city → county → state → federal).
+   *
+   * @param lat - Latitude (WGS84, -90 to 90)
+   * @param lon - Longitude (WGS84, -180 to 180)
+   * @returns All matching district boundaries
+   * @throws Error if coordinates invalid
+   */
+  lookupAll(lat: number, lon: number): { districts: DistrictBoundary[]; latencyMs: number; cacheHit: boolean } {
     const startTime = performance.now();
 
     // Validate coordinates
@@ -122,23 +176,23 @@ export class DistrictLookupService {
       this.cacheHits++;
       const latencyMs = performance.now() - startTime;
       this.recordLatency(latencyMs);
-      return { district: cached.district, latencyMs, cacheHit: true };
+      return { districts: cached.districts, latencyMs, cacheHit: true };
     }
 
-    // Cache miss - perform database lookup
+    // Cache miss - perform database lookup (collects ALL PIP matches)
     this.cacheMisses++;
-    const district = this.performLookup(lat, lon);
+    const districts = this.performLookup(lat, lon);
 
     // Update cache if found
-    if (district) {
-      this.cache.set(cacheKey, { district, timestamp: Date.now() });
+    if (districts.length > 0) {
+      this.cache.set(cacheKey, { districts, timestamp: Date.now() });
     }
 
     this.queryCount++;
     const latencyMs = performance.now() - startTime;
     this.recordLatency(latencyMs);
 
-    return { district, latencyMs, cacheHit: false };
+    return { districts, latencyMs, cacheHit: false };
   }
 
   /**
@@ -155,7 +209,7 @@ export class DistrictLookupService {
    * - Readonly queries with in-memory cache (this.cache) absorbing most load
    * - Sub-millisecond query times (R-tree index is very fast)
    */
-  private performLookup(lat: number, lon: number): DistrictBoundary | null {
+  private performLookup(lat: number, lon: number): DistrictBoundary[] {
     // Step 1: R-tree bounding box query (fast filter)
     // PERF: Synchronous SQLite call - blocks event loop but typically <1ms
     const candidates = this.db
@@ -171,11 +225,12 @@ export class DistrictLookupService {
       .all(lon, lon, lat, lat) as unknown[];
 
     if (candidates.length === 0) {
-      return null;
+      return [];
     }
 
-    // Step 2: Precise point-in-polygon test
+    // Step 2: Precise point-in-polygon test — collect ALL matches
     const point = turf.point([lon, lat]);
+    const matches: DistrictBoundary[] = [];
 
     for (const candidate of candidates) {
       const row = candidate as {
@@ -193,7 +248,6 @@ export class DistrictLookupService {
 
         if (turf.booleanPointInPolygon(point, polygon)) {
           const fullProvenance = JSON.parse(row.provenance) as ProvenanceMetadata;
-          // Extract only serving-level provenance fields (minimal subset for API responses)
           const servingProvenance: ServingProvenanceMetadata = {
             source: fullProvenance.source,
             authority: fullProvenance.authority,
@@ -202,17 +256,16 @@ export class DistrictLookupService {
             responseHash: fullProvenance.responseHash,
             legalBasis: fullProvenance.legalBasis,
           };
-          return {
+          matches.push({
             id: row.id,
             name: row.name,
             jurisdiction: row.jurisdiction,
             districtType: this.normalizeDistrictType(row.district_type),
             geometry: geometry,
             provenance: servingProvenance,
-          };
+          });
         }
       } catch (error) {
-        // Skip malformed geometries (log in production)
         logger.error('Failed to parse geometry for district', {
           districtId: row.id,
           error: error instanceof Error ? error.message : String(error),
@@ -222,7 +275,20 @@ export class DistrictLookupService {
       }
     }
 
-    return null;
+    // Sort by layer specificity: finest-grain first
+    // ward > school > place > county > state-lower > state-upper > congressional > canadian
+    return matches.sort((a, b) => {
+      return (LAYER_PRIORITY[this.layerPrefix(a.id)] ?? 50) -
+             (LAYER_PRIORITY[this.layerPrefix(b.id)] ?? 50);
+    });
+  }
+
+  /**
+   * Extract layer prefix from district ID (e.g., "cd-0611" → "cd")
+   */
+  private layerPrefix(id: string): string {
+    const dash = id.indexOf('-');
+    return dash > 0 ? id.slice(0, dash) : id;
   }
 
   /**

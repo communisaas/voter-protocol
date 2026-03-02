@@ -104,6 +104,66 @@ export interface OfficialsResponse {
   readonly cached: boolean;
 }
 
+// ============================================================================
+// Canada Types
+// ============================================================================
+
+/** Raw SQLite row for canada_mps table */
+interface RawCanadaMPRow {
+  parliament_id: string;
+  name: string;
+  name_fr: string | null;
+  first_name: string;
+  last_name: string;
+  party: string;
+  party_fr: string | null;
+  riding_code: string;
+  riding_name: string;
+  riding_name_fr: string | null;
+  province: string;
+  email: string | null;
+  phone: string | null;
+  office_address: string | null;
+  constituency_office: string | null;
+  website_url: string | null;
+  photo_url: string | null;
+  is_active: number;
+  parliament_session: string | null;
+}
+
+export interface CanadianMP {
+  readonly parliament_id: string;
+  readonly name: string;
+  readonly name_fr: string | null;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly party: string;
+  readonly party_fr: string | null;
+  readonly riding_code: string;
+  readonly riding_name: string;
+  readonly riding_name_fr: string | null;
+  readonly province: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly office_address: string | null;
+  readonly constituency_office: string | null;
+  readonly website_url: string | null;
+  readonly photo_url: string | null;
+  readonly is_active: boolean;
+  readonly parliament_session: string | null;
+}
+
+export interface CanadaOfficialsResult {
+  readonly mp: CanadianMP | null;
+  readonly riding_code: string;
+  readonly riding_name: string | null;
+  readonly province: string | null;
+}
+
+// ============================================================================
+// US Special Status Messages
+// ============================================================================
+
 const SPECIAL_STATUS_MESSAGES: Record<string, string> = {
   'DC': 'District of Columbia residents have a non-voting delegate in the House and no senators.',
   'AS': 'American Samoa residents have a non-voting delegate in the House and no senators.',
@@ -175,6 +235,10 @@ export class OfficialsService {
   private readonly stmtSenators: Database.Statement;
   private readonly stmtByBioguide: Database.Statement;
   private readonly stmtCount: Database.Statement;
+  private readonly stmtCanadaMP: Database.Statement | null;
+  private readonly stmtCanadaCount: Database.Statement | null;
+  private readonly stmtHouseRepBySession: Database.Statement;
+  private readonly stmtSenatorsBySession: Database.Statement;
   private lastRefreshTime: number;
 
   constructor(dbPath: string) {
@@ -204,6 +268,34 @@ export class OfficialsService {
     this.stmtCount = this.db.prepare(
       `SELECT COUNT(*) as count FROM federal_members`
     );
+
+    // Vintage-aware queries: filter by congress_session
+    this.stmtHouseRepBySession = this.db.prepare(
+      `SELECT * FROM federal_members WHERE state = ? AND district = ? AND chamber = 'house' AND congress_session = ? LIMIT 1`
+    );
+    this.stmtSenatorsBySession = this.db.prepare(
+      `SELECT * FROM federal_members WHERE state = ? AND chamber = 'senate' AND congress_session = ? ORDER BY senate_class`
+    );
+
+    // Canada MP statements — only initialize if table exists
+    if (this.hasTable('canada_mps')) {
+      this.stmtCanadaMP = this.db.prepare(
+        `SELECT * FROM canada_mps WHERE riding_code = ? AND is_active = 1 LIMIT 1`
+      );
+      this.stmtCanadaCount = this.db.prepare(
+        `SELECT COUNT(*) as count FROM canada_mps WHERE is_active = 1`
+      );
+    } else {
+      this.stmtCanadaMP = null;
+      this.stmtCanadaCount = null;
+    }
+  }
+
+  private hasTable(name: string): boolean {
+    const row = this.db.prepare(
+      `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?`
+    ).get(name) as { count: number };
+    return row.count > 0;
   }
 
   private initSchema(): void {
@@ -234,6 +326,32 @@ export class OfficialsService {
     if (cached) return { result: cached, cached: true };
 
     const result = this.lookupOfficials(stateUpper, districtNorm);
+    this.cache.set(cacheKey, result);
+    return { result, cached: false };
+  }
+
+  /**
+   * Get officials by state + district + congress session (vintage-aware).
+   *
+   * @param state - 2-letter USPS state code
+   * @param district - District number or "00"/"AL" for at-large
+   * @param session - Congress session label (e.g., "119th", "118th")
+   */
+  getOfficialsBySession(
+    state: string,
+    district: string,
+    session: string,
+  ): { result: OfficialsResult; cached: boolean } {
+    this.refreshIfStale();
+
+    const stateUpper = state.toUpperCase();
+    const districtNorm = this.normalizeDistrict(district);
+    const cacheKey = `${stateUpper}-${districtNorm}@${session}`;
+
+    const cached = this.cache.get(cacheKey);
+    if (cached) return { result: cached, cached: true };
+
+    const result = this.lookupOfficialsBySession(stateUpper, districtNorm, session);
     this.cache.set(cacheKey, result);
     return { result, cached: false };
   }
@@ -294,6 +412,47 @@ export class OfficialsService {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  // ==========================================================================
+  // Canada API
+  // ==========================================================================
+
+  /**
+   * Get Canadian MP by riding code.
+   *
+   * @param ridingCode - 5-digit federal electoral district code (e.g., "35001")
+   * @returns Canadian MP data or null if not found
+   */
+  getCanadianMP(ridingCode: string): { result: CanadaOfficialsResult; cached: boolean } {
+    this.refreshIfStale();
+
+    const cacheKey = `CA-${ridingCode}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      // Reuse LRU cache — OfficialsResult | CanadaOfficialsResult
+      return { result: cached as unknown as CanadaOfficialsResult, cached: true };
+    }
+
+    const result = this.lookupCanadianMP(ridingCode);
+    this.cache.set(cacheKey, result as unknown as OfficialsResult);
+    return { result, cached: false };
+  }
+
+  /**
+   * Get total count of active Canadian MPs.
+   */
+  getCanadianMPCount(): number {
+    if (!this.stmtCanadaCount) return 0;
+    const row = this.stmtCanadaCount.get() as { count: number };
+    return row.count;
+  }
+
+  /**
+   * Check if Canada MP data is available.
+   */
+  hasCanadaData(): boolean {
+    return this.stmtCanadaMP !== null && this.getCanadianMPCount() > 0;
   }
 
   /**
@@ -394,6 +553,76 @@ export class OfficialsService {
     };
   }
 
+  private lookupOfficialsBySession(
+    state: string,
+    district: string,
+    session: string,
+  ): OfficialsResult {
+    const districtCode = `${state}-${district === '00' ? 'AL' : district}`;
+    const specialStatus = this.getSpecialStatus(state);
+
+    const houseRow = this.stmtHouseRepBySession.get(state, district, session) as RawMemberRow | undefined;
+    const house = houseRow ? this.rowToMember(houseRow) : null;
+
+    const senatorRows = TERRITORIES.has(state)
+      ? []
+      : (this.stmtSenatorsBySession.all(state, session) as RawMemberRow[]);
+    const senate = senatorRows.map(r => this.rowToMember(r));
+
+    return {
+      house,
+      senate,
+      district_code: districtCode,
+      state,
+      special_status: specialStatus,
+    };
+  }
+
+  private lookupCanadianMP(ridingCode: string): CanadaOfficialsResult {
+    if (!this.stmtCanadaMP) {
+      return {
+        mp: null,
+        riding_code: ridingCode,
+        riding_name: null,
+        province: null,
+      };
+    }
+
+    const row = this.stmtCanadaMP.get(ridingCode) as RawCanadaMPRow | undefined;
+    const mp = row ? this.rowToCanadianMP(row) : null;
+
+    return {
+      mp,
+      riding_code: ridingCode,
+      riding_name: mp?.riding_name ?? null,
+      province: mp?.province ?? null,
+    };
+  }
+
+  private rowToCanadianMP(row: RawCanadaMPRow): CanadianMP {
+    return {
+      parliament_id: row.parliament_id,
+      name: row.name,
+      name_fr: row.name_fr,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      party: row.party,
+      party_fr: row.party_fr,
+      riding_code: row.riding_code,
+      riding_name: row.riding_name,
+      riding_name_fr: row.riding_name_fr,
+      province: row.province,
+      email: row.email,
+      phone: row.phone,
+      office_address: row.office_address,
+      constituency_office: row.constituency_office,
+      website_url: row.website_url,
+      photo_url: row.photo_url,
+      is_active: row.is_active === 1,
+      parliament_session: row.parliament_session,
+    };
+  }
+
   private rowToMember(row: RawMemberRow): FederalMember {
     return {
       bioguide_id: row.bioguide_id,
@@ -472,6 +701,45 @@ export function toOfficialsResponse(
     state: result.state,
     special_status: result.special_status,
     source: 'congress-legislators',
+    cached,
+  };
+}
+
+/**
+ * Convert CanadaOfficialsResult to flat Official[] for API response.
+ * Maps Canadian MP fields to the unified Official interface.
+ */
+export function toCanadaOfficialsResponse(
+  result: CanadaOfficialsResult,
+  cached: boolean,
+): OfficialsResponse {
+  const officials: Official[] = [];
+
+  if (result.mp) {
+    const m = result.mp;
+    officials.push({
+      bioguide_id: m.parliament_id,
+      name: m.name,
+      party: m.party,
+      chamber: 'house',  // Canada has unicameral elected chamber (House of Commons)
+      state: m.province,
+      district: m.riding_code,
+      office: `Member of Parliament, ${m.riding_name}`,
+      phone: m.phone,
+      contact_form_url: null,
+      website_url: m.website_url,
+      cwc_code: null,
+      is_voting: true,
+      delegate_type: null,
+    });
+  }
+
+  return {
+    officials,
+    district_code: result.riding_code,
+    state: result.province ?? '',
+    special_status: null,
+    source: 'congress-legislators',  // Generic source tag (reuse existing type)
     cached,
   };
 }

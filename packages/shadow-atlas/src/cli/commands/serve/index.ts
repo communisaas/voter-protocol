@@ -7,8 +7,11 @@
  */
 
 import { createShadowAtlasAPI } from '../../../serving/api.js';
+import { BubbleService } from '../../../serving/bubble-service.js';
+import { CommunityFieldService } from '../../../serving/community-field-service.js';
 import { RegistrationService, type CellMapState } from '../../../serving/registration-service.js';
 import { OfficialsService } from '../../../serving/officials-service.js';
+import { GeocodeService } from '../../../serving/geocode-service.js';
 import { EngagementService } from '../../../serving/engagement-service.js';
 import { SyncService } from '../../../serving/sync-service.js';
 import { ChainScanner } from '../../../serving/chain-scanner.js';
@@ -330,6 +333,49 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       officialsService = null;
     }
 
+    // Initialize GeocodeService (self-hosted Nominatim — zero external API calls)
+    let geocodeService: GeocodeService | null = null;
+    const nominatimUrl = process.env.NOMINATIM_URL;
+    if (nominatimUrl) {
+      geocodeService = new GeocodeService(
+        nominatimUrl,
+        parseInt(process.env.NOMINATIM_TIMEOUT_MS || '5000', 10),
+      );
+      const healthy = await geocodeService.healthCheck();
+      if (healthy) {
+        logger.info('Geocode service initialized (Nominatim)', {
+          url: nominatimUrl,
+        });
+      } else {
+        logger.warn('Nominatim not reachable — /v1/resolve-address will fail until Nominatim is healthy.', {
+          url: nominatimUrl,
+        });
+        // Keep the service — it will retry on each request
+      }
+    } else {
+      logger.warn('NOMINATIM_URL not set — /v1/resolve-address will return 501. ' +
+        'Run Nominatim via docker-compose to enable self-hosted geocoding.');
+    }
+
+    // BubbleService — uses district DB for fence + district spatial queries
+    let bubbleService: BubbleService | null = null;
+    try {
+      bubbleService = new BubbleService(
+        dbPath,
+        geocodeService ?? null,
+        officialsService ?? null,
+      );
+      logger.info('Bubble service initialized (fence + district spatial queries)');
+    } catch (err) {
+      logger.warn('Bubble service not available — POST /v1/bubble-query will return 501.', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // Community Field Service (Phase 2 — epoch-scoped geographic contributions)
+    const communityFieldService = new CommunityFieldService();
+    logger.info('Community field service initialized (epoch nullifier dedup, contribution storage)');
+
     // Create and start API server
     const api = await createShadowAtlasAPI(dbPath, {
       port,
@@ -340,11 +386,14 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       dataDir,
       syncService,
       registrationService,
-      cellMapState,
+      cellMapState: cellMapState ?? undefined,
       signer,
       engagementService,
       officialsService: officialsService ?? undefined,
+      geocodeService: geocodeService ?? undefined,
       debateService,
+      bubbleService: bubbleService ?? undefined,
+      communityFieldService,
     });
 
     api.start();
@@ -360,6 +409,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         if (debateRelayer) debateRelayer.stop();
         if (chainScanner) await chainScanner.stop();
         if (officialsService) officialsService.close();
+        if (bubbleService) bubbleService.close();
         await syncService.shutdown(registrationService.getInsertionLog());
         await registrationService.close();
         await engagementService.close();
@@ -386,6 +436,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       tree2: cellMapState ? 'enabled' : 'disabled',
       tree3: 'enabled',
       officials: officialsService ? 'enabled' : 'disabled',
+      geocoding: geocodeService ? 'enabled' : 'disabled',
       chainScanner: chainScanner ? 'enabled' : 'disabled',
       relayer: debateRelayer ? 'enabled' : 'disabled',
       debateService: 'enabled',
@@ -394,6 +445,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
   } catch (error) {
     logger.error('Failed to start server', {
       error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     process.exit(1);
   }
