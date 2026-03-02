@@ -322,3 +322,92 @@ export const US_JURISDICTION: JurisdictionConfig = {
   recommendedDepth: 20,
   encodeCellId: encodeUsGeoid,
 };
+
+// ============================================================================
+// Canada Jurisdiction Configuration
+// ============================================================================
+
+/**
+ * Encode a StatCan Dissemination Area DGUID or riding code as a BN254 field element.
+ *
+ * DA DGUID format: "2021A0001XXXXX" (vintage + type + DA code).
+ * Riding codes are 5-digit numeric (e.g., "35001" for an Ontario riding).
+ * Both are safely numeric — direct BigInt conversion.
+ *
+ * ~56,000 DAs nationally + 338 ridings — well within field bounds.
+ */
+function encodeCanadaCellId(unitId: string): bigint {
+  const numeric = unitId.replace(/\D/g, '');
+  if (/^\d+$/.test(numeric)) {
+    return BigInt(numeric);
+  }
+  // Fallback: UTF-8 byte packing (same as US)
+  const bytes = Buffer.from(unitId, 'utf-8');
+  if (bytes.length > 31) {
+    throw new Error(`Canada unit ID too long for field encoding: ${unitId} (${bytes.length} bytes)`);
+  }
+  let result = 0n;
+  for (const byte of bytes) {
+    result = (result << 8n) | BigInt(byte);
+  }
+  return result;
+}
+
+/**
+ * Canada jurisdiction configuration.
+ *
+ * 2 of 24 protocol slots are populated for the initial federal layer.
+ * Slots 2-4 are reserved for provincial legislature, municipality, and ward
+ * data to be populated in Phase B2+.
+ *
+ * Data sources:
+ *   - Elections Canada / Represent API — slot 0 (federal electoral districts / ridings)
+ *   - Statistics Canada — slot 1 (province/territory from DA geographic attributes)
+ *   - Provincial legislatures — slot 2 (future: provincial electoral districts)
+ *   - Municipal boundaries — slot 3 (future: municipality / arrondissement)
+ *   - Municipal wards — slot 4 (future: ward / quartier)
+ */
+export const CA_JURISDICTION: JurisdictionConfig = {
+  country: 'CAN',
+  name: 'Canada',
+
+  slots: {
+    // Core governance (federal)
+    0: { name: 'Federal Electoral District (Riding)',  required: true,  category: 'legislative' },
+    1: { name: 'Province / Territory',                 required: true,  category: 'administrative' },
+
+    // Provincial (Phase B2+)
+    2: { name: 'Provincial Electoral District',        required: false, category: 'legislative' },
+    3: { name: 'Municipality / Ville',                 required: false, category: 'administrative' },
+    4: { name: 'Municipal Ward / Quartier',            required: false, category: 'legislative' },
+
+    // Education (Phase B3+)
+    5: { name: 'School Board / Commission scolaire',   required: false, category: 'education' },
+
+    // Reserved (same semantic space as US for cross-country consistency)
+    6:  { name: 'Health Region',                       required: false, category: 'administrative' },
+    7:  { name: 'Census Division',                     required: false, category: 'administrative' },
+  },
+
+  aliases: {
+    // Federal
+    'riding': 0, 'fed': 0, 'electoral_district': 0, 'circonscription': 0,
+    'federal_electoral_district': 0,
+    'province': 1, 'territory': 1, 'prov': 1,
+
+    // Provincial (future)
+    'provincial_district': 2, 'ped': 2,
+    'municipality': 3, 'ville': 3, 'city': 3,
+    'ward': 4, 'quartier': 4,
+
+    // Education (future)
+    'school_board': 5, 'commission_scolaire': 5,
+
+    // Administrative (future)
+    'health_region': 6,
+    'census_division': 7, 'cd': 7,
+  },
+
+  recommendedDepth: 18,  // 338 ridings + ~56K DAs → fits in 2^18 = 262K
+  encodeCellId: encodeCanadaCellId,
+};

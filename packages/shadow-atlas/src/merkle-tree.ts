@@ -201,6 +201,10 @@ export class ShadowAtlasMerkleTree {
       depth = config.depth;
     } else if (config.countryCode) {
       depth = selectDepthForJurisdiction(config.countryCode);
+    } else if (addresses.length === 0) {
+      // Empty tree: use smallest valid depth to avoid building 2^N padding leaves.
+      // CIRCUIT_DEPTHS is sorted ascending [18, 20, 22, 24] — index 0 = smallest.
+      depth = CIRCUIT_DEPTHS[0] as CircuitDepth;
     } else {
       depth = DEFAULT_TREE_DEPTH as CircuitDepth;
     }

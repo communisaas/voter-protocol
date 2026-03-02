@@ -462,95 +462,120 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
   // ============================================================================
 
   /**
-   * Fetch all ridings from Represent API (handles pagination)
+   * Fetch all ridings from Represent API.
+   *
+   * The Represent API splits metadata and geometry across two endpoints:
+   * - List endpoint: returns external_id, name, related (province_code), but NO geometry
+   * - simple_shape endpoint: returns name + simple_shape, but NO external_id or province
+   *
+   * We fetch both and join on name.
    */
   private async fetchAllRidings(endpoint: string): Promise<CanadaRiding[]> {
-    const ridings: CanadaRiding[] = [];
-    let nextUrl: string | null = `${endpoint}?limit=100`;
+    const headers = {
+      Accept: 'application/json',
+      'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+    };
+
+    // Step 1: Fetch all metadata (paginated)
+    const metadataMap = new Map<string, RepresentBoundary>();
+    let nextUrl: string | null = `${endpoint}?limit=500`;
 
     while (nextUrl) {
-      try {
-        logger.debug('Fetching ridings', { url: nextUrl });
-        const response = await fetch(nextUrl, {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
-          },
-        });
+      logger.debug('Fetching riding metadata', { url: nextUrl });
+      const response = await fetch(nextUrl, { headers });
+      if (!response.ok) throw new Error(`HTTP ${response.status} from metadata endpoint`);
+      const data = (await response.json()) as RepresentBoundariesResponse;
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = (await response.json()) as RepresentBoundariesResponse;
-
-        // Normalize each boundary
-        for (const boundary of data.objects) {
-          const riding = this.normalizeBoundary(boundary, endpoint);
-          if (riding) {
-            ridings.push(riding);
-          }
-        }
-
-        // Check for pagination
-        nextUrl = data.meta?.next ?? null;
-        if (nextUrl && !nextUrl.startsWith('http')) {
-          nextUrl = `${this.representApiUrl}${nextUrl}`;
-        }
-      } catch (err) {
-        logger.warn('Error fetching ridings', {
-          url: nextUrl,
-          error: err instanceof Error ? err.message : String(err)
-        });
-        // If we haven't fetched any data yet, propagate the error
-        // If we have partial data, return what we have (partial success)
-        if (ridings.length === 0) {
-          throw err;
-        }
-        break;
+      for (const obj of data.objects) {
+        metadataMap.set(obj.name, obj);
       }
+
+      nextUrl = data.meta?.next ?? null;
+      if (nextUrl && !nextUrl.startsWith('http')) {
+        nextUrl = `${this.representApiUrl}${nextUrl}`;
+      }
+    }
+
+    logger.info('Fetched riding metadata', { count: metadataMap.size });
+
+    // Step 2: Fetch all simple_shape geometries (single bulk request)
+    const shapesUrl = `${endpoint}simple_shape?limit=500`;
+    logger.debug('Fetching riding geometries', { url: shapesUrl });
+    const shapesResponse = await fetch(shapesUrl, { headers });
+    if (!shapesResponse.ok) throw new Error(`HTTP ${shapesResponse.status} from shapes endpoint`);
+    const shapesData = (await shapesResponse.json()) as {
+      objects: Array<{ name: string; simple_shape?: RepresentBoundary['simple_shape'] }>;
+    };
+
+    logger.info('Fetched riding geometries', { count: shapesData.objects.length });
+
+    // Validate: shapes count should match metadata count
+    if (shapesData.objects.length !== metadataMap.size) {
+      logger.warn('Shapes/metadata count mismatch — possible pagination truncation', {
+        metadataCount: metadataMap.size,
+        shapesCount: shapesData.objects.length,
+      });
+    }
+
+    // Step 3: Merge metadata + geometry by name
+    const ridings: CanadaRiding[] = [];
+    for (const shapeObj of shapesData.objects) {
+      if (!shapeObj.simple_shape) continue;
+
+      const geometry = this.convertToGeoJSON(shapeObj.simple_shape);
+      if (!geometry) continue;
+
+      const meta = metadataMap.get(shapeObj.name);
+      const externalId = meta?.external_id ?? '';
+
+      if (!externalId) {
+        logger.warn('No metadata match for riding', { name: shapeObj.name });
+        continue;
+      }
+
+      // Derive province from SGC code prefix (first 2 digits of external_id)
+      const provinceCode = this.sgcToProvince(externalId.slice(0, 2));
+
+      ridings.push({
+        id: externalId,
+        name: shapeObj.name,
+        nameFr: meta?.name_fr ?? shapeObj.name,
+        type: 'federal',
+        province: provinceCode,
+        geometry,
+        source: {
+          country: 'CA',
+          dataSource: 'Elections Canada / Statistics Canada',
+          endpoint,
+          vintage: 2023,
+          retrievedAt: new Date().toISOString(),
+          authority: 'electoral-commission',
+        },
+        properties: {
+          boundary_set_name: meta?.boundary_set_name ?? 'Federal electoral district',
+          external_id: externalId,
+          province_code: provinceCode,
+        },
+      });
     }
 
     return ridings;
   }
 
   /**
-   * Normalize Represent API boundary to CanadaRiding format
+   * Map SGC province code (first 2 digits of FED code) to ISO 3166-2:CA abbreviation
    */
-  private normalizeBoundary(boundary: RepresentBoundary, endpoint: string): CanadaRiding | null {
-    // Must have geometry
-    if (!boundary.simple_shape) {
-      return null;
-    }
-
-    // Represent API provides simplified geometries
-    // Convert to GeoJSON Polygon/MultiPolygon
-    const geometry = this.convertToGeoJSON(boundary.simple_shape);
-    if (!geometry) {
-      return null;
-    }
-
-    return {
-      id: boundary.external_id,
-      name: boundary.name,
-      nameFr: boundary.name_fr ?? boundary.name,
-      type: 'federal',
-      province: (boundary.related?.province_code as CanadaProvince) ?? 'ON',
-      geometry,
-      source: {
-        country: 'CA',
-        dataSource: 'Elections Canada / Statistics Canada',
-        endpoint,
-        vintage: 2023,
-        retrievedAt: new Date().toISOString(),
-        authority: 'electoral-commission',
-      },
-      properties: {
-        boundary_set_name: boundary.boundary_set_name,
-        external_id: boundary.external_id,
-        province_code: boundary.related?.province_code,
-      },
+  private sgcToProvince(sgcPrefix: string): CanadaProvince {
+    const SGC_MAP: Record<string, CanadaProvince> = {
+      '10': 'NL', '11': 'PE', '12': 'NS', '13': 'NB',
+      '24': 'QC', '35': 'ON', '46': 'MB', '47': 'SK',
+      '48': 'AB', '59': 'BC', '60': 'YT', '61': 'NT', '62': 'NU',
     };
+    const result = SGC_MAP[sgcPrefix];
+    if (!result) {
+      logger.warn('Unknown SGC province prefix, defaulting to ON', { sgcPrefix });
+    }
+    return result ?? 'ON';
   }
 
   /**

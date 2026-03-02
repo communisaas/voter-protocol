@@ -29,6 +29,7 @@ import { resolveCells } from './cell-resolver.js';
 import { buildCellMapTree } from '../tree-builder.js';
 import { loadWardRegistry } from './ward-registry.js';
 import { loadWardBoundaries } from './ward-boundary-loader.js';
+import { loadWardsFromRTree } from './rtree-ward-reader.js';
 import { overlaySupplementalDistricts } from './supplemental-overlay.js';
 import { buildTractCentroidIndex } from './tract-centroid-index.js';
 
@@ -43,6 +44,7 @@ interface CLIOptions {
   depth: number;
   includeWards: boolean;
   wardCacheDir: string;
+  wardsFromRTree?: string; // Path to shadow-atlas.db — read wards from R-tree instead of ArcGIS
 }
 
 function parseArgs(): CLIOptions {
@@ -75,6 +77,10 @@ function parseArgs(): CLIOptions {
       case '--ward-cache-dir':
         opts.wardCacheDir = args[++i];
         break;
+      case '--wards-from-rtree':
+        opts.wardsFromRTree = args[++i];
+        opts.includeWards = true;
+        break;
       case '--help':
         console.log(`
 Usage: build-tree2.ts [options]
@@ -86,6 +92,7 @@ Options:
   --depth <n>            SMT depth (default: 20)
   --include-wards        Overlay city council ward boundaries (slot 6)
   --ward-cache-dir <p>   Directory for cached ward data (default: data/ward-cache)
+  --wards-from-rtree <p> Read wards from shadow-atlas.db (unified source, no ArcGIS download)
   --help                 Show this help
 `);
         process.exit(0);
@@ -108,7 +115,7 @@ async function main(): Promise<void> {
   console.log(`Cache dir:    ${opts.cacheDir}`);
   console.log(`Output:       ${opts.outputPath}`);
   console.log(`SMT depth:    ${opts.depth}`);
-  console.log(`Wards:        ${opts.includeWards ? 'YES (slot 6)' : 'no'}`);
+  console.log(`Wards:        ${opts.wardsFromRTree ? `YES (from R-tree: ${opts.wardsFromRTree})` : opts.includeWards ? 'YES (slot 6, ArcGIS)' : 'no'}`);
   console.log();
 
   const totalSteps = opts.includeWards ? 6 : 5;
@@ -155,24 +162,33 @@ async function main(): Promise<void> {
   if (opts.includeWards) {
     console.log(`[4/${totalSteps}] Overlaying city council ward boundaries (slot 6)...`);
 
-    const registry = await loadWardRegistry();
+    let loaded: import('./ward-boundary-loader.js').CityWardBoundaries[];
 
-    // Filter registry to cities whose FIPS prefix matches our block data states.
-    // City FIPS first 2 digits = state FIPS code.
-    const blockStateFips = new Set([...allBlocks.values()].map(b => b.stateFips));
-    const registryEntries = [...registry.entries.values()].filter(e =>
-      blockStateFips.has(e.cityFips.slice(0, 2)),
-    );
+    if (opts.wardsFromRTree) {
+      // Unified path: read wards from R-tree DB (single source of truth)
+      console.log(`  → Reading wards from R-tree: ${opts.wardsFromRTree}`);
+      const blockStateFips = new Set([...allBlocks.values()].map(b => b.stateFips));
+      loaded = loadWardsFromRTree(opts.wardsFromRTree, blockStateFips);
+      console.log(`  → Loaded ${loaded.length} cities from R-tree`);
+    } else {
+      // Legacy path: download from ArcGIS portals
+      const registry = await loadWardRegistry();
+      const blockStateFips = new Set([...allBlocks.values()].map(b => b.stateFips));
+      const registryEntries = [...registry.entries.values()].filter(e =>
+        blockStateFips.has(e.cityFips.slice(0, 2)),
+      );
 
-    console.log(`  → Registry: ${registryEntries.length} cities in ${blockStateFips.size} state(s)`);
+      console.log(`  → Registry: ${registryEntries.length} cities in ${blockStateFips.size} state(s)`);
 
-    const { loaded, failed } = await loadWardBoundaries(registryEntries, {
-      cacheDir: opts.wardCacheDir,
-      log: console.log,
-    });
+      const wardResult = await loadWardBoundaries(registryEntries, {
+        cacheDir: opts.wardCacheDir,
+        log: console.log,
+      });
 
-    if (failed.length > 0) {
-      console.log(`  → ${failed.length} cities failed to load (skipped)`);
+      loaded = wardResult.loaded;
+      if (wardResult.failed.length > 0) {
+        console.log(`  → ${wardResult.failed.length} cities failed to load (skipped)`);
+      }
     }
 
     if (loaded.length > 0) {
@@ -225,15 +241,21 @@ async function main(): Promise<void> {
   console.log(`  → Cells: ${treeResult.cellCount.toLocaleString()}`);
   console.log();
 
-  // Export snapshot
+  // Export snapshot (version 3 with vintage metadata)
   await mkdir(dirname(opts.outputPath), { recursive: true });
   const snapshot = {
-    version: 2,
+    version: 3,
     generatedAt: new Date().toISOString(),
     stateFilter: opts.stateCode ?? null,
     root: '0x' + treeResult.root.toString(16),
     depth: treeResult.depth,
     cellCount: treeResult.cellCount,
+    vintage: {
+      label: '119th-congress',
+      country: 'USA',
+      effectiveDate: '2025-01-03',
+      source: 'census-baf-2020+bef-119th',
+    },
     stats,
     befOverlay: {
       redistrictedStates: [...REDISTRICTED_STATES.keys()],

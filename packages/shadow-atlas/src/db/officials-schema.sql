@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS federal_members (
   delegate_type TEXT,                    -- 'delegate' | 'resident_commissioner' | NULL
   state_fips TEXT,                       -- 2-digit FIPS code: "06" for CA
   cd_geoid TEXT,                         -- 4-digit CD GEOID: "0612" for CA-12
+  congress_session TEXT DEFAULT '119th',  -- Congress session (temporal versioning)
   start_date TEXT,                       -- Term start date
   end_date TEXT,                         -- Term end date
   ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -39,6 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_fm_chamber ON federal_members(chamber);
 CREATE INDEX IF NOT EXISTS idx_fm_state_district ON federal_members(state, district);
 CREATE INDEX IF NOT EXISTS idx_fm_state_fips ON federal_members(state_fips);
 CREATE INDEX IF NOT EXISTS idx_fm_cd_geoid ON federal_members(cd_geoid);
+CREATE INDEX IF NOT EXISTS idx_fm_congress ON federal_members(congress_session);
 
 -- State legislators — future phase (Open States ingestion)
 -- Schema placeholder for Phase B2+
@@ -67,10 +69,68 @@ CREATE INDEX IF NOT EXISTS idx_sl_state_chamber ON state_legislators(state, cham
 CREATE INDEX IF NOT EXISTS idx_sl_sldu_geoid ON state_legislators(sldu_geoid);
 CREATE INDEX IF NOT EXISTS idx_sl_sldl_geoid ON state_legislators(sldl_geoid);
 
+-- Canadian Members of Parliament (338 MPs, House of Commons)
+-- Data source: ourcommons.ca XML feed + Represent API (OGL-CA)
+-- Refreshed via cron ingestion script (ingest-canadian-mps.ts)
+CREATE TABLE IF NOT EXISTS canada_mps (
+  parliament_id TEXT PRIMARY KEY,          -- House of Commons member ID
+  name TEXT NOT NULL,                      -- "Justin Trudeau"
+  name_fr TEXT,                            -- French name if different
+  first_name TEXT NOT NULL,                -- "Justin"
+  last_name TEXT NOT NULL,                 -- "Trudeau"
+  party TEXT NOT NULL,                     -- "Liberal" | "Conservative" | etc.
+  party_fr TEXT,                           -- "Libéral" | "Conservateur" | etc.
+  riding_code TEXT NOT NULL,               -- 5-digit FED code: "35075" (Papineau)
+  riding_name TEXT NOT NULL,               -- "Papineau"
+  riding_name_fr TEXT,                     -- French riding name
+  province TEXT NOT NULL,                  -- 2-letter code: "QC", "ON", "BC", etc.
+  email TEXT,                              -- Parliamentary email
+  phone TEXT,                              -- Ottawa office phone
+  office_address TEXT,                     -- Ottawa office address
+  constituency_office TEXT,                -- Riding office address
+  website_url TEXT,                        -- Official website
+  photo_url TEXT,                          -- Official photo URL
+  is_active INTEGER NOT NULL DEFAULT 1,    -- 0 for former MPs
+  parliament_session TEXT,                 -- e.g., "45th" (temporal versioning)
+  ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cmp_province ON canada_mps(province);
+CREATE INDEX IF NOT EXISTS idx_cmp_riding ON canada_mps(riding_code);
+CREATE INDEX IF NOT EXISTS idx_cmp_party ON canada_mps(party);
+CREATE INDEX IF NOT EXISTS idx_cmp_active ON canada_mps(is_active);
+CREATE INDEX IF NOT EXISTS idx_cmp_riding_active ON canada_mps(riding_code, is_active);
+
+-- District boundary fences (shared edges between adjacent districts)
+-- Built at DB build time by extracting shared boundaries between adjacent district pairs.
+-- Used by bubble-query to show which boundaries the bubble crosses.
+CREATE TABLE IF NOT EXISTS fences (
+  id TEXT PRIMARY KEY,                 -- hash of district_a_id + district_b_id
+  layer TEXT NOT NULL,                 -- "cd", "sldu", "sldl", "county", "can-fed"
+  district_a_id TEXT NOT NULL,         -- first district (alphabetically by id)
+  district_b_id TEXT NOT NULL,         -- second district
+  district_a_name TEXT NOT NULL,       -- display name of first district
+  district_b_name TEXT NOT NULL,       -- display name of second district
+  geometry TEXT NOT NULL,              -- GeoJSON LineString
+  landmark TEXT,                       -- reverse-geocoded boundary feature name
+  landmark_source TEXT,                -- "road", "river", "railway", etc.
+  min_lon REAL NOT NULL,
+  max_lon REAL NOT NULL,
+  min_lat REAL NOT NULL,
+  max_lat REAL NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS fence_rtree USING rtree(
+  id, min_lon, max_lon, min_lat, max_lat
+);
+
+CREATE INDEX IF NOT EXISTS idx_fence_layer ON fences(layer);
+
 -- Ingestion metadata: track when data sources were last refreshed
 CREATE TABLE IF NOT EXISTS ingestion_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source TEXT NOT NULL,                  -- 'congress-legislators' | 'openstates'
+  source TEXT NOT NULL,                  -- 'congress-legislators' | 'openstates' | 'canada-mps'
   status TEXT NOT NULL CHECK (status IN ('success', 'failure')),
   records_upserted INTEGER NOT NULL DEFAULT 0,
   records_deleted INTEGER NOT NULL DEFAULT 0,

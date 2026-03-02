@@ -12,16 +12,46 @@ import { readFile } from 'node:fs/promises';
 import { buildCellMapTree, toCellMapState, type CellDistrictMapping } from '../tree-builder.js';
 import type { CellMapState } from '../serving/registration-service.js';
 
-/** Shape of the snapshot JSON file (version 2) */
+/**
+ * Vintage metadata for a Tree 2 snapshot.
+ * Tags the snapshot with temporal context so multiple redistricting
+ * cycles can coexist and historical proofs remain valid.
+ */
+export interface SnapshotVintage {
+  /** Human-readable label: "119th-congress" | "2023-representation-order" */
+  readonly label: string;
+  /** ISO 3166-1 alpha-3 country code: "USA" | "CAN" */
+  readonly country: string;
+  /** When these boundaries took effect (ISO 8601) */
+  readonly effectiveDate: string;
+  /** When superseded by new boundaries (null if current) */
+  readonly expiryDate?: string;
+  /** Data source identifier: "census-baf-2020+bef-119th" | "statcan-fed-2023" */
+  readonly source: string;
+  /** On-chain commitment timestamp (populated after DistrictGate.commitRoot) */
+  readonly committedAt?: string;
+  /** On-chain commitment transaction hash */
+  readonly txHash?: string;
+}
+
+/** Shape of the snapshot JSON file (version 2 or 3) */
 interface Tree2Snapshot {
   readonly version: number;
   readonly root: string;
   readonly depth: number;
   readonly cellCount: number;
+  /** Vintage metadata (version 3+). Optional for backward compat with v2. */
+  readonly vintage?: SnapshotVintage;
   readonly mappings: ReadonlyArray<{
     readonly cellId: string;
     readonly districts: readonly string[];
   }>;
+}
+
+/** Result of loading a snapshot — CellMapState + optional vintage. */
+export interface SnapshotLoadResult {
+  readonly state: CellMapState;
+  readonly vintage: SnapshotVintage | null;
 }
 
 /**
@@ -37,6 +67,23 @@ interface Tree2Snapshot {
 export async function loadCellMapStateFromSnapshot(
   snapshotPath: string,
 ): Promise<CellMapState> {
+  const result = await loadSnapshotWithVintage(snapshotPath);
+  return result.state;
+}
+
+/**
+ * Load CellMapState + vintage metadata from a pre-built Tree 2 snapshot file.
+ *
+ * Version 3+ snapshots include vintage metadata. Version 2 snapshots return
+ * vintage as null (backward compatible).
+ *
+ * @param snapshotPath - Path to the tree2-snapshot.json file
+ * @returns CellMapState + vintage metadata
+ * @throws Error if snapshot is missing, invalid, or uses an unsupported version
+ */
+export async function loadSnapshotWithVintage(
+  snapshotPath: string,
+): Promise<SnapshotLoadResult> {
   const raw = await readFile(snapshotPath, 'utf-8');
   const snapshot: Tree2Snapshot = JSON.parse(raw);
 
@@ -69,5 +116,8 @@ export async function loadCellMapStateFromSnapshot(
     );
   }
 
-  return toCellMapState(result);
+  return {
+    state: toCellMapState(result),
+    vintage: snapshot.vintage ?? null,
+  };
 }
