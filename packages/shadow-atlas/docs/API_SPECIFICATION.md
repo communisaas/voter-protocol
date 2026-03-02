@@ -11,7 +11,7 @@
 
 **Version:** 1.0.0
 **Base URL:** `https://api.shadow-atlas.vote/v1`
-**Philosophy:** Free forever. Kill Cicero's business model through superior developer experience.
+**Philosophy:** Free forever. Zero-cost political geography for every developer.
 
 ## Design Principles
 
@@ -977,22 +977,22 @@ Complete machine-readable spec available at:
 
 ---
 
-## Competitive Advantages Over Cicero
+## Key Advantages
 
-| Feature | Shadow Atlas | Cicero |
-|---------|-------------|--------|
-| **Cost** | Free forever | Pay-per-call |
-| **Rate Limits** | 1000 req/hr (public), 100k/hr (keyed) | ~500 req/day (paid tiers) |
-| **Data Freshness** | Quarterly IPFS snapshots | Unknown update schedule |
-| **Verifiability** | Merkle proofs on every response | No cryptographic verification |
-| **Historical Data** | Point-in-time queries (any date) | Current data only |
-| **Bulk Download** | Free GeoJSON/Shapefile/TopoJSON | Not offered |
-| **Representative Info** | Included in district response | Separate API calls |
-| **Provenance Trail** | Full audit history per district | Opaque data sources |
-| **SDKs** | TypeScript, Python, Rust, Go, Ruby, Java | Limited |
-| **Webhooks** | Real-time update notifications | Not offered |
-| **License** | CC0-1.0 (Public Domain) | Proprietary |
-| **CDN Caching** | 90-day immutable boundaries | No public caching policy |
+| Feature | Shadow Atlas |
+|---------|-------------|
+| **Cost** | Free forever |
+| **Rate Limits** | 1000 req/hr (public), 100k/hr (keyed) |
+| **Data Freshness** | Quarterly IPFS snapshots |
+| **Verifiability** | Merkle proofs on every response |
+| **Historical Data** | Point-in-time queries (any date) |
+| **Bulk Download** | Free GeoJSON/Shapefile/TopoJSON |
+| **Representative Info** | Included in district response |
+| **Provenance Trail** | Full audit history per district |
+| **SDKs** | TypeScript, Python, Rust, Go, Ruby, Java |
+| **Webhooks** | Real-time update notifications |
+| **License** | CC0-1.0 (Public Domain) |
+| **CDN Caching** | 90-day immutable boundaries |
 
 ---
 
@@ -1018,35 +1018,6 @@ Complete machine-readable spec available at:
 - **Zero API call charges to users**
 
 ---
-
-## Migration Guide from Cicero
-
-**Step 1:** Replace endpoint
-```diff
-- https://cicero.azavea.com/v3.1/legislative_district?lat=37.7749&lon=-122.4194
-+ https://api.shadow-atlas.vote/v1/districts/lookup?lat=37.7749&lon=-122.4194&levels=council
-```
-
-**Step 2:** Update response parsing
-```typescript
-// Cicero format (deprecated)
-const district = response.response.results.officials[0].district;
-
-// Shadow Atlas format (new)
-const district = response.data.districts[0];
-```
-
-**Step 3:** Add Merkle proof verification (optional, for trustless data)
-```typescript
-import { verifyMerkleProof } from '@shadow-atlas/client';
-
-const isValid = verifyMerkleProof(
-  response.data.merkle_proof,
-  response.data.snapshot.merkle_root
-);
-```
-
-**Step 4:** Remove API key billing logic (Shadow Atlas is free)
 
 ---
 
@@ -1076,4 +1047,4 @@ Shadow Atlas API responses are released under **CC0-1.0 (Public Domain Dedicatio
 
 ---
 
-**Built to kill Cicero's business model. Free forever. Cryptographically verifiable. Developer-first.**
+**Free forever. Cryptographically verifiable. Developer-first.**

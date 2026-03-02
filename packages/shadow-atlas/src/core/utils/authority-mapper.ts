@@ -9,7 +9,7 @@
  * 4 (state-agency)      - State GIS clearinghouses (geodata.hawaii.gov, gis.ny.gov)
  * 3 (municipal-agency)  - City open data portals (data.seattle.gov)
  * 2 (county-agency)     - County GIS departments
- * 1 (commercial-aggregator) - Commercial APIs (Cicero, Google Civic)
+ * 1 (commercial-aggregator) - Commercial APIs (Google Civic)
  * 0 (community-maintained) - OpenStreetMap, volunteer efforts
  *
  * CIRCUIT SLOT ARCHITECTURE:

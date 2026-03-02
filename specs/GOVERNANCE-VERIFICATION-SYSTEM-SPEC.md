@@ -677,7 +677,7 @@ const DISTRICT_DATA_SOURCES: Record<DistrictType, DataSource> = {
   STATE_HOUSE: { type: 'TIGER', layer: 'sldl', representativeAPI: 'openstates' },
   COUNTY: { type: 'TIGER', layer: 'county', representativeAPI: null },
   COUNTY_SUPERVISOR: { type: 'MUNICIPAL_PORTAL', representativeAPI: null },
-  CITY_COUNCIL: { type: 'SHADOW_ATLAS', representativeAPI: 'cicero' },
+  CITY_COUNCIL: { type: 'SHADOW_ATLAS', representativeAPI: 'municipal-scraping' },
   // ... etc
 };
 ```
@@ -1155,7 +1155,7 @@ interface CanonicalIds {
 
   // Tier 2: State/local IDs (vary by jurisdiction)
   readonly openStatesId?: string;     // State legislators
-  readonly ciceroId?: string;         // Municipal officials
+  readonly municipalId?: string;      // Municipal officials
 
   // Tier 3: Derived IDs (computed, not authoritative)
   readonly derivedId?: string;        // Our internal stable ID
@@ -1410,8 +1410,7 @@ function getConfidenceLabel(confidence: number): string {
 | 1 | OpenStates API | US State Legislature | FREE | Yes |
 | 1 | State Legislature Websites | US State | FREE | Scraping required |
 | 2 | Google Civic API | US Federal + State | FREE tier | Yes |
-| 2 | Cicero API | US Municipal | $0.03/lookup | Yes |
-| 3 | Municipal Websites | US Municipal | FREE | Scraping required |
+| 2 | Municipal Websites | US Municipal | FREE | Scraping required |
 | 3 | Ballotpedia | US All Levels | FREE | Yes (limited API) |
 | 4 | Wikidata | Global | FREE | Yes (structured) |
 
@@ -1493,9 +1492,9 @@ sources:
 │                                                                              │
 │  PHASE 3: MUNICIPAL TOP 100 (Week 5-8) ─────────────────────────────────    │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Source: Cicero API + Shadow Atlas portals                                  │
+│  Source: Shadow Atlas portals + municipal scraping                           │
 │  Coverage: Top 100 cities by population (covers ~30% of US population)      │
-│  Cost: ~$3,000 one-time (Cicero seed) + verification                        │
+│  Cost: ~$1,000 compute + verification                                       │
 │  Confidence: 0.85                                                           │
 │  Prioritization: Population × Shadow Atlas coverage score                   │
 │                                                                              │
@@ -1503,7 +1502,7 @@ sources:
 │  ─────────────────────────────────────────────────────────────────────────  │
 │  Source: Shadow Atlas portal discovery + Google Civic API + scraping        │
 │  Coverage: Top 500 cities (covers ~50% of US population)                    │
-│  Cost: ~$5,000/month (Cicero ongoing) + compute                             │
+│  Cost: ~$3,000/month compute + scraping infrastructure                      │
 │  Confidence: 0.75                                                           │
 │                                                                              │
 │  PHASE 5: LONG TAIL (Month 6-12) ───────────────────────────────────────    │
@@ -1609,7 +1608,7 @@ async function processUserSubmission(
 | Partner Type | Example | Data Value | Approach |
 |--------------|---------|------------|----------|
 | Civic Tech Orgs | Code for America, OpenStates | State + local officials | Data sharing agreement |
-| Election Data Providers | Cicero, Ballotpedia | Municipal coverage | Paid API + gradual replacement |
+| Election Data Providers | Ballotpedia | Municipal coverage | Free/limited API + scraping |
 | News Organizations | AP, local papers | Real-time updates | Event feed integration |
 | Government Associations | NLC, USCM, NACo | Official directories | Partnership outreach |
 | Academic Institutions | Civic data labs | Research datasets | Collaboration |
@@ -1665,7 +1664,7 @@ const US_CONFIG: CountryConfig = {
       districtTypes: ['CITY_COUNCIL', 'COUNTY_SUPERVISOR'],
       electedPositions: ['MAYOR', 'COUNCIL_MEMBER'],
       appointedPositions: ['CITY_MANAGER'],
-      dataSources: ['cicero', 'municipal-scraping']
+      dataSources: ['municipal-scraping', 'shadow-atlas-portals']
     }
   ],
   electionSystem: 'FIRST_PAST_THE_POST',
@@ -1807,8 +1806,7 @@ const UK_CONFIG: CountryConfig = {
 │                                                                              │
 │  DATA ACQUISITION                                                            │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Cicero API (bootstrap): $2,000/month                                       │
-│  (Gradually replaced with direct sources)                                   │
+│  Municipal scraping infrastructure: $500/month                              │
 │                                                                              │
 │  ─────────────────────────────────────────────────────────────────────────  │
 │  PHASE 2 TOTAL: ~$6,300/month                                               │
@@ -1832,7 +1830,7 @@ const UK_CONFIG: CountryConfig = {
 | Batch fetching | 50% on API costs | Combine requests, off-peak scheduling |
 | Tiered checking | 40% on compute | Federal: daily, State: 2x/week, Municipal: weekly |
 | SLM self-hosting | 70% vs API | Shared GPU cluster, model quantization |
-| Replace Cicero | $2,000/month | Build direct integrations over 6-12 months |
+| Direct integrations | $0 long-term | Build direct municipal integrations over 6-12 months |
 | User-contributed data | Reduces discovery | Communique platform incentives |
 
 ### 10.4 Cost Comparison: Original vs Revised
@@ -2124,7 +2122,7 @@ async function handleElectionEvent(event: ElectionEventConfig): Promise<void> {
 
 **Objective:** Municipal coverage for top population centers
 
-- [ ] Cicero API integration (bootstrap data)
+- [ ] Municipal scraping framework (bootstrap data)
 - [ ] Shadow Atlas portal integration (716 existing portals)
 - [ ] Multi-member district modeling (school boards, at-large)
 - [ ] Municipal scraping framework with DOM-resilient selectors
@@ -2134,14 +2132,14 @@ async function handleElectionEvent(event: ElectionEventConfig): Promise<void> {
 
 ### 11.5 Phase 5: Municipal Expansion (Top 500)
 
-**Objective:** Expand municipal coverage + reduce Cicero dependency
+**Objective:** Expand municipal coverage via direct integrations
 
 - [ ] Direct integrations for major cities (LA, NYC, Chicago, etc.)
 - [ ] Partnership outreach: NLC, USCM, Code for America
 - [ ] School board coverage via state education departments
 - [ ] County supervisor districts (manual discovery)
 - [ ] User-contributed data verification workflows
-- [ ] Gradual Cicero replacement (cost reduction)
+- [ ] Expand direct municipal integrations (cost reduction)
 
 ### 11.6 Phase 6: Global Expansion
 
@@ -2634,7 +2632,7 @@ See `docs/deployment/postgresql-age-setup.md`
 
 - `docs/sources/congress-gov.md` - US Federal (Congress.gov API)
 - `docs/sources/openstates.md` - US State (OpenStates API)
-- `docs/sources/cicero.md` - US Municipal (Cicero API, bootstrap only)
+- `docs/sources/municipal-scraping.md` - US Municipal (portal scraping)
 - `docs/sources/wikidata.md` - Global entity resolution
 - `docs/sources/shadow-atlas.md` - District geometry integration
 

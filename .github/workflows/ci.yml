@@ -70,6 +70,25 @@ jobs:
       - name: Run noir-prover tests
         run: npx vitest run packages/noir-prover/src/prover.test.ts packages/noir-prover/src/two-tree-prover.test.ts
 
+  test-ai-evaluator:
+    name: AI Evaluator Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ai-evaluator tests
+        run: npx vitest run packages/ai-evaluator/src/__tests__/
+
   typecheck:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
@@ -95,11 +114,14 @@ jobs:
       - name: Type check noir-prover
         run: npx tsc --noEmit -p packages/noir-prover/tsconfig.json
 
+      - name: Type check ai-evaluator
+        run: npx tsc --noEmit -p packages/ai-evaluator/tsconfig.json
+
   build:
     name: Build All Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [test-crypto, test-shadow-atlas, test-noir-prover, typecheck]
+    needs: [test-crypto, test-shadow-atlas, test-noir-prover, test-ai-evaluator, typecheck]
     steps:
       - uses: actions/checkout@v4
 

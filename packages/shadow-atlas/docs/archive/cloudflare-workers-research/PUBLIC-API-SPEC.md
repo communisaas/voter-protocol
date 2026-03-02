@@ -23,7 +23,7 @@
 
 ## Executive Summary
 
-Shadow Atlas Public API disrupts paid incumbent district lookup services (Cicero, Google Civic API) with free, cryptographically verifiable boundary resolution. Two-tier storage architecture separates cryptographic verification (Storacha/IPFS) from API serving (Cloudflare R2 + Workers), enabling free tier sustainability while maintaining zero-trust verification guarantees.
+Shadow Atlas Public API disrupts paid incumbent district lookup services with free, cryptographically verifiable boundary resolution. Two-tier storage architecture separates cryptographic verification (Storacha/IPFS) from API serving (Cloudflare R2 + Workers), enabling free tier sustainability while maintaining zero-trust verification guarantees.
 
 **Core Value Proposition**:
 - Free district lookups (1000/day per IP, no API key required)
@@ -34,7 +34,7 @@ Shadow Atlas Public API disrupts paid incumbent district lookup services (Cicero
 **Economic Model**:
 - Free tier: 100M lookups/month → $50/month infrastructure cost
 - Break-even: 500 premium API keys @ $10/month
-- Competition: Undercuts Cicero ($1500/month), Google Civic ($0.005/lookup)
+- Competition: Undercuts paid incumbents, Google Civic ($0.005/lookup)
 
 ---
 
@@ -927,10 +927,9 @@ Break-Even: 12 premium customers @ $10/month
 | Provider | Free Tier | Paid Tier | Annual Cost (1M lookups) |
 |----------|-----------|-----------|-------------------------|
 | **Shadow Atlas** | 1000/day | $10/month (100k/day) | $120 |
-| Cicero | 0 | $1500/month flat | $18,000 |
 | Google Civic API | 0 | $0.005/lookup | $5,000 |
 
-**Competitive Advantage**: 99% cost reduction vs. Cicero, 97% vs. Google.
+**Competitive Advantage**: 97%+ cost reduction vs. paid incumbents.
 
 ---
 
@@ -1292,4 +1291,4 @@ Shadow Atlas Public API provides free, cryptographically verifiable district loo
 4. Automate quarterly updates (Week 7-8)
 5. Production hardening (Week 9-10)
 
-**Competitive Moat**: 99% cost reduction vs. Cicero, cryptographic verification, zero platform lock-in.
+**Competitive Moat**: 97%+ cost reduction vs. paid incumbents, cryptographic verification, zero platform lock-in.

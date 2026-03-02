@@ -107,7 +107,6 @@ Applications specify which district proofs they require. Users generate only tho
 **Data Sources:**
 - **[CENSUS-API]** US Census Bureau Geocoding Services API (https://geocoding.geo.census.gov/geocoder/)
 - **[TIGER]** TIGER/Line Shapefiles (https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
-- **[CICERO]** Cicero API Documentation (https://cicero.azavea.com/docs/)
 - **[OSM]** OpenStreetMap Nominatim API (https://nominatim.org/)
 
 **Project Documents:**
@@ -1608,8 +1607,8 @@ The nullifier provides sybil resistance - ensuring one user cannot act multiple 
    - Proposed: Canada (Phase 2), UK (Phase 3), EU (Phase 4)
    - See Section 4.3 for International Coverage scope
 
-5. **Cicero Dependency:** What if Cicero shuts down or raises prices?
-   - Proposed: Build fallback scraping infrastructure for city council data
+5. **Municipal Data Coverage:** How do we cover city council data at scale?
+   - Proposed: Build scraping infrastructure for city council data from public sources
 
 6. **Identity Blob Storage:** Same IPFS infrastructure used for encrypted identity blobs
    - **Phase 1 (MVP):** Postgres encrypted blob storage (platform cannot decrypt)
@@ -1640,10 +1639,6 @@ See `packages/crypto/services/geocoding/types.ts` for complete TypeScript interf
 **Census Bureau:**
 - Geocoding: `https://geocoding.geo.census.gov/geocoder/`
 - Documentation: https://www.census.gov/programs-surveys/geography/technical-documentation/complete-technical-documentation/census-geocoder.html
-
-**Cicero:**
-- Coverage: `https://app.cicerodata.com/v3.1/coverage`
-- Documentation: https://cicero.azavea.com/docs/
 
 **Geocodio:**
 - Geocoding: `https://api.geocod.io/v1.7/geocode`
