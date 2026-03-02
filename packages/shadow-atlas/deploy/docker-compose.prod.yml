@@ -1,0 +1,67 @@
+## Production Docker Compose — runs on OCI/Hetzner VM behind Cloudflare Tunnel
+##
+## Setup:
+##   1. Copy this file to /opt/shadow-atlas/docker-compose.yml on the VM
+##   2. Copy .env.production as .env
+##   3. docker compose up -d
+##
+## The Cloudflare Tunnel container handles TLS and routes
+## atlas.voter-protocol.org → shadow-atlas:3000
+
+services:
+  shadow-atlas:
+    image: ghcr.io/noot/voter-protocol/shadow-atlas:latest
+    container_name: shadow-atlas
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - shadow-atlas-data:/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DB_PATH=/data/shadow-atlas.db
+      - OFFICIALS_DB_PATH=/data/officials.db
+      - IPFS_GATEWAY=https://w3s.link
+      - RATE_LIMIT_PER_MINUTE=60
+      # Enable after Nominatim import
+      # - NOMINATIM_URL=http://nominatim:8080
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/v1/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  # Cloudflare Tunnel — zero-trust ingress, no public IP needed
+  # Create tunnel: cloudflared tunnel create shadow-atlas
+  # Route:         cloudflared tunnel route dns shadow-atlas atlas.voter-protocol.org
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      shadow-atlas:
+        condition: service_healthy
+
+  # Watchtower — auto-pull new images from GHCR on push
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_SCOPE=shadow-atlas
+    command: --scope shadow-atlas shadow-atlas
+
+volumes:
+  shadow-atlas-data:
+    driver: local

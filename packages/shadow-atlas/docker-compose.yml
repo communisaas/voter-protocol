@@ -1,44 +1,107 @@
-version: '3.8'
-
 services:
+  # ============================================================================
+  # Shadow Atlas API Server
+  # ============================================================================
+  #
+  # STARTUP:
+  #   docker compose up shadow-atlas              # Core only (district + officials)
+  #   docker compose --profile geocoding up       # With Nominatim geocoder
+  #
+  # PREREQUISITES:
+  #   npm run build:districts:full → builds ./data/shadow-atlas-full.db (R-tree, ~3.6GB, 11 US layers + Canada)
+  #   npm run ingest:legislators → builds ./data/officials.db (US legislators)
+  #   npm run ingest:canadian-mps → adds Canadian MPs to officials.db
+  #
   shadow-atlas:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: packages/shadow-atlas/Dockerfile
     container_name: shadow-atlas
     ports:
       - "3000:3000"
     volumes:
-      # Persistent database storage
-      - shadow-atlas-data:/data
+      # District boundaries R-tree (pre-built, read-only) — full national build
+      - ./data/shadow-atlas-full.db:/data/shadow-atlas.db:ro
+      # Officials DB — US legislators + Canadian MPs (pre-ingested, read-only)
+      - ./data/officials.db:/data/officials.db:ro
     environment:
-      # Server configuration
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=3000
       - HOST=0.0.0.0
-
-      # Database
       - DB_PATH=/data/shadow-atlas.db
-
-      # IPFS gateway
+      - OFFICIALS_DB_PATH=/data/officials.db
       - IPFS_GATEWAY=https://w3s.link
-
-      # Rate limiting (optional)
       - RATE_LIMIT_PER_MINUTE=60
-
-      # CORS (optional, default: *)
-      # - CORS_ORIGINS=https://voter-protocol.org,https://app.voter-protocol.org
+      # Self-hosted geocoding (requires Nominatim import — see below)
+      - NOMINATIM_URL=http://nominatim:8080
+      # Chain scanner — Scroll Sepolia (Tree 3 Engagement)
+      - CHAIN_RPC_URL=https://sepolia-rpc.scroll.io
+      - DISTRICT_GATE_ADDRESS=0xC5efdBE8A11d3EA1dD326360f43F159D9dfF684f
+      - CHAIN_POLL_INTERVAL_MS=30000
+      # Debate market
+      - DEBATE_MARKET_ADDRESS=0xAa1e5CcA6377c7c2E4dE2Df15dC87c51ccb9B751
+      - CHAIN_ID=534351
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/v1/health').then(r => process.exit(r.ok ? 0 : 1))"]
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/v1/health"]
       interval: 30s
       timeout: 3s
       start_period: 10s
       retries: 3
     labels:
       - "service.name=shadow-atlas"
-      - "service.version=0.1.0"
+      - "service.version=0.3.0"
+
+  # ============================================================================
+  # Nominatim — Self-hosted geocoder (optional, heavy)
+  # ============================================================================
+  #
+  # FIRST RUN (cold start — 3-5 hours, 16GB RAM peak):
+  #   docker compose --profile geocoding up nominatim
+  #   # Watch logs until "nominatim is ready"
+  #   # Then: docker compose up shadow-atlas
+  #
+  # SUBSEQUENT RUNS (~30s startup):
+  #   docker compose --profile geocoding up
+  #
+  # DISK: ~80GB after import (US ~60GB + Canada ~20GB)
+  #
+  # TEST:
+  #   US:  curl "http://localhost:8088/search?street=1+Dr+Carlton+B+Goodlett+Pl&city=San+Francisco&state=CA&postalcode=94102&format=json"
+  #   CA:  curl "http://localhost:8088/search?street=24+Sussex+Dr&city=Ottawa&state=ON&postalcode=K1M+1M4&countrycodes=ca&format=json"
+  #
+  nominatim:
+    image: mediagis/nominatim:4.4
+    container_name: shadow-atlas-nominatim
+    profiles: ["geocoding"]
+    volumes:
+      - nominatim-data:/var/lib/postgresql/14/main
+      - ./data/north-america-latest.osm.pbf:/nominatim/data.osm.pbf
+    environment:
+      PBF_PATH: /nominatim/data.osm.pbf
+      IMPORT_STYLE: address
+      IMPORT_US_POSTCODES: "true"
+      NOMINATIM_DATABASE_DSN: "pgsql:dbname=nominatim"
+      THREADS: 4
+    ports:
+      - "8088:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      start_period: 14400s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+        reservations:
+          memory: 4G
+    restart: unless-stopped
+    labels:
+      - "service.name=nominatim"
+      - "service.role=geocoder"
 
 volumes:
-  shadow-atlas-data:
+  nominatim-data:
     driver: local

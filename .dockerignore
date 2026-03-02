@@ -1,0 +1,34 @@
+node_modules
+**/node_modules
+**/dist
+.git
+**/*.test.ts
+**/__tests__
+**/coverage
+.turbo
+**/.turbo
+
+# Packages not needed for shadow-atlas build
+packages/noir-prover
+packages/ai-evaluator
+contracts
+
+# Heavy data dirs — DBs are bind-mounted at runtime, not baked into image
+packages/shadow-atlas/data/*.db
+packages/shadow-atlas/data/*.db-shm
+packages/shadow-atlas/data/*.db-wal
+packages/shadow-atlas/data/baf-cache
+packages/shadow-atlas/data/ward-cache
+packages/shadow-atlas/data/tiger-cache
+
+# Noir circuit build artifacts (keep source + fixtures, they're small ~1MB)
+# packages/crypto/noir — included: poseidon2 needs fixtures.json at runtime
+
+# Docs
+**/*.md
+**/docs
+
+# IDE / OS
+.vscode
+.idea
+**/.DS_Store
