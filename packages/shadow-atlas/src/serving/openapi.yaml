@@ -5,7 +5,7 @@ info:
   description: |
     Free, cryptographically verifiable district lookup API for VOTER Protocol.
 
-    Shadow Atlas disrupts paid incumbents (Cicero, Google Civic API) with:
+    Shadow Atlas provides free, verifiable political geography with:
     - Free tier: 1000 lookups/day per IP (no API key required)
     - Cryptographic verification: Every response includes Merkle proof
     - <50ms p95 latency: Cloudflare global CDN

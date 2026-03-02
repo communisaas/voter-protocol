@@ -21,7 +21,7 @@
 
 ### The Opportunity
 
-**Incumbent pricing** (Cicero, Smarty Streets):
+**Incumbent pricing** (Smarty Streets, etc.):
 - $0.06 - $0.09 per lookup
 - US-only coverage
 - Proprietary data
@@ -37,8 +37,8 @@
 
 | Metric | Result | Impact |
 |--------|--------|--------|
-| **Cost at 10M requests/month** | $5.40 | vs Cicero's $600k = **111,111x cheaper** |
-| **Cost at 100M requests/month** | $69 | vs Cicero's $6M = **86,957x cheaper** |
+| **Cost at 10M requests/month** | $5.40 | Orders of magnitude cheaper than paid incumbents |
+| **Cost at 100M requests/month** | $69 | Orders of magnitude cheaper than paid incumbents |
 | **Free tier capacity** | 3M requests/month | Viable for production launch |
 | **Global latency (p95)** | <50ms | 330 edge locations worldwide |
 | **Implementation time** | 2-4 hours | MVP to production |
@@ -119,22 +119,21 @@ User Request (lat/lon)
 | AWS Lambda@Edge + S3 | $3,660 | 53x more |
 | Smarty Streets | $399,000 | 5,783x more |
 | Google Geocoding API | $499,800 | 7,244x more |
-| Cicero API | $6,000,000 | 86,957x more |
 
 **Winner**: Cloudflare by orders of magnitude.
 
 ### Decision Matrix
 
-| Factor | Cloudflare | AWS | Vercel | Deno | Cicero |
-|--------|-----------|-----|--------|------|--------|
-| **Cost (10M req/mo)** | ★★★★★ ($5) | ★★☆☆☆ ($366) | ★★★☆☆ ($200) | ★☆☆☆☆ ($1k) | ☆☆☆☆☆ ($600k) |
-| **Cost (100M req/mo)** | ★★★★★ ($69) | ★★☆☆☆ ($3.6k) | ★★★☆☆ ($2k) | ★☆☆☆☆ ($10k) | ☆☆☆☆☆ ($6M) |
-| **Performance (Latency)** | ★★★★★ (<50ms) | ★★★☆☆ (50-100ms) | ★★★★☆ (~30ms) | ★★★☆☆ (~50ms) | ★★★☆☆ (API) |
-| **Global Coverage** | ★★★★★ (330 POPs) | ★★★☆☆ (13 POPs) | ★★★★☆ (global) | ★★★☆☆ (28 POPs) | ★★☆☆☆ (US only) |
-| **Developer Experience** | ★★★★☆ (Wrangler) | ★★☆☆☆ (complex) | ★★★★★ (easy) | ★★★★★ (easy) | ★★★☆☆ (API) |
-| **Vendor Lock-in** | ★★★★☆ (low) | ★★★☆☆ (moderate) | ★★☆☆☆ (high) | ★★★★☆ (low) | ★☆☆☆☆ (high) |
-| **Free Tier** | ★★★★☆ (3M req) | ★★★☆☆ (1M req) | ★★★☆☆ (100k req) | ★★★★★ (generous) | ☆☆☆☆☆ (none) |
-| **Scalability** | ★★★★★ (1B+ req) | ★★★★☆ (scalable) | ★★★★☆ (scalable) | ★★★☆☆ (growing) | ★★★☆☆ (API) |
+| Factor | Cloudflare | AWS | Vercel | Deno |
+|--------|-----------|-----|--------|------|
+| **Cost (10M req/mo)** | ★★★★★ ($5) | ★★☆☆☆ ($366) | ★★★☆☆ ($200) | ★☆☆☆☆ ($1k) |
+| **Cost (100M req/mo)** | ★★★★★ ($69) | ★★☆☆☆ ($3.6k) | ★★★☆☆ ($2k) | ★☆☆☆☆ ($10k) |
+| **Performance (Latency)** | ★★★★★ (<50ms) | ★★★☆☆ (50-100ms) | ★★★★☆ (~30ms) | ★★★☆☆ (~50ms) |
+| **Global Coverage** | ★★★★★ (330 POPs) | ★★★☆☆ (13 POPs) | ★★★★☆ (global) | ★★★☆☆ (28 POPs) |
+| **Developer Experience** | ★★★★☆ (Wrangler) | ★★☆☆☆ (complex) | ★★★★★ (easy) | ★★★★★ (easy) |
+| **Vendor Lock-in** | ★★★★☆ (low) | ★★★☆☆ (moderate) | ★★☆☆☆ (high) | ★★★★☆ (low) |
+| **Free Tier** | ★★★★☆ (3M req) | ★★★☆☆ (1M req) | ★★★☆☆ (100k req) | ★★★★★ (generous) |
+| **Scalability** | ★★★★★ (1B+ req) | ★★★★☆ (scalable) | ★★★★☆ (scalable) | ★★★☆☆ (growing) |
 
 **Overall Winner**: Cloudflare R2 + Workers (best balance of cost, performance, scalability)
 
@@ -374,7 +373,7 @@ All research findings are sourced from official documentation:
 
 **Cloudflare R2 + Workers enables Shadow Atlas to offer a FREE public district lookup API that is:**
 
-1. **87-167x cheaper** than incumbents (Cicero, Smarty Streets)
+1. **87-167x cheaper** than paid district lookup incumbents (Smarty Streets, etc.)
 2. **Production-ready** in 2-4 hours of implementation
 3. **Globally distributed** with <50ms p95 latency (330 edge locations)
 4. **Scalable** from 1M to 1B+ requests/month with linear cost growth
@@ -382,7 +381,7 @@ All research findings are sourced from official documentation:
 
 **This is not incremental improvement. This is market disruption through infrastructure arbitrage.**
 
-**Financial Impact**: At 100M lookups/month, Shadow Atlas saves $5,999,931/month vs Cicero API. Over 5 years, that's **$360M in cost savings** while offering superior global coverage.
+**Financial Impact**: At 100M lookups/month, Shadow Atlas saves millions per month vs paid district lookup incumbents while offering superior global coverage.
 
 By leveraging Cloudflare's zero-egress R2 storage and globally distributed Workers platform, Shadow Atlas can democratize access to electoral district data and disrupt a market dominated by expensive, proprietary APIs.
 

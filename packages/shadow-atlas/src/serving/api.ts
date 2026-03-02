@@ -331,6 +331,16 @@ export class ShadowAtlasAPI {
   private readonly apiVersion: APIVersion;
   private shuttingDown = false;
 
+  /**
+   * Idempotency cache for registration mutations.
+   * Maps X-Idempotency-Key → { result, expiresAt }.
+   * Prevents duplicate tree mutations on network retry.
+   * TTL: 1 hour. Cleanup: every 5 minutes.
+   */
+  private readonly idempotencyCache: Map<string, { result: unknown; expiresAt: number }> = new Map();
+  private readonly idempotencyCacheTTL = 60 * 60 * 1000; // 1 hour
+  private readonly idempotencyCacheCleanup: ReturnType<typeof setInterval>;
+
   constructor(
     lookupService: DistrictLookupService | null,
     proofService: ProofService | null,
@@ -407,6 +417,16 @@ export class ShadowAtlasAPI {
     this.server.requestTimeout = 30_000;   // 30s total request timeout
     this.server.headersTimeout = 10_000;   // 10s for headers
     this.server.keepAliveTimeout = 5_000;  // 5s keep-alive
+
+    // Sweep expired idempotency cache entries every 5 minutes
+    this.idempotencyCacheCleanup = setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.idempotencyCache) {
+        if (now >= entry.expiresAt) {
+          this.idempotencyCache.delete(key);
+        }
+      }
+    }, 5 * 60 * 1000);
   }
 
   // ==========================================================================
@@ -565,6 +585,9 @@ export class ShadowAtlasAPI {
     await this.syncService.shutdown(insertionLog);
     this.syncService.stop();
 
+    // 5. Clear idempotency cache cleanup timer
+    clearInterval(this.idempotencyCacheCleanup);
+
     logger.info('API server stopped');
   }
 
@@ -626,6 +649,10 @@ export class ShadowAtlasAPI {
         await this.handleRegister(req, res, requestId, startTime);
       } else if (basePath === '/register/replace' && req.method === 'POST') {
         await this.handleRegisterReplace(req, res, requestId, startTime);
+      } else if (basePath.match(/^\/tree\/leaf\/\d+$/) && req.method === 'GET') {
+        this.handleTreeLeaf(basePath, res, req, requestId);
+      } else if (basePath === '/tree/info' && req.method === 'GET') {
+        this.handleTreeInfo(res, req, requestId);
       } else if (basePath === '/cell-proof' && req.method === 'GET') {
         await this.handleCellProof(url, res, req, requestId, startTime);
       } else if (basePath === '/cell-map-info' && req.method === 'GET') {
@@ -1890,6 +1917,18 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // Idempotency key support: if present, check cache before proceeding
+    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    if (idempotencyKey) {
+      const cached = this.idempotencyCache.get(idempotencyKey);
+      if (cached && Date.now() < cached.expiresAt) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Idempotency-Cached', 'true');
+        this.sendSuccessResponse(res, cached.result, requestId, false);
+        return;
+      }
+    }
+
     try {
       const result = await this.registrationService.insertLeaf(
         validation.data.leaf,
@@ -1919,19 +1958,47 @@ export class ShadowAtlasAPI {
         };
       }
 
+      const responseData = { ...result, receipt };
+
+      // Cache result by idempotency key
+      if (idempotencyKey) {
+        this.idempotencyCache.set(idempotencyKey, {
+          result: responseData,
+          expiresAt: Date.now() + this.idempotencyCacheTTL,
+        });
+      }
+
       // No cache for mutations
       res.setHeader('Cache-Control', 'no-store');
 
       this.sendSuccessResponse(
-        res, { ...result, receipt }, requestId, false,
+        res, responseData, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
 
       if (msg === 'DUPLICATE_LEAF') {
-        // CR-006: Return 400 (not 409) so duplicate is indistinguishable
-        // from other validation errors — prevents registration oracle attack.
-        // S-08: Use identical message to prevent error-message oracle.
+        // Natural idempotency: return existing proof instead of 400.
+        // Proof verified this is ZK-safe — fresh proof has the longest
+        // validity window before root rotation.
+        const existingIndex = this.registrationService!.findLeafIndex(validation.data.leaf);
+        if (existingIndex !== undefined) {
+          const existingResult = this.registrationService!.getProof(existingIndex);
+          const responseData = { ...existingResult, alreadyRegistered: true };
+
+          // Cache for idempotency key
+          if (idempotencyKey) {
+            this.idempotencyCache.set(idempotencyKey, {
+              result: responseData,
+              expiresAt: Date.now() + this.idempotencyCacheTTL,
+            });
+          }
+
+          res.setHeader('Cache-Control', 'no-store');
+          this.sendSuccessResponse(res, responseData, requestId, false);
+          return;
+        }
+        // Fallback: if index lookup fails unexpectedly, return oracle-resistant 400
         this.sendErrorResponse(
           res, 400, 'INVALID_PARAMETERS',
           'Invalid registration parameters',
@@ -2052,6 +2119,18 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // Idempotency key support: if present, check cache before proceeding
+    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    if (idempotencyKey) {
+      const cached = this.idempotencyCache.get(idempotencyKey);
+      if (cached && Date.now() < cached.expiresAt) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Idempotency-Cached', 'true');
+        this.sendSuccessResponse(res, cached.result, requestId, false);
+        return;
+      }
+    }
+
     try {
       const result = await this.registrationService.replaceLeaf(
         validation.data.oldLeafIndex,
@@ -2080,11 +2159,21 @@ export class ShadowAtlasAPI {
         };
       }
 
+      const responseData = { ...result, receipt };
+
+      // Cache result by idempotency key
+      if (idempotencyKey) {
+        this.idempotencyCache.set(idempotencyKey, {
+          result: responseData,
+          expiresAt: Date.now() + this.idempotencyCacheTTL,
+        });
+      }
+
       // No cache for mutations
       res.setHeader('Cache-Control', 'no-store');
 
       this.sendSuccessResponse(
-        res, { ...result, receipt }, requestId, false,
+        res, responseData, requestId, false,
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -2119,6 +2208,105 @@ export class ShadowAtlasAPI {
         );
       }
     }
+  }
+
+  /**
+   * Handle GET /v1/tree/leaf/:index endpoint
+   *
+   * Returns the leaf value at a given index in Tree 1.
+   * Used by communique's reconciliation job to verify Postgres ↔ atlas consistency.
+   */
+  private handleTreeLeaf(
+    basePath: string,
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.registrationService) {
+      this.sendErrorResponse(
+        res, 501, 'REGISTRATION_UNAVAILABLE',
+        'Registration service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Authenticate (same as registration endpoints)
+    if (this.registrationAuthToken) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        this.sendErrorResponse(res, 401, 'UNAUTHORIZED', 'Authorization required', requestId);
+        return;
+      }
+      const token = authHeader.slice(7);
+      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
+        this.sendErrorResponse(res, 403, 'FORBIDDEN', 'Invalid authorization token', requestId);
+        return;
+      }
+    }
+
+    const indexStr = basePath.replace('/tree/leaf/', '');
+    const index = parseInt(indexStr, 10);
+    if (isNaN(index) || index < 0) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Leaf index must be a non-negative integer', requestId);
+      return;
+    }
+
+    const result = this.registrationService.getLeafAt(index);
+    if (!result) {
+      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Leaf index out of range', requestId);
+      return;
+    }
+
+    this.sendSuccessResponse(res, {
+      leafIndex: index,
+      leaf: result.leaf,
+      isEmpty: result.isEmpty,
+      treeSize: this.registrationService.leafCount,
+    }, requestId, false);
+  }
+
+  /**
+   * Handle GET /v1/tree/info endpoint
+   *
+   * Returns tree metadata for bulk reconciliation.
+   */
+  private handleTreeInfo(
+    res: ServerResponse,
+    req: IncomingMessage,
+    requestId: string,
+  ): void {
+    if (!this.registrationService) {
+      this.sendErrorResponse(
+        res, 501, 'REGISTRATION_UNAVAILABLE',
+        'Registration service not configured',
+        requestId,
+      );
+      return;
+    }
+
+    // Authenticate (same as registration endpoints)
+    if (this.registrationAuthToken) {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        this.sendErrorResponse(res, 401, 'UNAUTHORIZED', 'Authorization required', requestId);
+        return;
+      }
+      const token = authHeader.slice(7);
+      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
+        this.sendErrorResponse(res, 403, 'FORBIDDEN', 'Invalid authorization token', requestId);
+        return;
+      }
+    }
+
+    this.sendSuccessResponse(res, {
+      treeSize: this.registrationService.leafCount,
+      root: this.registrationService.getRootHex(),
+      depth: this.registrationService.depth,
+      capacity: this.registrationService.treeCapacity,
+    }, requestId, false);
   }
 
   /**

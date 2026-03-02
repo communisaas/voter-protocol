@@ -367,7 +367,7 @@ RISK: Technical debt accumulates, migration painful at scale
 
 ### Phase 2 (Post-Launch): PostgreSQL Migration
 - After VOTER protocol MVP launch (<6 months)
-- Before offering free public API (competing with Cicero)
+- Before offering free public API
 - Use phased migration (8-10 weeks, dual-mode operation)
 - Deploy with Supabase (PostgreSQL + PostgREST + real-time)
 

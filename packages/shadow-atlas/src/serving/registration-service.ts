@@ -88,8 +88,8 @@ export interface CellMapState {
 export class RegistrationService {
   /** Sparse node storage: key = "level:index", value = hash */
   private readonly nodeMap: Map<string, bigint> = new Map();
-  /** Set of all inserted leaf hashes (hex) for duplicate detection */
-  private readonly leafSet: Set<string> = new Set();
+  /** Map of leaf hash (hex) → leaf index for duplicate detection and index lookup */
+  private readonly leafMap: Map<string, number> = new Map();
   /** Precomputed empty subtree hashes at each level */
   private readonly emptyHashes: bigint[];
   /** Next available leaf position */
@@ -293,14 +293,14 @@ export class RegistrationService {
         throw new Error('OLD_LEAF_ALREADY_EMPTY');
       }
 
-      // Check new leaf isn't a duplicate (in leafSet)
+      // Check new leaf isn't a duplicate (in leafMap)
       const newLeafHexNorm = newLeaf.toString(16);
-      if (this.leafSet.has(newLeafHexNorm)) {
+      if (this.leafMap.has(newLeafHexNorm)) {
         throw new Error('DUPLICATE_LEAF');
       }
 
       // Note: SAME_LEAF is unreachable — if newLeaf === oldLeafValue, the
-      // DUPLICATE_LEAF check above fires first (old leaf is still in leafSet).
+      // DUPLICATE_LEAF check above fires first (old leaf is still in leafMap).
       // Kept as defense-in-depth for clarity.
       if (newLeaf === oldLeafValue) {
         throw new Error('SAME_LEAF');
@@ -345,7 +345,7 @@ export class RegistrationService {
 
       // Remove old leaf from duplicate tracking set
       const oldLeafHex = oldLeafValue.toString(16);
-      this.leafSet.delete(oldLeafHex);
+      this.leafMap.delete(oldLeafHex);
 
       // ========================================================================
       // Step 2: Insert the new leaf at nextLeafIndex
@@ -353,7 +353,7 @@ export class RegistrationService {
 
       // Set new leaf node
       this.setNode(0, newLeafIndex, newLeaf);
-      this.leafSet.add(newLeafHexNorm);
+      this.leafMap.set(newLeafHexNorm, newLeafIndex);
       this.nextLeafIndex++;
 
       // Recompute path from new index to root
@@ -429,6 +429,42 @@ export class RegistrationService {
     return this.nextLeafIndex >= this.capacity;
   }
 
+  /** Tree capacity (2^depth) */
+  get treeCapacity(): number {
+    return this.capacity;
+  }
+
+  /**
+   * Find the index of an existing leaf by its value.
+   * Returns undefined if the leaf is not in the tree.
+   */
+  findLeafIndex(leafHex: string): number | undefined {
+    const normalized = leafHex.startsWith('0x') ? leafHex.slice(2) : leafHex;
+    try {
+      const leaf = BigInt('0x' + normalized);
+      return this.leafMap.get(leaf.toString(16));
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Get the leaf value at a given index.
+   * Returns the hex-encoded leaf hash, or null if the index is out of range.
+   * Leaves zeroed by replace operations return the padding hash with isEmpty=true.
+   */
+  getLeafAt(index: number): { leaf: string; isEmpty: boolean } | null {
+    if (index < 0 || index >= this.nextLeafIndex) {
+      return null;
+    }
+    const value = this.getNode(0, index);
+    const isEmpty = value === this.emptyHashes[0];
+    return {
+      leaf: '0x' + value.toString(16),
+      isEmpty,
+    };
+  }
+
   // ============================================================================
   // Internal
   // ============================================================================
@@ -443,7 +479,7 @@ export class RegistrationService {
     const leaf = this.parseLeaf(leafHex);
     const leafHexNorm = leaf.toString(16);
 
-    if (this.leafSet.has(leafHexNorm)) {
+    if (this.leafMap.has(leafHexNorm)) {
       logger.warn('InsertionLog replay: skipping duplicate leaf', {
         leaf: leafHex,
       });
@@ -456,7 +492,7 @@ export class RegistrationService {
 
     const leafIndex = this.nextLeafIndex;
     this.setNode(0, leafIndex, leaf);
-    this.leafSet.add(leafHexNorm);
+    this.leafMap.set(leafHexNorm, leafIndex);
     this.nextLeafIndex++;
 
     let currentIndex = leafIndex;
@@ -496,7 +532,7 @@ export class RegistrationService {
 
     // Remove old leaf from set (unless it's the padding hash)
     if (oldLeaf !== this.emptyHashes[0]) {
-      this.leafSet.delete(oldLeafHex);
+      this.leafMap.delete(oldLeafHex);
     }
 
     // Zero old position
@@ -516,7 +552,7 @@ export class RegistrationService {
     }
 
     // Check new leaf not duplicate
-    if (this.leafSet.has(newLeafHexNorm)) {
+    if (this.leafMap.has(newLeafHexNorm)) {
       logger.warn('InsertionLog replay: skipping duplicate leaf in replace', {
         leaf: newLeafHex,
         oldLeafIndex,
@@ -533,7 +569,7 @@ export class RegistrationService {
     // Insert new leaf at next available index
     const newLeafIndex = this.nextLeafIndex;
     this.setNode(0, newLeafIndex, newLeaf);
-    this.leafSet.add(newLeafHexNorm);
+    this.leafMap.set(newLeafHexNorm, newLeafIndex);
     this.nextLeafIndex++;
 
     // Recompute path from new index to root
@@ -577,7 +613,7 @@ export class RegistrationService {
     const leafHex = leaf.toString(16);
 
     // Duplicate check
-    if (this.leafSet.has(leafHex)) {
+    if (this.leafMap.has(leafHex)) {
       throw new Error('DUPLICATE_LEAF');
     }
 
@@ -601,7 +637,7 @@ export class RegistrationService {
 
     // Set leaf node
     this.setNode(0, leafIndex, leaf);
-    this.leafSet.add(leafHex);
+    this.leafMap.set(leafHex, leafIndex);
     this.nextLeafIndex++;
 
     // Recompute path from leaf to root: O(depth) hashes

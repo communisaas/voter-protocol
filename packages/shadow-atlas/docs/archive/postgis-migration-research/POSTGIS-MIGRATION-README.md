@@ -171,7 +171,7 @@ This directory contains a complete PostgreSQL + PostGIS migration plan for shado
 ## When to Migrate
 
 ### Migrate NOW if:
-- ✅ Planning free public API (competing with Cicero)
+- ✅ Planning free public API
 - ✅ Need to scale beyond 1000 cities
 - ✅ Have >5 concurrent users
 - ✅ Want automated staleness detection

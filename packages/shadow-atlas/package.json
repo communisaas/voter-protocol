@@ -71,7 +71,9 @@
         "build:districts:test": "tsx src/scripts/build-district-db.ts --layers cd --state 06 --no-canada --output ./data/test-districts.db",
         "verify:serving": "tsx src/scripts/verify-serving.ts",
         "benchmark": "tsx src/scripts/benchmark-lookup.ts",
-        "benchmark:multi": "tsx src/scripts/benchmark-lookup.ts --multi"
+        "benchmark:multi": "tsx src/scripts/benchmark-lookup.ts --multi",
+        "build:h3-mapping": "tsx scripts/build-h3-mapping.ts",
+        "pin:ipfs": "tsx scripts/pin-to-ipfs.ts"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",
@@ -103,9 +105,10 @@
         "@types/node": "^24.3.2",
         "@types/pako": "^2.0.4",
         "@types/pdf-parse": "^1.1.5",
+        "@types/pg": "^8.0.0",
+        "h3-js": "^4.4.0",
         "typescript": "^5.7.2",
-        "vitest": "^2.1.8",
-        "@types/pg": "^8.0.0"
+        "vitest": "^2.1.8"
     },
     "keywords": [
         "voter-protocol",

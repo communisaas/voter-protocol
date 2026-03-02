@@ -24,7 +24,7 @@ Shadow Atlas production infrastructure deploys a globally distributed, cryptogra
 1. **Wrangler CLI** (recommended): Direct deployment via `wrangler deploy`
 2. **Terraform** (IaC): Reproducible infrastructure with environment parity
 
-**Cost Target**: $5-100/month for 1M-100M requests (99% cheaper than Cicero API)
+**Cost Target**: $5-100/month for 1M-100M requests (99% cheaper than paid district lookup incumbents)
 
 ---
 
@@ -414,7 +414,6 @@ terraform output
 | Provider | 100M Lookups/Month | Shadow Atlas Savings |
 |----------|------------------:|---------------------:|
 | **Shadow Atlas** | **$55.60** | Baseline |
-| Cicero API | $6,000,000 | **99.999%** cheaper |
 | Google Civic API | $500,000 | **99.989%** cheaper |
 | Smarty Streets | $399,000 | **99.986%** cheaper |
 

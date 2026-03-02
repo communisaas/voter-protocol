@@ -2,7 +2,7 @@
 
 # Shadow Atlas API - Design Summary
 
-**Mission:** Kill Cicero's business model through superior developer experience and zero-cost access.
+**Mission:** Displace paid district lookup incumbents through superior developer experience and zero-cost access.
 
 ## What I've Delivered
 
@@ -25,8 +25,8 @@ I've designed a complete, production-grade REST API specification for shadow-atl
 - Optional API keys: 100,000 requests/hour (free registration, usage analytics)
 - No paywalls, no usage tiers, no hidden fees
 
-**Why this kills Cicero:**
-- Cicero charges per API call (~$500/month for moderate usage)
+**Why this wins:**
+- Paid incumbents charge per API call (~$500/month for moderate usage)
 - Shadow Atlas removes cost barrier entirely
 - Developer adoption accelerates when billing friction disappears
 
@@ -44,7 +44,7 @@ I've designed a complete, production-grade REST API specification for shadow-atl
 
 **Why this matters:**
 - **Trustless data:** No "trust us, this is accurate" – mathematically verify district boundaries
-- **Competitive advantage:** Cicero has no cryptographic verification
+- **Competitive advantage:** Paid incumbents have no cryptographic verification
 - **Blockchain-native:** Perfect for on-chain voting protocols (VOTER)
 
 ---
@@ -67,7 +67,7 @@ I've designed a complete, production-grade REST API specification for shadow-atl
 **Why this scales:**
 - Municipal boundaries change quarterly (redistricting is rare)
 - Immutable data = perfect cache candidate
-- 100M requests/month costs ~$450 infrastructure (vs. $50K+ in Cicero API fees)
+- 100M requests/month costs ~$450 infrastructure (vs. $50K+ in paid incumbent API fees)
 
 ---
 
@@ -85,8 +85,8 @@ GET /v1/districts/lookup?lat=37.7749&lon=-122.4194&date=2024-11-05
 - **Historical analysis:** "How did redistricting in 2022 change district boundaries?"
 - **Compliance:** "Prove which representative this address had on a specific date"
 
-**Why Cicero can't compete:**
-- Cicero only offers current boundaries (no historical snapshots)
+**Why paid incumbents can't compete:**
+- Incumbents only offer current boundaries (no historical snapshots)
 - Shadow Atlas stores full provenance trail with temporal validity
 - Critical for legal/compliance use cases (voting rights litigation, etc.)
 
@@ -100,7 +100,7 @@ GET /v1/districts/lookup?lat=37.7749&lon=-122.4194&date=2024-11-05
 - **OpenAPI 3.0 spec:** Machine-readable, validates with `swagger-cli`
 - **Auto-generated SDKs:** TypeScript, Python, Rust, Go, Ruby, Java
 - **Interactive docs:** Swagger UI at `docs.shadow-atlas.vote`
-- **Migration guide:** Drop-in replacement for Cicero API
+- **Migration guide:** Drop-in replacement for paid district lookup APIs
 
 **Example (TypeScript):**
 ```typescript
@@ -117,7 +117,7 @@ console.log(result.districts[0].name) // "District 5"
 ```
 
 **Why this matters:**
-- Cicero has limited SDKs, poor documentation
+- Paid incumbents have limited SDKs, poor documentation
 - Shadow Atlas: `npm install @shadow-atlas/client` → done
 - Lower integration time from days to minutes
 
@@ -152,7 +152,7 @@ console.log(result.districts[0].name) // "District 5"
 6. **Boundary Download** (`GET /v1/boundaries/download`)
    - Download complete datasets in GeoJSON, TopoJSON, Shapefile, KML, CSV
    - Filter by state, country, FIPS code
-   - Free bulk downloads (vs. Cicero: not offered)
+   - Free bulk downloads (not offered by paid incumbents)
 
 7. **Provenance Trail** (`GET /v1/provenance/{district_id}`)
    - Full audit trail for a district boundary
@@ -230,7 +230,7 @@ All responses follow this structure:
 
 ## Competitive Advantages
 
-| Feature | Shadow Atlas | Cicero |
+| Feature | Shadow Atlas | Paid Incumbents |
 |---------|-------------|--------|
 | **Cost** | Free forever | Pay-per-call |
 | **Rate Limits** | 1000 req/hr (public), 100k/hr (keyed) | ~500 req/day (paid) |
@@ -333,41 +333,32 @@ CREATE INDEX idx_districts_fips ON districts (fips);
 
 **Total:** ~$450/month
 
-**Compared to Cicero:**
-- Cicero pricing: ~$0.0005/call = $50,000/month for 100M requests
+**Compared to paid incumbents:**
+- Incumbent pricing: ~$0.0005/call = $50,000/month for 100M requests
 - Shadow Atlas: $450/month (111x cheaper)
 - **Zero charges to users, forever**
 
 ---
 
-## Migration from Cicero
+## Migration from Paid District APIs
 
-**Step 1:** Replace endpoint
-
-```diff
-- https://cicero.azavea.com/v3.1/legislative_district?lat=37.7749&lon=-122.4194
-+ https://api.shadow-atlas.vote/v1/districts/lookup?lat=37.7749&lon=-122.4194&levels=council
-```
-
-**Step 2:** Update response parsing
+**Step 1:** Replace endpoint with Shadow Atlas
 
 ```typescript
-// Cicero format (deprecated)
-const district = response.response.results.officials[0].district
-
-// Shadow Atlas format (new)
+// Shadow Atlas format
+const result = await fetch('https://api.shadow-atlas.vote/v1/districts/lookup?lat=37.7749&lon=-122.4194&levels=council')
 const district = response.data.districts[0]
 ```
 
-**Step 3:** Remove billing logic (Shadow Atlas is free)
+**Step 2:** Remove billing logic (Shadow Atlas is free)
 
 ```diff
-- const apiKey = process.env.CICERO_API_KEY
-- const billingTracker = new CiceroUsageTracker(apiKey)
+- const apiKey = process.env.DISTRICT_API_KEY
+- const billingTracker = new UsageTracker(apiKey)
 + // No API key needed for public access (1000 req/hr)
 ```
 
-**Step 4:** Add Merkle proof verification (optional, for trustless data)
+**Step 3:** Add Merkle proof verification (optional, for trustless data)
 
 ```typescript
 import { verifyMerkleProof } from '@shadow-atlas/client'
@@ -430,7 +421,7 @@ if (!isValid) {
    - Cache hit rate >95%
 
 5. **Launch strategy**
-   - Migrate 10 pilot users from Cicero
+   - Onboard 10 pilot users
    - Monitor error rates, latency
    - Collect feedback on API ergonomics
    - Iterate on developer experience
@@ -442,7 +433,7 @@ if (!isValid) {
 **Developer Adoption:**
 - Goal: 1000 API users in 6 months
 - Metric: SDK downloads (npm, PyPI, crates.io)
-- Benchmark: Cicero has ~50 active customers (we can 20x this)
+- Benchmark: Paid incumbents have ~50 active customers (we can 20x this)
 
 **Performance:**
 - Goal: P99 latency <500ms
@@ -468,7 +459,7 @@ if (!isValid) {
 Every decision reduces barriers to adoption:
 - No API keys for basic usage
 - One-line SDK installation
-- Drop-in replacement for Cicero
+- Drop-in replacement for paid district APIs
 - Free bulk downloads
 
 ### 2. Trustless by Default
@@ -499,7 +490,7 @@ Superior DX wins markets:
 
 ## Conclusion
 
-This API design kills Cicero's business model through:
+This API design displaces paid district lookup incumbents through:
 
 1. **Zero-cost access** (removes primary barrier to adoption)
 2. **Cryptographic verification** (trustless data, perfect for blockchain apps)
@@ -510,7 +501,7 @@ This API design kills Cicero's business model through:
 **Cost to operate:** ~$450/month at 100M requests/month
 **Cost to users:** $0, forever
 
-**Estimated Cicero displacement:** 80% of their customer base within 12 months (they charge $500-5000/month, we charge $0)
+**Estimated incumbent displacement:** 80% of paid district API customers within 12 months (they charge $500-5000/month, we charge $0)
 
 **This is democracy infrastructure that competes on every dimension.**
 

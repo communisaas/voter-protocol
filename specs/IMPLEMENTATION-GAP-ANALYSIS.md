@@ -4374,7 +4374,7 @@ this.halo2Prover = new Halo2Prover();  // CLASS DIDN'T EXIST
 
 | Component | Status | Gap |
 |-----------|--------|-----|
-| Data sources | TIGER PLACE only | Need Census API + Cicero |
+| Data sources | TIGER PLACE only | Need Census API + municipal portals |
 | Merkle tree | Implemented | None |
 | IPFS distribution | STUBBED | ipfsCID = '' |
 | Quarterly updates | STUBBED | No scheduler |

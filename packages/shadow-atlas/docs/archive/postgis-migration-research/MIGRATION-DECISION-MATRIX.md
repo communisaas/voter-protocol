@@ -9,7 +9,7 @@ This document helps you make an informed decision based on current needs, resour
 ## TL;DR Recommendation
 
 **Migrate to PostgreSQL if**:
-- You plan to offer free public API (competing with Cicero)
+- You plan to offer free public API
 - You need to scale beyond 1000 cities (current: 520)
 - You have concurrent access requirements (multiple users/processes)
 - You want automated staleness detection and update monitoring

@@ -81,7 +81,7 @@ export type CollectionMethod =
   | 'national-statistics'    // National statistical agency (StatCan, ONS, etc.)
   | 'portal-discovery'       // Automated portal discovery (ArcGIS, Socrata, CKAN)
   | 'manual-verification'    // Manual download + verification
-  | 'commercial-api'         // Commercial API (Cicero, Google Civic, etc.)
+  | 'commercial-api'         // Commercial API (Google Civic, etc.)
   | 'community-aggregation'; // Community aggregation (OSM, etc.)
 
 /**

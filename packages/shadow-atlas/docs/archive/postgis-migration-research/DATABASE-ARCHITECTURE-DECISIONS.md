@@ -445,7 +445,7 @@ VALUES ($1, '{"COVERAGE_THRESHOLD": 0.85}'::jsonb, ...);
 **API Responsiveness**
 - 10ms database query + 5ms serialization + 10ms network = 25ms total
 - <50ms perceived as instant by users
-- Competitive with Cicero API performance
+- Competitive with paid district API performance
 
 **Concurrency**
 - 10ms query = 100 queries/second per connection

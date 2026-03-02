@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Migrate shadow-atlas from TypeScript registry files to production PostgreSQL + PostGIS database. Enables free public API competing with Cicero ($5-10k/month), scales to 190+ countries, maintains complete provenance tracking.
+Migrate shadow-atlas from TypeScript registry files to production PostgreSQL + PostGIS database. Enables free public API replacing paid district lookup incumbents, scales to 190+ countries, maintains complete provenance tracking.
 
 ### Migration Benefits
 
@@ -684,7 +684,7 @@ app.listen(3000, () => console.log('API listening on :3000'));
 ```markdown
 # Shadow Atlas API
 
-Free political district boundary API - compete with Cicero.
+Free political district boundary API.
 
 ## Endpoints
 

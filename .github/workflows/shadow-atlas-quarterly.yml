@@ -1,15 +1,16 @@
 name: Shadow Atlas Quarterly Update
 
-# DISABLED: Shadow Atlas workflows temporarily disabled
-# To re-enable, uncomment the schedule trigger below
+# Quarterly pipeline: build static artifacts, pin to IPFS, update on-chain registry.
+# Eliminates runtime server dependency for reads — all data is content-addressed.
 on:
-  workflow_dispatch:  # Manual trigger only
-  # schedule:
-  #   # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
-  #   - cron: '0 2 1 1,4,7,10 *'
+  workflow_dispatch:
     inputs:
+      db_source:
+        description: 'Shadow Atlas DB source URL (R2/S3/HTTP)'
+        required: true
+        type: string
       publish_ipfs:
-        description: 'Publish to IPFS'
+        description: 'Pin artifacts to IPFS via Storacha'
         required: false
         default: 'true'
         type: choice
@@ -17,21 +18,29 @@ on:
           - 'true'
           - 'false'
       update_registry:
-        description: 'Update on-chain registry'
+        description: 'Update on-chain registry with new CIDs'
         required: false
         default: 'false'
         type: choice
         options:
           - 'true'
           - 'false'
+  # schedule:
+  #   # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
+  #   - cron: '0 2 1 1,4,7,10 *'
+
+env:
+  NODE_VERSION: '20'
+  OUTPUT_DIR: packages/shadow-atlas/output
 
 jobs:
-  extract-tiger:
-    name: Extract TIGER Data
+  # ---- Phase A1: Build H3→district mapping ----
+  build-h3-mapping:
+    name: Build H3→District Mapping
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     outputs:
-      extraction_summary: ${{ steps.extract.outputs.summary }}
+      cell_count: ${{ steps.build.outputs.cell_count }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,336 +48,219 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Extract TIGER data for all 50 states
-        id: extract
+      - name: Download Shadow Atlas database
+        run: |
+          echo "Downloading shadow-atlas-full.db..."
+          curl -L -o shadow-atlas-full.db "${{ inputs.db_source }}"
+          ls -lh shadow-atlas-full.db
+
+      - name: Build H3 mapping
+        id: build
         working-directory: packages/shadow-atlas
         run: |
-          # TODO: BR7-020 — multi-state-validation.ts does not exist yet.
-          # This workflow is DISABLED (manual trigger only) and should not be
-          # re-enabled until the TIGER pipeline is production-ready.
-          # The build-merkle job also uses mock Merkle data (random CID/hash)
-          # which would write garbage to the on-chain registry.
-          echo "ERROR: TIGER pipeline not yet implemented. This workflow is a placeholder."
-          exit 1
+          mkdir -p output
+          npx tsx scripts/build-h3-mapping.ts ../../shadow-atlas-full.db output/
 
-      - name: Upload extraction data
+          # Extract cell count from metadata
+          CELL_COUNT=$(cat output/h3-mapping-metadata.json | jq -r '.matchedCells')
+          echo "cell_count=$CELL_COUNT" >> $GITHUB_OUTPUT
+          echo "Mapped $CELL_COUNT H3 cells"
+
+      - name: Upload H3 mapping artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tiger-extraction
-          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
-          retention-days: 90
-
-  validate-extraction:
-    name: Validate Extraction
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [extract-tiger]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download extraction data
-        uses: actions/download-artifact@v4
-        with:
-          name: tiger-extraction
-          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
-
-      - name: Validate all 50 states
-        working-directory: packages/shadow-atlas
-        run: |
-          # Run comprehensive validation
-          REPORT=".shadow-atlas/tiger-quarterly/multi-state-validation-report.json"
-
-          if [ ! -f "$REPORT" ]; then
-            echo "❌ Extraction report not found"
-            exit 1
-          fi
-
-          # Check validation results
-          TOTAL_TESTS=$(cat $REPORT | jq -r '.totalTests')
-          PASSED=$(cat $REPORT | jq -r '.summary.passed')
-          FAILED=$(($TOTAL_TESTS - $PASSED))
-
-          echo "Total tests: $TOTAL_TESTS"
-          echo "Passed: $PASSED"
-          echo "Failed: $FAILED"
-
-          # Require 95% pass rate
-          PASS_RATE=$(echo "scale=2; $PASSED / $TOTAL_TESTS * 100" | bc)
-          echo "Pass rate: $PASS_RATE%"
-
-          if (( $(echo "$PASS_RATE < 95.0" | bc -l) )); then
-            echo "❌ Validation pass rate below 95% threshold: $PASS_RATE%"
-            exit 1
-          fi
-
-          echo "✅ Validation passed with $PASS_RATE% pass rate"
-
-      - name: Check for data quality issues
-        working-directory: packages/shadow-atlas
-        run: |
-          REPORT=".shadow-atlas/tiger-quarterly/multi-state-validation-report.json"
-
-          # Check for critical errors
-          ERRORS=$(cat $REPORT | jq -r '.summary.errors')
-
-          if [ "$ERRORS" -gt 0 ]; then
-            echo "⚠️  $ERRORS errors detected in extraction"
-            cat $REPORT | jq '.stateResults[] | select(.status == "error")'
-          fi
-
-          # Check for missing states
-          TOTAL_STATES=$(cat $REPORT | jq -r '.totalStates')
-
-          if [ "$TOTAL_STATES" -lt 50 ]; then
-            echo "❌ Missing states: expected 50, got $TOTAL_STATES"
-            exit 1
-          fi
-
-          echo "✅ All 50 states present"
-
-  build-merkle:
-    name: Build Merkle Tree
-    # WARNING: This job uses MOCK data (random CID/hash). Do NOT enable
-    # update_registry until real Merkle tree builder is implemented.
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: [validate-extraction]
-    outputs:
-      ipfs_cid: ${{ steps.merkle.outputs.ipfs_cid }}
-      root_hash: ${{ steps.merkle.outputs.root_hash }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download extraction data
-        uses: actions/download-artifact@v4
-        with:
-          name: tiger-extraction
-          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
-
-      - name: Build Merkle tree
-        id: merkle
-        working-directory: packages/shadow-atlas
-        run: |
-          # Build Merkle tree from TIGER data
-          # This should invoke the merkle-tree-builder service
-
-          # Placeholder - replace with actual Merkle tree builder script
-          echo "Building Merkle tree from TIGER data..."
-
-          # Generate mock CID and root hash for workflow
-          IPFS_CID="Qm$(openssl rand -hex 23)"
-          ROOT_HASH="0x$(openssl rand -hex 32)"
-
-          echo "ipfs_cid=$IPFS_CID" >> $GITHUB_OUTPUT
-          echo "root_hash=$ROOT_HASH" >> $GITHUB_OUTPUT
-
-          echo "Merkle tree built:"
-          echo "  IPFS CID: $IPFS_CID"
-          echo "  Root Hash: $ROOT_HASH"
-
-      - name: Generate Merkle proofs
-        working-directory: packages/shadow-atlas
-        run: |
-          # Generate sample proofs for testing
-          echo "Generating Merkle proofs..."
-
-          # Placeholder - replace with actual proof generation
-          mkdir -p .shadow-atlas/tiger-quarterly/proofs
-
-          echo "✅ Merkle proofs generated"
-
-      - name: Upload Merkle artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: merkle-tree
-          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
+          name: h3-mapping
+          path: |
+            packages/shadow-atlas/output/h3-district-mapping.json.br
+            packages/shadow-atlas/output/h3-district-mapping-sample.json
+            packages/shadow-atlas/output/h3-mapping-metadata.json
           retention-days: 180
 
-  publish-ipfs:
-    name: Publish to IPFS
+  # ---- Phase A1: Export officials data ----
+  export-officials:
+    name: Export Officials Data
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [build-merkle]
-    if: github.event.inputs.publish_ipfs != 'false'
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Merkle artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: merkle-tree
-          path: packages/shadow-atlas/.shadow-atlas/tiger-quarterly/
-
-      - name: Setup IPFS
-        uses: ibnesayeed/setup-ipfs@master
-        with:
-          ipfs_version: '^0.24'
-
-      - name: Publish to IPFS
-        id: ipfs
+      - name: Download officials database
         run: |
-          # Start IPFS daemon
-          ipfs daemon &
-          IPFS_PID=$!
-          sleep 10
+          # Officials DB is small (~500KB), stored alongside the main DB
+          DB_URL="${{ inputs.db_source }}"
+          OFFICIALS_URL="${DB_URL%/*}/officials.db"
+          curl -L -o officials.db "$OFFICIALS_URL" || echo "Officials DB not at derived URL, skipping"
 
-          # Add directory to IPFS
-          CID=$(ipfs add -r packages/shadow-atlas/.shadow-atlas/tiger-quarterly/ | tail -n 1 | awk '{print $2}')
+      - name: Export to JSON
+        run: |
+          mkdir -p packages/shadow-atlas/output
 
-          echo "IPFS CID: $CID"
-          echo "cid=$CID" >> $GITHUB_OUTPUT
-
-          # Pin to Pinata (optional - requires API key)
-          if [ -n "${{ secrets.PINATA_API_KEY }}" ]; then
-            curl -X POST "https://api.pinata.cloud/pinning/pinByHash" \
-              -H "Content-Type: application/json" \
-              -H "pinata_api_key: ${{ secrets.PINATA_API_KEY }}" \
-              -H "pinata_secret_api_key: ${{ secrets.PINATA_SECRET_KEY }}" \
-              -d "{\"hashToPin\":\"$CID\"}"
-
-            echo "✅ Pinned to Pinata"
+          if [ -f officials.db ]; then
+            # Export officials table to JSON
+            sqlite3 -json officials.db "SELECT * FROM officials" > packages/shadow-atlas/output/officials.json
+            echo "Exported $(wc -l < packages/shadow-atlas/output/officials.json) lines"
+          else
+            echo '{"error": "officials.db not available"}' > packages/shadow-atlas/output/officials.json
+            echo "Officials DB not available — placeholder created"
           fi
 
-          # Stop IPFS daemon
-          kill $IPFS_PID
+      - name: Upload officials artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: officials
+          path: packages/shadow-atlas/output/officials.json
+          retention-days: 180
+
+  # ---- Phase A2: Pin to IPFS via Storacha ----
+  publish-ipfs:
+    name: Pin to IPFS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-h3-mapping, export-officials]
+    if: inputs.publish_ipfs != 'false'
+    outputs:
+      pin_results: ${{ steps.pin.outputs.results }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: packages/shadow-atlas/output/
+          merge-multiple: true
+
+      - name: Pin artifacts to Storacha
+        id: pin
+        working-directory: packages/shadow-atlas
+        env:
+          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
+          STORACHA_AGENT_KEY: ${{ secrets.STORACHA_AGENT_KEY }}
+        run: |
+          npx tsx scripts/pin-to-ipfs.ts \
+            --all output/ \
+            --output output/pin-results.json
+
+          # Output results for downstream jobs
+          echo "results=$(cat output/pin-results.json | jq -c '.')" >> $GITHUB_OUTPUT
 
       - name: Create IPFS gateway links
         run: |
-          CID="${{ steps.ipfs.outputs.cid }}"
+          echo "## IPFS Pinning Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "IPFS Gateway Links:" >> $GITHUB_STEP_SUMMARY
-          echo "- https://ipfs.io/ipfs/$CID" >> $GITHUB_STEP_SUMMARY
-          echo "- https://cloudflare-ipfs.com/ipfs/$CID" >> $GITHUB_STEP_SUMMARY
-          echo "- https://gateway.pinata.cloud/ipfs/$CID" >> $GITHUB_STEP_SUMMARY
+          cat packages/shadow-atlas/output/pin-results.json | jq -r '.artifacts[] | "- **\(.name)**: [\(.cid)](\(.gateway))"' >> $GITHUB_STEP_SUMMARY
 
+      - name: Upload pin results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pin-results
+          path: packages/shadow-atlas/output/pin-results.json
+          retention-days: 180
+
+  # ---- Phase C1: Update on-chain registry ----
   update-registry:
     name: Update On-Chain Registry
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [publish-ipfs]
-    if: github.event.inputs.update_registry == 'true'
+    if: inputs.update_registry == 'true'
     environment:
       name: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Download pin results
+        uses: actions/download-artifact@v4
+        with:
+          name: pin-results
+          path: packages/shadow-atlas/output/
+
       - name: Update on-chain registry
-        working-directory: packages/shadow-atlas
+        working-directory: contracts
         env:
           PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
           RPC_URL: ${{ secrets.SCROLL_RPC_URL }}
-          IPFS_CID: ${{ needs.build-merkle.outputs.ipfs_cid }}
-          ROOT_HASH: ${{ needs.build-merkle.outputs.root_hash }}
         run: |
-          # Update on-chain registry with new IPFS CID and Merkle root
-          # This should invoke a smart contract interaction script
+          # TODO: Implement Foundry script to update DistrictRegistry with:
+          # - New Merkle root hash
+          # - IPFS CIDs for each artifact
+          # - Quarterly epoch number
+          #
+          # Script should call DistrictRegistry.updateSnapshot(root, cids)
+          # or equivalent function once contract supports IPFS CID storage.
+          echo "On-chain registry update not yet implemented"
+          echo "Pin results:"
+          cat ../packages/shadow-atlas/output/pin-results.json | jq '.artifacts[] | {name, cid}'
 
-          echo "Updating on-chain registry..."
-          echo "  IPFS CID: $IPFS_CID"
-          echo "  Root Hash: $ROOT_HASH"
-
-          # Placeholder - replace with actual contract interaction
-          # npx hardhat run scripts/update-registry.ts --network scroll
-
-          echo "✅ On-chain registry updated"
-
-      - name: Verify on-chain update
-        run: |
-          echo "Verifying on-chain update..."
-
-          # Placeholder - replace with actual verification
-          # npx hardhat run scripts/verify-registry.ts --network scroll
-
-          echo "✅ On-chain update verified"
-
+  # ---- Notifications ----
   notify:
     name: Send Notifications
     runs-on: ubuntu-latest
-    needs: [extract-tiger, validate-extraction, build-merkle, publish-ipfs, update-registry]
+    needs: [build-h3-mapping, export-officials, publish-ipfs, update-registry]
     if: always()
     steps:
       - name: Create GitHub Issue with results
         uses: actions/github-script@v7
         with:
           script: |
-            const extractionSummary = JSON.parse('${{ needs.extract-tiger.outputs.extraction_summary }}');
+            const cellCount = '${{ needs.build-h3-mapping.outputs.cell_count }}' || 'N/A';
 
-            const title = `Shadow Atlas Quarterly Update - ${extractionSummary.timestamp}`;
-            const body = `
-            ## Quarterly TIGER Data Update
-
-            **Date:** ${extractionSummary.timestamp}
-
-            ### Extraction Results
-            - **Total States:** ${extractionSummary.totalStates}
-            - **Total Tests:** ${extractionSummary.totalTests}
-            - **Passed:** ${extractionSummary.passed}
-            - **Failed:** ${extractionSummary.failed}
-            - **Pass Rate:** ${(extractionSummary.passed / extractionSummary.totalTests * 100).toFixed(1)}%
-
-            ### Job Results
-            | Job | Status |
-            |-----|--------|
-            | Extract TIGER | ${{ needs.extract-tiger.result }} |
-            | Validate Extraction | ${{ needs.validate-extraction.result }} |
-            | Build Merkle | ${{ needs.build-merkle.result }} |
-            | Publish IPFS | ${{ needs.publish-ipfs.result }} |
-            | Update Registry | ${{ needs.update-registry.result }} |
-
-            ### IPFS Information
-            - **CID:** ${{ needs.build-merkle.outputs.ipfs_cid }}
-            - **Root Hash:** ${{ needs.build-merkle.outputs.root_hash }}
-            - **Gateway:** https://ipfs.io/ipfs/${{ needs.build-merkle.outputs.ipfs_cid }}
-
-            ### Next Steps
-            ${needs.update-registry.result === 'success'
-              ? '✅ On-chain registry updated successfully'
-              : '⚠️  Manual on-chain registry update required'}
-
-            ---
-            *This issue was automatically created by the quarterly update workflow.*
-            `;
+            const title = `Shadow Atlas Quarterly Update - ${new Date().toISOString().split('T')[0]}`;
+            const body = [
+              '## Quarterly Shadow Atlas Update',
+              '',
+              `**Date:** ${new Date().toISOString()}`,
+              '',
+              '### Job Results',
+              '| Job | Status |',
+              '|-----|--------|',
+              `| Build H3 Mapping | ${{ needs.build-h3-mapping.result }} |`,
+              `| Export Officials | ${{ needs.export-officials.result }} |`,
+              `| Pin to IPFS | ${{ needs.publish-ipfs.result }} |`,
+              `| Update Registry | ${{ needs.update-registry.result }} |`,
+              '',
+              '### H3 Mapping',
+              `- **Cells mapped:** ${cellCount}`,
+              `- **Resolution:** 7 (~5.16 km² per cell)`,
+              '',
+              '---',
+              '*Automatically created by the quarterly update workflow.*',
+            ].join('\n');
 
             await github.rest.issues.create({
               owner: context.repo.owner,
@@ -383,26 +275,15 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          SUMMARY='${{ needs.extract-tiger.outputs.extraction_summary }}'
-          IPFS_CID='${{ needs.build-merkle.outputs.ipfs_cid }}'
-
           curl -X POST -H 'Content-type: application/json' \
             --data "{
-              \"text\": \"Shadow Atlas Quarterly Update Complete\",
-              \"blocks\": [
-                {
-                  \"type\": \"section\",
-                  \"text\": {
-                    \"type\": \"mrkdwn\",
-                    \"text\": \"*Shadow Atlas Quarterly Update*\n\nNew IPFS CID: \`$IPFS_CID\`\n\nView details: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\"
-                  }
-                }
-              ]
+              \"text\": \"Shadow Atlas Quarterly Update Complete — ${{ needs.build-h3-mapping.result }}\"
             }" \
             $SLACK_WEBHOOK_URL
 
+  # ---- Cleanup ----
   cleanup:
-    name: Cleanup Artifacts
+    name: Cleanup Old Artifacts
     runs-on: ubuntu-latest
     needs: [notify]
     if: always()
@@ -411,7 +292,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // Keep only last 4 quarterly updates (1 year)
             const artifactsResponse = await github.rest.actions.listArtifactsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -419,10 +299,10 @@ jobs:
             });
 
             const quarterlyArtifacts = artifactsResponse.data.artifacts
-              .filter(a => a.name.startsWith('tiger-extraction') || a.name.startsWith('merkle-tree'))
+              .filter(a => ['h3-mapping', 'officials', 'pin-results'].includes(a.name))
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            // Keep first 4, delete rest
+            // Keep last 4 quarters (1 year), delete rest
             for (let i = 4; i < quarterlyArtifacts.length; i++) {
               await github.rest.actions.deleteArtifact({
                 owner: context.repo.owner,

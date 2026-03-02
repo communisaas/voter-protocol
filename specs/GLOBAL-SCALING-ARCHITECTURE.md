@@ -89,7 +89,7 @@ const boundaries = await provider.resolve(address, coords);
 
 **Architectural Relationship:** This document specifies boundary data sourcing—how we acquire and normalize governance boundary data from public sources worldwide. For cryptographic tree architecture (two-tree Merkle architecture, epoch-based root management, ZK proofs), see `specs/TWO-TREE-ARCHITECTURE-SPEC.md`.
 
-**Design Principle:** Public data only. Zero commercial API dependency. We build the replacement for Google Civic/Mapbox/Cicero, not a consumer of them.
+**Design Principle:** Public data only. Zero commercial API dependency. We build the replacement for Google Civic/Mapbox, not a consumer of them.
 
 ### Four-Layer Architecture
 
@@ -1010,7 +1010,6 @@ const registry = new BoundaryRegistry({
 |----------|------------------|-------------|
 | Google Civic API | $7,000/month | $84,000/year |
 | Mapbox Boundaries | $5,000/month | $60,000/year |
-| Cicero | $30,000/month | $360,000/year |
 | **Shadow Atlas (public data)** | **$0** | **~$87,000/year infra** |
 
 Shadow Atlas eliminates per-lookup costs entirely. Infrastructure: ~$7,250/month global (~$440/month data + ~$6,800/month labor amortized). Break-even at ~14,000 lookups/month vs lowest commercial option.

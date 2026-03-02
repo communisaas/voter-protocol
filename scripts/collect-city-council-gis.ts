@@ -465,7 +465,7 @@ const CITY_DATA_SOURCES: CityDataSource[] = [
     notes: 'Minneapolis Open Data - 13 ward boundaries (ArcGIS Hub download API)'
   },
 
-  // Cities 41-50 (PARTIAL VERIFICATION - some require Cicero fence)
+  // Cities 41-50 (PARTIAL VERIFICATION - some require additional data sources)
   {
     city: 'Tulsa',
     state: 'OK',

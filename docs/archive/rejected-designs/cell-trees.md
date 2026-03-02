@@ -981,7 +981,6 @@ const DATA_SOURCES: Map<string, DataSource[]> = new Map([
 |----------|----------------|------------------|---------------------|
 | Google Civic | $0.007 | $7,000 | $0 |
 | Mapbox Boundaries | $0.005 | $5,000 | $0 |
-| Cicero | $0.03 | $30,000 | $0 |
 | **Shadow Atlas (US)** | **$0** | **$0** | **$0** (free tier) |
 | **Shadow Atlas (Global)** | **$0** | **$0** | **$0** (free tier) |
 

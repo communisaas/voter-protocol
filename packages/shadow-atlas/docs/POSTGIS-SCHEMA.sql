@@ -4,7 +4,7 @@
 --
 -- PURPOSE: Production-grade political district boundary database
 -- - 520 US cities + global expansion to 190+ countries
--- - Compete with Cicero API ($5-10k/month) with free public API
+-- - Free public API replacing paid district lookup incumbents
 -- - Complete provenance tracking from discovery → validation → production
 --
 -- ARCHITECTURE PRINCIPLES:
