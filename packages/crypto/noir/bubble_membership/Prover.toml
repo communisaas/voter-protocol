@@ -1,0 +1,10 @@
+action_count = ""
+cell_count = ""
+cell_ids = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+diversity_score = ""
+engagement_index = ""
+engagement_path = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+engagement_root = ""
+engagement_tier = ""
+epoch_domain = ""
+identity_commitment = ""

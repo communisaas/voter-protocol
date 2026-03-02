@@ -1,0 +1,5 @@
+[package]
+name = "bubble_membership"
+authors = ["voter-protocol team"]
+version = "0.1.0"
+type = "bin"
