@@ -39,8 +39,8 @@ import { SD59x18, sd } from "prb-math/SD59x18.sol";
 contract DebateMarketPositionPrivacyTest is Test {
     DebateMarket public market;
     MockDistrictGate public mockGate;
-    MockERC20 public token;
     NullifierRegistry public nullifierRegistry;
+    MockERC20 public token;
 
     MockDebateWeightVerifier public dwVerifier;
     MockPositionNoteVerifier public pnVerifier;
@@ -102,30 +102,35 @@ contract DebateMarketPositionPrivacyTest is Test {
         // Configure action domain
         mockGate.setActionDomainAllowed(ACTION_DOMAIN, true);
 
-        // Deploy mocks and market
         token = new MockERC20("Test USD", "TUSD", 6);
+
+        // Deploy mocks and market
         dwVerifier = new MockDebateWeightVerifier();
         pnVerifier = new MockPositionNoteVerifier();
         MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
 
         market = new DebateMarket(
             address(mockGate),
-            address(token),
             address(dwVerifier),
             address(pnVerifier),
             address(aiRegistry),
-            governance
+            governance,
+            address(token),
+            200
         );
 
         mockGate.setDeriverAuthorized(address(market), true);
 
-        // Mint and approve
-        address[4] memory accounts = [proposer, arguer1, arguer2, trader1];
+        address[5] memory accounts = [proposer, arguer1, arguer2, trader1, trader2];
         for (uint256 i = 0; i < accounts.length; i++) {
-            token.mint(accounts[i], 1_000e6);
+            token.mint(accounts[i], 10_000e6);
             vm.prank(accounts[i]);
             token.approve(address(market), type(uint256).max);
         }
+
+        // Set resolution extension to minimum for test efficiency (R2-F01 grace period)
+        vm.prank(governance);
+        market.setResolutionExtension(1 days);
     }
 
     // ============================================================================
@@ -207,19 +212,19 @@ contract DebateMarketPositionPrivacyTest is Test {
         MockPositionNoteVerifier pnV = new MockPositionNoteVerifier();
         MockAIEvaluationRegistry aiR = new MockAIEvaluationRegistry();
         DebateMarket rejectMarket = new DebateMarket(
-            address(mockGate), address(token),
+            address(mockGate),
             address(rejectVerifier), address(pnV),
-            address(aiR), governance
+            address(aiR), governance, address(token), 200
         );
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
+        vm.prank(governance);
+        rejectMarket.setResolutionExtension(1 days);
 
-        // Approve the rejectMarket (setUp only approves the original market)
-        vm.prank(trader1);
-        token.approve(address(rejectMarket), type(uint256).max);
-        vm.prank(arguer1);
-        token.approve(address(rejectMarket), type(uint256).max);
-        vm.prank(proposer);
-        token.approve(address(rejectMarket), type(uint256).max);
+        address[3] memory users = [proposer, arguer1, trader1];
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.prank(users[i]);
+            token.approve(address(rejectMarket), type(uint256).max);
+        }
 
         bytes32 debateId = _setupDebateAndCommitFor(rejectMarket);
 
@@ -254,7 +259,7 @@ contract DebateMarketPositionPrivacyTest is Test {
 
         bytes32 derivedDomain = _expectedDebateDomain();
 
-        // ARGUE — arguer1 wins (Tier 3 + $10 = sqrt(10e6)*8 = 3162*8 = 25296)
+        // ARGUE — arguer1 wins (Tier 3 + stake = sqrt(10e6)*8 weighted)
         vm.prank(arguer1);
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("win-arg"), bytes32(0),
@@ -264,7 +269,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         address(0)
 );
 
-        // arguer2 loses (Tier 1 + $100 = sqrt(100e6)*2 = 10000*2 = 20000)
+        // arguer2 loses (Tier 1 + stake = sqrt(100e6)*2 weighted)
         vm.warp(block.timestamp + 61);
         vm.prank(arguer2);
         market.submitArgument(
@@ -305,7 +310,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         market.executeEpoch(debateId, 0);
 
         // RESOLVE
-        vm.warp(block.timestamp + STANDARD_DURATION);
+        vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         market.resolveDebate(debateId);
 
         // Verify arguer1 won (score 25296 > 20000)
@@ -414,7 +419,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         address(0)
 );
 
-        vm.warp(block.timestamp + STANDARD_DURATION);
+        vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         market.resolveDebate(debateId);
 
         // Root is zero — no updatePositionRoot called
@@ -602,17 +607,19 @@ contract DebateMarketPositionPrivacyTest is Test {
         RejectingPositionNoteVerifier rejectPnV = new RejectingPositionNoteVerifier();
         MockAIEvaluationRegistry aiR2 = new MockAIEvaluationRegistry();
         DebateMarket rejectMarket = new DebateMarket(
-            address(mockGate), address(token),
+            address(mockGate),
             address(dwV), address(rejectPnV),
-            address(aiR2), governance
+            address(aiR2), governance, address(token), 200
         );
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
+        vm.prank(governance);
+        rejectMarket.setResolutionExtension(1 days);
 
-        // Approve the rejectMarket for all relevant accounts
-        vm.prank(arguer1);
-        token.approve(address(rejectMarket), type(uint256).max);
-        vm.prank(proposer);
-        token.approve(address(rejectMarket), type(uint256).max);
+        address[2] memory users2 = [proposer, arguer1];
+        for (uint256 i = 0; i < users2.length; i++) {
+            vm.prank(users2[i]);
+            token.approve(address(rejectMarket), type(uint256).max);
+        }
 
         // Propose and resolve
         vm.prank(proposer);
@@ -630,7 +637,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         address(0)
 );
 
-        vm.warp(block.timestamp + STANDARD_DURATION);
+        vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         rejectMarket.resolveDebate(debateId);
 
         // Set position root
@@ -820,18 +827,13 @@ contract DebateMarketPositionPrivacyTest is Test {
             VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
         address(0)
 );
-
-        // Mint and approve for trader2 (used in multi-reveal tests)
-        token.mint(trader2, 1_000e6);
-        vm.prank(trader2);
-        token.approve(address(market), type(uint256).max);
     }
 
     /// @notice Setup a resolved debate (arguer1 wins arg0) and set position root.
     ///         Returns (debateId, positionRoot).
     function _setupResolvedDebateWithPositionRoot() internal returns (bytes32 debateId, bytes32 posRoot) {
-        // arguer1 wins with Tier 3 ($10): score = sqrt(10e6)*8 = 3162*8 = 25296
-        // arguer2 loses with Tier 1 ($100): score = sqrt(100e6)*2 = 10000*2 = 20000
+        // arguer1 wins with Tier 3: score = sqrt(10e6)*8 weighted
+        // arguer2 loses with Tier 1: score = sqrt(100e6)*2 weighted
         vm.prank(proposer);
         debateId = market.proposeDebate(
             PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
@@ -858,7 +860,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         address(0)
 );
 
-        vm.warp(block.timestamp + STANDARD_DURATION);
+        vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         market.resolveDebate(debateId);
 
         // Set position root
@@ -913,45 +915,6 @@ contract MockDistrictGate {
     }
 }
 
-contract MockERC20 {
-    string public name;
-    string public symbol;
-    uint8 public decimals;
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    uint256 public totalSupply;
-
-    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
-        name = _name; symbol = _symbol; decimals = _decimals;
-    }
-
-    function mint(address to, uint256 amount) external {
-        balanceOf[to] += amount;
-        totalSupply += amount;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        return true;
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "insufficient balance");
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        require(balanceOf[from] >= amount, "insufficient balance");
-        require(allowance[from][msg.sender] >= amount, "insufficient allowance");
-        allowance[from][msg.sender] -= amount;
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        return true;
-    }
-}
-
 /// @notice Mock debate_weight verifier — always returns true (testing only)
 contract MockDebateWeightVerifier is IDebateWeightVerifier {
     function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
@@ -988,4 +951,45 @@ contract MockAIEvaluationRegistry is IAIEvaluationRegistry {
     function aiWeight() external pure returns (uint256) { return 4000; }
     function minProviders() external pure returns (uint256) { return 3; }
     function providerCount() external pure returns (uint256) { return 5; }
+}
+
+contract MockERC20 {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "insufficient balance");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(balanceOf[from] >= amount, "insufficient balance");
+        require(allowance[from][msg.sender] >= amount, "insufficient allowance");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
 }

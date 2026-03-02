@@ -15,26 +15,19 @@ import "../src/IDebateWeightVerifier.sol";
 import "../src/IPositionNoteVerifier.sol";
 import "../src/IAIEvaluationRegistry.sol";
 
-/// @title Deploy V6 to Scroll Sepolia — Full Stack with DebateMarket (R-01 + F9)
+/// @title Deploy V8 to Scroll Sepolia — Full Stack with DebateMarket (USDC + Protocol Fee)
 /// @notice Fresh genesis deployment including three-tree registries + DebateMarket.
-///         Supersedes v5 deployment with updated DebateMarket interface.
+///         Supersedes v6 deployment with USDC staking and protocol fee.
 ///
 /// PURPOSE: End-to-end testnet debugging of the full debate flow.
-///          Uses mock verifiers and mock ERC-20 — not production.
+///          Uses mock verifiers, MockERC20 (tUSDC), and 2% protocol fee — not production.
 ///
-/// WHAT'S NEW vs v5 (DeploySepoliaV5.s.sol):
-///   - DebateMarket now requires `address beneficiary` as last param on submitArgument()
-///     and coSignArgument() — fixes R-01 (relayer-submitted tx token routing).
-///   - DebateMarket now has sweepAppealBond(bytes32 debateId, address appealer) — F9 fix.
-///   - DebateMarket now has `mapping(bytes32 => bool) public appealFinalized` state.
-///   - StakeRecord struct has 6 fields: argumentIndex, stakeAmount, engagementTier,
-///     claimed, submitter, beneficiary.
-///   - Deployer receives 10M tUSDC (up from 1M) for broader testnet coverage.
-///
-/// NOTE: Real DebateWeightVerifier.sol and PositionNoteVerifier.sol exist (generated
-///       via bb.js getSolidityVerifier()) but are NOT used here — real verifiers require
-///       real UltraHonk proofs which are tested in a separate cycle. Mock always-pass
-///       verifiers are retained for end-to-end flow testing without proof generation.
+/// WHAT'S NEW vs v6:
+///   - DebateMarket uses ERC-20 staking (USDC) instead of native ETH.
+///   - 2% protocol fee on argument stakes (submitArgument, coSignArgument only).
+///   - Constructor: 7 params (added _stakingToken, _protocolFeeBps).
+///   - New governance: sweepFees(address), setProtocolFee(uint256).
+///   - MIN_PROPOSER_BOND/MIN_ARGUMENT_STAKE: 1e6 (1 USDC).
 ///
 /// ENVIRONMENT VARIABLES:
 ///   PRIVATE_KEY             — Deployer private key (funded with Scroll Sepolia ETH)
@@ -72,8 +65,7 @@ contract DeploySepoliaV6 is Script {
         }
 
         console.log("============================================================");
-        console.log("  SCROLL SEPOLIA V6 - FULL STACK WITH DEBATE MARKET");
-        console.log("  (R-01 beneficiary fix + F9 sweepAppealBond)");
+        console.log("  SCROLL SEPOLIA V8 - USDC STAKING + PROTOCOL FEE");
         console.log("============================================================");
         console.log("");
         console.log("Deployer:", deployer);
@@ -134,9 +126,7 @@ contract DeploySepoliaV6 is Script {
         EngagementRootRegistry engagementRootRegistry = new EngagementRootRegistry(deployer);
         console.log("        ", address(engagementRootRegistry));
 
-        console.log("[9/10] Mock tokens + verifiers...");
-        MockERC20 stakingToken = new MockERC20("Test USDC", "tUSDC", 6);
-        console.log("         MockERC20 (tUSDC):", address(stakingToken));
+        console.log("[9/10] Mock verifiers...");
 
         // Mock verifiers: always-pass, testnet only.
         // Interface: verify(bytes calldata proof, bytes32[] calldata publicInputs) external returns (bool)
@@ -151,23 +141,26 @@ contract DeploySepoliaV6 is Script {
         MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
         console.log("         MockAIEvaluationRegistry:", address(aiRegistry));
 
-        // DebateMarket constructor (unchanged from v5):
-        //   (address _districtGate, address _stakingToken, address _debateWeightVerifier,
-        //    address _positionNoteVerifier, address _aiRegistry, address _governance)
-        //
-        // The updated DebateMarket (v6) adds:
-        //   - address beneficiary param to submitArgument() and coSignArgument() [R-01]
-        //   - sweepAppealBond(bytes32 debateId, address appealer) function [F9]
-        //   - mapping(bytes32 => bool) public appealFinalized state
-        //   - 6-field StakeRecord struct (added address beneficiary)
-        console.log("[10/10] DebateMarket...");
+        // Deploy test USDC (MockERC20, 6 decimals)
+        MockERC20 stakingToken = new MockERC20("Test USDC", "tUSDC", 6);
+        console.log("         MockERC20 (tUSDC):       ", address(stakingToken));
+
+        // Mint test tokens to deployer
+        stakingToken.mint(deployer, 10_000_000e6); // 10M tUSDC
+
+        // DebateMarket constructor (USDC staking + 2% protocol fee):
+        //   (address _districtGate, address _debateWeightVerifier,
+        //    address _positionNoteVerifier, address _aiRegistry, address _governance,
+        //    address _stakingToken, uint256 _protocolFeeBps)
+        console.log("[10/10] DebateMarket (USDC staking, 2% fee)...");
         DebateMarket debateMarket = new DebateMarket(
             address(gate),
-            address(stakingToken),
             address(dwVerifier),
             address(pnVerifier),
             address(aiRegistry),
-            deployer
+            deployer,
+            address(stakingToken),
+            200 // 2% protocol fee
         );
         console.log("         ", address(debateMarket));
 
@@ -214,10 +207,6 @@ contract DeploySepoliaV6 is Script {
         console.log("  - Sealing DistrictGate genesis");
         gate.sealGenesis();
 
-        // Mint test tokens to deployer (10M tUSDC — increased from 1M in v5 for broader testnet coverage)
-        console.log("  - Minting 10M tUSDC to deployer");
-        stakingToken.mint(deployer, 10_000_000e6);
-
         vm.stopBroadcast();
 
         // =====================================================================
@@ -226,8 +215,8 @@ contract DeploySepoliaV6 is Script {
 
         console.log("");
         console.log("============================================================");
-        console.log("  V6 DEPLOYMENT COMPLETE - SCROLL SEPOLIA");
-        console.log("  (R-01 beneficiary fix + F9 sweepAppealBond)");
+        console.log("  V8 DEPLOYMENT COMPLETE - SCROLL SEPOLIA");
+        console.log("  (USDC staking + 2% protocol fee)");
         console.log("============================================================");
         console.log("");
         console.log("Core:");
@@ -249,7 +238,7 @@ contract DeploySepoliaV6 is Script {
         console.log("Genesis: ALL SEALED");
         console.log("  DebateMarket authorized as deriver: YES");
         console.log("  EngagementRootRegistry wired: YES");
-        console.log("  Deployer minted 10M tUSDC");
+        console.log("  Staking: USDC (2% protocol fee)");
         console.log("");
         console.log("Update .env with these addresses:");
         console.log("  DISTRICT_GATE_ADDRESS=", address(gate));
@@ -283,56 +272,8 @@ contract DeploySepoliaV6 is Script {
 }
 
 // =============================================================================
-// Mock Contracts (testnet only — always-pass verifiers + mintable ERC-20)
+// Mock Contracts (testnet only — always-pass verifiers)
 // =============================================================================
-
-contract MockERC20 {
-    string public name;
-    string public symbol;
-    uint8 public decimals;
-    uint256 public totalSupply;
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-    }
-
-    function mint(address to, uint256 amount) external {
-        totalSupply += amount;
-        balanceOf[to] += amount;
-        emit Transfer(address(0), to, amount);
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "MockERC20: insufficient balance");
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        require(balanceOf[from] >= amount, "MockERC20: insufficient balance");
-        require(allowance[from][msg.sender] >= amount, "MockERC20: insufficient allowance");
-        allowance[from][msg.sender] -= amount;
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-}
 
 /// @notice Mock HonkVerifier — always returns true (testnet only)
 /// @dev Same interface as the real HonkVerifier generated by bb.js getSolidityVerifier().
@@ -371,4 +312,46 @@ contract MockAIEvaluationRegistry is IAIEvaluationRegistry {
     function aiWeight() external pure returns (uint256) { return 4000; }
     function minProviders() external pure returns (uint256) { return 3; }
     function providerCount() external pure returns (uint256) { return 5; }
+}
+
+/// @notice Mock ERC-20 token (tUSDC, 6 decimals) — testnet only
+contract MockERC20 {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "insufficient balance");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(balanceOf[from] >= amount, "insufficient balance");
+        require(allowance[from][msg.sender] >= amount, "insufficient allowance");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
 }

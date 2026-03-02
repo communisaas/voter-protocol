@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.19;
+pragma solidity 0.8.28;
 
 import "openzeppelin/security/Pausable.sol";
 import "openzeppelin/security/ReentrancyGuard.sol";
-import "openzeppelin/token/ERC20/IERC20.sol";
-import "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import "./TimelockGovernance.sol";
 import "./IDebateWeightVerifier.sol";
 import "./IPositionNoteVerifier.sol";
@@ -15,7 +16,7 @@ import { uEXP_MAX_INPUT } from "prb-math/sd59x18/Constants.sol";
 /// @title DebateMarket
 /// @notice Staked debate protocol for verified-membership communities
 /// @dev Composes with DistrictGate (three-tree proof verification), NullifierRegistry
-///      (double-stake prevention), and an ERC-20 staking token for financial skin-in-the-game.
+///      (double-stake prevention), and USDC staking with protocol fee on argument stakes.
 ///
 /// ARCHITECTURE:
 /// 1. Proposer opens a debate by posting a proposition hash and staking a bond
@@ -134,11 +135,11 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	// Immutables & Constants
 	// ============================================================================
 
+	/// @notice ERC-20 staking token (USDC, 6 decimals)
+	IERC20 public immutable stakingToken;
+
 	/// @notice DistrictGate for three-tree proof verification
 	IDistrictGate public immutable districtGate;
-
-	/// @notice ERC-20 token used for staking (e.g., USDC on Scroll)
-	IERC20 public immutable stakingToken;
 
 	/// @notice Verifier for debate_weight ZK proofs (Phase 2)
 	/// @dev Proves sqrt(stake) * tierMultiplier in-circuit, hiding raw stake/tier
@@ -157,11 +158,14 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @notice Minimum unique participants for proposer bond return
 	uint256 public constant BOND_RETURN_THRESHOLD = 5;
 
-	/// @notice Minimum proposer bond ($1 in 6-decimal stablecoins)
+	/// @notice Minimum proposer bond (1 USDC, 6-decimal stablecoin)
 	uint256 public constant MIN_PROPOSER_BOND = 1e6;
 
-	/// @notice Minimum argument/co-sign stake ($1 in 6-decimal stablecoins)
+	/// @notice Minimum argument/co-sign stake (1 USDC, 6-decimal stablecoin)
 	uint256 public constant MIN_ARGUMENT_STAKE = 1e6;
+
+	/// @notice Maximum protocol fee in basis points (10% hard cap)
+	uint256 public constant MAX_FEE_BPS = 1000;
 
 	/// @notice Maximum arguments per debate (gas DOS prevention on Scroll)
 	uint256 public constant MAX_ARGUMENTS = 500;
@@ -177,6 +181,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	// ============================================================================
 	// State
 	// ============================================================================
+
+	/// @notice Protocol fee in basis points (e.g. 200 = 2%), applied to argument stakes only
+	uint256 public protocolFeeBps;
+
+	/// @notice Accumulated protocol fees available for sweep
+	uint256 public accumulatedFees;
 
 	/// @notice Debate storage keyed by debateId
 	mapping(bytes32 => Debate) public debates;
@@ -390,6 +400,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @dev Phase 2: attestation only (no token transfer). claimedWeight is informational.
 	event PrivateSettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 claimedWeight);
 
+	// Protocol Fee Events
+	event FeeSwept(address indexed to, uint256 amount);
+	event ProtocolFeeUpdated(uint256 oldBps, uint256 newBps);
+	event EpochDurationUpdated(uint256 oldDuration, uint256 newDuration);
+	event ResolutionExtensionUpdated(uint256 oldDuration, uint256 newDuration);
+
 	// Phase 3: AI Resolution Events
 	event AIEvaluationSubmitted(bytes32 indexed debateId, uint256 signatureCount, uint256 nonce);
 	event DebateResolvedWithAI(
@@ -466,6 +482,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	error SignatureExpired();
 	error AppealBondAlreadySwept();
 	error AppealNotFinalized();
+	error AlreadyAppealed();
+	error FeeExceedsCap();
+	error NoFeesToSweep();
+	error EpochDurationOutOfRange();
+	error ResolutionExtensionOutOfRange();
+	error BaseLiquidityMustBePositive();
 
 	// ============================================================================
 	// Constructor
@@ -473,31 +495,35 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Deploy DebateMarket
 	/// @param _districtGate Address of DistrictGate contract
-	/// @param _stakingToken Address of ERC-20 staking token
 	/// @param _debateWeightVerifier Address of the debate_weight UltraHonk verifier (Phase 2)
 	/// @param _positionNoteVerifier Address of the position_note UltraHonk verifier (Phase 2)
 	/// @param _aiRegistry Address of AIEvaluationRegistry (Phase 3)
 	/// @param _governance Governance address for pause/unpause
+	/// @param _stakingToken Address of ERC-20 staking token (USDC)
+	/// @param _protocolFeeBps Protocol fee in basis points (e.g. 200 = 2%)
 	constructor(
 		address _districtGate,
-		address _stakingToken,
 		address _debateWeightVerifier,
 		address _positionNoteVerifier,
 		address _aiRegistry,
-		address _governance
+		address _governance,
+		address _stakingToken,
+		uint256 _protocolFeeBps
 	) {
 		if (_districtGate == address(0)) revert ZeroAddress();
-		if (_stakingToken == address(0)) revert ZeroAddress();
 		if (_debateWeightVerifier == address(0)) revert ZeroAddress();
 		if (_positionNoteVerifier == address(0)) revert ZeroAddress();
 		if (_aiRegistry == address(0)) revert ZeroAddress();
+		if (_stakingToken == address(0)) revert ZeroAddress();
+		if (_protocolFeeBps > MAX_FEE_BPS) revert FeeExceedsCap();
 		// _governance zero-check is inside _initializeGovernance
 		_initializeGovernance(_governance);
 		districtGate = IDistrictGate(_districtGate);
-		stakingToken = IERC20(_stakingToken);
 		debateWeightVerifier = IDebateWeightVerifier(_debateWeightVerifier);
 		positionNoteVerifier = IPositionNoteVerifier(_positionNoteVerifier);
 		aiRegistry = IAIEvaluationRegistry(_aiRegistry);
+		stakingToken = IERC20(_stakingToken);
+		protocolFeeBps = _protocolFeeBps;
 
 		// EIP-712 domain separator for AI evaluation signatures
 		AI_EVAL_DOMAIN_SEPARATOR = keccak256(
@@ -512,6 +538,29 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	}
 
 	// ============================================================================
+	// Transfer Boundary — all token flow routes through these 3 functions
+	// ============================================================================
+
+	/// @dev Pull stake with fee extraction. Returns net amount credited to staker.
+	///      Fee applies only to argument stakes (submitArgument, coSignArgument).
+	function _pullStake(address from, uint256 gross) internal returns (uint256 net) {
+		uint256 fee = (gross * protocolFeeBps) / 10_000;
+		net = gross - fee;
+		accumulatedFees += fee;
+		stakingToken.safeTransferFrom(from, address(this), gross);
+	}
+
+	/// @dev Pull exact amount with no fee (bonds, appeals).
+	function _pullExact(address from, uint256 amount) internal {
+		stakingToken.safeTransferFrom(from, address(this), amount);
+	}
+
+	/// @dev Send tokens out (settlements, bond returns, fee sweeps).
+	function _send(address to, uint256 amount) internal {
+		stakingToken.safeTransfer(to, amount);
+	}
+
+	// ============================================================================
 	// Core Functions
 	// ============================================================================
 
@@ -520,7 +569,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @param duration Debate duration in seconds [MIN_DURATION, MAX_DURATION]
 	/// @param jurisdictionSizeHint Estimated jurisdiction size for participation depth
 	/// @param baseDomain Template's registered action domain (must be whitelisted on DistrictGate)
-	/// @param bondAmount Proposer bond amount (>= MIN_PROPOSER_BOND)
+	/// @param bondAmount USDC bond amount (must be >= MIN_PROPOSER_BOND). Caller must approve first.
 	/// @return debateId Unique identifier for the debate
 	/// @dev DERIVED DOMAIN: The debate's action domain is deterministically derived as:
 	///      debateDomain = keccak256(baseDomain, "debate", propositionHash) % BN254_MODULUS
@@ -566,18 +615,23 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		// Scale jurisdictionSizeHint to 18-decimal SD59x18 before multiplication.
 		lmsrLiquidity[debateId] = sd(int256(jurisdictionSizeHint) * 1e18) * baseLiquidityPerMember;
 
-		// Transfer bond from proposer (after state writes — CEI pattern)
-		stakingToken.safeTransferFrom(msg.sender, address(this), bondAmount);
+		// Pull bond (no fee on proposer bonds)
+		_pullExact(msg.sender, bondAmount);
 
 		emit DebateProposed(debateId, debateActionDomain, propositionHash, debate.deadline, baseDomain);
 	}
 
 	/// @notice Submit an argument to a debate
+	/// @dev NULLIFIER CONSTRAINT: Submitting an argument consumes the user's nullifier for this
+	///      debate's action domain. The same user CANNOT also call `commitTrade()` for this debate —
+	///      the shared nullifier scope enforces mutual exclusion between staking and trading roles.
+	///      This is by-design: arguers have financial skin-in-the-game (USDC stakes), while LMSR
+	///      traders provide pure price signal without token commitment. (R2-F02 documentation)
 	/// @param debateId Debate to submit argument to
 	/// @param stance SUPPORT, OPPOSE, or AMEND
 	/// @param bodyHash Hash of argument text (stored off-chain)
 	/// @param amendmentHash Hash of proposed amendment (only if stance == AMEND)
-	/// @param stakeAmount Financial stake (>= MIN_ARGUMENT_STAKE)
+	/// @param stakeAmount USDC stake amount (must be >= MIN_ARGUMENT_STAKE). Caller must approve first.
 	/// @param signer Address that signed the proof submission (typically the relayer)
 	/// @param proof ZK proof bytes
 	/// @param publicInputs 31 public inputs from three-tree circuit
@@ -603,16 +657,16 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	) external whenNotPaused nonReentrant {
 		if (stakeAmount < MIN_ARGUMENT_STAKE) revert InsufficientStake();
 
+		// Pull stake with protocol fee — net amount enters scoring and settlement
+		uint256 netStake = _pullStake(msg.sender, stakeAmount);
+
 		// Delegate all validation, proof verification, and storage writes to internal helper.
 		// Splitting here keeps mpos temporaries from publicInputs (calldata array) and
 		// Debate storage slot accesses in separate Yul frames, avoiding stack-too-deep (via_ir).
 		(uint256 argumentIndex, uint256 weight, uint8 engagementTier) = _submitArgumentCore(
-			debateId, stance, bodyHash, amendmentHash, stakeAmount,
+			debateId, stance, bodyHash, amendmentHash, netStake,
 			signer, proof, publicInputs, verifierDepth, deadline, signature, beneficiary
 		);
-
-		// Transfer stake (after all state writes — CEI pattern)
-		stakingToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
 		emit ArgumentSubmitted(debateId, argumentIndex, stance, bodyHash, engagementTier, weight);
 	}
@@ -620,7 +674,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @notice Co-sign an existing argument in a debate
 	/// @param debateId Debate containing the argument
 	/// @param argumentIndex Index of the argument to co-sign
-	/// @param stakeAmount Financial stake (>= MIN_ARGUMENT_STAKE)
+	/// @param stakeAmount USDC stake amount (must be >= MIN_ARGUMENT_STAKE). Caller must approve first.
 	/// @param signer Address that signed the proof submission (typically the relayer)
 	/// @param proof ZK proof bytes
 	/// @param publicInputs 31 public inputs from three-tree circuit
@@ -644,29 +698,31 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	) external whenNotPaused nonReentrant {
 		if (stakeAmount < MIN_ARGUMENT_STAKE) revert InsufficientStake();
 
+		// Pull stake with protocol fee — net amount enters scoring and settlement
+		uint256 netStake = _pullStake(msg.sender, stakeAmount);
+
 		// Delegate all validation, proof verification, and storage writes to internal helper.
 		// Splitting here keeps mpos temporaries from publicInputs (calldata array) and
 		// Debate storage slot accesses in separate Yul frames, avoiding stack-too-deep (via_ir).
 		(uint256 weight, uint8 engagementTier) = _coSignArgumentCore(
-			debateId, argumentIndex, stakeAmount,
+			debateId, argumentIndex, netStake,
 			signer, proof, publicInputs, verifierDepth, deadline, signature, beneficiary
 		);
-
-		// Transfer stake (after all state writes — CEI pattern)
-		stakingToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
 		emit CoSignSubmitted(debateId, argumentIndex, engagementTier, weight);
 	}
 
-	/// @notice Resolve a debate after the deadline has passed
-	/// @dev Iterates all arguments and finds the highest weighted score.
-	///      Ties go to the lower index (first-mover advantage).
+	/// @notice Resolve a debate after the AI resolution grace period has passed
+	/// @dev Community-only resolution fallback. Waits `resolutionExtension` after deadline
+	///      to give the AI evaluation pipeline time to submit scores first (R2-F01 fix).
+	///      If AI scores were submitted during the grace period, status will be RESOLVING,
+	///      and this function will revert — use `resolveDebateWithAI()` instead.
 	/// @param debateId Debate to resolve
 	function resolveDebate(bytes32 debateId) external whenNotPaused nonReentrant {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
-		if (block.timestamp < debate.deadline) revert DebateStillActive();
+		if (block.timestamp < debate.deadline + resolutionExtension) revert DebateStillActive();
 		if (debate.argumentCount == 0) revert NoArgumentsSubmitted();
 
 		uint256 bestIndex = 0;
@@ -735,7 +791,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 		// Route payout: beneficiary takes precedence over submitter (R-01 fix).
 		address recipient = record.beneficiary != address(0) ? record.beneficiary : record.submitter;
-		stakingToken.safeTransfer(recipient, payout);
+		_send(recipient, payout);
 
 		emit SettlementClaimed(debateId, nullifier, payout, recipient);
 	}
@@ -754,7 +810,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 		debate.bondClaimed = true;
 
-		stakingToken.safeTransfer(msg.sender, debate.proposerBond);
+		_send(msg.sender, debate.proposerBond);
 
 		emit ProposerBondReturned(debateId, debate.proposerBond);
 	}
@@ -785,7 +841,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		}
 
 		debate.bondClaimed = true;
-		stakingToken.safeTransfer(governance, debate.proposerBond);
+		_send(governance, debate.proposerBond);
 
 		emit ProposerBondForfeited(debateId, debate.proposerBond);
 	}
@@ -820,7 +876,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 		// Route refund: beneficiary takes precedence over submitter (R-01 fix).
 		address recipient = record.beneficiary != address(0) ? record.beneficiary : record.submitter;
-		stakingToken.safeTransfer(recipient, record.stakeAmount);
+		_send(recipient, record.stakeAmount);
 
 		emit EmergencyWithdrawn(debateId, nullifier, record.stakeAmount, recipient);
 	}
@@ -830,6 +886,10 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	// ============================================================================
 
 	/// @notice Commit a trade during the commit phase of the current epoch
+	/// @dev NULLIFIER CONSTRAINT: Committing a trade consumes the user's nullifier for this
+	///      debate's action domain. The same user CANNOT also call `submitArgument()` or
+	///      `coSignArgument()` for this debate — mutual exclusion between trading and staking.
+	///      LMSR trades are pure price signal with no token flow. (R2-F02 documentation)
 	/// @param debateId Debate to trade in
 	/// @param commitHash keccak256(abi.encodePacked(argumentIndex, direction, weightedAmount, noteCommitment, epoch, nonce))
 	/// @param signer Address that signed the ZK proof
@@ -953,9 +1013,14 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		// Mark as revealed
 		commitment.revealed = true;
 
-		// Track LMSR weighted amounts per argument for future proportional settlement
-		lmsrArgumentWeights[debateId][argumentIndex] += weightedAmount;
-		lmsrTotalWeight[debateId] += weightedAmount;
+		// Track LMSR weighted amounts per argument for future proportional settlement (R2-F03 fix)
+		if (direction == TradeDirection.BUY) {
+			lmsrArgumentWeights[debateId][argumentIndex] += weightedAmount;
+			lmsrTotalWeight[debateId] += weightedAmount;
+		} else {
+			lmsrArgumentWeights[debateId][argumentIndex] -= weightedAmount;
+			lmsrTotalWeight[debateId] -= weightedAmount;
+		}
 
 		// Store reveal for batch execution in executeEpoch
 		// stakeAmount is zero (not revealed on-chain); engagementTier is zero (hidden in proof).
@@ -1030,20 +1095,24 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		emit EpochExecuted(debateId, epoch, numReveals);
 	}
 
-	/// @notice Set base liquidity per member (governance only)
-	/// @param newValue New base liquidity per member (SD59x18)
+	/// @notice Set base liquidity per member (governance only, must be positive)
+	/// @param newValue New base liquidity per member (SD59x18, must be > 0)
 	function setBaseLiquidityPerMember(
 		SD59x18 newValue
 	) external onlyGovernance {
+		if (!newValue.gt(SD_ZERO)) revert BaseLiquidityMustBePositive();
 		SD59x18 old = baseLiquidityPerMember;
 		baseLiquidityPerMember = newValue;
 		emit LiquidityParameterUpdated(old, newValue);
 	}
 
-	/// @notice Set epoch duration (governance only)
+	/// @notice Set epoch duration (governance only, bounded 1 hour – 30 days)
 	/// @param newDuration New epoch duration in seconds
 	function setEpochDuration(uint256 newDuration) external onlyGovernance {
+		if (newDuration < 1 hours || newDuration > 30 days) revert EpochDurationOutOfRange();
+		uint256 old = epochDuration;
 		epochDuration = newDuration;
+		emit EpochDurationUpdated(old, newDuration);
 	}
 
 	// ============================================================================
@@ -1243,10 +1312,11 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	}
 
 	/// @notice Escalate to governance when AI consensus is insufficient
-	/// @dev Called when the off-chain service detects that < M models converged.
+	/// @dev Called by governance when the off-chain service detects that < M models converged.
 	///      Transitions debate to AWAITING_GOVERNANCE and sets a resolution deadline.
+	///      Restricted to governance to prevent premature bypass of AI resolution flow.
 	/// @param debateId Debate to escalate
-	function escalateToGovernance(bytes32 debateId) external whenNotPaused {
+	function escalateToGovernance(bytes32 debateId) external onlyGovernance whenNotPaused {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
@@ -1290,6 +1360,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.UNDER_APPEAL) revert DebateNotUnderAppeal();
 		if (block.timestamp >= debate.appealDeadline) revert AppealWindowExpired();
+		if (appealBonds[debateId][msg.sender] != 0) revert AlreadyAppealed();
 
 		uint256 requiredBond = debate.proposerBond * APPEAL_BOND_MULTIPLIER;
 		if (requiredBond < MIN_PROPOSER_BOND * APPEAL_BOND_MULTIPLIER) {
@@ -1299,7 +1370,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		appealBonds[debateId][msg.sender] = requiredBond;
 		hasAppeal[debateId] = true;
 
-		stakingToken.safeTransferFrom(msg.sender, address(this), requiredBond);
+		// Pull exact appeal bond (no fee on appeals)
+		_pullExact(msg.sender, requiredBond);
 
 		emit ResolutionAppealed(debateId, msg.sender, requiredBond);
 	}
@@ -1353,15 +1425,37 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		// Zero out before transfer (CEI pattern)
 		appealBonds[debateId][appealer] = 0;
 
-		stakingToken.safeTransfer(governance, bond);
+		_send(governance, bond);
 
 		emit AppealBondForfeited(debateId, appealer, bond);
 	}
 
-	/// @notice Set resolution extension duration (governance only)
+	/// @notice Set resolution extension duration (governance only, bounded 1 day – 90 days)
 	/// @param newDuration New duration in seconds
 	function setResolutionExtension(uint256 newDuration) external onlyGovernance {
+		if (newDuration < 1 days || newDuration > 90 days) revert ResolutionExtensionOutOfRange();
+		uint256 old = resolutionExtension;
 		resolutionExtension = newDuration;
+		emit ResolutionExtensionUpdated(old, newDuration);
+	}
+
+	/// @notice Sweep accumulated protocol fees to a destination address (governance only)
+	/// @param to Destination for swept fees
+	function sweepFees(address to) external onlyGovernance nonReentrant {
+		if (to == address(0)) revert ZeroAddress();
+		uint256 amount = accumulatedFees;
+		if (amount == 0) revert NoFeesToSweep();
+		accumulatedFees = 0;
+		_send(to, amount);
+		emit FeeSwept(to, amount);
+	}
+
+	/// @notice Update protocol fee basis points (governance only)
+	/// @param newFeeBps New fee in basis points (must be <= MAX_FEE_BPS)
+	function setProtocolFee(uint256 newFeeBps) external onlyGovernance {
+		if (newFeeBps > MAX_FEE_BPS) revert FeeExceedsCap();
+		emit ProtocolFeeUpdated(protocolFeeBps, newFeeBps);
+		protocolFeeBps = newFeeBps;
 	}
 
 	// ============================================================================
@@ -1817,16 +1911,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		for (uint256 i = 0; i < signatures.length; i++) {
 			if (signatures[i].length != 65) continue;
 
-			bytes calldata sig = signatures[i];
-			uint8 v = uint8(sig[64]);
-			bytes32 r;
-			bytes32 s;
-			assembly {
-				r := calldataload(sig.offset)
-				s := calldataload(add(sig.offset, 32))
-			}
-
-			address recovered = ecrecover(digest, v, r, s);
+			address recovered = ECDSA.recover(digest, signatures[i]);
 			if (recovered == address(0)) continue;
 			if (!aiRegistry.isRegistered(recovered)) continue;
 

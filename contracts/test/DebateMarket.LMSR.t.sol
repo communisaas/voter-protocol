@@ -14,12 +14,11 @@ import { SD59x18, sd } from "prb-math/SD59x18.sol";
 /// @notice Tests for batch LMSR pricing, commit-reveal epoch trading, and price invariants.
 /// @dev Inherits the same mock architecture as DebateMarket.t.sol:
 ///      - MockDistrictGate: accepts proofs, records nullifiers
-///      - MockERC20: public mint for test stakes
 contract DebateMarketLMSRTest is Test {
     DebateMarket public market;
     MockDistrictGate public mockGate;
-    MockERC20 public token;
     NullifierRegistry public nullifierRegistry;
+    MockERC20 public token;
 
     address public governance = address(0x1);
     address public proposer = address(0x10);
@@ -62,16 +61,16 @@ contract DebateMarketLMSRTest is Test {
         mockGate.setActionDomainAllowed(ACTION_DOMAIN, true);
 
         token = new MockERC20("Test USD", "TUSD", 6);
+
         MockDebateWeightVerifier dwVerifier = new MockDebateWeightVerifier();
         MockPositionNoteVerifier pnVerifier = new MockPositionNoteVerifier();
         MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
-        market = new DebateMarket(address(mockGate), address(token), address(dwVerifier), address(pnVerifier), address(aiRegistry), governance);
+        market = new DebateMarket(address(mockGate), address(dwVerifier), address(pnVerifier), address(aiRegistry), governance, address(token), 200);
         mockGate.setDeriverAuthorized(address(market), true);
 
-        // Mint and approve for all participants
         address[4] memory participants = [proposer, trader1, trader2, trader3];
         for (uint256 i = 0; i < participants.length; i++) {
-            token.mint(participants[i], 100_000e6);
+            token.mint(participants[i], 10_000e6);
             vm.prank(participants[i]);
             token.approve(address(market), type(uint256).max);
         }
@@ -525,16 +524,16 @@ contract DebateMarketLMSRTest is Test {
         // Submit 2 arguments
         vm.prank(trader1);
         market.submitArgument(
-            debateId, DebateMarket.Stance.SUPPORT, keccak256("sup"), bytes32(0), STANDARD_STAKE,
-            trader1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
+            debateId, DebateMarket.Stance.SUPPORT, keccak256("sup"), bytes32(0),
+            STANDARD_STAKE, trader1, DUMMY_PROOF, _makePublicInputs(NULLIFIER_1, derivedDomain, 2),
             VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
             address(0)
  );
         vm.warp(block.timestamp + 61);
         vm.prank(trader2);
         market.submitArgument(
-            debateId, DebateMarket.Stance.OPPOSE, keccak256("opp"), bytes32(0), STANDARD_STAKE,
-            trader2, DUMMY_PROOF, _makePublicInputs(NULLIFIER_2, derivedDomain, 2),
+            debateId, DebateMarket.Stance.OPPOSE, keccak256("opp"), bytes32(0),
+            STANDARD_STAKE, trader2, DUMMY_PROOF, _makePublicInputs(NULLIFIER_2, derivedDomain, 2),
             VERIFIER_DEPTH, block.timestamp + 1 hours, hex"00",
             address(0)
  );
@@ -618,8 +617,8 @@ contract DebateMarketLMSRTest is Test {
     /// @notice Governance can update epoch duration
     function test_Governance_SetEpochDuration() public {
         vm.prank(governance);
-        market.setEpochDuration(60); // 1 minute
-        assertEq(market.epochDuration(), 60);
+        market.setEpochDuration(2 hours);
+        assertEq(market.epochDuration(), 2 hours);
     }
 
     /// @notice Governance can update base liquidity per member
@@ -633,7 +632,7 @@ contract DebateMarketLMSRTest is Test {
     function test_RevertWhen_NonGovernance_SetEpochDuration() public {
         vm.prank(trader1);
         vm.expectRevert();
-        market.setEpochDuration(60);
+        market.setEpochDuration(2 hours);
     }
 
     // ============================================================================
@@ -693,7 +692,7 @@ contract DebateMarketLMSRTest is Test {
         for (uint256 i = 3; i < count; i++) {
             vm.warp(block.timestamp + 61);
             address extra = address(uint160(0x100 + i));
-            token.mint(extra, 100_000e6);
+            token.mint(extra, 10_000e6);
             vm.prank(extra);
             token.approve(address(market), type(uint256).max);
             vm.prank(extra);
@@ -856,13 +855,37 @@ contract MockDistrictGate {
     }
 }
 
+/// @notice Mock debate_weight verifier — always returns true (testing only)
+contract MockDebateWeightVerifier is IDebateWeightVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return true;
+    }
+}
+
+/// @notice Mock position_note verifier — always returns true (testing only)
+contract MockPositionNoteVerifier is IPositionNoteVerifier {
+    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+        return true;
+    }
+}
+
+/// @notice Mock AI evaluation registry — always registered, sensible defaults (testing only)
+contract MockAIEvaluationRegistry is IAIEvaluationRegistry {
+    function isRegistered(address) external pure returns (bool) { return true; }
+    function quorum() external pure returns (uint256) { return 3; }
+    function modelCount() external pure returns (uint256) { return 5; }
+    function aiWeight() external pure returns (uint256) { return 4000; }
+    function minProviders() external pure returns (uint256) { return 3; }
+    function providerCount() external pure returns (uint256) { return 5; }
+}
+
 contract MockERC20 {
     string public name;
     string public symbol;
     uint8 public decimals;
+    uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
-    uint256 public totalSupply;
 
     constructor(string memory _name, string memory _symbol, uint8 _decimals) {
         name = _name;
@@ -895,28 +918,4 @@ contract MockERC20 {
         balanceOf[to] += amount;
         return true;
     }
-}
-
-/// @notice Mock debate_weight verifier — always returns true (testing only)
-contract MockDebateWeightVerifier is IDebateWeightVerifier {
-    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
-        return true;
-    }
-}
-
-/// @notice Mock position_note verifier — always returns true (testing only)
-contract MockPositionNoteVerifier is IPositionNoteVerifier {
-    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
-        return true;
-    }
-}
-
-/// @notice Mock AI evaluation registry — always registered, sensible defaults (testing only)
-contract MockAIEvaluationRegistry is IAIEvaluationRegistry {
-    function isRegistered(address) external pure returns (bool) { return true; }
-    function quorum() external pure returns (uint256) { return 3; }
-    function modelCount() external pure returns (uint256) { return 5; }
-    function aiWeight() external pure returns (uint256) { return 4000; }
-    function minProviders() external pure returns (uint256) { return 3; }
-    function providerCount() external pure returns (uint256) { return 5; }
 }

@@ -19,8 +19,8 @@ contract DebateMarketAIResolutionTest is Test {
 	DebateMarket public market;
 	AIEvaluationRegistry public registry;
 	MockDistrictGate public mockGate;
-	MockERC20 public token;
 	NullifierRegistry public nullifierRegistry;
+	MockERC20 public token;
 
 	address public governance = address(0x1);
 	address public proposer = address(0x10);
@@ -102,27 +102,32 @@ contract DebateMarketAIResolutionTest is Test {
 		registry.registerModel(model5, 4); // Anthropic
 		vm.stopPrank();
 
-		// Deploy token + verifiers + DebateMarket
 		token = new MockERC20("Test USD", "TUSD", 6);
+
+		// Deploy verifiers + DebateMarket
 		MockDebateWeightVerifier dwVerifier = new MockDebateWeightVerifier();
 		MockPositionNoteVerifier pnVerifier = new MockPositionNoteVerifier();
 		market = new DebateMarket(
 			address(mockGate),
-			address(token),
 			address(dwVerifier),
 			address(pnVerifier),
 			address(registry),
-			governance
+			governance,
+			address(token),
+			200
 		);
 		mockGate.setDeriverAuthorized(address(market), true);
 
-		// Mint and approve
 		address[5] memory participants = [proposer, arguer1, arguer2, arguer3, appealer];
 		for (uint256 i = 0; i < participants.length; i++) {
-			token.mint(participants[i], 100_000e6);
+			token.mint(participants[i], 10_000e6);
 			vm.prank(participants[i]);
 			token.approve(address(market), type(uint256).max);
 		}
+
+		// Set resolution extension to minimum for test efficiency (R2-F01 grace period)
+		vm.prank(governance);
+		market.setResolutionExtension(1 days);
 	}
 
 	// ============================================================================
@@ -448,7 +453,7 @@ contract DebateMarketAIResolutionTest is Test {
 		// Community scores: arg0 has highest weighted score from setUp
 		// With α=0.1, community should dominate
 		(,,,,,,, uint256 winIdx,,,,,,,,,,,, ) = market.debates(debateId);
-		// arg0: community is highest (arguer1 tier 3, stake 2e6 → weight = sqrt(2e6)*8 ≈ 11314)
+		// arg0: community is highest (arguer1 tier 3, stake 2e6 → weight = sqrt(1_960_000)*8)
 		assertEq(winIdx, 0);
 	}
 
@@ -537,17 +542,19 @@ contract DebateMarketAIResolutionTest is Test {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
 
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,
 		 , uint256 resDl,,,) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.AWAITING_GOVERNANCE));
-		assertEq(resDl, block.timestamp + 48 hours);
+		assertEq(resDl, block.timestamp + 1 days);
 	}
 
 	function test_escalateToGovernance_revert_beforeDeadline() public {
 		bytes32 debateId = _createDebateWithArguments();
 		// Don't advance past deadline
+		vm.prank(governance);
 		vm.expectRevert(DebateMarket.DebateStillActive.selector);
 		market.escalateToGovernance(debateId);
 	}
@@ -555,6 +562,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_submitGovernanceResolution() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		bytes32 justification = keccak256("AI models disagreed on factual claims");
@@ -575,6 +583,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_submitGovernanceResolution_revert_nonGovernance() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		vm.prank(arguer1);
@@ -599,6 +608,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_appealResolution() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		vm.prank(governance);
@@ -616,6 +626,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_appealResolution_revert_windowExpired() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		vm.prank(governance);
@@ -632,6 +643,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_finalizeAppeal_noAppeal() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		vm.prank(governance);
@@ -652,6 +664,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_finalizeAppeal_revert_windowActive() public {
 		bytes32 debateId = _createDebateWithArguments();
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		vm.prank(governance);
@@ -694,6 +707,7 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.warp(block.timestamp + STANDARD_DURATION + 1);
 
 		// AI consensus fails → escalate
+		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
 		// Governance resolves with arg1 winning
@@ -714,9 +728,10 @@ contract DebateMarketAIResolutionTest is Test {
 
 	function test_existingResolveDebate_stillWorks() public {
 		bytes32 debateId = _createDebateWithArguments();
-		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		// Must warp past deadline + resolutionExtension (R2-F01 grace period)
+		vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
 
-		// Old path: resolveDebate (pure community signal) still works
+		// Old path: resolveDebate (pure community signal) still works after grace period
 		market.resolveDebate(debateId);
 
 		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,,,,, ) = market.debates(debateId);
@@ -766,7 +781,7 @@ contract DebateMarketAIResolutionTest is Test {
 		// Build public inputs array
 		bytes32 debateActionDomain = market.deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
 
-		// Argument 0: arguer1, SUPPORT, tier 3, stake 2e6
+		// Argument 0: arguer1, SUPPORT, tier 3, stake STANDARD_STAKE
 		uint256[31] memory pi1;
 		pi1[27] = uint256(debateActionDomain);
 		pi1[26] = uint256(NULLIFIER_1);
@@ -808,7 +823,7 @@ contract DebateMarketAIResolutionTest is Test {
 		address(0)
 );
 
-		// Argument 2: arguer3, AMEND, tier 1, stake 1e6
+		// Argument 2: arguer3, AMEND, tier 1, stake MIN_PROPOSER_BOND
 		uint256[31] memory pi3;
 		pi3[27] = uint256(debateActionDomain);
 		pi3[26] = uint256(NULLIFIER_3);
@@ -968,13 +983,25 @@ contract MockDistrictGate {
 	}
 }
 
+contract MockDebateWeightVerifier is IDebateWeightVerifier {
+	function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+		return true;
+	}
+}
+
+contract MockPositionNoteVerifier is IPositionNoteVerifier {
+	function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
+		return true;
+	}
+}
+
 contract MockERC20 {
 	string public name;
 	string public symbol;
 	uint8 public decimals;
+	uint256 public totalSupply;
 	mapping(address => uint256) public balanceOf;
 	mapping(address => mapping(address => uint256)) public allowance;
-	uint256 public totalSupply;
 
 	constructor(string memory _name, string memory _symbol, uint8 _decimals) {
 		name = _name;
@@ -993,27 +1020,18 @@ contract MockERC20 {
 	}
 
 	function transfer(address to, uint256 amount) external returns (bool) {
+		require(balanceOf[msg.sender] >= amount, "insufficient balance");
 		balanceOf[msg.sender] -= amount;
 		balanceOf[to] += amount;
 		return true;
 	}
 
 	function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+		require(balanceOf[from] >= amount, "insufficient balance");
+		require(allowance[from][msg.sender] >= amount, "insufficient allowance");
 		allowance[from][msg.sender] -= amount;
 		balanceOf[from] -= amount;
 		balanceOf[to] += amount;
-		return true;
-	}
-}
-
-contract MockDebateWeightVerifier is IDebateWeightVerifier {
-	function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
-		return true;
-	}
-}
-
-contract MockPositionNoteVerifier is IPositionNoteVerifier {
-	function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
 		return true;
 	}
 }

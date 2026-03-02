@@ -127,11 +127,12 @@ contract DeploySepoliaV5 is Script {
         console.log("[10/10] DebateMarket...");
         DebateMarket debateMarket = new DebateMarket(
             address(gate),
-            address(stakingToken),
             address(dwVerifier),
             address(pnVerifier),
             address(aiRegistry),
-            deployer
+            deployer,
+            address(stakingToken),
+            200 // 2% protocol fee
         );
         console.log("         ", address(debateMarket));
 
