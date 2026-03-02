@@ -62,13 +62,18 @@ log_error() {
 check_prerequisites() {
     log_info "Checking prerequisites..."
 
-    # Verify nargo version matches npm packages
+    # Verify nargo version matches npm packages — HARD FAIL on mismatch
+    # Rationale: nargo beta versions change ACIR encoding, witness format, and proof structure.
+    # A version mismatch between the compiler and the TS prover produces artifacts that silently
+    # fail to generate proofs or verify on-chain. See BR7-003, TRUST-MODEL Section 4.4.
     REQUIRED_NARGO="1.0.0-beta.16"
     if command -v nargo &> /dev/null; then
         ACTUAL_NARGO=$(nargo --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+' || echo "unknown")
         if [ "$ACTUAL_NARGO" != "$REQUIRED_NARGO" ]; then
-            log_warn "nargo $REQUIRED_NARGO required (matching @noir-lang/* npm packages), got $ACTUAL_NARGO"
-            log_warn "Version mismatch may produce incompatible circuit artifacts."
+            log_error "nargo $REQUIRED_NARGO required (matching @noir-lang/* npm packages), got $ACTUAL_NARGO"
+            log_error "Version mismatch produces incompatible circuit artifacts. Aborting."
+            log_error "Install correct version: noirup -v $REQUIRED_NARGO"
+            exit 1
         fi
     fi
 
