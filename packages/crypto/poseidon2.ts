@@ -19,11 +19,22 @@
 
 import { Noir } from '@noir-lang/noir_js';
 import type { CompiledCircuit } from '@noir-lang/noir_js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Import the compiled fixtures circuit (Poseidon2 hash wrapper)
-// Node.js 22+ requires import attributes for JSON modules
-import fixturesCircuit from './noir/fixtures/target/fixtures.json' with { type: 'json' };
-import spongeHelperCircuit from './noir/sponge_helper/target/sponge_helper.json' with { type: 'json' };
+// Load compiled circuit JSONs via fs.readFileSync — works in both ESM and CJS contexts.
+// Static `import ... with { type: 'json' }` breaks when tsx/esbuild transforms CJS-mode
+// files (the JSON object loses its properties due to module wrapping).
+const __dirname_compat = typeof __dirname !== 'undefined'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url));
+const fixturesCircuit = JSON.parse(
+  readFileSync(join(__dirname_compat, 'noir/fixtures/target/fixtures.json'), 'utf-8')
+);
+const spongeHelperCircuit = JSON.parse(
+  readFileSync(join(__dirname_compat, 'noir/sponge_helper/target/sponge_helper.json'), 'utf-8')
+);
 
 /**
  * Zero padding constant for hash inputs
