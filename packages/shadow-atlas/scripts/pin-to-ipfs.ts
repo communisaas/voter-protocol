@@ -27,8 +27,19 @@
 
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { brotliDecompressSync } from 'node:zlib';
 import { createStorachaPinningService } from '../src/distribution/services/storacha.js';
 import type { PinResult } from '../src/distribution/types.js';
+
+/**
+ * Files to skip when using --all mode.
+ * Metadata and sample files are build artifacts for debugging — not client data.
+ */
+const SKIP_PATTERNS = [
+  'metadata.json',       // Build stats, not client-consumable
+  '-sample.json',        // Subset for integration testing
+  'pin-results.json',    // Our own output file
+];
 
 interface ArtifactResult {
   name: string;
@@ -67,7 +78,10 @@ async function main() {
         const dir = args[++i];
         const files = readdirSync(dir).filter((f) => {
           const stat = statSync(join(dir, f));
-          return stat.isFile() && !f.startsWith('.');
+          if (!stat.isFile() || f.startsWith('.')) return false;
+          // Skip non-client files (metadata, samples, our own output)
+          if (SKIP_PATTERNS.some((p) => f.includes(p))) return false;
+          return true;
         });
         for (const file of files) {
           artifacts.push({ name: file, path: join(dir, file) });
@@ -138,11 +152,24 @@ async function main() {
     console.log(`Pinning: ${artifact.name} (${artifact.path})`);
 
     try {
-      const content = readFileSync(artifact.path);
-      console.log(`  Size: ${(content.length / 1024).toFixed(1)} KB`);
+      let content = readFileSync(artifact.path);
+      let pinName = artifact.name;
+
+      // Decompress .br (Brotli) files before pinning.
+      // IPFS stores content-addressed data — clients fetch raw bytes via
+      // response.json(). Pinning compressed bytes would require every client
+      // to handle decompression. Pin the uncompressed JSON instead.
+      if (artifact.path.endsWith('.br')) {
+        console.log(`  Decompressing Brotli (${(content.length / 1024).toFixed(1)} KB compressed)...`);
+        content = Buffer.from(brotliDecompressSync(content));
+        pinName = pinName.replace(/\.br$/, '');
+        console.log(`  Decompressed: ${(content.length / 1024 / 1024).toFixed(1)} MB`);
+      }
+
+      console.log(`  Pinning ${(content.length / 1024).toFixed(1)} KB as "${pinName}"`);
 
       const result: PinResult = await storacha.pin(content, {
-        name: artifact.name,
+        name: pinName,
       });
 
       if (!result.success) {
@@ -166,7 +193,7 @@ async function main() {
       console.log();
 
       output.artifacts.push({
-        name: artifact.name,
+        name: pinName,
         path: artifact.path,
         sizeBytes: content.length,
         cid: result.cid,

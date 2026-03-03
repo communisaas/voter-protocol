@@ -119,12 +119,69 @@ jobs:
           path: packages/shadow-atlas/output/officials.json
           retention-days: 180
 
+  # ---- Phase A1b: Build Cell Tree Snapshot (Tree 2 Merkle tree) ----
+  build-cell-tree-snapshot:
+    name: Build Cell Tree Snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [build-h3-mapping]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download H3 mapping artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: h3-mapping
+          path: packages/shadow-atlas/output/
+
+      - name: Decompress H3 mapping
+        run: |
+          # build-cell-tree-snapshot.ts needs uncompressed JSON
+          cd packages/shadow-atlas/output
+          if [ -f h3-district-mapping.json.br ]; then
+            # Use node for Brotli decompression (portable)
+            node -e "
+              const { brotliDecompressSync } = require('zlib');
+              const { readFileSync, writeFileSync } = require('fs');
+              const br = readFileSync('h3-district-mapping.json.br');
+              writeFileSync('h3-district-mapping.json', brotliDecompressSync(br));
+              console.log('Decompressed: ' + (br.length/1024).toFixed(0) + ' KB → ' + (brotliDecompressSync(br).length/1024/1024).toFixed(1) + ' MB');
+            "
+          fi
+
+      - name: Build cell tree snapshot
+        working-directory: packages/shadow-atlas
+        run: |
+          npx tsx scripts/build-cell-tree-snapshot.ts \
+            --from output/h3-district-mapping.json \
+            --output output/cell-tree-snapshot.json
+
+          ls -lh output/cell-tree-snapshot.json
+
+      - name: Upload cell tree snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-tree-snapshot
+          path: packages/shadow-atlas/output/cell-tree-snapshot.json
+          retention-days: 180
+
   # ---- Phase A2: Pin to IPFS via Storacha ----
   publish-ipfs:
     name: Pin to IPFS
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-h3-mapping, export-officials]
+    needs: [build-h3-mapping, export-officials, build-cell-tree-snapshot]
     if: inputs.publish_ipfs != 'false'
     outputs:
       pin_results: ${{ steps.pin.outputs.results }}
@@ -299,7 +356,7 @@ jobs:
             });
 
             const quarterlyArtifacts = artifactsResponse.data.artifacts
-              .filter(a => ['h3-mapping', 'officials', 'pin-results'].includes(a.name))
+              .filter(a => ['h3-mapping', 'officials', 'cell-tree-snapshot', 'pin-results'].includes(a.name))
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             // Keep last 4 quarters (1 year), delete rest
