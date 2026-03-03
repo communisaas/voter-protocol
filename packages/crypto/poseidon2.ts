@@ -45,21 +45,21 @@ const ZERO_PAD = '0x' + '00'.repeat(32);
  * Domain separation tag for hashPair (BA-003).
  * Matches circuit: global DOMAIN_HASH2: Field = 0x48324d;  // "H2M" marker
  */
-const DOMAIN_HASH2 = '0x' + (0x48324d).toString(16).padStart(64, '0');
+export const DOMAIN_HASH2 = '0x' + (0x48324d).toString(16).padStart(64, '0');
 
 /**
  * Domain separation tag for hashSingle (SA-007).
  * Prevents collision between hashSingle(x) and hash4(x, 0, 0, 0).
  * Tag value: 0x48314d = "H1M" (Hash-1 Marker)
  */
-const DOMAIN_HASH1 = '0x' + (0x48314d).toString(16).padStart(64, '0');
+export const DOMAIN_HASH1 = '0x' + (0x48314d).toString(16).padStart(64, '0');
 
 /**
  * Domain separation tag for hash3 (3-input hash, two-tree architecture).
  * Prevents collision between hash3(a, b, c) and hash4(a, b, c, 0).
  * Tag value: 0x48334d = "H3M" (Hash-3 Marker)
  */
-const DOMAIN_HASH3 = '0x' + (0x48334d).toString(16).padStart(64, '0');
+export const DOMAIN_HASH3 = '0x' + (0x48334d).toString(16).padStart(64, '0');
 
 /**
  * Domain separation tag for hash4 (4-input hash, BR5-001 authority binding).
@@ -72,7 +72,7 @@ const DOMAIN_HASH3 = '0x' + (0x48334d).toString(16).padStart(64, '0');
  *
  * Must match Noir circuit: global DOMAIN_HASH4: Field = 0x48344d
  */
-const DOMAIN_HASH4 = '0x' + (0x48344d).toString(16).padStart(64, '0');
+export const DOMAIN_HASH4 = '0x' + (0x48344d).toString(16).padStart(64, '0');
 
 /**
  * Domain separation tag for Poseidon2 sponge with 24 inputs.
@@ -88,7 +88,7 @@ const DOMAIN_HASH4 = '0x' + (0x48344d).toString(16).padStart(64, '0');
  * - 0x5f = '_'
  * - 0x24 = 36 decimal (hex representation of "24")
  */
-const DOMAIN_SPONGE_24 = '0x' + (0x534f4e47455f24n).toString(16).padStart(64, '0');
+export const DOMAIN_SPONGE_24 = '0x' + (0x534f4e47455f24n).toString(16).padStart(64, '0');
 
 /**
  * Default concurrency for batch operations

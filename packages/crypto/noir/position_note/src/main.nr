@@ -19,9 +19,9 @@
 //   4. A unique nullifier prevents double-claim.
 //
 // DOMAIN SEPARATION:
-//   DOMAIN_POS_COMMIT = 0x50434d ("PCM") — new tag, no collision with H2/H3/H4.
-//   DOMAIN_POS_NUL    = 0x504e4c ("PNL") — new tag for position nullifier.
-//   DOMAIN_HASH2      = 0x48324d ("H2M") — shared Merkle node hash; MUST match
+//   DOMAIN_POS_COMMIT = 0x50434d ("PCM") --new tag, no collision with H2/H3/H4.
+//   DOMAIN_POS_NUL    = 0x504e4c ("PNL") --new tag for position nullifier.
+//   DOMAIN_HASH2      = 0x48324d ("H2M") --shared Merkle node hash; MUST match
 //                       other circuits for cross-circuit root compatibility.
 //
 // SECURITY:
@@ -34,22 +34,22 @@
 //   - weighted_amount is public: reveals position size but not identity.
 //
 // PUBLIC INPUTS (5, visible on-chain):
-//   position_root           — current root of the position Merkle tree
-//   nullifier               — H_PNL(nullifier_key, commitment, debate_id)
-//   debate_id               — identifies which debate this claim is for
-//   winning_argument_index  — winning argument from resolution (contract-controlled)
-//   claimed_weighted_amount — amount to be paid out
+//   position_root           --current root of the position Merkle tree
+//   nullifier               --H_PNL(nullifier_key, commitment, debate_id)
+//   debate_id               --identifies which debate this claim is for
+//   winning_argument_index  --winning argument from resolution (contract-controlled)
+//   claimed_weighted_amount --amount to be paid out
 //
 // PRIVATE INPUTS (6 + TREE_DEPTH, never revealed):
-//   argument_index    — which argument this position is on
-//   weighted_amount   — the position's payout weight
-//   randomness        — entropy in the commitment
-//   nullifier_key     — user secret for nullifier derivation
-//   position_path     — Merkle siblings from commitment leaf to root
-//   position_index    — leaf position in the position tree
+//   argument_index    --which argument this position is on
+//   weighted_amount   --the position's payout weight
+//   randomness        --entropy in the commitment
+//   nullifier_key     --user secret for nullifier derivation
+//   position_path     --Merkle siblings from commitment leaf to root
+//   position_index    --leaf position in the position tree
 //
 // ESTIMATED CONSTRAINT COUNT: ~1,350
-//   20 Merkle levels × ~60 gates/level + hash computations
+//   20 Merkle levels x ~60 gates/level + hash computations
 
 use dep::std::hash::poseidon2_permutation;
 
@@ -67,13 +67,16 @@ global DOMAIN_POS_COMMIT: Field = 0x50434d;
 // MUST NOT collide with any other domain tag in the protocol.
 global DOMAIN_POS_NUL: Field = 0x504e4c;
 
-// Shared Merkle node hash domain — MUST match three_tree_membership and two_tree_membership.
+// Hash-1 Marker ('H1M') -- single-input hash domain separation. Must match poseidon2.ts DOMAIN_HASH1.
+global DOMAIN_HASH1: Field = 0x48314d;
+
+// Shared Merkle node hash domain -- MUST match three_tree_membership and two_tree_membership.
 // Value: 0x48324d = "H2M" (Hash-2 Marker)
 // CRITICAL: Any change here breaks cross-circuit root compatibility.
 global DOMAIN_HASH2: Field = 0x48324d;
 
 // Position tree depth: single variant, no multi-depth build.
-// 2^20 = 1,048,576 positions — adequate for large debate markets.
+// 2^20 = 1,048,576 positions --adequate for large debate markets.
 global TREE_DEPTH: u32 = 20;
 
 // ===============================================================================
@@ -118,7 +121,7 @@ fn poseidon2_pos_nullifier(nullifier_key: Field, position_commitment: Field, deb
 /// Standard Merkle node hash: H2(left, right)
 ///
 /// State layout: [left, right, DOMAIN_HASH2, 0]
-/// DOMAIN_HASH2 = 0x48324d ("H2M") — shared with all other protocol trees.
+/// DOMAIN_HASH2 = 0x48324d ("H2M") --shared with all other protocol trees.
 ///
 /// CRITICAL: This function MUST produce the same output as poseidon2_hash2 in
 /// three_tree_membership/main.nr, two_tree_membership/main.nr, and
@@ -170,22 +173,22 @@ fn compute_merkle_root(leaf: Field, path: [Field; TREE_DEPTH], index: u32) -> Fi
 // MAIN CIRCUIT
 // ===============================================================================
 
-/// Position note circuit — proves settlement eligibility for a debate position.
+/// Position note circuit --proves settlement eligibility for a debate position.
 ///
 /// PUBLIC INPUTS (contract-controlled, verified on-chain):
-///   position_root           — Merkle root of the position tree
-///   nullifier               — Prevents double-claim
-///   debate_id               — Identifies the debate being settled
-///   winning_argument_index  — Resolution outcome (contract-controlled)
-///   claimed_weighted_amount — The payout weight being claimed
+///   position_root           --Merkle root of the position tree
+///   nullifier               --Prevents double-claim
+///   debate_id               --Identifies the debate being settled
+///   winning_argument_index  --Resolution outcome (contract-controlled)
+///   claimed_weighted_amount --The payout weight being claimed
 ///
 /// PRIVATE INPUTS (witnesses, never revealed):
-///   argument_index    — Which argument this position is on (must match winner)
-///   weighted_amount   — Position weight for payout calculation
-///   randomness        — Entropy in the commitment
-///   nullifier_key     — User secret for nullifier derivation
-///   position_path     — Merkle siblings from commitment leaf to root
-///   position_index    — Leaf position in the position tree
+///   argument_index    --Which argument this position is on (must match winner)
+///   weighted_amount   --Position weight for payout calculation
+///   randomness        --Entropy in the commitment
+///   nullifier_key     --User secret for nullifier derivation
+///   position_path     --Merkle siblings from commitment leaf to root
+///   position_index    --Leaf position in the position tree
 fn main(
     // =======================================================================
     // PRIVATE INPUTS (witnesses)

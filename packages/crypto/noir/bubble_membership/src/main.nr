@@ -50,6 +50,9 @@ global TREE_DEPTH: u32 = 20;
 // Users with larger bubbles (city/country) don't contribute until they pinch below ~5km radius.
 global MAX_CELLS: u32 = 16;
 
+// Hash-1 Marker ('H1M') -- single-input hash domain separation. Must match poseidon2.ts DOMAIN_HASH1.
+global DOMAIN_HASH1: Field = 0x48314d;
+
 // BA-003: Domain separation tag for 2-input hash.
 // Shared with three_tree_membership and all other circuits.
 // MUST match poseidon2.ts DOMAIN_HASH2.

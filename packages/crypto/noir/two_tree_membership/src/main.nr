@@ -44,6 +44,9 @@ global MAX_AUTHORITY_LEVEL: Field = 5;
 // Prevents cross-arity collisions: poseidon2_hash2(a, b) cannot equal
 // poseidon2_hash4(a, b, 0, 0) because the third state element is 0x48324d
 // ("H2M" = Hash-2 Marker) instead of 0.
+// Hash-1 Marker ('H1M') -- single-input hash domain separation. Must match poseidon2.ts DOMAIN_HASH1.
+global DOMAIN_HASH1: Field = 0x48314d;
+
 // MUST match district_membership circuit for nullifier compatibility.
 global DOMAIN_HASH2: Field = 0x48324d;
 

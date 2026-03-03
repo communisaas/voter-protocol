@@ -30,6 +30,9 @@ global MAX_AUTHORITY_LEVEL: Field = 5;
 // poseidon2_hash4(a, b, 0, 0) because the third state element is now 0x48324d
 // ("H2M" = Hash-2 Marker) instead of 0.
 // Only hash2 needs the tag since hash4 already fills all 4 state slots.
+// Hash-1 Marker ('H1M') -- single-input hash domain separation. Must match poseidon2.ts DOMAIN_HASH1.
+global DOMAIN_HASH1: Field = 0x48314d;
+
 global DOMAIN_HASH2: Field = 0x48324d;
 
 fn poseidon2_hash2(left: Field, right: Field) -> Field {

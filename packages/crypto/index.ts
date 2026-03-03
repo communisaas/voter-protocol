@@ -20,6 +20,11 @@ export {
   hashSingle,
   hashString,
   poseidon2Sponge,
+  DOMAIN_HASH1,
+  DOMAIN_HASH2,
+  DOMAIN_HASH3,
+  DOMAIN_HASH4,
+  DOMAIN_SPONGE_24,
 } from './poseidon2.js';
 
 // Export BN254_MODULUS for field validation in dependent packages (BR3-003 fix)

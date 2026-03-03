@@ -21,20 +21,23 @@
 //   circuit, and the circuit verifies root_u64^2 <= stake < (root_u64+1)^2
 //
 // PUBLIC INPUTS (visible on-chain):
-//   weighted_amount  — influence weight for this position
-//   note_commitment  — Poseidon2 commitment binding stake, tier, randomness
+//   weighted_amount  --influence weight for this position
+//   note_commitment  --Poseidon2 commitment binding stake, tier, randomness
 //
 // PRIVATE INPUTS (witnesses):
-//   stake            — USDC stake amount (6 decimals, max 100_000_000 = $100)
-//   sqrt_stake       — floor(sqrt(stake)), computed by prover off-circuit
-//   tier             — engagement tier [1, 4] (tier 0 rejected by DebateMarket)
-//   randomness       — 128-bit entropy for note commitment
+//   stake            --USDC stake amount (6 decimals, max 100_000_000 = $100)
+//   sqrt_stake       --floor(sqrt(stake)), computed by prover off-circuit
+//   tier             --engagement tier [1, 4] (tier 0 rejected by DebateMarket)
+//   randomness       --128-bit entropy for note commitment
 
 use dep::std::hash::poseidon2_permutation;
 
 // ===============================================================================
 // CONSTANTS
 // ===============================================================================
+
+// Hash-1 Marker ('H1M') -- single-input hash domain separation. Must match poseidon2.ts DOMAIN_HASH1.
+global DOMAIN_HASH1: Field = 0x48314d;
 
 // BA-003: Domain separation tag for 3-input hash.
 // Matches three_tree_membership circuit: global DOMAIN_HASH3: Field = 0x48334d;
@@ -83,7 +86,7 @@ fn validate_debate_tier(tier: Field) {
 // MAIN CIRCUIT
 // ===============================================================================
 
-/// Debate weight circuit — proves:
+/// Debate weight circuit --proves:
 ///   1. stake > 0
 ///   2. tier in [1, 4]
 ///   3. sqrt_stake = floor(sqrt(stake))  [via u64 inequality constraints]
@@ -91,14 +94,14 @@ fn validate_debate_tier(tier: Field) {
 ///   5. note_commitment = H3(stake, tier, randomness)
 ///
 /// PUBLIC INPUTS (on-chain, contract-controlled):
-///   weighted_amount  — The computed influence weight
-///   note_commitment  — Poseidon2 commitment to the position
+///   weighted_amount  --The computed influence weight
+///   note_commitment  --Poseidon2 commitment to the position
 ///
 /// PRIVATE INPUTS (witnesses, never revealed):
-///   stake            — USDC stake amount (6 decimals, max $100 = 100_000_000)
-///   sqrt_stake       — floor(sqrt(stake)), provided by prover, verified in-circuit
-///   tier             — Engagement tier [1, 4]
-///   randomness       — 128-bit entropy for note commitment
+///   stake            --USDC stake amount (6 decimals, max $100 = 100_000_000)
+///   sqrt_stake       --floor(sqrt(stake)), provided by prover, verified in-circuit
+///   tier             --Engagement tier [1, 4]
+///   randomness       --128-bit entropy for note commitment
 fn main(
     // Private inputs (witnesses)
     stake: Field,
@@ -195,7 +198,7 @@ fn test_hash3_deterministic() {
 #[test]
 fn test_hash3_domain_separation() {
     // H3 with DOMAIN_HASH3 must not collide with a different permutation
-    // (guards cross-arity hash collision — BA-003)
+    // (guards cross-arity hash collision --BA-003)
     let a: Field = 7;
     let b: Field = 13;
     let c: Field = 99;

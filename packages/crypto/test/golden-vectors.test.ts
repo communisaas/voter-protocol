@@ -33,7 +33,14 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { Poseidon2Hasher } from '../poseidon2';
+import {
+  Poseidon2Hasher,
+  DOMAIN_HASH1,
+  DOMAIN_HASH2,
+  DOMAIN_HASH3,
+  DOMAIN_HASH4,
+  DOMAIN_SPONGE_24,
+} from '../poseidon2';
 
 // ============================================================================
 // BN254 FIELD CONSTANTS
@@ -497,5 +504,48 @@ describe('Poseidon2 Regression Guard', () => {
     const EXPECTED_CANARY = 8366566449439678633454373218705606361669530872810064846617848987382134091229n;
 
     expect(canaryHash).toBe(EXPECTED_CANARY);
+  });
+});
+
+// ============================================================================
+// DOMAIN HASH CONSTANT PARITY
+// Verifies exported constants match the exact values used in Noir circuits.
+// If any of these fail, TypeScript and Noir will compute different hashes.
+// ============================================================================
+
+describe('Domain Hash Constant Parity', () => {
+  it('DOMAIN_HASH1 = 0x48314d ("H1M")', () => {
+    expect(BigInt(DOMAIN_HASH1)).toBe(0x48314dn);
+  });
+
+  it('DOMAIN_HASH2 = 0x48324d ("H2M")', () => {
+    expect(BigInt(DOMAIN_HASH2)).toBe(0x48324dn);
+  });
+
+  it('DOMAIN_HASH3 = 0x48334d ("H3M")', () => {
+    expect(BigInt(DOMAIN_HASH3)).toBe(0x48334dn);
+  });
+
+  it('DOMAIN_HASH4 = 0x48344d ("H4M")', () => {
+    expect(BigInt(DOMAIN_HASH4)).toBe(0x48344dn);
+  });
+
+  it('DOMAIN_SPONGE_24 = 0x534f4e47455f24 ("SONGE_24")', () => {
+    expect(BigInt(DOMAIN_SPONGE_24)).toBe(0x534f4e47455f24n);
+  });
+
+  it('all domain hashes are valid BN254 field elements', () => {
+    const BN254_MOD = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+    for (const tag of [DOMAIN_HASH1, DOMAIN_HASH2, DOMAIN_HASH3, DOMAIN_HASH4, DOMAIN_SPONGE_24]) {
+      const val = BigInt(tag);
+      expect(val).toBeGreaterThan(0n);
+      expect(val).toBeLessThan(BN254_MOD);
+    }
+  });
+
+  it('domain hashes are all distinct (no collision)', () => {
+    const values = [DOMAIN_HASH1, DOMAIN_HASH2, DOMAIN_HASH3, DOMAIN_HASH4, DOMAIN_SPONGE_24].map(h => BigInt(h));
+    const unique = new Set(values.map(v => v.toString()));
+    expect(unique.size).toBe(5);
   });
 });
