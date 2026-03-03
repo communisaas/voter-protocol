@@ -368,6 +368,7 @@ export interface RegionalServiceConfig {
   readonly storacha?: {
     readonly spaceDid?: string;
     readonly agentPrivateKey?: string;
+    readonly proof?: string;
   };
   readonly pinata?: {
     readonly jwt?: string;

@@ -18,7 +18,8 @@
  *
  * Environment Variables:
  *   STORACHA_SPACE_DID   - Storacha space DID (required)
- *   STORACHA_AGENT_KEY   - Storacha agent private key (required)
+ *   STORACHA_AGENT_KEY   - Ed25519 agent private key (required, Mg... format)
+ *   STORACHA_PROOF       - UCAN delegation proof (required, base64)
  *   PINATA_JWT           - Pinata JWT (optional, for backup pinning)
  *
  * Outputs:
@@ -110,10 +111,14 @@ async function main() {
   // Validate environment
   const spaceDid = process.env['STORACHA_SPACE_DID'];
   const agentKey = process.env['STORACHA_AGENT_KEY'];
+  const proof = process.env['STORACHA_PROOF'];
 
-  if (!spaceDid || !agentKey) {
+  if (!spaceDid || !agentKey || !proof) {
     console.error(
-      'Missing required environment variables: STORACHA_SPACE_DID, STORACHA_AGENT_KEY'
+      'Missing required environment variables: STORACHA_SPACE_DID, STORACHA_AGENT_KEY, STORACHA_PROOF'
+    );
+    console.error(
+      'STORACHA_PROOF is the UCAN delegation proof (base64). Generate with: storacha delegation create'
     );
     console.error(
       'See docs/guides/STORACHA_INTEGRATION_GUIDE.md for setup instructions.'
@@ -125,10 +130,11 @@ async function main() {
   console.log(`Space DID: ${spaceDid.slice(0, 20)}...`);
   console.log();
 
-  // Create pinning service
+  // Create pinning service (UCAN auth via @storacha/client)
   const storacha = createStorachaPinningService('americas-east', {
     spaceDid,
     agentPrivateKey: agentKey,
+    proof,
     timeoutMs: 120000, // 2 min timeout for large files
   });
 
@@ -184,7 +190,7 @@ async function main() {
 
       // Verify the pin
       const verified = await storacha.verify(result.cid);
-      const gateway = `https://${result.cid}.ipfs.w3s.link/`;
+      const gateway = `https://storacha.link/ipfs/${result.cid}`;
 
       console.log(`  CID: ${result.cid}`);
       console.log(`  Gateway: ${gateway}`);
@@ -251,7 +257,8 @@ Options:
 
 Environment:
   STORACHA_SPACE_DID   Required - Storacha space DID
-  STORACHA_AGENT_KEY   Required - Storacha agent private key
+  STORACHA_AGENT_KEY   Required - Ed25519 agent key (Mg... format)
+  STORACHA_PROOF       Required - UCAN delegation proof (base64)
   PINATA_JWT           Optional - Pinata JWT for backup pinning
 `);
 }

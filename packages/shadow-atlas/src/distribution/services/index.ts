@@ -51,6 +51,7 @@ export interface ServiceFactoryOptions {
   readonly storacha?: {
     readonly spaceDid?: string;
     readonly agentPrivateKey?: string;
+    readonly proof?: string;
   };
   readonly pinata?: {
     readonly jwt?: string;
@@ -90,6 +91,7 @@ export function createPinningService(
       return createStorachaPinningService(region, {
         spaceDid: options.storacha?.spaceDid,
         agentPrivateKey: options.storacha?.agentPrivateKey,
+        proof: options.storacha?.proof,
         timeoutMs: options.timeoutMs,
       });
 

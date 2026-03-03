@@ -2,13 +2,17 @@
  * Storacha Pinning Service
  *
  * Implementation of IPinningService for Storacha (formerly web3.storage).
- * Uses the w3up-client for Filecoin-backed IPFS storage.
+ * Uses @storacha/client with UCAN delegation for Filecoin-backed IPFS storage.
  *
  * STORACHA FEATURES:
  * - Filecoin deal tracking (provable storage)
  * - Content-addressed immutable storage
  * - Free tier: 5GB
  * - Hot cache + cold Filecoin archival
+ *
+ * AUTH: UCAN delegation via Ed25519 Signer + Proof.
+ * The old HTTP Bearer API (up.web3.storage) was sunset Jan 2024.
+ * See: https://docs.storacha.network/how-to/upload/
  *
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
  */
@@ -21,6 +25,12 @@ import type {
 } from '../types.js';
 import { logger } from '../../core/utils/logger.js';
 
+/** Storacha IPFS gateway (replaces w3s.link) */
+const STORACHA_GATEWAY = 'https://storacha.link/ipfs';
+
+/** Storacha upload service endpoint */
+const STORACHA_UPLOAD_ENDPOINT = 'https://up.storacha.network';
+
 /**
  * Storacha client configuration
  */
@@ -28,11 +38,11 @@ export interface StorachaConfig {
   /** Storacha space DID (did:key:...) */
   readonly spaceDid: string;
 
-  /** Agent private key for authentication */
+  /** Agent Ed25519 private key (Mg... format, parsed by Signer.parse) */
   readonly agentPrivateKey: string;
 
-  /** Optional: proof delegation chain */
-  readonly proofChain?: readonly string[];
+  /** UCAN proof delegation (base64-encoded, from `storacha delegation create`) */
+  readonly proof: string;
 
   /** Region for this service instance */
   readonly region: Region;
@@ -42,9 +52,17 @@ export interface StorachaConfig {
 }
 
 /**
+ * Storacha client interface — just the methods we use.
+ * Avoids importing the full @storacha/client types at the interface level.
+ */
+interface StorachaClientHandle {
+  uploadFile: (blob: Blob) => Promise<{ toString: () => string }>;
+}
+
+/**
  * Storacha Pinning Service
  *
- * Implements IPinningService using Storacha/web3.storage APIs.
+ * Implements IPinningService using @storacha/client with UCAN auth.
  */
 export class StorachaPinningService implements IPinningService {
   readonly type: PinningServiceType = 'storacha';
@@ -54,7 +72,7 @@ export class StorachaPinningService implements IPinningService {
   private readonly timeoutMs: number;
 
   // Storacha client (lazy initialized)
-  private client: unknown = null;
+  private client: StorachaClientHandle | null = null;
 
   constructor(config: StorachaConfig) {
     this.config = config;
@@ -63,73 +81,42 @@ export class StorachaPinningService implements IPinningService {
   }
 
   /**
-   * Initialize Storacha client
+   * Initialize Storacha client with UCAN delegation.
    *
-   * Uses dynamic import to avoid bundling issues with w3up-client.
+   * Dynamic import avoids bundling issues — @storacha/client is only
+   * needed in the quarterly pipeline (Node.js/tsx), never in CF Workers.
    */
-  private async getClient(): Promise<{
-    uploadBlob: (blob: Blob) => Promise<{ root: { toString: () => string } }>;
-  }> {
+  private async getClient(): Promise<StorachaClientHandle> {
     if (this.client) {
-      return this.client as {
-        uploadBlob: (blob: Blob) => Promise<{ root: { toString: () => string } }>;
-      };
+      return this.client;
     }
 
-    // Dynamic import to handle ESM/CJS compatibility
-    // In production, would use @web3-storage/w3up-client
-    // For now, create a minimal implementation using fetch to the HTTP API
-    this.client = await this.createHttpClient();
+    // Dynamic imports — @storacha/client is ESM-only
+    const [ClientMod, SignerMod, StoreMod, ProofMod] = await Promise.all([
+      import('@storacha/client'),
+      import('@storacha/client/principal/ed25519'),
+      import('@storacha/client/stores/memory'),
+      import('@storacha/client/proof'),
+    ]);
 
-    return this.client as {
-      uploadBlob: (blob: Blob) => Promise<{ root: { toString: () => string } }>;
-    };
-  }
+    // Parse Ed25519 key and create client with in-memory store
+    const principal = SignerMod.Signer.parse(this.config.agentPrivateKey);
+    const store = new StoreMod.StoreMemory();
+    const client = await ClientMod.create({ principal, store });
 
-  /**
-   * Create HTTP-based client for Storacha
-   *
-   * Falls back to HTTP API when w3up-client is not available.
-   */
-  private async createHttpClient(): Promise<{
-    uploadBlob: (blob: Blob) => Promise<{ root: { toString: () => string } }>;
-  }> {
-    const apiEndpoint = 'https://up.web3.storage';
+    // Add UCAN delegation proof and set the target space
+    const proof = await ProofMod.parse(this.config.proof);
+    const space = await client.addSpace(proof);
+    await client.setCurrentSpace(space.did());
 
-    return {
-      uploadBlob: async (blob: Blob) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
-
-        try {
-          const response = await fetch(`${apiEndpoint}/upload`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${this.config.agentPrivateKey}`,
-              'X-Space-DID': this.config.spaceDid,
-              'Content-Type': 'application/octet-stream',
-            },
-            body: blob,
-            signal: controller.signal,
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Storacha upload failed: ${response.status} ${errorText}`);
-          }
-
-          const result = await response.json() as { cid: string };
-
-          return {
-            root: {
-              toString: () => result.cid,
-            },
-          };
-        } finally {
-          clearTimeout(timeoutId);
-        }
+    this.client = {
+      uploadFile: async (blob: Blob) => {
+        const cid = await client.uploadFile(blob);
+        return { toString: () => cid.toString() };
       },
     };
+
+    return this.client;
   }
 
   /**
@@ -145,19 +132,27 @@ export class StorachaPinningService implements IPinningService {
     const startTime = Date.now();
 
     try {
-      // Convert Uint8Array to Blob, handling ArrayBuffer/SharedArrayBuffer distinction
+      // Convert Uint8Array to Blob
       let blob: Blob;
       if (content instanceof Blob) {
         blob = content;
       } else {
-        // Create a copy as ArrayBuffer (not SharedArrayBuffer) for Blob compatibility
         const copy = new Uint8Array(content);
         blob = new Blob([copy], { type: 'application/octet-stream' });
       }
 
       const client = await this.getClient();
-      const result = await client.uploadBlob(blob);
-      const cid = result.root.toString();
+
+      // Apply timeout via AbortController race
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Storacha upload timed out after ${this.timeoutMs}ms`)), this.timeoutMs);
+      });
+
+      const result = await Promise.race([
+        client.uploadFile(blob),
+        timeoutPromise,
+      ]);
+      const cid = result.toString();
 
       const durationMs = Date.now() - startTime;
 
@@ -188,12 +183,11 @@ export class StorachaPinningService implements IPinningService {
   }
 
   /**
-   * Verify pin exists on Storacha
+   * Verify pin exists on Storacha via IPFS gateway
    */
   async verify(cid: string): Promise<boolean> {
     try {
-      // Check via IPFS gateway
-      const gatewayUrl = `https://w3s.link/ipfs/${cid}`;
+      const gatewayUrl = `${STORACHA_GATEWAY}/${cid}`;
       const response = await fetch(gatewayUrl, {
         method: 'HEAD',
         signal: AbortSignal.timeout(10000),
@@ -212,18 +206,15 @@ export class StorachaPinningService implements IPinningService {
    * removing from the space. The content may still exist on IPFS.
    */
   async unpin(cid: string): Promise<void> {
-    // Storacha uses CAR-based upload; unpin is handled via space management
-    // For now, this is a no-op as content is immutable once uploaded
     logger.warn('Storacha unpin not fully implemented', { cid });
   }
 
   /**
-   * Health check for Storacha
+   * Health check for Storacha upload service
    */
   async healthCheck(): Promise<boolean> {
     try {
-      // Check Storacha API availability
-      const response = await fetch('https://up.web3.storage/version', {
+      const response = await fetch(`${STORACHA_UPLOAD_ENDPOINT}/version`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -237,27 +228,35 @@ export class StorachaPinningService implements IPinningService {
 
 /**
  * Create Storacha pinning service from environment variables
+ *
+ * Required env vars:
+ *   STORACHA_SPACE_DID    - Space DID (did:key:...)
+ *   STORACHA_AGENT_KEY    - Ed25519 private key (Mg... format)
+ *   STORACHA_PROOF        - UCAN delegation proof (base64)
  */
 export function createStorachaPinningService(
   region: Region,
   options?: {
     readonly spaceDid?: string;
     readonly agentPrivateKey?: string;
+    readonly proof?: string;
     readonly timeoutMs?: number;
   }
 ): StorachaPinningService {
   const spaceDid = options?.spaceDid ?? process.env['STORACHA_SPACE_DID'] ?? '';
   const agentPrivateKey = options?.agentPrivateKey ?? process.env['STORACHA_AGENT_KEY'] ?? '';
+  const proof = options?.proof ?? process.env['STORACHA_PROOF'] ?? '';
 
-  if (!spaceDid || !agentPrivateKey) {
+  if (!spaceDid || !agentPrivateKey || !proof) {
     throw new Error(
-      'Storacha configuration missing. Set STORACHA_SPACE_DID and STORACHA_AGENT_KEY environment variables.'
+      'Storacha configuration missing. Set STORACHA_SPACE_DID, STORACHA_AGENT_KEY, and STORACHA_PROOF environment variables.'
     );
   }
 
   return new StorachaPinningService({
     spaceDid,
     agentPrivateKey,
+    proof,
     region,
     timeoutMs: options?.timeoutMs,
   });

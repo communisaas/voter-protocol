@@ -211,6 +211,7 @@ jobs:
         env:
           STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
           STORACHA_AGENT_KEY: ${{ secrets.STORACHA_AGENT_KEY }}
+          STORACHA_PROOF: ${{ secrets.STORACHA_PROOF }}
         run: |
           npx tsx scripts/pin-to-ipfs.ts \
             --all output/ \
