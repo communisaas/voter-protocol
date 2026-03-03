@@ -102,39 +102,6 @@ const US_REGIONS = [
   },
 ];
 
-<<<<<<< HEAD
-/**
- * Build PREFIX_TO_SLOT from US_JURISDICTION.aliases.
- *
- * The R-tree district IDs use the format `{prefix}-{geoid}` (e.g., "cd-0601", "sldu-06001").
- * US_JURISDICTION.aliases maps alias names to slot indices (e.g., { cd: 0, sldu: 2 }).
- * We build a lookup: for each alias, create a prefix pattern `{alias}-` → slot index.
- *
- * Some aliases share a slot (e.g., 'congressional' and 'cd' both → slot 0).
- * The R-tree only uses certain prefixes — others (like 'congressional') are display aliases.
- * We include all aliases so the lookup is complete; non-matching prefixes simply never hit.
- */
-const PREFIX_TO_SLOT: Record<string, number> = {};
-for (const [alias, slotIndex] of Object.entries(US_JURISDICTION.aliases)) {
-  PREFIX_TO_SLOT[`${alias}-`] = slotIndex;
-}
-
-/**
- * Sorted prefixes by length (longest first) for greedy matching.
- * Ensures "school_unified-" matches before "school-" if both existed.
- */
-const SORTED_PREFIXES = Object.keys(PREFIX_TO_SLOT).sort((a, b) => b.length - a.length);
-
-/**
- * Find the slot index for a district ID by matching its prefix.
- * Returns -1 if no matching prefix found (unknown district type).
- */
-function districtIdToSlot(districtId: string): number {
-  for (const prefix of SORTED_PREFIXES) {
-    if (districtId.startsWith(prefix)) {
-      return PREFIX_TO_SLOT[prefix];
-    }
-=======
 // ---- Slot Mapping ----
 
 const PREFIX_TO_SLOT: Record<string, number> = {};
@@ -148,21 +115,12 @@ const SORTED_PREFIXES = Object.keys(PREFIX_TO_SLOT).sort(
 function districtIdToSlot(districtId: string): number {
   for (const prefix of SORTED_PREFIXES) {
     if (districtId.startsWith(prefix)) return PREFIX_TO_SLOT[prefix];
->>>>>>> ejmockler/substrate-3c051cf3
   }
   return -1;
 }
 
 // ---- Output Schema ----
 
-<<<<<<< HEAD
-/**
- * Per-cell district mapping — 24-element array matching PROTOCOL_DISTRICT_SLOTS.
- * Each index corresponds to a slot in US_JURISDICTION.slots.
- * null = no district data for that slot.
- */
-=======
->>>>>>> ejmockler/substrate-3c051cf3
 type DistrictMapping = (string | null)[];
 
 interface MappingOutput {
@@ -170,13 +128,7 @@ interface MappingOutput {
   resolution: number;
   generated: string;
   cellCount: number;
-<<<<<<< HEAD
-  /** Slot names (index → human-readable name) from jurisdiction config */
   slotNames: Record<number, string>;
-  /** H3 cell index → district IDs (24-element array) */
-=======
-  slotNames: Record<number, string>;
->>>>>>> ejmockler/substrate-3c051cf3
   mapping: Record<string, DistrictMapping>;
 }
 
@@ -229,16 +181,6 @@ if (!IS_WORKER) {
       process.exit(1);
     }
 
-<<<<<<< HEAD
-    const point = turf.point([lng, lat]);
-    const districts: DistrictMapping = new Array(PROTOCOL_DISTRICT_SLOTS).fill(null);
-    let hasAny = false;
-
-    for (const candidate of candidates) {
-      // Map district ID prefix to slot index
-      const slotIndex = districtIdToSlot(candidate.id);
-      if (slotIndex === -1) continue; // Unknown district type
-=======
     const outputDir = process.argv[3] || './output';
     mkdirSync(outputDir, { recursive: true });
 
@@ -248,25 +190,9 @@ if (!IS_WORKER) {
     console.log(`Workers:     ${WORKER_COUNT}`);
     console.log(`CPU cores:   ${cpus().length}`);
     console.log();
->>>>>>> ejmockler/substrate-3c051cf3
 
     const totalStart = Date.now();
 
-<<<<<<< HEAD
-        if (turf.booleanPointInPolygon(point, feature)) {
-          districts[slotIndex] = candidate.id;
-          hasAny = true;
-        }
-      } catch {
-        // Skip malformed geometries
-        continue;
-      }
-    }
-
-    if (hasAny) {
-      mapping[cell] = districts;
-      matched++;
-=======
     // ---- Step 1: Enumerate all H3 cells ----
     console.log('Step 1: Enumerating H3 cells...');
     const allCells = new Set<string>();
@@ -375,7 +301,6 @@ if (!IS_WORKER) {
     for (let i = 0; i < filteredCells.length; i++) {
       const blockIdx = Math.floor(i / BLOCK_SIZE);
       chunks[blockIdx % WORKER_COUNT].push(filteredCells[i]);
->>>>>>> ejmockler/substrate-3c051cf3
     }
 
     for (let i = 0; i < WORKER_COUNT; i++) {
@@ -518,39 +443,10 @@ if (!IS_WORKER) {
     });
   }
 
-<<<<<<< HEAD
-  const elapsed = (Date.now() - startTime) / 1000;
-  console.log();
-  console.log(`Processing complete in ${formatTime(elapsed)}`);
-  console.log(`  Matched:      ${matched.toLocaleString()} cells`);
-  console.log(`  No candidate: ${noCandidate.toLocaleString()} cells (ocean/outside US)`);
-  console.log(`  Geo cache:    ${cacheHits.toLocaleString()} hits, ${cacheMisses.toLocaleString()} misses (${geoCache.size} entries)`);
-  console.log();
-
-  db.close();
-
-  // Step 3: Write outputs
-  const slotNames: Record<number, string> = {};
-  for (const [idx, def] of Object.entries(US_JURISDICTION.slots)) {
-    slotNames[Number(idx)] = def.name;
-  }
-
-  const output: MappingOutput = {
-    version: 2,
-    resolution: H3_RESOLUTION,
-    generated: new Date().toISOString(),
-    cellCount: Object.keys(mapping).length,
-    slotNames,
-    mapping,
-  };
-
-  writeOutputs(output, outputDir, mapping);
-=======
   main().catch((err) => {
     console.error('Fatal error:', err);
     process.exit(1);
   });
->>>>>>> ejmockler/substrate-3c051cf3
 }
 
 // ================================================================
@@ -762,11 +658,6 @@ function writeOutputs(
   writeFileSync(samplePath, JSON.stringify(sample, null, 2));
   console.log(`  Sample (1000 cells): ${samplePath}`);
 
-<<<<<<< HEAD
-  // 3c. Metadata
-  // Count unique district IDs per slot
-=======
->>>>>>> ejmockler/substrate-3c051cf3
   const uniqueDistrictsPerSlot: Record<string, number> = {};
   for (const [slotIdx, slotDef] of Object.entries(US_JURISDICTION.slots)) {
     const idx = Number(slotIdx);
@@ -795,8 +686,6 @@ function writeOutputs(
     slotsUsed: Object.keys(uniqueDistrictsPerSlot).length,
     totalSlots: PROTOCOL_DISTRICT_SLOTS,
     uniqueDistrictsPerSlot,
-<<<<<<< HEAD
-=======
     performance: {
       workerCount: stats.workerCount,
       totalElapsedSec: Math.round(stats.totalElapsedSec),
@@ -806,7 +695,6 @@ function writeOutputs(
       cacheHits: stats.totalCacheHits,
       cacheMisses: stats.totalCacheMisses,
     },
->>>>>>> ejmockler/substrate-3c051cf3
     regions: US_REGIONS.map((r) => r.name),
     schema: {
       description:
