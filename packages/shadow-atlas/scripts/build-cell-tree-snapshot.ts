@@ -263,27 +263,45 @@ async function main() {
     const fs = await import('fs');
     const rawMapping = JSON.parse(fs.readFileSync(mappingPath, 'utf-8'));
 
-    // H3 mapping format: { mapping: { h3Index: { cd, sldu, sldl, county } }, metadata: {...} }
-    const mapping: Record<string, { cd?: string; sldu?: string; sldl?: string; county?: string }> =
-      rawMapping.mapping ?? rawMapping;
+    // H3 mapping v2 format: { mapping: { h3Index: (string|null)[24] }, slotNames: {...} }
+    // H3 mapping v1 format: { mapping: { h3Index: { cd, sldu, sldl, county } } }
+    const mappingVersion = rawMapping.version ?? 1;
+    const mappingData = rawMapping.mapping ?? rawMapping;
 
-    const h3Ids = Object.keys(mapping);
-    console.log(`  Found ${h3Ids.length} cells in mapping`);
+    const h3Ids = Object.keys(mappingData);
+    console.log(`  Found ${h3Ids.length} cells in mapping (v${mappingVersion})`);
 
     cells = h3Ids.map((h3Id, index) => {
-      const entry = mapping[h3Id];
-      // Encode district strings as small deterministic integers
-      // In production, these would be hashString() outputs — but for now,
-      // we use a simple encoding since the circuit treats them as opaque.
-      const districts: bigint[] = [];
-      const districtStrings = [entry.cd, entry.sldu, entry.sldl, entry.county];
-      for (const ds of districtStrings) {
-        districts.push(ds ? BigInt(Buffer.from(ds).reduce((acc, b) => acc * 256n + BigInt(b), 0n)) : 0n);
+      const entry = mappingData[h3Id];
+
+      let districts: bigint[];
+
+      if (mappingVersion >= 2 && Array.isArray(entry)) {
+        // v2: 24-element array of (string | null)
+        districts = (entry as (string | null)[]).map((ds: string | null) =>
+          ds ? BigInt(Buffer.from(ds).reduce((acc: bigint, b: number) => acc * 256n + BigInt(b), 0n)) : 0n
+        );
+      } else {
+        // v1 backward compat: { cd, sldu, sldl, county }
+        const v1 = entry as { cd?: string; sldu?: string; sldl?: string; county?: string };
+        districts = new Array(24).fill(0n);
+        const v1Slots = [
+          { key: 'cd' as const, slot: 0 },
+          { key: 'sldu' as const, slot: 2 },
+          { key: 'sldl' as const, slot: 3 },
+          { key: 'county' as const, slot: 4 },
+        ];
+        for (const { key, slot } of v1Slots) {
+          const ds = v1[key];
+          if (ds) {
+            districts[slot] = BigInt(Buffer.from(ds).reduce((acc: bigint, b: number) => acc * 256n + BigInt(b), 0n));
+          }
+        }
       }
-      // Pad to 24 slots
-      while (districts.length < 24) {
-        districts.push(0n);
-      }
+
+      // Ensure exactly 24 slots
+      while (districts.length < 24) districts.push(0n);
+      if (districts.length > 24) districts.length = 24;
 
       return {
         cellId: h3Id,

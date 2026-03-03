@@ -42,10 +42,10 @@ Usage:
   npx tsx cli/build-atlas.ts [options]
 
 Options:
-  -l, --layers <list>       Layers to include: cd,sldu,sldl,county (comma-separated)
+  -l, --layers <list>       Layers to include: cd,sldu,sldl,county,place,cousub,vtd,unsd,elsd,scsd (comma-separated)
   -s, --state <fips>        Build for single state (FIPS code)
   -y, --year <year>         TIGER year (default: 2024)
-  -f, --full                Include all layers (cd,sldu,sldl,county)
+  -f, --full                Include all available layers
   -e, --export              Export tree to JSON file
   -o, --output <dir>        Output directory (default: ./shadow-atlas-output)
   -t, --threshold <score>   Quality threshold (0-100, default: 80)
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   // Parse layer list
   const layerList: TIGERLayerType[] = args.full
-    ? ['cd', 'sldu', 'sldl', 'county']
+    ? ['cd', 'sldu', 'sldl', 'county', 'place', 'cousub', 'vtd', 'unsd', 'elsd', 'scsd']
     : ((args.layers?.split(',') || ['cd', 'county']) as TIGERLayerType[]);
 
   // Parse options

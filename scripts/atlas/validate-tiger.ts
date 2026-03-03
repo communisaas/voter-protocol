@@ -33,10 +33,10 @@ Usage:
   npx tsx cli/validate-tiger.ts [options]
 
 Options:
-  -l, --layer <layer>       TIGER layer: cd, sldu, sldl, county (can specify multiple)
+  -l, --layer <layer>       TIGER layer: cd, sldu, sldl, county, place, cousub, vtd, unsd, elsd, scsd (can specify multiple)
   -s, --state <fips>        State FIPS code (e.g., 06 for California)
   -y, --year <year>         TIGER year (default: current year)
-  -a, --all                 Validate all layers
+  -a, --all                 Validate all available layers
   -t, --threshold <score>   Minimum quality score threshold 0-100 (default: 90)
   -h, --help                Show this help
 
@@ -121,13 +121,13 @@ async function main(): Promise<void> {
   // Determine layers
   let layers: TIGERLayerType[] | undefined;
   if (values.all) {
-    layers = ['cd', 'sldu', 'sldl', 'county'];
+    layers = ['cd', 'sldu', 'sldl', 'county', 'place', 'cousub', 'vtd', 'unsd', 'elsd', 'scsd'];
   } else if (values.layer && values.layer.length > 0) {
     // Validate layer types
-    const validLayers: TIGERLayerType[] = ['cd', 'sldu', 'sldl', 'county'];
+    const validLayers: TIGERLayerType[] = ['cd', 'sldu', 'sldl', 'county', 'place', 'cousub', 'vtd', 'unsd', 'elsd', 'scsd'];
     for (const layer of values.layer) {
       if (!validLayers.includes(layer as TIGERLayerType)) {
-        console.error(`❌ Error: Invalid layer '${layer}'. Must be one of: cd, sldu, sldl, county`);
+        console.error(`❌ Error: Invalid layer '${layer}'. Must be one of: ${validLayers.join(', ')}`);
         process.exit(2);
       }
     }

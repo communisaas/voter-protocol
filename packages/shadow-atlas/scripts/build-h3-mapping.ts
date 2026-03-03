@@ -35,6 +35,7 @@ import { polygonToCells, cellToLatLng } from 'h3-js';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { US_JURISDICTION, PROTOCOL_DISTRICT_SLOTS } from '../src/jurisdiction.js';
 
 // ---- Configuration ----
 
@@ -97,32 +98,48 @@ const US_REGIONS = [
 ];
 
 /**
- * District ID prefixes for the 4 TIGER layers we map.
- * These match the `id` column format in the districts table.
+ * Build PREFIX_TO_SLOT from US_JURISDICTION.aliases.
+ *
+ * The R-tree district IDs use the format `{prefix}-{geoid}` (e.g., "cd-0601", "sldu-06001").
+ * US_JURISDICTION.aliases maps alias names to slot indices (e.g., { cd: 0, sldu: 2 }).
+ * We build a lookup: for each alias, create a prefix pattern `{alias}-` → slot index.
+ *
+ * Some aliases share a slot (e.g., 'congressional' and 'cd' both → slot 0).
+ * The R-tree only uses certain prefixes — others (like 'congressional') are display aliases.
+ * We include all aliases so the lookup is complete; non-matching prefixes simply never hit.
  */
-const LAYER_PREFIXES = ['cd-', 'sldu-', 'sldl-', 'county-'] as const;
+const PREFIX_TO_SLOT: Record<string, number> = {};
+for (const [alias, slotIndex] of Object.entries(US_JURISDICTION.aliases)) {
+  PREFIX_TO_SLOT[`${alias}-`] = slotIndex;
+}
 
-type LayerKey = 'cd' | 'sldu' | 'sldl' | 'county';
+/**
+ * Sorted prefixes by length (longest first) for greedy matching.
+ * Ensures "school_unified-" matches before "school-" if both existed.
+ */
+const SORTED_PREFIXES = Object.keys(PREFIX_TO_SLOT).sort((a, b) => b.length - a.length);
 
-const PREFIX_TO_KEY: Record<string, LayerKey> = {
-  'cd-': 'cd',
-  'sldu-': 'sldu',
-  'sldl-': 'sldl',
-  'county-': 'county',
-};
+/**
+ * Find the slot index for a district ID by matching its prefix.
+ * Returns -1 if no matching prefix found (unknown district type).
+ */
+function districtIdToSlot(districtId: string): number {
+  for (const prefix of SORTED_PREFIXES) {
+    if (districtId.startsWith(prefix)) {
+      return PREFIX_TO_SLOT[prefix];
+    }
+  }
+  return -1;
+}
 
 // ---- Output Schema ----
 
 /**
- * Per-cell district mapping.
- * Each key is present only if the cell centroid falls within a district of that type.
+ * Per-cell district mapping — 24-element array matching PROTOCOL_DISTRICT_SLOTS.
+ * Each index corresponds to a slot in US_JURISDICTION.slots.
+ * null = no district data for that slot.
  */
-interface DistrictMapping {
-  cd?: string;
-  sldu?: string;
-  sldl?: string;
-  county?: string;
-}
+type DistrictMapping = (string | null)[];
 
 /**
  * Top-level output format.
@@ -137,7 +154,9 @@ interface MappingOutput {
   generated: string;
   /** Number of cells with at least one district match */
   cellCount: number;
-  /** H3 cell index → district IDs */
+  /** Slot names (index → human-readable name) from jurisdiction config */
+  slotNames: Record<number, string>;
+  /** H3 cell index → district IDs (24-element array) */
   mapping: Record<string, DistrictMapping>;
 }
 
@@ -256,12 +275,13 @@ function main() {
     }
 
     const point = turf.point([lng, lat]);
-    const districts: DistrictMapping = {};
+    const districts: DistrictMapping = new Array(PROTOCOL_DISTRICT_SLOTS).fill(null);
+    let hasAny = false;
 
     for (const candidate of candidates) {
-      // Only map our 4 TIGER layer types
-      const prefix = LAYER_PREFIXES.find((p) => candidate.id.startsWith(p));
-      if (!prefix) continue;
+      // Map district ID prefix to slot index
+      const slotIndex = districtIdToSlot(candidate.id);
+      if (slotIndex === -1) continue; // Unknown district type
 
       try {
         // Check geometry cache first
@@ -279,7 +299,8 @@ function main() {
         }
 
         if (turf.booleanPointInPolygon(point, feature)) {
-          districts[PREFIX_TO_KEY[prefix]] = candidate.id;
+          districts[slotIndex] = candidate.id;
+          hasAny = true;
         }
       } catch {
         // Skip malformed geometries
@@ -287,7 +308,7 @@ function main() {
       }
     }
 
-    if (Object.keys(districts).length > 0) {
+    if (hasAny) {
       mapping[cell] = districts;
       matched++;
     }
@@ -308,11 +329,17 @@ function main() {
   db.close();
 
   // Step 3: Write outputs
+  const slotNames: Record<number, string> = {};
+  for (const [idx, def] of Object.entries(US_JURISDICTION.slots)) {
+    slotNames[Number(idx)] = def.name;
+  }
+
   const output: MappingOutput = {
-    version: 1,
+    version: 2,
     resolution: H3_RESOLUTION,
     generated: new Date().toISOString(),
     cellCount: Object.keys(mapping).length,
+    slotNames,
     mapping,
   };
 
@@ -352,28 +379,19 @@ function writeOutputs(
   console.log(`Sample (1000 cells): ${samplePath}`);
 
   // 3c. Metadata
-  const uniqueDistricts = {
-    congressional: new Set(
+  // Count unique district IDs per slot
+  const uniqueDistrictsPerSlot: Record<string, number> = {};
+  for (const [slotIdx, slotDef] of Object.entries(US_JURISDICTION.slots)) {
+    const idx = Number(slotIdx);
+    const uniqueIds = new Set(
       Object.values(mapping)
-        .map((m) => m.cd)
+        .map((m) => m[idx])
         .filter(Boolean)
-    ).size,
-    stateSenate: new Set(
-      Object.values(mapping)
-        .map((m) => m.sldu)
-        .filter(Boolean)
-    ).size,
-    stateHouse: new Set(
-      Object.values(mapping)
-        .map((m) => m.sldl)
-        .filter(Boolean)
-    ).size,
-    county: new Set(
-      Object.values(mapping)
-        .map((m) => m.county)
-        .filter(Boolean)
-    ).size,
-  };
+    );
+    if (uniqueIds.size > 0) {
+      uniqueDistrictsPerSlot[slotDef.name] = uniqueIds.size;
+    }
+  }
 
   const metadata = {
     version: output.version,
@@ -384,21 +402,18 @@ function writeOutputs(
     uncompressedBytes: json.length,
     compressedBytes: compressed.length,
     compressionRatio: +(json.length / compressed.length).toFixed(1),
-    uniqueDistricts,
+    slotsUsed: Object.keys(uniqueDistrictsPerSlot).length,
+    totalSlots: PROTOCOL_DISTRICT_SLOTS,
+    uniqueDistrictsPerSlot,
     regions: US_REGIONS.map((r) => r.name),
     schema: {
       description:
-        'H3 cell index → district IDs. Each key is an H3 res-7 hex string. Values contain district IDs for matched layers.',
-      layers: {
-        cd: 'Congressional district (e.g., cd-0601)',
-        sldu: 'State senate district (e.g., sldu-06001)',
-        sldl: 'State house district (e.g., sldl-06001)',
-        county: 'County (e.g., county-06001)',
-      },
+        'H3 cell index → district IDs. Each key is an H3 res-7 hex string. Values are 24-element arrays matching PROTOCOL_DISTRICT_SLOTS.',
+      slotNames: output.slotNames,
       h3Format:
         'H3 resolution 7, hex string (15 chars, e.g., 872830828ffffff)',
       lookupPattern:
-        'import { latLngToCell } from "h3-js"; const cell = latLngToCell(lat, lng, 7); const districts = mapping[cell];',
+        'import { latLngToCell } from "h3-js"; const cell = latLngToCell(lat, lng, 7); const districts = mapping[cell]; // districts[0] = Congressional District, etc.',
     },
   };
 
