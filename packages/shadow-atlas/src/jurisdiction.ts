@@ -239,10 +239,11 @@ function encodeUsGeoid(geoid: string): bigint {
 /**
  * United States jurisdiction configuration.
  *
- * 13 of 24 protocol slots are actively populated from Census BAF/BEF data
- * plus the city council ward overlay. The remaining 11 slots are reserved
- * for special districts (slots 10-19) that may be populated in future
- * data pipeline iterations.
+ * 13 of 24 protocol slots are defined for Census BAF/BEF data plus the
+ * city council ward overlay. Slot 22 (Tribal / Native Area) covers AIANNH
+ * districts. Consolidated cities (concity) map to slot 5 (City).
+ * Remaining slots are reserved for special districts (10-19) to be
+ * populated via the ingestion platform's scanner infrastructure.
  *
  * Data sources:
  *   - Census Bureau Block Assignment Files (BAFs) — slots 0-5, 7-9, 20-21
@@ -286,7 +287,7 @@ export const US_JURISDICTION: JurisdictionConfig = {
     21: { name: 'Voting Precinct',              required: false, category: 'administrative' },
 
     // Overflow
-    22: { name: 'Overflow 1',                   required: false, category: 'special' },
+    22: { name: 'Tribal / Native Area',          required: false, category: 'administrative' },
     23: { name: 'Overflow 2',                   required: false, category: 'special' },
   },
 
@@ -297,7 +298,7 @@ export const US_JURISDICTION: JurisdictionConfig = {
     'state_senate': 2, 'sldu': 2,
     'state_house': 3, 'sldl': 3,
     'county': 4,
-    'city': 5, 'place': 5, 'municipal': 5,
+    'city': 5, 'place': 5, 'municipal': 5, 'concity': 5,
     'city_council': 6, 'ward': 6,
 
     // Education
@@ -314,6 +315,9 @@ export const US_JURISDICTION: JurisdictionConfig = {
     // Administrative
     'township': 20, 'cousub': 20,
     'voting_precinct': 21, 'vtd': 21,
+
+    // Tribal / Native governance
+    'aiannh': 22,
 
     // Overflow
     'overflow_1': 22, 'overflow_2': 23,
