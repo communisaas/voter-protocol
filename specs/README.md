@@ -37,6 +37,11 @@ Navigation guide for the specification documents. Files are organized by maturit
 |----------|-------|-------------|-------|
 | [DESIGN-001-CROSS-PROVIDER-DEDUP.md](DESIGN-001-CROSS-PROVIDER-DEDUP.md) | 2+ | Phone-based cross-provider deduplication | 873 |
 | [DESIGN-003-REDISTRICTING-PROTOCOL.md](DESIGN-003-REDISTRICTING-PROTOCOL.md) | 2+ | Emergency redistricting response protocol | 1350 |
+| [DESIGN-004-COALITION-COORDINATION.md](DESIGN-004-COALITION-COORDINATION.md) | 1.5 | Shared templates, multi-org endorsement, debate-as-negotiation | 201 |
+| [EVIDENCE-PROVENANCE-SPEC.md](EVIDENCE-PROVENANCE-SPEC.md) | 1.5 | Structured evidence attachment, verification levels, decision-maker view | 128 |
+| [AN-MIGRATION-SPEC.md](../../../commons/docs/specs/AN-MIGRATION-SPEC.md) | 2 | Action Network migration path, import architecture, verification bridge | ~350 |
+| [CAMPAIGN-ORCHESTRATION-SPEC.md](../../../commons/docs/specs/CAMPAIGN-ORCHESTRATION-SPEC.md) | 2 | Org-facing campaign creation, dashboard, lifecycle, verification packet delivery | ~420 |
+| [LIST-NOTIFICATION-SPEC.md](../../../commons/docs/specs/LIST-NOTIFICATION-SPEC.md) | 2 | Supporter lists, segmentation, email blast, notification triggers | ~480 |
 | [SHADOW-ATLAS-CLI-SPEC.md](SHADOW-ATLAS-CLI-SPEC.md) | — | Unified CLI to replace 87 ad-hoc scripts | 1369 |
 | [GLOBAL-SCALING-ARCHITECTURE.md](GLOBAL-SCALING-ARCHITECTURE.md) | 3+ | International expansion (190+ countries) | 1620 |
 | [GOVERNANCE-VERIFICATION-SYSTEM-SPEC.md](GOVERNANCE-VERIFICATION-SYSTEM-SPEC.md) | 3+ | Representative database and verification swarms | 2657 |
