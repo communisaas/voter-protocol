@@ -135,7 +135,7 @@ async function main() {
     spaceDid,
     agentPrivateKey: agentKey,
     proof,
-    timeoutMs: 120000, // 2 min timeout for large files
+    timeoutMs: 600000, // 10 min timeout for large files (355MB decompressed)
   });
 
   // Health check

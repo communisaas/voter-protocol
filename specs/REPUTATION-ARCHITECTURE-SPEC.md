@@ -1,9 +1,9 @@
 # Reputation Architecture Specification: Three-Tree ZK Engagement
 
 > **Spec ID:** REP-ARCH-001
-> **Version:** 0.2.0
-> **Status:** IMPLEMENTATION — Cycles 19-20 complete. Circuit, contracts, prover, and shadow-atlas service layers implemented. v0.2.0: composite engagement score, Shannon diversity index, template adoption quality signal, launch parameters.
-> **Date:** 2026-02-20
+> **Version:** 0.3.0
+> **Status:** IMPLEMENTATION — Cycles 19-20 complete. Circuit, contracts, prover, and shadow-atlas service layers implemented. v0.2.0: composite engagement score, Shannon diversity index, template adoption quality signal, launch parameters. v0.3.0: resolved four deferred decisions (decay, percentile tiers, authority weighting, soulbound credential) — all resolved as "keep current design."
+> **Date:** 2026-03-05
 > **Authors:** Architecture Review
 > **Companion Documents:** TWO-TREE-ARCHITECTURE-SPEC.md, CHALLENGE-MARKET-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md, TRUST-MODEL-AND-OPERATOR-INTEGRITY.md
 > **Prerequisite:** Two-tree architecture fully operational (Cycle 17)
@@ -21,8 +21,9 @@ This specification extends the two-tree ZK architecture with a **third tree** th
 1. **Engagement is in the proof, not an attestation.** The circuit verifies engagement data against a Merkle root. No server-side claim required.
 2. **Authority cannot be purchased.** `authority_level` (1-5) comes from identity verification (passport, ID, mDL). No token buys it.
 3. **Engagement cannot be purchased.** `engagement_tier` (0-4) derives from on-chain nullifier consumption events. No token buys it.
-4. **Speculation is possible without pay-to-win.** VOTER tokens can be traded, staked in challenge markets, and used for governance. They cannot boost authority or engagement.
+4. **Economic participation is separate.** Stablecoin staking in debate markets uses `sqrt(stake) × 2^tier` weighting — engagement outweighs capital. VOTER token (deferred) cannot boost authority or engagement.
 5. **Privacy by construction.** Only `engagement_tier` is public. The underlying `action_count` and `diversity_score` (Shannon diversity index) are private inputs — no behavioral fingerprint leaks. The composite score, tenure, and adoption count are server-side only.
+6. **No soulbound token.** The engagement tier lives in the ZK proof (`publicInputs[30]`), not in a separate on-chain credential. Fresh at time of use, no persistent identity linkage.
 
 ### Circuit Extension
 
@@ -44,7 +45,7 @@ Three-Tree:  31 public inputs  →  + engagement_root, engagement_tier
    - 4.3 [Tier Derivation Algorithm](#43-tier-derivation-algorithm) — Composite score formula
    - 4.4 [Design Rationale](#44-design-rationale)
    - 4.5 [Template Adoption as Quality Signal](#45-template-adoption-as-quality-signal)
-   - 4.6 [Launch Parameters and Governance](#46-launch-parameters-and-governance)
+   - 4.6 [Parameters and Governance](#46-parameters-and-governance) — Resolved decisions (v0.3.0), protocol invariants
 5. [Circuit Extension](#5-circuit-extension)
 6. [Contract Architecture](#6-contract-architecture)
 7. [Token Design](#7-token-design)
@@ -92,7 +93,7 @@ Concretely:
 - **Individual privacy:** Only a 5-bucket engagement tier is public. No action history, no timing, no behavioral fingerprint.
 - **Pattern transparency:** Aggregate coordination metrics (GDS, ALD, entropy, velocity) remain server-side and visible to congressional offices per COORDINATION-INTEGRITY-SPEC.
 - **Minimal barriers:** Engagement tier starts at 0 (New). All civic actions are available at any tier. Higher tiers provide credibility signal, not access gates.
-- **Earned trust:** The soulbound engagement credential cannot be transferred, purchased, or delegated.
+- **Earned trust:** The engagement tier is cryptographically bound to identity_commitment inside the ZK circuit. It cannot be transferred, purchased, or delegated.
 - **Graduated trust:** The protocol is present at every level of civic action (Section 4.7). Anonymous visitors contribute to coordination signals; verified participants produce cryptographic proof of engagement. The gap between trust levels is itself a signal — it tells decision-makers whether sentiment is broad, deep, or manufactured.
 
 ---
@@ -394,37 +395,43 @@ Template adoption rate is the only quality signal satisfying three simultaneous 
 
 **No circuit or contract changes required:** `adoptionCount` feeds into the composite score computation (server-side), which produces the `engagement_tier` [0-4]. The tier is what enters the circuit. The adoption count itself is never committed to the engagement tree — only the derived tier and the underlying `action_count` and `diversity_score` appear in the H3 commitment.
 
-### 4.6 Launch Parameters and Governance
+### 4.6 Parameters and Governance
 
-The engagement tier system launches with deliberately conservative parameters. Each parameter is chosen for a small-population regime (<1000 active users) and documented with its transition trigger.
+#### 4.6.1 Resolved Design Decisions (v0.3.0)
 
-#### 4.6.1 Fixed Launch Parameters
+Four parameters were originally deferred pending usage data. All four resolve to "keep current design" — the principles established in this spec already answer each question.
 
-| Parameter | Launch Value | Rationale | Transition Trigger |
-|-----------|-------------|-----------|-------------------|
-| Tier boundaries | E: 0, >0, ≥5, ≥12, ≥25 | Fixed thresholds ensure predictable behavior at small scale | Transition to percentile-based at >1000 active users |
-| Metric decay | None (permanent) | Insufficient data to calibrate decay curves; penalizing early users is worse than not penalizing lapsed users | Revisit at >5000 users with 6+ months of data |
-| Authority weighting | Equal (all levels weighted 1×) | No data on L1 Sybil pressure differentials between authority levels | Revisit when L1 Sybil pressure is measurable per authority level |
-| Category count | 5 categories | Matches initial feature set (congressional, template, challenge, campaign, governance) | New categories added via operator config, not protocol upgrade |
-| Adoption source | CampaignRegistry events | Single source of adoption truth at launch | Expand to additional on-chain adoption signals as they emerge |
+| Decision | Resolution | Rationale |
+|----------|-----------|-----------|
+| **Metric decay** | **No decay. Permanent.** | Engagement tiers measure cumulative civic labor, not recency. If someone spent months researching legislation and drafting quality templates, that work happened — it doesn't expire. Recency is already captured by server-side coordination metrics (temporal velocity, surge detection, per-campaign tier distribution). Decay would also create a perverse incentive: maintenance engagement performed to prevent tier erosion, not because the person has something civic to say. |
+| **Percentile-based tiers** | **No. Fixed thresholds permanently.** | Percentile tiers make reputation zero-sum: your tier depends on what everyone else does. A wave of new active users would demote existing Veterans — not because they changed, but because the population changed. This contradicts the cooperative ethos of civic infrastructure. Fixed thresholds are deterministic, individually controllable, stable, and cooperative. If the platform produces a population where many people sustain balanced engagement and reach Pillar, that is a healthy civic ecosystem, not a problem to solve. The composite formula's logarithmic and square-root scaling already prevents tier inflation through diminishing returns. |
+| **Authority weighting** | **No. Equal weighting permanently.** | Weighting engagement by authority level violates the Separation Principle (Section 7.2). Authority measures identity verification strength; engagement measures civic labor. A person with a passport does not do more civic work per action than a person with a state ID. The Sybil resistance argument does not hold: engagement only derives from ZK-verified actions (trust level 3), and the Sybil boundary is at identity registration, not at engagement weighting. Once verified, all actions carry equal weight. |
+| **Soulbound credential (ERC-8004)** | **Not building.** | The engagement tier is already a public output of the ZK circuit (`publicInputs[30]`). Any contract receiving a three-tree proof already has the tier, fresh and current. An ERC-8004 token would be redundant (caching what the proof provides), stale (might not reflect latest tree update), and privacy-reducing (persistent on-chain link between address and tier). The tier-in-proof design is strictly superior: proven fresh at time of use, no persistent identity linkage, no stale data. External contracts that want to gate on tier should require a proof. |
 
-#### 4.6.2 Governance-Adjustable Parameters
+#### 4.6.2 Parameters
 
-Post-genesis, these parameters can be modified through governance (7-day timelock for parameter changes):
+| Parameter | Value | Governance-Adjustable |
+|-----------|-------|----------------------|
+| Tier boundaries | E: 0, >0, ≥5, ≥12, ≥25 | Yes (7-day timelock, must include simulation results) |
+| Category count | 5 categories | Yes (operator config, not protocol upgrade) |
+| Category weights | All weights = 1 | Yes (7-day timelock) |
+| Adoption damping factor | `/4` divisor | Yes (7-day timelock) |
+| Adoption source | CampaignRegistry events | Expand as new on-chain signals emerge |
+| Metric decay | None (permanent) | **No** — protocol invariant (v0.3.0) |
+| Authority weighting | Equal (all levels 1×) | **No** — protocol invariant (v0.3.0) |
 
-- **Tier boundaries:** The composite score thresholds (5.0, 12.0, 25.0) can be adjusted. The governance proposal must include simulation results showing tier distribution impact on the current user base.
-- **Category weights:** If certain categories prove more Sybil-resistant or more civically valuable, per-category weights could multiply `pᵢ` in the Shannon computation. Launch value: all weights = 1.
-- **Decay parameters:** If temporal decay is introduced, the decay function (e.g., exponential with half-life) and its parameters are governance-adjustable.
-- **Adoption damping factor:** The `/4` divisor on the adoption multiplier can be tuned. Lower values increase adoption's influence; higher values decrease it.
+#### 4.6.3 Protocol Invariants
 
-#### 4.6.3 What Is NOT Adjustable
-
-These are protocol invariants, not parameters:
+These are constitutional properties, not tunable parameters:
 
 - The composite score formula structure (multiplicative, four dimensions) — changing the formula is a protocol upgrade, not a parameter change.
-- The tier count (5 tiers, 0-4) — this is bound into the circuit's range check.
+- The tier count (5 tiers, 0-4) — bound into the circuit's range check.
 - The Shannon diversity definition — H = -Σ(pᵢ × ln(pᵢ)) is a mathematical identity, not a parameter.
-- The separation principle (authority, engagement, and tokens are independent) — this is a constitutional invariant.
+- The separation principle (authority, engagement, and tokens are independent).
+- **No metric decay** — engagement tiers are a permanent floor of cumulative civic labor. Recency belongs in coordination metrics.
+- **No authority weighting** — all verified actions carry equal engagement credit regardless of credential type.
+- **No soulbound token** — the engagement tier lives in the ZK proof, not in a persistent on-chain token. This is the privacy-correct design.
+- **No percentile-based tiers** — reputation is cooperative, not competitive. Fixed thresholds ensure your tier depends only on your own actions.
 
 ---
 
@@ -729,11 +736,9 @@ bytes32 constant SUBMIT_THREE_TREE_PROOF_TYPEHASH = keccak256(
 
 ## 7. Token Design
 
-### 7.1 Dual Model
+### 7.1 Token Model
 
-The protocol uses two tokens with fundamentally different properties:
-
-**VOTER (ERC-20, transferable)**
+**VOTER (ERC-20, transferable) — DEFERRED**
 
 | Property | Value |
 |----------|-------|
@@ -743,18 +748,17 @@ The protocol uses two tokens with fundamentally different properties:
 | Purpose | Compensate civic labor, power challenge markets, protocol governance |
 | Influence | `sqrt(stake)` in challenge markets (quadratic) |
 | Speculation | Permitted (cannot buy authority or engagement) |
+| Status | Deferred to Phase 2+. Reputation tiers + stablecoin staking sufficient for Phase 1. |
 
-**Soulbound Engagement Credential (ERC-8004, non-transferable)**
+**Engagement Tier — In-Proof (no separate token)**
 
-| Property | Value |
-|----------|-------|
-| Standard | ERC-8004 (Soulbound Token) |
-| Transfer | Prohibited (soulbound) |
-| Token ID | Derived from identity_commitment |
-| Metadata | engagement_tier (0-4), last_updated timestamp |
-| Purpose | On-chain attestation of earned civic standing |
-| Display | Congressional dashboard credibility indicator |
-| Name | TBD — must reflect that this token IS the standing, not a reward for it |
+The engagement tier is a public output of the ZK circuit (`publicInputs[30]`), not a separate on-chain token. This is a deliberate design choice (resolved v0.3.0):
+
+- **Fresh**: Proven at the time of each action, not cached in stale on-chain state.
+- **Private**: No persistent link between an address and a tier. The tier exists only in the proof.
+- **Sufficient**: Any contract receiving a three-tree proof already has the tier. No additional token needed.
+
+An ERC-8004 soulbound credential was considered and rejected (Section 4.6.1). The tier-in-proof design is strictly superior for privacy, freshness, and simplicity.
 
 ### 7.2 The Separation Principle
 
@@ -786,7 +790,7 @@ Emissions are controlled by SupplyAgent (see phase-2-design.md) with daily rate 
 |--------|---------|
 | Buy VOTER → inflate engagement tier | VOTER balance is not an input to tier computation. Tier derives from nullifier events only. |
 | Buy VOTER → boost authority level | Authority derives from identity verification only. VOTER has no pathway to authority. |
-| Buy high-engagement account | Soulbound credential is non-transferable. Identity commitment is per-person. |
+| Buy high-engagement account | Identity commitment is per-person. Circuit binds engagement to the same identity that generates the nullifier. No account transfer possible. |
 | Delegate engagement proof | Circuit binds engagement leaf to same identity_commitment as nullifier. Different person = different commitment = proof fails. |
 | Farm engagement via bot accounts | Each account requires identity verification (passport/ID). Real-world cost per Sybil is non-trivial. |
 
@@ -1135,7 +1139,7 @@ Negligible compared to existing credential (~1.5KB for two-tree data).
 | 21 | Shadow Atlas | EngagementTreeBuilder + `/v1/engagement-*` API endpoints + IPFS snapshot integration | Cycle 19 (needs hash functions for tree building) |
 | 22 | Prover | ThreeTreeNoirProver + compiled circuits for 4 depths + golden vector verification | Cycle 19 (compiled circuits) |
 | 23 | Communique | SessionCredential extension + ProofInputMapper + shadow-atlas-handler update + UX | Cycles 21-22 |
-| 24 | Tokens | VOTER (ERC-20) + soulbound engagement credential (ERC-8004) + audit | Cycle 20 (engagement tier on-chain) |
+| 24 | Tokens | VOTER (ERC-20) — DEFERRED to Phase 2+. No soulbound credential needed (tier lives in proof). | Cycle 20 (engagement tier on-chain) |
 | 25 | Markets | Challenge market MVP (E2 bonds) referencing engagement tier | Cycle 24 |
 
 ### 14.2 Agentic Coordination Strategy
@@ -1238,15 +1242,9 @@ Credibility signals (trust tier)  ← Session state, UX-only
 
 ---
 
-## Appendix A: ERC-8004 Soulbound Token Standard
+## Appendix A: Resolved — No Soulbound Token (v0.3.0)
 
-ERC-8004 defines non-transferable tokens that represent achievements or credentials. Key properties:
-- `transfer()` and `transferFrom()` revert unconditionally
-- `approve()` is a no-op
-- Token can be burned (by issuer or holder) but not moved
-- Metadata is updatable by the issuer (engagement tier updates)
-
-The soulbound engagement credential uses this standard because engagement standing MUST NOT be transferable. If it were, it would become purchasable, violating the separation principle.
+ERC-8004 soulbound credentials were evaluated and rejected. The engagement tier lives in the ZK proof (`publicInputs[30]`) — fresh at time of use, no persistent on-chain identity linkage, no stale data. See Section 4.6.1 for full rationale. The non-transferability guarantee is stronger in the proof-based design: the circuit binds engagement to identity_commitment, making delegation or transfer cryptographically impossible (not just contractually prohibited).
 
 ---
 
@@ -1265,6 +1263,6 @@ The soulbound engagement credential uses this standard because engagement standi
 | **adoption_count** | Number of times a user's templates were adopted by other verified identities |
 | **identity_commitment** | Deterministic hash from identity verification provider (self.xyz/didit) |
 | **nullifier** | H2(identity_commitment, action_domain) — prevents double-voting |
-| **soulbound engagement credential** | ERC-8004 non-transferable token mirroring engagement_tier |
+| **engagement tier (in-proof)** | Public output `publicInputs[30]` of three-tree ZK circuit. No separate on-chain token (v0.3.0). |
 | **tenure** | Time since first nullifier consumption for an identity |
-| **VOTER** | ERC-20 transferable token for civic labor compensation |
+| **VOTER** | ERC-20 transferable token for civic labor compensation — DEFERRED to Phase 2+ |
