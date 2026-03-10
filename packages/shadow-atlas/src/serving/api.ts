@@ -1327,7 +1327,7 @@ export class ShadowAtlasAPI {
         officials: officials ?? null,
         cell_id: primary ? this.extractCellId(primary.id) : null,
         vintage: primary
-          ? (primary.jurisdiction?.startsWith('CAN/') ? '45th-parliament' : '119th-congress')
+          ? this.resolveVintageLabel(primary.jurisdiction)
           : null,
       }, requestId, false);
     } catch (error) {
@@ -1355,6 +1355,9 @@ export class ShadowAtlasAPI {
   private parseRTreeDistrictId(districtId: string):
     | { country: 'US'; state: string; district: string; type: 'congressional' | 'state-upper' | 'state-lower' | 'county' | 'place' | 'cousub' | 'school-unified' | 'school-elementary' | 'school-secondary' | 'vtd' | 'tribal' | 'ward' | 'consolidated-city' | 'subminor-civil-division' | 'alaska-native-regional' | 'fire-district' | 'water-district' | 'transit-district' | 'library-district' | 'hospital-district' | 'utility-district' | 'park-district' }
     | { country: 'CA'; province: string; ridingCode: string; type: 'federal-riding' }
+    | { country: 'GB'; constituencyCode: string; type: 'parliamentary' }
+    | { country: 'AU'; divisionCode: string; type: 'federal-division' }
+    | { country: 'NZ'; electorateCode: string; type: 'general-electorate' | 'maori-electorate' }
     | null {
     // US Congressional: cd-SSDD (2-digit state FIPS + 2-digit district)
     const cdMatch = districtId.match(/^cd-(\d{2})(\d{2})$/);
@@ -1499,6 +1502,46 @@ export class ShadowAtlasAPI {
       };
     }
 
+    // UK Parliamentary Constituency: uk-parl-{ONS_CODE}
+    const ukMatch = districtId.match(/^uk-parl-([A-Z]\d+)$/);
+    if (ukMatch) {
+      return {
+        country: 'GB',
+        constituencyCode: ukMatch[1],
+        type: 'parliamentary',
+      };
+    }
+
+    // Australian Federal Division: au-fed-{DIVISION_CODE}
+    const auMatch = districtId.match(/^au-fed-(.+)$/);
+    if (auMatch) {
+      return {
+        country: 'AU',
+        divisionCode: auMatch[1],
+        type: 'federal-division',
+      };
+    }
+
+    // NZ General Electorate: nz-gen-{CODE}
+    const nzGenMatch = districtId.match(/^nz-gen-(.+)$/);
+    if (nzGenMatch) {
+      return {
+        country: 'NZ',
+        electorateCode: nzGenMatch[1],
+        type: 'general-electorate',
+      };
+    }
+
+    // NZ Maori Electorate: nz-maori-{CODE}
+    const nzMaoriMatch = districtId.match(/^nz-maori-(.+)$/);
+    if (nzMaoriMatch) {
+      return {
+        country: 'NZ',
+        electorateCode: nzMaoriMatch[1],
+        type: 'maori-electorate',
+      };
+    }
+
     // Legacy format: usa-ca-congressional-11
     const legacyMatch = districtId.match(/^usa-([a-z]{2})-congressional-(\d+|al)$/i);
     if (legacyMatch) {
@@ -1508,6 +1551,18 @@ export class ShadowAtlasAPI {
     }
 
     return null;
+  }
+
+  /**
+   * Resolve vintage label from jurisdiction prefix.
+   */
+  private resolveVintageLabel(jurisdiction: string | undefined): string {
+    if (!jurisdiction) return '119th-congress';
+    if (jurisdiction.startsWith('CAN/')) return '45th-parliament';
+    if (jurisdiction.startsWith('GBR/')) return '2024-boundary-review';
+    if (jurisdiction.startsWith('AUS/')) return '2021-redistribution';
+    if (jurisdiction.startsWith('NZL/')) return '2025-boundary-review';
+    return '119th-congress';
   }
 
   /**
@@ -1573,6 +1628,10 @@ export class ShadowAtlasAPI {
     if (districtId.startsWith('utility-')) return 'utility_district';
     if (districtId.startsWith('park-')) return 'park_district';
     if (districtId.startsWith('can-fed-')) return 'canadian_riding';
+    if (districtId.startsWith('uk-parl-')) return 'uk_constituency';
+    if (districtId.startsWith('au-fed-')) return 'australian_division';
+    if (districtId.startsWith('nz-gen-')) return 'nz_general_electorate';
+    if (districtId.startsWith('nz-maori-')) return 'nz_maori_electorate';
     return null;
   }
 

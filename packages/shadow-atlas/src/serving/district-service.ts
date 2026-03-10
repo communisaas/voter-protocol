@@ -49,6 +49,9 @@ const LAYER_PRIORITY: Record<string, number> = {
   utility: 34,
   transit: 34,
   'can': 35, // can-fed prefix extracts as "can"
+  'uk': 36,  // uk-parl prefix extracts as "uk"
+  'au': 37,  // au-fed prefix extracts as "au"
+  'nz': 38,  // nz-gen / nz-maori prefix extracts as "nz"
 };
 
 /**

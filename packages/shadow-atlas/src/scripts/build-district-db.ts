@@ -22,6 +22,9 @@ import type { Geometry, Polygon, MultiPolygon, BBox } from 'geojson';
 import { TIGERBoundaryProvider } from '../providers/tiger-boundary-provider.js';
 import type { TIGERLayer } from '../providers/tiger-boundary-provider.js';
 import { CanadaBoundaryProvider } from '../providers/international/canada-provider.js';
+import { UKBoundaryProvider } from '../providers/international/uk-provider.js';
+import { AustraliaBoundaryProvider } from '../providers/international/australia-provider.js';
+import { NewZealandBoundaryProvider } from '../providers/international/nz-provider.js';
 import { RTreeBuilder } from '../transformation/rtree-builder.js';
 import type { NormalizedDistrict } from '../transformation/types.js';
 import type { NormalizedBoundary } from '../core/types/provider.js';
@@ -45,6 +48,9 @@ const { values: args } = parseArgs({
     state: { type: 'string' },      // Single state FIPS for testing (e.g. "06")
     'skip-verify': { type: 'boolean', default: false },
     'no-canada': { type: 'boolean', default: false },
+    uk: { type: 'boolean', default: false },      // Include UK parliamentary constituencies
+    au: { type: 'boolean', default: false },      // Include Australian federal divisions
+    nz: { type: 'boolean', default: false },      // Include New Zealand electorates
     wards: { type: 'boolean', default: false },  // Include city council wards from portal registry
     'state-gis': { type: 'boolean', default: false },  // Include authoritative statewide ward data (WI LTSB, MassGIS)
     'special-districts': { type: 'boolean', default: false },  // Include special districts (fire, water, transit, etc.)
@@ -74,6 +80,9 @@ const year = parseInt(args.year as string, 10);
 const stateFips = args.state as string | undefined;
 const skipVerify = args['skip-verify'] as boolean;
 const noCanada = args['no-canada'] as boolean;
+const includeUK = args.uk as boolean;
+const includeAU = args.au as boolean;
+const includeNZ = args.nz as boolean;
 const includeWards = args.wards as boolean;
 const includeStateGIS = args['state-gis'] as boolean;
 const includeSpecialDistricts = args['special-districts'] as boolean;
@@ -166,6 +175,9 @@ async function main() {
   console.log(`  StateGIS:${includeStateGIS ? ' ENABLED (WI LTSB + MassGIS, authority=100%)' : ' disabled'}`);
   console.log(`  Special: ${includeSpecialDistricts ? `ENABLED (${SPECIAL_DISTRICT_PROVIDERS.size} providers registered)` : 'disabled'}`);
   console.log(`  Canada:  ${noCanada ? 'DISABLED' : 'enabled'}`);
+  console.log(`  UK:      ${includeUK ? 'ENABLED' : 'disabled'}`);
+  console.log(`  AU:      ${includeAU ? 'ENABLED' : 'disabled'}`);
+  console.log(`  NZ:      ${includeNZ ? 'ENABLED' : 'disabled'}`);
   console.log(`  Verify:  ${skipVerify ? 'DISABLED' : 'enabled'}`);
   console.log('='.repeat(72));
   console.log();
@@ -279,6 +291,166 @@ async function main() {
       const duration = performance.now() - canadaStart;
       console.error(`    ✗ Canadian extraction FAILED: ${(error as Error).message}`);
       layerStats.push({ layer: 'can-fed', raw: 0, normalized: 0, duration });
+    }
+  }
+
+  // ---- UK Parliamentary Constituencies ----
+  if (includeUK && !stateFips) {
+    const ukStart = performance.now();
+    console.log(`\n[${'▶'.padEnd(3)}] Fetching UK parliamentary constituencies...`);
+
+    try {
+      const ukProvider = new UKBoundaryProvider();
+      const ukResult = await ukProvider.extractParliamentaryConstituencies();
+
+      if (ukResult.success && ukResult.boundaries.length > 0) {
+        let ukCount = 0;
+        for (const constituency of ukResult.boundaries) {
+          if (constituency.geometry.type !== 'Polygon' && constituency.geometry.type !== 'MultiPolygon') continue;
+          const bbox = computeBBox(constituency.geometry);
+          allDistricts.push({
+            id: `uk-parl-${constituency.id}`,
+            name: constituency.name,
+            jurisdiction: `GBR/${constituency.country}`,
+            districtType: 'council',
+            geometry: constituency.geometry,
+            provenance: {
+              source: constituency.source.endpoint,
+              authority: 'federal' as const,
+              timestamp: Date.now(),
+              method: 'ons-arcgis-fetch',
+              responseHash: '',
+              jurisdiction: `GBR/${constituency.country}`,
+              httpStatus: 200,
+              license: 'OGL',
+              featureCount: 1,
+              geometryType: constituency.geometry.type as 'Polygon' | 'MultiPolygon',
+              coordinateSystem: 'EPSG:4326',
+            },
+            bbox,
+          });
+          ukCount++;
+        }
+
+        const ukDuration = performance.now() - ukStart;
+        layerStats.push({ layer: 'uk-parl', raw: 1, normalized: ukCount, duration: ukDuration });
+        console.log(`    → ${ukCount} UK constituencies indexed (${(ukDuration / 1000).toFixed(1)}s)`);
+      } else {
+        console.warn(`    ✗ UK extraction returned ${ukResult.boundaries.length} boundaries`);
+        layerStats.push({ layer: 'uk-parl', raw: 0, normalized: 0, duration: performance.now() - ukStart });
+      }
+    } catch (error) {
+      const duration = performance.now() - ukStart;
+      console.error(`    ✗ UK extraction FAILED: ${(error as Error).message}`);
+      layerStats.push({ layer: 'uk-parl', raw: 0, normalized: 0, duration });
+    }
+  }
+
+  // ---- Australian Federal Electoral Divisions ----
+  if (includeAU && !stateFips) {
+    const auStart = performance.now();
+    console.log(`\n[${'▶'.padEnd(3)}] Fetching Australian federal electoral divisions...`);
+
+    try {
+      const auProvider = new AustraliaBoundaryProvider();
+      const auResult = await auProvider.extractFederalDivisions();
+
+      if (auResult.success && auResult.boundaries.length > 0) {
+        let auCount = 0;
+        for (const division of auResult.boundaries) {
+          if (division.geometry.type !== 'Polygon' && division.geometry.type !== 'MultiPolygon') continue;
+          const bbox = computeBBox(division.geometry);
+          allDistricts.push({
+            id: `au-fed-${division.id}`,
+            name: division.name,
+            jurisdiction: `AUS/${division.state}`,
+            districtType: 'council',
+            geometry: division.geometry,
+            provenance: {
+              source: division.source.endpoint,
+              authority: 'federal' as const,
+              timestamp: Date.now(),
+              method: 'aec-arcgis-fetch',
+              responseHash: '',
+              jurisdiction: `AUS/${division.state}`,
+              httpStatus: 200,
+              license: 'CC-BY-4.0',
+              featureCount: 1,
+              geometryType: division.geometry.type as 'Polygon' | 'MultiPolygon',
+              coordinateSystem: 'EPSG:4326',
+            },
+            bbox,
+          });
+          auCount++;
+        }
+
+        const auDuration = performance.now() - auStart;
+        layerStats.push({ layer: 'au-fed', raw: 1, normalized: auCount, duration: auDuration });
+        console.log(`    → ${auCount} Australian divisions indexed (${(auDuration / 1000).toFixed(1)}s)`);
+      } else {
+        console.warn(`    ✗ Australian extraction returned ${auResult.boundaries.length} boundaries`);
+        layerStats.push({ layer: 'au-fed', raw: 0, normalized: 0, duration: performance.now() - auStart });
+      }
+    } catch (error) {
+      const duration = performance.now() - auStart;
+      console.error(`    ✗ Australian extraction FAILED: ${(error as Error).message}`);
+      layerStats.push({ layer: 'au-fed', raw: 0, normalized: 0, duration });
+    }
+  }
+
+  // ---- New Zealand Electoral Districts ----
+  if (includeNZ && !stateFips) {
+    const nzStart = performance.now();
+    console.log(`\n[${'▶'.padEnd(3)}] Fetching New Zealand electoral districts...`);
+
+    try {
+      const nzProvider = new NewZealandBoundaryProvider();
+      const nzResult = await nzProvider.extractAll();
+
+      if (nzResult.totalBoundaries > 0) {
+        let nzCount = 0;
+        for (const layerResult of nzResult.layers) {
+          for (const electorate of layerResult.boundaries) {
+            if (electorate.geometry.type !== 'Polygon' && electorate.geometry.type !== 'MultiPolygon') continue;
+            const bbox = computeBBox(electorate.geometry);
+            // Use nz-gen- for general electorates and nz-maori- for Maori electorates
+            const prefix = electorate.type === 'maori' ? 'nz-maori' : 'nz-gen';
+            allDistricts.push({
+              id: `${prefix}-${electorate.id}`,
+              name: electorate.name,
+              jurisdiction: `NZL/${electorate.region}`,
+              districtType: 'council',
+              geometry: electorate.geometry,
+              provenance: {
+                source: electorate.source.endpoint,
+                authority: 'federal' as const,
+                timestamp: Date.now(),
+                method: 'stats-nz-arcgis-fetch',
+                responseHash: '',
+                jurisdiction: `NZL/${electorate.region}`,
+                httpStatus: 200,
+                license: 'CC-BY-4.0',
+                featureCount: 1,
+                geometryType: electorate.geometry.type as 'Polygon' | 'MultiPolygon',
+                coordinateSystem: 'EPSG:4326',
+              },
+              bbox,
+            });
+            nzCount++;
+          }
+        }
+
+        const nzDuration = performance.now() - nzStart;
+        layerStats.push({ layer: 'nz-elec', raw: nzResult.layers.length, normalized: nzCount, duration: nzDuration });
+        console.log(`    → ${nzCount} NZ electorates indexed (${(nzDuration / 1000).toFixed(1)}s)`);
+      } else {
+        console.warn(`    ✗ NZ extraction returned 0 boundaries`);
+        layerStats.push({ layer: 'nz-elec', raw: 0, normalized: 0, duration: performance.now() - nzStart });
+      }
+    } catch (error) {
+      const duration = performance.now() - nzStart;
+      console.error(`    ✗ NZ extraction FAILED: ${(error as Error).message}`);
+      layerStats.push({ layer: 'nz-elec', raw: 0, normalized: 0, duration });
     }
   }
 
