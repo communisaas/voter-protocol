@@ -161,6 +161,139 @@ export interface CanadaOfficialsResult {
 }
 
 // ============================================================================
+// UK Types
+// ============================================================================
+
+/** Raw SQLite row for uk_mps table */
+interface RawUKMPRow {
+  parliament_id: number;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  party: string;
+  constituency_name: string;
+  constituency_ons_code: string | null;
+  email: string | null;
+  phone: string | null;
+  office_address: string | null;
+  website_url: string | null;
+  photo_url: string | null;
+  is_active: number;
+}
+
+export interface UKMP {
+  readonly parliament_id: number;
+  readonly name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
+  readonly party: string;
+  readonly constituency_name: string;
+  readonly constituency_ons_code: string | null;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly office_address: string | null;
+  readonly website_url: string | null;
+  readonly photo_url: string | null;
+  readonly is_active: boolean;
+}
+
+export interface UKOfficialsResult {
+  readonly mp: UKMP | null;
+  readonly constituency_name: string | null;
+  readonly constituency_ons_code: string | null;
+}
+
+// ============================================================================
+// Australia Types
+// ============================================================================
+
+/** Raw SQLite row for au_mps table */
+interface RawAUMPRow {
+  aph_id: string;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  party: string;
+  division_name: string;
+  division_code: string | null;
+  state: string;
+  email: string | null;
+  phone: string | null;
+  office_address: string | null;
+  website_url: string | null;
+  photo_url: string | null;
+  is_active: number;
+}
+
+export interface AustralianMP {
+  readonly aph_id: string;
+  readonly name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
+  readonly party: string;
+  readonly division_name: string;
+  readonly division_code: string | null;
+  readonly state: string;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly office_address: string | null;
+  readonly website_url: string | null;
+  readonly photo_url: string | null;
+  readonly is_active: boolean;
+}
+
+export interface AUOfficialsResult {
+  readonly mp: AustralianMP | null;
+  readonly division_name: string | null;
+  readonly state: string | null;
+}
+
+// ============================================================================
+// NZ Types
+// ============================================================================
+
+/** Raw SQLite row for nz_mps table */
+interface RawNZMPRow {
+  parliament_id: string;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  party: string;
+  electorate_name: string | null;
+  electorate_code: string | null;
+  electorate_type: string | null;
+  email: string | null;
+  phone: string | null;
+  office_address: string | null;
+  website_url: string | null;
+  photo_url: string | null;
+  is_active: number;
+}
+
+export interface NewZealandMP {
+  readonly parliament_id: string;
+  readonly name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
+  readonly party: string;
+  readonly electorate_name: string | null;
+  readonly electorate_code: string | null;
+  readonly electorate_type: 'general' | 'maori' | 'list' | null;
+  readonly email: string | null;
+  readonly phone: string | null;
+  readonly office_address: string | null;
+  readonly website_url: string | null;
+  readonly photo_url: string | null;
+  readonly is_active: boolean;
+}
+
+export interface NZOfficialsResult {
+  readonly mp: NewZealandMP | null;
+  readonly electorate_name: string | null;
+  readonly electorate_type: string | null;
+}
+
+// ============================================================================
 // US Special Status Messages
 // ============================================================================
 
@@ -237,6 +370,15 @@ export class OfficialsService {
   private readonly stmtCount: Database.Statement;
   private readonly stmtCanadaMP: Database.Statement | null;
   private readonly stmtCanadaCount: Database.Statement | null;
+  private readonly stmtUKMP: Database.Statement | null;
+  private readonly stmtUKMPByName: Database.Statement | null;
+  private readonly stmtUKCount: Database.Statement | null;
+  private readonly stmtAUMP: Database.Statement | null;
+  private readonly stmtAUMPByName: Database.Statement | null;
+  private readonly stmtAUCount: Database.Statement | null;
+  private readonly stmtNZMP: Database.Statement | null;
+  private readonly stmtNZMPByName: Database.Statement | null;
+  private readonly stmtNZCount: Database.Statement | null;
   private readonly stmtHouseRepBySession: Database.Statement;
   private readonly stmtSenatorsBySession: Database.Statement;
   private lastRefreshTime: number;
@@ -288,6 +430,57 @@ export class OfficialsService {
     } else {
       this.stmtCanadaMP = null;
       this.stmtCanadaCount = null;
+    }
+
+    // UK MP statements
+    if (this.hasTable('uk_mps')) {
+      this.stmtUKMP = this.db.prepare(
+        `SELECT * FROM uk_mps WHERE constituency_ons_code = ? AND is_active = 1 LIMIT 1`
+      );
+      this.stmtUKMPByName = this.db.prepare(
+        `SELECT * FROM uk_mps WHERE constituency_name = ? AND is_active = 1 LIMIT 1`
+      );
+      this.stmtUKCount = this.db.prepare(
+        `SELECT COUNT(*) as count FROM uk_mps WHERE is_active = 1`
+      );
+    } else {
+      this.stmtUKMP = null;
+      this.stmtUKMPByName = null;
+      this.stmtUKCount = null;
+    }
+
+    // Australian MP statements
+    if (this.hasTable('au_mps')) {
+      this.stmtAUMP = this.db.prepare(
+        `SELECT * FROM au_mps WHERE division_code = ? AND is_active = 1 LIMIT 1`
+      );
+      this.stmtAUMPByName = this.db.prepare(
+        `SELECT * FROM au_mps WHERE division_name = ? COLLATE NOCASE AND is_active = 1 LIMIT 1`
+      );
+      this.stmtAUCount = this.db.prepare(
+        `SELECT COUNT(*) as count FROM au_mps WHERE is_active = 1`
+      );
+    } else {
+      this.stmtAUMP = null;
+      this.stmtAUMPByName = null;
+      this.stmtAUCount = null;
+    }
+
+    // NZ MP statements
+    if (this.hasTable('nz_mps')) {
+      this.stmtNZMP = this.db.prepare(
+        `SELECT * FROM nz_mps WHERE electorate_code = ? AND is_active = 1 LIMIT 1`
+      );
+      this.stmtNZMPByName = this.db.prepare(
+        `SELECT * FROM nz_mps WHERE electorate_name = ? COLLATE NOCASE AND is_active = 1 LIMIT 1`
+      );
+      this.stmtNZCount = this.db.prepare(
+        `SELECT COUNT(*) as count FROM nz_mps WHERE is_active = 1`
+      );
+    } else {
+      this.stmtNZMP = null;
+      this.stmtNZMPByName = null;
+      this.stmtNZCount = null;
     }
   }
 
@@ -453,6 +646,108 @@ export class OfficialsService {
    */
   hasCanadaData(): boolean {
     return this.stmtCanadaMP !== null && this.getCanadianMPCount() > 0;
+  }
+
+  // ==========================================================================
+  // UK API
+  // ==========================================================================
+
+  /**
+   * Get UK MP by ONS constituency code.
+   * Falls back to constituency name match if ONS code lookup fails.
+   *
+   * @param constituencyCode - ONS code (e.g., "E14001234") or constituency name
+   */
+  getUKMP(constituencyCode: string): { result: UKOfficialsResult; cached: boolean } {
+    this.refreshIfStale();
+
+    const cacheKey = `GB-${constituencyCode}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return { result: cached as unknown as UKOfficialsResult, cached: true };
+    }
+
+    const result = this.lookupUKMP(constituencyCode);
+    this.cache.set(cacheKey, result as unknown as OfficialsResult);
+    return { result, cached: false };
+  }
+
+  getUKMPCount(): number {
+    if (!this.stmtUKCount) return 0;
+    const row = this.stmtUKCount.get() as { count: number };
+    return row.count;
+  }
+
+  hasUKData(): boolean {
+    return this.stmtUKMP !== null && this.getUKMPCount() > 0;
+  }
+
+  // ==========================================================================
+  // Australia API
+  // ==========================================================================
+
+  /**
+   * Get Australian MP by division code.
+   * Falls back to division name match if code lookup fails.
+   *
+   * @param divisionCode - Division code from boundary data or division name
+   */
+  getAustralianMP(divisionCode: string): { result: AUOfficialsResult; cached: boolean } {
+    this.refreshIfStale();
+
+    const cacheKey = `AU-${divisionCode}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return { result: cached as unknown as AUOfficialsResult, cached: true };
+    }
+
+    const result = this.lookupAustralianMP(divisionCode);
+    this.cache.set(cacheKey, result as unknown as OfficialsResult);
+    return { result, cached: false };
+  }
+
+  getAustralianMPCount(): number {
+    if (!this.stmtAUCount) return 0;
+    const row = this.stmtAUCount.get() as { count: number };
+    return row.count;
+  }
+
+  hasAustraliaData(): boolean {
+    return this.stmtAUMP !== null && this.getAustralianMPCount() > 0;
+  }
+
+  // ==========================================================================
+  // NZ API
+  // ==========================================================================
+
+  /**
+   * Get NZ MP by electorate code.
+   * Falls back to electorate name match if code lookup fails.
+   *
+   * @param electorateCode - Electorate code from boundary data or electorate name
+   */
+  getNZMP(electorateCode: string): { result: NZOfficialsResult; cached: boolean } {
+    this.refreshIfStale();
+
+    const cacheKey = `NZ-${electorateCode}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return { result: cached as unknown as NZOfficialsResult, cached: true };
+    }
+
+    const result = this.lookupNZMP(electorateCode);
+    this.cache.set(cacheKey, result as unknown as OfficialsResult);
+    return { result, cached: false };
+  }
+
+  getNZMPCount(): number {
+    if (!this.stmtNZCount) return 0;
+    const row = this.stmtNZCount.get() as { count: number };
+    return row.count;
+  }
+
+  hasNZData(): boolean {
+    return this.stmtNZMP !== null && this.getNZMPCount() > 0;
   }
 
   /**
@@ -623,6 +918,125 @@ export class OfficialsService {
     };
   }
 
+  private lookupUKMP(constituencyCode: string): UKOfficialsResult {
+    if (!this.stmtUKMP) {
+      return { mp: null, constituency_name: null, constituency_ons_code: constituencyCode };
+    }
+
+    // Try by ONS code first
+    let row = this.stmtUKMP.get(constituencyCode) as RawUKMPRow | undefined;
+
+    // Fallback: try by constituency name (boundary data stores name in district.name)
+    if (!row && this.stmtUKMPByName) {
+      row = this.stmtUKMPByName.get(constituencyCode) as RawUKMPRow | undefined;
+    }
+
+    const mp = row ? this.rowToUKMP(row) : null;
+    return {
+      mp,
+      constituency_name: mp?.constituency_name ?? null,
+      constituency_ons_code: mp?.constituency_ons_code ?? constituencyCode,
+    };
+  }
+
+  private lookupAustralianMP(divisionCode: string): AUOfficialsResult {
+    if (!this.stmtAUMP) {
+      return { mp: null, division_name: null, state: null };
+    }
+
+    // Try by division code first
+    let row = this.stmtAUMP.get(divisionCode) as RawAUMPRow | undefined;
+
+    // Fallback: try by division name
+    if (!row && this.stmtAUMPByName) {
+      row = this.stmtAUMPByName.get(divisionCode) as RawAUMPRow | undefined;
+    }
+
+    const mp = row ? this.rowToAustralianMP(row) : null;
+    return {
+      mp,
+      division_name: mp?.division_name ?? null,
+      state: mp?.state ?? null,
+    };
+  }
+
+  private lookupNZMP(electorateCode: string): NZOfficialsResult {
+    if (!this.stmtNZMP) {
+      return { mp: null, electorate_name: null, electorate_type: null };
+    }
+
+    // Try by electorate code first
+    let row = this.stmtNZMP.get(electorateCode) as RawNZMPRow | undefined;
+
+    // Fallback: try by electorate name
+    if (!row && this.stmtNZMPByName) {
+      row = this.stmtNZMPByName.get(electorateCode) as RawNZMPRow | undefined;
+    }
+
+    const mp = row ? this.rowToNZMP(row) : null;
+    return {
+      mp,
+      electorate_name: mp?.electorate_name ?? null,
+      electorate_type: mp?.electorate_type ?? null,
+    };
+  }
+
+  private rowToUKMP(row: RawUKMPRow): UKMP {
+    return {
+      parliament_id: row.parliament_id,
+      name: row.name,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      party: row.party,
+      constituency_name: row.constituency_name,
+      constituency_ons_code: row.constituency_ons_code,
+      email: row.email,
+      phone: row.phone,
+      office_address: row.office_address,
+      website_url: row.website_url,
+      photo_url: row.photo_url,
+      is_active: row.is_active === 1,
+    };
+  }
+
+  private rowToAustralianMP(row: RawAUMPRow): AustralianMP {
+    return {
+      aph_id: row.aph_id,
+      name: row.name,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      party: row.party,
+      division_name: row.division_name,
+      division_code: row.division_code,
+      state: row.state,
+      email: row.email,
+      phone: row.phone,
+      office_address: row.office_address,
+      website_url: row.website_url,
+      photo_url: row.photo_url,
+      is_active: row.is_active === 1,
+    };
+  }
+
+  private rowToNZMP(row: RawNZMPRow): NewZealandMP {
+    return {
+      parliament_id: row.parliament_id,
+      name: row.name,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      party: row.party,
+      electorate_name: row.electorate_name,
+      electorate_code: row.electorate_code,
+      electorate_type: row.electorate_type as 'general' | 'maori' | 'list' | null,
+      email: row.email,
+      phone: row.phone,
+      office_address: row.office_address,
+      website_url: row.website_url,
+      photo_url: row.photo_url,
+      is_active: row.is_active === 1,
+    };
+  }
+
   private rowToMember(row: RawMemberRow): FederalMember {
     return {
       bioguide_id: row.bioguide_id,
@@ -740,6 +1154,123 @@ export function toCanadaOfficialsResponse(
     state: result.province ?? '',
     special_status: null,
     source: 'congress-legislators',  // Generic source tag (reuse existing type)
+    cached,
+  };
+}
+
+/**
+ * Convert UKOfficialsResult to flat Official[] for API response.
+ */
+export function toUKOfficialsResponse(
+  result: UKOfficialsResult,
+  cached: boolean,
+): OfficialsResponse {
+  const officials: Official[] = [];
+
+  if (result.mp) {
+    const m = result.mp;
+    officials.push({
+      bioguide_id: String(m.parliament_id),
+      name: m.name,
+      party: m.party,
+      chamber: 'house',  // UK House of Commons
+      state: '',  // UK has no state equivalent in this context
+      district: m.constituency_ons_code,
+      office: `Member of Parliament, ${m.constituency_name}`,
+      phone: m.phone,
+      contact_form_url: null,
+      website_url: m.website_url,
+      cwc_code: null,
+      is_voting: true,
+      delegate_type: null,
+    });
+  }
+
+  return {
+    officials,
+    district_code: result.constituency_ons_code ?? '',
+    state: '',
+    special_status: null,
+    source: 'congress-legislators',
+    cached,
+  };
+}
+
+/**
+ * Convert AUOfficialsResult to flat Official[] for API response.
+ */
+export function toAUOfficialsResponse(
+  result: AUOfficialsResult,
+  cached: boolean,
+): OfficialsResponse {
+  const officials: Official[] = [];
+
+  if (result.mp) {
+    const m = result.mp;
+    officials.push({
+      bioguide_id: m.aph_id,
+      name: m.name,
+      party: m.party,
+      chamber: 'house',  // Australian House of Representatives
+      state: m.state,
+      district: m.division_code,
+      office: `Member of Parliament, ${m.division_name}`,
+      phone: m.phone,
+      contact_form_url: null,
+      website_url: m.website_url,
+      cwc_code: null,
+      is_voting: true,
+      delegate_type: null,
+    });
+  }
+
+  return {
+    officials,
+    district_code: result.division_name ?? '',
+    state: result.state ?? '',
+    special_status: null,
+    source: 'congress-legislators',
+    cached,
+  };
+}
+
+/**
+ * Convert NZOfficialsResult to flat Official[] for API response.
+ */
+export function toNZOfficialsResponse(
+  result: NZOfficialsResult,
+  cached: boolean,
+): OfficialsResponse {
+  const officials: Official[] = [];
+
+  if (result.mp) {
+    const m = result.mp;
+    const officeTitle = m.electorate_name
+      ? `Member of Parliament, ${m.electorate_name}`
+      : `List Member of Parliament`;
+    officials.push({
+      bioguide_id: m.parliament_id,
+      name: m.name,
+      party: m.party,
+      chamber: 'house',  // NZ House of Representatives
+      state: '',
+      district: m.electorate_code,
+      office: officeTitle,
+      phone: m.phone,
+      contact_form_url: null,
+      website_url: m.website_url,
+      cwc_code: null,
+      is_voting: true,
+      delegate_type: null,
+    });
+  }
+
+  return {
+    officials,
+    district_code: result.electorate_name ?? '',
+    state: '',
+    special_status: null,
+    source: 'congress-legislators',
     cached,
   };
 }

@@ -102,6 +102,88 @@ CREATE INDEX IF NOT EXISTS idx_cmp_party ON canada_mps(party);
 CREATE INDEX IF NOT EXISTS idx_cmp_active ON canada_mps(is_active);
 CREATE INDEX IF NOT EXISTS idx_cmp_riding_active ON canada_mps(riding_code, is_active);
 
+-- UK Members of Parliament (650 MPs, House of Commons)
+-- Data source: UK Parliament Members API (Open Parliament License)
+-- Refreshed via cron ingestion script (ingest-uk-mps.ts)
+CREATE TABLE IF NOT EXISTS uk_mps (
+  parliament_id INTEGER PRIMARY KEY,         -- UK Parliament member ID
+  name TEXT NOT NULL,                        -- "Ms Diane Abbott"
+  first_name TEXT,                           -- "Diane"
+  last_name TEXT,                            -- "Abbott"
+  party TEXT NOT NULL,                       -- "Labour" | "Conservative" | etc.
+  constituency_name TEXT NOT NULL,           -- "Hackney North and Stoke Newington"
+  constituency_ons_code TEXT,                -- ONS code: "E14001234" — matched from boundary data
+  email TEXT,                                -- Parliamentary email
+  phone TEXT,                                -- Parliamentary office phone
+  office_address TEXT,                       -- "House of Commons, London, SW1A 0AA"
+  website_url TEXT,                          -- Official website
+  photo_url TEXT,                            -- Thumbnail URL
+  is_active INTEGER NOT NULL DEFAULT 1,      -- 0 for former MPs
+  ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ukmp_party ON uk_mps(party);
+CREATE INDEX IF NOT EXISTS idx_ukmp_constituency ON uk_mps(constituency_name);
+CREATE INDEX IF NOT EXISTS idx_ukmp_ons ON uk_mps(constituency_ons_code);
+CREATE INDEX IF NOT EXISTS idx_ukmp_active ON uk_mps(is_active);
+
+-- Australian Members of Parliament (151 House of Representatives)
+-- Data source: APH website (Parliament of Australia)
+-- Refreshed via cron ingestion script (ingest-au-mps.ts)
+CREATE TABLE IF NOT EXISTS au_mps (
+  aph_id TEXT PRIMARY KEY,                   -- APH parliamentarian ID (e.g., "R36")
+  name TEXT NOT NULL,                        -- "Anthony Albanese"
+  first_name TEXT,                           -- "Anthony"
+  last_name TEXT,                            -- "Albanese"
+  party TEXT NOT NULL,                       -- "Australian Labor Party" | "Liberal Party" | etc.
+  division_name TEXT NOT NULL,               -- "Grayndler"
+  division_code TEXT,                        -- Matches au-fed-{CODE} boundary ID
+  state TEXT NOT NULL,                       -- "NSW", "VIC", "QLD", etc.
+  email TEXT,                                -- Parliamentary email
+  phone TEXT,                                -- Electorate office phone
+  office_address TEXT,                       -- Electorate office address
+  website_url TEXT,                          -- Official website
+  photo_url TEXT,                            -- Official photo URL
+  is_active INTEGER NOT NULL DEFAULT 1,      -- 0 for former MPs
+  ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_aump_party ON au_mps(party);
+CREATE INDEX IF NOT EXISTS idx_aump_division ON au_mps(division_name);
+CREATE INDEX IF NOT EXISTS idx_aump_division_code ON au_mps(division_code);
+CREATE INDEX IF NOT EXISTS idx_aump_state ON au_mps(state);
+CREATE INDEX IF NOT EXISTS idx_aump_active ON au_mps(is_active);
+
+-- New Zealand Members of Parliament (120+ MPs, House of Representatives)
+-- Data source: NZ Parliament website / data.govt.nz
+-- Refreshed via cron ingestion script (ingest-nz-mps.ts)
+CREATE TABLE IF NOT EXISTS nz_mps (
+  parliament_id TEXT PRIMARY KEY,            -- NZ Parliament member ID
+  name TEXT NOT NULL,                        -- "Christopher Luxon"
+  first_name TEXT,                           -- "Christopher"
+  last_name TEXT,                            -- "Luxon"
+  party TEXT NOT NULL,                       -- "National" | "Labour" | "Green" | etc.
+  electorate_name TEXT,                      -- NULL for list MPs
+  electorate_code TEXT,                      -- Matches nz-gen-{CODE} or nz-maori-{CODE}
+  electorate_type TEXT,                      -- 'general', 'maori', or 'list'
+  email TEXT,                                -- Parliamentary email
+  phone TEXT,                                -- Parliamentary office phone
+  office_address TEXT,                       -- Office address
+  website_url TEXT,                          -- Official website
+  photo_url TEXT,                            -- Official photo URL
+  is_active INTEGER NOT NULL DEFAULT 1,      -- 0 for former MPs
+  ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_nzmp_party ON nz_mps(party);
+CREATE INDEX IF NOT EXISTS idx_nzmp_electorate ON nz_mps(electorate_name);
+CREATE INDEX IF NOT EXISTS idx_nzmp_electorate_code ON nz_mps(electorate_code);
+CREATE INDEX IF NOT EXISTS idx_nzmp_type ON nz_mps(electorate_type);
+CREATE INDEX IF NOT EXISTS idx_nzmp_active ON nz_mps(is_active);
+
 -- District boundary fences (shared edges between adjacent districts)
 -- Built at DB build time by extracting shared boundaries between adjacent district pairs.
 -- Used by bubble-query to show which boundaries the bubble crosses.

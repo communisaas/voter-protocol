@@ -34,7 +34,7 @@ import type {
   DistrictBoundary,
   SnapshotMetadata,
 } from './types.js';
-import { OfficialsService, toOfficialsResponse, toCanadaOfficialsResponse } from './officials-service.js';
+import { OfficialsService, toOfficialsResponse, toCanadaOfficialsResponse, toUKOfficialsResponse, toAUOfficialsResponse, toNZOfficialsResponse } from './officials-service.js';
 import { FIPS_TO_STATE } from '../db/fips-codes.js';
 import { GeocodeService, type GeocodeResult } from './geocode-service.js';
 import type { SnapshotVintage } from '../hydration/snapshot-loader.js';
@@ -1139,6 +1139,21 @@ export class ShadowAtlasAPI {
                 this.officialsService.getCanadianMP(parsed.ridingCode);
               officials = toCanadaOfficialsResponse(caResult, cached);
               break;
+            } else if (parsed?.country === 'GB' && this.officialsService.hasUKData()) {
+              const { result: gbResult, cached } =
+                this.officialsService.getUKMP(parsed.constituencyCode);
+              officials = toUKOfficialsResponse(gbResult, cached);
+              break;
+            } else if (parsed?.country === 'AU' && this.officialsService.hasAustraliaData()) {
+              const { result: auResult, cached } =
+                this.officialsService.getAustralianMP(parsed.divisionCode);
+              officials = toAUOfficialsResponse(auResult, cached);
+              break;
+            } else if (parsed?.country === 'NZ' && this.officialsService.hasNZData()) {
+              const { result: nzResult, cached } =
+                this.officialsService.getNZMP(parsed.electorateCode);
+              officials = toNZOfficialsResponse(nzResult, cached);
+              break;
             } else if (parsed?.country === 'GB' || parsed?.country === 'AU' || parsed?.country === 'NZ') {
               officials = { officials: [], district_code: d.id, dataStatus: 'pending' as const, source: 'not-yet-available' as const, cached: false };
               break;
@@ -1287,6 +1302,21 @@ export class ShadowAtlasAPI {
               const { result: caResult, cached } =
                 this.officialsService.getCanadianMP(parsed.ridingCode);
               officials = toCanadaOfficialsResponse(caResult, cached);
+              break;
+            } else if (parsed?.country === 'GB' && this.officialsService.hasUKData()) {
+              const { result: gbResult, cached } =
+                this.officialsService.getUKMP(parsed.constituencyCode);
+              officials = toUKOfficialsResponse(gbResult, cached);
+              break;
+            } else if (parsed?.country === 'AU' && this.officialsService.hasAustraliaData()) {
+              const { result: auResult, cached } =
+                this.officialsService.getAustralianMP(parsed.divisionCode);
+              officials = toAUOfficialsResponse(auResult, cached);
+              break;
+            } else if (parsed?.country === 'NZ' && this.officialsService.hasNZData()) {
+              const { result: nzResult, cached } =
+                this.officialsService.getNZMP(parsed.electorateCode);
+              officials = toNZOfficialsResponse(nzResult, cached);
               break;
             } else if (parsed?.country === 'GB' || parsed?.country === 'AU' || parsed?.country === 'NZ') {
               officials = { officials: [], district_code: d.id, dataStatus: 'pending' as const, source: 'not-yet-available' as const, cached: false };
