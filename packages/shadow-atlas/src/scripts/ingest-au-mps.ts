@@ -86,40 +86,46 @@ async function rateLimitedDelay(ms: number): Promise<void> {
 function parseSearchPage(html: string): AustralianMP[] {
   const members: AustralianMP[] = [];
 
-  // Each member is wrapped in a result block with an <h4> containing a link to /Parliamentarian?MPID=XXX
-  // Pattern: <a href="/Senators_and_Members/Parliamentarian?MPID=XXX">NAME MP</a>
-  const memberPattern = /href="\/Senators_and_Members\/Parliamentarian\?MPID=([^"]+)"[^>]*>([^<]+)<\/a>/g;
-
-  // The full HTML context for each member block contains party and electorate info.
-  // Split by the member anchors to get sections for each member.
-  const sections = html.split(/(?=<h4[^>]*>)/);
+  // APH HTML structure (2026):
+  // <div class="row border-bottom padding-top">
+  //   <div>
+  //     <h4><a href="/Senators_and_Members/Parliamentarian?MPID=XXX">NAME MP</a></h4>
+  //     <dl>
+  //       <dt>For</dt><dd>ELECTORATE, STATE</dd>
+  //       <dt>Party</dt><dd>PARTY NAME</dd>
+  //       <dd><a href="mailto:...">...</a></dd>
+  //     </dl>
+  //   </div>
+  // </div>
+  //
+  // Split by the containing div (border-bottom) to get complete sections.
+  const sections = html.split(/(?=<div\s+class="row\s+border-bottom)/);
 
   for (const section of sections) {
-    const memberMatch = memberPattern.exec(section);
-    // Reset lastIndex since we reuse the regex
-    memberPattern.lastIndex = 0;
-    const localMatch = /href="\/Senators_and_Members\/Parliamentarian\?MPID=([^"]+)"[^>]*>([^<]+)<\/a>/.exec(section);
-
+    // Find MPID link
+    const localMatch = /href="\/Senators_and_Members\/Parliamentarian\?MPID=([^"]+)"[^>]*>([^<]+)<\/a>/i.exec(section);
     if (!localMatch) continue;
 
     const aphId = localMatch[1].trim();
     let rawName = localMatch[2].trim();
-    // Strip " MP" suffix
-    rawName = rawName.replace(/\s+MP$/, '').trim();
+    // Strip honorifics and " MP" suffix
+    rawName = rawName.replace(/\s+MP$/i, '').trim();
+    // Strip leading Hon, Mr, Mrs, Ms, Dr, etc.
+    rawName = rawName.replace(/^(?:Hon\.?\s+|Rt\.?\s+Hon\.?\s+|Mr\.?\s+|Mrs\.?\s+|Ms\.?\s+|Dr\.?\s+|Prof\.?\s+)+/i, '').trim();
 
-    // Extract electorate: look for "For " followed by electorate name and state
-    // Pattern: >For </dt><dd>ELECTORATE, STATE</dd> or similar
-    const electorateMatch = /(?:For\s*(?:<[^>]+>)*\s*)([^<,]+),\s*([^<]+)/i.exec(section);
+    // Extract electorate from <dt>For</dt><dd>ELECTORATE, STATE</dd>
+    const electorateMatch = /<dt>For<\/dt>\s*<dd>([^<]+)<\/dd>/i.exec(section);
     let divisionName = '';
     let state = '';
 
     if (electorateMatch) {
-      divisionName = electorateMatch[1].trim();
-      state = normalizeState(electorateMatch[2].trim());
+      const parts = electorateMatch[1].split(',').map(s => s.trim());
+      divisionName = parts[0] || '';
+      state = parts.length > 1 ? normalizeState(parts[1]) : '';
     }
 
-    // Extract party
-    const partyMatch = /(?:Party\s*(?:<[^>]+>)*\s*)([^<]+)/i.exec(section);
+    // Extract party from <dt>Party</dt><dd>PARTY NAME</dd>
+    const partyMatch = /<dt>Party<\/dt>\s*<dd>([^<]+)<\/dd>/i.exec(section);
     let party = '';
     if (partyMatch) {
       party = partyMatch[1].trim();
@@ -270,6 +276,13 @@ async function main(): Promise<void> {
   console.log('Step 1: Fetching MPs from APH website...');
   const mps = await fetchAllMembers();
   console.log(`  Fetched ${mps.length} MPs`);
+
+  if (mps.length < 100) {
+    throw new Error(
+      `Sanity check failed: only ${mps.length} MPs found (expected ~150). ` +
+      `APH website structure may have changed. Aborting to prevent partial data.`
+    );
+  }
   console.log('');
 
   if (dryRun) {

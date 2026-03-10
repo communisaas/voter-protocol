@@ -212,7 +212,10 @@ export class UKBoundaryProvider extends BaseInternationalProvider<
 
     try {
       logger.info('Extracting parliamentary constituencies', { country: 'UK' });
-      const geojson = await this.fetchGeoJSON(endpoint);
+      // ArcGIS FeatureServer requires /query with parameters to return GeoJSON.
+      // Full UK geometry is large (~20MB), so we paginate with geometry simplification.
+      const queryUrl = `${endpoint}/query?where=1%3D1&outFields=*&f=geojson`;
+      const geojson = await this.fetchGeoJSONPaginated(queryUrl, 200, 650, 0.0001);
       const constituencies = this.normalizeConstituencies(geojson, endpoint);
       const durationMs = Date.now() - startTime;
 

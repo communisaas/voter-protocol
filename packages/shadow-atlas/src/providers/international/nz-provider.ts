@@ -143,45 +143,51 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
   readonly apiType = 'arcgis-rest' as const;
   readonly license = 'CC-BY-4.0';
 
-  private readonly baseUrl = 'https://datafinder.stats.govt.nz/services';
+  private readonly baseUrl = 'https://services8.arcgis.com/tYgpmYB86cSiECQ3/arcgis/rest/services';
 
   /**
    * Available boundary layers
    *
    * EXPECTED COUNTS (2025 boundary review):
-   * - General Electorates: 65 (North Island: 49, South Island: 16)
+   * - General Electorates: 64 (actual count from live API; originally expected 65)
    * - Māori Electorates: 7 (Te Tai Tokerau, Tāmaki Makaurau, Hauraki-Waikato,
    *   Waiariki, Ikaroa-Rāwhiti, Te Tai Hauāuru, Te Tai Tonga)
    *
-   * TOTAL: 72 electorates
+   * TOTAL: 71 electorates
    *
    * Source: https://www.stats.govt.nz/news/final-electorate-names-and-boundaries-released/
+   *
+   * NOTE: Original Stats NZ Koordinates endpoints require API key.
+   * Using ArcGIS-hosted mirror (charles.feltham@NZPS, NZ Parliament Service).
+   * Service: New_Zealand_Electorates__2020_and_2025__WFL1
+   *   Layer 6: General Electorates (2025)
+   *   Layer 8: Māori Electorates (2025)
    */
   readonly layers: ReadonlyMap<NZLayerType, LayerConfig<NZLayerType>> = new Map([
     [
       'general',
       {
         type: 'general',
-        name: 'General_Electorates_2025',
-        endpoint: 'https://datafinder.stats.govt.nz/services/hosted/122741_general_electorates_2025/FeatureServer/0',
-        expectedCount: 65,
+        name: 'General Electorates (2025)',
+        endpoint: `${this.baseUrl}/New_Zealand_Electorates__2020_and_2025__WFL1/FeatureServer/6`,
+        expectedCount: 64,
         updateSchedule: 'event-driven',
         authority: 'national-statistics',
         vintage: 2025,
-        lastVerified: '2025-08-08T00:00:00.000Z',
+        lastVerified: '2026-03-10',
       },
     ],
     [
       'maori',
       {
         type: 'maori',
-        name: 'Maori_Electorates_2025',
-        endpoint: 'https://datafinder.stats.govt.nz/services/hosted/122742_maori_electorates_2025/FeatureServer/0',
+        name: 'Māori Electorates (2025)',
+        endpoint: `${this.baseUrl}/New_Zealand_Electorates__2020_and_2025__WFL1/FeatureServer/8`,
         expectedCount: 7,
         updateSchedule: 'event-driven',
         authority: 'national-statistics',
         vintage: 2025,
-        lastVerified: '2025-08-08T00:00:00.000Z',
+        lastVerified: '2026-03-10',
       },
     ],
   ]);
@@ -245,9 +251,12 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
     const electorates: NZElectorate[] = geojson.features.map((feature) => {
       const props = feature.properties || {};
 
+      // ArcGIS mirror field names:
+      //   General: GED2025_V1 (code), General_Electorate__2025_ (name), Total_Population
+      //   Fallback to Stats NZ Koordinates names if present
       return {
-        id: String(props.electorate_code || props.ELECTORATE_CODE || props.id || ''),
-        name: String(props.electorate_name || props.ELECTORATE_NAME || props.name || 'Unknown'),
+        id: String(props.GED2025_V1 || props.electorate_code || props.ELECTORATE_CODE || props.OBJECTID || ''),
+        name: String(props['General_Electorate__2025_'] || props.GED2025__1 || props.electorate_name || props.ELECTORATE_NAME || props.name || 'Unknown'),
         type: 'general' as const,
         region: this.inferRegion(props),
         population: this.parsePopulation(props),
@@ -297,9 +306,11 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
     const electorates: NZElectorate[] = geojson.features.map((feature) => {
       const props = feature.properties || {};
 
+      // ArcGIS mirror field names:
+      //   Māori: MED2025_V1 (code), Māori_Electorate__2025_ (name), Total_Population
       return {
-        id: String(props.electorate_code || props.ELECTORATE_CODE || props.id || ''),
-        name: String(props.electorate_name || props.ELECTORATE_NAME || props.name || 'Unknown'),
+        id: String(props.MED2025_V1 || props.electorate_code || props.ELECTORATE_CODE || props.OBJECTID || ''),
+        name: String(props['Māori_Electorate__2025_'] || props.MED2025__1 || props.electorate_name || props.ELECTORATE_NAME || props.name || 'Unknown'),
         type: 'maori' as const,
         region: this.inferRegion(props),
         population: this.parsePopulation(props),
@@ -336,43 +347,20 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
   }
 
   /**
-   * Fetch GeoJSON from ArcGIS FeatureServer
+   * Fetch GeoJSON from ArcGIS FeatureServer.
+   * Uses base class fetchGeoJSONPaginated() for retry logic and pagination safety,
+   * even though NZ's 71 features fit in a single page.
    */
   private async fetchArcGISFeatureService(endpoint: string): Promise<FeatureCollection> {
-    // ArcGIS REST API query parameters for full extraction
-    const params = new URLSearchParams({
-      where: '1=1',
-      outFields: '*',
-      f: 'geojson',
-      returnGeometry: 'true',
-    });
-
-    const url = `${endpoint}/query?${params.toString()}`;
-
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'ShadowAtlas/1.0 (NZ Electoral Districts Extraction)',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const geojson = await response.json() as FeatureCollection;
-
-    if (!geojson.features || geojson.features.length === 0) {
-      throw new Error('No features returned from Stats NZ service');
-    }
-
-    return geojson;
+    const queryUrl = `${endpoint}/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson`;
+    return this.fetchGeoJSONPaginated(queryUrl, 200);
   }
 
   /**
    * Infer region from properties
    */
   private inferRegion(props: Record<string, unknown>): NZRegion {
-    const name = String(props.electorate_name || props.ELECTORATE_NAME || '').toLowerCase();
+    const name = String(props['General_Electorate__2025_'] || props['Māori_Electorate__2025_'] || props.GED2025__1 || props.MED2025__1 || props.electorate_name || props.ELECTORATE_NAME || '').toLowerCase();
     const region = String(props.region || props.REGION || '').toLowerCase();
 
     // Chatham Islands is its own region
@@ -398,7 +386,7 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
    * Parse population from properties
    */
   private parsePopulation(props: Record<string, unknown>): number | undefined {
-    const population = props.population || props.POPULATION || props.pop_2023 || props.POP_2023;
+    const population = props.Total_Population || props.population || props.POPULATION || props.pop_2023 || props.POP_2023;
 
     if (typeof population === 'number') {
       return population;
@@ -561,13 +549,6 @@ export class NewZealandBoundaryProvider extends BaseInternationalProvider<
     }
   }
 
-  /**
-   * Get expected counts for all layers
-   */
-  async getExpectedCounts(): Promise<ReadonlyMap<NZLayerType, number>> {
-    return new Map([
-      ['general', 65],
-      ['maori', 7],
-    ]);
-  }
+  // getExpectedCounts() inherited from BaseInternationalProvider — reads from this.layers
+  // (general: 64, maori: 7). Do not override.
 }

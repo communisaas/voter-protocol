@@ -60,9 +60,7 @@ const MAORI_ELECTORATES = new Set([
   'Te Tai Tokerau',
   'Te Tai Tonga',
   'Waiariki',
-  // Pre-2025 name variants
-  'Te Atatū',
-  'Te Atatu',
+  // Note: Te Atatū is a GENERAL electorate (West Auckland), not Māori
 ]);
 
 function isMaoriElectorate(name: string): boolean {
@@ -83,6 +81,211 @@ async function rateLimitedDelay(ms: number): Promise<void> {
 // ============================================================================
 
 const DATA_GOVT_NZ_URL = 'https://catalogue.data.govt.nz/dataset/members-of-parliament/resource/89069a40-abcf-4190-9665-3513ff004dd8';
+
+/**
+ * Fetch NZ MPs from Wikipedia's 54th Parliament page.
+ *
+ * Wikipedia has structured tables for electorate MPs and is not behind bot protection.
+ * Uses the MediaWiki API to get wikitext, then parses the General/Māori electorate tables
+ * plus the party composition for list MPs.
+ */
+async function fetchFromWikipedia(): Promise<NZMP[]> {
+  console.log('  Trying Wikipedia API for 54th NZ Parliament...');
+
+  const url = 'https://en.wikipedia.org/w/api.php?action=parse&page=54th_New_Zealand_Parliament&prop=wikitext&format=json';
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Wikipedia API returned HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    parse?: { wikitext?: { '*'?: string } };
+  };
+
+  const wikitext = data.parse?.wikitext?.['*'] ?? '';
+  if (!wikitext) {
+    throw new Error('Wikipedia returned empty wikitext');
+  }
+
+  return parseWikipediaTables(wikitext);
+}
+
+function parseWikipediaTables(wikitext: string): NZMP[] {
+  const mps: NZMP[] = [];
+  let idx = 0;
+
+  // Find General Electorates table
+  const generalIdx = wikitext.indexOf('General electorates===');
+  // Māori heading may use macron: "===Māori electorates===" or "=== Māori electorates ==="
+  let maoriIdx = wikitext.indexOf('ori electorates===');
+  // Make sure we find the heading, not body text — search for === prefix
+  const maoriHeadingPattern = /===\s*M[aā]ori electorates\s*===/i;
+  const maoriMatch = maoriHeadingPattern.exec(wikitext);
+  if (maoriMatch) {
+    maoriIdx = maoriMatch.index;
+  }
+
+  if (generalIdx > 0) {
+    // Find the table between General electorates and Maori electorates
+    const tableEnd = maoriIdx > generalIdx ? maoriIdx : wikitext.indexOf('|}', generalIdx);
+    const generalTable = wikitext.substring(generalIdx, tableEnd > generalIdx ? tableEnd : generalIdx + 10000);
+
+    // Parse rows: each row starts with |- and contains cells starting with |
+    const rows = generalTable.split(/\|-\s*\n/);
+    for (const row of rows) {
+      const mp = parseWikiRow(row, 'general', idx);
+      if (mp) {
+        mps.push(mp);
+        idx++;
+      }
+    }
+  }
+
+  if (maoriIdx > 0) {
+    // Find end of Maori table
+    const tableEnd = wikitext.indexOf('|}', maoriIdx);
+    const maoriTable = wikitext.substring(maoriIdx, tableEnd > maoriIdx ? tableEnd : maoriIdx + 5000);
+
+    const rows = maoriTable.split(/\|-\s*\n/);
+    for (const row of rows) {
+      const mp = parseWikiRow(row, 'maori', idx);
+      if (mp) {
+        mps.push(mp);
+        idx++;
+      }
+    }
+  }
+
+  // Also parse the Members section for list MPs
+  const membersIdx = wikitext.indexOf('=== Members ===');
+  if (membersIdx < 0) {
+    // Try alternate heading
+    const altIdx = wikitext.indexOf('===Members===');
+  }
+  // List MPs are harder to extract from Wikipedia — they're typically not in electorate tables
+  // We'll note them as missing in the output
+
+  return mps;
+}
+
+function parseWikiRow(row: string, type: 'general' | 'maori', idx: number): NZMP | null {
+  // Each row has cells like:
+  // |{{NZ electorate link|Auckland Central}}
+  // |{{Sort|2|[[Auckland Region|Auckland]]}}
+  // |{{sortname|Chlöe|Swarbrick}}
+  // |{{Party name with color|Green Party of Aotearoa New Zealand}}
+
+  const cells = row.split(/\n\|/).map(c => c.replace(/^\|/, '').trim()).filter(c => c.length > 0);
+  if (cells.length < 3) return null;
+
+  // Extract electorate name from wiki markup
+  const electorateRaw = cells[0];
+  let electorate = '';
+
+  // Match {{NZ electorate link|Name}} or [[Name (NZ electorate)|Name]] or plain [[Name]]
+  const elecMatch = /(?:NZ electorate link\|([^}]+)\}\})|(?:\[\[([^|\]]+(?:\(New Zealand electorate\))?)\|?([^\]]*)\]\])/.exec(electorateRaw);
+  if (elecMatch) {
+    electorate = (elecMatch[1] || elecMatch[3] || elecMatch[2] || '').trim();
+    // Clean up "(New Zealand electorate)" suffix
+    electorate = electorate.replace(/\s*\(New Zealand electorate\)\s*/, '').trim();
+  }
+  if (!electorate) {
+    // Try extracting from any [[...]] link
+    const linkMatch = /\[\[([^|\]]+?)(?:\s*\(.*?\))?\|?([^\]]*)\]\]/.exec(electorateRaw);
+    if (linkMatch) {
+      electorate = (linkMatch[2] || linkMatch[1]).replace(/\s*\(.*?\)\s*/, '').trim();
+    }
+  }
+  if (!electorate) return null;
+
+  // Extract MP name from {{sortname|First|Last}} or [[Name]]
+  const mpRaw = cells.length > 2 ? cells[2] : '';
+  let firstName = '';
+  let lastName = '';
+
+  const sortnameMatch = /sortname\|([^|}]+)\|([^|}]+)/.exec(mpRaw);
+  if (sortnameMatch) {
+    firstName = sortnameMatch[1].trim();
+    lastName = sortnameMatch[2].trim();
+  } else {
+    const linkMatch = /\[\[([^|\]]+)\|?([^\]]*)\]\]/.exec(mpRaw);
+    if (linkMatch) {
+      const name = (linkMatch[2] || linkMatch[1]).trim();
+      const parts = name.split(' ');
+      firstName = parts[0] || '';
+      lastName = parts.slice(1).join(' ') || '';
+    }
+  }
+  if (!firstName && !lastName) return null;
+
+  const name = `${firstName} ${lastName}`.trim();
+
+  // Extract party — may be in cells[3] or cells[4] depending on table format.
+  // General table: {{Party name with color|Green Party of Aotearoa New Zealand}}
+  // Maori table: {{Party color cell|Te Pāti Māori}} \n |[[Te Pāti Māori|Māori]]
+  // Search across all remaining cells for a party pattern.
+  let party = '';
+  for (let ci = 3; ci < cells.length && !party; ci++) {
+    const cellText = cells[ci];
+    // {{Party name with color|...}} or {{Party color cell|...}}
+    const partyTemplateMatch = /Party (?:name with color|color cell)\|([^}]+)\}\}/.exec(cellText);
+    if (partyTemplateMatch) {
+      party = partyTemplateMatch[1].trim();
+      break;
+    }
+    // [[Party Name|Display]] or [[Party Name]]
+    const linkMatch = /\[\[([^|\]]+)\|?([^\]]*)\]\]/.exec(cellText);
+    if (linkMatch) {
+      const resolved = (linkMatch[2] || linkMatch[1]).trim();
+      // Skip non-party links (e.g., "Independent politician")
+      if (resolved && resolved !== 'Independent politician') {
+        party = resolved;
+        break;
+      } else if (resolved === 'Independent politician' || linkMatch[1].includes('Independent')) {
+        party = 'Independent';
+        break;
+      }
+    }
+    // Plain text "Independent"
+    if (/independent/i.test(cellText) && cellText.length < 30) {
+      party = 'Independent';
+      break;
+    }
+  }
+  if (!party) return null;
+
+  // Simplify party names
+  const partyMap: Record<string, string> = {
+    'New Zealand National Party': 'National',
+    'New Zealand Labour Party': 'Labour',
+    'Green Party of Aotearoa New Zealand': 'Green',
+    'ACT New Zealand': 'ACT',
+    'New Zealand First': 'NZ First',
+    'Te Pāti Māori': 'Te Pāti Māori',
+  };
+  party = partyMap[party] ?? party;
+
+  const parliamentId = `nz-${(lastName || name).toLowerCase().replace(/[^a-z0-9]/g, '-')}-${idx}`;
+
+  return {
+    parliament_id: parliamentId,
+    name,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    party,
+    electorate_name: electorate,
+    electorate_type: type === 'maori' ? 'maori' : (isMaoriElectorate(electorate) ? 'maori' : 'general'),
+    email: null,
+  };
+}
 
 // The CSV resource URL from data.govt.nz
 // Format: Honorific, First Name, Last Name, Electorate, Party, Email
@@ -286,7 +489,7 @@ async function main(): Promise<void> {
 
   const startTime = Date.now();
 
-  // Step 1: Fetch all MPs — try data.govt.nz first, then parliament.nz
+  // Step 1: Fetch all MPs — try data.govt.nz first, then Wikipedia, then parliament.nz
   console.log('Step 1: Fetching MPs...');
   let mps: NZMP[] = [];
 
@@ -295,18 +498,26 @@ async function main(): Promise<void> {
     console.log(`  Fetched ${mps.length} MPs from data.govt.nz CSV`);
   } catch (err) {
     console.warn(`  data.govt.nz failed: ${err instanceof Error ? err.message : String(err)}`);
-    console.log('  Falling back to parliament.nz...');
+    console.log('  Falling back to Wikipedia...');
 
     try {
-      await rateLimitedDelay(1000);
-      mps = await fetchFromParliamentNZ();
-      console.log(`  Fetched ${mps.length} MPs from parliament.nz`);
+      mps = await fetchFromWikipedia();
+      console.log(`  Fetched ${mps.length} MPs from Wikipedia (electorate MPs only, list MPs not included)`);
     } catch (err2) {
-      console.error(`  parliament.nz also failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
-      console.error('');
-      console.error('Both data sources failed. NZ MP ingestion cannot proceed.');
-      console.error('Manual data entry or alternative source required.');
-      process.exit(1);
+      console.warn(`  Wikipedia failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      console.log('  Falling back to parliament.nz...');
+
+      try {
+        await rateLimitedDelay(1000);
+        mps = await fetchFromParliamentNZ();
+        console.log(`  Fetched ${mps.length} MPs from parliament.nz`);
+      } catch (err3) {
+        console.error(`  parliament.nz also failed: ${err3 instanceof Error ? err3.message : String(err3)}`);
+        console.error('');
+        console.error('All data sources failed. NZ MP ingestion cannot proceed.');
+        console.error('Manual data entry or alternative source required.');
+        process.exit(1);
+      }
     }
   }
 

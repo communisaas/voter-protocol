@@ -602,6 +602,117 @@ export abstract class BaseInternationalProvider<
   }
 
   /**
+   * Fetch GeoJSON from ArcGIS FeatureServer with pagination
+   *
+   * ArcGIS servers impose both maxRecordCount limits and response timeouts.
+   * For layers with complex geometry (UK constituencies, AU divisions), a single
+   * query may timeout. This method paginates using resultOffset/resultRecordCount.
+   *
+   * @param baseQueryUrl - Base query URL without pagination params (must include ?where=...&f=geojson)
+   * @param pageSize - Records per page (default 200)
+   * @param expectedCount - Expected total features (for progress logging)
+   * @param geometryPrecision - maxAllowableOffset for geometry simplification (degrees)
+   * @returns Merged GeoJSON FeatureCollection
+   */
+  protected async fetchGeoJSONPaginated(
+    baseQueryUrl: string,
+    pageSize: number = 200,
+    expectedCount?: number,
+    geometryPrecision?: number
+  ): Promise<FeatureCollection> {
+    const allFeatures: FeatureCollection['features'] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    // Add geometry simplification if specified
+    const precisionParam = geometryPrecision != null
+      ? `&maxAllowableOffset=${geometryPrecision}`
+      : '';
+
+    while (hasMore) {
+      const separator = baseQueryUrl.includes('?') ? '&' : '?';
+      const pageUrl = `${baseQueryUrl}${separator}resultOffset=${offset}&resultRecordCount=${pageSize}${precisionParam}`;
+
+      logger.info('Fetching GeoJSON page', {
+        country: this.country,
+        offset,
+        pageSize,
+        fetched: allFeatures.length,
+        expected: expectedCount,
+      });
+
+      // Use longer timeout for paginated requests (90s per page)
+      const pageTimeoutMs = 90000;
+
+      let lastError: Error | null = null;
+      let pageData: FeatureCollection | null = null;
+
+      for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+        try {
+          const response = await fetch(pageUrl, {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+            },
+            signal: AbortSignal.timeout(pageTimeoutMs),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          pageData = (await response.json()) as FeatureCollection;
+
+          if (!pageData.features || !Array.isArray(pageData.features)) {
+            throw new Error('Invalid GeoJSON: missing features array');
+          }
+
+          break; // Success
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          logger.warn('Page fetch attempt failed', {
+            country: this.country,
+            offset,
+            attempt,
+            error: lastError.message,
+          });
+
+          if (attempt < this.retryAttempts) {
+            const delay = Math.pow(2, attempt - 1) * this.retryDelayMs;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      if (!pageData) {
+        throw lastError ?? new Error('Page fetch failed after all retries');
+      }
+
+      allFeatures.push(...pageData.features);
+
+      // ArcGIS signals more data with exceededTransferLimit property
+      const props = (pageData as FeatureCollection & { properties?: { exceededTransferLimit?: boolean } }).properties;
+      const exceededLimit = props?.exceededTransferLimit === true;
+
+      if (pageData.features.length < pageSize && !exceededLimit) {
+        hasMore = false;
+      } else {
+        offset += pageData.features.length;
+      }
+    }
+
+    logger.info('Paginated fetch complete', {
+      country: this.country,
+      totalFeatures: allFeatures.length,
+    });
+
+    return {
+      type: 'FeatureCollection',
+      features: allFeatures,
+    };
+  }
+
+  /**
    * Calculate validation confidence score
    *
    * Factors:

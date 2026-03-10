@@ -128,24 +128,29 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
   readonly license = 'CC-BY-4.0';
 
   private readonly baseUrl =
-    'https://services.arcgis.com/dHnJfFOAL8X99WD7/arcgis/rest/services';
+    'https://geo.abs.gov.au/arcgis/rest/services';
 
   /**
    * Available boundary layers
+   *
+   * Uses ABS (Australian Bureau of Statistics) CED layer which includes state codes.
+   * The aus_digitalatlas 2025 endpoint lacks state fields.
+   * ABS 2024 has 169 records but includes "No usual address" and "Outside Australia"
+   * entries — these are filtered out during normalization (codes >= 900).
    */
   readonly layers = new Map<AustraliaLayerType, LayerConfig<AustraliaLayerType>>([
     [
       'federal',
       {
         type: 'federal',
-        name: 'Federal Electoral Divisions 2021',
-        endpoint: `${this.baseUrl}/Federal_Electoral_Divisions_2021/FeatureServer/0`,
-        expectedCount: 151,
+        name: 'CED (2024) ASGS Ed. 3',
+        endpoint: `${this.baseUrl}/ASGS2024/CED/FeatureServer/0`,
+        expectedCount: 150,
         updateSchedule: 'event-driven',
-        authority: 'electoral-commission',
-        vintage: 2021,
-        lastVerified: '2024-01-15',
-        notes: 'Post-2021 census redistribution',
+        authority: 'national-statistics',
+        vintage: 2024,
+        lastVerified: '2026-03-10',
+        notes: 'ABS ASGS Ed. 3 — includes state codes; filter codes >= 900',
       },
     ],
   ]);
@@ -192,8 +197,11 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
 
     try {
       logger.info('Extracting federal electoral divisions', { country: 'Australia' });
-      const geojson = await this.fetchGeoJSON(
-        `${layer.endpoint}/query?where=1%3D1&outFields=*&f=geojson`
+      // ABS endpoint supports up to 2000 records per query (169 total CED entries).
+      // Use paginated fetch with geometry simplification for reliability.
+      const geojson = await this.fetchGeoJSONPaginated(
+        `${layer.endpoint}/query?where=1%3D1&outFields=*&f=geojson`,
+        200, 169, 0.0001
       );
       const divisions = this.normalizeDivisions(geojson, layer);
       const durationMs = Date.now() - startTime;
@@ -359,18 +367,32 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     return geojson.features
       .filter((f) => {
         // Must have valid polygon geometry
-        return f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon');
+        if (!f.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) {
+          return false;
+        }
+        // Filter out non-electoral entries from ABS dataset
+        // Codes >= 900 are "No usual address", "Migratory", "Outside Australia"
+        const props = f.properties ?? {};
+        const code = Number(props.CED_CODE_2024 ?? props.ced_code_2021 ?? props.e_div_numb ?? 0);
+        const name = String(props.CED_NAME_2024 ?? props.ced_name_2021 ?? props.elect_div ?? '');
+        if (code >= 900 || name.includes('No usual address') || name.includes('Outside Australia') || name.includes('Migratory')) {
+          return false;
+        }
+        return true;
       })
       .map((f) => {
         const props = f.properties ?? {};
 
         // Extract division code and name
-        // AEC uses various property names across years
+        // ABS 2024: CED_CODE_2024, CED_NAME_2024, STATE_CODE_2021, STATE_NAME_2021
+        // ABS 2021: ced_code_2021, ced_name_2021
+        // aus_digitalatlas 2025: elect_div (name), e_div_numb (number)
+        // Legacy: DIV_CODE, DIV_NAME, ELECT_DIV
         const divisionCode = String(
-          props.DIV_CODE ?? props.DIV_ID ?? props.ELECT_DIV ?? props.code ?? ''
+          props.CED_CODE_2024 ?? props.ced_code_2021 ?? props.e_div_numb ?? props.DIV_CODE ?? props.DIV_ID ?? props.ELECT_DIV ?? props.code ?? ''
         );
         const name = String(
-          props.DIV_NAME ?? props.ELECT_DIV_NAME ?? props.name ?? 'Unknown Division'
+          props.CED_NAME_2024 ?? props.ced_name_2021 ?? props.elect_div ?? props.sortname ?? props.DIV_NAME ?? props.ELECT_DIV_NAME ?? props.name ?? 'Unknown Division'
         );
 
         // Extract state code from division code or properties
@@ -406,9 +428,28 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
    * Otherwise, extract from STATE or STATE_NAME property
    */
   private extractStateCode(divisionCode: string, props: Record<string, unknown>): AustraliaState {
-    // Check for state prefix in division code
-    const statePrefix = divisionCode.substring(0, 3).toUpperCase();
     const validStates: AustraliaState[] = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+
+    // ABS uses numeric state codes: 1=NSW, 2=VIC, 3=QLD, 4=SA, 5=WA, 6=TAS, 7=NT, 8=ACT
+    const absStateCode = Number(props.STATE_CODE_2021 ?? props.state_code_2021 ?? 0);
+    const absStateMap: Record<number, AustraliaState> = {
+      1: 'NSW', 2: 'VIC', 3: 'QLD', 4: 'SA', 5: 'WA', 6: 'TAS', 7: 'NT', 8: 'ACT',
+    };
+    if (absStateMap[absStateCode]) {
+      return absStateMap[absStateCode];
+    }
+
+    // ABS CED codes: first digit = state (1xx=NSW, 2xx=VIC, etc.)
+    const codeNum = parseInt(divisionCode, 10);
+    if (!isNaN(codeNum) && codeNum >= 100 && codeNum < 900) {
+      const stateDigit = Math.floor(codeNum / 100);
+      if (absStateMap[stateDigit]) {
+        return absStateMap[stateDigit];
+      }
+    }
+
+    // Check for state prefix in division code (3-letter)
+    const statePrefix = divisionCode.substring(0, 3).toUpperCase();
     if (validStates.includes(statePrefix as AustraliaState)) {
       return statePrefix as AustraliaState;
     }
@@ -420,7 +461,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     }
 
     // Map state names to codes
-    const stateName = String(props.STATE_NAME ?? '').toUpperCase();
+    const stateName = String(props.STATE_NAME_2021 ?? props.state_name_2021 ?? props.STATE_NAME ?? '').toUpperCase();
     const stateNameMap: Record<string, AustraliaState> = {
       'NEW SOUTH WALES': 'NSW',
       VICTORIA: 'VIC',
@@ -432,6 +473,13 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       'AUSTRALIAN CAPITAL TERRITORY': 'ACT',
     };
 
-    return stateNameMap[stateName] ?? 'NSW'; // Default fallback
+    const mapped = stateNameMap[stateName];
+    if (!mapped) {
+      logger.warn('Could not determine state for AU division, defaulting to NSW', {
+        cedCode: String(props.CED_CODE_2024 ?? props.CED_CODE ?? ''),
+        stateName: stateName || '(empty)',
+      });
+    }
+    return mapped ?? 'NSW';
   }
 }
