@@ -1139,6 +1139,9 @@ export class ShadowAtlasAPI {
                 this.officialsService.getCanadianMP(parsed.ridingCode);
               officials = toCanadaOfficialsResponse(caResult, cached);
               break;
+            } else if (parsed?.country === 'GB' || parsed?.country === 'AU' || parsed?.country === 'NZ') {
+              officials = { officials: [], district_code: d.id, dataStatus: 'pending' as const, source: 'not-yet-available' as const, cached: false };
+              break;
             }
           }
         } catch (err) {
@@ -1284,6 +1287,9 @@ export class ShadowAtlasAPI {
               const { result: caResult, cached } =
                 this.officialsService.getCanadianMP(parsed.ridingCode);
               officials = toCanadaOfficialsResponse(caResult, cached);
+              break;
+            } else if (parsed?.country === 'GB' || parsed?.country === 'AU' || parsed?.country === 'NZ') {
+              officials = { officials: [], district_code: d.id, dataStatus: 'pending' as const, source: 'not-yet-available' as const, cached: false };
               break;
             }
           }
@@ -1469,7 +1475,7 @@ export class ShadowAtlasAPI {
     }
 
     // Special Districts: {type}-{SSNNNNN} (fire, water, transit, library, hospital, utility, park)
-    const specialMatch = districtId.match(/^(fire|water|transit|library|hospital|utility|park)-(\d{2})(.+)$/);
+    const specialMatch = districtId.match(/^(fire|water|transit|library|hospital|utility|park)-(\d{2})(\d{3,5})$/);
     if (specialMatch) {
       const typeMap: Record<string, 'fire-district' | 'water-district' | 'transit-district' | 'library-district' | 'hospital-district' | 'utility-district' | 'park-district'> = {
         fire: 'fire-district',
@@ -1513,7 +1519,7 @@ export class ShadowAtlasAPI {
     }
 
     // Australian Federal Division: au-fed-{DIVISION_CODE}
-    const auMatch = districtId.match(/^au-fed-(.+)$/);
+    const auMatch = districtId.match(/^au-fed-([A-Za-z0-9]{2,20})$/);
     if (auMatch) {
       return {
         country: 'AU',
@@ -1523,7 +1529,7 @@ export class ShadowAtlasAPI {
     }
 
     // NZ General Electorate: nz-gen-{CODE}
-    const nzGenMatch = districtId.match(/^nz-gen-(.+)$/);
+    const nzGenMatch = districtId.match(/^nz-gen-([A-Za-z0-9]{1,20})$/);
     if (nzGenMatch) {
       return {
         country: 'NZ',
@@ -1533,7 +1539,7 @@ export class ShadowAtlasAPI {
     }
 
     // NZ Maori Electorate: nz-maori-{CODE}
-    const nzMaoriMatch = districtId.match(/^nz-maori-(.+)$/);
+    const nzMaoriMatch = districtId.match(/^nz-maori-([A-Za-z0-9]{1,20})$/);
     if (nzMaoriMatch) {
       return {
         country: 'NZ',
