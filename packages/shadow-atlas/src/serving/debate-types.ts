@@ -10,7 +10,7 @@
  *   EpochExecuted(bytes32 indexed debateId, uint256 indexed epoch, uint256 tradesApplied)
  *   DebateResolved(bytes32 indexed debateId, uint256 winningArgumentIndex, uint8 winningStance, uint256 winningScore, uint256 uniqueParticipants, uint256 jurisdictionSizeHint)
  *   DebateProposed(bytes32 indexed debateId, bytes32 indexed actionDomain, bytes32 propositionHash, uint256 deadline, bytes32 baseDomain)
- *   ArgumentSubmitted(bytes32 indexed debateId, uint256 indexed argumentIndex, uint8 stance, bytes32 bodyHash, uint8 engagementTier, uint256 weight)
+ *   ArgumentSubmitted(bytes32 indexed debateId, uint256 indexed argumentIndex, uint8 stance, bytes32 bodyHash, uint8 engagementTier, uint256 weight, bytes32 nullifier)
  *   SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout, address indexed recipient)
  *   AIEvaluationSubmitted(bytes32 indexed debateId, uint256 signatureCount, uint256 nonce)
  *   DebateResolvedWithAI(bytes32 indexed debateId, uint256 winningArgumentIndex, uint256 aiScore, uint256 communityScore, uint256 finalScore, uint8 resolutionMethod)
@@ -84,6 +84,7 @@ export interface ArgumentSubmittedEvent extends DebateMarketEvent {
   bodyHash: string;
   engagementTier: number;
   weight: string;
+  nullifier: string;
 }
 
 export interface SettlementClaimedEvent extends DebateMarketEvent {

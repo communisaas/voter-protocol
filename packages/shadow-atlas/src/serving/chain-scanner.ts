@@ -58,7 +58,7 @@ const DEBATE_PROPOSED_TOPIC = eventTopic(
   'DebateProposed(bytes32,bytes32,bytes32,uint256,bytes32)',
 );
 const ARGUMENT_SUBMITTED_TOPIC = eventTopic(
-  'ArgumentSubmitted(bytes32,uint256,uint8,bytes32,uint8,uint256)',
+  'ArgumentSubmitted(bytes32,uint256,uint8,bytes32,uint8,uint256,bytes32)',
 );
 const SETTLEMENT_CLAIMED_TOPIC = eventTopic(
   'SettlementClaimed(bytes32,bytes32,uint256,address)',
@@ -487,9 +487,9 @@ export class ChainScanner {
    *   topics[0] = event sig, topics[1] = debateId, topics[2] = actionDomain
    *   data = abi.encode(propositionHash, deadline, baseDomain) = 3 words
    *
-   * ArgumentSubmitted(bytes32 indexed debateId, uint256 indexed argumentIndex, uint8 stance, bytes32 bodyHash, uint8 engagementTier, uint256 weight)
+   * ArgumentSubmitted(bytes32 indexed debateId, uint256 indexed argumentIndex, uint8 stance, bytes32 bodyHash, uint8 engagementTier, uint256 weight, bytes32 nullifier)
    *   topics[0] = event sig, topics[1] = debateId, topics[2] = argumentIndex
-   *   data = abi.encode(stance, bodyHash, engagementTier, weight) = 4 words
+   *   data = abi.encode(stance, bodyHash, engagementTier, weight, nullifier) = 5 words
    *
    * SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout)
    *   topics[0] = event sig, topics[1] = debateId
@@ -654,9 +654,9 @@ export class ChainScanner {
 
     if (topic0Lower === ARGUMENT_SUBMITTED_TOPIC) {
       // topics[1] = debateId (already extracted), topics[2] = argumentIndex (indexed)
-      // data = [stance, bodyHash, engagementTier, weight] = 4 words
+      // data = [stance, bodyHash, engagementTier, weight, nullifier] = 5 words
       const argumentIndexTopic = log.topics[2];
-      if (!argumentIndexTopic || data.length < 4 * WORD) return null;
+      if (!argumentIndexTopic || data.length < 5 * WORD) return null;
       const argumentIndex = parseInt(argumentIndexTopic, 16);
       const stanceRaw = parseInt(data.slice(0, WORD), 16);
       const stanceMap = ['SUPPORT', 'OPPOSE', 'AMEND'] as const;
@@ -664,7 +664,8 @@ export class ChainScanner {
       const bodyHash = '0x' + data.slice(WORD, 2 * WORD);
       const engagementTier = parseInt(data.slice(2 * WORD, 3 * WORD), 16);
       const weight = BigInt('0x' + data.slice(3 * WORD, 4 * WORD)).toString();
-      return { ...base, type: 'ArgumentSubmitted', argumentIndex, stance, bodyHash, engagementTier, weight };
+      const nullifier = '0x' + data.slice(4 * WORD, 5 * WORD);
+      return { ...base, type: 'ArgumentSubmitted', argumentIndex, stance, bodyHash, engagementTier, weight, nullifier };
     }
 
     if (topic0Lower === SETTLEMENT_CLAIMED_TOPIC) {
