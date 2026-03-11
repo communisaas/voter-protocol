@@ -60,7 +60,8 @@ contract DebateMarketTest is Test {
         DebateMarket.Stance stance,
         bytes32 bodyHash,
         uint8 engagementTier,
-        uint256 weight
+        uint256 weight,
+        bytes32 nullifier
     );
 
     event CoSignSubmitted(
@@ -2412,7 +2413,7 @@ contract DebateMarketTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit ArgumentSubmitted(
-            debateId, 0, DebateMarket.Stance.SUPPORT, keccak256("arg"), 2, expectedWeight
+            debateId, 0, DebateMarket.Stance.SUPPORT, keccak256("arg"), 2, expectedWeight, NULLIFIER_1
         );
 
         vm.prank(arguer1);

@@ -326,7 +326,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		Stance stance,
 		bytes32 bodyHash,
 		uint8 engagementTier,
-		uint256 weight
+		uint256 weight,
+		bytes32 nullifier
 	);
 
 	event CoSignSubmitted(
@@ -663,12 +664,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		// Delegate all validation, proof verification, and storage writes to internal helper.
 		// Splitting here keeps mpos temporaries from publicInputs (calldata array) and
 		// Debate storage slot accesses in separate Yul frames, avoiding stack-too-deep (via_ir).
-		(uint256 argumentIndex, uint256 weight, uint8 engagementTier) = _submitArgumentCore(
+		(uint256 argumentIndex, uint256 weight, uint8 engagementTier, bytes32 nullifier) = _submitArgumentCore(
 			debateId, stance, bodyHash, amendmentHash, netStake,
 			signer, proof, publicInputs, verifierDepth, deadline, signature, beneficiary
 		);
 
-		emit ArgumentSubmitted(debateId, argumentIndex, stance, bodyHash, engagementTier, weight);
+		emit ArgumentSubmitted(debateId, argumentIndex, stance, bodyHash, engagementTier, weight, nullifier);
 	}
 
 	/// @notice Co-sign an existing argument in a debate
@@ -1674,6 +1675,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @return argumentIndex  Index of the newly created argument
 	/// @return weight         sqrt(stakeAmount) * tierMultiplier(engagementTier)
 	/// @return engagementTier Engagement tier extracted from public inputs (for event emit)
+	/// @return nullifier      Nullifier from publicInputs[26] (for event emit + audit trail)
 	function _submitArgumentCore(
 		bytes32 debateId,
 		Stance stance,
@@ -1687,7 +1689,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 deadline,
 		bytes calldata signature,
 		address beneficiary
-	) internal returns (uint256 argumentIndex, uint256 weight, uint8 engagementTier) {
+	) internal returns (uint256 argumentIndex, uint256 weight, uint8 engagementTier, bytes32 nullifier) {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
@@ -1706,7 +1708,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		engagementTier = uint8(engagementTierRaw);
 		if (tierMultiplier(engagementTier) == 0) revert InvalidEngagementTier();
 
-		bytes32 nullifier = bytes32(publicInputs[26]);
+		nullifier = bytes32(publicInputs[26]);
 		argumentIndex = debate.argumentCount;
 
 		weight = _writeArgumentAndStake(
