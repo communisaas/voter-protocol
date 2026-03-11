@@ -71,8 +71,10 @@ export interface ModelConfig {
 	modelName: string;
 	apiKey: string;
 	baseUrl?: string;
-	/** EIP-712 signing key for this model's attestations */
+	/** EIP-712 signing key for this model's attestations (ephemeral mode) */
 	signerPrivateKey: string;
+	/** Optional AttestationSigner instance (KMS mode). When set, takes precedence over signerPrivateKey. */
+	signer?: import('../attestation/types.js').AttestationSigner;
 }
 
 /** Interface that all model providers implement */

@@ -69,11 +69,12 @@ export async function submitAndResolve(
 		deadline: signatureDeadline,
 	};
 
-	// Collect signatures from all model signers
+	// Collect signatures from all model signers.
+	// Use AttestationSigner if available (KMS mode), otherwise fall back to raw key.
 	const signatures: string[] = [];
 	for (const config of modelConfigs) {
 		const sig = await signEvaluation(
-			config.signerPrivateKey,
+			config.signer ?? config.signerPrivateKey,
 			domain,
 			message,
 		);

@@ -10,6 +10,8 @@ import { ethers } from 'ethers';
 import type { DimensionScores } from '../models/types.js';
 import type { EIP712Domain, AIEvaluationMessage } from './eip712.js';
 import { computeDomainSeparator, computeDigest } from './eip712.js';
+import type { AttestationSigner } from './types.js';
+import { EphemeralSigner } from './ephemeral-signer.js';
 
 /**
  * Pack 5 dimension scores (each 0-10000) into a single uint256.
@@ -46,25 +48,28 @@ export function unpackScores(packed: bigint): DimensionScores {
 }
 
 /**
- * Sign an AI evaluation using a model's private key.
+ * Sign an AI evaluation using an AttestationSigner.
  *
- * @param privateKey Hex-encoded private key for this model's signer
+ * Accepts either an AttestationSigner instance (KMS, ephemeral) or a raw
+ * private key string for backward compatibility.
+ *
+ * @param signerOrKey AttestationSigner instance or hex-encoded private key
  * @param domain EIP-712 domain parameters (must match deployed contract)
  * @param message The evaluation message to sign
  * @returns 65-byte signature as hex string
  */
 export async function signEvaluation(
-	privateKey: string,
+	signerOrKey: AttestationSigner | string,
 	domain: EIP712Domain,
 	message: AIEvaluationMessage,
 ): Promise<string> {
-	const wallet = new ethers.Wallet(privateKey);
+	const signer: AttestationSigner =
+		typeof signerOrKey === 'string' ? new EphemeralSigner(signerOrKey) : signerOrKey;
+
 	const domainSeparator = computeDomainSeparator(domain);
 	const digest = computeDigest(domainSeparator, message);
 
-	// ethers SigningKey.sign returns { r, s, v } — we pack into 65 bytes
-	const sig = wallet.signingKey.sign(digest);
-	return ethers.Signature.from(sig).serialized;
+	return signer.sign(digest);
 }
 
 /**

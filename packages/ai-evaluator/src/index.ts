@@ -46,6 +46,10 @@ export { packScores, unpackScores, signEvaluation, recoverSigner } from './attes
 export { computeDomainSeparator, computeStructHash, computeDigest, AI_EVALUATION_TYPEHASH } from './attestation/eip712.js';
 export type { EIP712Domain, AIEvaluationMessage } from './attestation/eip712.js';
 export { submitAndResolve } from './attestation/submitter.js';
+export type { AttestationSigner } from './attestation/types.js';
+export { EphemeralSigner } from './attestation/ephemeral-signer.js';
+export { KMSSigner } from './attestation/kms-signer.js';
+export type { KMSSignerConfig } from './attestation/kms-signer.js';
 
 // Config
 export { loadModelConfigs, loadEIP712Domain, createProviders, MODEL_PANEL, OPENROUTER_MODEL_MAP } from './config.js';
