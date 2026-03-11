@@ -125,6 +125,10 @@ contract DebateMarketTest is Test {
         // Set resolution extension to minimum for test efficiency (R2-F01 grace period)
         vm.prank(governance);
         market.setResolutionExtension(TEST_RESOLUTION_EXTENSION);
+
+        // Set minParticipants to 1 so existing tests (1-2 arguers) still resolve
+        vm.prank(governance);
+        market.setMinParticipants(1);
     }
 
     /// @dev Warp past both debate deadline and AI resolution grace period, then resolve
@@ -294,7 +298,7 @@ contract DebateMarketTest is Test {
         vm.warp(block.timestamp + STANDARD_DURATION);
 
         vm.prank(arguer1);
-        vm.expectRevert(DebateMarket.DebateExpired.selector);
+        vm.expectRevert(DebateMarket.ArgumentWindowClosed.selector);
         market.submitArgument(
             debateId, DebateMarket.Stance.SUPPORT, keccak256("late arg"), bytes32(0),
             STANDARD_STAKE, arguer1, DUMMY_PROOF,
@@ -417,7 +421,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBodyHash, keccak256("stronger"));
     }
 
@@ -447,7 +451,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBodyHash,,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBodyHash, keccak256("first"));
     }
 
@@ -471,7 +475,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,,,,, bytes32 storedAmendment,,,,,,,,, ) = market.debates(debateId);
+        (,,,,,,,,,, bytes32 storedAmendment,,,,,,,,,, ) = market.debates(debateId);
         assertEq(storedAmendment, amendmentHash);
     }
 
@@ -1081,7 +1085,7 @@ contract DebateMarketTest is Test {
         );
         vm.warp(block.timestamp + STANDARD_DURATION);
         vm.prank(arguer2);
-        vm.expectRevert(DebateMarket.DebateExpired.selector);
+        vm.expectRevert(DebateMarket.ArgumentWindowClosed.selector);
         market.coSignArgument(
             debateId, 0, STANDARD_STAKE, arguer2, DUMMY_PROOF,
             _makePublicInputs(NULLIFIER_2, expectedDebateDomain(), 3),
@@ -1268,7 +1272,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,, uint256 totalStake,,,,,,,,,,,,,) = market.debates(debateId);
+        (,,,,,, uint256 totalStake,,,,,,,,,,,,,,) = market.debates(debateId);
 
         uint256 contractBalBefore = token.balanceOf(address(market));
 
@@ -1646,7 +1650,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,,) = market.debates(debateId);
 
         uint256 netStake1 = stake1 - (stake1 * 200 / 10_000);
         uint256 netStake2 = stake2 - (stake2 * 200 / 10_000);
@@ -1827,7 +1831,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,,,, bytes32 winningBody,,,,,,,,,, ) = market.debates(debateId);
+        (,,,,,,,,, bytes32 winningBody,,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningBody, keccak256("s2"), "Highest-scoring SUPPORT argument wins");
 
         vm.prank(arguer1);
@@ -2067,7 +2071,7 @@ contract DebateMarketTest is Test {
 
         market.resolveDebate(debateId);
 
-        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winningIdx,,,,,,,,,,,,,) = market.debates(debateId);
 
         if (winningIdx == 0) {
             vm.prank(arguer1);
@@ -2133,7 +2137,7 @@ contract DebateMarketTest is Test {
 
         market.resolveDebate(debateId);
 
-        (,,,,,,, uint256 winIdx,,,,,,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winIdx,,,,,,,,,,,,,) = market.debates(debateId);
 
         if (winIdx == 0) {
             vm.prank(arguer1);
@@ -2197,7 +2201,7 @@ contract DebateMarketTest is Test {
 
         _warpAndResolve(debateId);
 
-        (,,,,,,, uint256 winIdx,,,,,,,,,,,,) = market.debates(debateId);
+        (,,,,,,, uint256 winIdx,,,,,,,,,,,,,) = market.debates(debateId);
         assertEq(winIdx, 0, "Co-signed argument must win");
 
         uint256 contractBalBefore = token.balanceOf(address(market));
@@ -2287,7 +2291,7 @@ contract DebateMarketTest is Test {
             PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
         );
 
-        (, bytes32 storedActionDomain,,,,,,,,,,,,,,,,,,) = market.debates(debateId);
+        (, bytes32 storedActionDomain,,,,,,,,,,,,,,,,,,,) = market.debates(debateId);
 
         assertEq(storedActionDomain, derivedDomain, "Stored actionDomain must equal derived domain");
         assertTrue(storedActionDomain != ACTION_DOMAIN, "Stored actionDomain must differ from base domain");

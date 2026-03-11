@@ -131,6 +131,8 @@ contract DebateMarketPositionPrivacyTest is Test {
         // Set resolution extension to minimum for test efficiency (R2-F01 grace period)
         vm.prank(governance);
         market.setResolutionExtension(1 days);
+        vm.prank(governance);
+        market.setMinParticipants(1);
     }
 
     // ============================================================================
@@ -219,6 +221,8 @@ contract DebateMarketPositionPrivacyTest is Test {
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
         vm.prank(governance);
         rejectMarket.setResolutionExtension(1 days);
+        vm.prank(governance);
+        rejectMarket.setMinParticipants(1);
 
         address[3] memory users = [proposer, arguer1, trader1];
         for (uint256 i = 0; i < users.length; i++) {
@@ -314,7 +318,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         market.resolveDebate(debateId);
 
         // Verify arguer1 won (score 25296 > 20000)
-        (,,,,,,, uint256 winningArgIndex,,,,,,,,,,,, ) = market.debates(debateId);
+        (,,,,,,, uint256 winningArgIndex,,,,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningArgIndex, 0, "Argument 0 (arguer1) should have won");
 
         // UPDATE POSITION ROOT — governance sets the root after shadow-atlas builds the tree
@@ -614,6 +618,8 @@ contract DebateMarketPositionPrivacyTest is Test {
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
         vm.prank(governance);
         rejectMarket.setResolutionExtension(1 days);
+        vm.prank(governance);
+        rejectMarket.setMinParticipants(1);
 
         address[2] memory users2 = [proposer, arguer1];
         for (uint256 i = 0; i < users2.length; i++) {

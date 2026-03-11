@@ -64,7 +64,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		RESOLVED,
 		RESOLVING,
 		AWAITING_GOVERNANCE,
-		UNDER_APPEAL
+		UNDER_APPEAL,
+		CANCELLED
 	}
 
 	enum TradeDirection {
@@ -108,6 +109,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 appealDeadline;
 		bytes32 governanceJustification;
 		uint8 resolutionMethod; // 0=unresolved, 1=ai_community, 2=governance_override
+		// Engagement-aware resolution (V10)
+		uint256 participationDeadline; // block.timestamp + duration/3, set in proposeDebate
 	}
 
 	struct Argument {
@@ -172,6 +175,14 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Emergency withdrawal delay after debate deadline
 	uint256 public constant EMERGENCY_WITHDRAW_DELAY = 30 days;
+
+	/// @notice Cooldown before deadline during which arguments cannot be submitted (anti-snipe)
+	/// @dev LMSR trades remain open until true deadline. Prevents uncounterable last-second arguments.
+	uint256 public constant ARGUMENT_COOLDOWN = 1 hours;
+
+	/// @notice Minimum unique participants required to proceed to resolution
+	/// @dev Governance-tunable via setMinParticipants(). Debates below this threshold are cancellable.
+	uint256 public minParticipants = 3;
 
 	/// @notice BN254 scalar field modulus for action domain field compatibility
 	/// @dev Action domains must be valid BN254 field elements for the ZK circuit.
@@ -420,6 +431,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	event GovernanceResolutionSubmitted(bytes32 indexed debateId, uint256 winningIndex, bytes32 justification);
 	event ResolutionAppealed(bytes32 indexed debateId, address indexed appealer, uint256 bond);
 	event AppealFinalized(bytes32 indexed debateId, bool upheld);
+	event DebateCancelled(bytes32 indexed debateId, uint256 actualParticipants, uint256 requiredParticipants);
+	event MinParticipantsUpdated(uint256 oldValue, uint256 newValue);
 
 	// ============================================================================
 	// Errors
@@ -489,6 +502,11 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	error EpochDurationOutOfRange();
 	error ResolutionExtensionOutOfRange();
 	error BaseLiquidityMustBePositive();
+	// Engagement-aware resolution errors (V10)
+	error ParticipationWindowOpen();
+	error ParticipationThresholdMet();
+	error ArgumentWindowClosed();
+	error MinParticipantsOutOfRange();
 
 	// ============================================================================
 	// Constructor
@@ -606,6 +624,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		debate.propositionHash = propositionHash;
 		debate.actionDomain = debateActionDomain;
 		debate.deadline = block.timestamp + duration;
+		debate.participationDeadline = block.timestamp + duration / 3;
 		debate.jurisdictionSizeHint = jurisdictionSizeHint;
 		debate.status = DebateStatus.ACTIVE;
 		debate.proposer = msg.sender;
@@ -725,6 +744,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
 		if (block.timestamp < debate.deadline + resolutionExtension) revert DebateStillActive();
 		if (debate.argumentCount == 0) revert NoArgumentsSubmitted();
+		if (debate.uniqueParticipants < minParticipants) revert InsufficientParticipation();
 
 		uint256 bestIndex = 0;
 		uint256 bestScore = 0;
@@ -847,6 +867,35 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		emit ProposerBondForfeited(debateId, debate.proposerBond);
 	}
 
+	/// @notice Cancel an under-participated debate and return proposer bond
+	/// @dev Callable by anyone after the participation deadline if uniqueParticipants < minParticipants.
+	///      Stakers can immediately withdraw via emergencyWithdraw (no 30-day wait for CANCELLED).
+	/// @param debateId Debate to cancel
+	function cancelUnderparticipated(bytes32 debateId) external whenNotPaused nonReentrant {
+		Debate storage debate = debates[debateId];
+		if (debate.deadline == 0) revert DebateNotFound();
+		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
+		if (block.timestamp < debate.participationDeadline) revert ParticipationWindowOpen();
+		if (debate.uniqueParticipants >= minParticipants) revert ParticipationThresholdMet();
+
+		debate.status = DebateStatus.CANCELLED;
+		debate.bondClaimed = true;
+		_send(debate.proposer, debate.proposerBond);
+
+		emit DebateCancelled(debateId, debate.uniqueParticipants, minParticipants);
+	}
+
+	/// @notice Check whether a debate is eligible for cancellation
+	/// @param debateId Debate to check
+	/// @return cancellable True if cancelUnderparticipated would succeed
+	function isCancellable(bytes32 debateId) external view returns (bool cancellable) {
+		Debate storage debate = debates[debateId];
+		cancellable = debate.deadline != 0
+			&& debate.status == DebateStatus.ACTIVE
+			&& block.timestamp >= debate.participationDeadline
+			&& debate.uniqueParticipants < minParticipants;
+	}
+
 	/// @notice Emergency withdrawal when contract is paused for extended period
 	/// @dev Available 30 days after debate deadline for unresolved debates only.
 	///      Returns original stake only (no profit). Not gated by whenNotPaused
@@ -857,8 +906,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	function emergencyWithdraw(bytes32 debateId, bytes32 nullifier) external nonReentrant {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
-		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
-		if (block.timestamp < debate.deadline + EMERGENCY_WITHDRAW_DELAY) revert DebateStillActive();
+		if (debate.status != DebateStatus.ACTIVE && debate.status != DebateStatus.CANCELLED) revert DebateNotActive();
+		if (debate.status == DebateStatus.CANCELLED) {
+			// Cancelled debates: immediate withdrawal (no 30-day wait)
+		} else {
+			if (block.timestamp < debate.deadline + EMERGENCY_WITHDRAW_DELAY) revert DebateStillActive();
+		}
 
 		StakeRecord storage record = stakeRecords[debateId][nullifier];
 		if (record.stakeAmount == 0) revert StakeRecordNotFound();
@@ -1272,6 +1325,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.RESOLVING) revert DebateNotResolving();
+		if (debate.uniqueParticipants < minParticipants) revert InsufficientParticipation();
 
 		uint256 alpha = aiRegistry.aiWeight();
 		uint256 argCount = debate.argumentCount;
@@ -1438,6 +1492,15 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 old = resolutionExtension;
 		resolutionExtension = newDuration;
 		emit ResolutionExtensionUpdated(old, newDuration);
+	}
+
+	/// @notice Set minimum unique participants required for resolution (governance only)
+	/// @param newMin New minimum (must be >= 1, <= BOND_RETURN_THRESHOLD)
+	function setMinParticipants(uint256 newMin) external onlyGovernance {
+		if (newMin == 0 || newMin > BOND_RETURN_THRESHOLD) revert MinParticipantsOutOfRange();
+		uint256 old = minParticipants;
+		minParticipants = newMin;
+		emit MinParticipantsUpdated(old, newMin);
 	}
 
 	/// @notice Sweep accumulated protocol fees to a destination address (governance only)
@@ -1693,7 +1756,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
-		if (block.timestamp >= debate.deadline) revert DebateExpired();
+		if (block.timestamp >= debate.deadline - ARGUMENT_COOLDOWN) revert ArgumentWindowClosed();
 		if (debate.argumentCount >= MAX_ARGUMENTS) revert TooManyArguments();
 
 		// Verify three-tree proof (handles nullifier recording, authority check, etc.)
@@ -1740,7 +1803,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.ACTIVE) revert DebateNotActive();
-		if (block.timestamp >= debate.deadline) revert DebateExpired();
+		if (block.timestamp >= debate.deadline - ARGUMENT_COOLDOWN) revert ArgumentWindowClosed();
 		if (argumentIndex >= debate.argumentCount) revert ArgumentNotFound();
 
 		// Verify three-tree proof

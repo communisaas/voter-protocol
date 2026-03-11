@@ -128,6 +128,8 @@ contract DebateMarketAIResolutionTest is Test {
 		// Set resolution extension to minimum for test efficiency (R2-F01 grace period)
 		vm.prank(governance);
 		market.setResolutionExtension(1 days);
+		vm.prank(governance);
+		market.setMinParticipants(1);
 	}
 
 	// ============================================================================
@@ -235,7 +237,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		// Verify state
 		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,
-		 bool aiSubmitted,,,,) = market.debates(debateId);
+		 bool aiSubmitted,,,,,) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.RESOLVING));
 		assertTrue(aiSubmitted);
 		assertEq(market.aiSignatureCount(debateId), 5);
@@ -423,7 +425,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		(,,,,,,, uint256 winIdx,,,,
 		 DebateMarket.DebateStatus status,,,,
-		 ,,,,uint8 method) = market.debates(debateId);
+		 ,,,,uint8 method,) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.RESOLVED));
 		assertEq(method, 1); // ai_community
 		// arg0 should win: highest AI + decent community (2e6 stake, tier 3)
@@ -452,7 +454,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		// Community scores: arg0 has highest weighted score from setUp
 		// With α=0.1, community should dominate
-		(,,,,,,, uint256 winIdx,,,,,,,,,,,, ) = market.debates(debateId);
+		(,,,,,,, uint256 winIdx,,,,,,,,,,,,, ) = market.debates(debateId);
 		// arg0: community is highest (arguer1 tier 3, stake 2e6 → weight = sqrt(1_960_000)*8)
 		assertEq(winIdx, 0);
 	}
@@ -477,7 +479,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		market.resolveDebateWithAI(debateId);
 
-		(,,,,,,, uint256 winIdx,,,,,,,,,,,, ) = market.debates(debateId);
+		(,,,,,,, uint256 winIdx,,,,,,,,,,,,, ) = market.debates(debateId);
 		// At 70% AI weight, perfect AI score on arg1 should flip the community leader
 		assertEq(winIdx, 1);
 	}
@@ -502,7 +504,7 @@ contract DebateMarketAIResolutionTest is Test {
 		market.resolveDebateWithAI(debateId);
 
 		// Tie goes to lower index (first-mover)
-		(,,,,,,, uint256 winIdx,,,,,,,,,,,, ) = market.debates(debateId);
+		(,,,,,,, uint256 winIdx,,,,,,,,,,,,, ) = market.debates(debateId);
 		assertEq(winIdx, 0);
 	}
 
@@ -546,7 +548,7 @@ contract DebateMarketAIResolutionTest is Test {
 		market.escalateToGovernance(debateId);
 
 		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,
-		 , uint256 resDl,,,) = market.debates(debateId);
+		 , uint256 resDl,,,,) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.AWAITING_GOVERNANCE));
 		assertEq(resDl, block.timestamp + 1 days);
 	}
@@ -572,7 +574,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		(,,,,,,, uint256 winIdx,,,,
 		 DebateMarket.DebateStatus status,,,,
-		 ,, uint256 appealDl, bytes32 storedJust, uint8 method) = market.debates(debateId);
+		 ,, uint256 appealDl, bytes32 storedJust, uint8 method,) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.UNDER_APPEAL));
 		assertEq(winIdx, 1);
 		assertEq(method, 2); // governance_override
@@ -657,7 +659,7 @@ contract DebateMarketAIResolutionTest is Test {
 
 		market.finalizeAppeal(debateId);
 
-		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,,,,, ) = market.debates(debateId);
+		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,,,,,, ) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.RESOLVED));
 	}
 
@@ -734,7 +736,7 @@ contract DebateMarketAIResolutionTest is Test {
 		// Old path: resolveDebate (pure community signal) still works after grace period
 		market.resolveDebate(debateId);
 
-		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,,,,, ) = market.debates(debateId);
+		(,,,,,,,,,,, DebateMarket.DebateStatus status,,,,,,,,, ) = market.debates(debateId);
 		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.RESOLVED));
 	}
 
