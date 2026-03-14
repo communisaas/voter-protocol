@@ -575,6 +575,54 @@ export class AustraliaCountryProvider extends CountryProvider<
   }
 
   /**
+   * Check if data has changed since last extraction using ArcGIS editingInfo.
+   *
+   * ABS ArcGIS FeatureServer exposes `editingInfo.lastEditDate` (epoch ms)
+   * at the layer level. Compare against lastExtraction date.
+   */
+  async hasChangedSince(lastExtraction: Date): Promise<boolean> {
+    try {
+      const layer = this.layers.get('federal');
+      if (!layer) return true;
+
+      const metadataUrl = `${layer.endpoint}?f=json`;
+      const res = await fetch(metadataUrl, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!res.ok) return true;
+
+      const data = await res.json() as {
+        editingInfo?: { lastEditDate?: number };
+      };
+
+      if (data.editingInfo?.lastEditDate && typeof data.editingInfo.lastEditDate === 'number') {
+        const lastEdit = new Date(data.editingInfo.lastEditDate);
+        logger.debug('AU ArcGIS editingInfo check', {
+          lastEditDate: lastEdit.toISOString(),
+          lastExtraction: lastExtraction.toISOString(),
+          changed: lastEdit > lastExtraction,
+        });
+        return lastEdit > lastExtraction;
+      }
+
+      // editingInfo not available — fall back to HTTP headers
+      return super.hasChangedSince(lastExtraction);
+    } catch (error) {
+      logger.warn('Change detection failed, assuming changed', {
+        country: 'AU',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Conservative fallback
+      return true;
+    }
+  }
+
+  /**
    * Health check for provider availability
    */
   async healthCheck(): Promise<ProviderHealth> {

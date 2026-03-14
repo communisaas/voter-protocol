@@ -415,3 +415,64 @@ export const CA_JURISDICTION: JurisdictionConfig = {
   recommendedDepth: 18,  // 338 ridings + ~56K DAs → fits in 2^18 = 262K
   encodeCellId: encodeCanadaCellId,
 };
+
+// ============================================================================
+// New Zealand Jurisdiction Configuration
+// ============================================================================
+
+/**
+ * Encode a Stats NZ meshblock code as a BN254 field element.
+ *
+ * Meshblock codes are 7-digit numeric strings (e.g., "0100100").
+ * Directly converted to bigint — safe since all codes are well within
+ * BN254 field bounds.
+ */
+function encodeNZCellId(mbCode: string): bigint {
+  const numeric = mbCode.replace(/\D/g, '');
+  if (/^\d+$/.test(numeric)) {
+    return BigInt(numeric);
+  }
+  // Fallback: UTF-8 byte packing
+  const bytes = Buffer.from(mbCode, 'utf-8');
+  if (bytes.length > 31) {
+    throw new Error(`NZ meshblock code too long for field encoding: ${mbCode} (${bytes.length} bytes)`);
+  }
+  let result = 0n;
+  for (const byte of bytes) {
+    result = (result << 8n) | BigInt(byte);
+  }
+  return result;
+}
+
+/**
+ * New Zealand jurisdiction configuration.
+ *
+ * 2 of 24 protocol slots are populated for the initial electoral layer.
+ * Slot 0 = General Electorate, Slot 1 = Maori Electorate (dual coverage).
+ * Slots 2-3 reserved for Regional Council and Territorial Authority.
+ *
+ * Data sources:
+ *   - Stats NZ Datafinder — meshblock-to-electorate concordance CSV
+ *   - Stats NZ ArcGIS — boundary geometries
+ */
+export const NZ_JURISDICTION: JurisdictionConfig = {
+  country: 'NZL',
+  name: 'New Zealand',
+
+  slots: {
+    0: { name: 'General Electorate',        required: true,  category: 'legislative' },
+    1: { name: 'Māori Electorate',           required: false, category: 'legislative' },
+    2: { name: 'Regional Council',           required: false, category: 'administrative' },
+    3: { name: 'Territorial Authority',      required: false, category: 'administrative' },
+  },
+
+  aliases: {
+    'general_electorate': 0, 'general': 0, 'ged': 0,
+    'maori_electorate': 1, 'maori': 1, 'med': 1,
+    'regional_council': 2, 'region': 2, 'rc': 2,
+    'territorial_authority': 3, 'ta': 3, 'district': 3,
+  },
+
+  recommendedDepth: 18,  // ~57K meshblocks → fits in 2^18 = 262K
+  encodeCellId: encodeNZCellId,
+};

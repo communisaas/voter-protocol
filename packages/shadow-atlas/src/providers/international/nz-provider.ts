@@ -783,21 +783,142 @@ export class NZCountryProvider extends CountryProvider<
   }
 
   // ==========================================================================
-  // Cell Map (CountryProvider abstract — Wave 3 stub)
+  // Cell Map (Tree 2 — Meshblock → Electorate)
   // ==========================================================================
 
   /**
-   * Build cell map for Tree 2 (NZ meshblocks).
+   * Stats NZ concordance URL for meshblock-to-electorate lookup.
    *
-   * Stats NZ meshblock integration is Wave 3.
-   * NZ has ~53,000 meshblocks that map to electoral boundaries.
+   * The 2025 Meshblock Higher Geographies table maps each meshblock to
+   * its general electorate (GED2025) and Maori electorate (MED2025).
+   * The file is published on Stats NZ Datafinder under CC-BY-4.0.
    *
-   * @throws Error always (Wave 3 stub)
+   * If the direct download URL changes (Stats NZ periodically reorganizes),
+   * the file can also be found by searching Datafinder for
+   * "meshblock higher geographies 2025".
+   */
+  private readonly concordanceUrl =
+    'https://datafinder.stats.govt.nz/layer/115067-meshblock-higher-geographies-2025-high-def/data/';
+
+  /**
+   * Build cell map for Tree 2 (NZ meshblocks → electorates).
+   *
+   * Loads the Stats NZ meshblock concordance CSV, which maps each of
+   * ~57,500 meshblocks to both a general electorate and a Maori electorate.
+   * Both are encoded into the 24-slot district array:
+   *   - Slot 0: General Electorate code (numeric)
+   *   - Slot 1: Maori Electorate code (numeric, 0n if not assigned)
+   *   - Slots 2-23: 0n (reserved for Regional Council, TA, etc.)
+   *
+   * @param boundaries - NZ electoral boundaries (used for code resolution)
+   * @returns CellMapResult with mappings ready for tree builder
    */
   async buildCellMap(
-    _boundaries: NZElectorate[]
+    boundaries: NZElectorate[]
   ): Promise<CellMapResult> {
-    throw new Error('Meshblock integration pending (Wave 3)');
+    const startTime = Date.now();
+    const { loadConcordance } = await import('../../hydration/concordance-loader.js');
+    const { NZ_JURISDICTION } = await import('../../jurisdiction.js');
+    const { buildCellMapTree } = await import('../../tree-builder.js');
+    const { DISTRICT_SLOT_COUNT } = await import('../../tree-builder.js');
+
+    // Build boundary name → numeric code lookup from boundaries
+    const generalCodeMap = new Map<string, bigint>();
+    const maoriCodeMap = new Map<string, bigint>();
+    for (const b of boundaries) {
+      const numericId = BigInt(b.id);
+      if (b.type === 'general') {
+        generalCodeMap.set(b.name, numericId);
+      } else if (b.type === 'maori') {
+        maoriCodeMap.set(b.name, numericId);
+      }
+    }
+
+    // Load concordance CSV
+    const concordance = await loadConcordance(
+      {
+        url: this.concordanceUrl,
+        unitColumn: 'MB2025_V1_00',
+        boundaryColumn: 'GED2025_V1_00',
+        secondaryBoundaryColumn: 'MED2025_V1_00',
+        cacheFilename: 'nz-meshblock-higher-geographies-2025.csv',
+      },
+      'data/country-cache/nz',
+    );
+
+    logger.info(
+      `NZ concordance loaded: ${concordance.rowCount} meshblocks, ` +
+      `columns: [${concordance.columns.join(', ')}], ` +
+      `fromCache: ${concordance.fromCache}`
+    );
+
+    // Convert to CellDistrictMapping[]
+    const cellMappings: import('../../tree-builder.js').CellDistrictMapping[] = [];
+    const seenCellIds = new Set<string>();
+    let skippedEmpty = 0;
+    let skippedDuplicate = 0;
+
+    for (const m of concordance.mappings) {
+      // Encode meshblock code as cell ID
+      const cellId = NZ_JURISDICTION.encodeCellId(m.unitId);
+      const cellIdStr = cellId.toString();
+
+      if (seenCellIds.has(cellIdStr)) {
+        skippedDuplicate++;
+        continue;
+      }
+      seenCellIds.add(cellIdStr);
+
+      // Populate 24-slot district array
+      const districts: bigint[] = new Array(DISTRICT_SLOT_COUNT).fill(0n);
+
+      // Slot 0: General Electorate (numeric code from concordance)
+      if (m.boundaryCode) {
+        // Concordance CSV uses electorate codes (numeric strings like "01", "64")
+        const gedCode = m.boundaryCode.replace(/\D/g, '');
+        if (gedCode) {
+          districts[0] = BigInt(gedCode);
+        }
+      }
+
+      // Slot 1: Maori Electorate (numeric code from concordance)
+      if (m.secondaryBoundaryCode) {
+        const medCode = m.secondaryBoundaryCode.replace(/\D/g, '');
+        if (medCode) {
+          districts[1] = BigInt(medCode);
+        }
+      }
+
+      // Skip meshblocks with no electorate assignment (e.g., offshore, non-residential)
+      if (districts[0] === 0n && districts[1] === 0n) {
+        skippedEmpty++;
+        continue;
+      }
+
+      cellMappings.push({ cellId, districts });
+    }
+
+    logger.info(
+      `NZ cell mappings: ${cellMappings.length} cells, ` +
+      `${skippedEmpty} skipped (no electorate), ` +
+      `${skippedDuplicate} skipped (duplicate)`
+    );
+
+    // Build the Sparse Merkle Tree
+    const treeResult = await buildCellMapTree(
+      cellMappings,
+      NZ_JURISDICTION.recommendedDepth,
+    );
+
+    return {
+      country: 'NZ',
+      statisticalUnit: 'meshblock',
+      cellCount: cellMappings.length,
+      root: treeResult.root,
+      depth: treeResult.depth,
+      mappings: cellMappings,
+      durationMs: Date.now() - startTime,
+    };
   }
 
   // ==========================================================================
@@ -903,35 +1024,62 @@ export class NZCountryProvider extends CountryProvider<
   // ==========================================================================
 
   /**
-   * Check for upstream changes
+   * Check for upstream changes using ArcGIS editingInfo metadata.
+   *
+   * Stats NZ ArcGIS FeatureServer exposes `editingInfo.lastEditDate` (epoch ms)
+   * at the service level. We query the FeatureServer root (without layer number)
+   * and compare against lastExtraction.
    */
   async hasChangedSince(lastExtraction: Date): Promise<boolean> {
-    // Stats NZ doesn't provide Last-Modified headers on FeatureServer endpoints
-    // We'll check feature counts as a proxy for changes
     try {
+      // FeatureServer root URL (without layer number) exposes editingInfo
+      const featureServerBase = `${this.baseUrl}/New_Zealand_Electorates__2020_and_2025__WFL1/FeatureServer`;
+      const metaUrl = `${featureServerBase}?f=json`;
+
+      const res = await fetch(metaUrl, {
+        headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!res.ok) return true;
+
+      const meta = await res.json() as Record<string, unknown>;
+      const editInfo = meta?.editingInfo as { lastEditDate?: number } | undefined;
+
+      if (editInfo?.lastEditDate && typeof editInfo.lastEditDate === 'number') {
+        const lastEdit = new Date(editInfo.lastEditDate);
+        logger.debug('NZ ArcGIS editingInfo check', {
+          lastEditDate: lastEdit.toISOString(),
+          lastExtraction: lastExtraction.toISOString(),
+          changed: lastEdit > lastExtraction,
+        });
+        return lastEdit > lastExtraction;
+      }
+
+      // editingInfo not available — fall back to feature count comparison
       const [generalConfig, maoriConfig] = [
         this.layers.get('general'),
         this.layers.get('maori'),
       ];
 
       if (!generalConfig || !maoriConfig) {
-        return false;
+        return true;
       }
 
       const generalCount = await this.fetchFeatureCount(generalConfig.endpoint);
       const maoriCount = await this.fetchFeatureCount(maoriConfig.endpoint);
 
-      const hasChanged =
+      return (
         generalCount !== generalConfig.expectedCount ||
-        maoriCount !== maoriConfig.expectedCount;
-
-      return hasChanged;
+        maoriCount !== maoriConfig.expectedCount
+      );
     } catch (error) {
-      logger.warn('Change detection failed', {
+      logger.warn('Change detection failed, assuming changed', {
         country: 'NZ',
         error: error instanceof Error ? error.message : String(error)
       });
-      return false;
+      // Conservative fallback: assume changed
+      return true;
     }
   }
 

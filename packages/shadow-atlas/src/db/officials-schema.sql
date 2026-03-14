@@ -223,3 +223,21 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
 
 CREATE INDEX IF NOT EXISTS idx_ingest_source ON ingestion_log(source);
 CREATE INDEX IF NOT EXISTS idx_ingest_run ON ingestion_log(run_at DESC);
+
+-- Extraction baselines: regression tracking for hydration pipeline
+-- Stores a snapshot of each extraction run so successive runs can be compared.
+-- Used by regression-tracker.ts to detect quality degradation.
+CREATE TABLE IF NOT EXISTS extraction_baselines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  country TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  boundary_counts TEXT NOT NULL,              -- JSON array of {layer, count, expectedCount}
+  official_count INTEGER NOT NULL,
+  expected_official_count INTEGER NOT NULL,
+  resolved_count INTEGER NOT NULL,
+  unmatched_count INTEGER NOT NULL,
+  overall_confidence INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_baselines_country ON extraction_baselines(country, created_at DESC);

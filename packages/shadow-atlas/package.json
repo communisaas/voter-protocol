@@ -65,6 +65,8 @@
         "discover:gaps": "tsx src/scripts/wave-discovery.ts gaps",
         "hydrate": "tsx src/hydration/hydrate-country.ts",
         "hydrate:dry": "tsx src/hydration/hydrate-country.ts --dry-run",
+        "smoke-test": "tsx src/hydration/smoke-test.ts",
+        "smoke-test:json": "tsx src/hydration/smoke-test.ts --json",
         "ingest:legislators": "tsx src/scripts/ingest-legislators.ts",
         "ingest:legislators:dry": "tsx src/scripts/ingest-legislators.ts --dry-run",
         "ingest:canadian-mps": "tsx src/scripts/ingest-canadian-mps.ts",

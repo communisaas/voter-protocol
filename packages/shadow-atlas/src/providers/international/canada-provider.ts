@@ -653,10 +653,58 @@ export class CanadaCountryProvider extends CountryProvider<
   }
 
   /**
-   * Check if data has changed since last extraction
+   * Check if data has changed since last extraction.
+   *
+   * Queries the Represent API boundary-set metadata endpoint for
+   * `related_data_updated` or `last_updated` timestamps. Falls back to
+   * checking whether the total boundary count has changed.
    */
   async hasChangedSince(lastExtraction: Date): Promise<boolean> {
-    return super.hasChangedSince(lastExtraction);
+    try {
+      const url = `${this.representApiUrl}/boundary-sets/federal-electoral-districts-2023-representation-order/?format=json`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!res.ok) return true;
+
+      const data = await res.json() as Record<string, unknown>;
+
+      // Check for date fields that Represent API may expose
+      const dateField = (data.related_data_updated ?? data.last_updated ?? data.modified) as string | undefined;
+      if (dateField && typeof dateField === 'string') {
+        const updatedDate = new Date(dateField);
+        if (!isNaN(updatedDate.getTime())) {
+          logger.debug('CA Represent API date check', {
+            dateField,
+            lastExtraction: lastExtraction.toISOString(),
+            changed: updatedDate > lastExtraction,
+          });
+          return updatedDate > lastExtraction;
+        }
+      }
+
+      // No date field — check if boundary count changed from expected
+      const metaCount = typeof data.count === 'number' ? data.count : undefined;
+      const federalLayer = this.layers.get('federal');
+      if (metaCount !== undefined && federalLayer) {
+        const changed = metaCount !== federalLayer.expectedCount;
+        logger.debug('CA boundary count check', {
+          apiCount: metaCount,
+          expectedCount: federalLayer.expectedCount,
+          changed,
+        });
+        return changed;
+      }
+    } catch (error) {
+      logger.warn('Change detection failed, assuming changed', {
+        country: 'CA',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    // Conservative fallback
+    return true;
   }
 
   /**

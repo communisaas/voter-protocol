@@ -25,7 +25,7 @@
 
 import type { CountryProvider } from '../providers/international/country-provider.js';
 import type { InternationalBoundary, AuthorityLevel } from '../providers/international/base-provider.js';
-import type { OfficialRecord, ValidationReport } from '../providers/international/country-provider-types.js';
+import type { GeocoderFn, OfficialRecord, PIPCheckFn, ValidationReport } from '../providers/international/country-provider-types.js';
 import { writeOfficials } from './db-writer.js';
 
 // ============================================================================
@@ -92,7 +92,7 @@ Options:
   --dry-run            Fetch and validate only, no DB writes
   --validate-only      Run validation pipeline only (requires existing data)
   --skip-cell-map      Skip Tree 2 cell map construction
-  --skip-pip           Skip PIP verification (Layer 4)
+  --skip-pip           Skip Layer 4 PIP verification (Nominatim geocoding, slow)
   --cache-dir <path>   Cache directory (default: data/country-cache)
   --verbose            Verbose logging
   --help               Show this help
@@ -161,6 +161,16 @@ async function main(): Promise<void> {
   console.log(`Provider: ${provider.countryName} (${provider.dataSource})`);
   console.log();
 
+  // Check current freshness before extraction
+  try {
+    const { checkCountryFreshness } = await import('./freshness-monitor.js');
+    const freshness = checkCountryFreshness(opts.dbPath, opts.country);
+    console.log(`Current data age: ${freshness.ageInDays !== null ? `${freshness.ageInDays}d` : 'never ingested'} (${freshness.status})`);
+    console.log();
+  } catch {
+    // DB may not exist yet — skip
+  }
+
   // Step 1: Extract boundaries
   console.log('[1/5] Extracting boundaries...');
   const boundaryResult = await provider.extractAll();
@@ -216,9 +226,19 @@ async function main(): Promise<void> {
 
   // Step 5: Validate
   console.log('[5/5] Running 4-layer validation pipeline...');
+  let geocoder: GeocoderFn | undefined;
+  let pipCheck: PIPCheckFn | undefined;
+  if (!opts.skipPIP) {
+    const { buildPIPCheck, buildNominatimGeocoder } = await import('./pip-wiring.js');
+    pipCheck = buildPIPCheck(allBoundaries);
+    geocoder = buildNominatimGeocoder();
+    console.log('  PIP verification ENABLED (Nominatim geocoding, ~1 req/sec)');
+  }
   const report = await provider.validate(
     allBoundaries,
     [...officialsResult.officials],
+    geocoder,
+    pipCheck,
   );
   printValidationReport(report);
 
@@ -239,6 +259,50 @@ async function main(): Promise<void> {
     }
   } else {
     console.log(`\n${opts.dryRun ? 'Dry run' : 'Validate only'}: skipping DB write.`);
+  }
+
+  // Regression baseline tracking
+  const { saveBaseline, loadBaseline, compareToBaseline } = await import('./regression-tracker.js');
+  const baseline = {
+    country: opts.country,
+    timestamp: new Date().toISOString(),
+    boundaries: boundaryResult.layers.map(l => ({
+      layer: l.layer,
+      count: l.boundaries.length,
+      expectedCount: l.expectedCount,
+    })),
+    officials: {
+      count: officialsResult.actualCount,
+      expectedCount: officialsResult.expectedCount,
+      resolved: report.layers.codeResolution.resolved,
+      unmatched: report.layers.codeResolution.unmatched.length,
+    },
+    overallConfidence: report.overallConfidence,
+  };
+
+  const previous = loadBaseline(opts.dbPath, opts.country);
+  if (previous) {
+    const regression = compareToBaseline(baseline, previous);
+    console.log('\n  Regression Check');
+    console.log(`    Previous: ${regression.previousTimestamp}`);
+    console.log(`    Current:  ${regression.currentTimestamp}`);
+    if (regression.criticals.length > 0) {
+      console.log(`    CRITICAL (${regression.criticals.length}):`);
+      for (const c of regression.criticals) console.log(`      !! ${c}`);
+    }
+    if (regression.warnings.length > 0) {
+      console.log(`    WARNINGS (${regression.warnings.length}):`);
+      for (const w of regression.warnings) console.log(`      -> ${w}`);
+    }
+    if (regression.passed && regression.warnings.length === 0) {
+      console.log('    No regressions detected.');
+    }
+  } else {
+    console.log('\n  Regression Check: first run, no previous baseline.');
+  }
+
+  if (!opts.dryRun) {
+    saveBaseline(opts.dbPath, baseline);
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
