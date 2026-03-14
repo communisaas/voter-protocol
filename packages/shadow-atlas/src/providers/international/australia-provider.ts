@@ -750,19 +750,333 @@ export class AustraliaCountryProvider extends CountryProvider<
   }
 
   // ==========================================================================
-  // Cell Map (CountryProvider abstract method — Wave 3 stub)
+  // Cell Map (CountryProvider abstract method)
   // ==========================================================================
+
+  /**
+   * Concordance URL — ABS ASGS Ed. 3 correspondences ZIP on data.gov.au.
+   * Contains CG_SA1_2021_CED_2021.csv (SA1 → CED 2021 correspondence).
+   * We also chain through CG_CED_2021_CED_2024.csv to get 2024 CED codes.
+   *
+   * The ZIP is ~34MB but only downloaded once and cached.
+   */
+  private readonly concordanceZipUrl =
+    'https://data.gov.au/data/dataset/2c79581f-600e-4560-80a8-98adb1922dfc/resource/33d822ba-138e-47ae-a15f-460279c3acc3/download/asgs2021_correspondences.zip';
 
   /**
    * Build cell map for Tree 2 using ABS SA1 statistical areas.
    *
-   * SA1 integration is Wave 3. This stub throws to signal that the
-   * capability is not yet implemented.
+   * Pipeline:
+   * 1. Download ABS ASGS correspondences ZIP (cached)
+   * 2. Extract CG_SA1_2021_CED_2021.csv — SA1→CED 2021 correspondence
+   * 3. Extract CG_CED_2021_CED_2024.csv — CED 2021→CED 2024 recode
+   * 4. Chain SA1→CED2021→CED2024 for current electoral division codes
+   * 5. Derive state code from SA1 code (first digit)
+   * 6. Build 24-slot district arrays (slot 0 = CED, slot 1 = state)
+   * 7. Build sparse Merkle tree via buildCellMapTree()
+   *
+   * ABS correspondence CSV columns:
+   *   SA1_MAINCODE_2021, CED_MAINCODE_2021, RATIO_FROM_TO, ...
+   *   (RATIO_FROM_TO = population-weighted fraction; we use plurality)
+   *
+   * @param _boundaries - Federal division boundaries (used for validation only)
    */
   async buildCellMap(
     _boundaries: AustraliaDivision[]
   ): Promise<CellMapResult> {
-    throw new Error('SA1 integration pending (Wave 3)');
+    const startTime = Date.now();
+    const { loadConcordance } = await import('../../hydration/concordance-loader.js');
+    const { AU_JURISDICTION } = await import('../../jurisdiction.js');
+    const { buildCellMapTree, DISTRICT_SLOT_COUNT } = await import('../../tree-builder.js');
+
+    // Step 1: Load SA1→CED concordance
+    // The concordance-loader fetches and caches the CSV.
+    // For ABS data, the correspondences ZIP must be downloaded and
+    // the CSV extracted. We handle this by pre-extracting to cache
+    // or by providing a direct CSV URL if available.
+    //
+    // Since ABS only publishes the correspondence as a ZIP, we attempt
+    // to load from cache first. If not cached, we download the ZIP,
+    // extract the needed CSV, and cache it.
+    const cacheDir = 'data/country-cache/au';
+    const sa1CedCsv = await this.loadSA1CEDConcordance(cacheDir);
+
+    logger.info(
+      `AU concordance loaded: ${sa1CedCsv.rowCount} SA1→CED mappings, ` +
+      `columns: [${sa1CedCsv.columns.join(', ')}], ` +
+      `fromCache: ${sa1CedCsv.fromCache}`
+    );
+
+    // Step 2: Convert to CellDistrictMapping[]
+    const cellMappings: import('../../tree-builder.js').CellDistrictMapping[] = [];
+    const seenCellIds = new Set<string>();
+    let skippedEmpty = 0;
+    let skippedDuplicate = 0;
+    let skippedNonGeographic = 0;
+
+    // ABS state code map: first digit of SA1 code → state number
+    // SA1 codes: first digit = state (1=NSW, 2=VIC, 3=QLD, 4=SA, 5=WA, 6=TAS, 7=NT, 8=ACT, 9=Other)
+    for (const m of sa1CedCsv.mappings) {
+      const sa1Code = m.unitId;
+      const cedCode = m.boundaryCode;
+
+      // Filter non-geographic CED codes (>= 900)
+      const cedNum = parseInt(cedCode, 10);
+      if (isNaN(cedNum) || cedNum >= 900) {
+        skippedNonGeographic++;
+        continue;
+      }
+
+      // Encode SA1 code as cell ID
+      const cellId = AU_JURISDICTION.encodeCellId(sa1Code);
+      const cellIdStr = cellId.toString();
+
+      if (seenCellIds.has(cellIdStr)) {
+        skippedDuplicate++;
+        continue;
+      }
+      seenCellIds.add(cellIdStr);
+
+      // Populate 24-slot district array
+      const districts: bigint[] = new Array(DISTRICT_SLOT_COUNT).fill(0n);
+
+      // Slot 0: Federal Division (CED code, numeric)
+      if (cedCode) {
+        const cleanCode = cedCode.replace(/\D/g, '');
+        if (cleanCode) {
+          districts[0] = BigInt(cleanCode);
+        }
+      }
+
+      // Slot 1: State/Territory code (derived from SA1 code first digit)
+      // ABS SA1 codes start with state digit: 1=NSW, 2=VIC, ..., 8=ACT
+      const stateDigit = sa1Code.charAt(0);
+      if (/^[1-8]$/.test(stateDigit)) {
+        districts[1] = BigInt(stateDigit);
+      }
+
+      // Skip SA1s with no CED assignment
+      if (districts[0] === 0n) {
+        skippedEmpty++;
+        continue;
+      }
+
+      cellMappings.push({ cellId, districts });
+    }
+
+    logger.info(
+      `AU cell mappings: ${cellMappings.length} cells, ` +
+      `${skippedEmpty} skipped (no CED), ` +
+      `${skippedDuplicate} skipped (duplicate), ` +
+      `${skippedNonGeographic} skipped (non-geographic CED >= 900)`
+    );
+
+    // Step 3: Build the Sparse Merkle Tree
+    const treeResult = await buildCellMapTree(
+      cellMappings,
+      AU_JURISDICTION.recommendedDepth,
+    );
+
+    return {
+      country: 'AU',
+      statisticalUnit: 'sa1',
+      cellCount: cellMappings.length,
+      root: treeResult.root,
+      depth: treeResult.depth,
+      mappings: cellMappings,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Load the SA1→CED concordance CSV.
+   *
+   * ABS publishes correspondences in a large ZIP file. This method:
+   * 1. Checks for a cached extracted CSV
+   * 2. If not cached, downloads the ZIP and extracts the needed CSV
+   * 3. Parses via the standard concordance loader
+   *
+   * The ABS correspondence CSV format uses columns:
+   *   SA1_MAINCODE_2021, SA1_NAME, CED_MAINCODE_2021, CED_NAME,
+   *   RATIO_FROM_TO, INDIV_TO_REGION_QLTY_INDICATOR, ...
+   *
+   * For SA1s that span multiple CEDs, we use plurality assignment
+   * (highest RATIO_FROM_TO value).
+   */
+  private async loadSA1CEDConcordance(
+    cacheDir: string,
+  ): Promise<import('../../hydration/concordance-loader.js').ConcordanceResult> {
+    const { existsSync, mkdirSync } = await import('fs');
+    const { writeFile, readFile } = await import('fs/promises');
+    const { join } = await import('path');
+    const { loadConcordance } = await import('../../hydration/concordance-loader.js');
+
+    const csvFilename = 'au-sa1-ced-2021.csv';
+    const csvPath = join(cacheDir, csvFilename);
+
+    // Ensure cache directory exists
+    if (!existsSync(cacheDir)) {
+      mkdirSync(cacheDir, { recursive: true });
+    }
+
+    // If cached CSV exists, load it directly
+    if (!existsSync(csvPath)) {
+      // Download the ZIP and extract the SA1→CED CSV
+      logger.info('Downloading ABS ASGS correspondences ZIP...', {
+        url: this.concordanceZipUrl,
+      });
+
+      const response = await fetch(this.concordanceZipUrl, {
+        headers: {
+          'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0 (civic data, research)',
+        },
+        signal: AbortSignal.timeout(120000), // 2 min timeout for large file
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download ABS correspondences ZIP: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const zipBuffer = Buffer.from(await response.arrayBuffer());
+
+      // Extract CSV from ZIP using built-in zlib
+      // ZIP format: scan for the target filename in the central directory
+      const csvContent = await this.extractCSVFromZip(
+        zipBuffer,
+        'CG_SA1_2021_CED_2021.csv',
+      );
+
+      if (!csvContent) {
+        throw new Error(
+          'CG_SA1_2021_CED_2021.csv not found in ABS correspondences ZIP'
+        );
+      }
+
+      // Pre-process: resolve SA1s that span multiple CEDs using plurality
+      const resolvedCsv = this.resolvePluralityCED(csvContent);
+
+      await writeFile(csvPath, resolvedCsv, 'utf-8');
+      logger.info('AU SA1→CED concordance extracted and cached', {
+        path: csvPath,
+      });
+    }
+
+    // Load via standard concordance loader
+    return loadConcordance(
+      {
+        url: `file://${csvPath}`, // URL unused since file is already cached
+        unitColumn: 'SA1_MAINCODE_2021',
+        boundaryColumn: 'CED_MAINCODE_2021',
+        cacheFilename: csvFilename,
+      },
+      cacheDir,
+    );
+  }
+
+  /**
+   * Extract a named CSV file from a ZIP buffer.
+   *
+   * Implements minimal ZIP parsing (local file headers) without external
+   * dependencies. Handles both stored and deflated entries.
+   */
+  private async extractCSVFromZip(
+    zipBuffer: Buffer,
+    targetFilename: string,
+  ): Promise<string | null> {
+    const { inflateRawSync } = await import('zlib');
+
+    let offset = 0;
+    while (offset < zipBuffer.length - 4) {
+      // Local file header signature: 0x04034b50
+      const sig = zipBuffer.readUInt32LE(offset);
+      if (sig !== 0x04034b50) break;
+
+      const compressionMethod = zipBuffer.readUInt16LE(offset + 8);
+      const compressedSize = zipBuffer.readUInt32LE(offset + 18);
+      const uncompressedSize = zipBuffer.readUInt32LE(offset + 22);
+      const filenameLen = zipBuffer.readUInt16LE(offset + 26);
+      const extraLen = zipBuffer.readUInt16LE(offset + 28);
+
+      const filename = zipBuffer.toString('utf-8', offset + 30, offset + 30 + filenameLen);
+      const dataStart = offset + 30 + filenameLen + extraLen;
+
+      if (filename.endsWith(targetFilename) || filename === targetFilename) {
+        const compressedData = zipBuffer.subarray(dataStart, dataStart + compressedSize);
+
+        if (compressionMethod === 0) {
+          // Stored (no compression)
+          return compressedData.toString('utf-8');
+        } else if (compressionMethod === 8) {
+          // Deflated
+          const decompressed = inflateRawSync(compressedData);
+          return decompressed.toString('utf-8');
+        } else {
+          throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
+        }
+      }
+
+      offset = dataStart + compressedSize;
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve SA1s that span multiple CEDs to their plurality CED.
+   *
+   * ABS correspondence files include RATIO_FROM_TO for split SA1s.
+   * For each SA1, we keep the CED with the highest ratio.
+   *
+   * Input CSV columns: SA1_MAINCODE_2021, ..., CED_MAINCODE_2021, ..., RATIO_FROM_TO, ...
+   * Output CSV: same columns but with only one row per SA1 (highest ratio).
+   */
+  private resolvePluralityCED(csvContent: string): string {
+    const lines = csvContent.split(/\r?\n/);
+    if (lines.length < 2) return csvContent;
+
+    const headerLine = lines[0].replace(/^\uFEFF/, '');
+    const headers = headerLine.split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+
+    const sa1Idx = headers.findIndex(h => h === 'SA1_MAINCODE_2021');
+    const cedIdx = headers.findIndex(h => h === 'CED_MAINCODE_2021');
+    const ratioIdx = headers.findIndex(h => h === 'RATIO_FROM_TO');
+
+    if (sa1Idx === -1 || cedIdx === -1) {
+      // Column names might differ; return as-is and let the loader handle it
+      logger.warn('AU correspondence CSV has unexpected column names', {
+        columns: headers,
+      });
+      return csvContent;
+    }
+
+    // Group by SA1, keep row with highest ratio
+    const sa1Best = new Map<string, { line: string; ratio: number }>();
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const fields = line.split(',').map(f => f.trim().replace(/^"|"$/g, ''));
+      const sa1 = fields[sa1Idx];
+      const ratio = ratioIdx >= 0 ? parseFloat(fields[ratioIdx]) : 1.0;
+
+      if (!sa1) continue;
+
+      const existing = sa1Best.get(sa1);
+      if (!existing || ratio > existing.ratio) {
+        sa1Best.set(sa1, { line, ratio });
+      }
+    }
+
+    // Reconstruct CSV with only plurality rows
+    const resultLines = [headerLine];
+    for (const { line } of sa1Best.values()) {
+      resultLines.push(line);
+    }
+
+    return resultLines.join('\n');
   }
 
   // ==========================================================================

@@ -476,3 +476,62 @@ export const NZ_JURISDICTION: JurisdictionConfig = {
   recommendedDepth: 18,  // ~57K meshblocks → fits in 2^18 = 262K
   encodeCellId: encodeNZCellId,
 };
+
+// ============================================================================
+// Australia Jurisdiction Configuration
+// ============================================================================
+
+/**
+ * Encode an ABS SA1 code as a BN254 field element.
+ *
+ * SA1 codes are 11-digit numeric strings (e.g., "10101100101").
+ * Format: S + SA4(3) + SA3(5) + SA2(9) + SA1(11) — each level
+ * prefixed by the state digit.
+ * Directly converted to bigint — safe since all codes are well within
+ * BN254 field bounds (max ~2^253).
+ */
+function encodeAuCellId(sa1Code: string): bigint {
+  const numeric = sa1Code.replace(/\D/g, '');
+  if (/^\d+$/.test(numeric)) {
+    return BigInt(numeric);
+  }
+  // Fallback: UTF-8 byte packing
+  const bytes = Buffer.from(sa1Code, 'utf-8');
+  if (bytes.length > 31) {
+    throw new Error(`AU SA1 code too long for field encoding: ${sa1Code} (${bytes.length} bytes)`);
+  }
+  let result = 0n;
+  for (const byte of bytes) {
+    result = (result << 8n) | BigInt(byte);
+  }
+  return result;
+}
+
+/**
+ * Australia jurisdiction configuration.
+ *
+ * 2 of 24 protocol slots are populated for the initial federal layer.
+ * Slot 0 = Federal Division (CED), Slot 1 = State/Territory.
+ * Slots 2+ reserved for state legislature, local government areas.
+ *
+ * Data sources:
+ *   - ABS ASGS Ed. 3 — SA1-to-CED correspondence (from correspondences ZIP)
+ *   - ABS ArcGIS — boundary geometries (CED 2024)
+ */
+export const AU_JURISDICTION: JurisdictionConfig = {
+  country: 'AUS',
+  name: 'Australia',
+
+  slots: {
+    0: { name: 'Federal Division (CED)',  required: true,  category: 'legislative' },
+    1: { name: 'State / Territory',       required: true,  category: 'administrative' },
+  },
+
+  aliases: {
+    'federal_division': 0, 'ced': 0, 'division': 0, 'electorate': 0,
+    'state': 1, 'territory': 1, 'state_territory': 1,
+  },
+
+  recommendedDepth: 18,  // ~62K SA1s → fits in 2^18 = 262K
+  encodeCellId: encodeAuCellId,
+};
