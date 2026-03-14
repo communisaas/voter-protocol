@@ -5,8 +5,7 @@
  * using the same upsert (INSERT ... ON CONFLICT ... DO UPDATE) pattern
  * as the legacy per-country ingest scripts.
  *
- * Tables: canada_mps, uk_mps, au_mps, nz_mps (federal_members is US-only,
- * handled by the separate ingest-legislators pipeline).
+ * Tables: federal_members (US), canada_mps, uk_mps, au_mps, nz_mps.
  *
  * @see hydrate-country.ts — the CLI that calls writeOfficials()
  * @see ../db/officials-schema.sql — canonical DDL
@@ -19,6 +18,7 @@ import type { CAOfficial } from '../providers/international/canada-provider.js';
 import type { UKOfficial } from '../providers/international/uk-provider.js';
 import type { AUOfficial } from '../providers/international/australia-provider.js';
 import type { NZOfficial } from '../providers/international/nz-provider.js';
+import type { USOfficial } from '../providers/international/us-provider.js';
 
 // ============================================================================
 // Public API
@@ -53,7 +53,7 @@ export function writeOfficials(
   const writer = getCountryWriter(country);
   if (!writer) {
     db.close();
-    throw new Error(`No DB writer for country "${country}". Supported: CA, GB, AU, NZ`);
+    throw new Error(`No DB writer for country "${country}". Supported: US, CA, GB, AU, NZ`);
   }
 
   const { inserted, updated } = writer(db, officials);
@@ -81,6 +81,7 @@ const COUNTRY_SOURCE_NAME: Record<string, string> = {
   GB: 'uk-mps',
   AU: 'au-mps',
   NZ: 'nz-mps',
+  US: 'congress-legislators',
 };
 
 type CountryWriterFn = (
@@ -94,6 +95,7 @@ function getCountryWriter(country: string): CountryWriterFn | null {
     case 'GB': return writeUKMPs;
     case 'AU': return writeAUMPs;
     case 'NZ': return writeNZMPs;
+    case 'US': return writeUSMembers;
     default: return null;
   }
 }
@@ -396,6 +398,94 @@ function writeNZMPs(
         website_url: o.websiteUrl ?? null,
         photo_url: o.photoUrl ?? null,
         is_active: o.isActive ? 1 : 0,
+      });
+
+      if (isExisting) updated++;
+      else inserted++;
+    }
+  });
+
+  runAll();
+  return { inserted, updated };
+}
+
+// ============================================================================
+// United States
+// ============================================================================
+
+function writeUSMembers(
+  db: InstanceType<typeof Database>,
+  officials: readonly OfficialRecord[],
+): { inserted: number; updated: number } {
+  const upsert = db.prepare(`
+    INSERT INTO federal_members (
+      bioguide_id, name, first_name, last_name, party, chamber,
+      state, district, senate_class, phone, office_address,
+      contact_form_url, website_url, cwc_code, is_voting, delegate_type,
+      state_fips, cd_geoid, start_date, end_date, updated_at
+    ) VALUES (
+      @bioguide_id, @name, @first_name, @last_name, @party, @chamber,
+      @state, @district, @senate_class, @phone, @office_address,
+      @contact_form_url, @website_url, @cwc_code, @is_voting, @delegate_type,
+      @state_fips, @cd_geoid, @start_date, @end_date,
+      strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    )
+    ON CONFLICT(bioguide_id) DO UPDATE SET
+      name = excluded.name,
+      first_name = excluded.first_name,
+      last_name = excluded.last_name,
+      party = excluded.party,
+      chamber = excluded.chamber,
+      state = excluded.state,
+      district = excluded.district,
+      senate_class = excluded.senate_class,
+      phone = excluded.phone,
+      office_address = excluded.office_address,
+      contact_form_url = excluded.contact_form_url,
+      website_url = excluded.website_url,
+      cwc_code = excluded.cwc_code,
+      is_voting = excluded.is_voting,
+      delegate_type = excluded.delegate_type,
+      state_fips = excluded.state_fips,
+      cd_geoid = excluded.cd_geoid,
+      start_date = excluded.start_date,
+      end_date = excluded.end_date,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  `);
+
+  const existingIds = new Set<string>();
+  const rows = db.prepare('SELECT bioguide_id FROM federal_members').all() as Array<{ bioguide_id: string }>;
+  for (const r of rows) existingIds.add(r.bioguide_id);
+
+  let inserted = 0;
+  let updated = 0;
+
+  const runAll = db.transaction(() => {
+    for (const official of officials) {
+      const o = official as USOfficial;
+      const isExisting = existingIds.has(o.bioguideId);
+
+      upsert.run({
+        bioguide_id: o.bioguideId,
+        name: o.name,
+        first_name: o.firstName,
+        last_name: o.lastName,
+        party: o.party,
+        chamber: o.chamber,
+        state: o.state,
+        district: o.district ?? null,
+        senate_class: o.senateClass ?? null,
+        phone: o.phone ?? null,
+        office_address: o.officeAddress ?? null,
+        contact_form_url: o.contactFormUrl ?? null,
+        website_url: o.websiteUrl ?? null,
+        cwc_code: o.cwcCode ?? null,
+        is_voting: o.isVoting ? 1 : 0,
+        delegate_type: o.delegateType ?? null,
+        state_fips: o.stateFips ?? null,
+        cd_geoid: o.cdGeoid ?? null,
+        start_date: null,
+        end_date: null,
       });
 
       if (isExisting) updated++;

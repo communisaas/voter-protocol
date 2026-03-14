@@ -180,6 +180,43 @@ const MAORI_ELECTORATES = new Set([
   // Note: Te Atatu is a GENERAL electorate (West Auckland), not Maori
 ]);
 
+// ============================================================================
+// 2020→2025 Electorate Name Aliases
+// ============================================================================
+// The 54th Parliament (elected 2023) uses 2020 boundary names, but Stats NZ
+// ArcGIS serves 2025 redistribution boundaries (finalized August 2025).
+// This map bridges the 11 renamed/reconfigured electorates.
+//
+// Sources:
+// - Stats NZ: https://www.stats.govt.nz/news/final-electorate-names-and-boundaries-released/
+// - Elections NZ: https://elections.nz/media-and-news/2025/electorate-boundaries-finalised/
+//
+// 2025 changes: North Island lost 1 general seat (65→64 general, 7 Māori).
+// Three Wellington seats (Ōhāriu, Mana, Ōtaki) → two (Kenepuru, Kapiti).
+// Three Auckland seats (New Lynn, Kelston, Te Atatū) → three (Waitākere, Glendene, Henderson).
+// Four renamed: East Coast→East Cape, Rongotai→Wellington Bays,
+//   Wellington Central→Wellington North, Bay of Plenty→Mt Maunganui.
+// One renamed: Panmure-Ōtāhuhu→Ōtāhuhu.
+
+const NZ_ELECTORATE_ALIASES: Record<string, string> = {
+  // Straight renames
+  'East Coast': 'East Cape',
+  'Rongotai': 'Wellington Bays',
+  'Wellington Central': 'Wellington North',
+  'Bay of Plenty': 'Mt Maunganui',
+  'Panmure-Ōtāhuhu': 'Ōtāhuhu',
+
+  // Auckland reconfiguration (3→3)
+  'New Lynn': 'Waitākere',
+  'Kelston': 'Glendene',
+  'Te Atatū': 'Henderson',
+
+  // Wellington reconfiguration (3→2, net -1 seat)
+  'Ōhāriu': 'Kenepuru',
+  'Mana': 'Kapiti',
+  'Ōtaki': 'Kapiti',  // abolished; closest successor
+};
+
 function isMaoriElectorate(name: string): boolean {
   return MAORI_ELECTORATES.has(name) ||
     MAORI_ELECTORATES.has(name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
@@ -815,10 +852,21 @@ export class NZCountryProvider extends CountryProvider<
       boundaryIndex.set(b.name, b);
     }
 
+    // Build alias lookup for validation (same as in resolveOfficialBoundaryCodes)
+    const validationAliases = new Map<string, string>();
+    for (const [oldName, newName] of Object.entries(NZ_ELECTORATE_ALIASES)) {
+      validationAliases.set(normalizeBoundaryName(oldName), newName);
+    }
+
     const codeResolution = this.resolveBoundaryCodes(
       electorateMPs,
       boundaryIndex,
-      (o: NZOfficial) => o.electorateName ?? '',
+      (o: NZOfficial) => {
+        const name = o.electorateName ?? '';
+        // Apply 2020→2025 alias so validation matches extraction behavior
+        const aliased = validationAliases.get(normalizeBoundaryName(name));
+        return aliased ?? name;
+      },
       normalizeBoundaryName,
     );
 
@@ -1276,6 +1324,12 @@ export class NZCountryProvider extends CountryProvider<
       normalizedLookup.set(normalizeBoundaryName(name), boundary);
     }
 
+    // Build normalized alias lookup: normalized old name -> normalized new name
+    const normalizedAliases = new Map<string, string>();
+    for (const [oldName, newName] of Object.entries(NZ_ELECTORATE_ALIASES)) {
+      normalizedAliases.set(normalizeBoundaryName(oldName), normalizeBoundaryName(newName));
+    }
+
     const officials: NZOfficial[] = [];
 
     for (const mp of rawMPs) {
@@ -1284,7 +1338,22 @@ export class NZCountryProvider extends CountryProvider<
 
       if (mp.electorate_name && mp.electorate_type !== 'list') {
         const normalizedName = normalizeBoundaryName(mp.electorate_name);
-        const boundary = normalizedLookup.get(normalizedName);
+        let boundary = normalizedLookup.get(normalizedName);
+
+        // If direct match fails, try 2020→2025 alias
+        if (!boundary) {
+          const aliasedName = normalizedAliases.get(normalizedName);
+          if (aliasedName) {
+            boundary = normalizedLookup.get(aliasedName);
+            if (boundary) {
+              logger.info('NZ MP matched via 2020→2025 alias', {
+                mp: mp.name,
+                oldElectorate: mp.electorate_name,
+                newElectorate: boundary.name,
+              });
+            }
+          }
+        }
 
         if (boundary) {
           // Build boundary code: nz-gen-{id} or nz-maori-{id}

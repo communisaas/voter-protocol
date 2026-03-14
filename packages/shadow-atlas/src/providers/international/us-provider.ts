@@ -214,8 +214,8 @@ const AT_LARGE_STATES = new Set(['AK', 'DE', 'MT', 'ND', 'SD', 'VT', 'WY']);
 // ============================================================================
 
 const TIGERWEB_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
-const CD_LAYER_URL = `${TIGERWEB_BASE}/tigerWMS_Current/MapServer/0`;
-const EXPECTED_CD_COUNT = 441; // 435 districts + 6 non-voting delegate districts
+const CD_LAYER_URL = `${TIGERWEB_BASE}/tigerWMS_Current/MapServer/54`;
+const EXPECTED_CD_COUNT = 444; // 435 districts + 6 non-voting delegate districts + 3 at-large redistricted
 
 // ============================================================================
 // Congress-Legislators Constants
@@ -287,14 +287,14 @@ export class USCountryProvider extends CountryProvider<
       'congressional',
       {
         type: 'congressional',
-        name: 'Congressional Districts (118th Congress)',
+        name: 'Congressional Districts (119th Congress)',
         endpoint: CD_LAYER_URL,
         expectedCount: EXPECTED_CD_COUNT,
         updateSchedule: 'decennial',
         authority: 'constitutional',
         vintage: 2024,
         lastVerified: '2024-01-01T00:00:00.000Z',
-        notes: '435 voting districts + 6 non-voting delegate districts',
+        notes: '119th Congress — 435 voting districts + 6 non-voting delegate districts (layer 54)',
       },
     ],
   ]);
@@ -610,7 +610,7 @@ export class USCountryProvider extends CountryProvider<
         const props = f.properties ?? {};
 
         // TIGERweb CD properties: GEOID, BASENAME, STATE, CD, LSAD, etc.
-        const geoid = String(props.GEOID ?? props.CD116 ?? '');
+        const geoid = String(props.GEOID ?? props.CD119 ?? props.CD116 ?? '');
         const stateFips = geoid.substring(0, 2);
         const district = geoid.substring(2, 4);
         const stateAbbr = FIPS_TO_STATE_ABBR[stateFips] ?? '';

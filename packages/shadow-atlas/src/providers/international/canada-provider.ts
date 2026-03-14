@@ -311,6 +311,8 @@ function normalizeRidingName(name: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     // Normalize all dash variants to plain hyphen
     .replace(/[\u2013\u2014\u2015]/g, '-')
+    // Normalize curly apostrophes/quotes to straight apostrophe
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
     // Collapse whitespace
     .replace(/\s+/g, ' ');
 }
