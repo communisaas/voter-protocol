@@ -1,55 +1,70 @@
 /**
- * Canada Federal Electoral Districts Provider
+ * Canada Country Provider (Unified)
  *
- * Fetches boundary data from Represent API (Open North) and Statistics Canada.
+ * Extends CountryProvider to produce boundaries, officials, cell maps,
+ * and validation diagnostics through a single abstraction.
  *
  * DATA SOURCES:
- * - Primary: Represent API (Open North) - REST API with geocoding
- * - Secondary: Statistics Canada shapefiles (backup)
+ * - Boundaries: Represent API (Open North) / Statistics Canada
+ * - Officials (Priority 1): ourcommons.ca Members XML (electoral-commission)
+ * - Officials (Priority 2): Represent API representatives (community/NGO)
  *
  * API TYPE: REST (custom)
  * LICENSE: Open Government License - Canada (OGL-CA)
  *
  * COVERAGE:
  * - Federal Electoral Districts: 338 (2023 Representation Order, post-2021 census)
+ * - House of Commons: 338 MPs
  * - Covers: All provinces and territories
  *
  * USAGE:
  * ```typescript
- * const provider = new CanadaBoundaryProvider();
+ * const provider = new CanadaCountryProvider();
  *
- * // Extract all federal electoral districts
+ * // Boundaries (inherited)
  * const result = await provider.extractFederalDistricts();
- * console.log(`Extracted ${result.actualCount}/${result.expectedCount} districts`);
  *
- * // Resolve address to electoral district (Represent API feature)
- * const district = await provider.resolveAddressToDistrict(45.4215, -75.6972);
- * console.log(`District: ${district?.name} (${district?.nameFr})`);
+ * // Officials (new — source chain: ourcommons.ca XML → Represent API)
+ * const boundaries = result.boundaries;
+ * const boundaryIndex = new Map(boundaries.map(b => [b.name, b]));
+ * const officials = await provider.extractOfficials(boundaryIndex);
  *
- * // Extract by province
- * const ontario = await provider.extractByProvince('ON');
+ * // Validation (new — 4-layer pipeline)
+ * const report = await provider.validate(boundaries, officials.officials);
  * ```
  *
  * API ENDPOINTS:
- * - Represent API: https://represent.opennorth.ca/boundaries/federal-electoral-districts/
- * - Statistics Canada: https://www12.statcan.gc.ca/census-recensement/2021/geo
+ * - Boundaries: https://represent.opennorth.ca/boundaries/federal-electoral-districts/
+ * - Officials P1: https://www.ourcommons.ca/Members/en/search/xml
+ * - Officials P2: https://represent.opennorth.ca/representatives/house-of-commons/
  *
  * NOTES:
  * - 2023 Representation Order implemented (post-2021 census redistribution)
  * - Federal boundaries updated every ~10 years following census
  * - Next scheduled redistribution: Post-2031 census
- * - Represent API provides bilingual names (English + French)
+ * - ourcommons.ca provides bilingual names and stable PersonId
+ * - Represent API provides bilingual names (English + French) but less authority
  */
 
-import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
+import type { Polygon, MultiPolygon } from 'geojson';
 import {
-  BaseInternationalProvider,
-  type InternationalBoundaryProvider,
   type InternationalExtractionResult,
   type LayerConfig,
   type ProviderHealth,
   type LayerExtractionResult,
 } from './base-provider.js';
+import { CountryProvider } from './country-provider.js';
+import {
+  CanadianMPSchema,
+  type OfficialRecord,
+  type OfficialsExtractionResult,
+  type CellMapResult,
+  type ValidationReport,
+  type SourceConfig,
+  type StatisticalUnitType,
+  type GeocoderFn,
+  type PIPCheckFn,
+} from './country-provider-types.js';
 import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
@@ -116,6 +131,29 @@ export interface CanadaRiding {
 }
 
 /**
+ * Canadian MP official record — extends OfficialRecord with CA-specific fields
+ */
+export interface CAOfficial extends OfficialRecord {
+  /** House of Commons member ID (e.g., 'occ-111067' or PersonId from ourcommons.ca) */
+  readonly parliamentId: string;
+
+  /** 5-digit FED riding code (e.g., '35075' for Papineau) */
+  readonly ridingCode: string;
+
+  /** English riding name */
+  readonly ridingName: string;
+
+  /** French riding name (if available) */
+  readonly ridingNameFr?: string;
+
+  /** 2-letter province code */
+  readonly province: string;
+
+  /** French name variant (if available) */
+  readonly nameFr?: string;
+}
+
+/**
  * Canada extraction result
  */
 export interface CanadaExtractionResult extends LayerExtractionResult {
@@ -168,16 +206,129 @@ interface RepresentPointResponse {
   readonly boundaries_centroid?: readonly RepresentBoundary[];
 }
 
+/**
+ * Represent API representative response
+ */
+interface RepresentMP {
+  readonly name: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly party_name: string;
+  readonly elected_office: string;
+  readonly district_name: string;
+  readonly email: string | null;
+  readonly url: string | null;
+  readonly photo_url: string | null;
+  readonly personal_url: string | null;
+  readonly offices: ReadonlyArray<{
+    readonly type: string;
+    readonly postal: string | null;
+    readonly tel: string | null;
+    readonly fax: string | null;
+  }>;
+  readonly extra: Record<string, unknown>;
+  readonly related: {
+    readonly boundary_url?: string;
+    readonly representative_set_url?: string;
+  };
+  readonly source_url: string;
+}
+
+interface RepresentMPResponse {
+  readonly objects: readonly RepresentMP[];
+  readonly meta: {
+    readonly total_count: number;
+    readonly next: string | null;
+    readonly previous: string | null;
+    readonly limit: number;
+    readonly offset: number;
+  };
+}
+
+/**
+ * ourcommons.ca XML member structure (parsed)
+ */
+interface OurCommonsMember {
+  readonly PersonId: string;
+  readonly PersonOfficialFirstName: string;
+  readonly PersonOfficialLastName: string;
+  readonly PersonShortHonorific?: string;
+  readonly ConstituencyName: string;
+  readonly ConstituencyProvinceTerritoryName: string;
+  readonly CaucusShortName: string;
+  readonly FromDateTime?: string;
+}
+
 // ============================================================================
-// Canada Boundary Provider
+// Province Mapping
+// ============================================================================
+
+/** Map province full name to 2-letter code */
+const PROVINCE_NAME_TO_CODE: Readonly<Record<string, CanadaProvince>> = {
+  'alberta': 'AB',
+  'british columbia': 'BC',
+  'manitoba': 'MB',
+  'new brunswick': 'NB',
+  'newfoundland and labrador': 'NL',
+  'newfoundland': 'NL',
+  'nova scotia': 'NS',
+  'northwest territories': 'NT',
+  'nunavut': 'NU',
+  'ontario': 'ON',
+  'prince edward island': 'PE',
+  'quebec': 'QC',
+  'québec': 'QC',
+  'saskatchewan': 'SK',
+  'yukon': 'YT',
+};
+
+/** Map SGC province code (first 2 digits of FED code) to ISO 3166-2:CA abbreviation */
+const SGC_TO_PROVINCE: Readonly<Record<string, CanadaProvince>> = {
+  '10': 'NL', '11': 'PE', '12': 'NS', '13': 'NB',
+  '24': 'QC', '35': 'ON', '46': 'MB', '47': 'SK',
+  '48': 'AB', '59': 'BC', '60': 'YT', '61': 'NT', '62': 'NU',
+};
+
+// ============================================================================
+// Name Normalization
 // ============================================================================
 
 /**
- * Canada Federal Electoral Districts Provider
+ * Normalize a riding/constituency name for matching.
+ *
+ * Handles:
+ * - Case folding (lowercase)
+ * - Accent removal (e.g., e, e, e all become 'e')
+ * - Whitespace trimming and collapsing
+ * - Em-dash / en-dash / hyphen normalization
  */
-export class CanadaBoundaryProvider extends BaseInternationalProvider<
+function normalizeRidingName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    // Normalize Unicode to decomposed form, then strip combining diacritical marks
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    // Normalize all dash variants to plain hyphen
+    .replace(/[\u2013\u2014\u2015]/g, '-')
+    // Collapse whitespace
+    .replace(/\s+/g, ' ');
+}
+
+// ============================================================================
+// Canada Country Provider
+// ============================================================================
+
+/**
+ * Canada Country Provider (Unified)
+ *
+ * Extends CountryProvider with officials extraction (ourcommons.ca XML + Represent API),
+ * cell map stub (dissemination areas are Wave 3), and 4-layer validation.
+ */
+export class CanadaCountryProvider extends CountryProvider<
   CanadaLayerType,
-  CanadaRiding
+  CanadaRiding,
+  CAOfficial
 > {
   readonly country = 'CA';
   readonly countryName = 'Canada';
@@ -187,9 +338,38 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
 
   private readonly representApiUrl = 'https://represent.opennorth.ca';
 
-  /**
-   * Available boundary layers
-   */
+  // --------------------------------------------------------------------------
+  // CountryProvider Abstract Properties
+  // --------------------------------------------------------------------------
+
+  /** Officials data sources in priority order (source chain) */
+  readonly officialsSources: readonly SourceConfig[] = [
+    {
+      name: 'ourcommons.ca XML',
+      endpoint: 'https://www.ourcommons.ca/Members/en/search/xml',
+      authority: 'electoral-commission',
+      priority: 1,
+    },
+    {
+      name: 'Represent API',
+      endpoint: 'https://represent.opennorth.ca/representatives/house-of-commons/',
+      authority: 'community',
+      priority: 2,
+    },
+  ];
+
+  /** Expected official count per chamber */
+  readonly expectedOfficialCounts: ReadonlyMap<string, number> = new Map([
+    ['house-of-commons', 338],
+  ]);
+
+  /** Statistical geography unit type for Tree 2 cell maps */
+  readonly statisticalUnit: StatisticalUnitType = 'dissemination-area';
+
+  // --------------------------------------------------------------------------
+  // Boundary Layer Configuration (inherited from BaseInternationalProvider)
+  // --------------------------------------------------------------------------
+
   readonly layers: ReadonlyMap<CanadaLayerType, LayerConfig<CanadaLayerType>> = new Map([
     [
       'federal',
@@ -210,6 +390,10 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
     super(options);
   }
 
+  // ==========================================================================
+  // Boundary Extraction (preserved from original CanadaBoundaryProvider)
+  // ==========================================================================
+
   /**
    * Extract all available layers
    */
@@ -224,7 +408,7 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
       successfulLayers: federal.success ? 1 : 0,
       failedLayers: federal.success ? 0 : 1,
       extractedAt: new Date(),
-      providerVersion: '1.0.0',
+      providerVersion: '2.0.0',
       durationMs: Date.now() - startTime,
     };
   }
@@ -296,10 +480,6 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
 
   /**
    * Resolve address to electoral district using Represent API geocoding
-   *
-   * @param lat - Latitude
-   * @param lng - Longitude
-   * @returns Resolved district or null if not found
    */
   async resolveAddressToDistrict(lat: number, lng: number): Promise<ResolvedDistrict | null> {
     try {
@@ -368,10 +548,10 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
         layer: 'federal',
         success: true,
         boundaries: provincialRidings,
-        expectedCount: provincialRidings.length, // No fixed expectation for provinces
+        expectedCount: provincialRidings.length,
         actualCount: provincialRidings.length,
         matched: true,
-        confidence: 100, // Partial extract, assume 100 for subset
+        confidence: 100,
         extractedAt: new Date(),
         source: endpoint,
         durationMs,
@@ -398,9 +578,6 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
    * Check if data has changed since last extraction
    */
   async hasChangedSince(lastExtraction: Date): Promise<boolean> {
-    // Represent API doesn't provide lastEditDate
-    // Conservatively return true (assume changed)
-    // In production, could check against Elections Canada announcements
     return super.hasChangedSince(lastExtraction);
   }
 
@@ -433,7 +610,6 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
       const data = (await response.json()) as RepresentBoundariesResponse;
       const latencyMs = Date.now() - startTime;
 
-      // Check if we got valid data
       if (!data.objects || data.objects.length === 0) {
         issues.push('API returned zero boundaries');
       }
@@ -457,9 +633,170 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
     }
   }
 
-  // ============================================================================
-  // Private Methods
-  // ============================================================================
+  // ==========================================================================
+  // Officials Extraction (CountryProvider abstract method)
+  // ==========================================================================
+
+  /**
+   * Extract Canadian MPs with resolved boundary codes.
+   *
+   * Source chain:
+   * 1. ourcommons.ca Members XML (electoral-commission authority, stable PersonId)
+   * 2. Represent API (community authority, fallback)
+   *
+   * Boundary codes are resolved at extraction time by matching riding names
+   * against the boundary index. Bilingual matching: tries English name first,
+   * then French name.
+   */
+  async extractOfficials(
+    boundaryIndex: Map<string, CanadaRiding>
+  ): Promise<OfficialsExtractionResult<CAOfficial>> {
+    const startTime = Date.now();
+    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 338;
+
+    // Build normalized boundary lookup (English + French names)
+    const normalizedBoundaryIndex = this.buildNormalizedBoundaryIndex(boundaryIndex);
+
+    const { result: officials, source, attempts } = await this.trySourceChain(
+      this.officialsSources,
+      async (sourceConfig: SourceConfig) => {
+        if (sourceConfig.name === 'ourcommons.ca XML') {
+          return this.fetchFromOurCommons(sourceConfig.endpoint, normalizedBoundaryIndex);
+        } else {
+          return this.fetchFromRepresentAPI(sourceConfig.endpoint, normalizedBoundaryIndex);
+        }
+      }
+    );
+
+    const durationMs = Date.now() - startTime;
+    const confidence = this.calculateConfidence(
+      officials.length,
+      expectedCount,
+      new Date().getFullYear(),
+      source.authority
+    );
+
+    logger.info('Officials extraction complete', {
+      country: 'Canada',
+      source: source.name,
+      count: officials.length,
+      expected: expectedCount,
+      confidence,
+      durationMs,
+    });
+
+    return {
+      country: this.country,
+      officials,
+      expectedCount,
+      actualCount: officials.length,
+      matched: officials.length === expectedCount,
+      confidence,
+      sources: attempts,
+      extractedAt: new Date(),
+      durationMs,
+    };
+  }
+
+  // ==========================================================================
+  // Cell Map Construction (CountryProvider abstract method)
+  // ==========================================================================
+
+  /**
+   * Build cell map for Tree 2 (StatCan dissemination areas).
+   *
+   * Stub — dissemination area integration is Wave 3.
+   * Canada has ~56,000 dissemination areas from Statistics Canada that map
+   * to 338 federal electoral districts.
+   */
+  async buildCellMap(
+    _boundaries: CanadaRiding[]
+  ): Promise<CellMapResult> {
+    throw new Error(
+      'Dissemination area integration pending (Wave 3). ' +
+      'Canada cell map requires StatCan dissemination area boundaries ' +
+      '(~56,000 DAs) mapped to 338 federal electoral districts.'
+    );
+  }
+
+  // ==========================================================================
+  // Validation (CountryProvider abstract method)
+  // ==========================================================================
+
+  /**
+   * Run 4-layer validation pipeline for Canada.
+   *
+   * Layer 1: Source authority scoring (ourcommons.ca = electoral-commission)
+   * Layer 2: Schema validation against CanadianMPSchema + expected count (338)
+   * Layer 3: Boundary code resolution diagnostics
+   * Layer 4: PIP verification (optional, requires geocoder + R-tree)
+   */
+  async validate(
+    boundaries: CanadaRiding[],
+    officials: CAOfficial[],
+    geocoder?: GeocoderFn,
+    pipCheck?: PIPCheckFn,
+  ): Promise<ValidationReport> {
+    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 338;
+
+    // Layer 1: Source Authority
+    const boundaryLayer = this.layers.get('federal')!;
+    const sourceAuthority = this.assessSourceAuthority(
+      [{
+        name: boundaryLayer.name,
+        authority: boundaryLayer.authority,
+        vintage: boundaryLayer.vintage,
+      }],
+      // Use the officials sources that succeeded (we pass all as if they succeeded
+      // for assessment — the actual attempts are in the extraction result)
+      this.officialsSources.map(s => ({
+        source: s.name,
+        success: true,
+        durationMs: 0,
+      }))
+    );
+
+    // Layer 2: Schema & Count Validation
+    const schemaValidation = this.validateSchema(
+      officials,
+      CanadianMPSchema,
+      expectedCount,
+    );
+
+    // Layer 3: Boundary Code Resolution
+    const boundaryIndex = new Map(boundaries.map(b => [b.name, b]));
+    const codeResolution = this.resolveBoundaryCodes(
+      officials,
+      boundaryIndex,
+      (official: CAOfficial) => official.ridingName,
+      normalizeRidingName,
+    );
+
+    // Layer 4: PIP Verification
+    let pipVerification: ValidationReport['layers']['pipVerification'];
+    if (geocoder && pipCheck) {
+      pipVerification = await this.verifyPIP(officials, geocoder, pipCheck);
+    } else {
+      // Skip PIP — mark all as skipped
+      pipVerification = {
+        confirmed: 0,
+        mismatched: [],
+        skipped: officials.length,
+        total: officials.length,
+      };
+    }
+
+    return this.buildValidationReport({
+      sourceAuthority,
+      schemaValidation,
+      codeResolution,
+      pipVerification,
+    });
+  }
+
+  // ==========================================================================
+  // Private: Boundary Fetching (preserved from original)
+  // ==========================================================================
 
   /**
    * Fetch all ridings from Represent API.
@@ -534,7 +871,7 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
       }
 
       // Derive province from SGC code prefix (first 2 digits of external_id)
-      const provinceCode = this.sgcToProvince(externalId.slice(0, 2));
+      const provinceCode = sgcToProvince(externalId.slice(0, 2));
 
       ridings.push({
         id: externalId,
@@ -563,22 +900,6 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
   }
 
   /**
-   * Map SGC province code (first 2 digits of FED code) to ISO 3166-2:CA abbreviation
-   */
-  private sgcToProvince(sgcPrefix: string): CanadaProvince {
-    const SGC_MAP: Record<string, CanadaProvince> = {
-      '10': 'NL', '11': 'PE', '12': 'NS', '13': 'NB',
-      '24': 'QC', '35': 'ON', '46': 'MB', '47': 'SK',
-      '48': 'AB', '59': 'BC', '60': 'YT', '61': 'NT', '62': 'NU',
-    };
-    const result = SGC_MAP[sgcPrefix];
-    if (!result) {
-      logger.warn('Unknown SGC province prefix, defaulting to ON', { sgcPrefix });
-    }
-    return result ?? 'ON';
-  }
-
-  /**
    * Convert Represent API simple_shape to GeoJSON geometry
    */
   private convertToGeoJSON(
@@ -586,7 +907,6 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
   ): Polygon | MultiPolygon | null {
     if (!shape) return null;
 
-    // Represent API uses GeoJSON-like format
     if (shape.type === 'Polygon') {
       return {
         type: 'Polygon',
@@ -603,4 +923,394 @@ export class CanadaBoundaryProvider extends BaseInternationalProvider<
 
     return null;
   }
+
+  // ==========================================================================
+  // Private: Officials Source Chain Implementation
+  // ==========================================================================
+
+  /**
+   * Build a normalized boundary index for riding name matching.
+   *
+   * Indexes both English and French names to support bilingual matching.
+   * Key = normalized name, Value = CanadaRiding boundary.
+   */
+  private buildNormalizedBoundaryIndex(
+    boundaryIndex: Map<string, CanadaRiding>
+  ): Map<string, CanadaRiding> {
+    const normalized = new Map<string, CanadaRiding>();
+
+    for (const [, boundary] of boundaryIndex) {
+      // Index by English name
+      const keyEn = normalizeRidingName(boundary.name);
+      normalized.set(keyEn, boundary);
+
+      // Index by French name if different
+      if (boundary.nameFr && boundary.nameFr !== boundary.name) {
+        const keyFr = normalizeRidingName(boundary.nameFr);
+        if (!normalized.has(keyFr)) {
+          normalized.set(keyFr, boundary);
+        }
+      }
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Resolve riding code from boundary index using normalized name matching.
+   *
+   * Tries English name first, then French name if provided.
+   * Returns the boundary's 5-digit FED code or null if no match found.
+   */
+  private resolveRidingFromBoundary(
+    ridingName: string,
+    ridingNameFr: string | undefined,
+    normalizedIndex: Map<string, CanadaRiding>
+  ): { ridingCode: string; boundary: CanadaRiding } | null {
+    // Try English name
+    const keyEn = normalizeRidingName(ridingName);
+    const matchEn = normalizedIndex.get(keyEn);
+    if (matchEn) {
+      return { ridingCode: matchEn.id, boundary: matchEn };
+    }
+
+    // Try French name
+    if (ridingNameFr) {
+      const keyFr = normalizeRidingName(ridingNameFr);
+      const matchFr = normalizedIndex.get(keyFr);
+      if (matchFr) {
+        return { ridingCode: matchFr.id, boundary: matchFr };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Fetch officials from ourcommons.ca Members XML endpoint.
+   *
+   * The XML contains <MemberOfParliament> elements with:
+   * - PersonId (stable unique identifier)
+   * - PersonOfficialFirstName, PersonOfficialLastName
+   * - ConstituencyName (English riding name)
+   * - ConstituencyProvinceTerritoryName (full province name)
+   * - CaucusShortName (party)
+   * - PersonShortHonorific (e.g., "Hon.")
+   *
+   * Authority: electoral-commission (official House of Commons)
+   */
+  private async fetchFromOurCommons(
+    endpoint: string,
+    normalizedIndex: Map<string, CanadaRiding>
+  ): Promise<CAOfficial[]> {
+    logger.info('Fetching MPs from ourcommons.ca XML', { endpoint });
+
+    const response = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/xml, text/xml',
+        'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const xmlText = await response.text();
+    const members = this.parseOurCommonsXML(xmlText);
+
+    logger.info('Parsed ourcommons.ca XML', { memberCount: members.length });
+
+    const officials: CAOfficial[] = [];
+    let unresolved = 0;
+
+    for (const member of members) {
+      const ridingName = member.ConstituencyName;
+      const province = provinceNameToCode(member.ConstituencyProvinceTerritoryName);
+
+      // Resolve boundary code
+      const resolved = this.resolveRidingFromBoundary(ridingName, undefined, normalizedIndex);
+
+      if (!resolved) {
+        unresolved++;
+        logger.debug('Unresolved riding from ourcommons.ca', {
+          name: member.PersonOfficialFirstName + ' ' + member.PersonOfficialLastName,
+          riding: ridingName,
+        });
+      }
+
+      const ridingCode = resolved?.ridingCode ?? '';
+      const firstName = member.PersonOfficialFirstName;
+      const lastName = member.PersonOfficialLastName;
+      const fullName = member.PersonShortHonorific
+        ? `${member.PersonShortHonorific} ${firstName} ${lastName}`
+        : `${firstName} ${lastName}`;
+
+      officials.push({
+        id: `occ-${member.PersonId}`,
+        name: fullName,
+        firstName,
+        lastName,
+        party: member.CaucusShortName,
+        chamber: 'house-of-commons',
+        boundaryName: ridingName,
+        boundaryCode: ridingCode || null,
+        isActive: true,
+        parliamentId: `occ-${member.PersonId}`,
+        ridingCode: ridingCode || '00000',
+        ridingName,
+        province,
+      });
+    }
+
+    if (unresolved > 0) {
+      logger.warn('Unresolved ridings from ourcommons.ca', {
+        unresolved,
+        total: members.length,
+      });
+    }
+
+    return officials;
+  }
+
+  /**
+   * Parse ourcommons.ca Members XML into structured records.
+   *
+   * Uses lightweight regex-based XML parsing (no external XML dependency).
+   * The XML structure is stable and simple enough for regex extraction.
+   */
+  private parseOurCommonsXML(xml: string): OurCommonsMember[] {
+    const members: OurCommonsMember[] = [];
+
+    // Match each <MemberOfParliament> block
+    const memberRegex = /<MemberOfParliament>([\s\S]*?)<\/MemberOfParliament>/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = memberRegex.exec(xml)) !== null) {
+      const block = match[1];
+
+      const personId = extractXMLField(block, 'PersonId');
+      const firstName = extractXMLField(block, 'PersonOfficialFirstName');
+      const lastName = extractXMLField(block, 'PersonOfficialLastName');
+      const constituency = extractXMLField(block, 'ConstituencyName');
+      const province = extractXMLField(block, 'ConstituencyProvinceTerritoryName');
+      const caucus = extractXMLField(block, 'CaucusShortName');
+      const honorific = extractXMLField(block, 'PersonShortHonorific');
+
+      if (!personId || !firstName || !lastName || !constituency || !province || !caucus) {
+        logger.debug('Skipping incomplete MemberOfParliament XML block', {
+          personId, firstName, lastName, constituency,
+        });
+        continue;
+      }
+
+      members.push({
+        PersonId: personId,
+        PersonOfficialFirstName: firstName,
+        PersonOfficialLastName: lastName,
+        PersonShortHonorific: honorific || undefined,
+        ConstituencyName: constituency,
+        ConstituencyProvinceTerritoryName: province,
+        CaucusShortName: caucus,
+      });
+    }
+
+    return members;
+  }
+
+  /**
+   * Fetch officials from Represent API (OpenNorth NGO fallback).
+   *
+   * Paginated JSON endpoint returning MP records with:
+   * - name, first_name, last_name
+   * - party_name, district_name
+   * - offices (constituency + legislature)
+   * - related.boundary_url (contains riding code)
+   *
+   * Authority: community (NGO-maintained)
+   */
+  private async fetchFromRepresentAPI(
+    endpoint: string,
+    normalizedIndex: Map<string, CanadaRiding>
+  ): Promise<CAOfficial[]> {
+    logger.info('Fetching MPs from Represent API', { endpoint });
+
+    const allMPs: RepresentMP[] = [];
+    let nextUrl: string | null = `${endpoint}?limit=500`;
+
+    while (nextUrl) {
+      const response = await fetch(nextUrl, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as RepresentMPResponse;
+      allMPs.push(...data.objects);
+
+      nextUrl = data.meta.next;
+      if (nextUrl && !nextUrl.startsWith('http')) {
+        nextUrl = `https://represent.opennorth.ca${nextUrl}`;
+      }
+    }
+
+    logger.info('Fetched from Represent API', { count: allMPs.length });
+
+    const officials: CAOfficial[] = [];
+    let unresolved = 0;
+
+    for (const mp of allMPs) {
+      const ridingName = mp.district_name;
+
+      // Try boundary index resolution first
+      const resolved = this.resolveRidingFromBoundary(ridingName, undefined, normalizedIndex);
+
+      // Fallback: extract riding code from boundary_url
+      let ridingCode = resolved?.ridingCode ?? '';
+      if (!ridingCode) {
+        ridingCode = extractRidingCodeFromUrl(mp.related?.boundary_url);
+      }
+
+      if (!ridingCode) {
+        unresolved++;
+        logger.debug('Unresolved riding from Represent API', {
+          name: mp.name,
+          riding: ridingName,
+        });
+      }
+
+      // Extract province from SGC prefix or boundary metadata
+      const province = ridingCode
+        ? (SGC_TO_PROVINCE[ridingCode.slice(0, 2)] ?? extractProvinceFromExtra(mp))
+        : extractProvinceFromExtra(mp);
+
+      // Extract parliament_id from personal URL (ourcommons.ca link)
+      const memberIdMatch = (mp.url ?? '').match(/\((\d+)\)/);
+      const parliamentId = memberIdMatch
+        ? `occ-${memberIdMatch[1]}`
+        : `rep-${ridingCode || normalizeRidingName(ridingName)}-${mp.last_name.toLowerCase().replace(/\s/g, '-')}`;
+
+      // Extract office info
+      const legOffice = mp.offices.find(o => o.type === 'legislature');
+      const conOffice = mp.offices.find(o => o.type === 'constituency');
+      const phone = legOffice?.tel ?? conOffice?.tel ?? undefined;
+      const officeAddress = conOffice?.postal ?? legOffice?.postal ?? undefined;
+
+      officials.push({
+        id: parliamentId,
+        name: mp.name,
+        firstName: mp.first_name,
+        lastName: mp.last_name,
+        party: mp.party_name,
+        chamber: 'house-of-commons',
+        boundaryName: ridingName,
+        boundaryCode: ridingCode || null,
+        email: mp.email ?? undefined,
+        phone,
+        officeAddress,
+        websiteUrl: mp.url ?? mp.personal_url ?? undefined,
+        photoUrl: mp.photo_url ?? undefined,
+        isActive: true,
+        parliamentId,
+        ridingCode: ridingCode || '00000',
+        ridingName,
+        province,
+      });
+    }
+
+    if (unresolved > 0) {
+      logger.warn('Unresolved ridings from Represent API', {
+        unresolved,
+        total: allMPs.length,
+      });
+    }
+
+    return officials;
+  }
+}
+
+// ==========================================================================
+// Backward Compatibility Alias
+// ==========================================================================
+
+/**
+ * Backward compatibility alias for CanadaCountryProvider.
+ *
+ * Code that references `CanadaBoundaryProvider` continues to work.
+ * The new class provides the same boundary extraction interface plus
+ * officials, cell map, and validation capabilities.
+ */
+export const CanadaBoundaryProvider = CanadaCountryProvider;
+
+// ==========================================================================
+// Module-Level Helpers
+// ==========================================================================
+
+/**
+ * Map SGC province code (first 2 digits of FED code) to ISO 3166-2:CA abbreviation
+ */
+function sgcToProvince(sgcPrefix: string): CanadaProvince {
+  const result = SGC_TO_PROVINCE[sgcPrefix];
+  if (!result) {
+    logger.warn('Unknown SGC province prefix, defaulting to ON', { sgcPrefix });
+  }
+  return result ?? 'ON';
+}
+
+/**
+ * Map province full name to 2-letter code
+ */
+function provinceNameToCode(provinceName: string): string {
+  const key = provinceName.toLowerCase().trim();
+  return PROVINCE_NAME_TO_CODE[key] ?? 'XX';
+}
+
+/**
+ * Extract a simple XML field value from an XML block (regex-based, no parser dependency)
+ */
+function extractXMLField(block: string, fieldName: string): string | null {
+  const regex = new RegExp(`<${fieldName}>([^<]*)</${fieldName}>`);
+  const match = block.match(regex);
+  if (!match) return null;
+  // Decode basic XML entities
+  return match[1]
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .trim();
+}
+
+/**
+ * Extract riding code from Represent API boundary URL.
+ *
+ * Format: /boundaries/federal-electoral-districts-2023-representation-order/59028/
+ * Returns: '59028'
+ */
+function extractRidingCodeFromUrl(boundaryUrl?: string): string {
+  if (!boundaryUrl) return '';
+  const match = boundaryUrl.match(/\/boundaries\/[^/]+\/(\d+)\/?$/);
+  return match ? match[1] : '';
+}
+
+/**
+ * Extract province code from Represent API MP extra fields
+ */
+function extractProvinceFromExtra(mp: RepresentMP): string {
+  const extra = mp.extra as Record<string, string | undefined>;
+  if (extra.province) {
+    const prov = extra.province.toLowerCase();
+    for (const [pattern, code] of Object.entries(PROVINCE_NAME_TO_CODE)) {
+      if (prov.includes(pattern)) return code;
+    }
+  }
+  return 'XX';
 }

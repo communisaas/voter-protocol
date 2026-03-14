@@ -323,7 +323,7 @@ describe('UKBoundaryProvider', () => {
       expect(result.country).toBe('GB');
       expect(result.layers).toHaveLength(1);
       expect(result.totalBoundaries).toBe(1);
-      expect(result.providerVersion).toBe('1.0.0');
+      expect(result.providerVersion).toBe('2.0.0');
     });
   });
 

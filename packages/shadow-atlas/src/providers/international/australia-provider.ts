@@ -1,53 +1,49 @@
 /**
- * Australia Electoral Boundaries Provider
+ * Australia Country Provider
  *
- * Fetches boundary data from Australian Electoral Commission (AEC).
+ * Unified provider for Australian electoral boundaries AND officials.
+ * Extends CountryProvider (Wave 1 contract) with:
+ * - Boundary extraction from ABS ArcGIS (existing)
+ * - Officials extraction from APH (CSV primary, HTML scrape fallback)
+ * - Cell map stub (SA1 integration is Wave 3)
+ * - 4-layer validation pipeline
  *
- * DATA SOURCE:
- * - Organization: Australian Electoral Commission (AEC)
- * - API Type: ArcGIS REST (FeatureServer)
- * - Format: GeoJSON via f=geojson parameter
- * - License: Creative Commons Attribution 4.0 (CC-BY-4.0)
+ * DATA SOURCES:
+ * - Boundaries: Australian Bureau of Statistics (ABS) — ArcGIS REST (CED 2024)
+ * - Officials (priority 1): APH CSV download — Parliamentarian Search Results export
+ * - Officials (priority 2): APH HTML scraping — Paginated search result pages
  *
  * COVERAGE:
- * - Federal Electoral Divisions: 151 (as of 2021 redistribution)
- * - Covers: All states and territories
+ * - Federal Electoral Divisions: 151 (2021 redistribution, ABS CED 2024)
+ * - House of Representatives: 151 members
  *
- * USAGE:
- * ```typescript
- * const provider = new AustraliaBoundaryProvider();
+ * LICENSE: Creative Commons Attribution 4.0 (CC-BY-4.0)
  *
- * // Extract all federal electoral divisions
- * const result = await provider.extractFederalDivisions();
- * console.log(`Extracted ${result.actualCount}/${result.expectedCount} divisions`);
- *
- * // Extract by state
- * const nsw = await provider.extractByState('NSW');
- *
- * // Health check
- * const health = await provider.healthCheck();
- * ```
- *
- * API ENDPOINT:
- * https://services.arcgis.com/dHnJfFOAL8X99WD7/arcgis/rest/services/Federal_Electoral_Divisions_2021/FeatureServer/0
- *
- * NOTES:
- * - 2021 redistribution implemented after 2021 census
- * - Federal boundaries updated every ~7-10 years following census
- * - Next scheduled redistribution: Post-2026 census
- * - State/territory boundaries available but not yet implemented
+ * @see country-provider.ts for the abstract CountryProvider class
+ * @see country-provider-types.ts for OfficialRecord, AustralianMPSchema, etc.
  */
 
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import {
-  BaseInternationalProvider,
-  type InternationalExtractionResult,
-  type LayerConfig,
-  type LayerExtractionResult,
-  type InternationalBoundary,
-  type BoundarySource,
-  type ProviderHealth,
+import { CountryProvider } from './country-provider.js';
+import type {
+  InternationalExtractionResult,
+  LayerConfig,
+  LayerExtractionResult,
+  InternationalBoundary,
+  BoundarySource,
+  ProviderHealth,
 } from './base-provider.js';
+import type {
+  OfficialRecord,
+  OfficialsExtractionResult,
+  CellMapResult,
+  StatisticalUnitType,
+  ValidationReport,
+  SourceConfig,
+  GeocoderFn,
+  PIPCheckFn,
+} from './country-provider-types.js';
+import { AustralianMPSchema } from './country-provider-types.js';
 import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
@@ -110,16 +106,273 @@ export interface AustraliaExtractionResult extends LayerExtractionResult<Austral
   readonly layer: 'federal';
 }
 
+/**
+ * Australian MP official record — extends OfficialRecord with AU-specific fields
+ */
+export interface AUOfficial extends OfficialRecord {
+  /** APH parliamentarian ID (e.g., "R36") */
+  readonly aphId: string;
+
+  /** Electoral division name (e.g., "Grayndler") */
+  readonly divisionName: string;
+
+  /** Division code matching boundary ID (e.g., "101" from CED_CODE_2024) */
+  readonly divisionCode: string | undefined;
+
+  /** State/territory code (ISO 3166-2:AU) */
+  readonly state: AustraliaState;
+}
+
 // ============================================================================
-// Australia Boundary Provider
+// State Name/Code Mapping
+// ============================================================================
+
+const STATE_MAP: Record<string, AustraliaState> = {
+  'new south wales': 'NSW',
+  'nsw': 'NSW',
+  'victoria': 'VIC',
+  'vic': 'VIC',
+  'queensland': 'QLD',
+  'qld': 'QLD',
+  'south australia': 'SA',
+  'sa': 'SA',
+  'western australia': 'WA',
+  'wa': 'WA',
+  'tasmania': 'TAS',
+  'tas': 'TAS',
+  'northern territory': 'NT',
+  'nt': 'NT',
+  'australian capital territory': 'ACT',
+  'act': 'ACT',
+};
+
+function normalizeState(raw: string): AustraliaState | undefined {
+  return STATE_MAP[raw.toLowerCase().trim()];
+}
+
+// ============================================================================
+// HTML Parser (from ingest-au-mps.ts — lightweight, no external dependency)
+// ============================================================================
+
+interface RawAustralianMP {
+  aphId: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  party: string;
+  divisionName: string;
+  state: string;
+  email: string | null;
+  phone: string | null;
+  photoUrl: string | null;
+}
+
+/**
+ * Parse APH search results HTML page into structured MP records.
+ *
+ * APH HTML structure (2026):
+ * ```html
+ * <div class="row border-bottom padding-top">
+ *   <h4><a href="/Senators_and_Members/Parliamentarian?MPID=XXX">NAME MP</a></h4>
+ *   <dl>
+ *     <dt>For</dt><dd>ELECTORATE, STATE</dd>
+ *     <dt>Party</dt><dd>PARTY NAME</dd>
+ *     <dd><a href="mailto:...">...</a></dd>
+ *   </dl>
+ * </div>
+ * ```
+ */
+function parseSearchPage(html: string): RawAustralianMP[] {
+  const members: RawAustralianMP[] = [];
+  const sections = html.split(/(?=<div\s+class="row\s+border-bottom)/);
+
+  for (const section of sections) {
+    const localMatch = /href="\/Senators_and_Members\/Parliamentarian\?MPID=([^"]+)"[^>]*>([^<]+)<\/a>/i.exec(section);
+    if (!localMatch) continue;
+
+    const aphId = localMatch[1].trim();
+    let rawName = localMatch[2].trim();
+    rawName = rawName.replace(/\s+MP$/i, '').trim();
+    rawName = rawName.replace(/^(?:Hon\.?\s+|Rt\.?\s+Hon\.?\s+|Mr\.?\s+|Mrs\.?\s+|Ms\.?\s+|Dr\.?\s+|Prof\.?\s+)+/i, '').trim();
+
+    const electorateMatch = /<dt>For<\/dt>\s*<dd>([^<]+)<\/dd>/i.exec(section);
+    let divisionName = '';
+    let state = '';
+
+    if (electorateMatch) {
+      const parts = electorateMatch[1].split(',').map(s => s.trim());
+      divisionName = parts[0] || '';
+      state = parts.length > 1 ? (normalizeState(parts[1]) ?? parts[1].trim()) : '';
+    }
+
+    const partyMatch = /<dt>Party<\/dt>\s*<dd>([^<]+)<\/dd>/i.exec(section);
+    let party = '';
+    if (partyMatch) {
+      party = partyMatch[1].trim();
+    }
+
+    const emailMatch = /href="mailto:([^"]+)"/i.exec(section);
+    const email = emailMatch ? emailMatch[1].trim() : null;
+
+    const phoneMatch = /(?:Tel|Phone|Ph)[:\s]*([0-9()\s\-+]+)/i.exec(section);
+    const phone = phoneMatch ? phoneMatch[1].trim() : null;
+
+    const photoMatch = /src="(\/api\/parliamentarian\/[^"]+\/image[^"]*)"/i.exec(section);
+    const photoUrl = photoMatch ? `https://www.aph.gov.au${photoMatch[1]}` : null;
+
+    const nameParts = rawName.split(' ');
+    const firstName = nameParts.length > 1 ? nameParts[0] : rawName;
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
+    if (divisionName && party) {
+      members.push({
+        aphId,
+        name: rawName,
+        firstName,
+        lastName,
+        party,
+        divisionName,
+        state,
+        email,
+        phone,
+        photoUrl,
+      });
+    }
+  }
+
+  return members;
+}
+
+function parseTotalResults(html: string): number {
+  const match = /of\s+(\d+)\s+results/i.exec(html);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+// ============================================================================
+// CSV Parser (APH CSV download — primary source)
 // ============================================================================
 
 /**
- * Australia Electoral Boundaries Provider
+ * Parse APH CSV export into structured MP records.
+ *
+ * The APH Parliamentarian Search export CSV includes fields such as:
+ * Title, Surname, First Name, Electorate, State, Party, Email, Phone, etc.
+ *
+ * We handle both quoted and unquoted CSV fields.
  */
-export class AustraliaBoundaryProvider extends BaseInternationalProvider<
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function parseAPHCSV(csvText: string): RawAustralianMP[] {
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  const headerLine = lines[0];
+  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+
+  // Find column indices by common APH CSV header names
+  const find = (candidates: string[]): number =>
+    headers.findIndex(h => candidates.some(c => h.includes(c)));
+
+  const surnameIdx = find(['surname', 'last_name', 'family_name']);
+  const firstNameIdx = find(['first_name', 'given_name', 'firstname']);
+  const titleIdx = find(['title', 'salutation']);
+  const electorateIdx = find(['electorate', 'division', 'electoral_division']);
+  const stateIdx = find(['state', 'state_territory']);
+  const partyIdx = find(['party', 'political_party']);
+  const emailIdx = find(['email', 'e_mail']);
+  const phoneIdx = find(['phone', 'telephone']);
+  const idIdx = find(['mpid', 'parliamentarian_id', 'id', 'member_id']);
+
+  if (surnameIdx === -1 || electorateIdx === -1 || partyIdx === -1) {
+    throw new Error('APH CSV missing required columns (surname, electorate, party)');
+  }
+
+  const members: RawAustralianMP[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const fields = parseCSVLine(lines[i]);
+    if (fields.length < Math.max(surnameIdx, electorateIdx, partyIdx) + 1) continue;
+
+    const surname = fields[surnameIdx] || '';
+    const firstName = firstNameIdx >= 0 ? (fields[firstNameIdx] || '') : '';
+    const name = firstName ? `${firstName} ${surname}` : surname;
+    const divisionName = fields[electorateIdx] || '';
+    const rawState = stateIdx >= 0 ? (fields[stateIdx] || '') : '';
+    const state = normalizeState(rawState) ?? rawState.trim();
+    const party = fields[partyIdx] || '';
+    const email = emailIdx >= 0 ? (fields[emailIdx] || null) : null;
+    const phone = phoneIdx >= 0 ? (fields[phoneIdx] || null) : null;
+
+    // Build a stable ID: prefer the CSV's own ID, else derive from name
+    let aphId = idIdx >= 0 ? (fields[idIdx] || '') : '';
+    if (!aphId) {
+      aphId = `aph-${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+    }
+
+    if (divisionName && party && surname) {
+      members.push({
+        aphId,
+        name: name.trim(),
+        firstName: firstName || null,
+        lastName: surname || null,
+        party: party.trim(),
+        divisionName: divisionName.trim(),
+        state,
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        photoUrl: null,
+      });
+    }
+  }
+
+  return members;
+}
+
+// ============================================================================
+// Rate limiter for HTML scraping
+// ============================================================================
+
+function rateLimitedDelay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ============================================================================
+// Australia Country Provider
+// ============================================================================
+
+/**
+ * Australia Country Provider
+ *
+ * Unified provider for AU electoral boundaries and House of Representatives officials.
+ * Extends CountryProvider with source chain for officials (APH CSV + HTML fallback).
+ */
+export class AustraliaCountryProvider extends CountryProvider<
   AustraliaLayerType,
-  AustraliaDivision
+  AustraliaDivision,
+  AUOfficial
 > {
   readonly country = 'AU';
   readonly countryName = 'Australia';
@@ -129,6 +382,38 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
 
   private readonly baseUrl =
     'https://geo.abs.gov.au/arcgis/rest/services';
+
+  // ==========================================================================
+  // CountryProvider abstract properties
+  // ==========================================================================
+
+  /** Officials sources in priority order (source chain) */
+  readonly officialsSources: readonly SourceConfig[] = [
+    {
+      name: 'APH CSV Download',
+      endpoint: 'https://www.aph.gov.au/Senators_and_Members/Parliamentarian_Search_Results?q=&mem=1&par=-1&gen=0&ps=0&st=1',
+      authority: 'electoral-commission',
+      priority: 1,
+    },
+    {
+      name: 'APH HTML Scraping',
+      endpoint: 'https://www.aph.gov.au/Senators_and_Members/Parliamentarian_Search_Results',
+      authority: 'electoral-commission',
+      priority: 2,
+    },
+  ];
+
+  /** Expected 151 House of Representatives members */
+  readonly expectedOfficialCounts: ReadonlyMap<string, number> = new Map([
+    ['house-of-representatives', 151],
+  ]);
+
+  /** Statistical geography unit for Tree 2 cell maps */
+  readonly statisticalUnit: StatisticalUnitType = 'sa1';
+
+  // ==========================================================================
+  // Boundary layer configuration
+  // ==========================================================================
 
   /**
    * Available boundary layers
@@ -155,6 +440,10 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     ],
   ]);
 
+  // ==========================================================================
+  // Boundary Extraction (existing logic preserved)
+  // ==========================================================================
+
   /**
    * Extract all available layers
    */
@@ -169,7 +458,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       successfulLayers: federal.success ? 1 : 0,
       failedLayers: federal.success ? 0 : 1,
       extractedAt: new Date(),
-      providerVersion: '1.0.0',
+      providerVersion: '2.0.0',
       durationMs: Date.now() - startTime,
     };
   }
@@ -197,8 +486,6 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
 
     try {
       logger.info('Extracting federal electoral divisions', { country: 'Australia' });
-      // ABS endpoint supports up to 2000 records per query (169 total CED entries).
-      // Use paginated fetch with geometry simplification for reliability.
       const geojson = await this.fetchGeoJSONPaginated(
         `${layer.endpoint}/query?where=1%3D1&outFields=*&f=geojson`,
         200, 169, 0.0001
@@ -271,7 +558,7 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
         layer: 'federal',
         success: true,
         boundaries: stateDivisions,
-        expectedCount: stateDivisions.length, // No fixed expectation per state
+        expectedCount: stateDivisions.length,
         actualCount: stateDivisions.length,
         matched: true,
         confidence: 100,
@@ -306,7 +593,6 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
         };
       }
 
-      // Check ArcGIS service metadata
       const metadataUrl = `${layer.endpoint}?f=json`;
       const response = await fetch(metadataUrl, {
         headers: {
@@ -332,7 +618,6 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       };
       const latencyMs = Date.now() - startTime;
 
-      // Check feature count
       if (metadata.count === 0) {
         issues.push('Service reports zero features');
       }
@@ -356,9 +641,364 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     }
   }
 
-  // ============================================================================
-  // Private Methods
-  // ============================================================================
+  // ==========================================================================
+  // Officials Extraction (CountryProvider abstract method)
+  // ==========================================================================
+
+  /**
+   * Extract Australian House of Representatives members.
+   *
+   * Source chain:
+   * 1. APH CSV download (structured export, most reliable)
+   * 2. APH HTML scraping (paginated search results, fallback)
+   *
+   * Boundary code resolution happens at extraction time via the boundary index.
+   * Each official's divisionName is matched against boundary names to resolve
+   * the boundary code. Unresolved officials are still returned (with null
+   * boundaryCode) and flagged in validation diagnostics.
+   *
+   * @param boundaryIndex - Map of boundary name -> boundary object
+   */
+  async extractOfficials(
+    boundaryIndex: Map<string, AustraliaDivision>
+  ): Promise<OfficialsExtractionResult<AUOfficial>> {
+    const startTime = Date.now();
+
+    const { result: rawMPs, source, attempts } = await this.trySourceChain(
+      this.officialsSources,
+      async (sourceConfig) => {
+        if (sourceConfig.priority === 1) {
+          return this.fetchFromCSV(sourceConfig.endpoint);
+        } else {
+          return this.fetchFromHTML(sourceConfig.endpoint);
+        }
+      }
+    );
+
+    // Resolve boundary codes at extraction time
+    const officials = this.resolveOfficialBoundaryCodes(rawMPs, boundaryIndex);
+
+    const expectedCount = this.expectedOfficialCounts.get('house-of-representatives') ?? 151;
+    const durationMs = Date.now() - startTime;
+
+    logger.info('AU officials extraction complete', {
+      source: source.name,
+      count: officials.length,
+      expectedCount,
+      durationMs,
+    });
+
+    return {
+      country: this.country,
+      officials,
+      expectedCount,
+      actualCount: officials.length,
+      matched: officials.length === expectedCount,
+      confidence: officials.length >= expectedCount * 0.8 ? 90 : 60,
+      sources: attempts,
+      extractedAt: new Date(),
+      durationMs,
+    };
+  }
+
+  // ==========================================================================
+  // Cell Map (CountryProvider abstract method — Wave 3 stub)
+  // ==========================================================================
+
+  /**
+   * Build cell map for Tree 2 using ABS SA1 statistical areas.
+   *
+   * SA1 integration is Wave 3. This stub throws to signal that the
+   * capability is not yet implemented.
+   */
+  async buildCellMap(
+    _boundaries: AustraliaDivision[]
+  ): Promise<CellMapResult> {
+    throw new Error('SA1 integration pending (Wave 3)');
+  }
+
+  // ==========================================================================
+  // Validation (CountryProvider abstract method)
+  // ==========================================================================
+
+  /**
+   * Run 4-layer validation pipeline for AU data.
+   *
+   * Layers:
+   * 1. Source Authority — confidence scoring from boundary + officials sources
+   * 2. Schema & Count — zod validation (AustralianMPSchema) + 80% threshold
+   * 3. Boundary Code Resolution — name-match officials against boundary index
+   * 4. PIP Verification — geocode office addresses, check containment (optional)
+   */
+  async validate(
+    boundaries: AustraliaDivision[],
+    officials: AUOfficial[],
+    geocoder?: GeocoderFn,
+    pipCheck?: PIPCheckFn,
+  ): Promise<ValidationReport> {
+    const federalLayer = this.layers.get('federal');
+
+    // Layer 1: Source Authority
+    const boundarySources = federalLayer ? [{
+      name: federalLayer.name,
+      authority: federalLayer.authority,
+      vintage: federalLayer.vintage,
+    }] : [];
+
+    // Build source attempts from officials sources that succeeded
+    // (we use the successful source name to look up authority)
+    const officialAttempts = this.officialsSources.map(s => ({
+      source: s.name,
+      success: true, // At validation time, we already have officials
+      durationMs: 0,
+    })).slice(0, 1); // Only the first (successful) source
+
+    const sourceAuthority = this.assessSourceAuthority(boundarySources, officialAttempts);
+
+    // Layer 2: Schema & Count Validation
+    const expectedCount = this.expectedOfficialCounts.get('house-of-representatives') ?? 151;
+    const schemaValidation = this.validateSchema(officials, AustralianMPSchema, expectedCount);
+
+    // Layer 3: Boundary Code Resolution
+    const boundaryIndex = new Map<string, AustraliaDivision>();
+    for (const b of boundaries) {
+      boundaryIndex.set(b.name, b);
+    }
+    const codeResolution = this.resolveBoundaryCodes(
+      officials,
+      boundaryIndex,
+      (o: AUOfficial) => o.divisionName,
+      (name: string) => name.toLowerCase().trim(),
+    );
+
+    // Layer 4: PIP Verification (optional — diagnostic only)
+    let pipVerification: ValidationReport['layers']['pipVerification'];
+    if (geocoder && pipCheck) {
+      pipVerification = await this.verifyPIP(officials, geocoder, pipCheck);
+    } else {
+      pipVerification = {
+        confirmed: 0,
+        mismatched: [],
+        skipped: officials.length,
+        total: officials.length,
+      };
+    }
+
+    return this.buildValidationReport({
+      sourceAuthority,
+      schemaValidation,
+      codeResolution,
+      pipVerification,
+    });
+  }
+
+  // ==========================================================================
+  // Private: Officials Data Fetching
+  // ==========================================================================
+
+  /**
+   * Fetch officials from APH CSV download.
+   *
+   * The APH search page at the given URL has a CSV export link. We attempt
+   * to fetch the CSV format directly by requesting with appropriate headers.
+   *
+   * If a true CSV download URL is not available, we request the search page
+   * with an export parameter. The APH CSV contains columns: Title, Surname,
+   * First Name, Electorate, State, Party, Email, Phone, etc.
+   */
+  private async fetchFromCSV(endpoint: string): Promise<RawAustralianMP[]> {
+    logger.info('Fetching AU MPs from APH CSV', { endpoint });
+
+    // APH provides CSV export via the same search URL with different parameters/headers
+    // Try the export/download variation
+    const csvUrl = `${endpoint}&csv=1`;
+
+    const response = await fetch(csvUrl, {
+      headers: {
+        Accept: 'text/csv, application/csv, */*',
+        'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`APH CSV download HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const text = await response.text();
+
+    // Verify we got actual CSV (not HTML redirect)
+    if (contentType.includes('text/html') || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      throw new Error('APH CSV endpoint returned HTML instead of CSV — export format may have changed');
+    }
+
+    const members = parseAPHCSV(text);
+
+    if (members.length < 100) {
+      throw new Error(
+        `APH CSV sanity check failed: only ${members.length} MPs parsed (expected ~151). ` +
+        `CSV format may have changed.`
+      );
+    }
+
+    logger.info('APH CSV parsed', { count: members.length });
+    return members;
+  }
+
+  /**
+   * Fetch officials from APH HTML scraping (fallback).
+   *
+   * Paginates through the APH Parliamentarian Search Results HTML pages,
+   * extracting MP records from the search result markup.
+   *
+   * Rate-limited to 1 request/second for government website courtesy.
+   */
+  private async fetchFromHTML(baseEndpoint: string): Promise<RawAustralianMP[]> {
+    logger.info('Fetching AU MPs from APH HTML scraping', { endpoint: baseEndpoint });
+
+    const allMembers: RawAustralianMP[] = [];
+    const seen = new Set<string>();
+    const rateLimitMs = 1000;
+
+    // First page with House of Representatives filter
+    const firstUrl = `${baseEndpoint}?q=&mem=1&par=-1&gen=0&ps=0&st=1`;
+
+    const firstResponse = await fetch(firstUrl, {
+      headers: {
+        Accept: 'text/html',
+        'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!firstResponse.ok) {
+      throw new Error(`APH HTML HTTP ${firstResponse.status}: ${firstResponse.statusText}`);
+    }
+
+    const firstHtml = await firstResponse.text();
+    const totalResults = parseTotalResults(firstHtml);
+
+    logger.info('APH HTML first page', { totalResults });
+
+    const firstPageMembers = parseSearchPage(firstHtml);
+    for (const m of firstPageMembers) {
+      if (!seen.has(m.aphId)) {
+        allMembers.push(m);
+        seen.add(m.aphId);
+      }
+    }
+
+    // Paginate through remaining pages
+    const pageSize = Math.max(firstPageMembers.length, 12);
+    const totalPages = Math.ceil(totalResults / pageSize);
+
+    for (let p = 2; p <= totalPages; p++) {
+      await rateLimitedDelay(rateLimitMs);
+      const pageUrl = `${baseEndpoint}?q=&mem=1&par=-1&gen=0&ps=0&st=1&page=${p}`;
+
+      try {
+        const response = await fetch(pageUrl, {
+          headers: {
+            Accept: 'text/html',
+            'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
+          },
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (!response.ok) {
+          logger.warn('APH HTML page failed', { page: p, status: response.status });
+          continue;
+        }
+
+        const html = await response.text();
+        const pageMembers = parseSearchPage(html);
+        for (const m of pageMembers) {
+          if (!seen.has(m.aphId)) {
+            allMembers.push(m);
+            seen.add(m.aphId);
+          }
+        }
+      } catch (err) {
+        logger.warn('APH HTML page fetch error', {
+          page: p,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    if (allMembers.length < 100) {
+      throw new Error(
+        `APH HTML sanity check failed: only ${allMembers.length} MPs parsed (expected ~151). ` +
+        `Website structure may have changed.`
+      );
+    }
+
+    logger.info('APH HTML scraping complete', { count: allMembers.length });
+    return allMembers;
+  }
+
+  // ==========================================================================
+  // Private: Boundary Code Resolution at Extraction Time
+  // ==========================================================================
+
+  /**
+   * Transform raw MP records into AUOfficial records with resolved boundary codes.
+   *
+   * Matches each MP's divisionName against the boundary index (case-insensitive).
+   * AU divisions have unique names, so no ambiguity is expected.
+   */
+  private resolveOfficialBoundaryCodes(
+    rawMPs: readonly RawAustralianMP[],
+    boundaryIndex: Map<string, AustraliaDivision>,
+  ): AUOfficial[] {
+    // Build normalized lookup: lowercase name -> boundary
+    const normalizedIndex = new Map<string, AustraliaDivision>();
+    for (const [name, boundary] of boundaryIndex) {
+      normalizedIndex.set(name.toLowerCase().trim(), boundary);
+    }
+
+    return rawMPs.map((mp) => {
+      const normalizedName = mp.divisionName.toLowerCase().trim();
+      const boundary = normalizedIndex.get(normalizedName);
+
+      const boundaryCode = boundary?.id ?? null;
+      const divisionCode = boundary?.id;
+      const state = (normalizeState(mp.state) ?? mp.state) as AustraliaState;
+
+      if (!boundary) {
+        logger.warn('AU official boundary code unresolved', {
+          name: mp.name,
+          divisionName: mp.divisionName,
+        });
+      }
+
+      return {
+        id: mp.aphId,
+        name: mp.name,
+        firstName: mp.firstName ?? undefined,
+        lastName: mp.lastName ?? undefined,
+        party: mp.party,
+        chamber: 'house-of-representatives',
+        boundaryName: mp.divisionName,
+        boundaryCode,
+        email: mp.email ?? undefined,
+        phone: mp.phone ?? undefined,
+        photoUrl: mp.photoUrl ?? undefined,
+        isActive: true,
+
+        // AU-specific fields
+        aphId: mp.aphId,
+        divisionName: mp.divisionName,
+        divisionCode,
+        state,
+      };
+    });
+  }
+
+  // ==========================================================================
+  // Private: Boundary Normalization (existing logic preserved)
+  // ==========================================================================
 
   /**
    * Normalize GeoJSON features to AustraliaDivision format
@@ -366,12 +1006,9 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
   private normalizeDivisions(geojson: FeatureCollection, layer: LayerConfig): AustraliaDivision[] {
     return geojson.features
       .filter((f) => {
-        // Must have valid polygon geometry
         if (!f.geometry || (f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon')) {
           return false;
         }
-        // Filter out non-electoral entries from ABS dataset
-        // Codes >= 900 are "No usual address", "Migratory", "Outside Australia"
         const props = f.properties ?? {};
         const code = Number(props.CED_CODE_2024 ?? props.ced_code_2021 ?? props.e_div_numb ?? 0);
         const name = String(props.CED_NAME_2024 ?? props.ced_name_2021 ?? props.elect_div ?? '');
@@ -383,11 +1020,6 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
       .map((f) => {
         const props = f.properties ?? {};
 
-        // Extract division code and name
-        // ABS 2024: CED_CODE_2024, CED_NAME_2024, STATE_CODE_2021, STATE_NAME_2021
-        // ABS 2021: ced_code_2021, ced_name_2021
-        // aus_digitalatlas 2025: elect_div (name), e_div_numb (number)
-        // Legacy: DIV_CODE, DIV_NAME, ELECT_DIV
         const divisionCode = String(
           props.CED_CODE_2024 ?? props.ced_code_2021 ?? props.e_div_numb ?? props.DIV_CODE ?? props.DIV_ID ?? props.ELECT_DIV ?? props.code ?? ''
         );
@@ -395,10 +1027,8 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
           props.CED_NAME_2024 ?? props.ced_name_2021 ?? props.elect_div ?? props.sortname ?? props.DIV_NAME ?? props.ELECT_DIV_NAME ?? props.name ?? 'Unknown Division'
         );
 
-        // Extract state code from division code or properties
         const stateCode = this.extractStateCode(divisionCode, props);
 
-        // Extract population if available
         const population = typeof props.POPULATION === 'number' ? props.POPULATION : undefined;
 
         return {
@@ -483,3 +1113,16 @@ export class AustraliaBoundaryProvider extends BaseInternationalProvider<
     return mapped ?? 'NSW';
   }
 }
+
+// ============================================================================
+// Backward Compatibility
+// ============================================================================
+
+/**
+ * Backward-compatible alias for the old class name.
+ *
+ * Existing code that imports `AustraliaBoundaryProvider` continues to work
+ * since AustraliaCountryProvider still exposes all boundary extraction methods
+ * (extractAll, extractLayer, extractFederalDivisions, extractByState, healthCheck).
+ */
+export const AustraliaBoundaryProvider = AustraliaCountryProvider;
