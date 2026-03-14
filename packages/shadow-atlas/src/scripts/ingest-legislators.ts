@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 /**
+ * @deprecated Use unified hydration pipeline instead:
+ *   npx tsx src/hydration/hydrate-country.ts --country US
+ *
  * Ingest Federal Legislators from unitedstates/congress-legislators
  *
  * Data source: https://github.com/unitedstates/congress-legislators
