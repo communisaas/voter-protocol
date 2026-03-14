@@ -119,15 +119,15 @@ describe('AustraliaBoundaryProvider', () => {
       const federalLayer = provider.layers.get('federal');
       expect(federalLayer).toBeDefined();
       expect(federalLayer?.type).toBe('federal');
-      expect(federalLayer?.expectedCount).toBe(151);
-      expect(federalLayer?.authority).toBe('electoral-commission');
-      expect(federalLayer?.vintage).toBe(2021);
+      expect(federalLayer?.expectedCount).toBe(150);
+      expect(federalLayer?.authority).toBe('national-statistics');
+      expect(federalLayer?.vintage).toBe(2024);
     });
 
     it('should have valid layer endpoint URL', () => {
       const federalLayer = provider.layers.get('federal');
       expect(federalLayer?.endpoint).toMatch(/^https:\/\//);
-      expect(federalLayer?.endpoint).toContain('Federal_Electoral_Divisions_2021');
+      expect(federalLayer?.endpoint).toContain('ASGS2024/CED');
       expect(federalLayer?.endpoint).toContain('FeatureServer/0');
     });
   });
@@ -194,8 +194,8 @@ describe('AustraliaBoundaryProvider', () => {
 
       expect(division.source.country).toBe('AU');
       expect(division.source.dataSource).toBe('AEC');
-      expect(division.source.authority).toBe('electoral-commission');
-      expect(division.source.vintage).toBe(2021);
+      expect(division.source.authority).toBe('national-statistics');
+      expect(division.source.vintage).toBe(2024);
       expect(division.source.retrievedAt).toBeDefined();
     });
 
@@ -231,10 +231,10 @@ describe('AustraliaBoundaryProvider', () => {
 
   describe('Validation', () => {
     it('should validate count match', async () => {
-      // Create mock response with exactly 151 features (expected count)
+      // Create mock response with exactly 150 features (expected count)
       const fullResponse: FeatureCollection = {
         type: 'FeatureCollection',
-        features: Array.from({ length: 151 }, (_, i) => ({
+        features: Array.from({ length: 150 }, (_, i) => ({
           type: 'Feature' as const,
           properties: {
             DIV_CODE: `DIV${i.toString().padStart(3, '0')}`,
@@ -263,8 +263,8 @@ describe('AustraliaBoundaryProvider', () => {
 
       const result = await provider.extractFederalDivisions();
 
-      expect(result.actualCount).toBe(151);
-      expect(result.expectedCount).toBe(151);
+      expect(result.actualCount).toBe(150);
+      expect(result.expectedCount).toBe(150);
       expect(result.matched).toBe(true);
     });
 
@@ -277,7 +277,7 @@ describe('AustraliaBoundaryProvider', () => {
       const result = await provider.extractFederalDivisions();
 
       expect(result.actualCount).toBe(2);
-      expect(result.expectedCount).toBe(151);
+      expect(result.expectedCount).toBe(150);
       expect(result.matched).toBe(false);
     });
 
@@ -524,7 +524,7 @@ describe('AustraliaBoundaryProvider', () => {
     it('should return expected counts for all layers', async () => {
       const counts = await provider.getExpectedCounts();
 
-      expect(counts.get('federal')).toBe(151);
+      expect(counts.get('federal')).toBe(150);
     });
   });
 
@@ -533,38 +533,48 @@ describe('AustraliaBoundaryProvider', () => {
   // ==========================================================================
 
   describe('hasChangedSince', () => {
-    it('should detect no changes if Last-Modified is old', async () => {
-      const oldDate = new Date('2023-01-01');
-
+    it('should return false when editingInfo.lastEditDate is older than lastExtraction', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        headers: new Map([['Last-Modified', 'Mon, 01 Jan 2022 00:00:00 GMT']]),
+        json: async () => ({
+          editingInfo: { lastEditDate: new Date('2023-06-01').getTime() },
+        }),
       });
 
-      const hasChanged = await provider.hasChangedSince(oldDate);
-
+      const hasChanged = await provider.hasChangedSince(new Date('2024-01-01'));
       expect(hasChanged).toBe(false);
     });
 
-    it('should detect changes if Last-Modified is recent', async () => {
-      const recentDate = new Date('2022-06-01');
-
+    it('should return true when editingInfo.lastEditDate is newer than lastExtraction', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
-        headers: new Map([['Last-Modified', 'Mon, 01 Jan 2024 00:00:00 GMT']]),
+        json: async () => ({
+          editingInfo: { lastEditDate: new Date('2024-06-01').getTime() },
+        }),
       });
 
-      const hasChanged = await provider.hasChangedSince(recentDate);
-
+      const hasChanged = await provider.hasChangedSince(new Date('2024-01-01'));
       expect(hasChanged).toBe(true);
     });
 
-    it('should conservatively return true on check failure', async () => {
+    it('should fall back to HTTP headers when editingInfo is absent', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+        headers: new Map([['Last-Modified', 'Mon, 01 Jan 2024 00:00:00 GMT']]),
+      });
+
+      const hasChanged = await provider.hasChangedSince(new Date('2022-06-01'));
+      // Falls back to super.hasChangedSince which checks HTTP headers
+      // The mock returns Last-Modified in 2024, lastExtraction is 2022 => changed
+      expect(hasChanged).toBe(true);
+    });
+
+    it('should conservatively return true on network error', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
       const hasChanged = await provider.hasChangedSince(new Date());
-
-      expect(hasChanged).toBe(true); // Conservative assumption
+      expect(hasChanged).toBe(true);
     });
   });
 });

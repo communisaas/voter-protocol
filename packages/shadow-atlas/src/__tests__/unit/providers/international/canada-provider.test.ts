@@ -125,7 +125,8 @@ describe('CanadaBoundaryProvider', () => {
     });
 
     it('should handle pagination correctly', async () => {
-      const page1Response = {
+      // fetchAllRidings does 2-step: metadata (paginated) + simple_shape (bulk)
+      const metadataPage1 = {
         objects: [
           {
             boundary_set_name: 'federal-electoral-districts',
@@ -133,18 +134,6 @@ describe('CanadaBoundaryProvider', () => {
             name: 'Ajax',
             name_fr: 'Ajax',
             related: { province_code: 'ON' },
-            simple_shape: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [0, 0],
-                  [1, 0],
-                  [1, 1],
-                  [0, 1],
-                  [0, 0],
-                ],
-              ],
-            },
           },
         ],
         meta: {
@@ -153,7 +142,7 @@ describe('CanadaBoundaryProvider', () => {
         },
       };
 
-      const page2Response = {
+      const metadataPage2 = {
         objects: [
           {
             boundary_set_name: 'federal-electoral-districts',
@@ -161,18 +150,6 @@ describe('CanadaBoundaryProvider', () => {
             name: 'Aurora—Oak Ridges—Richmond Hill',
             name_fr: 'Aurora—Oak Ridges—Richmond Hill',
             related: { province_code: 'ON' },
-            simple_shape: {
-              type: 'Polygon',
-              coordinates: [
-                [
-                  [0, 0],
-                  [1, 0],
-                  [1, 1],
-                  [0, 1],
-                  [0, 0],
-                ],
-              ],
-            },
           },
         ],
         meta: {
@@ -181,15 +158,38 @@ describe('CanadaBoundaryProvider', () => {
         },
       };
 
+      const shapesResponse = {
+        objects: [
+          {
+            name: 'Ajax',
+            simple_shape: {
+              type: 'Polygon',
+              coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]],
+            },
+          },
+          {
+            name: 'Aurora—Oak Ridges—Richmond Hill',
+            simple_shape: {
+              type: 'Polygon',
+              coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]],
+            },
+          },
+        ],
+      };
+
       global.fetch = vi
         .fn()
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => page1Response,
+          json: async () => metadataPage1,
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => page2Response,
+          json: async () => metadataPage2,
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => shapesResponse,
         } as Response);
 
       const result = await provider.extractFederalDistricts();
@@ -412,7 +412,54 @@ describe('CanadaBoundaryProvider', () => {
   });
 
   describe('hasChangedSince', () => {
-    it('should always return true (Represent API lacks lastEditDate)', async () => {
+    it('should return false when related_data_updated is older than lastExtraction', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          related_data_updated: '2024-06-01T00:00:00Z',
+        }),
+      } as Response);
+
+      const hasChanged = await provider.hasChangedSince(new Date('2024-12-01'));
+      expect(hasChanged).toBe(false);
+    });
+
+    it('should return true when related_data_updated is newer than lastExtraction', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          related_data_updated: '2025-02-01T00:00:00Z',
+        }),
+      } as Response);
+
+      const hasChanged = await provider.hasChangedSince(new Date('2024-12-01'));
+      expect(hasChanged).toBe(true);
+    });
+
+    it('should fall back to count comparison when no date field is present', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ count: 343 }),
+      } as Response);
+
+      // Count matches expected (343) — no change
+      const hasChanged = await provider.hasChangedSince(new Date('2024-01-01'));
+      expect(hasChanged).toBe(false);
+    });
+
+    it('should return true when count differs from expected', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ count: 350 }),
+      } as Response);
+
+      const hasChanged = await provider.hasChangedSince(new Date('2024-01-01'));
+      expect(hasChanged).toBe(true);
+    });
+
+    it('should return true on network error (conservative fallback)', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
       const hasChanged = await provider.hasChangedSince(new Date('2024-01-01'));
       expect(hasChanged).toBe(true);
     });
