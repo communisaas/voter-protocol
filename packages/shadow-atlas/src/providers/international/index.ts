@@ -142,6 +142,16 @@ export {
   type NZExtractionResult,
 } from './nz-provider.js';
 
+export {
+  // United States
+  USCountryProvider,
+  USBoundaryProvider,
+  type USOfficial,
+  type USDistrict,
+  type USLayerType,
+  type USExtractionResult,
+} from './us-provider.js';
+
 // ============================================================================
 // EU Template (Phase 2: European Union)
 // ============================================================================
