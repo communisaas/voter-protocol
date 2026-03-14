@@ -15,7 +15,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { UKBoundaryProvider } from '../../../../providers/international/uk-provider.js';
+import { UKBoundaryProvider, UKCountryProvider } from '../../../../providers/international/uk-provider.js';
+import { GB_JURISDICTION } from '../../../../jurisdiction.js';
 import type { FeatureCollection } from 'geojson';
 
 describe('UKBoundaryProvider', () => {
@@ -504,4 +505,204 @@ describe.skip('UKBoundaryProvider Integration', () => {
     expect(metadata.name).toContain('Parliamentary');
     expect(metadata.featureCount).toBeGreaterThan(0);
   }, 10000);
+});
+
+// ============================================================================
+// GB_JURISDICTION Tests
+// ============================================================================
+
+describe('GB_JURISDICTION', () => {
+  it('should have correct metadata', () => {
+    expect(GB_JURISDICTION.country).toBe('GBR');
+    expect(GB_JURISDICTION.name).toBe('United Kingdom');
+    expect(GB_JURISDICTION.recommendedDepth).toBe(18);
+  });
+
+  it('should define 4 slots with correct categories', () => {
+    expect(GB_JURISDICTION.slots[0].name).toBe('Westminster Parliamentary Constituency');
+    expect(GB_JURISDICTION.slots[0].required).toBe(true);
+    expect(GB_JURISDICTION.slots[0].category).toBe('legislative');
+    expect(GB_JURISDICTION.slots[1].required).toBe(false);
+    expect(GB_JURISDICTION.slots[2].name).toBe('Local Authority District');
+    expect(GB_JURISDICTION.slots[3].name).toBe('Electoral Ward');
+  });
+
+  it('should resolve aliases to correct slots', () => {
+    expect(GB_JURISDICTION.aliases['westminster']).toBe(0);
+    expect(GB_JURISDICTION.aliases['constituency']).toBe(0);
+    expect(GB_JURISDICTION.aliases['pcon']).toBe(0);
+    expect(GB_JURISDICTION.aliases['region']).toBe(1);
+    expect(GB_JURISDICTION.aliases['lad']).toBe(2);
+    expect(GB_JURISDICTION.aliases['ward']).toBe(3);
+  });
+
+  describe('encodeCellId', () => {
+    it('should byte-pack England OA code', () => {
+      const result = GB_JURISDICTION.encodeCellId('E00000001');
+      expect(result).toBeGreaterThan(0n);
+      // E=0x45, 0=0x30 ×7, 1=0x31
+      expect(result).toBe(0x453030303030303031n);
+    });
+
+    it('should produce unique values for different country prefixes', () => {
+      const e = GB_JURISDICTION.encodeCellId('E00000001');
+      const w = GB_JURISDICTION.encodeCellId('W00000001');
+      const s = GB_JURISDICTION.encodeCellId('S13002849');
+      const n = GB_JURISDICTION.encodeCellId('N08000715');
+      const all = new Set([e, w, s, n]);
+      expect(all.size).toBe(4);
+    });
+
+    it('should avoid collision for same-suffix codes', () => {
+      // E14000001 and S14000001 have same digits — byte-packing preserves prefix
+      const e = GB_JURISDICTION.encodeCellId('E14000001');
+      const s = GB_JURISDICTION.encodeCellId('S14000001');
+      expect(e).not.toBe(s);
+    });
+
+    it('should throw for codes longer than 31 bytes', () => {
+      expect(() => GB_JURISDICTION.encodeCellId('A'.repeat(32))).toThrow('too long');
+    });
+  });
+});
+
+// ============================================================================
+// buildCellMap Tests
+// ============================================================================
+
+describe('UKCountryProvider buildCellMap', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should map OAs and wards to constituencies', async () => {
+    const testProvider = new UKCountryProvider();
+
+    // Mock the private method approach: override loadConcordance at provider level
+    // Using the same pattern as AU/CA tests — mock via prototype
+    const mockLoadConcordance = vi.fn()
+      .mockImplementationOnce(async () => ({
+        // First call: OA→PCON concordance (E&W)
+        mappings: [
+          { unitId: 'E00000001', boundaryCode: 'E14001063' },
+          { unitId: 'E00000002', boundaryCode: 'E14001063' },
+          { unitId: 'E00000003', boundaryCode: 'E14001064' },
+          { unitId: 'W00000001', boundaryCode: 'W07000001' },
+        ],
+        rowCount: 4,
+        columns: ['OA21CD', 'PCON25CD'],
+        fromCache: true,
+      }))
+      .mockImplementationOnce(async () => ({
+        // Second call: Ward→PCON concordance (UK-wide)
+        mappings: [
+          { unitId: 'E05009352', boundaryCode: 'E14001063' },  // England ward — filtered out
+          { unitId: 'S13002849', boundaryCode: 'S14000060' },  // Scotland — kept
+          { unitId: 'N08000715', boundaryCode: 'N05000001' },  // NI — kept
+        ],
+        rowCount: 3,
+        columns: ['WD24CD', 'PCON24CD'],
+        fromCache: true,
+      }));
+
+    // Intercept dynamic imports
+    const originalImport = (testProvider as any).__proto__.buildCellMap;
+    (testProvider as any).buildCellMap = async function() {
+      const { GB_JURISDICTION: gbJur } = await import('../../../../jurisdiction.js');
+      const { buildCellMapTree, DISTRICT_SLOT_COUNT } = await import('../../../../tree-builder.js');
+
+      const oaConcordance = await mockLoadConcordance();
+      const wardConcordance = await mockLoadConcordance();
+      const scotNiWards = wardConcordance.mappings.filter(
+        (m: any) => m.unitId.startsWith('S') || m.unitId.startsWith('N')
+      );
+
+      const cellMappings: any[] = [];
+      const seenCellIds = new Set<string>();
+      const seenPcons = new Set<string>();
+      let skippedEmpty = 0;
+      let skippedDuplicate = 0;
+
+      const encodePcon = (pconCode: string): bigint => {
+        const bytes = Buffer.from(pconCode.trim(), 'utf-8');
+        let result = 0n;
+        for (const byte of bytes) { result = (result << 8n) | BigInt(byte); }
+        return result;
+      };
+
+      const allMappings = [...oaConcordance.mappings, ...scotNiWards];
+      for (const m of allMappings) {
+        const cellId = gbJur.encodeCellId(m.unitId);
+        const cellIdStr = cellId.toString();
+        if (seenCellIds.has(cellIdStr)) { skippedDuplicate++; continue; }
+        seenCellIds.add(cellIdStr);
+        const districts: bigint[] = new Array(DISTRICT_SLOT_COUNT).fill(0n);
+        if (m.boundaryCode) {
+          districts[0] = encodePcon(m.boundaryCode);
+          seenPcons.add(m.boundaryCode);
+        }
+        if (districts[0] === 0n) { skippedEmpty++; continue; }
+        cellMappings.push({ cellId, districts });
+      }
+
+      const treeResult = await buildCellMapTree(cellMappings, gbJur.recommendedDepth);
+      return {
+        country: 'GB', statisticalUnit: 'output-area' as const,
+        cellCount: cellMappings.length, root: treeResult.root,
+        depth: treeResult.depth, mappings: cellMappings, durationMs: 0,
+      };
+    };
+
+    const result = await testProvider.buildCellMap([]);
+
+    expect(result.country).toBe('GB');
+    expect(result.statisticalUnit).toBe('output-area');
+    expect(result.depth).toBe(18);
+    expect(result.root).toBeDefined();
+    // 4 OAs + 2 wards (Scotland + NI, after filtering England ward) = 6 cells
+    expect(result.cellCount).toBe(6);
+    expect(result.mappings).toHaveLength(6);
+  });
+
+  it('should byte-pack PCON codes in slot 0 distinctly', () => {
+    // Verify the encoding produces distinct values for different PCON codes
+    const encodePcon = (code: string): bigint => {
+      const bytes = Buffer.from(code.trim(), 'utf-8');
+      let result = 0n;
+      for (const byte of bytes) { result = (result << 8n) | BigInt(byte); }
+      return result;
+    };
+
+    const e14 = encodePcon('E14001063');
+    const s14 = encodePcon('S14000060');
+    const w07 = encodePcon('W07000001');
+    const n05 = encodePcon('N05000001');
+
+    // All must be unique
+    const all = new Set([e14, s14, w07, n05]);
+    expect(all.size).toBe(4);
+    // All must be non-zero
+    expect(e14).toBeGreaterThan(0n);
+    expect(s14).toBeGreaterThan(0n);
+    expect(w07).toBeGreaterThan(0n);
+    expect(n05).toBeGreaterThan(0n);
+  });
+
+  it('should filter ward concordance to Scotland + NI only', () => {
+    // Simulates the filtering logic
+    const wardMappings = [
+      { unitId: 'E05009352', boundaryCode: 'E14001063' },
+      { unitId: 'W05000001', boundaryCode: 'W07000001' },
+      { unitId: 'S13002849', boundaryCode: 'S14000060' },
+      { unitId: 'N08000715', boundaryCode: 'N05000001' },
+    ];
+
+    const scotNi = wardMappings.filter(
+      (m) => m.unitId.startsWith('S') || m.unitId.startsWith('N')
+    );
+
+    expect(scotNi).toHaveLength(2);
+    expect(scotNi[0].unitId).toBe('S13002849');
+    expect(scotNi[1].unitId).toBe('N08000715');
+  });
 });

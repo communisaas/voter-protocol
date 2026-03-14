@@ -521,19 +521,152 @@ export class UKCountryProvider extends CountryProvider<
   }
 
   // ==========================================================================
-  // Cell Map (CountryProvider abstract method — Wave 3 stub)
+  // Cell Map (CountryProvider abstract method)
   // ==========================================================================
 
   /**
-   * Build cell map for Tree 2 using ONS output areas.
+   * ONS Open Geography Portal CSV download URLs.
    *
-   * NOT YET IMPLEMENTED — ONS output area integration is Wave 3.
-   * UK has ~188,000 output areas that need to be mapped to constituencies.
+   * OA→PCON: 188,880 Output Areas → 575 constituencies (England & Wales).
+   * Ward→PCON: 8,798 wards → 650 constituencies (UK-wide, used for Scotland
+   *   & NI gap-fill where OA-level lookups are unavailable).
+   */
+  private readonly oaPconUrl =
+    'https://hub.arcgis.com/api/v3/datasets/5968b5b2c0f14dd29ba277beaae6dec3/downloads/data?format=csv&spatialRefId=4326';
+  private readonly wardPconUrl =
+    'https://hub.arcgis.com/api/v3/datasets/62eb9df29a2f4521b5076a419ff9a47e/downloads/data?format=csv&spatialRefId=4326';
+
+  /**
+   * Build cell map for Tree 2 using ONS census geography.
+   *
+   * Two-source strategy for full UK coverage:
+   *   1. Output Areas (2021) → PCON for England & Wales (188,880 cells)
+   *   2. Electoral Wards (2024) → PCON for Scotland & NI (~895 cells)
+   *
+   * Both OA codes (E00000001) and ward codes (S13002849) are 9-char ONS
+   * codes, byte-packed to bigint via GB_JURISDICTION.encodeCellId().
+   * PCON codes (E14001063) are also byte-packed for the district slot.
    */
   async buildCellMap(
     _boundaries: UKConstituency[]
   ): Promise<CellMapResult> {
-    throw new Error('ONS output area integration pending (Wave 3)');
+    const startTime = Date.now();
+    const { loadConcordance } = await import('../../hydration/concordance-loader.js');
+    const { GB_JURISDICTION } = await import('../../jurisdiction.js');
+    const { buildCellMapTree, DISTRICT_SLOT_COUNT } = await import('../../tree-builder.js');
+
+    // Step 1: Load OA→PCON concordance (England & Wales)
+    const oaConcordance = await loadConcordance(
+      {
+        url: this.oaPconUrl,
+        unitColumn: 'OA21CD',
+        boundaryColumn: 'PCON25CD',
+        cacheFilename: 'gb-oa21-pcon25-ew.csv',
+      },
+      'data/country-cache/gb',
+    );
+
+    logger.info(
+      `GB OA concordance loaded: ${oaConcordance.rowCount} OA→PCON mappings (E&W), ` +
+      `columns: [${oaConcordance.columns.join(', ')}], ` +
+      `fromCache: ${oaConcordance.fromCache}`
+    );
+
+    // Step 2: Load Ward→PCON concordance (Scotland & NI gap-fill)
+    const wardConcordance = await loadConcordance(
+      {
+        url: this.wardPconUrl,
+        unitColumn: 'WD24CD',
+        boundaryColumn: 'PCON24CD',
+        cacheFilename: 'gb-wd24-pcon24-uk.csv',
+      },
+      'data/country-cache/gb',
+    );
+
+    // Filter to Scotland (S) + Northern Ireland (N) wards only
+    const scotNiWards = wardConcordance.mappings.filter(
+      (m) => m.unitId.startsWith('S') || m.unitId.startsWith('N')
+    );
+
+    logger.info(
+      `GB Ward concordance loaded: ${wardConcordance.rowCount} total, ` +
+      `${scotNiWards.length} Scotland+NI wards (gap-fill), ` +
+      `fromCache: ${wardConcordance.fromCache}`
+    );
+
+    // Step 3: Convert to CellDistrictMapping[]
+    const cellMappings: import('../../tree-builder.js').CellDistrictMapping[] = [];
+    const seenCellIds = new Set<string>();
+    const seenPcons = new Set<string>();
+    let skippedEmpty = 0;
+    let skippedDuplicate = 0;
+
+    // Helper: encode a PCON code to bigint (same byte-packing as cell IDs)
+    const encodePcon = (pconCode: string): bigint => {
+      const bytes = Buffer.from(pconCode.trim(), 'utf-8');
+      let result = 0n;
+      for (const byte of bytes) {
+        result = (result << 8n) | BigInt(byte);
+      }
+      return result;
+    };
+
+    // Process all mappings (OA first, then ward gap-fill)
+    const allMappings = [
+      ...oaConcordance.mappings,
+      ...scotNiWards,
+    ];
+
+    for (const m of allMappings) {
+      const cellId = GB_JURISDICTION.encodeCellId(m.unitId);
+      const cellIdStr = cellId.toString();
+
+      if (seenCellIds.has(cellIdStr)) {
+        skippedDuplicate++;
+        continue;
+      }
+      seenCellIds.add(cellIdStr);
+
+      // Populate 24-slot district array
+      const districts: bigint[] = new Array(DISTRICT_SLOT_COUNT).fill(0n);
+
+      // Slot 0: Westminster Parliamentary Constituency (byte-packed PCON code)
+      if (m.boundaryCode) {
+        districts[0] = encodePcon(m.boundaryCode);
+        seenPcons.add(m.boundaryCode);
+      }
+
+      // Skip cells with no constituency assignment
+      if (districts[0] === 0n) {
+        skippedEmpty++;
+        continue;
+      }
+
+      cellMappings.push({ cellId, districts });
+    }
+
+    logger.info(
+      `GB cell mappings: ${cellMappings.length} cells, ` +
+      `${seenPcons.size} unique constituencies, ` +
+      `${skippedEmpty} skipped (no PCON), ` +
+      `${skippedDuplicate} skipped (duplicate)`
+    );
+
+    // Step 4: Build the Sparse Merkle Tree
+    const treeResult = await buildCellMapTree(
+      cellMappings,
+      GB_JURISDICTION.recommendedDepth,
+    );
+
+    return {
+      country: 'GB',
+      statisticalUnit: 'output-area',
+      cellCount: cellMappings.length,
+      root: treeResult.root,
+      depth: treeResult.depth,
+      mappings: cellMappings,
+      durationMs: Date.now() - startTime,
+    };
   }
 
   // ==========================================================================

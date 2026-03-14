@@ -535,3 +535,69 @@ export const AU_JURISDICTION: JurisdictionConfig = {
   recommendedDepth: 18,  // ~62K SA1s → fits in 2^18 = 262K
   encodeCellId: encodeAuCellId,
 };
+
+// ============================================================================
+// United Kingdom Jurisdiction Configuration
+// ============================================================================
+
+/**
+ * Encode an ONS geography code as a BN254 field element.
+ *
+ * UK codes are 9-character alphanumeric strings (e.g., "E00000001" for an
+ * Output Area, "S13002849" for a Scottish ward). The letter prefix encodes
+ * the country (E=England, W=Wales, S=Scotland, N=Northern Ireland) and type.
+ *
+ * Because codes are alphanumeric, pure numeric stripping would lose the
+ * prefix and cause collisions (E14000001 vs S14000001). We byte-pack the
+ * full UTF-8 string instead — safe since 9 bytes << 31-byte BN254 limit.
+ */
+function encodeGBCellId(code: string): bigint {
+  const trimmed = code.trim();
+  const bytes = Buffer.from(trimmed, 'utf-8');
+  if (bytes.length > 31) {
+    throw new Error(`GB code too long for field encoding: ${trimmed} (${bytes.length} bytes)`);
+  }
+  let result = 0n;
+  for (const byte of bytes) {
+    result = (result << 8n) | BigInt(byte);
+  }
+  return result;
+}
+
+/**
+ * United Kingdom jurisdiction configuration.
+ *
+ * 1 of 24 protocol slots is populated for the initial parliamentary layer.
+ * Slot 0 = Westminster Parliamentary Constituency.
+ * Slots 1-3 reserved for regions, local authorities, and wards.
+ *
+ * Statistical units: Census 2021 Output Areas (England & Wales, ~189K)
+ * supplemented by electoral wards (Scotland ~421, Northern Ireland ~474)
+ * for complete UK coverage of all 650 constituencies.
+ *
+ * Data sources:
+ *   - ONS Open Geography Portal — OA→PCON best-fit lookup (E&W)
+ *   - ONS Open Geography Portal — Ward→PCON lookup (Scotland & NI gap-fill)
+ *   - ONS ArcGIS — constituency boundary geometries
+ */
+export const GB_JURISDICTION: JurisdictionConfig = {
+  country: 'GBR',
+  name: 'United Kingdom',
+
+  slots: {
+    0: { name: 'Westminster Parliamentary Constituency', required: true,  category: 'legislative' },
+    1: { name: 'Region / Devolved Nation',               required: false, category: 'administrative' },
+    2: { name: 'Local Authority District',               required: false, category: 'administrative' },
+    3: { name: 'Electoral Ward',                         required: false, category: 'administrative' },
+  },
+
+  aliases: {
+    'westminster': 0, 'constituency': 0, 'parliamentary': 0, 'pcon': 0,
+    'region': 1, 'devolved': 1, 'nation': 1,
+    'local_authority': 2, 'la': 2, 'council': 2, 'lad': 2,
+    'ward': 3, 'electoral_ward': 3,
+  },
+
+  recommendedDepth: 18,  // ~190K cells → fits in 2^18 = 262K
+  encodeCellId: encodeGBCellId,
+};
