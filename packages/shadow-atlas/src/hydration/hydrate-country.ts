@@ -26,6 +26,7 @@
 import type { CountryProvider } from '../providers/international/country-provider.js';
 import type { InternationalBoundary, AuthorityLevel } from '../providers/international/base-provider.js';
 import type { OfficialRecord, ValidationReport } from '../providers/international/country-provider-types.js';
+import { writeOfficials } from './db-writer.js';
 
 // ============================================================================
 // CLI Argument Parsing
@@ -123,6 +124,7 @@ const PROVIDER_REGISTRY: Record<string, () => Promise<CountryProvider<string, In
   CA: async () => new (await import('../providers/international/canada-provider.js')).CanadaCountryProvider(),
   GB: async () => new (await import('../providers/international/uk-provider.js')).UKCountryProvider(),
   NZ: async () => new (await import('../providers/international/nz-provider.js')).NZCountryProvider(),
+  US: async () => new (await import('../providers/international/us-provider.js')).USCountryProvider(),
 };
 
 // ============================================================================
@@ -223,9 +225,17 @@ async function main(): Promise<void> {
   // Write to DB (unless dry run or validate only)
   if (!opts.dryRun && !opts.validateOnly) {
     if (report.blocking) {
-      console.log('\n⚠ Validation BLOCKING — schema validation failed threshold. Skipping DB write.');
+      console.log('\nValidation BLOCKING — schema validation failed threshold. Skipping DB write.');
     } else {
-      console.log('\nDB write: not yet implemented (Wave 3)');
+      console.log('\nWriting officials to DB...');
+      const summary = writeOfficials(
+        opts.dbPath,
+        opts.country,
+        [...officialsResult.officials],
+      );
+      console.log(`  Inserted: ${summary.inserted}`);
+      console.log(`  Updated:  ${summary.updated}`);
+      console.log(`  Total:    ${summary.inserted + summary.updated}`);
     }
   } else {
     console.log(`\n${opts.dryRun ? 'Dry run' : 'Validate only'}: skipping DB write.`);
