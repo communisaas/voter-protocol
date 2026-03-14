@@ -11,11 +11,12 @@
  * @packageDocumentation
  */
 
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'fs';
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
+import { createHash } from 'node:crypto';
 
 // ============================================================================
 // Types
@@ -34,6 +35,12 @@ export interface ConcordanceConfig {
   delimiter?: string;
   /** Cache filename override (derived from URL if not provided) */
   cacheFilename?: string;
+  /** Expected SHA-256 hex digest. When set, downloaded files are verified and deleted on mismatch. */
+  sha256?: string;
+  /** Maximum cache age in days before re-downloading (default: 90) */
+  maxAgeDays?: number;
+  /** Bypass cache entirely and force a fresh download */
+  forceRefresh?: boolean;
 }
 
 export interface ConcordanceMapping {
@@ -170,8 +177,9 @@ function cacheFilenameFromUrl(url: string): string {
 
 /**
  * Download a file from a URL and save to cache.
+ * If expectedSha256 is provided, verifies the file after writing and removes it on mismatch.
  */
-async function downloadToCache(url: string, cachePath: string): Promise<void> {
+async function downloadToCache(url: string, cachePath: string, expectedSha256?: string): Promise<void> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
@@ -191,6 +199,34 @@ async function downloadToCache(url: string, cachePath: string): Promise<void> {
   }
 
   await writeFile(cachePath, text, 'utf-8');
+
+  // SHA-256 verification
+  if (expectedSha256) {
+    const fileContent = readFileSync(cachePath);
+    const actualHash = createHash('sha256').update(fileContent).digest('hex');
+    if (actualHash !== expectedSha256) {
+      unlinkSync(cachePath);
+      throw new Error(
+        `SHA-256 mismatch for ${url}: expected ${expectedSha256}, got ${actualHash}. File removed.`
+      );
+    }
+  }
+}
+
+/**
+ * Verify SHA-256 of an already-cached file.
+ * Returns the computed hash, or throws on mismatch if expectedSha256 is set.
+ */
+export function verifySha256(filePath: string, expectedSha256?: string): string {
+  const fileContent = readFileSync(filePath);
+  const actualHash = createHash('sha256').update(fileContent).digest('hex');
+  if (expectedSha256 && actualHash !== expectedSha256) {
+    unlinkSync(filePath);
+    throw new Error(
+      `SHA-256 mismatch for ${filePath}: expected ${expectedSha256}, got ${actualHash}. File removed.`
+    );
+  }
+  return actualHash;
 }
 
 /**
@@ -217,11 +253,21 @@ export async function loadConcordance(
     mkdirSync(cacheDir, { recursive: true });
   }
 
-  // Download if not cached
+  // Download if not cached, stale, or force-refreshed
   let fromCache = true;
-  if (!existsSync(cachePath)) {
+  if (config.forceRefresh || !existsSync(cachePath)) {
     fromCache = false;
-    await downloadToCache(config.url, cachePath);
+    await downloadToCache(config.url, cachePath, config.sha256);
+  } else {
+    // Check cache staleness by mtime
+    const stats = statSync(cachePath);
+    const ageMs = Date.now() - stats.mtimeMs;
+    const maxAgeMs = (config.maxAgeDays ?? 90) * 24 * 60 * 60 * 1000;
+    if (ageMs >= maxAgeMs) {
+      console.log(`Cache stale (${Math.floor(ageMs / 86400000)}d old, max ${config.maxAgeDays ?? 90}d): re-downloading`);
+      fromCache = false;
+      await downloadToCache(config.url, cachePath, config.sha256);
+    }
   }
 
   // Parse CSV via streaming
@@ -350,4 +396,32 @@ export function loadConcordanceFromString(
     columns: headers,
     fromCache: false,
   };
+}
+
+// ============================================================================
+// Hash Recording
+// ============================================================================
+
+/**
+ * Download a concordance CSV and print its SHA-256 hash for inclusion in the
+ * sources manifest. Does not persist the file — use for initial hash capture.
+ *
+ * @param url - URL to download
+ * @param cacheDir - Directory to temporarily store the file
+ * @returns Hex SHA-256 digest
+ */
+export async function recordHash(url: string, cacheDir: string): Promise<string> {
+  const filename = cacheFilenameFromUrl(url);
+  const cachePath = join(cacheDir, filename);
+
+  if (!existsSync(cacheDir)) {
+    mkdirSync(cacheDir, { recursive: true });
+  }
+
+  // Download without hash check
+  await downloadToCache(url, cachePath);
+
+  const fileContent = readFileSync(cachePath);
+  const hash = createHash('sha256').update(fileContent).digest('hex');
+  return hash;
 }

@@ -18,6 +18,7 @@ import { mkdir, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import JSZip from 'jszip';
 import { writeFile } from 'node:fs/promises';
+import { safeZipEntryPath } from './safe-extract.js';
 
 // ============================================================================
 // State FIPS Table
@@ -61,6 +62,10 @@ export interface BAFDownloadOptions {
   maxRetries?: number;
   /** Log function (default: console.log). */
   log?: (msg: string) => void;
+  /** Maximum cache age in days before re-downloading (default: 90) */
+  maxAgeDays?: number;
+  /** Bypass cache entirely and force a fresh download */
+  forceRefresh?: boolean;
 }
 
 export interface BAFDownloadResult {
@@ -91,6 +96,8 @@ export async function downloadBAFs(
     rateLimitMs = 1000,
     maxRetries = 3,
     log = console.log,
+    maxAgeDays = 90,
+    forceRefresh = false,
   } = options;
 
   await mkdir(cacheDir, { recursive: true });
@@ -110,11 +117,17 @@ export async function downloadBAFs(
     const [fips, abbr] = states[i];
     const stateDir = join(cacheDir, fips);
 
-    // Check cache
-    if (await isDirectoryPopulated(stateDir)) {
-      const files = (await readdir(stateDir)).filter(f => f.endsWith('.txt')).map(f => join(stateDir, f));
-      results.push({ stateCode: fips, stateAbbr: abbr, extractDir: stateDir, files, cached: true });
-      continue;
+    // Check cache (skip if forceRefresh or stale)
+    if (!forceRefresh && await isDirectoryPopulated(stateDir)) {
+      const dirStat = await stat(stateDir);
+      const ageMs = Date.now() - dirStat.mtimeMs;
+      const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+      if (ageMs < maxAgeMs) {
+        const files = (await readdir(stateDir)).filter(f => f.endsWith('.txt')).map(f => join(stateDir, f));
+        results.push({ stateCode: fips, stateAbbr: abbr, extractDir: stateDir, files, cached: true });
+        continue;
+      }
+      log(`  → Cache stale for ${abbr} (${Math.floor(ageMs / 86400000)}d old, max ${maxAgeDays}d): re-downloading`);
     }
 
     // Download with retry
@@ -144,7 +157,7 @@ export async function downloadBAFs(
     for (const [name, entry] of Object.entries(zip.files)) {
       if (name.endsWith('.txt') && !entry.dir) {
         const content = await entry.async('nodebuffer');
-        const outPath = join(stateDir, name);
+        const outPath = safeZipEntryPath(name, stateDir);
         await writeFile(outPath, content);
         files.push(outPath);
       }

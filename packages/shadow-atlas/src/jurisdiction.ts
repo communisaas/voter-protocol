@@ -79,6 +79,9 @@ import type { CellDistrictMapping } from './tree-builder.js';
  */
 export const PROTOCOL_DISTRICT_SLOTS = 24 as const;
 
+/** BN254 scalar field modulus — all field elements must be strictly less than this value */
+export const BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
 /**
  * Two-tree public input count: user_root(1) + cell_map_root(1) + districts(24) + nullifier(1) + action_domain(1) + authority_level(1) = 29
  */
@@ -223,7 +226,11 @@ export interface HydrationResult {
  */
 function encodeUsGeoid(geoid: string): bigint {
   if (/^\d+$/.test(geoid)) {
-    return BigInt(geoid);
+    const result = BigInt(geoid);
+    if (result >= BN254_MODULUS) {
+      throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${geoid}`);
+    }
+    return result;
   }
   const bytes = Buffer.from(geoid, 'utf-8');
   if (bytes.length > 31) {
@@ -232,6 +239,9 @@ function encodeUsGeoid(geoid: string): bigint {
   let result = 0n;
   for (const byte of bytes) {
     result = (result << 8n) | BigInt(byte);
+  }
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${geoid}`);
   }
   return result;
 }
@@ -343,7 +353,11 @@ export const US_JURISDICTION: JurisdictionConfig = {
 function encodeCanadaCellId(unitId: string): bigint {
   const numeric = unitId.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
-    return BigInt(numeric);
+    const result = BigInt(numeric);
+    if (result >= BN254_MODULUS) {
+      throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${unitId}`);
+    }
+    return result;
   }
   // Fallback: UTF-8 byte packing (same as US)
   const bytes = Buffer.from(unitId, 'utf-8');
@@ -353,6 +367,9 @@ function encodeCanadaCellId(unitId: string): bigint {
   let result = 0n;
   for (const byte of bytes) {
     result = (result << 8n) | BigInt(byte);
+  }
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${unitId}`);
   }
   return result;
 }
@@ -430,7 +447,11 @@ export const CA_JURISDICTION: JurisdictionConfig = {
 function encodeNZCellId(mbCode: string): bigint {
   const numeric = mbCode.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
-    return BigInt(numeric);
+    const result = BigInt(numeric);
+    if (result >= BN254_MODULUS) {
+      throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${mbCode}`);
+    }
+    return result;
   }
   // Fallback: UTF-8 byte packing
   const bytes = Buffer.from(mbCode, 'utf-8');
@@ -440,6 +461,9 @@ function encodeNZCellId(mbCode: string): bigint {
   let result = 0n;
   for (const byte of bytes) {
     result = (result << 8n) | BigInt(byte);
+  }
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${mbCode}`);
   }
   return result;
 }
@@ -493,7 +517,11 @@ export const NZ_JURISDICTION: JurisdictionConfig = {
 function encodeAuCellId(sa1Code: string): bigint {
   const numeric = sa1Code.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
-    return BigInt(numeric);
+    const result = BigInt(numeric);
+    if (result >= BN254_MODULUS) {
+      throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${sa1Code}`);
+    }
+    return result;
   }
   // Fallback: UTF-8 byte packing
   const bytes = Buffer.from(sa1Code, 'utf-8');
@@ -503,6 +531,9 @@ function encodeAuCellId(sa1Code: string): bigint {
   let result = 0n;
   for (const byte of bytes) {
     result = (result << 8n) | BigInt(byte);
+  }
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${sa1Code}`);
   }
   return result;
 }
@@ -560,6 +591,9 @@ function encodeGBCellId(code: string): bigint {
   let result = 0n;
   for (const byte of bytes) {
     result = (result << 8n) | BigInt(byte);
+  }
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Encoded cell ID exceeds BN254 field modulus: ${trimmed}`);
   }
   return result;
 }

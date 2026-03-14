@@ -21,6 +21,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import JSZip from 'jszip';
 import type { BlockRecord } from './baf-parser.js';
+import { safeZipEntryPath } from './safe-extract.js';
 
 // ============================================================================
 // Constants
@@ -113,7 +114,8 @@ export async function overlayBEFs(
       const entry = zip.file(befFilename);
       if (entry) {
         const content = await entry.async('nodebuffer');
-        await writeFile(join(befDir, befFilename), content);
+        const outPath = safeZipEntryPath(befFilename, befDir);
+        await writeFile(outPath, content);
       }
     }
     log('[BEF] Extracted 5 state BEF files');

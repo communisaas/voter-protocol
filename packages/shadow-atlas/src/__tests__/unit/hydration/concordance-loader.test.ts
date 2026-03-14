@@ -6,13 +6,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync } from 'fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, rmSync, utimesSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import {
   loadConcordance,
   loadConcordanceFromString,
   parseCSVString,
+  verifySha256,
 } from '../../../hydration/concordance-loader.js';
 
 // ============================================================================
@@ -333,5 +335,162 @@ describe('loadConcordance', () => {
     );
 
     expect(result.rowCount).toBe(4);
+  });
+});
+
+// ============================================================================
+// SHA-256 integrity verification tests
+// ============================================================================
+
+describe('SHA-256 verification', () => {
+  it('matching hash passes verification', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'sha-pass.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    const expectedHash = createHash('sha256').update(Buffer.from(SIMPLE_CSV, 'utf-8')).digest('hex');
+    const actualHash = verifySha256(cachePath, expectedHash);
+
+    expect(actualHash).toBe(expectedHash);
+    expect(existsSync(cachePath)).toBe(true);
+  });
+
+  it('mismatched hash throws and deletes the cached file', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'sha-fail.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    const wrongHash = 'deadbeef'.repeat(8); // 64-char fake hash
+
+    expect(() => verifySha256(cachePath, wrongHash)).toThrow('SHA-256 mismatch');
+    expect(existsSync(cachePath)).toBe(false);
+  });
+
+  it('undefined hash skips verification and returns computed hash', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'sha-skip.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    const expectedHash = createHash('sha256').update(Buffer.from(SIMPLE_CSV, 'utf-8')).digest('hex');
+    const actualHash = verifySha256(cachePath);
+
+    expect(actualHash).toBe(expectedHash);
+    expect(existsSync(cachePath)).toBe(true);
+  });
+});
+
+// ============================================================================
+// Cache TTL and revalidation tests
+// ============================================================================
+
+describe('cache TTL and revalidation', () => {
+  it('fresh file is reused (fromCache = true)', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'ttl-fresh.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+    // File was just written, so mtime is now — well within any TTL
+
+    const result = await loadConcordance(
+      {
+        url: 'https://example.com/fake.csv',
+        unitColumn: 'MB2025_V1_00',
+        boundaryColumn: 'GED2025_V1_00',
+        cacheFilename: 'ttl-fresh.csv',
+        maxAgeDays: 90,
+      },
+      TEST_CACHE_DIR,
+    );
+
+    expect(result.fromCache).toBe(true);
+    expect(result.rowCount).toBe(4);
+  });
+
+  it('stale file triggers re-download attempt (maxAgeDays exceeded)', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'ttl-stale.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    // Backdate the file mtime to 100 days ago
+    const now = new Date();
+    const oldDate = new Date(now.getTime() - 100 * 24 * 60 * 60 * 1000);
+    utimesSync(cachePath, oldDate, oldDate);
+
+    // With maxAgeDays=90, this file is stale. loadConcordance will try to
+    // re-download from the fake URL, which should fail (no network).
+    // The fact that it attempts the download (and fails) proves staleness was detected.
+    await expect(
+      loadConcordance(
+        {
+          url: 'https://example.com/fake-stale.csv',
+          unitColumn: 'MB2025_V1_00',
+          boundaryColumn: 'GED2025_V1_00',
+          cacheFilename: 'ttl-stale.csv',
+          maxAgeDays: 90,
+        },
+        TEST_CACHE_DIR,
+      ),
+    ).rejects.toThrow(); // Fetch will fail — proves re-download was triggered
+  });
+
+  it('forceRefresh bypasses cache even for fresh files', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'ttl-force.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+    // File is fresh (just written)
+
+    // forceRefresh should still try to re-download
+    await expect(
+      loadConcordance(
+        {
+          url: 'https://example.com/fake-force.csv',
+          unitColumn: 'MB2025_V1_00',
+          boundaryColumn: 'GED2025_V1_00',
+          cacheFilename: 'ttl-force.csv',
+          forceRefresh: true,
+        },
+        TEST_CACHE_DIR,
+      ),
+    ).rejects.toThrow(); // Fetch will fail — proves forceRefresh triggered download
+  });
+
+  it('file within maxAgeDays is not re-downloaded', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'ttl-within.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    // Backdate to 30 days ago, but maxAgeDays is 90 — should still be fresh
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    utimesSync(cachePath, thirtyDaysAgo, thirtyDaysAgo);
+
+    const result = await loadConcordance(
+      {
+        url: 'https://example.com/fake.csv',
+        unitColumn: 'MB2025_V1_00',
+        boundaryColumn: 'GED2025_V1_00',
+        cacheFilename: 'ttl-within.csv',
+        maxAgeDays: 90,
+      },
+      TEST_CACHE_DIR,
+    );
+
+    expect(result.fromCache).toBe(true);
+    expect(result.rowCount).toBe(4);
+  });
+
+  it('custom short maxAgeDays triggers re-download', async () => {
+    const cachePath = join(TEST_CACHE_DIR, 'ttl-short.csv');
+    await writeFile(cachePath, SIMPLE_CSV, 'utf-8');
+
+    // Backdate to 5 days ago with maxAgeDays=3 — should be stale
+    const now = new Date();
+    const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+    utimesSync(cachePath, fiveDaysAgo, fiveDaysAgo);
+
+    await expect(
+      loadConcordance(
+        {
+          url: 'https://example.com/fake-short.csv',
+          unitColumn: 'MB2025_V1_00',
+          boundaryColumn: 'GED2025_V1_00',
+          cacheFilename: 'ttl-short.csv',
+          maxAgeDays: 3,
+        },
+        TEST_CACHE_DIR,
+      ),
+    ).rejects.toThrow(); // Proves staleness detected with short TTL
   });
 });
