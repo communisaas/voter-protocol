@@ -829,20 +829,234 @@ export class CanadaCountryProvider extends CountryProvider<
   // ==========================================================================
 
   /**
-   * Build cell map for Tree 2 (StatCan dissemination areas).
+   * StatCan Geographic Attribute File (GAF) — 2021 Census.
    *
-   * Stub — dissemination area integration is Wave 3.
-   * Canada has ~56,000 dissemination areas from Statistics Canada that map
-   * to 343 federal electoral districts.
+   * Contains DB-level rows with DAUID_ADIDU (8-digit DA code) and
+   * FEDUID_CEFIDU (5-digit FED code). DAs nest within FEDs by StatCan
+   * design, so all DBs in a DA share the same FED code.
+   *
+   * The ZIP contains 2021_92-151_X.csv (~300MB uncompressed, ~500K rows).
+   * After extraction we stream-parse and aggregate to ~56K unique DAs.
+   */
+  private readonly gafUrl =
+    'https://www12.statcan.gc.ca/census-recensement/2021/geo/aip-pia/attribute-attribs/files-fichiers/2021_92-151_X.zip';
+
+  /**
+   * SGC province/territory codes → numeric values for slot 1.
+   * First 2 digits of DAUID encode the province.
+   */
+  private static readonly SGC_PROVINCE_CODES: ReadonlyMap<string, number> = new Map([
+    ['10', 10], // NL
+    ['11', 11], // PE
+    ['12', 12], // NS
+    ['13', 13], // NB
+    ['24', 24], // QC
+    ['35', 35], // ON
+    ['46', 46], // MB
+    ['47', 47], // SK
+    ['48', 48], // AB
+    ['59', 59], // BC
+    ['60', 60], // YT
+    ['61', 61], // NT
+    ['62', 62], // NU
+  ]);
+
+  /**
+   * Build cell map for Tree 2 (StatCan dissemination areas → FEDs).
+   *
+   * Downloads the StatCan Geographic Attribute File (GAF), which contains
+   * DB-level rows linking every dissemination block to its parent DA and
+   * FED. Since DA boundaries respect FED boundaries, all DBs in a DA
+   * share the same FED — we aggregate to DA level and dedup.
+   *
+   * Slot 0: Federal Electoral District (5-digit FED code)
+   * Slot 1: Province/Territory (SGC code from DAUID first 2 digits)
+   * Slots 2-23: 0n (reserved for future layers)
    */
   async buildCellMap(
     _boundaries: CanadaRiding[]
   ): Promise<CellMapResult> {
-    throw new Error(
-      'Dissemination area integration pending (Wave 3). ' +
-      'Canada cell map requires StatCan dissemination area boundaries ' +
-      '(~56,000 DAs) mapped to 343 federal electoral districts.'
+    const startTime = Date.now();
+    const { loadConcordance } = await import('../../hydration/concordance-loader.js');
+    const { CA_JURISDICTION } = await import('../../jurisdiction.js');
+    const { buildCellMapTree, DISTRICT_SLOT_COUNT } = await import('../../tree-builder.js');
+
+    // The GAF is a ZIP file. Download and extract the CSV, then cache it.
+    // Once cached, loadConcordance reads from cache directly.
+    const cacheDir = 'data/country-cache/ca';
+    const csvCacheFilename = 'ca-gaf-2021.csv';
+    const { existsSync, mkdirSync } = await import('fs');
+    const { writeFile } = await import('fs/promises');
+    const { join } = await import('path');
+
+    if (!existsSync(cacheDir)) {
+      mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const csvCachePath = join(cacheDir, csvCacheFilename);
+
+    // Extract CSV from ZIP if not already cached
+    if (!existsSync(csvCachePath)) {
+      logger.info(`CA GAF: downloading ZIP from ${this.gafUrl}...`);
+      const response = await fetch(this.gafUrl);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download CA GAF ZIP: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const zipBuffer = Buffer.from(await response.arrayBuffer());
+      logger.info(`CA GAF: ZIP downloaded (${(zipBuffer.length / 1024 / 1024).toFixed(1)} MB), extracting CSV...`);
+
+      const csvContent = await this.extractCSVFromZip(zipBuffer, '2021_92-151_X.csv');
+      if (!csvContent) {
+        throw new Error('CA GAF: CSV not found in ZIP archive');
+      }
+
+      await writeFile(csvCachePath, csvContent, 'utf-8');
+      logger.info(`CA GAF: CSV extracted and cached (${(csvContent.length / 1024 / 1024).toFixed(1)} MB)`);
+    }
+
+    // Load concordance from cached CSV.
+    // The GAF has DB-level rows; loadConcordance will return one mapping per DB row.
+    // We dedup by DAUID below (all DBs in a DA share the same FED).
+    const concordance = await loadConcordance(
+      {
+        url: this.gafUrl, // not re-downloaded — cache file already exists
+        unitColumn: 'DAUID_ADIDU',
+        boundaryColumn: 'FEDUID_CEFIDU',
+        cacheFilename: csvCacheFilename,
+      },
+      cacheDir,
     );
+
+    logger.info(
+      `CA concordance loaded: ${concordance.rowCount} DB rows, ` +
+      `columns: [${concordance.columns.slice(0, 5).join(', ')}...], ` +
+      `fromCache: ${concordance.fromCache}`
+    );
+
+    // Convert to CellDistrictMapping[] — aggregate DB rows to DA level
+    const cellMappings: import('../../tree-builder.js').CellDistrictMapping[] = [];
+    const seenDAs = new Map<string, { fedCode: string; provinceCode: string }>();
+    let skippedEmpty = 0;
+    let skippedDuplicate = 0;
+
+    for (const m of concordance.mappings) {
+      const dauid = m.unitId;
+      if (!dauid || dauid.length < 4) {
+        skippedEmpty++;
+        continue;
+      }
+
+      // Dedup by DAUID (all DBs in a DA share the same FED)
+      if (seenDAs.has(dauid)) {
+        skippedDuplicate++;
+        continue;
+      }
+
+      const fedCode = m.boundaryCode?.replace(/\D/g, '');
+      if (!fedCode) {
+        skippedEmpty++;
+        continue;
+      }
+
+      // Province code from first 2 digits of DAUID
+      const provinceCode = dauid.substring(0, 2);
+
+      seenDAs.set(dauid, { fedCode, provinceCode });
+    }
+
+    // Build CellDistrictMapping from deduplicated DA records
+    for (const [dauid, { fedCode, provinceCode }] of seenDAs) {
+      const cellId = CA_JURISDICTION.encodeCellId(dauid);
+
+      // Populate 24-slot district array
+      const districts: bigint[] = new Array(DISTRICT_SLOT_COUNT).fill(0n);
+
+      // Slot 0: Federal Electoral District (5-digit riding code)
+      districts[0] = BigInt(fedCode);
+
+      // Slot 1: Province/Territory (SGC code)
+      const provNum = CanadaCountryProvider.SGC_PROVINCE_CODES.get(provinceCode);
+      if (provNum !== undefined) {
+        districts[1] = BigInt(provNum);
+      }
+
+      cellMappings.push({ cellId, districts });
+    }
+
+    logger.info(
+      `CA cell mappings: ${cellMappings.length} DAs, ` +
+      `${skippedEmpty} skipped (no FED), ` +
+      `${skippedDuplicate} skipped (duplicate DB rows)`
+    );
+
+    // Build the Sparse Merkle Tree
+    const treeResult = await buildCellMapTree(
+      cellMappings,
+      CA_JURISDICTION.recommendedDepth,
+    );
+
+    return {
+      country: 'CA',
+      statisticalUnit: 'dissemination-area',
+      cellCount: cellMappings.length,
+      root: treeResult.root,
+      depth: treeResult.depth,
+      mappings: cellMappings,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Extract a named CSV file from a ZIP buffer.
+   *
+   * Implements minimal ZIP parsing (local file headers) without external
+   * dependencies. Handles both stored and deflated entries.
+   */
+  private async extractCSVFromZip(
+    zipBuffer: Buffer,
+    targetFilename: string,
+  ): Promise<string | null> {
+    const { inflateRawSync } = await import('zlib');
+
+    let offset = 0;
+    while (offset < zipBuffer.length - 4) {
+      // Local file header signature: 0x04034b50
+      const sig = zipBuffer.readUInt32LE(offset);
+      if (sig !== 0x04034b50) break;
+
+      const compressionMethod = zipBuffer.readUInt16LE(offset + 8);
+      const compressedSize = zipBuffer.readUInt32LE(offset + 18);
+      const uncompressedSize = zipBuffer.readUInt32LE(offset + 22);
+      const filenameLen = zipBuffer.readUInt16LE(offset + 26);
+      const extraLen = zipBuffer.readUInt16LE(offset + 28);
+
+      const filename = zipBuffer.toString('utf-8', offset + 30, offset + 30 + filenameLen);
+      const dataStart = offset + 30 + filenameLen + extraLen;
+
+      if (filename.endsWith(targetFilename) || filename === targetFilename) {
+        const compressedData = zipBuffer.subarray(dataStart, dataStart + compressedSize);
+
+        if (compressionMethod === 0) {
+          // Stored (no compression)
+          return compressedData.toString('utf-8');
+        } else if (compressionMethod === 8) {
+          // Deflated
+          const decompressed = inflateRawSync(compressedData, {
+            maxOutputLength: uncompressedSize || 500 * 1024 * 1024, // 500MB safety cap
+          });
+          return decompressed.toString('utf-8');
+        } else {
+          throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
+        }
+      }
+
+      offset = dataStart + compressedSize;
+    }
+
+    return null;
   }
 
   // ==========================================================================
