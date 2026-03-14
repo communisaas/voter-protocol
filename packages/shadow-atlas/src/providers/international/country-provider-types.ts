@@ -240,6 +240,12 @@ export interface ValidationReport {
       readonly skipped: number;
       readonly total: number;
     };
+    readonly boundaryValidation?: {
+      readonly passed: boolean;
+      readonly errors: readonly { field: string; message: string; boundaryId?: string }[];
+      readonly validCount: number;
+      readonly expectedCount: number;
+    };
   };
   /** Weighted composite: authority 25%, schema 25%, codes 25%, PIP 25% */
   readonly overallConfidence: number;
@@ -358,4 +364,52 @@ export const NZMPSchema = BaseOfficialSchema.extend({
   electorateName: z.string().optional(),
   electorateCode: z.string().optional(),
   electorateType: z.enum(['general', 'maori', 'list']),
+});
+
+// ============================================================================
+// Boundary Validation Schemas
+// ============================================================================
+
+/** GeoJSON position: [longitude, latitude, optional altitude] */
+const PositionSchema = z.tuple([z.number(), z.number()]).rest(z.number());
+
+/** GeoJSON linear ring: closed loop of >= 4 positions */
+const LinearRingSchema = z.array(PositionSchema).min(4);
+
+const PolygonGeometrySchema = z.object({
+  type: z.literal('Polygon'),
+  coordinates: z.array(LinearRingSchema).min(1),
+});
+
+const MultiPolygonGeometrySchema = z.object({
+  type: z.literal('MultiPolygon'),
+  coordinates: z.array(z.array(LinearRingSchema).min(1)).min(1),
+});
+
+export const BoundaryGeometrySchema = z.union([
+  PolygonGeometrySchema,
+  MultiPolygonGeometrySchema,
+]);
+
+export const BoundarySourceSchema = z.object({
+  country: z.string().min(2).max(3),
+  dataSource: z.string().min(1),
+  endpoint: z.string().min(1),
+  authority: z.enum([
+    'constitutional', 'electoral-commission', 'national-statistics',
+    'state-agency', 'municipal-agency', 'commercial', 'community',
+  ]),
+  vintage: z.number().int().min(2000).max(2035),
+  retrievedAt: z.string().min(1),
+  etag: z.string().optional(),
+  lastModified: z.string().optional(),
+});
+
+export const InternationalBoundarySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  geometry: BoundaryGeometrySchema,
+  source: BoundarySourceSchema,
+  properties: z.record(z.unknown()),
 });

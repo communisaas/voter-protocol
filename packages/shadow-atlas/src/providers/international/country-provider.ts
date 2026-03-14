@@ -45,6 +45,7 @@ import type {
   GeocoderFn,
   PIPCheckFn,
 } from './country-provider-types.js';
+import { InternationalBoundarySchema } from './country-provider-types.js';
 import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
@@ -535,5 +536,46 @@ export abstract class CountryProvider<
       recordCount: records.length,
       expectedCount,
     };
+  }
+
+  // ==========================================================================
+  // Boundary Schema Validation Helper (Protected)
+  // ==========================================================================
+
+  /**
+   * Validate boundary geometries against schema.
+   * Same 80% threshold as official validation.
+   */
+  protected validateBoundaries(
+    boundaries: readonly InternationalBoundary[],
+    expectedCount: number,
+  ): {
+    passed: boolean;
+    errors: readonly { field: string; message: string; boundaryId?: string }[];
+    validCount: number;
+    expectedCount: number;
+  } {
+    const errors: { field: string; message: string; boundaryId?: string }[] = [];
+
+    for (const boundary of boundaries) {
+      const result = InternationalBoundarySchema.safeParse(boundary);
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          errors.push({
+            field: issue.path.join('.'),
+            message: issue.message,
+            boundaryId: boundary.id,
+          });
+        }
+      }
+    }
+
+    // 80% threshold: fail if valid boundaries < 80% of expected
+    const invalidIds = new Set(errors.map(e => e.boundaryId));
+    const validCount = boundaries.length - invalidIds.size;
+    const threshold = Math.floor(expectedCount * 0.8);
+    const passed = validCount >= threshold;
+
+    return { passed, errors, validCount, expectedCount };
   }
 }
