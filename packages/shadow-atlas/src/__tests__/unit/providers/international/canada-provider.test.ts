@@ -38,7 +38,7 @@ describe('CanadaBoundaryProvider', () => {
     it('should have federal layer configured', () => {
       const federal = provider.layers.get('federal');
       expect(federal).toBeDefined();
-      expect(federal?.expectedCount).toBe(338);
+      expect(federal?.expectedCount).toBe(343);
       expect(federal?.updateSchedule).toBe('event-driven');
     });
   });

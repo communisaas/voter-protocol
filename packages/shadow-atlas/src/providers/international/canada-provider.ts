@@ -13,8 +13,8 @@
  * LICENSE: Open Government License - Canada (OGL-CA)
  *
  * COVERAGE:
- * - Federal Electoral Districts: 338 (2023 Representation Order, post-2021 census)
- * - House of Commons: 338 MPs
+ * - Federal Electoral Districts: 343 (2023 Representation Order, post-2024 redistribution)
+ * - House of Commons: up to 343 MPs
  * - Covers: All provinces and territories
  *
  * USAGE:
@@ -34,12 +34,12 @@
  * ```
  *
  * API ENDPOINTS:
- * - Boundaries: https://represent.opennorth.ca/boundaries/federal-electoral-districts/
+ * - Boundaries: https://represent.opennorth.ca/boundaries/federal-electoral-districts-2023-representation-order/
  * - Officials P1: https://www.ourcommons.ca/Members/en/search/xml
  * - Officials P2: https://represent.opennorth.ca/representatives/house-of-commons/
  *
  * NOTES:
- * - 2023 Representation Order implemented (post-2021 census redistribution)
+ * - 2023 Representation Order implemented (post-2024 redistribution, 343 ridings)
  * - Federal boundaries updated every ~10 years following census
  * - Next scheduled redistribution: Post-2031 census
  * - ourcommons.ca provides bilingual names and stable PersonId
@@ -315,6 +315,82 @@ function normalizeRidingName(name: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Compute Levenshtein edit distance between two strings.
+ *
+ * Used for fuzzy riding name matching when exact normalized match fails.
+ * Optimized single-row implementation (O(min(m,n)) space).
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Ensure a is the shorter string for space optimization
+  if (a.length > b.length) {
+    [a, b] = [b, a];
+  }
+
+  const aLen = a.length;
+  const bLen = b.length;
+  const row = new Array<number>(aLen + 1);
+
+  for (let i = 0; i <= aLen; i++) row[i] = i;
+
+  for (let j = 1; j <= bLen; j++) {
+    let prev = row[0];
+    row[0] = j;
+    for (let i = 1; i <= aLen; i++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const temp = row[i];
+      row[i] = Math.min(
+        row[i] + 1,       // deletion
+        row[i - 1] + 1,   // insertion
+        prev + cost        // substitution
+      );
+      prev = temp;
+    }
+  }
+
+  return row[aLen];
+}
+
+/**
+ * Find the best fuzzy match for a riding name in the boundary index.
+ *
+ * Uses Levenshtein distance with a threshold relative to string length.
+ * Maximum allowed edit distance: 30% of the longer string's length,
+ * capped at 10 characters to prevent false positives on short names.
+ *
+ * @returns The best matching boundary or null if no match within threshold
+ */
+function fuzzyMatchRiding(
+  normalized: string,
+  index: Map<string, { id: string; boundary: unknown }>,
+): { key: string; distance: number } | null {
+  let bestKey: string | null = null;
+  let bestDistance = Infinity;
+
+  for (const key of index.keys()) {
+    const maxLen = Math.max(normalized.length, key.length);
+    const threshold = Math.min(Math.ceil(maxLen * 0.3), 10);
+
+    // Quick length check: if lengths differ by more than threshold, skip
+    if (Math.abs(normalized.length - key.length) > threshold) continue;
+
+    const distance = levenshteinDistance(normalized, key);
+    if (distance <= threshold && distance < bestDistance) {
+      bestDistance = distance;
+      bestKey = key;
+    }
+  }
+
+  if (bestKey !== null) {
+    return { key: bestKey, distance: bestDistance };
+  }
+  return null;
+}
+
 // ============================================================================
 // Canada Country Provider
 // ============================================================================
@@ -358,9 +434,9 @@ export class CanadaCountryProvider extends CountryProvider<
     },
   ];
 
-  /** Expected official count per chamber */
+  /** Expected official count per chamber (343 seats post-2024 redistribution) */
   readonly expectedOfficialCounts: ReadonlyMap<string, number> = new Map([
-    ['house-of-commons', 338],
+    ['house-of-commons', 343],
   ]);
 
   /** Statistical geography unit type for Tree 2 cell maps */
@@ -376,12 +452,12 @@ export class CanadaCountryProvider extends CountryProvider<
       {
         name: 'Federal Electoral Districts',
         type: 'federal',
-        endpoint: 'https://represent.opennorth.ca/boundaries/federal-electoral-districts/',
-        expectedCount: 338,
+        endpoint: 'https://represent.opennorth.ca/boundaries/federal-electoral-districts-2023-representation-order/',
+        expectedCount: 343,
         updateSchedule: 'event-driven',
         authority: 'electoral-commission',
-        vintage: 2023,
-        lastVerified: '2023-10-01T00:00:00.000Z',
+        vintage: 2024,
+        lastVerified: '2026-03-13T00:00:00.000Z',
       },
     ],
   ]);
@@ -483,7 +559,7 @@ export class CanadaCountryProvider extends CountryProvider<
    */
   async resolveAddressToDistrict(lat: number, lng: number): Promise<ResolvedDistrict | null> {
     try {
-      const url = `${this.representApiUrl}/boundaries/?contains=${lat},${lng}&sets=federal-electoral-districts`;
+      const url = `${this.representApiUrl}/boundaries/?contains=${lat},${lng}&sets=federal-electoral-districts-2023-representation-order`;
       logger.info('Resolving address to district', { country: 'Canada', lat, lng });
 
       const response = await fetch(url, {
@@ -589,7 +665,7 @@ export class CanadaCountryProvider extends CountryProvider<
     const issues: string[] = [];
 
     try {
-      const url = `${this.representApiUrl}/boundaries/federal-electoral-districts/?limit=1`;
+      const url = `${this.representApiUrl}/boundaries/federal-electoral-districts-2023-representation-order/?limit=1`;
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
@@ -652,7 +728,7 @@ export class CanadaCountryProvider extends CountryProvider<
     boundaryIndex: Map<string, CanadaRiding>
   ): Promise<OfficialsExtractionResult<CAOfficial>> {
     const startTime = Date.now();
-    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 338;
+    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 343;
 
     // Build normalized boundary lookup (English + French names)
     const normalizedBoundaryIndex = this.buildNormalizedBoundaryIndex(boundaryIndex);
@@ -707,7 +783,7 @@ export class CanadaCountryProvider extends CountryProvider<
    *
    * Stub — dissemination area integration is Wave 3.
    * Canada has ~56,000 dissemination areas from Statistics Canada that map
-   * to 338 federal electoral districts.
+   * to 343 federal electoral districts.
    */
   async buildCellMap(
     _boundaries: CanadaRiding[]
@@ -715,7 +791,7 @@ export class CanadaCountryProvider extends CountryProvider<
     throw new Error(
       'Dissemination area integration pending (Wave 3). ' +
       'Canada cell map requires StatCan dissemination area boundaries ' +
-      '(~56,000 DAs) mapped to 338 federal electoral districts.'
+      '(~56,000 DAs) mapped to 343 federal electoral districts.'
     );
   }
 
@@ -727,7 +803,7 @@ export class CanadaCountryProvider extends CountryProvider<
    * Run 4-layer validation pipeline for Canada.
    *
    * Layer 1: Source authority scoring (ourcommons.ca = electoral-commission)
-   * Layer 2: Schema validation against CanadianMPSchema + expected count (338)
+   * Layer 2: Schema validation against CanadianMPSchema + expected count (343)
    * Layer 3: Boundary code resolution diagnostics
    * Layer 4: PIP verification (optional, requires geocoder + R-tree)
    */
@@ -737,7 +813,7 @@ export class CanadaCountryProvider extends CountryProvider<
     geocoder?: GeocoderFn,
     pipCheck?: PIPCheckFn,
   ): Promise<ValidationReport> {
-    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 338;
+    const expectedCount = this.expectedOfficialCounts.get('house-of-commons') ?? 343;
 
     // Layer 1: Source Authority
     const boundaryLayer = this.layers.get('federal')!;
@@ -931,8 +1007,12 @@ export class CanadaCountryProvider extends CountryProvider<
   /**
    * Build a normalized boundary index for riding name matching.
    *
-   * Indexes both English and French names to support bilingual matching.
-   * Key = normalized name, Value = CanadaRiding boundary.
+   * Indexes by:
+   * 1. FED code (external_id, e.g., '35001') — strongest match
+   * 2. English name (normalized) — primary name match
+   * 3. French name (normalized) — bilingual fallback
+   *
+   * Key = normalized name or FED code, Value = CanadaRiding boundary.
    */
   private buildNormalizedBoundaryIndex(
     boundaryIndex: Map<string, CanadaRiding>
@@ -940,6 +1020,11 @@ export class CanadaCountryProvider extends CountryProvider<
     const normalized = new Map<string, CanadaRiding>();
 
     for (const [, boundary] of boundaryIndex) {
+      // Index by FED code (external_id) for ID-based matching
+      if (boundary.id) {
+        normalized.set(`fed:${boundary.id}`, boundary);
+      }
+
       // Index by English name
       const keyEn = normalizeRidingName(boundary.name);
       normalized.set(keyEn, boundary);
@@ -957,30 +1042,64 @@ export class CanadaCountryProvider extends CountryProvider<
   }
 
   /**
-   * Resolve riding code from boundary index using normalized name matching.
+   * Resolve riding code from boundary index using multi-strategy matching.
    *
-   * Tries English name first, then French name if provided.
+   * Strategy order (strongest to weakest):
+   * 1. FED code lookup (if ridingCode provided) — exact ID match
+   * 2. Exact normalized English name
+   * 3. Exact normalized French name
+   * 4. Fuzzy match (Levenshtein distance) — catches minor name variations
+   *
    * Returns the boundary's 5-digit FED code or null if no match found.
    */
   private resolveRidingFromBoundary(
     ridingName: string,
     ridingNameFr: string | undefined,
-    normalizedIndex: Map<string, CanadaRiding>
+    normalizedIndex: Map<string, CanadaRiding>,
+    ridingCode?: string,
   ): { ridingCode: string; boundary: CanadaRiding } | null {
-    // Try English name
+    // Strategy 1: FED code lookup (strongest match)
+    if (ridingCode) {
+      const matchById = normalizedIndex.get(`fed:${ridingCode}`);
+      if (matchById) {
+        return { ridingCode: matchById.id, boundary: matchById };
+      }
+    }
+
+    // Strategy 2: Exact normalized English name
     const keyEn = normalizeRidingName(ridingName);
     const matchEn = normalizedIndex.get(keyEn);
     if (matchEn) {
       return { ridingCode: matchEn.id, boundary: matchEn };
     }
 
-    // Try French name
+    // Strategy 3: Exact normalized French name
     if (ridingNameFr) {
       const keyFr = normalizeRidingName(ridingNameFr);
       const matchFr = normalizedIndex.get(keyFr);
       if (matchFr) {
         return { ridingCode: matchFr.id, boundary: matchFr };
       }
+    }
+
+    // Strategy 4: Fuzzy match (Levenshtein distance)
+    // Build a lightweight index for fuzzy matching (exclude fed: keys)
+    const fuzzyIndex = new Map<string, { id: string; boundary: CanadaRiding }>();
+    for (const [key, boundary] of normalizedIndex) {
+      if (!key.startsWith('fed:')) {
+        fuzzyIndex.set(key, { id: boundary.id, boundary });
+      }
+    }
+
+    const fuzzyResult = fuzzyMatchRiding(keyEn, fuzzyIndex);
+    if (fuzzyResult) {
+      const matched = normalizedIndex.get(fuzzyResult.key)!;
+      logger.debug('Fuzzy matched riding name', {
+        input: ridingName,
+        matched: matched.name,
+        distance: fuzzyResult.distance,
+      });
+      return { ridingCode: matched.id, boundary: matched };
     }
 
     return null;
@@ -1169,14 +1288,16 @@ export class CanadaCountryProvider extends CountryProvider<
     for (const mp of allMPs) {
       const ridingName = mp.district_name;
 
-      // Try boundary index resolution first
-      const resolved = this.resolveRidingFromBoundary(ridingName, undefined, normalizedIndex);
+      // Extract riding code from boundary_url first (most reliable for Represent API)
+      const urlRidingCode = extractRidingCodeFromUrl(mp.related?.boundary_url);
 
-      // Fallback: extract riding code from boundary_url
-      let ridingCode = resolved?.ridingCode ?? '';
-      if (!ridingCode) {
-        ridingCode = extractRidingCodeFromUrl(mp.related?.boundary_url);
-      }
+      // Try boundary index resolution (with ID-based matching via urlRidingCode)
+      const resolved = this.resolveRidingFromBoundary(
+        ridingName, undefined, normalizedIndex, urlRidingCode
+      );
+
+      // Use resolved code or fall back to URL-extracted code
+      let ridingCode = resolved?.ridingCode ?? urlRidingCode;
 
       if (!ridingCode) {
         unresolved++;
