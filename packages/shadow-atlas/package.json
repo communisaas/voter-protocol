@@ -63,6 +63,8 @@
         "discover:aggregator": "tsx src/scripts/wave-discovery.ts aggregator",
         "discover:aggregators": "tsx src/scripts/wave-discovery.ts aggregators",
         "discover:gaps": "tsx src/scripts/wave-discovery.ts gaps",
+        "hydrate": "tsx src/hydration/hydrate-country.ts",
+        "hydrate:dry": "tsx src/hydration/hydrate-country.ts --dry-run",
         "ingest:legislators": "tsx src/scripts/ingest-legislators.ts",
         "ingest:legislators:dry": "tsx src/scripts/ingest-legislators.ts --dry-run",
         "ingest:canadian-mps": "tsx src/scripts/ingest-canadian-mps.ts",

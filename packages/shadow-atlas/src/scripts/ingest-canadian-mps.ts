@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 /**
+ * @deprecated Use unified hydration pipeline instead:
+ *   npx tsx src/hydration/hydrate-country.ts --country CA
+ *
  * Ingest Canadian Members of Parliament from Represent API (Open North)
  *
  * Data source: https://represent.opennorth.ca/representatives/house-of-commons/

@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 /**
+ * @deprecated Use unified hydration pipeline instead:
+ *   npx tsx src/hydration/hydrate-country.ts --country GB
+ *
  * Ingest UK Members of Parliament from UK Parliament Members API
  *
  * Data source: https://members-api.parliament.uk/api/Members/Search

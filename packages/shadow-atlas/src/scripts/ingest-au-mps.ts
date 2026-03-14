@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 /**
+ * @deprecated Use unified hydration pipeline instead:
+ *   npx tsx src/hydration/hydrate-country.ts --country AU
+ *
  * Ingest Australian Members of Parliament (House of Representatives)
  *
  * Data source: APH (Parliament of Australia) Parliamentarian Search

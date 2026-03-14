@@ -1,5 +1,8 @@
 #!/usr/bin/env tsx
 /**
+ * @deprecated Use unified hydration pipeline instead:
+ *   npx tsx src/hydration/hydrate-country.ts --country NZ
+ *
  * Ingest New Zealand Members of Parliament
  *
  * Data source: NZ Parliament website (HTML scraping)
@@ -68,6 +71,46 @@ function isMaoriElectorate(name: string): boolean {
     MAORI_ELECTORATES.has(name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
 }
 
+/**
+ * Normalize a name into a stable, deterministic ID slug.
+ * Strips diacritics (macrons etc.), lowercases, replaces non-alphanum with hyphens.
+ * Same input always produces the same output regardless of source ordering.
+ */
+function normalizeForId(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // strip diacritics (macrons, etc.)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')     // non-alphanum → hyphen
+    .replace(/^-+|-+$/g, '');         // trim leading/trailing hyphens
+}
+
+/**
+ * Post-process an array of MPs to detect and fix parliament_id collisions.
+ * If two MPs share the same name-based ID, disambiguate with electorate name.
+ */
+function deduplicateParliamentIds(mps: NZMP[]): void {
+  const idCounts = new Map<string, number>();
+  for (const mp of mps) {
+    idCounts.set(mp.parliament_id, (idCounts.get(mp.parliament_id) ?? 0) + 1);
+  }
+
+  // Only process IDs that appear more than once
+  const duplicateIds = new Set<string>();
+  for (const [id, count] of idCounts) {
+    if (count > 1) duplicateIds.add(id);
+  }
+
+  if (duplicateIds.size === 0) return;
+
+  for (const mp of mps) {
+    if (duplicateIds.has(mp.parliament_id)) {
+      const suffix = mp.electorate_name ? normalizeForId(mp.electorate_name) : 'list';
+      mp.parliament_id = `${mp.parliament_id}-${suffix}`;
+    }
+  }
+}
+
 // ============================================================================
 // Rate Limiter
 // ============================================================================
@@ -120,7 +163,6 @@ async function fetchFromWikipedia(): Promise<NZMP[]> {
 
 function parseWikipediaTables(wikitext: string): NZMP[] {
   const mps: NZMP[] = [];
-  let idx = 0;
 
   // Find General Electorates table
   const generalIdx = wikitext.indexOf('General electorates===');
@@ -141,10 +183,9 @@ function parseWikipediaTables(wikitext: string): NZMP[] {
     // Parse rows: each row starts with |- and contains cells starting with |
     const rows = generalTable.split(/\|-\s*\n/);
     for (const row of rows) {
-      const mp = parseWikiRow(row, 'general', idx);
+      const mp = parseWikiRow(row, 'general');
       if (mp) {
         mps.push(mp);
-        idx++;
       }
     }
   }
@@ -156,10 +197,9 @@ function parseWikipediaTables(wikitext: string): NZMP[] {
 
     const rows = maoriTable.split(/\|-\s*\n/);
     for (const row of rows) {
-      const mp = parseWikiRow(row, 'maori', idx);
+      const mp = parseWikiRow(row, 'maori');
       if (mp) {
         mps.push(mp);
-        idx++;
       }
     }
   }
@@ -173,10 +213,11 @@ function parseWikipediaTables(wikitext: string): NZMP[] {
   // List MPs are harder to extract from Wikipedia — they're typically not in electorate tables
   // We'll note them as missing in the output
 
+  deduplicateParliamentIds(mps);
   return mps;
 }
 
-function parseWikiRow(row: string, type: 'general' | 'maori', idx: number): NZMP | null {
+function parseWikiRow(row: string, type: 'general' | 'maori'): NZMP | null {
   // Each row has cells like:
   // |{{NZ electorate link|Auckland Central}}
   // |{{Sort|2|[[Auckland Region|Auckland]]}}
@@ -273,10 +314,8 @@ function parseWikiRow(row: string, type: 'general' | 'maori', idx: number): NZMP
   };
   party = partyMap[party] ?? party;
 
-  const parliamentId = `nz-${(lastName || name).toLowerCase().replace(/[^a-z0-9]/g, '-')}-${idx}`;
-
   return {
-    parliament_id: parliamentId,
+    parliament_id: `nzp-${normalizeForId(name)}`,
     name,
     first_name: firstName || null,
     last_name: lastName || null,
@@ -347,7 +386,6 @@ function parseCSV(csv: string): NZMP[] {
     if (!party) continue;
 
     const name = [firstName, lastName].filter(Boolean).join(' ');
-    const parliamentId = `nz-${(lastName ?? name).toLowerCase().replace(/[^a-z0-9]/g, '-')}-${i}`;
 
     let electorateType: 'general' | 'maori' | 'list' = 'list';
     if (electorateName) {
@@ -355,7 +393,7 @@ function parseCSV(csv: string): NZMP[] {
     }
 
     mps.push({
-      parliament_id: parliamentId,
+      parliament_id: `nzp-${normalizeForId(name)}`,
       name,
       first_name: firstName,
       last_name: lastName,
@@ -366,6 +404,7 @@ function parseCSV(csv: string): NZMP[] {
     });
   }
 
+  deduplicateParliamentIds(mps);
   return mps;
 }
 
@@ -431,7 +470,6 @@ function parseParliamentNZHTML(html: string): NZMP[] {
   // Pattern: member name, party, electorate
   const memberPattern = /class="[^"]*member[^"]*"[^>]*>[\s\S]*?<\/(?:div|article|li)>/gi;
   let match;
-  let idx = 0;
 
   while ((match = memberPattern.exec(html)) !== null) {
     const block = match[0];
@@ -455,9 +493,8 @@ function parseParliamentNZHTML(html: string): NZMP[] {
         electorateType = isMaoriElectorate(electorateName) ? 'maori' : 'general';
       }
 
-      idx++;
       mps.push({
-        parliament_id: `nzp-${(lastName ?? name).toLowerCase().replace(/[^a-z0-9]/g, '-')}-${idx}`,
+        parliament_id: `nzp-${normalizeForId(name)}`,
         name,
         first_name: firstName,
         last_name: lastName,
@@ -469,6 +506,7 @@ function parseParliamentNZHTML(html: string): NZMP[] {
     }
   }
 
+  deduplicateParliamentIds(mps);
   return mps;
 }
 
