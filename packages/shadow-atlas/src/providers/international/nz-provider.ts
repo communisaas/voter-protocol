@@ -712,14 +712,22 @@ export class NZCountryProvider extends CountryProvider<
     // Convert raw MPs to NZOfficial records with boundary code resolution
     const officials = this.resolveOfficialBoundaryCodes(rawMPs, boundaryIndex);
 
-    const expectedTotal = 65 + 7 + 51; // 123
+    const listCount = officials.filter(o => o.electorateType === 'list').length;
+    const electorateCount = officials.filter(o => o.electorateType !== 'list').length;
+
+    // Expected count adjusts to source capability:
+    // - data.govt.nz CSV / parliament.nz include all MPs (general + maori + list = ~123)
+    // - Wikipedia only includes electorate MPs (general + maori = ~72)
+    const hasListMPs = listCount > 0;
+    const expectedTotal = hasListMPs ? 65 + 7 + 51 : 65 + 7; // 123 or 72
     const durationMs = Date.now() - startTime;
 
     logger.info('NZ officials extraction complete', {
       source: source.name,
       total: officials.length,
-      electorate: officials.filter(o => o.electorateType !== 'list').length,
-      list: officials.filter(o => o.electorateType === 'list').length,
+      electorate: electorateCount,
+      list: listCount,
+      expectedTotal,
       resolved: officials.filter(o => o.boundaryCode !== null).length,
       durationMs,
     });
@@ -794,7 +802,9 @@ export class NZCountryProvider extends CountryProvider<
     const sourceAuthority = this.assessSourceAuthority(boundarySources, officialAttempts);
 
     // Layer 2: Schema & Count Validation
-    const totalExpected = 65 + 7 + 51; // general + maori + list
+    // Adjust expected count based on whether list MPs are present
+    const hasListMPs = officials.some(o => o.electorateType === 'list');
+    const totalExpected = hasListMPs ? 65 + 7 + 51 : 65 + 7; // 123 or 72
     const schemaValidation = this.validateSchema(officials, NZMPSchema, totalExpected);
 
     // Layer 3: Boundary Code Resolution
