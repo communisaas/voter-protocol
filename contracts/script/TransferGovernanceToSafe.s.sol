@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 
 /// @title TransferGovernanceToSafe
 /// @notice Transfers governance of all 9 TimelockGovernance contracts to a Gnosis Safe multisig.
-/// @dev Two-phase process: InitiateTransfer starts the 7-day timelock on all contracts,
+/// @dev Two-phase process: InitiateTransfer starts the governance timelock on all contracts,
 ///      ExecuteTransfer finalizes after the timelock expires.
 ///
 /// CONTRACTS COVERED (all inherit TimelockGovernance):
@@ -75,7 +75,7 @@ interface ITimelockGovernance {
 /// @notice Phase 1: Calls initiateGovernanceTransfer(safeAddress) on all 9 contracts.
 ///         Each call starts a 7-day timelock. Must be called by the current governance EOA.
 contract InitiateTransfer is Script {
-    uint256 constant GOVERNANCE_TIMELOCK = 7 days;
+    uint256 constant GOVERNANCE_TIMELOCK = 10 minutes;
 
     string[9] internal CONTRACT_NAMES = [
         "DistrictRegistry",
@@ -187,10 +187,10 @@ contract InitiateTransfer is Script {
         console.log("");
         console.log("Contracts initiated:", initiated);
         console.log("Execute timestamp:  ", executeTime);
-        console.log("Timelock:            7 days");
+        console.log("Timelock:            10 minutes");
         console.log("");
         console.log("Next step:");
-        console.log("  Wait 7 days, then run ExecuteTransfer.");
+        console.log("  Wait 10 minutes, then run ExecuteTransfer.");
         console.log("  Monitor GovernanceTransferInitiated events on each contract.");
         console.log("  To cancel: call cancelGovernanceTransfer(safeAddress) on any");
         console.log("  contract from the deployer wallet before the timelock expires.");
