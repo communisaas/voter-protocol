@@ -94,8 +94,11 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Campaign registry (optional, can be zero)
     CampaignRegistry public campaignRegistry;
 
-    /// @notice Timelock delay for campaign registry changes (7 days, same as district registration)
-    uint256 public constant CAMPAIGN_REGISTRY_TIMELOCK = 7 days;
+    /// @notice Minimum timelock for campaign registry changes
+    uint256 public constant MIN_CAMPAIGN_TIMELOCK = 10 minutes;
+
+    /// @notice Timelock delay for campaign registry changes (minimum 10 minutes, set at deploy)
+    uint256 public immutable CAMPAIGN_REGISTRY_TIMELOCK;
 
     /// @notice Proposed campaign registry address (zero if no proposal pending)
     address public pendingCampaignRegistry;
@@ -107,8 +110,11 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @dev SA-001 FIX: Prevents users from generating fresh nullifiers with arbitrary actionDomains
     mapping(bytes32 => bool) public allowedActionDomains;
 
-    /// @notice Timelock for action domain registration (7 days)
-    uint256 public constant ACTION_DOMAIN_TIMELOCK = 7 days;
+    /// @notice Minimum timelock for action domain registration
+    uint256 public constant MIN_ACTION_DOMAIN_TIMELOCK = 10 minutes;
+
+    /// @notice Timelock for action domain registration (minimum 10 minutes, set at deploy)
+    uint256 public immutable ACTION_DOMAIN_TIMELOCK;
 
     /// @notice Pending action domain registrations (actionDomain => executeTime)
     mapping(bytes32 => uint256) public pendingActionDomains;
@@ -117,10 +123,13 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @dev Wave 14d: Prevents low-authority proofs from being accepted for sensitive domains
     mapping(bytes32 => uint8) public actionDomainMinAuthority;
 
-    /// @notice Timelock for authority level increases (24 hours)
+    /// @notice Minimum timelock for authority level increases
+    uint256 public constant MIN_AUTH_INCREASE_TIMELOCK = 10 minutes;
+
+    /// @notice Timelock for authority level increases (minimum 10 minutes, set at deploy)
     /// @dev Increases are timelocked to prevent front-running user proofs.
     ///      Decreases take effect immediately (only relaxes requirements).
-    uint256 public constant MIN_AUTHORITY_INCREASE_TIMELOCK = 24 hours;
+    uint256 public immutable MIN_AUTHORITY_INCREASE_TIMELOCK;
 
     /// @notice Pending authority level increases (actionDomain => proposed minLevel)
     mapping(bytes32 => uint8) public pendingMinAuthority;
@@ -310,11 +319,22 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
         address _verifierRegistry,
         address _districtRegistry,
         address _nullifierRegistry,
-        address _governance
-    ) {
+        address _governance,
+        uint256 _governanceTimelock,
+        uint256 _campaignTimelock,
+        uint256 _actionDomainTimelock,
+        uint256 _authorityTimelock
+    ) TimelockGovernance(_governanceTimelock) {
         if (_verifierRegistry == address(0)) revert ZeroAddress();
         if (_districtRegistry == address(0)) revert ZeroAddress();
         if (_nullifierRegistry == address(0)) revert ZeroAddress();
+
+        if (_campaignTimelock < MIN_CAMPAIGN_TIMELOCK) revert TimelockTooShort();
+        if (_actionDomainTimelock < MIN_ACTION_DOMAIN_TIMELOCK) revert TimelockTooShort();
+        if (_authorityTimelock < MIN_AUTH_INCREASE_TIMELOCK) revert TimelockTooShort();
+        CAMPAIGN_REGISTRY_TIMELOCK = _campaignTimelock;
+        ACTION_DOMAIN_TIMELOCK = _actionDomainTimelock;
+        MIN_AUTHORITY_INCREASE_TIMELOCK = _authorityTimelock;
 
         _initializeGovernance(_governance);
 

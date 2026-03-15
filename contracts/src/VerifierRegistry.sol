@@ -80,12 +80,15 @@ contract VerifierRegistry is TimelockGovernance {
     /// @dev DEPRECATED: Use threeTreeVerifierExecutionTime for new integrations.
     mapping(uint8 => uint256) public verifierExecutionTime;
 
-    /// @notice Verifier upgrade timelock (14 days)
-    /// @dev Upgrades to existing verifiers require 14-day timelock (HIGH-001 fix).
+    /// @notice Minimum verifier timelock (10 minutes)
+    uint256 public constant MIN_VERIFIER_TIMELOCK = 10 minutes;
+
+    /// @notice Verifier upgrade timelock (minimum 10 minutes, set at deploy)
+    /// @dev Upgrades to existing verifiers require timelock (HIGH-001 fix).
     ///      Initial registration uses direct registerVerifier() — at genesis there
     ///      are no users to protect, and the deployer IS the governance.
     ///      Post-genesis NEW depths use proposeVerifier() + timelock.
-    uint256 public constant VERIFIER_TIMELOCK = 14 days;
+    uint256 public immutable VERIFIER_TIMELOCK;
 
     /// @notice Whether genesis registration phase is complete
     /// @dev Once sealed, all new registrations require the timelock path
@@ -118,8 +121,10 @@ contract VerifierRegistry is TimelockGovernance {
     error ProposalAlreadyPending();
     error GenesisAlreadySealed();
 
-    constructor(address _governance) {
+    constructor(address _governance, uint256 _governanceTimelock, uint256 _verifierTimelock) TimelockGovernance(_governanceTimelock) {
+        if (_verifierTimelock < MIN_VERIFIER_TIMELOCK) revert TimelockTooShort();
         _initializeGovernance(_governance);
+        VERIFIER_TIMELOCK = _verifierTimelock;
     }
 
     // ============================================================================

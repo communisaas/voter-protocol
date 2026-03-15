@@ -526,9 +526,10 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		address _positionNoteVerifier,
 		address _aiRegistry,
 		address _governance,
+		uint256 _governanceTimelock,
 		address _stakingToken,
 		uint256 _protocolFeeBps
-	) {
+	) TimelockGovernance(_governanceTimelock) {
 		if (_districtGate == address(0)) revert ZeroAddress();
 		if (_debateWeightVerifier == address(0)) revert ZeroAddress();
 		if (_positionNoteVerifier == address(0)) revert ZeroAddress();

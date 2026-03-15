@@ -31,9 +31,12 @@ abstract contract TimelockGovernance {
     /// @notice Pending governance transfer target => execution timestamp
     mapping(address => uint256) public pendingGovernance;
 
-    /// @notice Timelock for governance transfers (7 days)
+    /// @notice Minimum timelock for governance transfers (10 minutes)
+    uint256 public constant MIN_GOVERNANCE_TIMELOCK = 10 minutes;
+
+    /// @notice Timelock for governance transfers (minimum 10 minutes, set at deploy)
     /// @dev Gives community time to detect and respond to malicious transfers
-    uint256 public constant GOVERNANCE_TIMELOCK = 7 days;
+    uint256 public immutable GOVERNANCE_TIMELOCK;
 
     // Events - transparent on-chain record
     event GovernanceTransferInitiated(address indexed newGovernance, uint256 executeTime);
@@ -46,6 +49,12 @@ abstract contract TimelockGovernance {
     error SameAddress();
     error TransferNotInitiated();
     error TimelockNotExpired();
+    error TimelockTooShort();
+
+    constructor(uint256 _governanceTimelock) {
+        if (_governanceTimelock < MIN_GOVERNANCE_TIMELOCK) revert TimelockTooShort();
+        GOVERNANCE_TIMELOCK = _governanceTimelock;
+    }
 
     modifier onlyGovernance() {
         if (msg.sender != governance) revert UnauthorizedCaller();

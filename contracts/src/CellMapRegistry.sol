@@ -104,7 +104,8 @@ contract CellMapRegistry is TimelockGovernance {
 
     /// @notice Deploy registry with governance address
     /// @param _governance Multi-sig or founder address that controls root management
-    constructor(address _governance) {
+    /// @param _governanceTimelock Timelock for governance operations (minimum 10 minutes)
+    constructor(address _governance, uint256 _governanceTimelock) TimelockGovernance(_governanceTimelock) {
         _initializeGovernance(_governance);
     }
 

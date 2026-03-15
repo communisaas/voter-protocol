@@ -74,8 +74,11 @@ contract DistrictRegistry {
     /// @notice Multi-sig governance address (controls district additions)
     address public governance;
 
-    /// @notice Timelock period for governance transfers (7 days)
-    uint256 public constant GOVERNANCE_TIMELOCK = 7 days;
+    /// @notice Minimum timelock for governance transfers (10 minutes)
+    uint256 public constant MIN_GOVERNANCE_TIMELOCK = 10 minutes;
+
+    /// @notice Timelock period for governance transfers (minimum 10 minutes, set at deploy)
+    uint256 public immutable GOVERNANCE_TIMELOCK;
 
     /// @notice Pending governance transfer target → execution timestamp
     mapping(address => uint256) public pendingGovernance;
@@ -141,6 +144,7 @@ contract DistrictRegistry {
     error TransferNotInitiated();
     error TimelockNotExpired();
     error TimelockExpired();
+    error TimelockTooShort();
     error RootNotRegistered();
     error RootAlreadyInactive();
     error RootAlreadyActive();
@@ -155,9 +159,12 @@ contract DistrictRegistry {
 
     /// @notice Deploy registry with multi-sig governance
     /// @param _governance Multi-sig address that controls district additions
-    constructor(address _governance) {
+    /// @param _governanceTimelock Timelock duration for governance operations (minimum 10 minutes)
+    constructor(address _governance, uint256 _governanceTimelock) {
         if (_governance == address(0)) revert ZeroAddress();
+        if (_governanceTimelock < MIN_GOVERNANCE_TIMELOCK) revert TimelockTooShort();
         governance = _governance;
+        GOVERNANCE_TIMELOCK = _governanceTimelock;
     }
 
     /// @notice Register a new district (append-only, cannot modify existing)

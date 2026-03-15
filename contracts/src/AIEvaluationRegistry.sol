@@ -84,7 +84,8 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	// ============================================================================
 
 	/// @param _governance Governance address
-	constructor(address _governance) {
+	/// @param _governanceTimelock Timelock for governance operations (minimum 10 minutes)
+	constructor(address _governance, uint256 _governanceTimelock) TimelockGovernance(_governanceTimelock) {
 		_initializeGovernance(_governance);
 	}
 

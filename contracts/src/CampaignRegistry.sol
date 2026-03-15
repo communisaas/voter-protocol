@@ -114,8 +114,11 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Rate limit: 1 campaign per hour per address
     uint256 public constant CAMPAIGN_COOLDOWN = 1 hours;
 
-    /// @notice Flag timelock (community can see and respond)
-    uint256 public constant FLAG_TIMELOCK = 24 hours;
+    /// @notice Minimum flag timelock
+    uint256 public constant MIN_FLAG_TIMELOCK = 10 minutes;
+
+    /// @notice Flag timelock (community can see and respond, minimum 10 minutes, set at deploy)
+    uint256 public immutable FLAG_TIMELOCK;
 
     /// @notice Maximum templates per campaign (gas limit protection)
     uint256 public constant MAX_TEMPLATES_PER_CAMPAIGN = 50;
@@ -210,9 +213,13 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
 
     /// @notice Deploy CampaignRegistry with governance
     /// @param _governance Governance address (initially founder, later multisig)
-    constructor(address _governance) {
+    /// @param _governanceTimelock Timelock for governance operations (minimum 10 minutes)
+    /// @param _flagTimelock Timelock for campaign flagging (minimum 10 minutes)
+    constructor(address _governance, uint256 _governanceTimelock, uint256 _flagTimelock) TimelockGovernance(_governanceTimelock) {
+        if (_flagTimelock < MIN_FLAG_TIMELOCK) revert TimelockTooShort();
         _initializeGovernance(_governance);
         authorizedCallers[_governance] = true;
+        FLAG_TIMELOCK = _flagTimelock;
     }
 
     // ============================================================================

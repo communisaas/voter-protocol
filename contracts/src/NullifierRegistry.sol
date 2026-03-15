@@ -101,18 +101,23 @@ contract NullifierRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
         _;
     }
 
+    /// @notice Minimum timelock for caller authorization/revocation
+    uint256 public constant MIN_CALLER_AUTH_TIMELOCK = 10 minutes;
+
     /// @notice Timelock duration for caller authorization/revocation
-    uint256 public constant CALLER_AUTHORIZATION_TIMELOCK = 7 days;
+    uint256 public immutable CALLER_AUTHORIZATION_TIMELOCK;
 
     /// @notice Whether genesis registration phase is complete
     /// @dev Once sealed, all caller authorizations require the timelock path
     bool public genesisSealed;
 
-    constructor(address _governance) {
+    constructor(address _governance, uint256 _governanceTimelock, uint256 _callerAuthTimelock) TimelockGovernance(_governanceTimelock) {
         if (_governance == address(0)) revert ZeroAddress();
+        if (_callerAuthTimelock < MIN_CALLER_AUTH_TIMELOCK) revert TimelockTooShort();
         _initializeGovernance(_governance);
         // Governance is always authorized
         authorizedCallers[_governance] = true;
+        CALLER_AUTHORIZATION_TIMELOCK = _callerAuthTimelock;
     }
 
     // ============================================================================
