@@ -33,7 +33,7 @@ contract CellMapRegistryTest is Test {
     event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
 
     function setUp() public {
-        registry = new CellMapRegistry(governance);
+        registry = new CellMapRegistry(governance, 7 days);
     }
 
     // ============ Constructor Tests ============
@@ -46,7 +46,7 @@ contract CellMapRegistryTest is Test {
 
     function test_RevertWhen_ConstructorZeroAddress() public {
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        new CellMapRegistry(address(0));
+        new CellMapRegistry(address(0), 7 days);
     }
 
     // ============ Root Registration Tests ============

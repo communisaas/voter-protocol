@@ -62,16 +62,20 @@ contract DistrictGateActionDomainTest is Test {
         verifier = address(new MockVerifier());
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Setup: Register verifier for depth 18 (genesis registration)

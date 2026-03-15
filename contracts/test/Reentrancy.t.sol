@@ -227,7 +227,7 @@ contract NullifierRegistryReentrancyTest is Test {
     function setUp() public {
         // Deploy registry
         vm.prank(governance);
-        registry = new NullifierRegistry(governance);
+        registry = new NullifierRegistry(governance, 7 days, 7 days);
 
         // Deploy attacker contracts
         attacker = new ReentrancyAttacker(address(registry));

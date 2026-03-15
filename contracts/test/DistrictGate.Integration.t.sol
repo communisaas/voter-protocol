@@ -101,17 +101,21 @@ contract DistrictGateIntegrationTest is Test {
         verifier24 = new MockVerifier();
 
         // Deploy all registries with governance
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
-        campaignRegistry = new CampaignRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
+        campaignRegistry = new CampaignRegistry(governance, 7 days, 24 hours);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Setup registries
@@ -337,7 +341,11 @@ contract DistrictGateIntegrationTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Whitelist action domain for new gate
@@ -384,7 +392,7 @@ contract DistrictGateIntegrationTest is Test {
     /// @notice Test verification fails if gate not authorized on CampaignRegistry
     function test_CampaignRecording_SilentlyFailsWhenNotAuthorized() public {
         // Deploy new campaign registry
-        CampaignRegistry newCampaignRegistry = new CampaignRegistry(governance);
+        CampaignRegistry newCampaignRegistry = new CampaignRegistry(governance, 7 days, 24 hours);
 
         // Set campaign registry on gate (but don't authorize gate)
         _setCampaignRegistry(address(newCampaignRegistry));
@@ -1153,7 +1161,7 @@ contract DistrictGateIntegrationTest is Test {
         // Remove verifier for depth 18
         // Note: VerifierRegistry doesn't have a remove function, so we deploy new gate
         // with registry that doesn't have depth 18 registered
-        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
 
         // Only register depth 20, not 18 (genesis registration)
         vm.startPrank(governance);
@@ -1165,7 +1173,11 @@ contract DistrictGateIntegrationTest is Test {
             address(newVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Authorize new gate (with 7-day timelock)

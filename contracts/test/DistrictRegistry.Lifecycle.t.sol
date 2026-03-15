@@ -28,7 +28,7 @@ contract DistrictRegistryLifecycleTest is Test {
     event RootOperationCancelled(bytes32 indexed root);
 
     function setUp() public {
-        registry = new DistrictRegistry(governance);
+        registry = new DistrictRegistry(governance, 7 days);
 
         // Register test districts
         vm.startPrank(governance);

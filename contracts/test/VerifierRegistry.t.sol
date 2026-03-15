@@ -57,7 +57,7 @@ contract VerifierRegistryTest is Test {
     event ThreeTreeVerifierProposalCancelled(uint8 indexed depth, address indexed target);
 
     function setUp() public {
-        registry = new VerifierRegistry(governance);
+        registry = new VerifierRegistry(governance, 7 days, 14 days);
     }
 
     // ============================================================================

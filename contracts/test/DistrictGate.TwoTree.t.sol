@@ -101,18 +101,22 @@ contract DistrictGateTwoTreeTest is Test {
         singleTreeVerifier = new MockVerifierSingleTree();
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
-        userRootRegistry = new UserRootRegistry(governance);
-        cellMapRegistry = new CellMapRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
+        userRootRegistry = new UserRootRegistry(governance, 7 days);
+        cellMapRegistry = new CellMapRegistry(governance, 7 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Register verifiers (genesis registration)
@@ -211,7 +215,11 @@ contract DistrictGateTwoTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Whitelist action domain on fresh gate
@@ -264,8 +272,8 @@ contract DistrictGateTwoTreeTest is Test {
     /// @notice Propose, execute, and cancel two-tree registry configuration
     function test_TwoTreeRegistries_ProposeExecuteCancel() public {
         // Deploy new registries for this test
-        UserRootRegistry newUserRootRegistry = new UserRootRegistry(governance);
-        CellMapRegistry newCellMapRegistry = new CellMapRegistry(governance);
+        UserRootRegistry newUserRootRegistry = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCellMapRegistry = new CellMapRegistry(governance, 7 days);
 
         // Test propose
         uint256 expectedExecuteTime = block.timestamp + 7 days;
@@ -337,8 +345,8 @@ contract DistrictGateTwoTreeTest is Test {
 
     /// @notice Revert execute before timelock expires
     function test_TwoTreeRegistries_RevertWhen_TimelockNotExpired() public {
-        UserRootRegistry newURR = new UserRootRegistry(governance);
-        CellMapRegistry newCMR = new CellMapRegistry(governance);
+        UserRootRegistry newURR = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR = new CellMapRegistry(governance, 7 days);
 
         vm.prank(governance);
         gate.proposeTwoTreeRegistries(address(newURR), address(newCMR));
@@ -360,7 +368,11 @@ contract DistrictGateTwoTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.expectRevert(DistrictGate.TwoTreeRegistriesNotProposed.selector);
@@ -374,7 +386,11 @@ contract DistrictGateTwoTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.prank(governance);
@@ -384,8 +400,8 @@ contract DistrictGateTwoTreeTest is Test {
 
     /// @notice Non-governance cannot cancel two-tree registries
     function test_TwoTreeRegistries_RevertWhen_CancelUnauthorized() public {
-        UserRootRegistry newURR = new UserRootRegistry(governance);
-        CellMapRegistry newCMR = new CellMapRegistry(governance);
+        UserRootRegistry newURR = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR = new CellMapRegistry(governance, 7 days);
 
         vm.prank(governance);
         gate.proposeTwoTreeRegistries(address(newURR), address(newCMR));
@@ -401,10 +417,10 @@ contract DistrictGateTwoTreeTest is Test {
 
     /// @notice BR3-007: Propose when already pending should revert (prevents timelock reset)
     function test_RevertWhen_ProposeTwoTreeRegistries_WhenAlreadyPending() public {
-        UserRootRegistry newURR1 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR1 = new CellMapRegistry(governance);
-        UserRootRegistry newURR2 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR2 = new CellMapRegistry(governance);
+        UserRootRegistry newURR1 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR1 = new CellMapRegistry(governance, 7 days);
+        UserRootRegistry newURR2 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR2 = new CellMapRegistry(governance, 7 days);
 
         // First proposal
         vm.prank(governance);
@@ -421,10 +437,10 @@ contract DistrictGateTwoTreeTest is Test {
 
     /// @notice BR3-007: After cancel, can re-propose two-tree registries
     function test_ProposeTwoTreeRegistries_AfterCancel_Succeeds() public {
-        UserRootRegistry newURR1 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR1 = new CellMapRegistry(governance);
-        UserRootRegistry newURR2 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR2 = new CellMapRegistry(governance);
+        UserRootRegistry newURR1 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR1 = new CellMapRegistry(governance, 7 days);
+        UserRootRegistry newURR2 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR2 = new CellMapRegistry(governance, 7 days);
 
         // First proposal
         vm.prank(governance);
@@ -445,10 +461,10 @@ contract DistrictGateTwoTreeTest is Test {
 
     /// @notice BR3-007: After execute, can re-propose two-tree registries
     function test_ProposeTwoTreeRegistries_AfterExecute_Succeeds() public {
-        UserRootRegistry newURR1 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR1 = new CellMapRegistry(governance);
-        UserRootRegistry newURR2 = new UserRootRegistry(governance);
-        CellMapRegistry newCMR2 = new CellMapRegistry(governance);
+        UserRootRegistry newURR1 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR1 = new CellMapRegistry(governance, 7 days);
+        UserRootRegistry newURR2 = new UserRootRegistry(governance, 7 days);
+        CellMapRegistry newCMR2 = new CellMapRegistry(governance, 7 days);
 
         // First proposal
         vm.prank(governance);
@@ -706,7 +722,7 @@ contract DistrictGateTwoTreeTest is Test {
         vm.stopPrank();
 
         // Register the failing verifier at depth 24 (using new registry)
-        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         vm.startPrank(governance);
         newVerifierRegistry.registerVerifier(VERIFIER_DEPTH, address(passingVerifier));
         newVerifierRegistry.registerVerifier(18, address(singleTreeVerifier));
@@ -720,7 +736,11 @@ contract DistrictGateTwoTreeTest is Test {
             address(newVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Authorize new gate

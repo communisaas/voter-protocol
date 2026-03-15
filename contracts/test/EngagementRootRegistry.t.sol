@@ -28,7 +28,7 @@ contract EngagementRootRegistryTest is Test {
     event RootOperationCancelled(bytes32 indexed root);
 
     function setUp() public {
-        registry = new EngagementRootRegistry(governance);
+        registry = new EngagementRootRegistry(governance, 7 days);
     }
 
     // ============ Constructor Tests ============
@@ -41,7 +41,7 @@ contract EngagementRootRegistryTest is Test {
 
     function test_RevertWhen_ConstructorZeroAddress() public {
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        new EngagementRootRegistry(address(0));
+        new EngagementRootRegistry(address(0), 7 days);
     }
 
     // ============ Root Registration Tests ============

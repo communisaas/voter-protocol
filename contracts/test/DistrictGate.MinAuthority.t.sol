@@ -80,19 +80,23 @@ contract DistrictGateMinAuthorityTest is Test {
         threeTreeVerifier = new MockMinAuthorityVerifier(true);
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
-        userRootRegistry = new UserRootRegistry(governance);
-        cellMapRegistry = new CellMapRegistry(governance);
-        engagementRootRegistry = new EngagementRootRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
+        userRootRegistry = new UserRootRegistry(governance, 7 days);
+        cellMapRegistry = new CellMapRegistry(governance, 7 days);
+        engagementRootRegistry = new EngagementRootRegistry(governance, 7 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Register verifiers (genesis) — both two-tree and three-tree

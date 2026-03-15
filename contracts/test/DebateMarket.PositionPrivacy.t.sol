@@ -88,7 +88,7 @@ contract DebateMarketPositionPrivacyTest is Test {
 
     function setUp() public {
         // Deploy real NullifierRegistry
-        nullifierRegistry = new NullifierRegistry(governance);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
 
         // Deploy MockDistrictGate with real NullifierRegistry
         mockGate = new MockDistrictGate(address(nullifierRegistry));
@@ -115,6 +115,7 @@ contract DebateMarketPositionPrivacyTest is Test {
             address(pnVerifier),
             address(aiRegistry),
             governance,
+            7 days,
             address(token),
             200
         );
@@ -216,7 +217,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         DebateMarket rejectMarket = new DebateMarket(
             address(mockGate),
             address(rejectVerifier), address(pnV),
-            address(aiR), governance, address(token), 200
+            address(aiR), governance, 7 days, address(token), 200
         );
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
         vm.prank(governance);
@@ -613,7 +614,7 @@ contract DebateMarketPositionPrivacyTest is Test {
         DebateMarket rejectMarket = new DebateMarket(
             address(mockGate),
             address(dwV), address(rejectPnV),
-            address(aiR2), governance, address(token), 200
+            address(aiR2), governance, 7 days, address(token), 200
         );
         mockGate.setDeriverAuthorized(address(rejectMarket), true);
         vm.prank(governance);

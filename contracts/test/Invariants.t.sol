@@ -448,7 +448,7 @@ contract InvariantNullifierUniqueness is Test {
     address public governance = address(0x60B);
 
     function setUp() public {
-        registry = new NullifierRegistry(governance);
+        registry = new NullifierRegistry(governance, 7 days, 7 days);
 
         // Authorize governance as caller (it is by default in constructor)
         // The constructor already sets authorizedCallers[governance] = true
@@ -520,7 +520,7 @@ contract InvariantGovernanceTimelock is Test {
     address public governance = address(0x60B);
 
     function setUp() public {
-        registry = new NullifierRegistry(governance);
+        registry = new NullifierRegistry(governance, 7 days, 7 days);
         handler = new GovernanceTimelockHandler(registry, governance);
         targetContract(address(handler));
     }
@@ -576,8 +576,8 @@ contract InvariantGenesisSeal is Test {
     address public governance = address(0x60B);
 
     function setUp() public {
-        verifierRegistry = new VerifierRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
         handler = new GenesisSealHandler(
             verifierRegistry,
             nullifierRegistry,
@@ -640,7 +640,7 @@ contract InvariantVerifierRegistryConsistency is Test {
     address public governance = address(0x60B);
 
     function setUp() public {
-        registry = new VerifierRegistry(governance);
+        registry = new VerifierRegistry(governance, 7 days, 14 days);
         handler = new VerifierRegistryConsistencyHandler(registry, governance);
         targetContract(address(handler));
     }

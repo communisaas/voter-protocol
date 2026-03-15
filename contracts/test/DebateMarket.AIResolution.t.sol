@@ -80,7 +80,7 @@ contract DebateMarketAIResolutionTest is Test {
 		model5 = vm.addr(MODEL_KEY_5);
 
 		// Deploy NullifierRegistry + MockDistrictGate
-		nullifierRegistry = new NullifierRegistry(governance);
+		nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
 		mockGate = new MockDistrictGate(address(nullifierRegistry));
 
 		vm.prank(governance);
@@ -91,7 +91,7 @@ contract DebateMarketAIResolutionTest is Test {
 		mockGate.setActionDomainAllowed(ACTION_DOMAIN, true);
 
 		// Deploy AIEvaluationRegistry
-		registry = new AIEvaluationRegistry(governance);
+		registry = new AIEvaluationRegistry(governance, 7 days);
 
 		// Register 5 models from 5 providers
 		vm.startPrank(governance);
@@ -113,6 +113,7 @@ contract DebateMarketAIResolutionTest is Test {
 			address(pnVerifier),
 			address(registry),
 			governance,
+			7 days,
 			address(token),
 			200
 		);

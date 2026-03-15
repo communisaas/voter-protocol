@@ -101,19 +101,23 @@ contract DistrictGateThreeTreeTest is Test {
         twoTreePassingVerifier = new MockThreeTreeVerifier(true);
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
-        userRootRegistry = new UserRootRegistry(governance);
-        cellMapRegistry = new CellMapRegistry(governance);
-        engagementRootRegistry = new EngagementRootRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
+        userRootRegistry = new UserRootRegistry(governance, 7 days);
+        cellMapRegistry = new CellMapRegistry(governance, 7 days);
+        engagementRootRegistry = new EngagementRootRegistry(governance, 7 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Register verifiers (genesis) - both two-tree and three-tree
@@ -237,10 +241,14 @@ contract DistrictGateThreeTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
-        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance);
+        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance, 7 days);
 
         vm.prank(governance);
         vm.expectEmit(true, false, false, false);
@@ -256,7 +264,11 @@ contract DistrictGateThreeTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.startPrank(governance);
@@ -273,7 +285,11 @@ contract DistrictGateThreeTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.prank(governance);
@@ -283,7 +299,7 @@ contract DistrictGateThreeTreeTest is Test {
 
     /// @notice Post-genesis: propose, execute, cancel engagement registry
     function test_EngagementRegistry_ProposeExecuteCancel() public {
-        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance);
+        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance, 7 days);
 
         // Propose
         uint256 expectedExecuteTime = block.timestamp + 7 days;
@@ -328,7 +344,7 @@ contract DistrictGateThreeTreeTest is Test {
 
     /// @notice Post-genesis: revert when timelock not expired
     function test_EngagementRegistry_RevertWhen_TimelockNotExpired() public {
-        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance);
+        EngagementRootRegistry newRegistry = new EngagementRootRegistry(governance, 7 days);
 
         vm.prank(governance);
         gate.proposeEngagementRegistry(address(newRegistry));
@@ -345,8 +361,8 @@ contract DistrictGateThreeTreeTest is Test {
 
     /// @notice Post-genesis: revert when already pending
     function test_EngagementRegistry_RevertWhen_AlreadyPending() public {
-        EngagementRootRegistry reg1 = new EngagementRootRegistry(governance);
-        EngagementRootRegistry reg2 = new EngagementRootRegistry(governance);
+        EngagementRootRegistry reg1 = new EngagementRootRegistry(governance, 7 days);
+        EngagementRootRegistry reg2 = new EngagementRootRegistry(governance, 7 days);
 
         vm.prank(governance);
         gate.proposeEngagementRegistry(address(reg1));
@@ -367,7 +383,11 @@ contract DistrictGateThreeTreeTest is Test {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.startPrank(governance);
@@ -670,7 +690,7 @@ contract DistrictGateThreeTreeTest is Test {
     /// @notice Revert when verifier returns false
     function test_VerifyThreeTreeProof_RevertWhen_VerificationFails() public {
         // Deploy new registry with failing three-tree verifier
-        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         vm.startPrank(governance);
         newVerifierRegistry.registerVerifier(VERIFIER_DEPTH, address(twoTreePassingVerifier));
         newVerifierRegistry.registerThreeTreeVerifier(VERIFIER_DEPTH, address(failingVerifier));
@@ -682,7 +702,11 @@ contract DistrictGateThreeTreeTest is Test {
             address(newVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Configure

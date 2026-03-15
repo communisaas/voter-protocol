@@ -32,7 +32,7 @@ contract UserRootRegistryTest is Test {
     event GovernanceTransferred(address indexed previousGovernance, address indexed newGovernance);
 
     function setUp() public {
-        registry = new UserRootRegistry(governance);
+        registry = new UserRootRegistry(governance, 7 days);
     }
 
     // ============ Constructor Tests ============
@@ -45,7 +45,7 @@ contract UserRootRegistryTest is Test {
 
     function test_RevertWhen_ConstructorZeroAddress() public {
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        new UserRootRegistry(address(0));
+        new UserRootRegistry(address(0), 7 days);
     }
 
     // ============ Root Registration Tests ============

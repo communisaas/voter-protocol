@@ -23,7 +23,7 @@ contract DistrictRegistryTest is Test {
     event GovernanceTransferCancelled(address indexed newGovernance);
 
     function setUp() public {
-        registry = new DistrictRegistry(governance);
+        registry = new DistrictRegistry(governance, 7 days);
     }
 
     // ============ Constructor Tests ============
@@ -35,7 +35,7 @@ contract DistrictRegistryTest is Test {
 
     function test_RevertWhen_ConstructorZeroAddress() public {
         vm.expectRevert(DistrictRegistry.ZeroAddress.selector);
-        new DistrictRegistry(address(0));
+        new DistrictRegistry(address(0), 7 days);
     }
 
     // ============ District Registration Tests ============

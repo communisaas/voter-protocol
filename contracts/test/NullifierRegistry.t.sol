@@ -20,7 +20,7 @@ contract NullifierRegistryTest is Test {
 
     function setUp() public {
         vm.prank(governance);
-        registry = new NullifierRegistry(governance);
+        registry = new NullifierRegistry(governance, 7 days, 7 days);
 
         // Authorize DistrictGate as caller (with 7-day timelock)
         vm.prank(governance);

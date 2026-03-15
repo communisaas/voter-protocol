@@ -95,16 +95,20 @@ contract DistrictGateEIP712Test is Test {
         verifier = address(new MockVerifierEIP712());
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Setup: Register verifier for depth 18 (genesis registration)
@@ -1629,7 +1633,7 @@ contract DistrictGateEIP712Test is Test {
         cellMapRegistry = new MockCellMapRegistry();
 
         // Register two-tree verifier (using new registry since genesis is sealed)
-        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         vm.startPrank(governance);
         newVerifierRegistry.registerVerifier(DEPTH_18, verifier);
         newVerifierRegistry.registerVerifier(TWO_TREE_DEPTH, address(twoTreeVerifier));
@@ -1641,7 +1645,11 @@ contract DistrictGateEIP712Test is Test {
             address(newVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Authorize new gate
@@ -1906,7 +1914,7 @@ contract DistrictGateEIP712Test is Test {
         _setupTwoTreeInfrastructure();
 
         // Register additional depth (using new registry)
-        VerifierRegistry newVerifierRegistry2 = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry2 = new VerifierRegistry(governance, 7 days, 14 days);
         vm.startPrank(governance);
         newVerifierRegistry2.registerVerifier(DEPTH_18, verifier);
         newVerifierRegistry2.registerVerifier(TWO_TREE_DEPTH, address(twoTreeVerifier));
@@ -1919,7 +1927,11 @@ contract DistrictGateEIP712Test is Test {
             address(newVerifierRegistry2),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Authorize new gate

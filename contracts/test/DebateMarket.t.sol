@@ -87,7 +87,7 @@ contract DebateMarketTest is Test {
     event AppealBondForfeited(bytes32 indexed debateId, address indexed appealer, uint256 bond);
 
     function setUp() public {
-        nullifierRegistry = new NullifierRegistry(governance);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
         mockGate = new MockDistrictGate(address(nullifierRegistry));
 
         vm.prank(governance);
@@ -109,6 +109,7 @@ contract DebateMarketTest is Test {
             address(pnVerifier),
             address(aiRegistry),
             governance,
+            7 days,
             address(token),
             200
         );
@@ -2354,7 +2355,7 @@ contract DebateMarketTest is Test {
         MockAIEvaluationRegistry aiR = new MockAIEvaluationRegistry();
         DebateMarket unauthorizedMarket = new DebateMarket(
             address(mockGate), address(dwV), address(pnV), address(aiR),
-            governance, address(token), 200
+            governance, 7 days, address(token), 200
         );
 
         token.mint(proposer, 100e6);

@@ -41,7 +41,7 @@ contract CampaignRegistryTest is Test {
 
     function setUp() public {
         // Phase 1: Simple governance (no guardians required)
-        registry = new CampaignRegistry(governance);
+        registry = new CampaignRegistry(governance, 7 days, 24 hours);
 
         // Authorize DistrictGate as caller
         vm.prank(governance);
@@ -59,7 +59,7 @@ contract CampaignRegistryTest is Test {
 
     function test_RevertWhen_ConstructorZeroGovernance() public {
         vm.expectRevert(TimelockGovernance.ZeroAddress.selector);
-        new CampaignRegistry(address(0));
+        new CampaignRegistry(address(0), 7 days, 24 hours);
     }
 
     // ============================================================================

@@ -77,16 +77,20 @@ contract DistrictGateCoreTest is Test {
         rejectingVerifier = new MockRejectingVerifier();
 
         // Deploy registries
-        districtRegistry = new DistrictRegistry(governance);
-        nullifierRegistry = new NullifierRegistry(governance);
-        verifierRegistry = new VerifierRegistry(governance);
+        districtRegistry = new DistrictRegistry(governance, 7 days);
+        nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
+        verifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
 
         // Deploy DistrictGate
         gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         // Setup registries
@@ -341,12 +345,16 @@ contract DistrictGateCoreTest is Test {
         vm.stopPrank();
 
         // Create a new setup with missing verifier
-        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         DistrictGate newGate = new DistrictGate(
             address(newVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.startPrank(governance);
@@ -970,12 +978,16 @@ contract DistrictGateCoreTest is Test {
     /// @notice Revert when verifier.verifyProof returns false
     function test_RevertWhen_VerifierRejectsProof() public {
         // Create a new gate with rejecting verifier for depth 18
-        VerifierRegistry rejectingVerifierRegistry = new VerifierRegistry(governance);
+        VerifierRegistry rejectingVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         DistrictGate rejectingGate = new DistrictGate(
             address(rejectingVerifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            governance
+            governance,
+            7 days,
+            7 days,
+            7 days,
+            24 hours
         );
 
         vm.startPrank(governance);
