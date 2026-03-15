@@ -520,16 +520,18 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @param _governance Governance address for pause/unpause
 	/// @param _stakingToken Address of ERC-20 staking token (USDC)
 	/// @param _protocolFeeBps Protocol fee in basis points (e.g. 200 = 2%)
+	/// @dev GOVERNANCE_TIMELOCK hardcoded to 10 minutes for hackathon deploy.
+	///      EIP-170 prevents parameterization (24984 > 24576 with immutable).
+	///      Mainnet: extract LMSR into library to reclaim headroom, then parameterize.
 	constructor(
 		address _districtGate,
 		address _debateWeightVerifier,
 		address _positionNoteVerifier,
 		address _aiRegistry,
 		address _governance,
-		uint256 _governanceTimelock,
 		address _stakingToken,
 		uint256 _protocolFeeBps
-	) TimelockGovernance(_governanceTimelock) {
+	) TimelockGovernance(10 minutes) {
 		if (_districtGate == address(0)) revert ZeroAddress();
 		if (_debateWeightVerifier == address(0)) revert ZeroAddress();
 		if (_positionNoteVerifier == address(0)) revert ZeroAddress();

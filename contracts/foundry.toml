@@ -7,10 +7,10 @@ cache_path = "cache"
 
 # Solidity compiler settings
 solc_version = "0.8.28"
-evm_version = "paris"
+evm_version = "shanghai"
 optimizer = true
-optimizer_runs = 200
-via_ir = true  # Required for DistrictGate (stack depth)
+optimizer_runs = 1       # Minimise deploy bytecode (DebateMarket near EIP-170). L2 calldata cost dominates anyway.
+via_ir = true            # Required for DistrictGate (stack depth)
 
 # Auto-generated HonkVerifier contracts in src/verifiers/ are excluded from default
 # builds (incompatible with via_ir). Compile them separately:

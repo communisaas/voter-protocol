@@ -65,7 +65,7 @@ contract DebateMarketLMSRTest is Test {
         MockDebateWeightVerifier dwVerifier = new MockDebateWeightVerifier();
         MockPositionNoteVerifier pnVerifier = new MockPositionNoteVerifier();
         MockAIEvaluationRegistry aiRegistry = new MockAIEvaluationRegistry();
-        market = new DebateMarket(address(mockGate), address(dwVerifier), address(pnVerifier), address(aiRegistry), governance, 7 days, address(token), 200);
+        market = new DebateMarket(address(mockGate), address(dwVerifier), address(pnVerifier), address(aiRegistry), governance, address(token), 200);
         mockGate.setDeriverAuthorized(address(market), true);
 
         address[4] memory participants = [proposer, trader1, trader2, trader3];

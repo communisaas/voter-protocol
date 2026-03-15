@@ -113,7 +113,6 @@ contract DebateMarketAIResolutionTest is Test {
 			address(pnVerifier),
 			address(registry),
 			governance,
-			7 days,
 			address(token),
 			200
 		);

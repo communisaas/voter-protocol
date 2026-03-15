@@ -145,7 +145,6 @@ contract DeploySepoliaV9 is Script {
             address(pnVerifier),
             address(aiRegistry),
             deployer,
-            10 minutes,
             address(stakingToken),
             200 // 2% protocol fee
         );

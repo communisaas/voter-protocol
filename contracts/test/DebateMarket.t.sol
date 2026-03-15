@@ -109,7 +109,6 @@ contract DebateMarketTest is Test {
             address(pnVerifier),
             address(aiRegistry),
             governance,
-            7 days,
             address(token),
             200
         );
@@ -2355,7 +2354,7 @@ contract DebateMarketTest is Test {
         MockAIEvaluationRegistry aiR = new MockAIEvaluationRegistry();
         DebateMarket unauthorizedMarket = new DebateMarket(
             address(mockGate), address(dwV), address(pnV), address(aiR),
-            governance, 7 days, address(token), 200
+            governance, address(token), 200
         );
 
         token.mint(proposer, 100e6);
