@@ -86,15 +86,15 @@ contract DeploySepoliaV6 is Script {
         // =====================================================================
 
         console.log("[1/10] DistrictRegistry...");
-        DistrictRegistry districtRegistry = new DistrictRegistry(deployer);
+        DistrictRegistry districtRegistry = new DistrictRegistry(deployer, 10 minutes);
         console.log("        ", address(districtRegistry));
 
         console.log("[2/10] NullifierRegistry...");
-        NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer);
+        NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("        ", address(nullifierRegistry));
 
         console.log("[3/10] VerifierRegistry...");
-        VerifierRegistry verifierRegistry = new VerifierRegistry(deployer);
+        VerifierRegistry verifierRegistry = new VerifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("        ", address(verifierRegistry));
 
         console.log("[4/10] DistrictGate...");
@@ -102,20 +102,24 @@ contract DeploySepoliaV6 is Script {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            deployer
+            deployer,
+            10 minutes,
+            10 minutes,
+            10 minutes,
+            10 minutes
         );
         console.log("        ", address(gate));
 
         console.log("[5/10] CampaignRegistry...");
-        CampaignRegistry campaignRegistry = new CampaignRegistry(deployer);
+        CampaignRegistry campaignRegistry = new CampaignRegistry(deployer, 10 minutes, 10 minutes);
         console.log("        ", address(campaignRegistry));
 
         console.log("[6/10] UserRootRegistry...");
-        UserRootRegistry userRootRegistry = new UserRootRegistry(deployer);
+        UserRootRegistry userRootRegistry = new UserRootRegistry(deployer, 10 minutes);
         console.log("        ", address(userRootRegistry));
 
         console.log("[7/10] CellMapRegistry...");
-        CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer);
+        CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer, 10 minutes);
         console.log("        ", address(cellMapRegistry));
 
         // =====================================================================
@@ -123,7 +127,7 @@ contract DeploySepoliaV6 is Script {
         // =====================================================================
 
         console.log("[8/10] EngagementRootRegistry...");
-        EngagementRootRegistry engagementRootRegistry = new EngagementRootRegistry(deployer);
+        EngagementRootRegistry engagementRootRegistry = new EngagementRootRegistry(deployer, 10 minutes);
         console.log("        ", address(engagementRootRegistry));
 
         console.log("[9/10] Mock verifiers...");
@@ -159,6 +163,7 @@ contract DeploySepoliaV6 is Script {
             address(pnVerifier),
             address(aiRegistry),
             deployer,
+            10 minutes,
             address(stakingToken),
             200 // 2% protocol fee
         );

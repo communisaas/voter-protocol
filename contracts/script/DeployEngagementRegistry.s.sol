@@ -42,7 +42,7 @@ contract DeployEngagementRegistry is Script {
         vm.startBroadcast();
 
         // 1. Deploy EngagementRootRegistry (Tree 3 - engagement data roots)
-        EngagementRootRegistry engagementRegistry = new EngagementRootRegistry(governance);
+        EngagementRootRegistry engagementRegistry = new EngagementRootRegistry(governance, 10 minutes);
         console.log("EngagementRootRegistry deployed at:", address(engagementRegistry));
 
         // 2. Configure on DistrictGate

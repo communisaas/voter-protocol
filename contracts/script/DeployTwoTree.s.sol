@@ -40,11 +40,11 @@ contract DeployTwoTree is Script {
         vm.startBroadcast();
 
         // 1. Deploy UserRootRegistry (Tree 1 - user identity roots)
-        UserRootRegistry userRootRegistry = new UserRootRegistry(governance);
+        UserRootRegistry userRootRegistry = new UserRootRegistry(governance, 10 minutes);
         console.log("UserRootRegistry deployed at:", address(userRootRegistry));
 
         // 2. Deploy CellMapRegistry (Tree 2 - cell-district mapping roots)
-        CellMapRegistry cellMapRegistry = new CellMapRegistry(governance);
+        CellMapRegistry cellMapRegistry = new CellMapRegistry(governance, 10 minutes);
         console.log("CellMapRegistry deployed at:", address(cellMapRegistry));
 
         // 3. Propose two-tree registries on existing DistrictGate (starts 7-day timelock)

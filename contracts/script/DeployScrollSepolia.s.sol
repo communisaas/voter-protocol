@@ -159,17 +159,17 @@ contract DeployScrollSepolia is Script {
 
         // 1. Deploy DistrictRegistry
         console.log("[1/7] Deploying DistrictRegistry...");
-        DistrictRegistry districtRegistry = new DistrictRegistry(deployer);
+        DistrictRegistry districtRegistry = new DistrictRegistry(deployer, 10 minutes);
         console.log("      DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
         console.log("[2/7] Deploying NullifierRegistry...");
-        NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer);
+        NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy VerifierRegistry
         console.log("[3/7] Deploying VerifierRegistry...");
-        VerifierRegistry verifierRegistry = new VerifierRegistry(deployer);
+        VerifierRegistry verifierRegistry = new VerifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      VerifierRegistry deployed at:", address(verifierRegistry));
 
         // 4. Deploy DistrictGate
@@ -178,23 +178,27 @@ contract DeployScrollSepolia is Script {
             address(verifierRegistry),
             address(districtRegistry),
             address(nullifierRegistry),
-            deployer
+            deployer,
+            10 minutes,
+            10 minutes,
+            10 minutes,
+            10 minutes
         );
         console.log("      DistrictGate deployed at:", address(gate));
 
         // 5. Deploy CampaignRegistry
         console.log("[5/7] Deploying CampaignRegistry...");
-        CampaignRegistry campaignRegistry = new CampaignRegistry(deployer);
+        CampaignRegistry campaignRegistry = new CampaignRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      CampaignRegistry deployed at:", address(campaignRegistry));
 
         // 6. Deploy UserRootRegistry (Tree 1)
         console.log("[6/7] Deploying UserRootRegistry...");
-        UserRootRegistry userRootRegistry = new UserRootRegistry(deployer);
+        UserRootRegistry userRootRegistry = new UserRootRegistry(deployer, 10 minutes);
         console.log("      UserRootRegistry deployed at:", address(userRootRegistry));
 
         // 7. Deploy CellMapRegistry (Tree 2)
         console.log("[7/7] Deploying CellMapRegistry...");
-        CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer);
+        CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer, 10 minutes);
         console.log("      CellMapRegistry deployed at:", address(cellMapRegistry));
 
         // =====================================================================
