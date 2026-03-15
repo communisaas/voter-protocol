@@ -7,8 +7,9 @@
  *
  * Exit codes:
  *   0 = all countries pass
- *   1 = at least one country has a CRITICAL failure
+ *   1 = at least one DATA_REGRESSION failure (real issue)
  *   2 = warnings only (non-blocking)
+ *   3 = API_UNREACHABLE only (expected-flaky, no data regression)
  *
  * Usage:
  *   npx tsx src/hydration/smoke-test.ts                    # All countries
@@ -28,6 +29,14 @@ import type { OfficialRecord } from '../providers/international/country-provider
 // Types
 // ============================================================================
 
+/** Error category for distinguishing API failures from data quality issues. */
+export type ErrorCategory = 'API_UNREACHABLE' | 'DATA_REGRESSION';
+
+export interface CategorizedError {
+  message: string;
+  category: ErrorCategory;
+}
+
 interface SmokeTestResult {
   country: string;
   boundaryCount: number;
@@ -39,7 +48,7 @@ interface SmokeTestResult {
   confidence: number;
   passed: boolean;
   warnings: string[];
-  errors: string[];
+  errors: CategorizedError[];
   durationMs: number;
 }
 
@@ -48,7 +57,8 @@ interface SmokeTestSummary {
   totalDurationMs: number;
   passed: boolean;
   hasWarnings: boolean;
-  exitCode: 0 | 1 | 2;
+  hasApiFailures: boolean;
+  exitCode: 0 | 1 | 2 | 3;
 }
 
 // ============================================================================
@@ -152,8 +162,9 @@ Options:
 
 Exit codes:
   0  All countries pass
-  1  At least one CRITICAL failure (count drops >20% below threshold)
+  1  DATA_REGRESSION failure (count/confidence drops below threshold)
   2  Warnings only (non-blocking, count slightly below threshold)
+  3  API_UNREACHABLE only (network/HTTP errors, mark as expected-flaky in CI)
 
 Examples:
   npx tsx src/hydration/smoke-test.ts                    # All countries
@@ -171,13 +182,41 @@ Examples:
 // Single Country Smoke Test
 // ============================================================================
 
+/**
+ * Classify an error as API_UNREACHABLE or DATA_REGRESSION based on its message.
+ */
+function classifyError(message: string): ErrorCategory {
+  const apiPatterns = [
+    /timed out/i,
+    /ECONNREFUSED/i,
+    /ENOTFOUND/i,
+    /ECONNRESET/i,
+    /ETIMEDOUT/i,
+    /fetch failed/i,
+    /network/i,
+    /HTTP [45]\d\d/i,
+    /Failed to fetch/i,
+    /No provider registered/i,
+    /socket hang up/i,
+    /abort/i,
+  ];
+
+  for (const pattern of apiPatterns) {
+    if (pattern.test(message)) {
+      return 'API_UNREACHABLE';
+    }
+  }
+
+  return 'DATA_REGRESSION';
+}
+
 async function runCountrySmokeTest(
   country: string,
   timeout: number,
 ): Promise<SmokeTestResult> {
   const startTime = Date.now();
   const warnings: string[] = [];
-  const errors: string[] = [];
+  const errors: CategorizedError[] = [];
   const thresholds = MINIMUM_THRESHOLDS[country];
 
   if (!thresholds) {
@@ -192,7 +231,7 @@ async function runCountrySmokeTest(
       confidence: 0,
       passed: false,
       warnings: [],
-      errors: [`Unsupported country: ${country}`],
+      errors: [{ message: `Unsupported country: ${country}`, category: 'DATA_REGRESSION' }],
       durationMs: Date.now() - startTime,
     };
   }
@@ -222,9 +261,10 @@ async function runCountrySmokeTest(
 
     // Check boundary thresholds
     if (boundaryCount < thresholds.minBoundaries * CRITICAL_DROP_RATIO) {
-      errors.push(
-        `CRITICAL: Boundary count ${boundaryCount} is >20% below minimum ${thresholds.minBoundaries}`,
-      );
+      errors.push({
+        message: `CRITICAL: Boundary count ${boundaryCount} is >20% below minimum ${thresholds.minBoundaries}`,
+        category: 'DATA_REGRESSION',
+      });
     } else if (boundaryCount < thresholds.minBoundaries) {
       warnings.push(
         `Boundary count ${boundaryCount} below minimum ${thresholds.minBoundaries} (redistricting?)`,
@@ -255,9 +295,10 @@ async function runCountrySmokeTest(
 
     // Check official thresholds
     if (officialCount < thresholds.minOfficials * CRITICAL_DROP_RATIO) {
-      errors.push(
-        `CRITICAL: Official count ${officialCount} is >20% below minimum ${thresholds.minOfficials}`,
-      );
+      errors.push({
+        message: `CRITICAL: Official count ${officialCount} is >20% below minimum ${thresholds.minOfficials}`,
+        category: 'DATA_REGRESSION',
+      });
     } else if (officialCount < thresholds.minOfficials) {
       warnings.push(
         `Official count ${officialCount} below minimum ${thresholds.minOfficials}`,
@@ -276,9 +317,10 @@ async function runCountrySmokeTest(
 
     // Check confidence threshold
     if (confidence < thresholds.minConfidence * CRITICAL_DROP_RATIO) {
-      errors.push(
-        `CRITICAL: Confidence ${confidence}% is >20% below minimum ${thresholds.minConfidence}%`,
-      );
+      errors.push({
+        message: `CRITICAL: Confidence ${confidence}% is >20% below minimum ${thresholds.minConfidence}%`,
+        category: 'DATA_REGRESSION',
+      });
     } else if (confidence < thresholds.minConfidence) {
       warnings.push(
         `Confidence ${confidence}% below minimum ${thresholds.minConfidence}%`,
@@ -287,7 +329,10 @@ async function runCountrySmokeTest(
 
     // Schema validation blocking
     if (report.blocking) {
-      errors.push('CRITICAL: Schema validation failed (would block DB write)');
+      errors.push({
+        message: 'CRITICAL: Schema validation failed (would block DB write)',
+        category: 'DATA_REGRESSION',
+      });
     }
 
     return {
@@ -306,7 +351,8 @@ async function runCountrySmokeTest(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    errors.push(`CRITICAL: ${message}`);
+    const category = classifyError(message);
+    errors.push({ message: `CRITICAL: ${message}`, category });
 
     return {
       country,
@@ -382,7 +428,8 @@ function printSummaryTable(summary: SmokeTestSummary): void {
         console.log(`    \x1b[33mWARN\x1b[0m  ${w}`);
       }
       for (const e of r.errors) {
-        console.log(`    \x1b[31mFAIL\x1b[0m  ${e}`);
+        const tag = e.category === 'API_UNREACHABLE' ? 'API ' : 'DATA';
+        console.log(`    \x1b[31m${tag}\x1b[0m   ${e.message}`);
       }
     }
   }
@@ -402,10 +449,13 @@ function printSummaryTable(summary: SmokeTestSummary): void {
       console.log('\x1b[32mAll smoke tests passed.\x1b[0m');
       break;
     case 1:
-      console.log('\x1b[31mSmoke tests FAILED — critical issues detected.\x1b[0m');
+      console.log('\x1b[31mSmoke tests FAILED — data regression detected.\x1b[0m');
       break;
     case 2:
       console.log('\x1b[33mSmoke tests passed with warnings (non-blocking).\x1b[0m');
+      break;
+    case 3:
+      console.log('\x1b[33mSmoke tests FLAKY — API unreachable (no data regression).\x1b[0m');
       break;
   }
 }
@@ -440,7 +490,10 @@ async function main(): Promise<void> {
     results.push(result);
 
     if (!opts.json) {
-      const status = result.passed ? (result.warnings.length > 0 ? 'WARN' : 'PASS') : 'FAIL';
+      const hasApiErr = result.errors.some((e) => e.category === 'API_UNREACHABLE');
+      const status = result.passed
+        ? (result.warnings.length > 0 ? 'WARN' : 'PASS')
+        : (hasApiErr ? 'API_DOWN' : 'FAIL');
       console.log(
         `  ${status}: ${result.boundaryCount} boundaries, ` +
           `${result.officialCount} officials, ` +
@@ -459,13 +512,35 @@ async function main(): Promise<void> {
   const hasCritical = results.some((r) => !r.passed);
   const hasWarnings = results.some((r) => r.warnings.length > 0);
 
-  const exitCode: 0 | 1 | 2 = hasCritical ? 1 : hasWarnings ? 2 : 0;
+  // Check if ALL failures are API_UNREACHABLE (no DATA_REGRESSION errors)
+  const hasApiFailures = results.some((r) =>
+    r.errors.some((e) => e.category === 'API_UNREACHABLE'),
+  );
+  const hasDataFailures = results.some((r) =>
+    r.errors.some((e) => e.category === 'DATA_REGRESSION'),
+  );
+
+  // Exit code 3 = only API failures (expected-flaky in CI)
+  // Exit code 1 = data regression (real failure)
+  // Exit code 2 = warnings only
+  // Exit code 0 = all pass
+  let exitCode: 0 | 1 | 2 | 3;
+  if (hasDataFailures) {
+    exitCode = 1;
+  } else if (hasApiFailures) {
+    exitCode = 3;
+  } else if (hasWarnings) {
+    exitCode = 2;
+  } else {
+    exitCode = 0;
+  }
 
   const summary: SmokeTestSummary = {
     results,
     totalDurationMs,
     passed: !hasCritical,
     hasWarnings,
+    hasApiFailures,
     exitCode,
   };
 

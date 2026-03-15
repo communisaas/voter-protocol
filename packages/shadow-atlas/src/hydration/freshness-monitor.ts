@@ -54,6 +54,8 @@ export interface FreshnessReport {
   source: string;
   lastIngestion: Date | null;
   ageInDays: number | null;
+  /** When the upstream source data was last updated (from provider metadata). */
+  sourceVintage: Date | null;
   status: FreshnessStatus;
   message: string;
 }
@@ -82,6 +84,7 @@ export function checkFreshness(
       source: COUNTRY_TO_SOURCE[country] ?? `${country.toLowerCase()}-officials`,
       lastIngestion: null,
       ageInDays: null,
+      sourceVintage: null,
       status: 'never-ingested' as const,
       message: `No database found at ${dbPath}`,
     }));
@@ -96,6 +99,7 @@ export function checkFreshness(
       source: COUNTRY_TO_SOURCE[country] ?? `${country.toLowerCase()}-officials`,
       lastIngestion: null,
       ageInDays: null,
+      sourceVintage: null,
       status: 'never-ingested' as const,
       message: `Failed to open database at ${dbPath}`,
     }));
@@ -134,6 +138,7 @@ export function checkCountryFreshness(
       source,
       lastIngestion: null,
       ageInDays: null,
+      sourceVintage: null,
       status: 'never-ingested',
       message: `No database found at ${dbPath}`,
     };
@@ -148,6 +153,7 @@ export function checkCountryFreshness(
       source,
       lastIngestion: null,
       ageInDays: null,
+      sourceVintage: null,
       status: 'never-ingested',
       message: `Failed to open database at ${dbPath}`,
     };
@@ -168,14 +174,20 @@ export function checkCountryFreshness(
 interface IngestionRow {
   source: string;
   last_success: string;
+  source_vintage: string | null;
+}
+
+interface IngestionRecord {
+  lastSuccess: string;
+  sourceVintage: string | null;
 }
 
 /**
  * Query ingestion_log for the most recent successful run per source.
- * Returns a Map<sourceName, ISO timestamp>.
+ * Returns a Map<sourceName, { lastSuccess, sourceVintage }>.
  */
-function queryLastSuccessPerSource(db: InstanceType<typeof Database>): Map<string, string> {
-  const map = new Map<string, string>();
+function queryLastSuccessPerSource(db: InstanceType<typeof Database>): Map<string, IngestionRecord> {
+  const map = new Map<string, IngestionRecord>();
 
   // Check if the table exists before querying
   const tableExists = db.prepare(
@@ -186,16 +198,29 @@ function queryLastSuccessPerSource(db: InstanceType<typeof Database>): Map<strin
     return map;
   }
 
-  const rows = db.prepare(`
-    SELECT source, MAX(run_at) as last_success
-    FROM ingestion_log
-    WHERE status = 'success'
-    GROUP BY source
-  `).all() as IngestionRow[];
+  // Check if source_vintage column exists (backward compat with older DBs)
+  const hasVintageColumn = (db.prepare(
+    "SELECT COUNT(*) as cnt FROM pragma_table_info('ingestion_log') WHERE name='source_vintage'"
+  ).get() as { cnt: number })?.cnt > 0;
+
+  const query = hasVintageColumn
+    ? `SELECT source, MAX(run_at) as last_success, source_vintage
+       FROM ingestion_log
+       WHERE status = 'success'
+       GROUP BY source`
+    : `SELECT source, MAX(run_at) as last_success, NULL as source_vintage
+       FROM ingestion_log
+       WHERE status = 'success'
+       GROUP BY source`;
+
+  const rows = db.prepare(query).all() as IngestionRow[];
 
   for (const row of rows) {
     if (SOURCE_TO_COUNTRY[row.source]) {
-      map.set(row.source, row.last_success);
+      map.set(row.source, {
+        lastSuccess: row.last_success,
+        sourceVintage: row.source_vintage,
+      });
     }
   }
 
@@ -205,21 +230,23 @@ function queryLastSuccessPerSource(db: InstanceType<typeof Database>): Map<strin
 function buildReport(
   country: string,
   source: string,
-  lastTimestamp: string | null,
+  record: IngestionRecord | null,
   threshold: FreshnessConfig,
 ): FreshnessReport {
-  if (!lastTimestamp) {
+  if (!record) {
     return {
       country,
       source,
       lastIngestion: null,
       ageInDays: null,
+      sourceVintage: null,
       status: 'never-ingested',
       message: `${country} has never been ingested`,
     };
   }
 
-  const lastDate = new Date(lastTimestamp);
+  const lastDate = new Date(record.lastSuccess);
+  const sourceVintage = record.sourceVintage ? new Date(record.sourceVintage) : null;
   const now = new Date();
   const ageMs = now.getTime() - lastDate.getTime();
   const ageInDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
@@ -238,5 +265,9 @@ function buildReport(
     message = `${country} data is ${ageInDays}d old`;
   }
 
-  return { country, source, lastIngestion: lastDate, ageInDays, status, message };
+  if (sourceVintage) {
+    message += `, source vintage: ${sourceVintage.toISOString().split('T')[0]}`;
+  }
+
+  return { country, source, lastIngestion: lastDate, ageInDays, sourceVintage, status, message };
 }

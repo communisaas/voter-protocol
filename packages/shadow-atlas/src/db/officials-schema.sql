@@ -218,6 +218,7 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
   records_deleted INTEGER NOT NULL DEFAULT 0,
   duration_ms INTEGER,
   error TEXT,
+  source_vintage TEXT,                   -- When the upstream data was last updated (ISO 8601), nullable
   run_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 

@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import JSZip from 'jszip';
 import { writeFile } from 'node:fs/promises';
 import { safeZipEntryPath } from './safe-extract.js';
+import { fetchBufferWithSizeLimit } from './fetch-with-size-limit.js';
 
 // ============================================================================
 // State FIPS Table
@@ -194,14 +195,13 @@ async function fetchWithRetry(url: string, maxRetries: number): Promise<Buffer> 
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      }
-      const arrayBuffer = await resp.arrayBuffer();
-      return Buffer.from(arrayBuffer);
+      return await fetchBufferWithSizeLimit(url);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      // Don't retry size limit errors — they'll fail every time
+      if (lastError.message.includes('exceeds size limit')) {
+        throw lastError;
+      }
       if (attempt < maxRetries) {
         const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
         await sleep(delay);

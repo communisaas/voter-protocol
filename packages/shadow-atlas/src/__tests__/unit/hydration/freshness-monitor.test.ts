@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
   records_deleted INTEGER NOT NULL DEFAULT 0,
   duration_ms INTEGER,
   error TEXT,
+  source_vintage TEXT,
   run_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 `;
@@ -37,10 +38,11 @@ function insertIngestion(
   source: string,
   status: 'success' | 'failure',
   runAt: string,
+  sourceVintage?: string,
 ): void {
   db.prepare(
-    `INSERT INTO ingestion_log (source, status, records_upserted, run_at) VALUES (?, ?, 100, ?)`
-  ).run(source, status, runAt);
+    `INSERT INTO ingestion_log (source, status, records_upserted, run_at, source_vintage) VALUES (?, ?, 100, ?, ?)`
+  ).run(source, status, runAt, sourceVintage ?? null);
 }
 
 function daysAgo(days: number): string {
@@ -215,6 +217,96 @@ describe('checkCountryFreshness', () => {
       expect(report.status).toBe('never-ingested');
     } finally {
       rmSync(barePath, { force: true });
+    }
+  });
+});
+
+// ============================================================================
+// Tests — source vintage tracking (M-2)
+// ============================================================================
+
+describe('source vintage tracking', () => {
+  let tmpPath: string;
+  let db: InstanceType<typeof Database>;
+
+  beforeEach(() => {
+    tmpPath = join(tmpdir(), `freshness-test-${Date.now()}-vintage.db`);
+    db = new Database(tmpPath);
+    db.exec(INGESTION_LOG_DDL);
+  });
+
+  afterEach(() => {
+    try { db.close(); } catch { /* already closed */ }
+    rmSync(tmpPath, { force: true });
+  });
+
+  it('reports sourceVintage when present in ingestion_log', () => {
+    const vintage = '2026-01-15T00:00:00Z';
+    insertIngestion(db, 'nz-mps', 'success', daysAgo(5), vintage);
+    db.close();
+
+    const report = checkCountryFreshness(tmpPath, 'NZ');
+    expect(report.sourceVintage).toBeInstanceOf(Date);
+    expect(report.sourceVintage!.toISOString()).toContain('2026-01-15');
+    expect(report.message).toContain('source vintage');
+  });
+
+  it('reports sourceVintage as null when not set', () => {
+    insertIngestion(db, 'au-mps', 'success', daysAgo(3));
+    db.close();
+
+    const report = checkCountryFreshness(tmpPath, 'AU');
+    expect(report.sourceVintage).toBeNull();
+    expect(report.message).not.toContain('source vintage');
+  });
+
+  it('reports sourceVintage as null for never-ingested countries', () => {
+    db.close();
+
+    const report = checkCountryFreshness(tmpPath, 'US');
+    expect(report.sourceVintage).toBeNull();
+  });
+
+  it('tracks vintage across multiple countries in checkFreshness', () => {
+    insertIngestion(db, 'congress-legislators', 'success', daysAgo(1), '2026-03-01T00:00:00Z');
+    insertIngestion(db, 'uk-mps', 'success', daysAgo(2));
+    db.close();
+
+    const reports = checkFreshness(tmpPath);
+    const usReport = reports.find(r => r.country === 'US')!;
+    const gbReport = reports.find(r => r.country === 'GB')!;
+
+    expect(usReport.sourceVintage).toBeInstanceOf(Date);
+    expect(gbReport.sourceVintage).toBeNull();
+  });
+
+  it('handles legacy DB without source_vintage column', () => {
+    // Create a DB with the old schema (no source_vintage column)
+    const legacyPath = join(tmpdir(), `freshness-test-${Date.now()}-legacy.db`);
+    const legacyDb = new Database(legacyPath);
+    legacyDb.exec(`
+      CREATE TABLE IF NOT EXISTS ingestion_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('success', 'failure')),
+        records_upserted INTEGER NOT NULL DEFAULT 0,
+        records_deleted INTEGER NOT NULL DEFAULT 0,
+        duration_ms INTEGER,
+        error TEXT,
+        run_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      );
+    `);
+    legacyDb.prepare(
+      `INSERT INTO ingestion_log (source, status, records_upserted, run_at) VALUES (?, ?, 100, ?)`
+    ).run('canada-mps', 'success', daysAgo(3));
+    legacyDb.close();
+
+    try {
+      const report = checkCountryFreshness(legacyPath, 'CA');
+      expect(report.status).toBe('fresh');
+      expect(report.sourceVintage).toBeNull();
+    } finally {
+      rmSync(legacyPath, { force: true });
     }
   });
 });

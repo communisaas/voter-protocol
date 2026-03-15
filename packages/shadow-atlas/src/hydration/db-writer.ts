@@ -24,6 +24,11 @@ import type { USOfficial } from '../providers/international/us-provider.js';
 // Public API
 // ============================================================================
 
+export interface WriteOptions {
+  /** ISO 8601 timestamp of when the upstream source data was last updated. */
+  sourceVintage?: string;
+}
+
 export interface WriteSummary {
   readonly inserted: number;
   readonly updated: number;
@@ -43,6 +48,7 @@ export function writeOfficials(
   dbPath: string,
   country: string,
   officials: readonly OfficialRecord[],
+  options?: WriteOptions,
 ): WriteSummary {
   const startTime = Date.now();
 
@@ -59,12 +65,12 @@ export function writeOfficials(
   const { inserted, updated } = writer(db, officials);
   const durationMs = Date.now() - startTime;
 
-  // Log to ingestion_log
+  // Log to ingestion_log (with optional source vintage)
   const sourceName = COUNTRY_SOURCE_NAME[country] ?? `${country.toLowerCase()}-officials`;
   db.prepare(`
-    INSERT INTO ingestion_log (source, status, records_upserted, records_deleted, duration_ms)
-    VALUES (?, 'success', ?, 0, ?)
-  `).run(sourceName, inserted + updated, durationMs);
+    INSERT INTO ingestion_log (source, status, records_upserted, records_deleted, duration_ms, source_vintage)
+    VALUES (?, 'success', ?, 0, ?, ?)
+  `).run(sourceName, inserted + updated, durationMs, options?.sourceVintage ?? null);
 
   db.close();
 

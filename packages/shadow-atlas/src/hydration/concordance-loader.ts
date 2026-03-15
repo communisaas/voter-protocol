@@ -17,6 +17,7 @@ import { join } from 'path';
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { createHash } from 'node:crypto';
+import { fetchWithSizeLimit } from './fetch-with-size-limit.js';
 
 // ============================================================================
 // Types
@@ -252,17 +253,12 @@ function cacheFilenameFromUrl(url: string): string {
 
 /**
  * Download a file from a URL and save to cache.
+ * Uses size-limited fetch (100 MB default) to prevent memory exhaustion.
  * If expectedSha256 is provided, verifies the file after writing and removes it on mismatch.
  */
 async function downloadToCache(url: string, cachePath: string, expectedSha256?: string): Promise<void> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download concordance CSV from ${url}: ${response.status} ${response.statusText}`
-    );
-  }
+  const text = await fetchWithSizeLimit(url);
 
-  const text = await response.text();
   if (!text.trim()) {
     throw new Error(`Empty response from ${url}`);
   }
@@ -378,11 +374,16 @@ export async function loadConcordance(
 
   // Map rows to ConcordanceMapping
   const mappings: ConcordanceMapping[] = [];
+  let skippedEmptyBoundary = 0;
   for (const row of rows) {
     const unitId = row[unitIdx]?.trim() ?? '';
     if (!unitId) continue; // Skip rows with empty unit IDs
 
     const boundaryCode = row[boundaryIdx]?.trim() ?? '';
+    if (!boundaryCode) {
+      skippedEmptyBoundary++;
+      continue; // M-4: skip rows with empty boundary codes (would encode as 0n)
+    }
     const mapping: ConcordanceMapping = { unitId, boundaryCode };
 
     if (secondaryIdx >= 0) {
@@ -394,6 +395,15 @@ export async function loadConcordance(
 
     mappings.push(mapping);
   }
+
+  if (skippedEmptyBoundary > 0) {
+    console.warn(
+      `[concordance-loader] WARNING: skipped ${skippedEmptyBoundary} rows with empty boundary codes`
+    );
+  }
+
+  // M-1: Sort by unitId for deterministic output regardless of CSV row order
+  mappings.sort((a, b) => a.unitId < b.unitId ? -1 : a.unitId > b.unitId ? 1 : 0);
 
   return {
     mappings,
@@ -448,11 +458,16 @@ export function loadConcordanceFromString(
   }
 
   const mappings: ConcordanceMapping[] = [];
+  let skippedEmptyBoundary = 0;
   for (const row of rows) {
     const unitId = row[unitIdx]?.trim() ?? '';
     if (!unitId) continue;
 
     const boundaryCode = row[boundaryIdx]?.trim() ?? '';
+    if (!boundaryCode) {
+      skippedEmptyBoundary++;
+      continue; // M-4: skip rows with empty boundary codes (would encode as 0n)
+    }
     const mapping: ConcordanceMapping = { unitId, boundaryCode };
 
     if (secondaryIdx >= 0) {
@@ -464,6 +479,15 @@ export function loadConcordanceFromString(
 
     mappings.push(mapping);
   }
+
+  if (skippedEmptyBoundary > 0) {
+    console.warn(
+      `[concordance-loader] WARNING: skipped ${skippedEmptyBoundary} rows with empty boundary codes`
+    );
+  }
+
+  // M-1: Sort by unitId for deterministic output regardless of CSV row order
+  mappings.sort((a, b) => a.unitId < b.unitId ? -1 : a.unitId > b.unitId ? 1 : 0);
 
   return {
     mappings,
