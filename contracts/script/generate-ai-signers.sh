@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate 5 EIP-712 signing keypairs for the AI evaluation panel.
+# Generate 6 EIP-712 signing keypairs for the AI evaluation panel.
 # These wallets sign attestations but never send transactions (no funding needed).
 # On testnet: MockAIEvaluationRegistry accepts any signer.
 # On production: Register each address in AIEvaluationRegistry on-chain.
@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-PROVIDERS=("OPENAI" "GOOGLE" "DEEPSEEK" "MISTRAL" "ANTHROPIC")
+PROVIDERS=("OPENAI" "GOOGLE" "DEEPSEEK" "MISTRAL" "ANTHROPIC" "BITTENSOR")
 
 echo "# AI Evaluation Model Signer Keys"
 echo "# Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -27,4 +27,4 @@ done
 
 echo "# To register on production AIEvaluationRegistry:"
 echo "# cast send \$AI_REGISTRY 'registerModel(address,uint8)' <address> <providerSlot>"
-echo "# Provider slots: 0=OpenAI, 1=Google, 2=DeepSeek, 3=Mistral, 4=Anthropic"
+echo "# Provider slots: 0=OpenAI, 1=Google, 2=DeepSeek, 3=Mistral, 4=Anthropic, 5=Bittensor"
