@@ -58,7 +58,7 @@ import "../src/EngagementRootRegistry.sol";
 /// 2b. Register two-tree verifiers (registerVerifier — legacy, no timelock)
 /// 3. Authorize DistrictGate on NullifierRegistry (authorizeCallerGenesis — no timelock)
 /// 4. Set CampaignRegistry on DistrictGate (setCampaignRegistryGenesis — no timelock)
-/// 5. Set UserRootRegistry + CellMapRegistry on DistrictGate (setTwoTreeRegistriesGenesis — no timelock)
+/// 5. Set UserRootRegistry + CellMapRegistry on DistrictGate (setRegistriesGenesis — no timelock)
 /// 5b. Set EngagementRootRegistry on DistrictGate (setEngagementRegistryGenesis — no timelock)
 /// 6. Register initial action domain (registerActionDomainGenesis — no timelock)
 /// 7. Seal genesis on all registries (irreversible)
@@ -295,8 +295,8 @@ contract DeployScrollMainnet is Script {
         // --- DistrictGate genesis ---
         console.log("  - Setting CampaignRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
         gate.setCampaignRegistryGenesis(address(campaignRegistry));
-        console.log("  - Setting two-tree registries on DistrictGate (ACTIVE IMMEDIATELY)");
-        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        console.log("  - Setting registries (UserRoot + CellMap) on DistrictGate (ACTIVE IMMEDIATELY)");
+        gate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         console.log("  - Setting EngagementRootRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
         gate.setEngagementRegistryGenesis(address(engagementRootRegistry));
 
@@ -470,7 +470,7 @@ contract DeployScrollMainnet is Script {
         console.log("  sealGenesis (x3):               ~30,000 gas each");
         console.log("  authorizeCallerGenesis:          ~50,000 gas");
         console.log("  setCampaignRegistryGenesis:      ~50,000 gas");
-        console.log("  setTwoTreeRegistriesGenesis:     ~70,000 gas");
+        console.log("  setRegistriesGenesis:            ~70,000 gas");
         console.log("  registerActionDomainGenesis:     ~50,000 gas");
         console.log("  -----------------------------------------");
         console.log("  Total genesis config:           ~510,000 gas (4 verifiers)");

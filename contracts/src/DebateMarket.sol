@@ -7,11 +7,11 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import "./TimelockGovernance.sol";
+import "./LMSRMath.sol";
 import "./IDebateWeightVerifier.sol";
 import "./IPositionNoteVerifier.sol";
 import "./IAIEvaluationRegistry.sol";
 import { SD59x18, sd, ZERO as SD_ZERO } from "prb-math/SD59x18.sol";
-import { uEXP_MAX_INPUT } from "prb-math/sd59x18/Constants.sol";
 
 /// @title DebateMarket
 /// @notice Staked debate protocol for verified-membership communities
@@ -145,12 +145,14 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	IDistrictGate public immutable districtGate;
 
 	/// @notice Verifier for debate_weight ZK proofs (Phase 2)
-	/// @dev Proves sqrt(stake) * tierMultiplier in-circuit, hiding raw stake/tier
-	IDebateWeightVerifier public immutable debateWeightVerifier;
+	/// @dev Proves sqrt(stake) * tierMultiplier in-circuit, hiding raw stake/tier.
+	///      Governance-mutable via timelocked two-phase update (SA-3).
+	IDebateWeightVerifier public debateWeightVerifier;
 
 	/// @notice Verifier for position_note ZK proofs (Phase 2)
-	/// @dev Proves Merkle membership in position tree, enabling private settlement attestation
-	IPositionNoteVerifier public immutable positionNoteVerifier;
+	/// @dev Proves Merkle membership in position tree, enabling private settlement attestation.
+	///      Governance-mutable via timelocked two-phase update (SA-3).
+	IPositionNoteVerifier public positionNoteVerifier;
 
 	/// @notice Minimum debate duration (72 hours)
 	uint256 public constant MIN_DURATION = 72 hours;
@@ -166,6 +168,10 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Minimum argument/co-sign stake (1 USDC, 6-decimal stablecoin)
 	uint256 public constant MIN_ARGUMENT_STAKE = 1e6;
+
+	/// @notice Maximum reveals per epoch (gas DOS prevention on Scroll's 10M gas limit)
+	/// @dev 256 reveals × ~30K gas each ≈ 7.7M gas. Commits beyond 256 strand the epoch.
+	uint256 public constant MAX_REVEALS_PER_EPOCH = 256;
 
 	/// @notice Maximum protocol fee in basis points (10% hard cap)
 	uint256 public constant MAX_FEE_BPS = 1000;
@@ -248,10 +254,6 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @notice Epoch duration in seconds (governance-tunable)
 	uint256 public epochDuration = 300; // 5 minutes
 
-	/// @notice Saturation cap for q_i / b to prevent exp() overflow
-	/// @dev PRBMath exp() reverts at ~133.08e18. We cap at 100e18 for safety margin.
-	int256 public constant LMSR_SATURATION_CAP = 100e18;
-
 	// ============================================================================
 	// Position Privacy State (Phase 2)
 	// ============================================================================
@@ -260,6 +262,22 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @dev Built off-chain by shadow-atlas from PositionCommitted events.
 	///      Zero until updatePositionRoot is called after at least one reveal.
 	mapping(bytes32 => bytes32) public positionRoot;
+
+	/// @notice Pending position root update per debate (two-phase timelocked)
+	struct PendingPositionRoot {
+		bytes32 newRoot;
+		uint256 leafCount;
+		uint256 executeTime;
+	}
+	mapping(bytes32 => PendingPositionRoot) public pendingPositionRoots;
+
+	/// @notice Pending verifier update (two-phase timelocked, SA-3)
+	/// @dev Slot 0 = debateWeightVerifier, slot 1 = positionNoteVerifier
+	struct PendingVerifierUpdate {
+		address newVerifier;
+		uint256 executeTime;
+	}
+	mapping(uint8 => PendingVerifierUpdate) public pendingVerifierUpdates;
 
 	/// @notice Position nullifiers spent: debateId => nullifier => spent
 	/// @dev Prevents the same position_note proof from being used twice in settlePrivatePosition.
@@ -408,6 +426,22 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	/// @notice Emitted when governance updates the position tree root
 	event PositionRootUpdated(bytes32 indexed debateId, bytes32 newRoot, uint256 leafCount);
 
+	/// @notice Emitted when a position root update is initiated (timelock starts)
+	event PositionRootUpdateInitiated(bytes32 indexed debateId, bytes32 newRoot, uint256 leafCount, uint256 executeTime);
+
+	/// @notice Emitted when a pending position root update is cancelled
+	event PositionRootUpdateCancelled(bytes32 indexed debateId);
+
+	/// @notice Emitted when a verifier update is initiated (SA-3)
+	/// @param slot 0 = debateWeightVerifier, 1 = positionNoteVerifier
+	event VerifierUpdateInitiated(uint8 indexed slot, address newVerifier, uint256 executeTime);
+
+	/// @notice Emitted when a verifier update is executed (SA-3)
+	event VerifierUpdated(uint8 indexed slot, address newVerifier);
+
+	/// @notice Emitted when a pending verifier update is cancelled (SA-3)
+	event VerifierUpdateCancelled(uint8 indexed slot);
+
 	/// @notice Emitted when a user proves winning position ownership via position_note proof
 	/// @dev Phase 2: attestation only (no token transfer). claimedWeight is informational.
 	event PrivateSettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 claimedWeight);
@@ -417,6 +451,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	event ProtocolFeeUpdated(uint256 oldBps, uint256 newBps);
 	event EpochDurationUpdated(uint256 oldDuration, uint256 newDuration);
 	event ResolutionExtensionUpdated(uint256 oldDuration, uint256 newDuration);
+	event DebateEscalated(bytes32 indexed debateId);
 
 	// Phase 3: AI Resolution Events
 	event AIEvaluationSubmitted(bytes32 indexed debateId, uint256 signatureCount, uint256 nonce);
@@ -507,6 +542,17 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	error ParticipationThresholdMet();
 	error ArgumentWindowClosed();
 	error MinParticipantsOutOfRange();
+	error InsufficientSellWeight();
+	/// @notice Thrown when a packed AI score has a dimension exceeding 10000 basis points
+	error InvalidAIScore();
+	/// @notice Thrown when an epoch has more reveals than MAX_REVEALS_PER_EPOCH
+	error TooManyReveals();
+	/// @notice Thrown when a two-phase operation is already pending for this key
+	error OperationAlreadyPending();
+	/// @notice Thrown when no two-phase operation is pending for this key
+	error NoOperationPending();
+	/// @notice Thrown when an invalid verifier slot is specified (must be 0 or 1)
+	error InvalidVerifierSlot();
 
 	// ============================================================================
 	// Constructor
@@ -990,7 +1036,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		// Verify engagement tier > 0
 		uint256 engagementTierRaw = publicInputs[30];
 		if (engagementTierRaw > 4) revert InvalidEngagementTier();
-		if (tierMultiplier(uint8(engagementTierRaw)) == 0) revert InvalidEngagementTier();
+		if (LMSRMath.tierMultiplier(uint8(engagementTierRaw)) == 0) revert InvalidEngagementTier();
 
 		// Store commitment
 		uint256 epoch = currentEpoch[debateId];
@@ -1041,7 +1087,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		if (commitment.revealed) revert AlreadyRevealed();
 
 		// Verify the debate_weight ZK proof before touching commitment state
-		// The proof attests: weightedAmount = sqrt(stakeAmount) * tierMultiplier(engagementTier)
+		// The proof attests: weightedAmount = sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier)
 		// and noteCommitment = Poseidon2(argumentIndex, weightedAmount, randomness)
 		bytes32[] memory pubInputsDyn = new bytes32[](2);
 		pubInputsDyn[0] = debateWeightPublicInputs[0];
@@ -1075,6 +1121,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 			lmsrArgumentWeights[debateId][argumentIndex] += weightedAmount;
 			lmsrTotalWeight[debateId] += weightedAmount;
 		} else {
+			if (weightedAmount > lmsrArgumentWeights[debateId][argumentIndex]) revert InsufficientSellWeight();
+			if (weightedAmount > lmsrTotalWeight[debateId]) revert InsufficientSellWeight();
 			lmsrArgumentWeights[debateId][argumentIndex] -= weightedAmount;
 			lmsrTotalWeight[debateId] -= weightedAmount;
 		}
@@ -1117,6 +1165,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 		TradeReveal[] storage reveals = _epochReveals[debateId][epoch];
 		uint256 numReveals = reveals.length;
+		if (numReveals > MAX_REVEALS_PER_EPOCH) revert TooManyReveals();
 
 		// Mark executed before any state changes (best practice — reverts undo state anyway)
 		epochExecuted[debateId][epoch] = true;
@@ -1176,21 +1225,80 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	// Position Privacy Functions (Phase 2)
 	// ============================================================================
 
-	/// @notice Update the position tree root for a debate (governance only)
+	/// @notice Initiate a position root update (starts governance timelock)
 	/// @dev Called by governance after shadow-atlas rebuilds the position Merkle tree
-	///      from PositionCommitted events. The root is required before any user can
-	///      call settlePrivatePosition.
+	///      from PositionCommitted events. The root becomes active after GOVERNANCE_TIMELOCK.
 	/// @param debateId Debate whose position tree was updated
 	/// @param newRoot New Merkle root after inserting all position commitments
 	/// @param leafCount Total number of leaves in the tree (informational, emitted in event)
-	function updatePositionRoot(
+	function initiatePositionRootUpdate(
 		bytes32 debateId,
 		bytes32 newRoot,
 		uint256 leafCount
 	) external onlyGovernance {
 		if (debates[debateId].deadline == 0) revert DebateNotFound();
-		positionRoot[debateId] = newRoot;
-		emit PositionRootUpdated(debateId, newRoot, leafCount);
+		if (pendingPositionRoots[debateId].executeTime != 0) revert OperationAlreadyPending();
+		uint256 executeTime = block.timestamp + GOVERNANCE_TIMELOCK;
+		pendingPositionRoots[debateId] = PendingPositionRoot(newRoot, leafCount, executeTime);
+		emit PositionRootUpdateInitiated(debateId, newRoot, leafCount, executeTime);
+	}
+
+	/// @notice Execute a pending position root update (after timelock)
+	/// @param debateId Debate whose position root to update
+	function executePositionRootUpdate(bytes32 debateId) external {
+		PendingPositionRoot memory pending = pendingPositionRoots[debateId];
+		if (pending.executeTime == 0) revert NoOperationPending();
+		if (block.timestamp < pending.executeTime) revert TimelockNotExpired();
+		positionRoot[debateId] = pending.newRoot;
+		delete pendingPositionRoots[debateId];
+		emit PositionRootUpdated(debateId, pending.newRoot, pending.leafCount);
+	}
+
+	/// @notice Cancel a pending position root update
+	/// @param debateId Debate whose pending update to cancel
+	function cancelPositionRootUpdate(bytes32 debateId) external onlyGovernance {
+		if (pendingPositionRoots[debateId].executeTime == 0) revert NoOperationPending();
+		delete pendingPositionRoots[debateId];
+		emit PositionRootUpdateCancelled(debateId);
+	}
+
+	// ============================================================================
+	// Verifier Update Functions (SA-3)
+	// ============================================================================
+
+	/// @notice Initiate a verifier update (starts governance timelock)
+	/// @param slot 0 = debateWeightVerifier, 1 = positionNoteVerifier
+	/// @param newVerifier New verifier contract address
+	function initiateVerifierUpdate(uint8 slot, address newVerifier) external onlyGovernance {
+		if (slot > 1) revert InvalidVerifierSlot();
+		if (newVerifier == address(0)) revert ZeroAddress();
+		if (pendingVerifierUpdates[slot].executeTime != 0) revert OperationAlreadyPending();
+		uint256 executeTime = block.timestamp + GOVERNANCE_TIMELOCK;
+		pendingVerifierUpdates[slot] = PendingVerifierUpdate(newVerifier, executeTime);
+		emit VerifierUpdateInitiated(slot, newVerifier, executeTime);
+	}
+
+	/// @notice Execute a pending verifier update (after timelock)
+	/// @param slot 0 = debateWeightVerifier, 1 = positionNoteVerifier
+	function executeVerifierUpdate(uint8 slot) external {
+		PendingVerifierUpdate memory pending = pendingVerifierUpdates[slot];
+		if (pending.executeTime == 0) revert NoOperationPending();
+		if (block.timestamp < pending.executeTime) revert TimelockNotExpired();
+		if (slot == 0) {
+			debateWeightVerifier = IDebateWeightVerifier(pending.newVerifier);
+		} else {
+			positionNoteVerifier = IPositionNoteVerifier(pending.newVerifier);
+		}
+		delete pendingVerifierUpdates[slot];
+		emit VerifierUpdated(slot, pending.newVerifier);
+	}
+
+	/// @notice Cancel a pending verifier update
+	/// @param slot 0 = debateWeightVerifier, 1 = positionNoteVerifier
+	function cancelVerifierUpdate(uint8 slot) external onlyGovernance {
+		if (pendingVerifierUpdates[slot].executeTime == 0) revert NoOperationPending();
+		delete pendingVerifierUpdates[slot];
+		emit VerifierUpdateCancelled(slot);
 	}
 
 	/// @notice Claim settlement via ZK proof of position ownership (Phase 2 — attestation only)
@@ -1307,6 +1415,18 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 required = aiRegistry.quorum();
 		if (validSigs < required) revert InsufficientSignatures();
 
+		// Validate all packed scores have dimensions <= 10000 (fast-fail before storage)
+		for (uint256 i = 0; i < packedScores.length; i++) {
+			uint256 packed = packedScores[i];
+			if (uint16(packed) > 10000 ||
+				uint16(packed >> 16) > 10000 ||
+				uint16(packed >> 32) > 10000 ||
+				uint16(packed >> 48) > 10000 ||
+				uint16(packed >> 64) > 10000) {
+				revert InvalidAIScore();
+			}
+		}
+
 		// Store packed scores
 		for (uint256 i = 0; i < packedScores.length; i++) {
 			aiArgumentScores[debateId][i] = packedScores[i];
@@ -1345,9 +1465,9 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 bestFinal = 0;
 
 		for (uint256 i = 0; i < argCount; i++) {
-			uint256 aiScore = _computeWeightedAIScore(aiArgumentScores[debateId][i]);
+			uint256 aiScore = LMSRMath.computeWeightedAIScore(aiArgumentScores[debateId][i]);
 			uint256 communityScore = arguments[debateId][i].weightedScore;
-			uint256 finalScore = _computeFinalScore(aiScore, communityScore, maxCommunity, alpha);
+			uint256 finalScore = LMSRMath.computeFinalScore(aiScore, communityScore, maxCommunity, alpha);
 
 			if (finalScore > bestFinal) {
 				bestFinal = finalScore;
@@ -1363,7 +1483,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		debate.status = DebateStatus.RESOLVED;
 		debate.resolutionMethod = 1; // ai_community
 
-		uint256 winnerAI = _computeWeightedAIScore(aiArgumentScores[debateId][bestIndex]);
+		uint256 winnerAI = LMSRMath.computeWeightedAIScore(aiArgumentScores[debateId][bestIndex]);
 		uint256 winnerCommunity = arguments[debateId][bestIndex].weightedScore;
 
 		emit DebateResolvedWithAI(debateId, bestIndex, winnerAI, winnerCommunity, bestFinal, 1);
@@ -1382,6 +1502,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 		debate.status = DebateStatus.AWAITING_GOVERNANCE;
 		debate.resolutionDeadline = block.timestamp + resolutionExtension;
+		emit DebateEscalated(debateId);
 	}
 
 	/// @notice Governance resolves a debate when AI consensus fails
@@ -1544,22 +1665,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		SD59x18 b = lmsrLiquidity[debateId];
 		if (b == SD_ZERO) return SD_ZERO;
 
-		SD59x18 expSum = SD_ZERO;
-		SD59x18 expI = SD_ZERO;
-
-		for (uint256 j = 0; j < debate.argumentCount; j++) {
-			SD59x18 qj = lmsrQuantities[debateId][j];
-			SD59x18 ratio = qj / b;
-			SD59x18 capped = _capRatio(ratio);
-			SD59x18 expJ = capped.exp();
-			expSum = expSum + expJ;
-			if (j == argumentIndex) {
-				expI = expJ;
-			}
-		}
-
-		if (expSum == SD_ZERO) return SD_ZERO;
-		price = expI / expSum;
+		SD59x18[] memory quantities = _loadQuantities(debateId, debate.argumentCount);
+		price = LMSRMath.computePrice(quantities, b, argumentIndex);
 	}
 
 	/// @notice Get LMSR prices for all arguments in a debate
@@ -1574,24 +1681,8 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		SD59x18 b = lmsrLiquidity[debateId];
 		if (b == SD_ZERO) return prices;
 
-		// First pass: compute exp(q_i / b) for each argument and the sum
-		SD59x18[] memory exps = new SD59x18[](count);
-		SD59x18 expSum = SD_ZERO;
-
-		for (uint256 i = 0; i < count; i++) {
-			SD59x18 qi = lmsrQuantities[debateId][i];
-			SD59x18 ratio = qi / b;
-			SD59x18 capped = _capRatio(ratio);
-			exps[i] = capped.exp();
-			expSum = expSum + exps[i];
-		}
-
-		// Second pass: normalize
-		if (expSum != SD_ZERO) {
-			for (uint256 i = 0; i < count; i++) {
-				prices[i] = exps[i] / expSum;
-			}
-		}
+		SD59x18[] memory quantities = _loadQuantities(debateId, count);
+		prices = LMSRMath.computePrices(quantities, b);
 	}
 
 	/// @notice Get the current epoch phase for a debate
@@ -1739,7 +1830,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	///      and Debate storage slot mpos temporaries never accumulate in the same Yul frame.
 	///      Without this split, via_ir generates 21 simultaneous expr_mpos_* variables (limit=20).
 	/// @return argumentIndex  Index of the newly created argument
-	/// @return weight         sqrt(stakeAmount) * tierMultiplier(engagementTier)
+	/// @return weight         sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier)
 	/// @return engagementTier Engagement tier extracted from public inputs (for event emit)
 	/// @return nullifier      Nullifier from publicInputs[26] (for event emit + audit trail)
 	function _submitArgumentCore(
@@ -1772,7 +1863,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 engagementTierRaw = publicInputs[30];
 		if (engagementTierRaw > 4) revert InvalidEngagementTier();
 		engagementTier = uint8(engagementTierRaw);
-		if (tierMultiplier(engagementTier) == 0) revert InvalidEngagementTier();
+		if (LMSRMath.tierMultiplier(engagementTier) == 0) revert InvalidEngagementTier();
 
 		nullifier = bytes32(publicInputs[26]);
 		argumentIndex = debate.argumentCount;
@@ -1789,7 +1880,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Core logic for coSignArgument: validate debate state, verify proof, write storage.
 	/// @dev Extracted from coSignArgument for the same via_ir mpos depth reason as _submitArgumentCore.
-	/// @return weight         sqrt(stakeAmount) * tierMultiplier(engagementTier)
+	/// @return weight         sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier)
 	/// @return engagementTier Engagement tier extracted from public inputs (for event emit)
 	function _coSignArgumentCore(
 		bytes32 debateId,
@@ -1819,7 +1910,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint256 engagementTierRaw = publicInputs[30];
 		if (engagementTierRaw > 4) revert InvalidEngagementTier();
 		engagementTier = uint8(engagementTierRaw);
-		if (tierMultiplier(engagementTier) == 0) revert InvalidEngagementTier();
+		if (LMSRMath.tierMultiplier(engagementTier) == 0) revert InvalidEngagementTier();
 
 		bytes32 nullifier = bytes32(publicInputs[26]);
 
@@ -1833,7 +1924,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Write a new argument and its initial stake record. Extracted to reduce Yul
 	///         variable depth in submitArgument under via_ir (fixes stack-too-deep).
-	/// @return weight  sqrt(stakeAmount) * tierMultiplier(engagementTier)
+	/// @return weight  sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier)
 	function _writeArgumentAndStake(
 		bytes32 debateId,
 		uint256 argumentIndex,
@@ -1845,7 +1936,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint8 engagementTier,
 		address beneficiary
 	) internal returns (uint256 weight) {
-		weight = sqrt(stakeAmount) * tierMultiplier(engagementTier);
+		weight = LMSRMath.sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier);
 
 		Argument storage arg = arguments[debateId][argumentIndex];
 		arg.stance = stance;
@@ -1873,7 +1964,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 
 	/// @notice Write a co-sign stake record and update argument score. Extracted to reduce Yul
 	///         variable depth in coSignArgument under via_ir (fixes stack-too-deep).
-	/// @return weight  sqrt(stakeAmount) * tierMultiplier(engagementTier)
+	/// @return weight  sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier)
 	function _writeCoSignStake(
 		bytes32 debateId,
 		uint256 argumentIndex,
@@ -1882,7 +1973,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		uint8 engagementTier,
 		address beneficiary
 	) internal returns (uint256 weight) {
-		weight = sqrt(stakeAmount) * tierMultiplier(engagementTier);
+		weight = LMSRMath.sqrt(stakeAmount) * LMSRMath.tierMultiplier(engagementTier);
 		arguments[debateId][argumentIndex].weightedScore += weight;
 		argumentTotalStakes[debateId][argumentIndex] += stakeAmount;
 
@@ -1923,42 +2014,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		return (block.timestamp - start) >= epochDuration;
 	}
 
-	/// @notice Cap q_i / b ratio to prevent PRBMath exp() overflow
-	/// @dev exp() reverts at ~133.08e18. We cap at 100e18 for 33% safety margin.
-	function _capRatio(SD59x18 ratio) internal pure returns (SD59x18) {
-		if (ratio.unwrap() > LMSR_SATURATION_CAP) {
-			return sd(LMSR_SATURATION_CAP);
+	/// @notice Load LMSR quantities from storage into a memory array
+	function _loadQuantities(bytes32 debateId, uint256 count) internal view returns (SD59x18[] memory quantities) {
+		quantities = new SD59x18[](count);
+		for (uint256 i = 0; i < count; i++) {
+			quantities[i] = lmsrQuantities[debateId][i];
 		}
-		if (ratio.unwrap() < -LMSR_SATURATION_CAP) {
-			return sd(-LMSR_SATURATION_CAP);
-		}
-		return ratio;
-	}
-
-	/// @notice Babylonian method integer square root
-	/// @param x Input value
-	/// @return y Floor of sqrt(x)
-	function sqrt(uint256 x) internal pure returns (uint256 y) {
-		if (x == 0) return 0;
-		uint256 z = (x + 1) / 2;
-		y = x;
-		while (z < y) {
-			y = z;
-			z = (x / z + z) / 2;
-		}
-	}
-
-	/// @notice Engagement tier to score multiplier (2^tier)
-	/// @dev Tier 0 ("no engagement history") returns 0, which is used as a sentinel
-	///      to reject participation via InvalidEngagementTier. Only tiers 1-4 are
-	///      eligible for debate staking. This is intentional: the three-tree circuit
-	///      accepts tier 0 as valid, but DebateMarket requires demonstrated engagement.
-	function tierMultiplier(uint8 tier) internal pure returns (uint256) {
-		if (tier == 1) return 2;
-		if (tier == 2) return 4;
-		if (tier == 3) return 8;
-		if (tier == 4) return 16;
-		return 0;
 	}
 
 	// ============================================================================
@@ -1998,36 +2059,6 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		}
 	}
 
-	/// @notice Compute dimension-weighted AI score from packed representation
-	/// @param packed Packed scores: [reasoning:16][accuracy:16][evidence:16][constructiveness:16][feasibility:16]
-	/// @return Weighted score in range 0-10000 (basis points)
-	function _computeWeightedAIScore(uint256 packed) internal pure returns (uint256) {
-		uint256 reasoning        = (packed >> 64) & 0xFFFF; // weight: 3000
-		uint256 accuracy         = (packed >> 48) & 0xFFFF; // weight: 2500
-		uint256 evidence         = (packed >> 32) & 0xFFFF; // weight: 2000
-		uint256 constructiveness = (packed >> 16) & 0xFFFF; // weight: 1500
-		uint256 feasibility      = packed & 0xFFFF;          // weight: 1000
-		return (reasoning * 3000 + accuracy * 2500 + evidence * 2000
-		      + constructiveness * 1500 + feasibility * 1000) / 10000;
-	}
-
-	/// @notice Compute blended final score: α × ai + (1 - α) × normalize(community)
-	/// @param aiScore AI weighted score (0-10000)
-	/// @param communityScore Raw community weighted score
-	/// @param maxCommunityScore Maximum community score across all arguments (for normalization)
-	/// @param alpha AI weight in basis points (0-10000)
-	/// @return Final blended score (0-10000)
-	function _computeFinalScore(
-		uint256 aiScore,
-		uint256 communityScore,
-		uint256 maxCommunityScore,
-		uint256 alpha
-	) internal pure returns (uint256) {
-		uint256 normalizedCommunity = maxCommunityScore > 0
-			? (communityScore * 10000) / maxCommunityScore
-			: 0;
-		return (alpha * aiScore + (10000 - alpha) * normalizedCommunity) / 10000;
-	}
 }
 
 // ============================================================================

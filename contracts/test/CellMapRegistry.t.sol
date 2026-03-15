@@ -3,6 +3,7 @@ pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/CellMapRegistry.sol";
+import "../src/AbstractRootLifecycle.sol";
 import "../src/TimelockGovernance.sol";
 
 /// @title CellMapRegistry Tests
@@ -308,7 +309,7 @@ contract CellMapRegistryTest is Test {
 
     function test_RevertWhen_InitiateDeactivation_NotRegistered() public {
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.RootNotRegistered.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootNotRegistered.selector);
         registry.initiateRootDeactivation(UNREGISTERED_ROOT);
     }
 
@@ -322,7 +323,7 @@ contract CellMapRegistryTest is Test {
         registry.executeRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.RootAlreadyInactive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyInactive.selector);
         registry.initiateRootDeactivation(ROOT_1);
     }
 
@@ -334,7 +335,7 @@ contract CellMapRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootDeactivation(ROOT_1);
     }
 
@@ -400,7 +401,7 @@ contract CellMapRegistryTest is Test {
 
         uint64 pastTimestamp = uint64(block.timestamp - 1 days);
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.InvalidExpiry.selector);
+        vm.expectRevert(AbstractRootLifecycle.InvalidExpiry.selector);
         registry.initiateRootExpiry(ROOT_1, pastTimestamp);
     }
 
@@ -443,7 +444,7 @@ contract CellMapRegistryTest is Test {
         registry.registerCellMapRoot(ROOT_1, USA, DEPTH_20);
 
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.RootAlreadyActive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyActive.selector);
         registry.initiateRootReactivation(ROOT_1);
     }
 
@@ -481,7 +482,7 @@ contract CellMapRegistryTest is Test {
 
     function test_RevertWhen_CancelOperation_NoPending() public {
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.cancelRootOperation(ROOT_1);
     }
 
@@ -647,7 +648,7 @@ contract CellMapRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootExpiry(ROOT_1, uint64(block.timestamp + 90 days));
     }
 
@@ -659,7 +660,7 @@ contract CellMapRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(CellMapRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.deprecateCellMapRoot(ROOT_1);
     }
 

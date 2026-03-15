@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.19;
+pragma solidity 0.8.28;
 
 import "openzeppelin/security/Pausable.sol";
 import "openzeppelin/security/ReentrancyGuard.sol";
@@ -81,6 +81,10 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
 
     /// @notice Track unique districts per campaign: campaignId => districtRoot => seen
     mapping(bytes32 => mapping(bytes32 => bool)) public campaignDistrictSeen;
+
+    /// @notice Track unique participants per campaign: campaignId => nullifier => seen
+    /// @dev SL-9 FIX: Prevents same user's multiple actions from inflating participantCount
+    mapping(bytes32 => mapping(bytes32 => bool)) public campaignParticipantSeen;
 
     /// @notice Rate limiting: address => last campaign creation timestamp
     mapping(address => uint256) public lastCampaignTime;
@@ -309,11 +313,13 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
     /// @notice Record a verified participation from DistrictGate
     /// @param actionId Template action ID from ZK proof
     /// @param districtRoot District Merkle root from proof
+    /// @param nullifier Action-scoped nullifier for participant deduplication
     /// @dev Only callable by authorized contracts (DistrictGate)
-    ///      Tracks both participant count and unique district count
+    ///      Tracks both participant count (deduplicated by nullifier) and unique district count
     function recordParticipation(
         bytes32 actionId,
-        bytes32 districtRoot
+        bytes32 districtRoot,
+        bytes32 nullifier
     ) external onlyAuthorizedCaller whenNotPaused nonReentrant {
         bytes32 campaignId = actionToCampaign[actionId];
 
@@ -323,8 +329,11 @@ contract CampaignRegistry is Pausable, ReentrancyGuard, TimelockGovernance {
         // Only record for active campaigns
         if (campaigns[campaignId].status != CampaignStatus.Active) return;
 
-        // Increment participant count
-        campaigns[campaignId].participantCount++;
+        // SL-9 FIX: Only increment participant count for unique nullifiers
+        if (!campaignParticipantSeen[campaignId][nullifier]) {
+            campaignParticipantSeen[campaignId][nullifier] = true;
+            campaigns[campaignId].participantCount++;
+        }
 
         // Track unique districts (Sybil resistance metric)
         bool newDistrict = false;

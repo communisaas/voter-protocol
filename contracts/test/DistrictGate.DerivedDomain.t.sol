@@ -582,18 +582,25 @@ contract DistrictGateDerivedDomainTest is Test {
     // 5. INTEGRATION
     // ============================================================================
 
-    /// @notice Governance can revoke a derived domain via revokeActionDomain
+    /// @notice Governance can revoke a derived domain via two-phase revocation
     function test_RevokeActionDomain_WorksOnDerivedDomains() public {
         // Register a derived domain
         vm.prank(deriver);
         gate.registerDerivedDomain(BASE_DOMAIN, DERIVED_DOMAIN);
         assertTrue(gate.allowedActionDomains(DERIVED_DOMAIN));
 
-        // Governance revokes the derived domain
+        // Initiate revocation of the derived domain
         vm.prank(governance);
+        gate.initiateActionDomainRevocation(DERIVED_DOMAIN);
+
+        // Still active during timelock
+        assertTrue(gate.allowedActionDomains(DERIVED_DOMAIN));
+
+        // Execute after timelock
+        vm.warp(block.timestamp + 7 days);
         vm.expectEmit(true, false, false, false);
         emit ActionDomainRevoked(DERIVED_DOMAIN);
-        gate.revokeActionDomain(DERIVED_DOMAIN);
+        gate.executeActionDomainRevocation(DERIVED_DOMAIN);
 
         // Derived domain is no longer in the whitelist
         assertFalse(gate.allowedActionDomains(DERIVED_DOMAIN));
@@ -618,9 +625,11 @@ contract DistrictGateDerivedDomainTest is Test {
         vm.prank(deriver);
         gate.registerDerivedDomain(BASE_DOMAIN, DERIVED_DOMAIN);
 
-        // Revoke the base domain
+        // Revoke the base domain via two-phase
         vm.prank(governance);
-        gate.revokeActionDomain(BASE_DOMAIN);
+        gate.initiateActionDomainRevocation(BASE_DOMAIN);
+        vm.warp(block.timestamp + 7 days);
+        gate.executeActionDomainRevocation(BASE_DOMAIN);
 
         assertFalse(gate.allowedActionDomains(BASE_DOMAIN));
         // Derived domain remains active

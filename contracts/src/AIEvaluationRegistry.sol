@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.19;
+pragma solidity 0.8.28;
 
 import "./TimelockGovernance.sol";
 import "./IAIEvaluationRegistry.sol";
@@ -20,6 +20,12 @@ import "./IAIEvaluationRegistry.sol";
 /// QUORUM:
 ///   M = ceil(2N/3) where N = modelCount
 ///   3 models → 2, 4 → 3, 5 → 4, 6 → 4, 7 → 5
+///
+/// SC-1 FIX: Two-phase model registration/removal with MODEL_TIMELOCK.
+///   Without timelock, compromised governance can instantly swap the entire panel
+///   and resolve debates with rigged scores in a single block.
+///
+/// SM-7 FIX: _providerCount state variable (O(1) lookup instead of 256-slot iteration).
 contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 
 	// ============================================================================
@@ -29,6 +35,12 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	struct ModelInfo {
 		uint8 providerSlot;
 		bool active;
+	}
+
+	/// @notice Pending model registration
+	struct PendingRegistration {
+		uint8 providerSlot;
+		uint256 executeTime;
 	}
 
 	// ============================================================================
@@ -44,8 +56,17 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	/// @notice Count of active models
 	uint256 private _modelCount;
 
+	/// @notice Count of active distinct providers (SM-7: O(1) state variable)
+	uint256 private _providerCount;
+
 	/// @notice Count of active models per provider slot
 	mapping(uint8 => uint256) public providerModelCount;
+
+	/// @notice Pending model registration operations
+	mapping(address => PendingRegistration) public pendingRegistrations;
+
+	/// @notice Pending model removal operations
+	mapping(address => uint256) public pendingRemovals;
 
 	/// @notice Minimum distinct providers for the panel to be operational
 	uint256 public minProviders = 3;
@@ -59,12 +80,19 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	/// @notice Basis points denominator
 	uint256 public constant BASIS_POINTS = 10000;
 
+	/// @notice Timelock for model registration/removal operations
+	/// @dev SC-1: Prevents one-block panel swap attack
+	uint256 public immutable MODEL_TIMELOCK;
+
 	// ============================================================================
 	// Events
 	// ============================================================================
 
 	event ModelRegistered(address indexed signer, uint8 providerSlot);
 	event ModelRemoved(address indexed signer);
+	event ModelRegistrationInitiated(address indexed signer, uint8 providerSlot, uint256 executeTime);
+	event ModelRemovalInitiated(address indexed signer, uint256 executeTime);
+	event ModelOperationCancelled(address indexed signer);
 	event AIWeightUpdated(uint256 oldWeight, uint256 newWeight);
 	event MinProvidersUpdated(uint256 oldMin, uint256 newMin);
 
@@ -78,6 +106,8 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	error BelowMinProviders();
 	error BelowMinModels();
 	error InvalidProviderSlot();
+	error OperationNotPending();
+	error OperationAlreadyPending();
 
 	// ============================================================================
 	// Constructor
@@ -85,20 +115,46 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 
 	/// @param _governance Governance address
 	/// @param _governanceTimelock Timelock for governance operations (minimum 10 minutes)
-	constructor(address _governance, uint256 _governanceTimelock) TimelockGovernance(_governanceTimelock) {
+	/// @param _modelTimelock Timelock for model registration/removal (minimum 10 minutes)
+	constructor(
+		address _governance,
+		uint256 _governanceTimelock,
+		uint256 _modelTimelock
+	) TimelockGovernance(_governanceTimelock) {
+		if (_modelTimelock < MIN_GOVERNANCE_TIMELOCK) revert TimelockTooShort();
 		_initializeGovernance(_governance);
+		MODEL_TIMELOCK = _modelTimelock;
 	}
 
 	// ============================================================================
-	// Governance Functions
+	// SC-1: Two-Phase Model Registration
 	// ============================================================================
 
-	/// @notice Register a new model signer
+	/// @notice Initiate model registration (starts MODEL_TIMELOCK)
 	/// @param signer ECDSA address that signs AI evaluation attestations
 	/// @param providerSlot Provider identifier (0-255)
-	function registerModel(address signer, uint8 providerSlot) external onlyGovernance {
+	function initiateModelRegistration(address signer, uint8 providerSlot) external onlyGovernance {
 		if (signer == address(0)) revert ZeroAddress();
 		if (models[signer].active) revert ModelAlreadyRegistered();
+		if (pendingRegistrations[signer].executeTime != 0) revert OperationAlreadyPending();
+
+		uint256 executeTime = block.timestamp + MODEL_TIMELOCK;
+		pendingRegistrations[signer] = PendingRegistration({
+			providerSlot: providerSlot,
+			executeTime: executeTime
+		});
+
+		emit ModelRegistrationInitiated(signer, providerSlot, executeTime);
+	}
+
+	/// @notice Execute pending model registration (after MODEL_TIMELOCK)
+	/// @param signer Address to register
+	function executeModelRegistration(address signer) external {
+		PendingRegistration memory pending = pendingRegistrations[signer];
+		if (pending.executeTime == 0) revert OperationNotPending();
+		if (block.timestamp < pending.executeTime) revert TimelockNotExpired();
+
+		uint8 providerSlot = pending.providerSlot;
 
 		models[signer] = ModelInfo({
 			providerSlot: providerSlot,
@@ -106,36 +162,98 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 		});
 		modelList.push(signer);
 		_modelCount++;
+
+		// SM-7: Update provider count state variable
+		if (providerModelCount[providerSlot] == 0) {
+			_providerCount++;
+		}
 		providerModelCount[providerSlot]++;
+
+		delete pendingRegistrations[signer];
 
 		emit ModelRegistered(signer, providerSlot);
 	}
 
-	/// @notice Remove a model signer
+	/// @notice Cancel pending model registration
+	/// @param signer Address to cancel registration for
+	function cancelModelRegistration(address signer) external onlyGovernance {
+		if (pendingRegistrations[signer].executeTime == 0) revert OperationNotPending();
+		delete pendingRegistrations[signer];
+		emit ModelOperationCancelled(signer);
+	}
+
+	// ============================================================================
+	// SC-1: Two-Phase Model Removal
+	// ============================================================================
+
+	/// @notice Initiate model removal (starts MODEL_TIMELOCK)
 	/// @param signer Address to remove
-	function removeModel(address signer) external onlyGovernance {
+	function initiateModelRemoval(address signer) external onlyGovernance {
 		ModelInfo storage info = models[signer];
 		if (!info.active) revert ModelNotRegistered();
+		if (pendingRemovals[signer] != 0) revert OperationAlreadyPending();
 
-		// Check that removal won't breach minimums
+		// Pre-check minimums (re-validated at execute time)
 		uint256 newCount = _modelCount - 1;
 		if (newCount < 3) revert BelowMinModels();
 
-		// Check provider diversity after removal
 		uint8 slot = info.providerSlot;
 		uint256 slotCountAfter = providerModelCount[slot] - 1;
 		if (slotCountAfter == 0) {
-			// This provider would be removed entirely — check diversity
-			uint256 currentProviders = providerCount();
-			if (currentProviders - 1 < minProviders) revert BelowMinProviders();
+			if (_providerCount - 1 < minProviders) revert BelowMinProviders();
+		}
+
+		uint256 executeTime = block.timestamp + MODEL_TIMELOCK;
+		pendingRemovals[signer] = executeTime;
+
+		emit ModelRemovalInitiated(signer, executeTime);
+	}
+
+	/// @notice Execute pending model removal (after MODEL_TIMELOCK)
+	/// @param signer Address to remove
+	function executeModelRemoval(address signer) external {
+		uint256 executeTime = pendingRemovals[signer];
+		if (executeTime == 0) revert OperationNotPending();
+		if (block.timestamp < executeTime) revert TimelockNotExpired();
+
+		ModelInfo storage info = models[signer];
+		if (!info.active) revert ModelNotRegistered();
+
+		// Re-validate minimums at execution time
+		uint256 newCount = _modelCount - 1;
+		if (newCount < 3) revert BelowMinModels();
+
+		uint8 slot = info.providerSlot;
+		uint256 slotCountAfter = providerModelCount[slot] - 1;
+		if (slotCountAfter == 0) {
+			if (_providerCount - 1 < minProviders) revert BelowMinProviders();
 		}
 
 		info.active = false;
 		_modelCount--;
+
+		// SM-7: Update provider count state variable
 		providerModelCount[slot]--;
+		if (providerModelCount[slot] == 0) {
+			_providerCount--;
+		}
+
+		delete pendingRemovals[signer];
 
 		emit ModelRemoved(signer);
 	}
+
+	/// @notice Cancel pending model removal
+	/// @param signer Address to cancel removal for
+	function cancelModelRemoval(address signer) external onlyGovernance {
+		if (pendingRemovals[signer] == 0) revert OperationNotPending();
+		delete pendingRemovals[signer];
+		emit ModelOperationCancelled(signer);
+	}
+
+	// ============================================================================
+	// Governance Functions
+	// ============================================================================
 
 	/// @notice Update the AI weight α
 	/// @param newWeight New weight in basis points (0-MAX_AI_WEIGHT)
@@ -149,7 +267,7 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	/// @notice Update minimum provider count
 	/// @param newMin New minimum (must be achievable with current panel)
 	function setMinProviders(uint256 newMin) external onlyGovernance {
-		if (newMin > 0 && providerCount() < newMin) revert BelowMinProviders();
+		if (newMin > 0 && _providerCount < newMin) revert BelowMinProviders();
 		uint256 old = minProviders;
 		minProviders = newMin;
 		emit MinProvidersUpdated(old, newMin);
@@ -175,16 +293,9 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 	}
 
 	/// @inheritdoc IAIEvaluationRegistry
+	/// @dev SM-7: Returns O(1) state variable instead of iterating 256 slots
 	function providerCount() public view returns (uint256) {
-		uint256 count;
-		// Check slots 0-255. In practice only 0-10 will ever be used.
-		// Gas: ~5,000 for 256 iterations of cold SLOAD is fine for a view function.
-		for (uint256 i = 0; i < 256; i++) {
-			if (providerModelCount[uint8(i)] > 0) {
-				count++;
-			}
-		}
-		return count;
+		return _providerCount;
 	}
 
 	/// @notice Get all active model signers

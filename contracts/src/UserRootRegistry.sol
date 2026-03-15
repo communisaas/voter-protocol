@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.19;
+pragma solidity 0.8.28;
 
-import "./TimelockGovernance.sol";
+import "./AbstractRootLifecycle.sol";
 
 /// @title UserRootRegistry
 /// @notice On-chain registry for Tree 1 (User Identity) Merkle roots
@@ -30,7 +30,7 @@ import "./TimelockGovernance.sol";
 ///   - Governance-controlled (initially founder, later multisig)
 ///   - Append-only registration (roots cannot be modified after creation)
 ///   - All changes emit events for community audit
-contract UserRootRegistry is TimelockGovernance {
+contract UserRootRegistry is AbstractRootLifecycle {
     /// @notice User root metadata structure
     struct UserRootMetadata {
         bytes3 country;         // ISO 3166-1 alpha-3 country code
@@ -42,17 +42,6 @@ contract UserRootRegistry is TimelockGovernance {
 
     /// @notice Maps user Merkle root to metadata
     mapping(bytes32 => UserRootMetadata) public userRoots;
-
-    /// @notice Pending root operation type
-    /// @dev 1 = deactivate, 2 = set expiry, 3 = reactivate
-    struct PendingRootOperation {
-        uint8 operationType;    // 1=deactivate, 2=expire, 3=reactivate
-        uint64 executeTime;     // When operation can be executed
-        uint64 newExpiresAt;    // Only used for expire operations (type 2)
-    }
-
-    /// @notice Maps user root to pending lifecycle operation
-    mapping(bytes32 => PendingRootOperation) public pendingRootOperations;
 
     /// @notice Grace period for sunset state (30 days)
     /// @dev Users have 30 days after expiry is set to transition to a new root
@@ -68,33 +57,11 @@ contract UserRootRegistry is TimelockGovernance {
         uint256 timestamp
     );
 
-    /// @notice Emitted when any root lifecycle operation is initiated (7-day timelock starts)
-    /// @param operationType 1=deactivate, 2=expire, 3=reactivate
-    event RootOperationInitiated(bytes32 indexed root, uint8 operationType, uint256 executeTime);
-
-    /// @notice Emitted when root is deactivated
-    event RootDeactivated(bytes32 indexed root);
-
-    /// @notice Emitted when root expiry is set
-    event RootExpirySet(bytes32 indexed root, uint64 expiresAt);
-
-    /// @notice Emitted when root is reactivated
-    event RootReactivated(bytes32 indexed root);
-
-    /// @notice Emitted when root operation is cancelled
-    event RootOperationCancelled(bytes32 indexed root);
-
     // ============ Errors ============
 
     error RootAlreadyRegistered();
     error InvalidCountryCode();
     error InvalidDepth();
-    error RootNotRegistered();
-    error RootAlreadyInactive();
-    error RootAlreadyActive();
-    error NoOperationPending();
-    error InvalidExpiry();
-    error OperationAlreadyPending();
 
     // ============ Constructor ============
 
@@ -157,152 +124,16 @@ contract UserRootRegistry is TimelockGovernance {
         return userRoots[root];
     }
 
-    /// @notice Initiate root deactivation (starts 7-day timelock)
-    /// @param root User identity Merkle root to deactivate
-    /// @dev Only callable by governance.
-    ///      Use cases: compromised tree data, forced re-registration
-    ///      Timelock gives users 7-day warning before root becomes invalid
-    function initiateRootDeactivation(bytes32 root)
-        external
-        onlyGovernance
-    {
-        UserRootMetadata memory meta = userRoots[root];
-        if (meta.registeredAt == 0) revert RootNotRegistered();
-        if (!meta.isActive) revert RootAlreadyInactive();
-        if (pendingRootOperations[root].executeTime != 0) {
-            revert OperationAlreadyPending();
-        }
+    // ============ Convenience Functions ============
 
-        uint64 executeTime = uint64(block.timestamp + GOVERNANCE_TIMELOCK);
-        pendingRootOperations[root] = PendingRootOperation({
-            operationType: 1,
-            executeTime: executeTime,
-            newExpiresAt: 0
-        });
-
-        emit RootOperationInitiated(root, pendingRootOperations[root].operationType, executeTime);
-    }
-
-    /// @notice Execute pending root deactivation (after 7-day timelock)
-    /// @param root User identity Merkle root to deactivate
-    /// @dev Anyone can execute after timelock expires
-    function executeRootDeactivation(bytes32 root) external {
-        PendingRootOperation memory op = pendingRootOperations[root];
-        if (op.executeTime == 0 || op.operationType != 1) revert NoOperationPending();
-        if (block.timestamp < op.executeTime) revert TimelockNotExpired();
-
-        userRoots[root].isActive = false;
-        delete pendingRootOperations[root];
-
-        emit RootDeactivated(root);
-    }
-
-    /// @notice Initiate root expiry setting (starts 7-day timelock)
+    /// @notice Set user root expiry (convenience wrapper for initiateRootExpiry)
     /// @param root User identity Merkle root
     /// @param expiresAt Timestamp when root expires (must be future, 0 = never)
-    /// @dev Only callable by governance.
-    ///      Sets the SUNSET state: root remains valid until expiresAt.
-    ///      Recommended: set expiresAt = now + SUNSET_GRACE_PERIOD (30 days)
-    function initiateRootExpiry(bytes32 root, uint64 expiresAt)
-        external
-        onlyGovernance
-    {
-        UserRootMetadata memory meta = userRoots[root];
-        if (meta.registeredAt == 0) revert RootNotRegistered();
-        if (expiresAt != 0 && expiresAt <= block.timestamp) revert InvalidExpiry();
-        if (pendingRootOperations[root].executeTime != 0) {
-            revert OperationAlreadyPending();
-        }
-
-        uint64 executeTime = uint64(block.timestamp + GOVERNANCE_TIMELOCK);
-        pendingRootOperations[root] = PendingRootOperation({
-            operationType: 2,
-            executeTime: executeTime,
-            newExpiresAt: expiresAt
-        });
-
-        emit RootOperationInitiated(root, pendingRootOperations[root].operationType, executeTime);
-    }
-
-    /// @notice Execute pending root expiry (after 7-day timelock)
-    /// @param root User identity Merkle root
-    /// @dev Anyone can execute after timelock expires
-    function executeRootExpiry(bytes32 root) external {
-        PendingRootOperation memory op = pendingRootOperations[root];
-        if (op.executeTime == 0 || op.operationType != 2) revert NoOperationPending();
-        if (block.timestamp < op.executeTime) revert TimelockNotExpired();
-
-        userRoots[root].expiresAt = op.newExpiresAt;
-        delete pendingRootOperations[root];
-
-        emit RootExpirySet(root, op.newExpiresAt);
-    }
-
-    /// @notice Initiate root reactivation (starts 7-day timelock)
-    /// @param root User identity Merkle root to reactivate
-    /// @dev Only callable by governance.
-    ///      Use cases: reversing accidental deactivation
-    function initiateRootReactivation(bytes32 root)
-        external
-        onlyGovernance
-    {
-        UserRootMetadata memory meta = userRoots[root];
-        if (meta.registeredAt == 0) revert RootNotRegistered();
-        if (meta.isActive) revert RootAlreadyActive();
-        if (pendingRootOperations[root].executeTime != 0) {
-            revert OperationAlreadyPending();
-        }
-
-        uint64 executeTime = uint64(block.timestamp + GOVERNANCE_TIMELOCK);
-        pendingRootOperations[root] = PendingRootOperation({
-            operationType: 3,
-            executeTime: executeTime,
-            newExpiresAt: 0
-        });
-
-        emit RootOperationInitiated(root, pendingRootOperations[root].operationType, executeTime);
-    }
-
-    /// @notice Execute pending root reactivation (after 7-day timelock)
-    /// @param root User identity Merkle root to reactivate
-    /// @dev Anyone can execute after timelock expires
-    function executeRootReactivation(bytes32 root) external {
-        PendingRootOperation memory op = pendingRootOperations[root];
-        if (op.executeTime == 0 || op.operationType != 3) revert NoOperationPending();
-        if (block.timestamp < op.executeTime) revert TimelockNotExpired();
-
-        userRoots[root].isActive = true;
-        delete pendingRootOperations[root];
-
-        emit RootReactivated(root);
-    }
-
-    /// @notice Cancel pending root operation
-    /// @param root User identity Merkle root
-    /// @dev Only governance can cancel
-    function cancelRootOperation(bytes32 root)
-        external
-        onlyGovernance
-    {
-        if (pendingRootOperations[root].executeTime == 0) {
-            revert NoOperationPending();
-        }
-
-        delete pendingRootOperations[root];
-        emit RootOperationCancelled(root);
-    }
-
-    // ============ Convenience View Functions ============
-
-    /// @notice Set user root expiry with default 30-day grace period
-    /// @param root User identity Merkle root
-    /// @dev Convenience: initiates expiry at now + 30 days (after 7-day timelock)
     function setUserRootExpiry(bytes32 root, uint64 expiresAt)
         external
         onlyGovernance
     {
-        UserRootMetadata memory meta = userRoots[root];
-        if (meta.registeredAt == 0) revert RootNotRegistered();
+        if (!_rootExists(root)) revert RootNotRegistered();
         if (expiresAt != 0 && expiresAt <= block.timestamp) revert InvalidExpiry();
         if (pendingRootOperations[root].executeTime != 0) {
             revert OperationAlreadyPending();
@@ -315,7 +146,7 @@ contract UserRootRegistry is TimelockGovernance {
             newExpiresAt: expiresAt
         });
 
-        emit RootOperationInitiated(root, pendingRootOperations[root].operationType, executeTime);
+        emit RootOperationInitiated(root, 2, executeTime);
     }
 
     /// @notice Get country and depth for a root in single call
@@ -329,5 +160,23 @@ contract UserRootRegistry is TimelockGovernance {
     {
         UserRootMetadata memory meta = userRoots[root];
         return (meta.country, meta.depth);
+    }
+
+    // ============ AbstractRootLifecycle Hooks ============
+
+    function _rootExists(bytes32 root) internal view override returns (bool) {
+        return userRoots[root].registeredAt != 0;
+    }
+
+    function _getRootIsActive(bytes32 root) internal view override returns (bool) {
+        return userRoots[root].isActive;
+    }
+
+    function _setRootActive(bytes32 root, bool active) internal override {
+        userRoots[root].isActive = active;
+    }
+
+    function _setRootExpiresAt(bytes32 root, uint64 expiresAt) internal override {
+        userRoots[root].expiresAt = expiresAt;
     }
 }

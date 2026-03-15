@@ -77,6 +77,8 @@ contract DebateMarketPositionPrivacyTest is Test {
         bytes32 noteCommitment
     );
     event PositionRootUpdated(bytes32 indexed debateId, bytes32 newRoot, uint256 leafCount);
+    event PositionRootUpdateInitiated(bytes32 indexed debateId, bytes32 newRoot, uint256 leafCount, uint256 executeTime);
+    event PositionRootUpdateCancelled(bytes32 indexed debateId);
     event PrivateSettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 claimedWeight);
     event TradeRevealed(
         bytes32 indexed debateId,
@@ -321,12 +323,14 @@ contract DebateMarketPositionPrivacyTest is Test {
         (,,,,,,, uint256 winningArgIndex,,,,,,,,,,,,, ) = market.debates(debateId);
         assertEq(winningArgIndex, 0, "Argument 0 (arguer1) should have won");
 
-        // UPDATE POSITION ROOT — governance sets the root after shadow-atlas builds the tree
+        // UPDATE POSITION ROOT — governance initiates, waits timelock, then executes
         bytes32 newRoot = keccak256("position-tree-root-v1");
+        vm.prank(governance);
+        market.initiatePositionRootUpdate(debateId, newRoot, 1);
+        skip(10 minutes);
         vm.expectEmit(true, false, false, true);
         emit PositionRootUpdated(debateId, newRoot, 1);
-        vm.prank(governance);
-        market.updatePositionRoot(debateId, newRoot, 1);
+        market.executePositionRootUpdate(debateId);
 
         assertEq(market.positionRoot(debateId), newRoot, "Position root should be stored");
 
@@ -536,11 +540,11 @@ contract DebateMarketPositionPrivacyTest is Test {
     }
 
     // ============================================================================
-    // 10. updatePositionRoot access control
+    // 10. initiatePositionRootUpdate access control
     // ============================================================================
 
-    /// @notice Non-governance cannot call updatePositionRoot
-    function test_UpdatePositionRoot_OnlyGovernance() public {
+    /// @notice Non-governance cannot call initiatePositionRootUpdate
+    function test_InitiatePositionRootUpdate_OnlyGovernance() public {
         vm.prank(proposer);
         bytes32 debateId = market.proposeDebate(
             PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
@@ -549,19 +553,175 @@ contract DebateMarketPositionPrivacyTest is Test {
         bytes32 root = keccak256("root");
         vm.prank(arguer1); // not governance
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        market.updatePositionRoot(debateId, root, 1);
+        market.initiatePositionRootUpdate(debateId, root, 1);
     }
 
     // ============================================================================
-    // 11. updatePositionRoot on non-existent debate
+    // 11. initiatePositionRootUpdate on non-existent debate
     // ============================================================================
 
-    /// @notice updatePositionRoot on unknown debateId reverts DebateNotFound
-    function test_UpdatePositionRoot_UnknownDebate_Reverts() public {
+    /// @notice initiatePositionRootUpdate on unknown debateId reverts DebateNotFound
+    function test_InitiatePositionRootUpdate_UnknownDebate_Reverts() public {
         bytes32 unknownId = keccak256("not-a-debate");
         vm.prank(governance);
         vm.expectRevert(DebateMarket.DebateNotFound.selector);
-        market.updatePositionRoot(unknownId, keccak256("root"), 0);
+        market.initiatePositionRootUpdate(unknownId, keccak256("root"), 0);
+    }
+
+    // ============================================================================
+    // SC-3: Position root timelock tests
+    // ============================================================================
+
+    /// @notice initiatePositionRootUpdate emits event and stores pending
+    function test_initiatePositionRootUpdate() public {
+        vm.prank(proposer);
+        bytes32 debateId = market.proposeDebate(
+            PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+        );
+        bytes32 newRoot = keccak256("new-root");
+        vm.prank(governance);
+        market.initiatePositionRootUpdate(debateId, newRoot, 10);
+
+        (bytes32 pendingRoot,, uint256 executeTime) = market.pendingPositionRoots(debateId);
+        assertEq(pendingRoot, newRoot);
+        assertGt(executeTime, 0);
+    }
+
+    /// @notice executePositionRootUpdate succeeds after timelock
+    function test_executePositionRootUpdate() public {
+        vm.prank(proposer);
+        bytes32 debateId = market.proposeDebate(
+            PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+        );
+        bytes32 newRoot = keccak256("new-root");
+        vm.prank(governance);
+        market.initiatePositionRootUpdate(debateId, newRoot, 10);
+
+        skip(10 minutes);
+        market.executePositionRootUpdate(debateId);
+
+        assertEq(market.positionRoot(debateId), newRoot);
+    }
+
+    /// @notice executePositionRootUpdate reverts before timelock expiry
+    function test_executePositionRootUpdate_revert_beforeTimelock() public {
+        vm.prank(proposer);
+        bytes32 debateId = market.proposeDebate(
+            PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+        );
+        bytes32 newRoot = keccak256("new-root");
+        vm.prank(governance);
+        market.initiatePositionRootUpdate(debateId, newRoot, 10);
+
+        // Try to execute immediately (before timelock)
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
+        market.executePositionRootUpdate(debateId);
+    }
+
+    /// @notice cancelPositionRootUpdate clears pending
+    function test_cancelPositionRootUpdate() public {
+        vm.prank(proposer);
+        bytes32 debateId = market.proposeDebate(
+            PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+        );
+        bytes32 newRoot = keccak256("new-root");
+        vm.prank(governance);
+        market.initiatePositionRootUpdate(debateId, newRoot, 10);
+
+        vm.prank(governance);
+        market.cancelPositionRootUpdate(debateId);
+
+        (,, uint256 executeTime) = market.pendingPositionRoots(debateId);
+        assertEq(executeTime, 0, "Pending should be cleared");
+    }
+
+    // ============================================================================
+    // SA-3: Verifier update tests
+    // ============================================================================
+
+    /// @notice Initiate, execute, and cancel debate weight verifier update (slot 0)
+    function test_VerifierUpdate_DebateWeight_InitiateExecute() public {
+        address newVerifier = address(0xDEAD);
+        vm.prank(governance);
+        market.initiateVerifierUpdate(0, newVerifier);
+
+        (address pendingAddr, uint256 pendingTime) = market.pendingVerifierUpdates(0);
+        assertEq(pendingAddr, newVerifier);
+        assertGt(pendingTime, 0);
+
+        skip(10 minutes);
+        market.executeVerifierUpdate(0);
+
+        assertEq(address(market.debateWeightVerifier()), newVerifier);
+    }
+
+    /// @notice Initiate, execute position note verifier update (slot 1)
+    function test_VerifierUpdate_PositionNote_InitiateExecute() public {
+        address newVerifier = address(0xBEEF);
+        vm.prank(governance);
+        market.initiateVerifierUpdate(1, newVerifier);
+
+        skip(10 minutes);
+        market.executeVerifierUpdate(1);
+
+        assertEq(address(market.positionNoteVerifier()), newVerifier);
+    }
+
+    /// @notice Cancel pending verifier update
+    function test_VerifierUpdate_Cancel() public {
+        address newVerifier = address(0xDEAD);
+        vm.prank(governance);
+        market.initiateVerifierUpdate(0, newVerifier);
+
+        vm.prank(governance);
+        market.cancelVerifierUpdate(0);
+
+        (, uint256 pendingTime) = market.pendingVerifierUpdates(0);
+        assertEq(pendingTime, 0, "Should be cleared");
+    }
+
+    /// @notice Execute verifier update reverts before timelock
+    function test_VerifierUpdate_RevertBeforeTimelock() public {
+        vm.prank(governance);
+        market.initiateVerifierUpdate(0, address(0xDEAD));
+
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
+        market.executeVerifierUpdate(0);
+    }
+
+    /// @notice initiateVerifierUpdate reverts with invalid slot
+    function test_VerifierUpdate_RevertInvalidSlot() public {
+        vm.prank(governance);
+        vm.expectRevert(DebateMarket.InvalidVerifierSlot.selector);
+        market.initiateVerifierUpdate(2, address(0xDEAD));
+    }
+
+    /// @notice Updated verifier is used for proof verification
+    function test_VerifierUpdate_UsedForProofVerification() public {
+        // Deploy a rejecting verifier
+        RejectingDebateWeightVerifier rejectDw = new RejectingDebateWeightVerifier();
+
+        // Update the debate weight verifier to the rejecting one
+        vm.prank(governance);
+        market.initiateVerifierUpdate(0, address(rejectDw));
+        skip(10 minutes);
+        market.executeVerifierUpdate(0);
+
+        // Now try to reveal a trade — should fail with InvalidDebateWeightProof
+        bytes32 debateId = _setupDebateAndCommit();
+        vm.warp(block.timestamp + 151);
+
+        uint256 weightedAmount = 8000;
+        bytes32 noteCommitment = keccak256("default-nc");
+        bytes32 nonce = _computeNonce(0, weightedAmount, noteCommitment);
+        bytes32[2] memory dwInputs = [bytes32(uint256(weightedAmount)), noteCommitment];
+
+        vm.prank(trader1);
+        vm.expectRevert(DebateMarket.InvalidDebateWeightProof.selector);
+        market.revealTrade(
+            debateId, 0, 0, 0, DebateMarket.TradeDirection.BUY,
+            nonce, DUMMY_PROOF, dwInputs
+        );
     }
 
     // ============================================================================
@@ -646,10 +806,12 @@ contract DebateMarketPositionPrivacyTest is Test {
         vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         rejectMarket.resolveDebate(debateId);
 
-        // Set position root
+        // Set position root (two-phase)
         bytes32 root = keccak256("root");
         vm.prank(governance);
-        rejectMarket.updatePositionRoot(debateId, root, 1);
+        rejectMarket.initiatePositionRootUpdate(debateId, root, 1);
+        skip(10 minutes);
+        rejectMarket.executePositionRootUpdate(debateId);
 
         bytes32 posNullifier = keccak256("test-nullifier-13");
         bytes32[5] memory posInputs = [
@@ -869,10 +1031,12 @@ contract DebateMarketPositionPrivacyTest is Test {
         vm.warp(block.timestamp + STANDARD_DURATION + 1 days + 1);
         market.resolveDebate(debateId);
 
-        // Set position root
+        // Set position root (two-phase: initiate + skip timelock + execute)
         posRoot = keccak256("test-position-root");
         vm.prank(governance);
-        market.updatePositionRoot(debateId, posRoot, 5);
+        market.initiatePositionRootUpdate(debateId, posRoot, 5);
+        skip(10 minutes);
+        market.executePositionRootUpdate(debateId);
     }
 }
 

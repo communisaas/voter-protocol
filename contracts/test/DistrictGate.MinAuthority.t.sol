@@ -13,14 +13,12 @@ import "../src/EngagementRootRegistry.sol";
 /// @title DistrictGate MinAuthority Governance Tests
 /// @notice Tests for the MinAuthority subsystem: setActionDomainMinAuthority(),
 ///         executeMinAuthorityIncrease(), cancelMinAuthorityIncrease(), and the
-///         InsufficientAuthority enforcement in all three verification paths.
-/// @dev CRITICAL COVERAGE GAP: This subsystem had ZERO test coverage prior to this file.
+///         InsufficientAuthority enforcement in verifyThreeTreeProof().
 ///
 /// SYSTEM UNDER TEST:
 ///   - Decreases take effect immediately (only relax requirements)
 ///   - Increases require 24h timelock (prevent front-running user proofs)
-///   - Authority checked in verifyAndAuthorizeWithSignature(), verifyTwoTreeProof(),
-///     and verifyThreeTreeProof() — all three paths enforce minAuthority
+///   - Authority checked in verifyThreeTreeProof()
 ///   - Only governance can call setActionDomainMinAuthority()
 ///
 /// TIMELOCK BUG WORKAROUND (via_ir = true):
@@ -35,8 +33,7 @@ contract DistrictGateMinAuthorityTest is Test {
     CellMapRegistry public cellMapRegistry;
     EngagementRootRegistry public engagementRootRegistry;
 
-    // Mock verifiers
-    MockMinAuthorityVerifier public twoTreeVerifier;
+    // Mock verifier
     MockMinAuthorityVerifier public threeTreeVerifier;
 
     address public governance = address(0x1);
@@ -51,9 +48,6 @@ contract DistrictGateMinAuthorityTest is Test {
     // Test constants: Tree 3 (engagement) roots
     bytes32 public constant ENGAGEMENT_ROOT_1 = bytes32(uint256(0xCCCC1111));
 
-    // Single-tree path constants
-    bytes32 public constant DISTRICT_ROOT = bytes32(uint256(0x123));
-    bytes32 public constant DISTRICT_ID = keccak256("CA-SD-01");
     bytes3 public constant USA = "USA";
     uint8 public constant DEPTH_20 = 20;
 
@@ -75,8 +69,7 @@ contract DistrictGateMinAuthorityTest is Test {
     uint256 internal _lastWarpTime;
 
     function setUp() public {
-        // Deploy mock verifiers
-        twoTreeVerifier = new MockMinAuthorityVerifier(true);
+        // Deploy mock verifier
         threeTreeVerifier = new MockMinAuthorityVerifier(true);
 
         // Deploy registries
@@ -99,16 +92,11 @@ contract DistrictGateMinAuthorityTest is Test {
             24 hours
         );
 
-        // Register verifiers (genesis) — both two-tree and three-tree
+        // Register three-tree verifier (genesis)
         vm.startPrank(governance);
-        verifierRegistry.registerVerifier(DEPTH_20, address(twoTreeVerifier));
         verifierRegistry.registerThreeTreeVerifier(DEPTH_20, address(threeTreeVerifier));
         verifierRegistry.sealGenesis();
         vm.stopPrank();
-
-        // Register district for single-tree path
-        vm.prank(governance);
-        districtRegistry.registerDistrict(DISTRICT_ROOT, USA, DEPTH_20);
 
         // Authorize gate as caller on NullifierRegistry (7-day timelock)
         vm.prank(governance);
@@ -126,7 +114,7 @@ contract DistrictGateMinAuthorityTest is Test {
 
         // Configure registries on DistrictGate via genesis (before sealing)
         vm.startPrank(governance);
-        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        gate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         gate.setEngagementRegistryGenesis(address(engagementRootRegistry));
         gate.registerActionDomainGenesis(ACTION_DOMAIN_1);
         gate.sealGenesis();
@@ -354,92 +342,7 @@ contract DistrictGateMinAuthorityTest is Test {
     }
 
     // ============================================================================
-    // 6. TWO-TREE PROOF REVERTS WHEN AUTHORITY BELOW MINIMUM
-    // ============================================================================
-
-    /// @notice verifyTwoTreeProof reverts with InsufficientAuthority when the proof's
-    ///         authority_level is below the domain's minAuthority.
-    function test_VerifyTwoTreeProof_RevertsWhen_AuthorityBelowMinimum() public {
-        // Set min authority to 3
-        _setMinAuthority(ACTION_DOMAIN_1, 3);
-        assertEq(gate.actionDomainMinAuthority(ACTION_DOMAIN_1), 3);
-
-        // Build proof with authority=1 (below minimum of 3)
-        bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_1);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(1); // authority_level = 1
-
-        (address signer, bytes memory signature, uint256 deadline) =
-            _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
-
-        vm.expectRevert(abi.encodeWithSelector(DistrictGate.InsufficientAuthority.selector, 1, 3));
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
-    }
-
-    /// @notice verifyTwoTreeProof succeeds when authority exactly meets minimum
-    function test_VerifyTwoTreeProof_SucceedsWhen_AuthorityEqualsMinimum() public {
-        _setMinAuthority(ACTION_DOMAIN_1, 3);
-
-        bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_1);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(3); // authority_level = 3 (exactly meets min)
-
-        (address signer, bytes memory signature, uint256 deadline) =
-            _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
-
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
-        assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_1));
-    }
-
-    /// @notice verifyTwoTreeProof succeeds when authority exceeds minimum
-    function test_VerifyTwoTreeProof_SucceedsWhen_AuthorityAboveMinimum() public {
-        _setMinAuthority(ACTION_DOMAIN_1, 2);
-
-        bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_2);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(5); // authority_level = 5 (above min of 2)
-
-        (address signer, bytes memory signature, uint256 deadline) =
-            _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
-
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
-        assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_2));
-    }
-
-    /// @notice verifyTwoTreeProof succeeds when minAuthority is 0 (no enforcement)
-    function test_VerifyTwoTreeProof_SucceedsWhen_MinAuthorityIsZero() public {
-        // Default is 0 (no enforcement)
-        assertEq(gate.actionDomainMinAuthority(ACTION_DOMAIN_1), 0);
-
-        bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_3);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(1); // lowest valid authority
-
-        (address signer, bytes memory signature, uint256 deadline) =
-            _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
-
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
-        assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_3));
-    }
-
-    // ============================================================================
-    // 7. THREE-TREE PROOF REVERTS WHEN AUTHORITY BELOW MINIMUM
+    // 6. THREE-TREE PROOF REVERTS WHEN AUTHORITY BELOW MINIMUM
     // ============================================================================
 
     /// @notice verifyThreeTreeProof reverts with InsufficientAuthority when the proof's
@@ -490,86 +393,7 @@ contract DistrictGateMinAuthorityTest is Test {
     }
 
     // ============================================================================
-    // 8. SINGLE-TREE PROOF ENFORCES MIN AUTHORITY
-    // ============================================================================
-
-    /// @notice verifyAndAuthorizeWithSignature also enforces minAuthority
-    function test_VerifyAndAuthorizeWithSignature_RevertsWhen_AuthorityBelowMinimum() public {
-        _setMinAuthority(ACTION_DOMAIN_1, 4);
-
-        bytes memory proof = hex"deadbeef";
-        bytes32 authorityLevel = bytes32(uint256(2)); // below min of 4
-
-        uint256 userPrivateKey = 0x1234;
-        address signer = vm.addr(userPrivateKey);
-
-        (bytes memory signature, uint256 deadline) = _generateSingleTreeSignature(
-            userPrivateKey,
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            authorityLevel,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA
-        );
-
-        vm.expectRevert(abi.encodeWithSelector(DistrictGate.InsufficientAuthority.selector, 2, 4));
-        gate.verifyAndAuthorizeWithSignature(
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            authorityLevel,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA,
-            deadline,
-            signature
-        );
-    }
-
-    /// @notice Single-tree path succeeds when authority meets minimum
-    function test_VerifyAndAuthorizeWithSignature_SucceedsWhen_AuthorityMeetsMinimum() public {
-        _setMinAuthority(ACTION_DOMAIN_1, 3);
-
-        bytes memory proof = hex"deadbeef";
-        bytes32 authorityLevel = bytes32(uint256(3));
-
-        uint256 userPrivateKey = 0x1234;
-        address signer = vm.addr(userPrivateKey);
-
-        (bytes memory signature, uint256 deadline) = _generateSingleTreeSignature(
-            userPrivateKey,
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            authorityLevel,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA
-        );
-
-        gate.verifyAndAuthorizeWithSignature(
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            authorityLevel,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA,
-            deadline,
-            signature
-        );
-
-        assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_1));
-    }
-
-    // ============================================================================
-    // 9. ACCESS CONTROL
+    // 7. ACCESS CONTROL
     // ============================================================================
 
     /// @notice setActionDomainMinAuthority reverts when called by non-governance
@@ -603,7 +427,7 @@ contract DistrictGateMinAuthorityTest is Test {
     }
 
     // ============================================================================
-    // 10. EDGE CASES AND SEQUENTIAL OPERATIONS
+    // 8. EDGE CASES AND SEQUENTIAL OPERATIONS
     // ============================================================================
 
     /// @notice Multiple decreases in sequence: each takes effect immediately
@@ -643,22 +467,25 @@ contract DistrictGateMinAuthorityTest is Test {
         assertEq(gate.actionDomainMinAuthority(ACTION_DOMAIN_1), 1);
     }
 
-    /// @notice Setting minAuthority to 5 then verifying with authority=5 succeeds
+    /// @notice Setting minAuthority to 5 then verifying with authority=5 succeeds (three-tree path)
     function test_SetMinAuthority_MaxLevel_ProofSucceeds() public {
         _setMinAuthority(ACTION_DOMAIN_1, 5);
 
         bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_4);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(5); // max authority
+        uint256[31] memory publicInputs = _buildThreeTreePublicInputs(
+            USER_ROOT_1,
+            CELL_MAP_ROOT_1,
+            NULLIFIER_4,
+            ACTION_DOMAIN_1,
+            bytes32(uint256(5)), // max authority
+            ENGAGEMENT_ROOT_1,
+            2
+        );
 
         (address signer, bytes memory signature, uint256 deadline) =
-            _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
+            _generateThreeTreeSignature(proof, publicInputs, DEPTH_20);
 
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
+        gate.verifyThreeTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
         assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_4));
     }
 
@@ -680,11 +507,11 @@ contract DistrictGateMinAuthorityTest is Test {
     }
 
     // ============================================================================
-    // 11. PROOF AFTER DECREASE WORKS WITH NEW LOWER THRESHOLD
+    // 9. PROOF AFTER DECREASE WORKS WITH NEW LOWER THRESHOLD
     // ============================================================================
 
     /// @notice After decreasing minAuthority, a proof that was previously rejected
-    ///         should now succeed.
+    ///         should now succeed (three-tree path).
     function test_ProofSucceedsAfterDecrease() public {
         // Set min to 4
         _setMinAuthority(ACTION_DOMAIN_1, 4);
@@ -692,20 +519,18 @@ contract DistrictGateMinAuthorityTest is Test {
         // First: verify authority=2 fails
         {
             bytes memory proof = hex"deadbeef";
-            uint256[29] memory publicInputs;
-            publicInputs[0] = uint256(USER_ROOT_1);
-            publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-            publicInputs[26] = uint256(NULLIFIER_1);
-            publicInputs[27] = uint256(ACTION_DOMAIN_1);
-            publicInputs[28] = uint256(2);
+            uint256[31] memory publicInputs = _buildThreeTreePublicInputs(
+                USER_ROOT_1, CELL_MAP_ROOT_1, NULLIFIER_1, ACTION_DOMAIN_1,
+                bytes32(uint256(2)), ENGAGEMENT_ROOT_1, 2
+            );
 
             (address signer, bytes memory signature, uint256 deadline) =
-                _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
+                _generateThreeTreeSignature(proof, publicInputs, DEPTH_20);
 
             vm.expectRevert(
                 abi.encodeWithSelector(DistrictGate.InsufficientAuthority.selector, 2, 4)
             );
-            gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
+            gate.verifyThreeTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
         }
 
         // Decrease to 2
@@ -716,17 +541,15 @@ contract DistrictGateMinAuthorityTest is Test {
         // Now authority=2 succeeds
         {
             bytes memory proof = hex"deadbeef";
-            uint256[29] memory publicInputs;
-            publicInputs[0] = uint256(USER_ROOT_1);
-            publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-            publicInputs[26] = uint256(NULLIFIER_1);
-            publicInputs[27] = uint256(ACTION_DOMAIN_1);
-            publicInputs[28] = uint256(2);
+            uint256[31] memory publicInputs = _buildThreeTreePublicInputs(
+                USER_ROOT_1, CELL_MAP_ROOT_1, NULLIFIER_1, ACTION_DOMAIN_1,
+                bytes32(uint256(2)), ENGAGEMENT_ROOT_1, 2
+            );
 
             (address signer, bytes memory signature, uint256 deadline) =
-                _generateTwoTreeSignature(proof, publicInputs, DEPTH_20);
+                _generateThreeTreeSignature(proof, publicInputs, DEPTH_20);
 
-            gate.verifyTwoTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
+            gate.verifyThreeTreeProof(signer, proof, publicInputs, DEPTH_20, deadline, signature);
             assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_1));
         }
     }
@@ -776,38 +599,6 @@ contract DistrictGateMinAuthorityTest is Test {
         inputs[30] = engagementTier;
     }
 
-    /// @notice Generate EIP-712 signature for two-tree proof submission
-    function _generateTwoTreeSignature(
-        bytes memory proof,
-        uint256[29] memory publicInputs,
-        uint8 verifierDepth
-    ) internal view returns (address signer, bytes memory signature, uint256 deadline) {
-        uint256 privateKey = 0xA11CE;
-        signer = vm.addr(privateKey);
-        deadline = block.timestamp + 1 hours;
-        uint256 nonce = gate.nonces(signer);
-
-        bytes32 proofHash = keccak256(proof);
-        bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                gate.SUBMIT_TWO_TREE_PROOF_TYPEHASH(),
-                proofHash,
-                publicInputsHash,
-                verifierDepth,
-                nonce,
-                deadline
-            )
-        );
-
-        bytes32 digest =
-            keccak256(abi.encodePacked("\x19\x01", gate.DOMAIN_SEPARATOR(), structHash));
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        signature = abi.encodePacked(r, s, v);
-    }
-
     /// @notice Generate EIP-712 signature for three-tree proof submission
     function _generateThreeTreeSignature(
         bytes memory proof,
@@ -828,45 +619,6 @@ contract DistrictGateMinAuthorityTest is Test {
                 proofHash,
                 publicInputsHash,
                 verifierDepth,
-                nonce,
-                deadline
-            )
-        );
-
-        bytes32 digest =
-            keccak256(abi.encodePacked("\x19\x01", gate.DOMAIN_SEPARATOR(), structHash));
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        signature = abi.encodePacked(r, s, v);
-    }
-
-    /// @notice Generate EIP-712 signature for single-tree (legacy) proof submission
-    function _generateSingleTreeSignature(
-        uint256 privateKey,
-        address signer,
-        bytes memory proof,
-        bytes32 districtRoot,
-        bytes32 nullifier,
-        bytes32 authorityLevel,
-        bytes32 actionDomain,
-        bytes32 districtId,
-        bytes3 country
-    ) internal view returns (bytes memory signature, uint256 deadline) {
-        deadline = block.timestamp + 1 hours;
-        uint256 nonce = gate.nonces(signer);
-
-        bytes32 proofHash = keccak256(proof);
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                gate.SUBMIT_PROOF_TYPEHASH(),
-                proofHash,
-                districtRoot,
-                nullifier,
-                authorityLevel,
-                actionDomain,
-                districtId,
-                country,
                 nonce,
                 deadline
             )

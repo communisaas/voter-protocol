@@ -23,20 +23,13 @@ contract DistrictGateGovernanceTest is Test {
     VerifierRegistry public verifierRegistry;
     CampaignRegistry public campaignRegistry;
     CampaignRegistry public newCampaignRegistry;
-    address public verifier;
 
     address public governance = address(0x1);
     address public user = address(0x2);
     address public attacker = address(0x3);
 
-    bytes32 public constant DISTRICT_ROOT = bytes32(uint256(0x123));
-    bytes32 public constant NULLIFIER_1 = bytes32(uint256(0x456));
     bytes32 public constant ACTION_DOMAIN_1 = keccak256("election-2024");
     bytes32 public constant ACTION_DOMAIN_2 = keccak256("petition-456");
-    bytes32 public constant AUTHORITY_LEVEL = bytes32(uint256(3));
-    bytes32 public constant DISTRICT_ID = keccak256("CA-SD-01");
-    bytes3 public constant USA = "USA";
-    uint8 public constant DEPTH_18 = 18;
 
     uint256 public constant SEVEN_DAYS = 7 days;
 
@@ -55,9 +48,6 @@ contract DistrictGateGovernanceTest is Test {
     event ContractUnpaused(address indexed governance);
 
     function setUp() public {
-        // Deploy mock verifier
-        verifier = address(new MockVerifierGov());
-
         // Deploy registries
         districtRegistry = new DistrictRegistry(governance, 7 days);
         nullifierRegistry = new NullifierRegistry(governance, 7 days, 7 days);
@@ -78,20 +68,6 @@ contract DistrictGateGovernanceTest is Test {
         // Deploy CampaignRegistries
         campaignRegistry = new CampaignRegistry(governance, 7 days, 24 hours);
         newCampaignRegistry = new CampaignRegistry(governance, 7 days, 24 hours);
-
-        // Setup: Register verifier for depth 18 (genesis registration)
-        vm.startPrank(governance);
-        verifierRegistry.registerVerifier(DEPTH_18, verifier);
-        verifierRegistry.sealGenesis();
-
-        // Setup: Register district
-        districtRegistry.registerDistrict(DISTRICT_ROOT, USA, DEPTH_18);
-
-        // Setup: Authorize gate as caller on NullifierRegistry (with 7-day timelock)
-        nullifierRegistry.proposeCallerAuthorization(address(gate));
-        vm.stopPrank();
-        vm.warp(block.timestamp + 7 days);
-        nullifierRegistry.executeCallerAuthorization(address(gate));
     }
 
     // ============================================================================
@@ -295,23 +271,31 @@ contract DistrictGateGovernanceTest is Test {
         assertEq(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
     }
 
-    /// @notice revokeActionDomain is immediate (emergency revocation)
-    function test_RevokeActionDomain_IsImmediate() public {
+    /// @notice SM-3: revokeActionDomain uses two-phase revocation (initiate + execute)
+    function test_RevokeActionDomain_TwoPhase() public {
         // First whitelist an action domain
         vm.prank(governance);
         gate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + SEVEN_DAYS);
+        uint256 t1 = block.timestamp + SEVEN_DAYS;
+        vm.warp(t1);
         gate.executeActionDomain(ACTION_DOMAIN_1);
 
         assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
 
-        // Revoke immediately (no timelock required)
+        // Initiate revocation (starts timelock, executeTime = t1 + SEVEN_DAYS)
         vm.prank(governance);
+        gate.initiateActionDomainRevocation(ACTION_DOMAIN_1);
+
+        // Still active during timelock
+        assertTrue(gate.allowedActionDomains(ACTION_DOMAIN_1));
+
+        // Execute after timelock (absolute timestamp to avoid via_ir caching)
+        vm.warp(t1 + SEVEN_DAYS);
         vm.expectEmit(true, false, false, false);
         emit ActionDomainRevoked(ACTION_DOMAIN_1);
-        gate.revokeActionDomain(ACTION_DOMAIN_1);
+        gate.executeActionDomainRevocation(ACTION_DOMAIN_1);
 
-        // Verify: Action domain is revoked immediately
+        // Verify: Action domain is revoked
         assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
     }
 
@@ -334,18 +318,18 @@ contract DistrictGateGovernanceTest is Test {
         gate.cancelActionDomain(ACTION_DOMAIN_1);
     }
 
-    /// @notice Only governance can revoke action domain
-    function test_RevertWhen_NonGovernanceRevokeActionDomain() public {
+    /// @notice Only governance can initiate action domain revocation
+    function test_RevertWhen_NonGovernanceInitiateRevocation() public {
         // First whitelist
         vm.prank(governance);
         gate.proposeActionDomain(ACTION_DOMAIN_1);
         vm.warp(block.timestamp + SEVEN_DAYS);
         gate.executeActionDomain(ACTION_DOMAIN_1);
 
-        // Try to revoke as non-governance
+        // Try to initiate revocation as non-governance
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        gate.revokeActionDomain(ACTION_DOMAIN_1);
+        gate.initiateActionDomainRevocation(ACTION_DOMAIN_1);
     }
 
     /// @notice Anyone can execute action domain after timelock
@@ -386,19 +370,24 @@ contract DistrictGateGovernanceTest is Test {
         gate.executeActionDomain(ACTION_DOMAIN_1);
     }
 
-    /// @notice Verify ActionDomainRevoked event is emitted
+    /// @notice Verify ActionDomainRevoked event is emitted via two-phase revocation
     function test_ActionDomainRevoked_EventEmitted() public {
         // Whitelist first
         vm.prank(governance);
         gate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + SEVEN_DAYS);
+        uint256 t1 = block.timestamp + SEVEN_DAYS;
+        vm.warp(t1);
         gate.executeActionDomain(ACTION_DOMAIN_1);
 
-        // Revoke
+        // Initiate revocation
         vm.prank(governance);
+        gate.initiateActionDomainRevocation(ACTION_DOMAIN_1);
+
+        // Execute after timelock (absolute timestamp to avoid via_ir caching)
+        vm.warp(t1 + SEVEN_DAYS);
         vm.expectEmit(true, false, false, false);
         emit ActionDomainRevoked(ACTION_DOMAIN_1);
-        gate.revokeActionDomain(ACTION_DOMAIN_1);
+        gate.executeActionDomainRevocation(ACTION_DOMAIN_1);
     }
 
     // ============================================================================
@@ -447,53 +436,6 @@ contract DistrictGateGovernanceTest is Test {
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         gate.unpause();
-    }
-
-    /// @notice verifyAndAuthorizeWithSignature reverts when paused
-    function test_RevertWhen_VerifyAndAuthorize_WhenPaused() public {
-        // Whitelist action domain first
-        vm.prank(governance);
-        gate.proposeActionDomain(ACTION_DOMAIN_1);
-        vm.warp(block.timestamp + SEVEN_DAYS);
-        gate.executeActionDomain(ACTION_DOMAIN_1);
-
-        // Pause the contract
-        vm.prank(governance);
-        gate.pause();
-
-        // Setup signature
-        bytes memory proof = hex"deadbeef";
-        uint256 userPrivateKey = 0x1234;
-        address signer = vm.addr(userPrivateKey);
-        uint256 deadline = block.timestamp + 1 hours;
-
-        (bytes memory signature, ) = _generateSignature(
-            userPrivateKey,
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            AUTHORITY_LEVEL,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA,
-            deadline
-        );
-
-        // Try to verify - should revert with Pausable error
-        vm.expectRevert("Pausable: paused");
-        gate.verifyAndAuthorizeWithSignature(
-            signer,
-            proof,
-            DISTRICT_ROOT,
-            NULLIFIER_1,
-            AUTHORITY_LEVEL,
-            ACTION_DOMAIN_1,
-            DISTRICT_ID,
-            USA,
-            deadline,
-            signature
-        );
     }
 
     /// @notice Verify ContractPaused event is emitted
@@ -551,10 +493,10 @@ contract DistrictGateGovernanceTest is Test {
         vm.prank(governance);
         gate.cancelActionDomain(ACTION_DOMAIN_1);
 
-        // Test revokeActionDomain
+        // Test initiateActionDomainRevocation
         vm.prank(user);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        gate.revokeActionDomain(ACTION_DOMAIN_1);
+        gate.initiateActionDomainRevocation(ACTION_DOMAIN_1);
 
         // Test pause
         vm.prank(user);
@@ -710,19 +652,15 @@ contract DistrictGateGovernanceTest is Test {
         assertGt(gate.pendingActionDomains(ACTION_DOMAIN_1), 0);
     }
 
-    /// @notice Revoking non-whitelisted action domain does not revert (idempotent)
-    function test_RevokeActionDomain_WhenNotWhitelisted_DoesNotRevert() public {
+    /// @notice Initiating revocation of non-active domain reverts
+    function test_InitiateRevocation_WhenNotActive_Reverts() public {
         // ACTION_DOMAIN_1 was never whitelisted
         assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
 
-        // Revoke should still work (just sets it to false, which it already is)
+        // Initiate revocation should revert (domain not active)
         vm.prank(governance);
-        vm.expectEmit(true, false, false, false);
-        emit ActionDomainRevoked(ACTION_DOMAIN_1);
-        gate.revokeActionDomain(ACTION_DOMAIN_1);
-
-        // Still false
-        assertFalse(gate.allowedActionDomains(ACTION_DOMAIN_1));
+        vm.expectRevert(DistrictGate.DomainNotActive.selector);
+        gate.initiateActionDomainRevocation(ACTION_DOMAIN_1);
     }
 
     /// @notice Multiple action domains can be proposed simultaneously
@@ -808,53 +746,4 @@ contract DistrictGateGovernanceTest is Test {
         gate.unpause();
     }
 
-    // ============================================================================
-    // Helper Functions
-    // ============================================================================
-
-    /// @notice Helper to generate EIP-712 signature for proof submission
-    function _generateSignature(
-        uint256 privateKey,
-        address signer,
-        bytes memory proof,
-        bytes32 districtRoot,
-        bytes32 nullifier,
-        bytes32 authorityLevel,
-        bytes32 actionDomain,
-        bytes32 districtId,
-        bytes3 country,
-        uint256 deadline
-    ) internal view returns (bytes memory signature, uint256 returnedDeadline) {
-        returnedDeadline = deadline;
-        uint256 nonce = gate.nonces(signer);
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                gate.SUBMIT_PROOF_TYPEHASH(),
-                keccak256(proof),
-                districtRoot,
-                nullifier,
-                authorityLevel,
-                actionDomain,
-                districtId,
-                country,
-                nonce,
-                deadline
-            )
-        );
-
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", gate.DOMAIN_SEPARATOR(), structHash)
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        signature = abi.encodePacked(r, s, v);
-    }
-}
-
-/// @notice Mock verifier that always returns true
-contract MockVerifierGov {
-    function verify(bytes calldata, bytes32[] calldata) external pure returns (bool) {
-        return true;
-    }
 }

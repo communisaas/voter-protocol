@@ -22,6 +22,9 @@ contract CampaignRegistryTest is Test {
     bytes32 constant ACTION_ID_1 = bytes32(uint256(0xAAA));
     bytes32 constant ACTION_ID_2 = bytes32(uint256(0xBBB));
     bytes32 constant DISTRICT_ROOT = bytes32(uint256(0xDDD));
+    bytes32 constant NULLIFIER_1 = bytes32(uint256(0x111));
+    bytes32 constant NULLIFIER_2 = bytes32(uint256(0x222));
+    bytes32 constant NULLIFIER_3 = bytes32(uint256(0x333));
 
     event CampaignCreated(
         bytes32 indexed campaignId,
@@ -237,7 +240,7 @@ contract CampaignRegistryTest is Test {
 
         // Record participation
         vm.prank(districtGate);
-        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
 
         (, , , , , uint256 participantCount, uint256 districtCount) = registry.getCampaign(campaignId);
         assertEq(participantCount, 1);
@@ -254,20 +257,20 @@ contract CampaignRegistryTest is Test {
         bytes32 district1 = bytes32(uint256(0xD1));
         bytes32 district2 = bytes32(uint256(0xD2));
 
-        // Record from district1
+        // Record from district1 with unique nullifier
         vm.prank(districtGate);
-        registry.recordParticipation(ACTION_ID_1, district1);
+        registry.recordParticipation(ACTION_ID_1, district1, NULLIFIER_1);
 
-        // Record from district1 again (same district)
+        // Record from district1 again (same district, different nullifier)
         vm.prank(districtGate);
-        registry.recordParticipation(ACTION_ID_1, district1);
+        registry.recordParticipation(ACTION_ID_1, district1, NULLIFIER_2);
 
-        // Record from district2 (different district)
+        // Record from district2 (different district, different nullifier)
         vm.prank(districtGate);
-        registry.recordParticipation(ACTION_ID_1, district2);
+        registry.recordParticipation(ACTION_ID_1, district2, NULLIFIER_3);
 
         (, , , , , uint256 participantCount, uint256 districtCount) = registry.getCampaign(campaignId);
-        assertEq(participantCount, 3); // 3 total participants
+        assertEq(participantCount, 3); // 3 unique nullifiers = 3 participants
         assertEq(districtCount, 2);    // Only 2 unique districts
     }
 
@@ -280,7 +283,7 @@ contract CampaignRegistryTest is Test {
 
         // Try to record for unlinked action (should not revert, just ignored)
         vm.prank(districtGate);
-        registry.recordParticipation(bytes32(uint256(0xFEED)), DISTRICT_ROOT);
+        registry.recordParticipation(bytes32(uint256(0xFEED)), DISTRICT_ROOT, NULLIFIER_1);
         // No assertion needed - just checking it doesn't revert
     }
 
@@ -293,7 +296,7 @@ contract CampaignRegistryTest is Test {
 
         vm.prank(attacker);
         vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
     }
 
     // ============================================================================
@@ -353,7 +356,7 @@ contract CampaignRegistryTest is Test {
 
         // Try to record participation (should not revert, but should not record)
         vm.prank(districtGate);
-        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
 
         (, , , , , uint256 participantCount, ) = registry.getCampaign(campaignId);
         assertEq(participantCount, 0); // No participation recorded
@@ -550,6 +553,67 @@ contract CampaignRegistryTest is Test {
         vm.expectRevert(CampaignRegistry.RateLimitExceeded.selector);
         registry.createCampaign(bytes32(uint256(0x999)), USA, actionIds2);
     }
+
+    // ============================================================================
+    // SL-9: Participant Deduplication Tests
+    // ============================================================================
+
+    function test_SL9_SameNullifierDoesNotInflateParticipantCount() public {
+        bytes32[] memory actionIds = new bytes32[](1);
+        actionIds[0] = ACTION_ID_1;
+
+        vm.prank(creator);
+        bytes32 campaignId = registry.createCampaign(IPFS_HASH, USA, actionIds);
+
+        // Record same nullifier 3 times
+        vm.startPrank(districtGate);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
+        vm.stopPrank();
+
+        (, , , , , uint256 participantCount, ) = registry.getCampaign(campaignId);
+        assertEq(participantCount, 1); // SL-9: only 1, not 3
+    }
+
+    function test_SL9_DifferentNullifiersCountSeparately() public {
+        bytes32[] memory actionIds = new bytes32[](1);
+        actionIds[0] = ACTION_ID_1;
+
+        vm.prank(creator);
+        bytes32 campaignId = registry.createCampaign(IPFS_HASH, USA, actionIds);
+
+        vm.startPrank(districtGate);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_2);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_3);
+        vm.stopPrank();
+
+        (, , , , , uint256 participantCount, ) = registry.getCampaign(campaignId);
+        assertEq(participantCount, 3); // 3 unique nullifiers = 3 participants
+    }
+
+    function test_SL9_CampaignParticipantSeenMapping() public {
+        bytes32[] memory actionIds = new bytes32[](1);
+        actionIds[0] = ACTION_ID_1;
+
+        vm.prank(creator);
+        bytes32 campaignId = registry.createCampaign(IPFS_HASH, USA, actionIds);
+
+        // Before participation: not seen
+        assertFalse(registry.campaignParticipantSeen(campaignId, NULLIFIER_1));
+
+        // After participation: seen
+        vm.prank(districtGate);
+        registry.recordParticipation(ACTION_ID_1, DISTRICT_ROOT, NULLIFIER_1);
+
+        assertTrue(registry.campaignParticipantSeen(campaignId, NULLIFIER_1));
+        assertFalse(registry.campaignParticipantSeen(campaignId, NULLIFIER_2));
+    }
+
+    // ============================================================================
+    // Fuzz Tests
+    // ============================================================================
 
     function testFuzz_FlagTimelockEnforcement(uint256 timeElapsed) public {
         vm.assume(timeElapsed < 24 hours);

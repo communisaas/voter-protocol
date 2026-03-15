@@ -3,6 +3,8 @@ pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DistrictRegistry.sol";
+import "../src/AbstractRootLifecycle.sol";
+import "../src/TimelockGovernance.sol";
 
 /// @title DistrictRegistry Lifecycle Management Tests
 /// @notice Comprehensive tests for root deactivation, expiry, and reactivation
@@ -21,7 +23,7 @@ contract DistrictRegistryLifecycleTest is Test {
     bytes3 public constant GBR = "GBR";
     uint8 public constant DEPTH_20 = 20;
 
-    event RootDeactivationInitiated(bytes32 indexed root, uint256 executeTime);
+    event RootOperationInitiated(bytes32 indexed root, uint8 operationType, uint256 executeTime);
     event RootDeactivated(bytes32 indexed root);
     event RootExpirySet(bytes32 indexed root, uint64 expiresAt);
     event RootReactivated(bytes32 indexed root);
@@ -60,7 +62,7 @@ contract DistrictRegistryLifecycleTest is Test {
 
         vm.prank(governance);
         vm.expectEmit(true, false, false, true);
-        emit RootDeactivationInitiated(DISTRICT_ROOT_1, expectedExecuteTime);
+        emit RootOperationInitiated(DISTRICT_ROOT_1, 1, expectedExecuteTime);
 
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
 
@@ -71,13 +73,13 @@ contract DistrictRegistryLifecycleTest is Test {
 
     function test_RevertWhen_InitiateRootDeactivation_UnauthorizedCaller() public {
         vm.prank(attacker);
-        vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
     }
 
     function test_RevertWhen_InitiateRootDeactivation_RootNotRegistered() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.RootNotRegistered.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootNotRegistered.selector);
         registry.initiateRootDeactivation(UNREGISTERED_ROOT);
     }
 
@@ -90,7 +92,7 @@ contract DistrictRegistryLifecycleTest is Test {
 
         // Try to deactivate again
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.RootAlreadyInactive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyInactive.selector);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
     }
 
@@ -100,7 +102,7 @@ contract DistrictRegistryLifecycleTest is Test {
 
         // Try to initiate another operation while one is pending
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
     }
 
@@ -109,13 +111,13 @@ contract DistrictRegistryLifecycleTest is Test {
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
 
         // Try to execute immediately (should fail)
-        vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Try after 6 days (should fail)
         uint256 t1 = block.timestamp + 6 days;
         vm.warp(t1);
-        vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
 
         // Execute after exactly 7 days (should succeed)
@@ -144,7 +146,7 @@ contract DistrictRegistryLifecycleTest is Test {
     }
 
     function test_RevertWhen_ExecuteRootDeactivation_NoOperationPending() public {
-        vm.expectRevert(DistrictRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
     }
 
@@ -181,7 +183,7 @@ contract DistrictRegistryLifecycleTest is Test {
         uint64 pastTimestamp = uint64(block.timestamp - 1 days);
 
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.InvalidExpiry.selector);
+        vm.expectRevert(AbstractRootLifecycle.InvalidExpiry.selector);
         registry.initiateRootExpiry(DISTRICT_ROOT_1, pastTimestamp);
     }
 
@@ -190,7 +192,7 @@ contract DistrictRegistryLifecycleTest is Test {
         uint64 currentTimestamp = uint64(block.timestamp);
 
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.InvalidExpiry.selector);
+        vm.expectRevert(AbstractRootLifecycle.InvalidExpiry.selector);
         registry.initiateRootExpiry(DISTRICT_ROOT_1, currentTimestamp);
     }
 
@@ -260,7 +262,7 @@ contract DistrictRegistryLifecycleTest is Test {
     }
 
     function test_RevertWhen_ExecuteRootExpiry_NoOperationPending() public {
-        vm.expectRevert(DistrictRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootExpiry(DISTRICT_ROOT_1);
     }
 
@@ -271,7 +273,7 @@ contract DistrictRegistryLifecycleTest is Test {
 
         vm.warp(block.timestamp + 7 days);
 
-        vm.expectRevert(DistrictRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootExpiry(DISTRICT_ROOT_1);
     }
 
@@ -317,18 +319,18 @@ contract DistrictRegistryLifecycleTest is Test {
     function test_RevertWhen_InitiateRootReactivation_AlreadyActive() public {
         // Root is active by default
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.RootAlreadyActive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyActive.selector);
         registry.initiateRootReactivation(DISTRICT_ROOT_1);
     }
 
     function test_RevertWhen_InitiateRootReactivation_RootNotRegistered() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.RootNotRegistered.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootNotRegistered.selector);
         registry.initiateRootReactivation(UNREGISTERED_ROOT);
     }
 
     function test_RevertWhen_ExecuteRootReactivation_NoOperationPending() public {
-        vm.expectRevert(DistrictRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootReactivation(DISTRICT_ROOT_1);
     }
 
@@ -401,13 +403,13 @@ contract DistrictRegistryLifecycleTest is Test {
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
 
         vm.prank(attacker);
-        vm.expectRevert(DistrictRegistry.UnauthorizedCaller.selector);
+        vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
         registry.cancelRootOperation(DISTRICT_ROOT_1);
     }
 
     function test_RevertWhen_CancelRootOperation_NoOperationPending() public {
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.cancelRootOperation(DISTRICT_ROOT_1);
     }
 
@@ -573,7 +575,7 @@ contract DistrictRegistryLifecycleTest is Test {
 
         vm.warp(block.timestamp + timeElapsed);
 
-        vm.expectRevert(DistrictRegistry.TimelockNotExpired.selector);
+        vm.expectRevert(TimelockGovernance.TimelockNotExpired.selector);
         registry.executeRootDeactivation(DISTRICT_ROOT_1);
     }
 
@@ -662,12 +664,12 @@ contract DistrictRegistryLifecycleTest is Test {
 
         // Try to initiate expiry (should fail - operation already pending)
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootExpiry(DISTRICT_ROOT_1, uint64(block.timestamp + 30 days));
 
         // Try to initiate another deactivation (should fail)
         vm.prank(governance);
-        vm.expectRevert(DistrictRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootDeactivation(DISTRICT_ROOT_1);
     }
 

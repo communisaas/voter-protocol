@@ -3,6 +3,7 @@ pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/EngagementRootRegistry.sol";
+import "../src/AbstractRootLifecycle.sol";
 import "../src/TimelockGovernance.sol";
 
 /// @title EngagementRootRegistry Tests
@@ -243,7 +244,7 @@ contract EngagementRootRegistryTest is Test {
 
     function test_RevertWhen_InitiateDeactivation_NotRegistered() public {
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.RootNotRegistered.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootNotRegistered.selector);
         registry.initiateRootDeactivation(UNREGISTERED_ROOT);
     }
 
@@ -257,7 +258,7 @@ contract EngagementRootRegistryTest is Test {
         registry.executeRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.RootAlreadyInactive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyInactive.selector);
         registry.initiateRootDeactivation(ROOT_1);
     }
 
@@ -269,7 +270,7 @@ contract EngagementRootRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootDeactivation(ROOT_1);
     }
 
@@ -277,7 +278,7 @@ contract EngagementRootRegistryTest is Test {
         vm.prank(governance);
         registry.registerEngagementRoot(ROOT_1, DEPTH_20);
 
-        vm.expectRevert(EngagementRootRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootDeactivation(ROOT_1);
     }
 
@@ -330,7 +331,7 @@ contract EngagementRootRegistryTest is Test {
         uint64 pastTimestamp = uint64(block.timestamp - 1 days);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.InvalidExpiry.selector);
+        vm.expectRevert(AbstractRootLifecycle.InvalidExpiry.selector);
         registry.initiateRootExpiry(ROOT_1, pastTimestamp);
     }
 
@@ -341,7 +342,7 @@ contract EngagementRootRegistryTest is Test {
         uint64 currentTimestamp = uint64(block.timestamp);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.InvalidExpiry.selector);
+        vm.expectRevert(AbstractRootLifecycle.InvalidExpiry.selector);
         registry.initiateRootExpiry(ROOT_1, currentTimestamp);
     }
 
@@ -353,7 +354,7 @@ contract EngagementRootRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.warp(block.timestamp + 7 days);
-        vm.expectRevert(EngagementRootRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.executeRootExpiry(ROOT_1);
     }
 
@@ -396,13 +397,13 @@ contract EngagementRootRegistryTest is Test {
         registry.registerEngagementRoot(ROOT_1, DEPTH_20);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.RootAlreadyActive.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootAlreadyActive.selector);
         registry.initiateRootReactivation(ROOT_1);
     }
 
     function test_RevertWhen_Reactivation_NotRegistered() public {
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.RootNotRegistered.selector);
+        vm.expectRevert(AbstractRootLifecycle.RootNotRegistered.selector);
         registry.initiateRootReactivation(UNREGISTERED_ROOT);
     }
 
@@ -440,7 +441,7 @@ contract EngagementRootRegistryTest is Test {
 
     function test_RevertWhen_CancelOperation_NoPending() public {
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.NoOperationPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.NoOperationPending.selector);
         registry.cancelRootOperation(ROOT_1);
     }
 
@@ -607,7 +608,7 @@ contract EngagementRootRegistryTest is Test {
         registry.initiateRootDeactivation(ROOT_1);
 
         vm.prank(governance);
-        vm.expectRevert(EngagementRootRegistry.OperationAlreadyPending.selector);
+        vm.expectRevert(AbstractRootLifecycle.OperationAlreadyPending.selector);
         registry.initiateRootExpiry(ROOT_1, uint64(block.timestamp + 30 days));
     }
 

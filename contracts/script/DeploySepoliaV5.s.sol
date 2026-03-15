@@ -166,8 +166,8 @@ contract DeploySepoliaV5 is Script {
         // DistrictGate
         console.log("  - Setting CampaignRegistry on DistrictGate");
         gate.setCampaignRegistryGenesis(address(campaignRegistry));
-        console.log("  - Setting two-tree registries");
-        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        console.log("  - Setting registries (UserRoot + CellMap)");
+        gate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         console.log("  - Setting EngagementRootRegistry");
         gate.setEngagementRegistryGenesis(address(engagementRootRegistry));
         console.log("  - Authorizing DebateMarket as derived-domain deriver");

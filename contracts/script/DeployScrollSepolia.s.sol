@@ -234,8 +234,8 @@ contract DeployScrollSepolia is Script {
         // --- DistrictGate genesis ---
         console.log("  - Setting CampaignRegistry on DistrictGate (ACTIVE IMMEDIATELY)");
         gate.setCampaignRegistryGenesis(address(campaignRegistry));
-        console.log("  - Setting two-tree registries on DistrictGate (ACTIVE IMMEDIATELY)");
-        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        console.log("  - Setting registries (UserRoot + CellMap) on DistrictGate (ACTIVE IMMEDIATELY)");
+        gate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
 
         // Register a default action domain for testing (bytes32(uint256(100)))
         // This matches the ACTION_DOMAIN used in E2E proof tests

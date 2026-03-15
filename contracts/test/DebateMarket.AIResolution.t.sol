@@ -3,6 +3,7 @@ pragma solidity >=0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/DebateMarket.sol";
+import "../src/LMSRMath.sol";
 import "../src/AIEvaluationRegistry.sol";
 import "../src/IAIEvaluationRegistry.sol";
 import "../src/IDebateWeightVerifier.sol";
@@ -90,17 +91,25 @@ contract DebateMarketAIResolutionTest is Test {
 
 		mockGate.setActionDomainAllowed(ACTION_DOMAIN, true);
 
-		// Deploy AIEvaluationRegistry
-		registry = new AIEvaluationRegistry(governance, 7 days);
+		// Deploy AIEvaluationRegistry (SC-1: 3-param constructor with model timelock)
+		registry = new AIEvaluationRegistry(governance, 7 days, 7 days);
 
-		// Register 5 models from 5 providers
+		// Register 5 models from 5 providers via two-phase (SC-1)
 		vm.startPrank(governance);
-		registry.registerModel(model1, 0); // OpenAI
-		registry.registerModel(model2, 1); // Google
-		registry.registerModel(model3, 2); // DeepSeek
-		registry.registerModel(model4, 3); // Mistral
-		registry.registerModel(model5, 4); // Anthropic
+		registry.initiateModelRegistration(model1, 0); // OpenAI
+		registry.initiateModelRegistration(model2, 1); // Google
+		registry.initiateModelRegistration(model3, 2); // DeepSeek
+		registry.initiateModelRegistration(model4, 3); // Mistral
+		registry.initiateModelRegistration(model5, 4); // Anthropic
 		vm.stopPrank();
+
+		// Skip past model registration timelock
+		skip(7 days);
+		registry.executeModelRegistration(model1);
+		registry.executeModelRegistration(model2);
+		registry.executeModelRegistration(model3);
+		registry.executeModelRegistration(model4);
+		registry.executeModelRegistration(model5);
 
 		token = new MockERC20("Test USD", "TUSD", 6);
 
@@ -144,35 +153,54 @@ contract DebateMarketAIResolutionTest is Test {
 
 	function test_removeModel() public {
 		vm.prank(governance);
-		registry.removeModel(model5);
+		registry.initiateModelRemoval(model5);
+		skip(7 days);
+		registry.executeModelRemoval(model5);
 		assertFalse(registry.isRegistered(model5));
 		assertEq(registry.modelCount(), 4);
 	}
 
 	function test_removeModel_revert_minModels() public {
-		vm.startPrank(governance);
-		registry.removeModel(model5);
-		registry.removeModel(model4);
-		// Now at 3 — removing another should revert
+		vm.prank(governance);
+		registry.initiateModelRemoval(model5);
+		skip(7 days);
+		registry.executeModelRemoval(model5);
+
+		vm.prank(governance);
+		registry.initiateModelRemoval(model4);
+		skip(7 days);
+		registry.executeModelRemoval(model4);
+
+		// Now at 3 — removing another should revert at initiation
+		vm.prank(governance);
 		vm.expectRevert(AIEvaluationRegistry.BelowMinModels.selector);
-		registry.removeModel(model3);
-		vm.stopPrank();
+		registry.initiateModelRemoval(model3);
 	}
 
 	function test_removeModel_revert_minProviders() public {
-		// Register a second model on provider 0, then remove model2 (provider 1) and model3 (provider 2)
-		// should eventually fail on provider diversity
-		vm.startPrank(governance);
+		// Register a second model on provider 0 via two-phase
 		address extra = address(0xBBBB);
-		registry.registerModel(extra, 0); // second OpenAI model
+		vm.prank(governance);
+		registry.initiateModelRegistration(extra, 0);
+		skip(7 days);
+		registry.executeModelRegistration(extra);
+
 		// Now 6 models, 5 providers. Remove model2 (Google) → 5 models, 4 providers. OK.
-		registry.removeModel(model2);
+		vm.prank(governance);
+		registry.initiateModelRemoval(model2);
+		skip(7 days);
+		registry.executeModelRemoval(model2);
+
 		// Remove model3 (DeepSeek) → 4 models, 3 providers. OK.
-		registry.removeModel(model3);
-		// Remove model4 (Mistral) → 3 models, 2 providers → should fail
+		vm.prank(governance);
+		registry.initiateModelRemoval(model3);
+		skip(7 days);
+		registry.executeModelRemoval(model3);
+
+		// Remove model4 (Mistral) → 3 models, 2 providers → should fail at initiation
+		vm.prank(governance);
 		vm.expectRevert(AIEvaluationRegistry.BelowMinProviders.selector);
-		registry.removeModel(model4);
-		vm.stopPrank();
+		registry.initiateModelRemoval(model4);
 	}
 
 	function test_quorum_calculation() public view {
@@ -181,10 +209,16 @@ contract DebateMarketAIResolutionTest is Test {
 	}
 
 	function test_quorum_3models() public {
-		vm.startPrank(governance);
-		registry.removeModel(model5);
-		registry.removeModel(model4);
-		vm.stopPrank();
+		vm.prank(governance);
+		registry.initiateModelRemoval(model5);
+		skip(7 days);
+		registry.executeModelRemoval(model5);
+
+		vm.prank(governance);
+		registry.initiateModelRemoval(model4);
+		skip(7 days);
+		registry.executeModelRemoval(model4);
+
 		// 3 models → ceil(6/3) = 2
 		assertEq(registry.quorum(), 2);
 	}
@@ -204,7 +238,7 @@ contract DebateMarketAIResolutionTest is Test {
 	function test_onlyGovernance_registerModel() public {
 		vm.prank(arguer1);
 		vm.expectRevert(TimelockGovernance.UnauthorizedCaller.selector);
-		registry.registerModel(address(0xDEAD), 0);
+		registry.initiateModelRegistration(address(0xDEAD), 0);
 	}
 
 	function test_providerCount() public view {
@@ -362,6 +396,24 @@ contract DebateMarketAIResolutionTest is Test {
 		}
 
 		vm.expectRevert(DebateMarket.InsufficientSignatures.selector);
+		market.submitAIEvaluation(debateId, scores, deadline, sigs);
+	}
+
+	/// @notice submitAIEvaluation reverts with InvalidAIScore when a dimension exceeds 10000
+	function test_submitAIEvaluation_revert_invalidScore() public {
+		bytes32 debateId = _createDebateWithArguments();
+		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+
+		// Pack scores with feasibility > 10000 on argument 1
+		uint256[] memory scores = new uint256[](3);
+		scores[0] = _packScores(8000, 7500, 8000, 7000, 6000);
+		scores[1] = _packScores(5000, 4000, 3000, 4000, 10001); // feasibility > 10000
+		scores[2] = _packScores(7000, 6500, 7000, 6000, 5000);
+
+		uint256 deadline = block.timestamp + 1 hours;
+		bytes[] memory sigs = _signEvaluation(debateId, scores, 0, deadline);
+
+		vm.expectRevert(DebateMarket.InvalidAIScore.selector);
 		market.submitAIEvaluation(debateId, scores, deadline, sigs);
 	}
 

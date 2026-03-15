@@ -23,7 +23,7 @@ services:
       # District boundaries R-tree (pre-built, read-only) — full national build
       - ./data/shadow-atlas-full.db:/data/shadow-atlas.db:ro
       # Officials DB — US legislators + Canadian MPs (pre-ingested, read-only)
-      - ./data/officials.db:/data/officials.db:ro
+      - ./data/officials.db:/data/officials.db
     environment:
       - NODE_ENV=development
       - PORT=3000

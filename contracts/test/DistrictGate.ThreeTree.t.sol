@@ -21,7 +21,6 @@ import "../src/EngagementRootRegistry.sol";
 ///      6. Verifier routing - three-tree verifier lookup
 ///      7. Nullifier management - recording and replay protection
 ///      8. Pause controls - whenNotPaused modifier
-///      9. Backwards compatibility - two-tree flow still works
 contract DistrictGateThreeTreeTest is Test {
     DistrictGate public gate;
     DistrictRegistry public districtRegistry;
@@ -34,7 +33,6 @@ contract DistrictGateThreeTreeTest is Test {
     // Mock verifiers
     MockThreeTreeVerifier public passingVerifier;
     MockThreeTreeVerifier public failingVerifier;
-    MockThreeTreeVerifier public twoTreePassingVerifier;
 
     address public governance = address(0x1);
     address public attacker = address(0x3);
@@ -78,17 +76,6 @@ contract DistrictGateThreeTreeTest is Test {
         uint8 verifierDepth
     );
 
-    event TwoTreeProofVerified(
-        address indexed signer,
-        address indexed submitter,
-        bytes32 indexed userRoot,
-        bytes32 cellMapRoot,
-        bytes32 nullifier,
-        bytes32 actionDomain,
-        bytes32 authorityLevel,
-        uint8 verifierDepth
-    );
-
     event EngagementRegistrySetGenesis(address indexed engagementRootRegistry);
     event EngagementRegistryProposed(address indexed proposed, uint256 executeTime);
     event EngagementRegistrySet(address indexed previousRegistry, address indexed newRegistry);
@@ -98,7 +85,6 @@ contract DistrictGateThreeTreeTest is Test {
         // Deploy mock verifiers
         passingVerifier = new MockThreeTreeVerifier(true);
         failingVerifier = new MockThreeTreeVerifier(false);
-        twoTreePassingVerifier = new MockThreeTreeVerifier(true);
 
         // Deploy registries
         districtRegistry = new DistrictRegistry(governance, 7 days);
@@ -120,9 +106,8 @@ contract DistrictGateThreeTreeTest is Test {
             24 hours
         );
 
-        // Register verifiers (genesis) - both two-tree and three-tree
+        // Register three-tree verifier (genesis)
         vm.startPrank(governance);
-        verifierRegistry.registerVerifier(VERIFIER_DEPTH, address(twoTreePassingVerifier));
         verifierRegistry.registerThreeTreeVerifier(VERIFIER_DEPTH, address(passingVerifier));
         verifierRegistry.sealGenesis();
         vm.stopPrank();
@@ -147,7 +132,7 @@ contract DistrictGateThreeTreeTest is Test {
 
         // Configure registries on DistrictGate via genesis (before sealing)
         vm.startPrank(governance);
-        gate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        gate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         gate.setEngagementRegistryGenesis(address(engagementRootRegistry));
         gate.registerActionDomainGenesis(ACTION_DOMAIN_1);
         gate.sealGenesis();
@@ -391,7 +376,7 @@ contract DistrictGateThreeTreeTest is Test {
         );
 
         vm.startPrank(governance);
-        freshGate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        freshGate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         freshGate.registerActionDomainGenesis(ACTION_DOMAIN_1);
         freshGate.sealGenesis();
         vm.stopPrank();
@@ -635,7 +620,7 @@ contract DistrictGateThreeTreeTest is Test {
             proof, publicInputs, VERIFIER_DEPTH
         );
 
-        vm.expectRevert("Authority level out of range");
+        vm.expectRevert(DistrictGate.AuthorityLevelOutOfRange.selector);
         gate.verifyThreeTreeProof(signer, proof, publicInputs, VERIFIER_DEPTH, deadline, signature);
     }
 
@@ -652,7 +637,7 @@ contract DistrictGateThreeTreeTest is Test {
             proof, publicInputs, VERIFIER_DEPTH
         );
 
-        vm.expectRevert("Authority level out of range");
+        vm.expectRevert(DistrictGate.AuthorityLevelOutOfRange.selector);
         gate.verifyThreeTreeProof(signer, proof, publicInputs, VERIFIER_DEPTH, deadline, signature);
     }
 
@@ -692,7 +677,6 @@ contract DistrictGateThreeTreeTest is Test {
         // Deploy new registry with failing three-tree verifier
         VerifierRegistry newVerifierRegistry = new VerifierRegistry(governance, 7 days, 14 days);
         vm.startPrank(governance);
-        newVerifierRegistry.registerVerifier(VERIFIER_DEPTH, address(twoTreePassingVerifier));
         newVerifierRegistry.registerThreeTreeVerifier(VERIFIER_DEPTH, address(failingVerifier));
         newVerifierRegistry.sealGenesis();
         vm.stopPrank();
@@ -717,7 +701,7 @@ contract DistrictGateThreeTreeTest is Test {
         nullifierRegistry.executeCallerAuthorization(address(newGate));
 
         vm.startPrank(governance);
-        newGate.setTwoTreeRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
+        newGate.setRegistriesGenesis(address(userRootRegistry), address(cellMapRegistry));
         newGate.setEngagementRegistryGenesis(address(engagementRootRegistry));
         newGate.registerActionDomainGenesis(ACTION_DOMAIN_1);
         newGate.sealGenesis();
@@ -810,41 +794,7 @@ contract DistrictGateThreeTreeTest is Test {
     }
 
     // ============================================================================
-    // 12. BACKWARDS COMPATIBILITY
-    // ============================================================================
-
-    /// @notice Two-tree verifyTwoTreeProof still works after three-tree setup
-    function test_TwoTreeProof_StillWorks() public {
-        bytes memory proof = hex"deadbeef";
-        uint256[29] memory publicInputs;
-        publicInputs[0] = uint256(USER_ROOT_1);
-        publicInputs[1] = uint256(CELL_MAP_ROOT_1);
-        publicInputs[26] = uint256(NULLIFIER_2);
-        publicInputs[27] = uint256(ACTION_DOMAIN_1);
-        publicInputs[28] = uint256(AUTHORITY_LEVEL);
-
-        (address signer, bytes memory signature, uint256 deadline) = _generateTwoTreeSignature(
-            proof, publicInputs, VERIFIER_DEPTH
-        );
-
-        vm.expectEmit(true, true, true, true);
-        emit TwoTreeProofVerified(
-            signer,
-            address(this),
-            USER_ROOT_1,
-            CELL_MAP_ROOT_1,
-            NULLIFIER_2,
-            ACTION_DOMAIN_1,
-            AUTHORITY_LEVEL,
-            VERIFIER_DEPTH
-        );
-
-        gate.verifyTwoTreeProof(signer, proof, publicInputs, VERIFIER_DEPTH, deadline, signature);
-        assertTrue(gate.isNullifierUsed(ACTION_DOMAIN_1, NULLIFIER_2));
-    }
-
-    // ============================================================================
-    // 13. EIP-712 SIGNATURE
+    // 12. EIP-712 SIGNATURE
     // ============================================================================
 
     /// @notice Revert when signature is expired
@@ -882,93 +832,12 @@ contract DistrictGateThreeTreeTest is Test {
     }
 
     // ============================================================================
-    // 14. CONSTANTS
+    // 13. CONSTANTS
     // ============================================================================
 
     /// @notice Three-tree public input count is 31
     function test_ThreeTreePublicInputCount() public view {
         assertEq(gate.THREE_TREE_PUBLIC_INPUT_COUNT(), 31);
-    }
-
-    /// @notice Two-tree and three-tree typehashes are different
-    function test_TypehashesAreDifferent() public view {
-        assertTrue(gate.SUBMIT_TWO_TREE_PROOF_TYPEHASH() != gate.SUBMIT_THREE_TREE_PROOF_TYPEHASH());
-    }
-
-    /// @notice A valid two-tree EIP-712 signature must not be accepted on the three-tree path.
-    /// @dev The typehash difference causes a different struct hash → different digest →
-    ///      ecrecover produces a random address ≠ signer → InvalidSignature revert.
-    function test_TwoTreeSignature_RevertsOn_ThreeTreePath() public {
-        bytes memory proof = hex"deadbeef";
-
-        // Build two-tree (29-element) public inputs
-        uint256[29] memory twoTreeInputs;
-        twoTreeInputs[0] = uint256(USER_ROOT_1);
-        twoTreeInputs[1] = uint256(CELL_MAP_ROOT_1);
-        twoTreeInputs[26] = uint256(NULLIFIER_1);
-        twoTreeInputs[27] = uint256(ACTION_DOMAIN_1);
-        twoTreeInputs[28] = uint256(AUTHORITY_LEVEL);
-
-        // Generate a valid two-tree signature (uses SUBMIT_TWO_TREE_PROOF_TYPEHASH)
-        (address signer, bytes memory twoTreeSignature, uint256 deadline) = _generateTwoTreeSignature(
-            proof, twoTreeInputs, VERIFIER_DEPTH
-        );
-
-        // Build three-tree (31-element) public inputs from the SAME base data
-        uint256[31] memory threeTreeInputs = _buildThreeTreePublicInputs(
-            USER_ROOT_1,
-            CELL_MAP_ROOT_1,
-            NULLIFIER_1,
-            ACTION_DOMAIN_1,
-            AUTHORITY_LEVEL,
-            ENGAGEMENT_ROOT_1,
-            2 // engagement_tier
-        );
-
-        // Submit the two-tree signature to verifyThreeTreeProof.
-        // The contract computes digest using SUBMIT_THREE_TREE_PROOF_TYPEHASH,
-        // but the signature was made with SUBMIT_TWO_TREE_PROOF_TYPEHASH.
-        // ecrecover yields a different address → InvalidSignature.
-        vm.expectRevert(DistrictGate.InvalidSignature.selector);
-        gate.verifyThreeTreeProof(signer, proof, threeTreeInputs, VERIFIER_DEPTH, deadline, twoTreeSignature);
-    }
-
-    /// @notice A valid three-tree EIP-712 signature must not be accepted on the two-tree path.
-    /// @dev Mirror of the above: three-tree typehash signature submitted to verifyTwoTreeProof.
-    ///      ecrecover recovers a different address → InvalidSignature revert.
-    function test_ThreeTreeSignature_RevertsOn_TwoTreePath() public {
-        bytes memory proof = hex"deadbeef";
-
-        // Build three-tree (31-element) public inputs
-        uint256[31] memory threeTreeInputs = _buildThreeTreePublicInputs(
-            USER_ROOT_1,
-            CELL_MAP_ROOT_1,
-            NULLIFIER_1,
-            ACTION_DOMAIN_1,
-            AUTHORITY_LEVEL,
-            ENGAGEMENT_ROOT_1,
-            2 // engagement_tier
-        );
-
-        // Generate a valid three-tree signature (uses SUBMIT_THREE_TREE_PROOF_TYPEHASH)
-        (address signer, bytes memory threeTreeSignature, uint256 deadline) = _generateThreeTreeSignature(
-            proof, threeTreeInputs, VERIFIER_DEPTH
-        );
-
-        // Build two-tree (29-element) public inputs from the SAME base data
-        uint256[29] memory twoTreeInputs;
-        twoTreeInputs[0] = uint256(USER_ROOT_1);
-        twoTreeInputs[1] = uint256(CELL_MAP_ROOT_1);
-        twoTreeInputs[26] = uint256(NULLIFIER_1);
-        twoTreeInputs[27] = uint256(ACTION_DOMAIN_1);
-        twoTreeInputs[28] = uint256(AUTHORITY_LEVEL);
-
-        // Submit the three-tree signature to verifyTwoTreeProof.
-        // The contract computes digest using SUBMIT_TWO_TREE_PROOF_TYPEHASH,
-        // but the signature was made with SUBMIT_THREE_TREE_PROOF_TYPEHASH.
-        // ecrecover yields a different address → InvalidSignature.
-        vm.expectRevert(DistrictGate.InvalidSignature.selector);
-        gate.verifyTwoTreeProof(signer, proof, twoTreeInputs, VERIFIER_DEPTH, deadline, threeTreeSignature);
     }
 
     // ============================================================================
@@ -1038,38 +907,6 @@ contract DistrictGateThreeTreeTest is Test {
         signature = abi.encodePacked(r, s, v);
     }
 
-    /// @notice Helper to generate EIP-712 signature for two-tree proof submission
-    function _generateTwoTreeSignature(
-        bytes memory proof,
-        uint256[29] memory publicInputs,
-        uint8 verifierDepth
-    ) internal view returns (address signer, bytes memory signature, uint256 deadline) {
-        uint256 privateKey = 0xA11CE;
-        signer = vm.addr(privateKey);
-        deadline = block.timestamp + 1 hours;
-        uint256 nonce = gate.nonces(signer);
-
-        bytes32 proofHash = keccak256(proof);
-        bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                gate.SUBMIT_TWO_TREE_PROOF_TYPEHASH(),
-                proofHash,
-                publicInputsHash,
-                verifierDepth,
-                nonce,
-                deadline
-            )
-        );
-
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", gate.DOMAIN_SEPARATOR(), structHash)
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-        signature = abi.encodePacked(r, s, v);
-    }
 }
 
 // ============================================================================

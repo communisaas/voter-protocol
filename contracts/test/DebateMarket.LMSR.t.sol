@@ -578,6 +578,15 @@ contract DebateMarketLMSRTest is Test {
     }
 
     // ============================================================================
+    // MAX_REVEALS_PER_EPOCH
+    // ============================================================================
+
+    /// @notice MAX_REVEALS_PER_EPOCH constant is 256
+    function test_MaxRevealsPerEpoch_Is256() public view {
+        assertEq(market.MAX_REVEALS_PER_EPOCH(), 256);
+    }
+
+    // ============================================================================
     // EPOCH PHASE VIEW
     // ============================================================================
 
