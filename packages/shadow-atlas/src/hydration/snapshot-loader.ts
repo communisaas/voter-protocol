@@ -54,6 +54,20 @@ export interface SnapshotLoadResult {
   readonly vintage: SnapshotVintage | null;
 }
 
+/** Options for snapshot loading. */
+export interface SnapshotLoadOptions {
+  /**
+   * Expected root hash from an external trust anchor (e.g., on-chain CellMapRegistry).
+   * If provided, the recomputed root is verified against this value in addition to
+   * the root stored in the snapshot file itself. This prevents an attacker from
+   * modifying both mappings and root consistently.
+   *
+   * Pass the root as a bigint. The caller is responsible for fetching it from
+   * the chain — this module does NOT depend on ethers/viem.
+   */
+  readonly expectedRoot?: bigint;
+}
+
 /**
  * Load CellMapState from a pre-built Tree 2 snapshot file.
  *
@@ -61,13 +75,15 @@ export interface SnapshotLoadResult {
  * SMT via buildCellMapTree(), and returns a CellMapState ready for the API.
  *
  * @param snapshotPath - Path to the tree2-snapshot.json file
+ * @param options - Optional verification parameters
  * @returns CellMapState ready for createShadowAtlasAPI()
  * @throws Error if snapshot is missing, invalid, or uses an unsupported version
  */
 export async function loadCellMapStateFromSnapshot(
   snapshotPath: string,
+  options?: SnapshotLoadOptions,
 ): Promise<CellMapState> {
-  const result = await loadSnapshotWithVintage(snapshotPath);
+  const result = await loadSnapshotWithVintage(snapshotPath, options);
   return result.state;
 }
 
@@ -78,11 +94,13 @@ export async function loadCellMapStateFromSnapshot(
  * vintage as null (backward compatible).
  *
  * @param snapshotPath - Path to the tree2-snapshot.json file
+ * @param options - Optional verification parameters (e.g., on-chain root)
  * @returns CellMapState + vintage metadata
  * @throws Error if snapshot is missing, invalid, or uses an unsupported version
  */
 export async function loadSnapshotWithVintage(
   snapshotPath: string,
+  options?: SnapshotLoadOptions,
 ): Promise<SnapshotLoadResult> {
   const raw = await readFile(snapshotPath, 'utf-8');
   const snapshot: Tree2Snapshot = JSON.parse(raw);
@@ -108,12 +126,23 @@ export async function loadSnapshotWithVintage(
   const result = await buildCellMapTree(mappings, snapshot.depth);
 
   // Verify root matches snapshot (detect corruption)
-  const expectedRoot = BigInt(snapshot.root);
-  if (result.root !== expectedRoot) {
+  const snapshotRoot = BigInt(snapshot.root);
+  if (result.root !== snapshotRoot) {
     throw new Error(
       `Snapshot root mismatch: expected ${snapshot.root}, got 0x${result.root.toString(16)}. ` +
       'Snapshot may be corrupted — regenerate with build-tree2.ts.'
     );
+  }
+
+  // Verify against external trust anchor (e.g., on-chain CellMapRegistry root)
+  if (options?.expectedRoot !== undefined) {
+    if (result.root !== options.expectedRoot) {
+      throw new Error(
+        `On-chain root verification failed: recomputed 0x${result.root.toString(16)}, ` +
+        `expected 0x${options.expectedRoot.toString(16)}. ` +
+        'Snapshot does not match the on-chain committed root.'
+      );
+    }
   }
 
   return {

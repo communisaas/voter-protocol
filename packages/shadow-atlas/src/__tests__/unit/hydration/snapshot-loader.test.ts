@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader';
+import { loadCellMapStateFromSnapshot, loadSnapshotWithVintage } from '../../../hydration/snapshot-loader';
 import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../tree-builder';
 import { generateMockMappings } from '../../../cell-district-loader';
 
@@ -160,5 +160,126 @@ describe('loadCellMapStateFromSnapshot', () => {
     const proof = await loaded.tree.getProof(cellId);
     expect(proof.siblings).toHaveLength(20);
     expect(proof.pathBits).toHaveLength(20);
+  });
+
+  // Test 7: On-chain root verification — matching root passes
+  it('should pass when expectedRoot matches recomputed root', async () => {
+    await setup();
+    const mappings = generateMockMappings(3, '06');
+    const result = await buildCellMapTree(mappings, 20);
+
+    const snapshot = {
+      version: 2,
+      root: '0x' + result.root.toString(16),
+      depth: result.depth,
+      cellCount: result.cellCount,
+      mappings: mappings.map(m => ({
+        cellId: m.cellId.toString(),
+        districts: m.districts.map(d => d.toString()),
+      })),
+    };
+
+    const snapshotPath = join(testDir, 'on-chain-match.json');
+    await writeFile(snapshotPath, JSON.stringify(snapshot));
+
+    // Pass the correct root as expectedRoot — should succeed
+    const loaded = await loadCellMapStateFromSnapshot(snapshotPath, {
+      expectedRoot: result.root,
+    });
+    expect(loaded.root).toBe(result.root);
+  });
+
+  // Test 8: On-chain root verification — mismatched root throws
+  it('should reject when expectedRoot does not match', async () => {
+    await setup();
+    const mappings = generateMockMappings(3, '06');
+    const result = await buildCellMapTree(mappings, 20);
+
+    const snapshot = {
+      version: 2,
+      root: '0x' + result.root.toString(16),
+      depth: result.depth,
+      cellCount: result.cellCount,
+      mappings: mappings.map(m => ({
+        cellId: m.cellId.toString(),
+        districts: m.districts.map(d => d.toString()),
+      })),
+    };
+
+    const snapshotPath = join(testDir, 'on-chain-mismatch.json');
+    await writeFile(snapshotPath, JSON.stringify(snapshot));
+
+    // Pass a wrong root — should throw
+    await expect(
+      loadCellMapStateFromSnapshot(snapshotPath, {
+        expectedRoot: 0xdeadbeefn,
+      })
+    ).rejects.toThrow('On-chain root verification failed');
+  });
+
+  // Test 9: Omitting expectedRoot skips on-chain verification (backward compatible)
+  it('should skip on-chain verification when expectedRoot is omitted', async () => {
+    await setup();
+    const mappings = generateMockMappings(3, '06');
+    const result = await buildCellMapTree(mappings, 20);
+
+    const snapshot = {
+      version: 2,
+      root: '0x' + result.root.toString(16),
+      depth: result.depth,
+      cellCount: result.cellCount,
+      mappings: mappings.map(m => ({
+        cellId: m.cellId.toString(),
+        districts: m.districts.map(d => d.toString()),
+      })),
+    };
+
+    const snapshotPath = join(testDir, 'no-on-chain.json');
+    await writeFile(snapshotPath, JSON.stringify(snapshot));
+
+    // No expectedRoot — should load successfully without on-chain check
+    const loaded = await loadCellMapStateFromSnapshot(snapshotPath);
+    expect(loaded.root).toBe(result.root);
+  });
+
+  // Test 10: loadSnapshotWithVintage also supports expectedRoot
+  it('should verify expectedRoot via loadSnapshotWithVintage', async () => {
+    await setup();
+    const mappings = generateMockMappings(3, '06');
+    const result = await buildCellMapTree(mappings, 20);
+
+    const snapshot = {
+      version: 3,
+      root: '0x' + result.root.toString(16),
+      depth: result.depth,
+      cellCount: result.cellCount,
+      vintage: {
+        label: 'test',
+        country: 'USA',
+        effectiveDate: '2025-01-01',
+        source: 'test',
+      },
+      mappings: mappings.map(m => ({
+        cellId: m.cellId.toString(),
+        districts: m.districts.map(d => d.toString()),
+      })),
+    };
+
+    const snapshotPath = join(testDir, 'vintage-on-chain.json');
+    await writeFile(snapshotPath, JSON.stringify(snapshot));
+
+    // Matching root
+    const loaded = await loadSnapshotWithVintage(snapshotPath, {
+      expectedRoot: result.root,
+    });
+    expect(loaded.state.root).toBe(result.root);
+    expect(loaded.vintage?.label).toBe('test');
+
+    // Mismatched root
+    await expect(
+      loadSnapshotWithVintage(snapshotPath, {
+        expectedRoot: 0xbadcafen,
+      })
+    ).rejects.toThrow('On-chain root verification failed');
   });
 });

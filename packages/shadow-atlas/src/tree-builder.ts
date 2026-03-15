@@ -277,6 +277,18 @@ export async function buildCellMapTree(
 
   const root = await smt.getRoot();
 
+  // Roundtrip verification: sample mappings and confirm SMT returns correct values
+  const verification = await verifyCellMapSample(smt, mappings, commitments, hasher);
+  if (verification.mismatches.length > 0) {
+    const details = verification.mismatches
+      .map(m => `cellId=${m.cellId}`)
+      .join(', ');
+    throw new Error(
+      `Cell map roundtrip verification failed: ${verification.mismatches.length} mismatch(es) out of ${verification.verified} sampled. ` +
+      `Mismatched cells: ${details}`
+    );
+  }
+
   return {
     tree: smt,
     root,
@@ -285,6 +297,94 @@ export async function buildCellMapTree(
     commitments,
     districtMap,
   };
+}
+
+/**
+ * Verification result from sampling a cell map tree.
+ */
+export interface CellMapVerification {
+  /** Number of mappings successfully verified */
+  readonly verified: number;
+  /** Mappings that failed verification (empty if all passed) */
+  readonly mismatches: CellDistrictMapping[];
+}
+
+/**
+ * Sample N mappings from the input and verify them against the SMT.
+ *
+ * Samples: first 5, last 5, and 5 evenly spaced from the middle.
+ * For each sampled mapping, recomputes the expected leaf and queries the tree
+ * to confirm it matches.
+ *
+ * @param tree - The constructed SparseMerkleTree
+ * @param mappings - Original cell-district mappings
+ * @param commitments - Computed district commitments
+ * @param hasher - Poseidon2 hasher instance
+ * @param sampleSize - Total samples to take (default: 15, capped at mappings.length)
+ * @returns Verification result with count and any mismatches
+ */
+export async function verifyCellMapSample(
+  tree: SparseMerkleTree,
+  mappings: CellDistrictMapping[],
+  commitments: ReadonlyMap<string, bigint>,
+  hasher: Poseidon2Hasher,
+  sampleSize: number = 15,
+): Promise<CellMapVerification> {
+  if (mappings.length === 0) {
+    return { verified: 0, mismatches: [] };
+  }
+
+  // Build sample indices: first 5, last 5, 5 evenly spaced
+  const indices = new Set<number>();
+  const n = mappings.length;
+  const third = Math.min(5, Math.ceil(sampleSize / 3));
+
+  // First `third` items
+  for (let i = 0; i < Math.min(third, n); i++) {
+    indices.add(i);
+  }
+
+  // Last `third` items
+  for (let i = Math.max(0, n - third); i < n; i++) {
+    indices.add(i);
+  }
+
+  // Evenly spaced from the middle
+  if (n > 2 * third) {
+    const remaining = Math.min(third, sampleSize - indices.size);
+    for (let j = 0; j < remaining; j++) {
+      const idx = Math.floor(((j + 1) * n) / (remaining + 1));
+      if (idx >= 0 && idx < n) {
+        indices.add(idx);
+      }
+    }
+  }
+
+  let verified = 0;
+  const mismatches: CellDistrictMapping[] = [];
+
+  for (const idx of indices) {
+    const mapping = mappings[idx];
+    const commitment = commitments.get(mapping.cellId.toString());
+    if (commitment === undefined) {
+      mismatches.push(mapping);
+      continue;
+    }
+
+    // Recompute expected leaf
+    const expectedLeaf = await hasher.hashPair(mapping.cellId, commitment);
+
+    // Query tree
+    const proof = await tree.getProof(mapping.cellId);
+
+    if (proof.value !== expectedLeaf) {
+      mismatches.push(mapping);
+    } else {
+      verified++;
+    }
+  }
+
+  return { verified, mismatches };
 }
 
 /**

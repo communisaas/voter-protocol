@@ -12,10 +12,10 @@
 
 | ID   | Severity | Finding | File(s) | Status | Assignee |
 |------|----------|---------|---------|--------|----------|
-| C-1  | CRITICAL | No BN254 field modulus validation on `encodeCellId()` output — silent wrap in Poseidon2 | `jurisdiction.ts` (5 functions) | OPEN | — |
-| C-2  | CRITICAL | No SHA-256 integrity verification on concordance CSV downloads | `concordance-loader.ts:174-194` | OPEN | — |
-| C-3  | CRITICAL | Zip-slip path traversal in ZIP extraction (JSZip) | `baf-downloader.ts`, `bef-overlay.ts`, `tract-centroid-index.ts` | OPEN | — |
-| C-4  | CRITICAL | Cache-forever with no TTL/revalidation on concordance + BAF files | `concordance-loader.ts:222`, `baf-downloader.ts:113-118` | OPEN | — |
+| C-1  | CRITICAL | No BN254 field modulus validation on `encodeCellId()` output — silent wrap in Poseidon2 | `jurisdiction.ts` (5 functions) | DONE | w1-impl |
+| C-2  | CRITICAL | No SHA-256 integrity verification on concordance CSV downloads | `concordance-loader.ts:174-194` | DONE | w1-impl |
+| C-3  | CRITICAL | Zip-slip path traversal in ZIP extraction (JSZip) | `baf-downloader.ts`, `bef-overlay.ts`, `tract-centroid-index.ts` | DONE | w1-impl |
+| C-4  | CRITICAL | Cache-forever with no TTL/revalidation on concordance + BAF files | `concordance-loader.ts:222`, `baf-downloader.ts:113-118` | DONE | w1-impl |
 
 ## Wave 2 — High (Data Integrity)
 
@@ -39,11 +39,14 @@
 | M-5  | MEDIUM | Nominatim response not schema-validated (`parseFloat(undefined)` → NaN) | `pip-wiring.ts:63-84` | OPEN | — |
 | M-6  | MEDIUM | No response size limits on `fetch()` calls — memory exhaustion risk | Multiple files | OPEN | — |
 
-## New Findings (discovered during implementation)
+## New Findings (discovered during W1 review)
 
 | ID   | Severity | Finding | File(s) | Status | Assignee |
 |------|----------|---------|---------|--------|----------|
-| — | — | — | — | — | — |
+| N-1  | LOW | C-2 TOCTOU: SHA-256 verified by re-reading from disk after write — not exploitable in single-process pipeline but hash-before-write is stronger | `concordance-loader.ts:201-213` | OPEN | — |
+| N-2  | LOW | C-3: 3 additional JSZip sites lack `safeZipEntryPath()` but are memory-only (no disk writes) — add comments noting intentional exemption | `tract-centroid-index.ts`, `ingestion.ts`, `shapefile-to-geojson.ts` | OPEN | — |
+| N-3  | LOW | C-2 placeholder: `sources-manifest.ts` SOURCE_HASHES is empty — SHA-256 verification wired but no hashes populated yet | `hydration/sources-manifest.ts` | OPEN | — |
+| N-4  | INFO | C-4 stale-then-fail: if re-download fails for stale concordance, pipeline hard-fails. Correct fail-safe behavior (stale cache survives on disk) | `concordance-loader.ts:266-270` | WONTFIX | — |
 
 ---
 
@@ -51,6 +54,6 @@
 
 | Wave | Started | Impl Complete | Review Complete | New Findings |
 |------|---------|---------------|-----------------|--------------|
-| 1    | —       | —             | —               | —            |
+| 1    | 2026-03-14 | 2026-03-14 (f632e25) | 2026-03-14 (W1 review) | N-1, N-2, N-3, N-4 |
 | 2    | —       | —             | —               | —            |
 | 3    | —       | —             | —               | —            |

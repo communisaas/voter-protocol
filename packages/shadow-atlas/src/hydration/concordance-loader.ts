@@ -99,7 +99,27 @@ function parseCSVLine(line: string, delimiter: string): string[] {
 }
 
 /**
+ * Count unescaped quotes in a string.
+ * Escaped quotes ("") count as zero unescaped quotes.
+ */
+function countUnescapedQuotes(line: string): number {
+  let count = 0;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') {
+      if (i + 1 < line.length && line[i + 1] === '"') {
+        i++; // skip escaped quote pair
+      } else {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
  * Parse a CSV file line-by-line using streaming to handle large files.
+ * Handles embedded newlines inside quoted fields by accumulating lines
+ * until quote state is balanced.
  * Returns parsed rows with column headers.
  */
 async function parseCSVStream(
@@ -113,17 +133,45 @@ async function parseCSVStream(
 
   let headers: string[] = [];
   const rows: string[][] = [];
-  let lineNum = 0;
+  let isFirstRecord = true;
+  let pendingLine = '';
 
   for await (const line of rl) {
-    lineNum++;
-    // Skip empty lines and BOM
-    const cleaned = line.replace(/^\uFEFF/, '').trim();
-    if (!cleaned) continue;
+    // Strip BOM from very first line
+    const cleaned = isFirstRecord && !pendingLine
+      ? line.replace(/^\uFEFF/, '')
+      : line;
 
-    const fields = parseCSVLine(cleaned, delimiter);
+    if (pendingLine) {
+      // We're accumulating a multi-line quoted field
+      pendingLine += '\n' + cleaned;
+    } else {
+      // Skip blank lines only when not inside a quoted field
+      if (!cleaned.trim()) continue;
+      pendingLine = cleaned;
+    }
 
-    if (lineNum === 1) {
+    // Check if quotes are balanced (even number of unescaped quotes)
+    if (countUnescapedQuotes(pendingLine) % 2 !== 0) {
+      // Odd quotes — we're inside a quoted field that spans lines, keep accumulating
+      continue;
+    }
+
+    const fields = parseCSVLine(pendingLine, delimiter);
+    pendingLine = '';
+
+    if (isFirstRecord) {
+      headers = fields;
+      isFirstRecord = false;
+    } else {
+      rows.push(fields);
+    }
+  }
+
+  // Handle trailing accumulated line (unbalanced quotes at EOF)
+  if (pendingLine) {
+    const fields = parseCSVLine(pendingLine, delimiter);
+    if (isFirstRecord) {
       headers = fields;
     } else {
       rows.push(fields);
@@ -135,6 +183,7 @@ async function parseCSVStream(
 
 /**
  * Parse CSV content from a string (for small files or testing).
+ * Handles embedded newlines inside quoted fields.
  */
 export function parseCSVString(
   content: string,
@@ -143,13 +192,39 @@ export function parseCSVString(
   const lines = content.split(/\r?\n/);
   let headers: string[] = [];
   const rows: string[][] = [];
+  let pendingLine = '';
 
   for (const rawLine of lines) {
-    const line = rawLine.replace(/^\uFEFF/, '').trim();
-    if (!line) continue;
+    const line = !headers.length && !pendingLine
+      ? rawLine.replace(/^\uFEFF/, '')
+      : rawLine;
 
-    const fields = parseCSVLine(line, delimiter);
+    if (pendingLine) {
+      pendingLine += '\n' + line;
+    } else {
+      // Skip blank lines only when not inside a quoted field
+      if (!line.trim()) continue;
+      pendingLine = line;
+    }
 
+    // Check if quotes are balanced
+    if (countUnescapedQuotes(pendingLine) % 2 !== 0) {
+      continue;
+    }
+
+    const fields = parseCSVLine(pendingLine, delimiter);
+    pendingLine = '';
+
+    if (headers.length === 0) {
+      headers = fields;
+    } else {
+      rows.push(fields);
+    }
+  }
+
+  // Handle trailing accumulated line
+  if (pendingLine) {
+    const fields = parseCSVLine(pendingLine, delimiter);
     if (headers.length === 0) {
       headers = fields;
     } else {

@@ -41,6 +41,7 @@ interface CLIOptions {
   skipPIP: boolean;
   cacheDir: string;
   verbose: boolean;
+  cellMapThreshold: number;
 }
 
 function parseArgs(): CLIOptions {
@@ -54,6 +55,7 @@ function parseArgs(): CLIOptions {
     skipPIP: false,
     cacheDir: 'data/country-cache',
     verbose: false,
+    cellMapThreshold: CELL_MAP_THRESHOLD,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -78,6 +80,9 @@ function parseArgs(): CLIOptions {
         break;
       case '--cache-dir':
         opts.cacheDir = args[++i] ?? opts.cacheDir;
+        break;
+      case '--cell-map-threshold':
+        opts.cellMapThreshold = parseFloat(args[++i] ?? String(CELL_MAP_THRESHOLD));
         break;
       case '--verbose':
         opts.verbose = true;
@@ -126,6 +131,70 @@ const PROVIDER_REGISTRY: Record<string, () => Promise<CountryProvider<string, In
   NZ: async () => new (await import('../providers/international/nz-provider.js')).NZCountryProvider(),
   US: async () => new (await import('../providers/international/us-provider.js')).USCountryProvider(),
 };
+
+// ============================================================================
+// Thresholds
+// ============================================================================
+
+/**
+ * Minimum boundary coverage required to proceed with cell map construction.
+ * Cell maps feed into the ZK tree — a corrupted map means bad proofs.
+ * The DB write path uses the existing 80% schema threshold (diagnostic/non-blocking).
+ */
+export const CELL_MAP_THRESHOLD = 0.95;
+
+/** Maximum boundary name collisions before logging ERROR (data is suspect). */
+export const MAX_BOUNDARY_COLLISIONS = 10;
+
+// ============================================================================
+// Exported Utilities (testable)
+// ============================================================================
+
+export interface BoundaryIndexResult {
+  index: Map<string, InternationalBoundary>;
+  collisionCount: number;
+}
+
+/**
+ * Build a boundary index from a list of boundaries, detecting name collisions.
+ * On collision, both entries are re-keyed with compound key `type:name`.
+ */
+export function buildBoundaryIndex(
+  boundaries: readonly InternationalBoundary[],
+): BoundaryIndexResult {
+  const index = new Map<string, InternationalBoundary>();
+  let collisionCount = 0;
+
+  for (const boundary of boundaries) {
+    if (index.has(boundary.name)) {
+      collisionCount++;
+      const existing = index.get(boundary.name)!;
+      const existingKey = `${existing.type}:${existing.name}`;
+      const newKey = `${boundary.type}:${boundary.name}`;
+      if (!index.has(existingKey)) {
+        index.set(existingKey, existing);
+      }
+      index.set(newKey, boundary);
+    } else {
+      index.set(boundary.name, boundary);
+    }
+  }
+
+  return { index, collisionCount };
+}
+
+/**
+ * Check if boundary coverage meets the cell map threshold.
+ * Returns true if coverage is sufficient to build a cell map.
+ */
+export function checkCellMapCoverage(
+  actualCount: number,
+  expectedCount: number,
+  threshold: number = CELL_MAP_THRESHOLD,
+): { allowed: boolean; coverage: number } {
+  const coverage = expectedCount > 0 ? actualCount / expectedCount : 0;
+  return { allowed: coverage >= threshold, coverage };
+}
 
 // ============================================================================
 // Main Pipeline
@@ -181,11 +250,18 @@ async function main(): Promise<void> {
   console.log(`  → Duration: ${boundaryResult.durationMs}ms`);
   console.log();
 
-  // Step 2: Build boundary index
+  // Step 2: Build boundary index (with collision detection)
   console.log('[2/5] Building boundary index...');
-  const boundaryIndex = new Map<string, InternationalBoundary>();
-  for (const boundary of allBoundaries) {
-    boundaryIndex.set(boundary.name, boundary);
+  const { index: boundaryIndex, collisionCount } = buildBoundaryIndex(allBoundaries);
+  if (collisionCount > MAX_BOUNDARY_COLLISIONS) {
+    console.error(`  ERROR: ${collisionCount} boundary name collisions detected (threshold: ${MAX_BOUNDARY_COLLISIONS}). Data may be corrupt.`);
+  } else if (collisionCount > 0) {
+    for (const boundary of allBoundaries) {
+      if (boundaryIndex.has(`${boundary.type}:${boundary.name}`)) {
+        console.warn(`  WARNING: Boundary name collision "${boundary.name}" (${boundary.id}, ${boundary.type})`);
+      }
+    }
+    console.warn(`  ${collisionCount} boundary name collision(s) resolved with compound keys.`);
   }
   console.log(`  → ${boundaryIndex.size} boundaries indexed by name`);
   console.log();
@@ -204,20 +280,31 @@ async function main(): Promise<void> {
   }
   console.log();
 
-  // Step 4: Build cell map (optional)
+  // Step 4: Build cell map (optional, gated on boundary coverage)
   if (!opts.skipCellMap && !opts.validateOnly) {
+    const totalExpected = boundaryResult.layers.reduce((sum, l) => sum + l.expectedCount, 0);
+    const { allowed, coverage } = checkCellMapCoverage(allBoundaries.length, totalExpected, opts.cellMapThreshold);
+    const thresholdPct = (opts.cellMapThreshold * 100).toFixed(0);
+
     console.log('[4/5] Building cell map (Tree 2)...');
-    try {
-      const cellMapResult = await provider.buildCellMap(allBoundaries);
-      console.log(`  → ${cellMapResult.cellCount} cells mapped`);
-      console.log(`  → Statistical unit: ${cellMapResult.statisticalUnit}`);
-      console.log(`  → Root: 0x${cellMapResult.root.toString(16)}`);
-      console.log(`  → Depth: ${cellMapResult.depth}`);
-      console.log(`  → Duration: ${cellMapResult.durationMs}ms`);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.log(`  → Cell map construction failed: ${msg}`);
-      console.log(`  → This is expected during early development.`);
+    if (!allowed) {
+      console.error(`  CRITICAL: Boundary coverage ${(coverage * 100).toFixed(1)}% is below cell map threshold (${thresholdPct}%).`);
+      console.error(`  → ${allBoundaries.length}/${totalExpected} boundaries extracted. Cell map construction SKIPPED.`);
+      console.error(`  → A corrupted cell map produces invalid ZK proofs. Fix boundary extraction first.`);
+    } else {
+      console.log(`  → Boundary coverage: ${(coverage * 100).toFixed(1)}% (threshold: ${thresholdPct}%)`);
+      try {
+        const cellMapResult = await provider.buildCellMap(allBoundaries);
+        console.log(`  → ${cellMapResult.cellCount} cells mapped`);
+        console.log(`  → Statistical unit: ${cellMapResult.statisticalUnit}`);
+        console.log(`  → Root: 0x${cellMapResult.root.toString(16)}`);
+        console.log(`  → Depth: ${cellMapResult.depth}`);
+        console.log(`  → Duration: ${cellMapResult.durationMs}ms`);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.log(`  → Cell map construction failed: ${msg}`);
+        console.log(`  → This is expected during early development.`);
+      }
     }
   } else {
     console.log('[4/5] Cell map: SKIPPED');
@@ -364,7 +451,13 @@ function printValidationReport(report: ValidationReport): void {
 // Entry Point
 // ============================================================================
 
-main().catch(err => {
-  console.error('Fatal:', err);
-  process.exit(1);
-});
+// Only run main() when executed directly (not when imported for testing)
+const isDirectRun = process.argv[1] &&
+  (process.argv[1].endsWith('hydrate-country.ts') || process.argv[1].endsWith('hydrate-country.js'));
+
+if (isDirectRun) {
+  main().catch(err => {
+    console.error('Fatal:', err);
+    process.exit(1);
+  });
+}

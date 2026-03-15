@@ -51,6 +51,12 @@ export interface BEFOverlayOptions {
   cacheDir: string;
   /** Max retry attempts per download (default: 3). */
   maxRetries?: number;
+  /**
+   * Explicit delimiter for BEF file parsing.
+   * Census BEF files use pipe ('|') as the standard delimiter.
+   * Default: '|'
+   */
+  delimiter?: string;
   /** Log function. */
   log?: (msg: string) => void;
 }
@@ -82,6 +88,7 @@ export async function overlayBEFs(
   const {
     cacheDir,
     maxRetries = 3,
+    delimiter: explicitDelimiter,
     log = console.log,
   } = options;
 
@@ -141,12 +148,19 @@ export async function overlayBEFs(
     }
 
     // Parse BEF and overlay
-    // BEF format (2025): GEOID,CDFP (comma-delimited)
     const lines = content.split('\n');
     let stateUpdated = 0;
 
-    // Detect delimiter: new format uses comma, old format uses pipe
-    const delimiter = lines[0]?.includes(',') ? ',' : '|';
+    // Use explicit delimiter (Census BEF standard = pipe), with auto-detect fallback
+    let delimiter: string;
+    if (explicitDelimiter) {
+      delimiter = explicitDelimiter;
+    } else {
+      // Fallback auto-detect from header line — last resort only
+      delimiter = lines[0]?.includes('|') ? '|' : ',';
+      log(`[BEF] WARNING: No explicit delimiter set for state ${fips}, auto-detected '${delimiter === '|' ? 'pipe' : 'comma'}'. Set delimiter option to suppress this warning.`);
+    }
+    log(`[BEF] Using delimiter '${delimiter === '|' ? 'pipe' : delimiter === ',' ? 'comma' : delimiter}' for state ${fips}`);
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();

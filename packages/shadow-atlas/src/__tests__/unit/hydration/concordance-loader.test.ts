@@ -494,3 +494,74 @@ describe('cache TTL and revalidation', () => {
     ).rejects.toThrow(); // Proves staleness detected with short TTL
   });
 });
+
+// ============================================================================
+// H-3: Embedded newlines in quoted fields
+// ============================================================================
+
+describe('embedded newlines in quoted fields (H-3)', () => {
+  it('parseCSVString handles embedded newline in quoted field', () => {
+    const csv = `id,name,code\n"001","line1\nline2","A01"\n"002","simple","A02"`;
+    const result = parseCSVString(csv);
+
+    expect(result.headers).toEqual(['id', 'name', 'code']);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toEqual(['001', 'line1\nline2', 'A01']);
+    expect(result.rows[1]).toEqual(['002', 'simple', 'A02']);
+  });
+
+  it('parseCSVString handles multiple embedded newlines', () => {
+    const csv = `id,desc,code\n"001","line1\nline2\nline3","A01"\n"002","ok","A02"`;
+    const result = parseCSVString(csv);
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toEqual(['001', 'line1\nline2\nline3', 'A01']);
+  });
+
+  it('parseCSVString handles escaped quotes alongside embedded newlines', () => {
+    const csv = `id,desc,code\n"001","He said ""hello""\nthen left","A01"`;
+    const result = parseCSVString(csv);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toEqual(['001', 'He said "hello"\nthen left', 'A01']);
+  });
+
+  it('loadConcordanceFromString handles embedded newlines', () => {
+    const csv = `unit_id,boundary,notes\n"U001","B01","has\nnewline"\n"U002","B02","normal"`;
+    const result = loadConcordanceFromString(csv, {
+      unitColumn: 'unit_id',
+      boundaryColumn: 'boundary',
+    });
+
+    expect(result.rowCount).toBe(2);
+    expect(result.mappings[0]).toEqual({ unitId: 'U001', boundaryCode: 'B01' });
+    expect(result.mappings[1]).toEqual({ unitId: 'U002', boundaryCode: 'B02' });
+  });
+
+  it('parseCSVStream handles embedded newlines via file', async () => {
+    const csv = `unit_id,boundary,notes\n"U001","B01","has\nnewline"\n"U002","B02","normal"`;
+    const cachePath = join(TEST_CACHE_DIR, 'embedded-newline.csv');
+    await writeFile(cachePath, csv, 'utf-8');
+
+    const result = await loadConcordance(
+      {
+        url: 'https://example.com/fake.csv',
+        unitColumn: 'unit_id',
+        boundaryColumn: 'boundary',
+        cacheFilename: 'embedded-newline.csv',
+      },
+      TEST_CACHE_DIR,
+    );
+
+    expect(result.rowCount).toBe(2);
+    expect(result.mappings[0].unitId).toBe('U001');
+    expect(result.mappings[1].unitId).toBe('U002');
+  });
+
+  it('still works correctly for normal CSV without embedded newlines', () => {
+    const result = parseCSVString(SIMPLE_CSV);
+
+    expect(result.headers).toEqual(['MB2025_V1_00', 'GED2025_V1_00', 'MED2025_V1_00']);
+    expect(result.rows).toHaveLength(4);
+  });
+});
