@@ -225,6 +225,9 @@ export interface HydrationResult {
  * UTF-8 byte packing (max 31 bytes = 248 bits).
  */
 function encodeUsGeoid(geoid: string): bigint {
+  if (!geoid || !geoid.trim()) {
+    throw new Error('Empty cell/boundary code');
+  }
   if (/^\d+$/.test(geoid)) {
     const result = BigInt(geoid);
     if (result >= BN254_MODULUS) {
@@ -351,6 +354,9 @@ export const US_JURISDICTION: JurisdictionConfig = {
  * ~56,000 DAs nationally + 338 ridings — well within field bounds.
  */
 function encodeCanadaCellId(unitId: string): bigint {
+  if (!unitId || !unitId.trim()) {
+    throw new Error('Empty cell/boundary code');
+  }
   const numeric = unitId.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
     const result = BigInt(numeric);
@@ -445,6 +451,9 @@ export const CA_JURISDICTION: JurisdictionConfig = {
  * BN254 field bounds.
  */
 function encodeNZCellId(mbCode: string): bigint {
+  if (!mbCode || !mbCode.trim()) {
+    throw new Error('Empty cell/boundary code');
+  }
   const numeric = mbCode.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
     const result = BigInt(numeric);
@@ -515,6 +524,9 @@ export const NZ_JURISDICTION: JurisdictionConfig = {
  * BN254 field bounds (max ~2^253).
  */
 function encodeAuCellId(sa1Code: string): bigint {
+  if (!sa1Code || !sa1Code.trim()) {
+    throw new Error('Empty cell/boundary code');
+  }
   const numeric = sa1Code.replace(/\D/g, '');
   if (/^\d+$/.test(numeric)) {
     const result = BigInt(numeric);
@@ -583,6 +595,9 @@ export const AU_JURISDICTION: JurisdictionConfig = {
  * full UTF-8 string instead — safe since 9 bytes << 31-byte BN254 limit.
  */
 function encodeGBCellId(code: string): bigint {
+  if (!code || !code.trim()) {
+    throw new Error('Empty cell/boundary code');
+  }
   const trimmed = code.trim();
   const bytes = Buffer.from(trimmed, 'utf-8');
   if (bytes.length > 31) {

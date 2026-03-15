@@ -133,6 +133,40 @@ describe('AU_JURISDICTION.encodeCellId', () => {
 // BN254 modulus guard — synthetic overflow tests
 // ============================================================================
 
+// ============================================================================
+// M-4: Empty code guard — all encodeCellId functions
+// ============================================================================
+
+describe('M-4: empty code guard', () => {
+  it('US rejects empty string', () => {
+    expect(() => US_JURISDICTION.encodeCellId('')).toThrow('Empty cell/boundary code');
+  });
+
+  it('US rejects whitespace-only string', () => {
+    expect(() => US_JURISDICTION.encodeCellId('   ')).toThrow('Empty cell/boundary code');
+  });
+
+  it('CA rejects empty string', () => {
+    expect(() => CA_JURISDICTION.encodeCellId('')).toThrow('Empty cell/boundary code');
+  });
+
+  it('NZ rejects empty string', () => {
+    expect(() => NZ_JURISDICTION.encodeCellId('')).toThrow('Empty cell/boundary code');
+  });
+
+  it('AU rejects empty string', () => {
+    expect(() => AU_JURISDICTION.encodeCellId('')).toThrow('Empty cell/boundary code');
+  });
+
+  it('GB rejects empty string', () => {
+    expect(() => GB_JURISDICTION.encodeCellId('')).toThrow('Empty cell/boundary code');
+  });
+
+  it('GB rejects whitespace-only string', () => {
+    expect(() => GB_JURISDICTION.encodeCellId('  \t ')).toThrow('Empty cell/boundary code');
+  });
+});
+
 describe('BN254 modulus guard', () => {
   it('31 bytes of 0xFF via byte packing stays below BN254 modulus', () => {
     // 31 bytes of 0xFF = 2^248 - 1, which is less than BN254 modulus (~2^253)

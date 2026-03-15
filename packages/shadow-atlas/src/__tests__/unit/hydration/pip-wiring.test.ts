@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Polygon, MultiPolygon } from 'geojson';
-import { buildPIPCheck } from '../../../hydration/pip-wiring.js';
+import { buildPIPCheck, buildNominatimGeocoder } from '../../../hydration/pip-wiring.js';
 import type { InternationalBoundary } from '../../../providers/international/base-provider.js';
 
 // ============================================================================
@@ -161,5 +161,111 @@ describe('Layer 4 integration (mock geocoder + PIP check)', () => {
     const coords = await geocoder('Unknown Address');
     expect(coords).toBeNull();
     // PIP check not called — would be skipped in verifyPIP()
+  });
+});
+
+// ============================================================================
+// M-5: Schema-validate Nominatim geocoder responses
+// ============================================================================
+
+describe('M-5: buildNominatimGeocoder response validation', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('returns null for empty array response', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Nonexistent Place');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for non-array response', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ error: 'not found' }),
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Bad Response');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when lat is missing', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lon: '-0.1' }],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Missing Lat');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when lon is missing', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '51.5' }],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Missing Lon');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when lat parses to NaN', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: 'not-a-number', lon: '-0.1' }],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('NaN Lat');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when lon parses to NaN', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '51.5', lon: 'invalid' }],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('NaN Lon');
+    expect(result).toBeNull();
+  });
+
+  it('returns valid coordinates for well-formed response', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '51.5074', lon: '-0.1278' }],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('London, UK');
+    expect(result).toEqual({ lat: 51.5074, lng: -0.1278 });
+  });
+
+  it('returns null when first element is null', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [null],
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Null element');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for HTTP error', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+    const geocoder = buildNominatimGeocoder();
+    const result = await geocoder('Server Error');
+    expect(result).toBeNull();
   });
 });

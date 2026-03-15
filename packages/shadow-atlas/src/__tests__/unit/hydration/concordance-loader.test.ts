@@ -5,7 +5,7 @@
  * without hitting any external network endpoints.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, utimesSync } from 'fs';
 import { writeFile } from 'fs/promises';
@@ -169,18 +169,18 @@ describe('loadConcordanceFromString', () => {
     expect(result.mappings[3].secondaryBoundaryCode).toBeUndefined();
   });
 
-  it('skips rows with empty unit IDs', () => {
+  it('skips rows with empty unit IDs and empty boundary codes', () => {
     const result = loadConcordanceFromString(CSV_WITH_EMPTY_ROWS, {
       unitColumn: 'MB2025_V1_00',
       boundaryColumn: 'GED2025_V1_00',
       secondaryBoundaryColumn: 'MED2025_V1_00',
     });
 
-    // Row 2 has empty unit ID, should be skipped
-    expect(result.rowCount).toBe(3);
+    // Row 2 has empty unit ID → skipped
+    // Row 3 (0300100) has empty boundary code → skipped (M-4)
+    expect(result.rowCount).toBe(2);
     expect(result.mappings.map(m => m.unitId)).toEqual([
       '0100100',
-      '0300100',
       '0400100',
     ]);
   });
@@ -563,5 +563,128 @@ describe('embedded newlines in quoted fields (H-3)', () => {
 
     expect(result.headers).toEqual(['MB2025_V1_00', 'GED2025_V1_00', 'MED2025_V1_00']);
     expect(result.rows).toHaveLength(4);
+  });
+});
+
+// ============================================================================
+// M-1: Deterministic ordering via sort before dedup
+// ============================================================================
+
+describe('M-1: deterministic sort by unitId', () => {
+  it('shuffled input produces same output as sorted input', () => {
+    const sorted = `unit,boundary
+A001,B01
+A002,B02
+A003,B03
+A004,B04
+`;
+    const shuffled = `unit,boundary
+A003,B03
+A001,B01
+A004,B04
+A002,B02
+`;
+    const config = { unitColumn: 'unit', boundaryColumn: 'boundary' };
+    const sortedResult = loadConcordanceFromString(sorted, config);
+    const shuffledResult = loadConcordanceFromString(shuffled, config);
+
+    expect(shuffledResult.mappings).toEqual(sortedResult.mappings);
+    expect(shuffledResult.mappings.map(m => m.unitId)).toEqual([
+      'A001', 'A002', 'A003', 'A004',
+    ]);
+  });
+
+  it('sort is stable for duplicate unitIds with different boundary codes', () => {
+    // If duplicate unitIds exist, sort stability means output is deterministic
+    const csv = `unit,boundary
+B002,X
+A001,Y
+B002,Z
+A001,W
+`;
+    const result = loadConcordanceFromString(csv, {
+      unitColumn: 'unit',
+      boundaryColumn: 'boundary',
+    });
+
+    // Both A001 entries come first, both B002 entries come second
+    expect(result.mappings[0].unitId).toBe('A001');
+    expect(result.mappings[1].unitId).toBe('A001');
+    expect(result.mappings[2].unitId).toBe('B002');
+    expect(result.mappings[3].unitId).toBe('B002');
+  });
+
+  it('reverse-ordered CSV produces same result as forward-ordered', () => {
+    const forward = `unit,boundary
+001,A
+002,B
+003,C
+`;
+    const reverse = `unit,boundary
+003,C
+002,B
+001,A
+`;
+    const config = { unitColumn: 'unit', boundaryColumn: 'boundary' };
+    const fwd = loadConcordanceFromString(forward, config);
+    const rev = loadConcordanceFromString(reverse, config);
+
+    expect(rev.mappings).toEqual(fwd.mappings);
+  });
+});
+
+// ============================================================================
+// M-4: Reject empty boundary codes
+// ============================================================================
+
+describe('M-4: reject empty boundary codes', () => {
+  it('skips rows with empty boundary codes', () => {
+    const csv = `unit,boundary
+U001,B01
+U002,
+U003,B03
+U004,
+`;
+    const result = loadConcordanceFromString(csv, {
+      unitColumn: 'unit',
+      boundaryColumn: 'boundary',
+    });
+
+    // U002 and U004 have empty/whitespace boundary → skipped
+    expect(result.rowCount).toBe(2);
+    expect(result.mappings.map(m => m.unitId)).toEqual(['U001', 'U003']);
+  });
+
+  it('logs warning for skipped empty boundary codes', () => {
+    const csv = `unit,boundary
+U001,B01
+U002,
+U003,
+`;
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    loadConcordanceFromString(csv, {
+      unitColumn: 'unit',
+      boundaryColumn: 'boundary',
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('skipped 2 rows with empty boundary codes')
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('does not warn when no empty boundary codes exist', () => {
+    const csv = `unit,boundary
+U001,B01
+U002,B02
+`;
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    loadConcordanceFromString(csv, {
+      unitColumn: 'unit',
+      boundaryColumn: 'boundary',
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

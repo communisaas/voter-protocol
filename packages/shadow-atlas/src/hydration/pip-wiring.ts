@@ -74,10 +74,14 @@ export function buildNominatimGeocoder(): GeocoderFn {
 
       if (!res.ok) return null;
 
-      const data = await res.json() as Array<{ lat: string; lon: string }>;
-      if (Array.isArray(data) && data.length > 0) {
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return null;
+      const first = data[0];
+      if (!first || first.lat == null || first.lon == null) return null;
+      const lat = parseFloat(first.lat);
+      const lng = parseFloat(first.lon);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+      return { lat, lng };
     } catch {
       // Geocoding failure is non-fatal — official will be skipped
     }
