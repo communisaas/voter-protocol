@@ -655,12 +655,11 @@ export class DebateRelayer {
 
     this.stats._totalGasUsedBigInt += receipt.gasUsed;
 
-    const tradeParams = trade.params;
     logger.info('DebateRelayer: trade submitted', {
       type: trade.type,
-      debateId: tradeParams.debateId,
+      debateId: trade.params.debateId,
       // epoch only present on reveal params; commit params identify by debateId+deadline
-      ...(trade.type === 'reveal' ? { epoch: tradeParams.epoch } : {}),
+      ...(trade.type === 'reveal' ? { epoch: (trade.params as RevealTradeParams).epoch } : {}),
       txHash,
       gasUsed: receipt.gasUsed.toString(),
     });

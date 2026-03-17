@@ -101,12 +101,17 @@ export enum BoundaryType {
   SCHOOL_DISTRICT_SECONDARY = 'school_district_secondary',
 
   // ===========================================================================
-  // SLOT 10: SCHOOL_BOARD (School board trustee areas)
+  // SLOT 10: COMMUNITY_COLLEGE (Community college / school board districts)
   // ===========================================================================
   SCHOOL_BOARD_DISTRICT = 'school_board_district',
 
   // ===========================================================================
-  // SLOT 11: VOTING_PRECINCT (Electoral precincts / polling places)
+  // SLOT 11: WATER_SEWER (Water / sewer / sanitation districts)
+  // See authority-mapper.ts for full mapping
+  // ===========================================================================
+
+  // ===========================================================================
+  // SLOT 21: VOTING_PRECINCT (Voting tabulation districts / precincts)
   // ===========================================================================
   VOTING_DISTRICT = 'voting_district',
   VOTING_PRECINCT = 'voting_precinct',

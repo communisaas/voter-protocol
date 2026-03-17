@@ -1,7 +1,12 @@
 name: Shadow Atlas Quarterly Update
 
-# Quarterly pipeline: build static artifacts, pin to IPFS, update on-chain registry.
-# Eliminates runtime server dependency for reads — all data is content-addressed.
+# Chunked pipeline: build H3 chunks (~8 KB each), export per-district officials,
+# validate quality gate, pin UnixFS directory to Storacha (single root CID),
+# push CID to Cloudflare Pages secret, update on-chain registry.
+#
+# Replaces the old monolithic 355 MB pipeline. See:
+#   docs/specs/CHUNKED-ATLAS-PIPELINE-SPEC.md (Phase 4)
+
 on:
   workflow_dispatch:
     inputs:
@@ -9,8 +14,21 @@ on:
         description: 'Shadow Atlas DB source URL (R2/S3/HTTP)'
         required: true
         type: string
+      officials_db_source:
+        description: 'Officials DB source URL (defaults to sibling of db_source)'
+        required: false
+        type: string
+        default: ''
       publish_ipfs:
-        description: 'Pin artifacts to IPFS via Storacha'
+        description: 'Pin directory to IPFS via Storacha'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      push_cids:
+        description: 'Push root CID to Cloudflare Pages (requires publish_ipfs)'
         required: false
         default: 'true'
         type: choice
@@ -31,16 +49,19 @@ on:
 
 env:
   NODE_VERSION: '20'
-  OUTPUT_DIR: packages/shadow-atlas/output
+  CHUNKED_OUTPUT_DIR: packages/shadow-atlas/output/chunked
 
 jobs:
-  # ---- Phase A1: Build H3→district mapping ----
-  build-h3-mapping:
-    name: Build H3→District Mapping
+  # =========================================================================
+  # Phase 1: Build chunked H3→district mapping
+  # =========================================================================
+  build-chunked:
+    name: Build Chunked H3 Mapping
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     outputs:
-      cell_count: ${{ steps.build.outputs.cell_count }}
+      total_chunks: ${{ steps.build.outputs.total_chunks }}
+      total_cells: ${{ steps.build.outputs.total_cells }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,73 +79,115 @@ jobs:
       - name: Download Shadow Atlas database
         run: |
           echo "Downloading shadow-atlas-full.db..."
-          curl -L -o shadow-atlas-full.db "${{ inputs.db_source }}"
+          curl -fSL --retry 3 --retry-delay 5 \
+            -o shadow-atlas-full.db "${{ inputs.db_source }}"
           ls -lh shadow-atlas-full.db
 
-      - name: Build H3 mapping
+      - name: Build chunked mapping
         id: build
         working-directory: packages/shadow-atlas
         run: |
-          mkdir -p output
-          npx tsx scripts/build-h3-mapping.ts ../../shadow-atlas-full.db output/
+          mkdir -p output/chunked
 
-          # Extract cell count from metadata
-          CELL_COUNT=$(cat output/h3-mapping-metadata.json | jq -r '.matchedCells')
-          echo "cell_count=$CELL_COUNT" >> $GITHUB_OUTPUT
-          echo "Mapped $CELL_COUNT H3 cells"
+          npx tsx scripts/build-chunked-mapping.ts \
+            ../../shadow-atlas-full.db \
+            output/chunked/
 
-      - name: Upload H3 mapping artifacts
+          # Extract stats from the manifest
+          TOTAL_CHUNKS=$(jq -r '
+            [.countries[].layers[].chunkCount] | add // 0
+          ' output/chunked/manifest.json)
+          TOTAL_CELLS=$(jq -r '
+            [.countries[].layers[].cellCount] | add // 0
+          ' output/chunked/manifest.json)
+
+          echo "total_chunks=$TOTAL_CHUNKS" >> $GITHUB_OUTPUT
+          echo "total_cells=$TOTAL_CELLS" >> $GITHUB_OUTPUT
+
+          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total chunks:** $TOTAL_CHUNKS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total cells:** $TOTAL_CELLS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Output directory:** output/chunked/" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload chunked output
         uses: actions/upload-artifact@v4
         with:
-          name: h3-mapping
-          path: |
-            packages/shadow-atlas/output/h3-district-mapping.json.br
-            packages/shadow-atlas/output/h3-district-mapping-sample.json
-            packages/shadow-atlas/output/h3-mapping-metadata.json
+          name: chunked-build
+          path: packages/shadow-atlas/output/chunked/
           retention-days: 180
 
-  # ---- Phase A1: Export officials data ----
+  # =========================================================================
+  # Phase 2a: Export per-district officials files (depends on build-chunked)
+  # =========================================================================
   export-officials:
     name: Export Officials Data
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    needs: [build-chunked]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download chunked build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chunked-build
+          path: packages/shadow-atlas/output/chunked/
+
       - name: Download officials database
         run: |
-          # Officials DB is small (~500KB), stored alongside the main DB
-          DB_URL="${{ inputs.db_source }}"
-          OFFICIALS_URL="${DB_URL%/*}/officials.db"
-          curl -L -o officials.db "$OFFICIALS_URL" || echo "Officials DB not at derived URL, skipping"
-
-      - name: Export to JSON
-        run: |
-          mkdir -p packages/shadow-atlas/output
-
-          if [ -f officials.db ]; then
-            # Export officials table to JSON
-            sqlite3 -json officials.db "SELECT * FROM officials" > packages/shadow-atlas/output/officials.json
-            echo "Exported $(wc -l < packages/shadow-atlas/output/officials.json) lines"
+          # Use explicit officials_db_source if provided, otherwise derive from db_source
+          if [ -n "${{ inputs.officials_db_source }}" ]; then
+            OFFICIALS_URL="${{ inputs.officials_db_source }}"
           else
-            echo '{"error": "officials.db not available"}' > packages/shadow-atlas/output/officials.json
-            echo "Officials DB not available — placeholder created"
+            DB_URL="${{ inputs.db_source }}"
+            OFFICIALS_URL="${DB_URL%/*}/officials.db"
           fi
 
-      - name: Upload officials artifact
+          echo "Downloading officials DB from: $OFFICIALS_URL"
+          curl -fSL --retry 3 --retry-delay 5 \
+            -o officials.db "$OFFICIALS_URL"
+          ls -lh officials.db
+
+      - name: Export officials to chunked directory
+        working-directory: packages/shadow-atlas
+        run: |
+          npx tsx scripts/export-officials.ts \
+            --db ../../officials.db \
+            --output output/chunked/
+
+          # Count exported files
+          OFFICIALS_COUNT=$(find output/chunked/ -path '*/officials/*.json' | wc -l | tr -d ' ')
+          echo "Exported $OFFICIALS_COUNT officials files"
+
+          echo "### Officials Export" >> $GITHUB_STEP_SUMMARY
+          echo "- **Files exported:** $OFFICIALS_COUNT" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload updated chunked output
         uses: actions/upload-artifact@v4
         with:
-          name: officials
-          path: packages/shadow-atlas/output/officials.json
+          name: chunked-with-officials
+          path: packages/shadow-atlas/output/chunked/
           retention-days: 180
 
-  # ---- Phase A1b: Build Cell Tree Snapshot (Tree 2 Merkle tree) ----
+  # =========================================================================
+  # Phase 2b: Build Cell Tree Snapshot (parallel with export-officials)
+  # =========================================================================
   build-cell-tree-snapshot:
     name: Build Cell Tree Snapshot
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [build-h3-mapping]
+    needs: [build-chunked]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -139,52 +202,41 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download H3 mapping artifact
+      - name: Download chunked build artifact
         uses: actions/download-artifact@v4
         with:
-          name: h3-mapping
-          path: packages/shadow-atlas/output/
-
-      - name: Decompress H3 mapping
-        run: |
-          # build-cell-tree-snapshot.ts needs uncompressed JSON
-          cd packages/shadow-atlas/output
-          if [ -f h3-district-mapping.json.br ]; then
-            # Use node for Brotli decompression (portable)
-            node -e "
-              const { brotliDecompressSync } = require('zlib');
-              const { readFileSync, writeFileSync } = require('fs');
-              const br = readFileSync('h3-district-mapping.json.br');
-              writeFileSync('h3-district-mapping.json', brotliDecompressSync(br));
-              console.log('Decompressed: ' + (br.length/1024).toFixed(0) + ' KB → ' + (brotliDecompressSync(br).length/1024/1024).toFixed(1) + ' MB');
-            "
-          fi
+          name: chunked-build
+          path: packages/shadow-atlas/output/chunked/
 
       - name: Build cell tree snapshot
         working-directory: packages/shadow-atlas
         run: |
+          # build-cell-tree-snapshot reads from the chunked directory structure
           npx tsx scripts/build-cell-tree-snapshot.ts \
-            --from output/h3-district-mapping.json \
-            --output output/cell-tree-snapshot.json
+            --from output/chunked/ \
+            --output output/chunked/US/merkle/cell-tree-snapshot.json
 
-          ls -lh output/cell-tree-snapshot.json
+          ls -lh output/chunked/US/merkle/cell-tree-snapshot.json
 
-      - name: Upload cell tree snapshot artifact
+          echo "### Cell Tree Snapshot" >> $GITHUB_STEP_SUMMARY
+          SNAPSHOT_SIZE=$(ls -lh output/chunked/US/merkle/cell-tree-snapshot.json | awk '{print $5}')
+          echo "- **Snapshot size:** $SNAPSHOT_SIZE" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload cell tree snapshot into chunked output
         uses: actions/upload-artifact@v4
         with:
           name: cell-tree-snapshot
-          path: packages/shadow-atlas/output/cell-tree-snapshot.json
+          path: packages/shadow-atlas/output/chunked/US/merkle/cell-tree-snapshot.json
           retention-days: 180
 
-  # ---- Phase A2: Pin to IPFS via Storacha ----
-  publish-ipfs:
-    name: Pin to IPFS
+  # =========================================================================
+  # Phase 3: Validate build (quality gate — blocks IPFS pin on failure)
+  # =========================================================================
+  validate-build:
+    name: Validate Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [build-h3-mapping, export-officials, build-cell-tree-snapshot]
-    if: inputs.publish_ipfs != 'false'
-    outputs:
-      pin_results: ${{ steps.pin.outputs.results }}
+    timeout-minutes: 15
+    needs: [export-officials, build-cell-tree-snapshot]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -199,13 +251,68 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download all artifacts
+      - name: Download all chunked artifacts
         uses: actions/download-artifact@v4
         with:
-          path: packages/shadow-atlas/output/
+          pattern: chunked-with-officials
+          path: packages/shadow-atlas/output/chunked/
           merge-multiple: true
 
-      - name: Pin artifacts to Storacha
+      - name: Download cell tree snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: cell-tree-snapshot
+          path: packages/shadow-atlas/output/chunked/US/merkle/
+
+      - name: Run validation checks (7 checks)
+        working-directory: packages/shadow-atlas
+        run: |
+          # validate-build.ts exits non-zero on any failure.
+          # This gates the entire downstream pipeline.
+          npx tsx scripts/validate-build.ts output/chunked/
+
+          echo "### Validation" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result:** PASSED (all 7 checks)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload validated output
+        uses: actions/upload-artifact@v4
+        with:
+          name: chunked-validated
+          path: packages/shadow-atlas/output/chunked/
+          retention-days: 180
+
+  # =========================================================================
+  # Phase 4: Pin directory to IPFS via Storacha (single root CID)
+  # =========================================================================
+  publish-ipfs:
+    name: Pin to IPFS (Directory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [validate-build, build-chunked]
+    if: inputs.publish_ipfs != 'false'
+    outputs:
+      root_cid: ${{ steps.pin.outputs.root_cid }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download validated chunked output
+        uses: actions/download-artifact@v4
+        with:
+          name: chunked-validated
+          path: packages/shadow-atlas/output/chunked/
+
+      - name: Pin directory to Storacha
         id: pin
         working-directory: packages/shadow-atlas
         env:
@@ -214,18 +321,34 @@ jobs:
           STORACHA_PROOF: ${{ secrets.STORACHA_PROOF }}
         run: |
           npx tsx scripts/pin-to-ipfs.ts \
-            --all output/ \
+            --directory output/chunked/ \
             --output output/pin-results.json
 
-          # Output results for downstream jobs
-          echo "results=$(cat output/pin-results.json | jq -c '.')" >> $GITHUB_OUTPUT
+          # Extract root CID for downstream jobs
+          ROOT_CID=$(jq -r '.rootCid' output/pin-results.json)
+          echo "root_cid=$ROOT_CID" >> $GITHUB_OUTPUT
+          echo "Root CID: $ROOT_CID"
 
-      - name: Create IPFS gateway links
+      - name: Write IPFS summary
         run: |
+          ROOT_CID=$(jq -r '.rootCid' packages/shadow-atlas/output/pin-results.json)
+          TIMESTAMP=$(jq -r '.timestamp' packages/shadow-atlas/output/pin-results.json)
+          VERIFIED=$(jq -r '.verified // "unknown"' packages/shadow-atlas/output/pin-results.json)
+
           echo "## IPFS Pinning Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          cat packages/shadow-atlas/output/pin-results.json | jq -r '.artifacts[] | "- **\(.name)**: [\(.cid)](\(.gateway))"' >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Root CID** | \`$ROOT_CID\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timestamp** | $TIMESTAMP |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Verified** | $VERIFIED |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total Chunks** | ${{ needs.validate-build.result == 'success' && needs.build-chunked.outputs.total_chunks || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total Cells** | ${{ needs.validate-build.result == 'success' && needs.build-chunked.outputs.total_cells || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Gateway Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [manifest.json](https://w3s.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Root directory](https://w3s.link/ipfs/$ROOT_CID/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [dweb.link mirror](https://dweb.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload pin results
         uses: actions/upload-artifact@v4
@@ -234,7 +357,57 @@ jobs:
           path: packages/shadow-atlas/output/pin-results.json
           retention-days: 180
 
-  # ---- Phase C1: Update on-chain registry ----
+  # =========================================================================
+  # Phase 5a: Push root CID to Cloudflare Pages secret
+  # =========================================================================
+  push-cids:
+    name: Push CID to Cloudflare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [publish-ipfs]
+    if: inputs.publish_ipfs != 'false' && inputs.push_cids != 'false'
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download pin results
+        uses: actions/download-artifact@v4
+        with:
+          name: pin-results
+          path: packages/shadow-atlas/output/
+
+      - name: Push CID to Cloudflare Pages
+        working-directory: packages/shadow-atlas
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/push-cids.ts \
+            --pin-results output/pin-results.json \
+            --project commons
+
+          ROOT_CID=$(jq -r '.rootCid' output/pin-results.json)
+          echo "### CID Push" >> $GITHUB_STEP_SUMMARY
+          echo "- **Root CID:** \`$ROOT_CID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project:** commons" >> $GITHUB_STEP_SUMMARY
+          echo "- **Secret:** IPFS_CID_ROOT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Updated" >> $GITHUB_STEP_SUMMARY
+
+  # =========================================================================
+  # Phase 5b: Update on-chain registry (stub — future implementation)
+  # =========================================================================
   update-registry:
     name: Update On-Chain Registry
     runs-on: ubuntu-latest
@@ -275,49 +448,71 @@ jobs:
           RPC_URL: ${{ secrets.SCROLL_RPC_URL }}
         run: |
           # TODO: Implement Foundry script to update DistrictRegistry with:
-          # - New Merkle root hash
-          # - IPFS CIDs for each artifact
+          # - Root CID from pin-results.json
           # - Quarterly epoch number
           #
-          # Script should call DistrictRegistry.updateSnapshot(root, cids)
+          # Script should call DistrictRegistry.updateSnapshot(rootCid)
           # or equivalent function once contract supports IPFS CID storage.
           echo "On-chain registry update not yet implemented"
           echo "Pin results:"
-          cat ../packages/shadow-atlas/output/pin-results.json | jq '.artifacts[] | {name, cid}'
+          cat ../packages/shadow-atlas/output/pin-results.json | jq '{ rootCid, timestamp }'
 
-  # ---- Notifications ----
+  # =========================================================================
+  # Notifications
+  # =========================================================================
   notify:
     name: Send Notifications
     runs-on: ubuntu-latest
-    needs: [build-h3-mapping, export-officials, publish-ipfs, update-registry]
+    timeout-minutes: 5
+    needs:
+      - build-chunked
+      - export-officials
+      - build-cell-tree-snapshot
+      - validate-build
+      - publish-ipfs
+      - push-cids
+      - update-registry
     if: always()
     steps:
       - name: Create GitHub Issue with results
         uses: actions/github-script@v7
         with:
           script: |
-            const cellCount = '${{ needs.build-h3-mapping.outputs.cell_count }}' || 'N/A';
+            const totalChunks = '${{ needs.build-chunked.outputs.total_chunks }}' || 'N/A';
+            const totalCells = '${{ needs.build-chunked.outputs.total_cells }}' || 'N/A';
+            const rootCid = '${{ needs.publish-ipfs.outputs.root_cid }}' || 'N/A';
 
             const title = `Shadow Atlas Quarterly Update - ${new Date().toISOString().split('T')[0]}`;
             const body = [
-              '## Quarterly Shadow Atlas Update',
+              '## Quarterly Shadow Atlas Update (Chunked Pipeline)',
               '',
               `**Date:** ${new Date().toISOString()}`,
               '',
-              '### Job Results',
+              '### Pipeline Results',
               '| Job | Status |',
               '|-----|--------|',
-              `| Build H3 Mapping | ${{ needs.build-h3-mapping.result }} |`,
+              `| Build Chunked Mapping | ${{ needs.build-chunked.result }} |`,
               `| Export Officials | ${{ needs.export-officials.result }} |`,
+              `| Build Cell Tree | ${{ needs.build-cell-tree-snapshot.result }} |`,
+              `| Validate Build | ${{ needs.validate-build.result }} |`,
               `| Pin to IPFS | ${{ needs.publish-ipfs.result }} |`,
+              `| Push CIDs | ${{ needs.push-cids.result }} |`,
               `| Update Registry | ${{ needs.update-registry.result }} |`,
               '',
-              '### H3 Mapping',
-              `- **Cells mapped:** ${cellCount}`,
-              `- **Resolution:** 7 (~5.16 km² per cell)`,
+              '### Build Metrics',
+              `- **Total chunks:** ${totalChunks}`,
+              `- **Total cells:** ${totalCells}`,
+              `- **Root CID:** \`${rootCid}\``,
+              `- **Resolution:** 7 (child) / 3 (parent) — ~5.16 km² per cell`,
+              '',
+              '### Gateway Links',
+              rootCid !== 'N/A' ? [
+                `- [manifest.json](https://w3s.link/ipfs/${rootCid}/manifest.json)`,
+                `- [Root directory](https://w3s.link/ipfs/${rootCid}/)`,
+              ].join('\n') : '- *IPFS pinning was skipped or failed*',
               '',
               '---',
-              '*Automatically created by the quarterly update workflow.*',
+              '*Automatically created by the quarterly update workflow (chunked pipeline v3).*',
             ].join('\n');
 
             await github.rest.issues.create({
@@ -333,16 +528,34 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{
-              \"text\": \"Shadow Atlas Quarterly Update Complete — ${{ needs.build-h3-mapping.result }}\"
-            }" \
-            $SLACK_WEBHOOK_URL
+          ROOT_CID="${{ needs.publish-ipfs.outputs.root_cid }}"
+          TOTAL_CHUNKS="${{ needs.build-chunked.outputs.total_chunks }}"
+          BUILD_RESULT="${{ needs.build-chunked.result }}"
+          VALIDATE_RESULT="${{ needs.validate-build.result }}"
+          PIN_RESULT="${{ needs.publish-ipfs.result }}"
 
-  # ---- Cleanup ----
+          curl -fsSL -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"text\": \"Shadow Atlas Quarterly Update Complete\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Shadow Atlas Quarterly Update*\n• Build: ${BUILD_RESULT}\n• Validation: ${VALIDATE_RESULT}\n• IPFS Pin: ${PIN_RESULT}\n• Chunks: ${TOTAL_CHUNKS}\n• Root CID: \`${ROOT_CID:-N/A}\`\"
+                  }
+                }
+              ]
+            }" \
+            "$SLACK_WEBHOOK_URL"
+
+  # =========================================================================
+  # Cleanup old artifacts (keep last 4 quarters = 1 year)
+  # =========================================================================
   cleanup:
     name: Cleanup Old Artifacts
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [notify]
     if: always()
     steps:
@@ -350,22 +563,41 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const ARTIFACT_NAMES = [
+              'chunked-build',
+              'chunked-with-officials',
+              'cell-tree-snapshot',
+              'chunked-validated',
+              'pin-results',
+              // Legacy artifact names (from old monolithic pipeline)
+              'h3-mapping',
+              'officials',
+            ];
+
             const artifactsResponse = await github.rest.actions.listArtifactsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               per_page: 100
             });
 
-            const quarterlyArtifacts = artifactsResponse.data.artifacts
-              .filter(a => ['h3-mapping', 'officials', 'cell-tree-snapshot', 'pin-results'].includes(a.name))
+            const relevantArtifacts = artifactsResponse.data.artifacts
+              .filter(a => ARTIFACT_NAMES.includes(a.name))
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            // Keep last 4 quarters (1 year), delete rest
-            for (let i = 4; i < quarterlyArtifacts.length; i++) {
-              await github.rest.actions.deleteArtifact({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                artifact_id: quarterlyArtifacts[i].id
-              });
-              console.log(`Deleted artifact: ${quarterlyArtifacts[i].name}`);
+            // Group by name, keep last 4 of each (1 year of quarterly runs)
+            const counts = {};
+            for (const artifact of relevantArtifacts) {
+              counts[artifact.name] = (counts[artifact.name] || 0) + 1;
+              if (counts[artifact.name] > 4) {
+                try {
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id
+                  });
+                  console.log(`Deleted artifact: ${artifact.name} (${artifact.created_at})`);
+                } catch (e) {
+                  console.log(`Failed to delete artifact ${artifact.name}: ${e.message}`);
+                }
+              }
             }

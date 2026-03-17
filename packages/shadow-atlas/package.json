@@ -77,7 +77,11 @@
         "benchmark": "tsx src/scripts/benchmark-lookup.ts",
         "benchmark:multi": "tsx src/scripts/benchmark-lookup.ts --multi",
         "build:h3-mapping": "tsx scripts/build-h3-mapping.ts",
-        "pin:ipfs": "tsx scripts/pin-to-ipfs.ts"
+        "build:chunked": "tsx scripts/build-chunked-mapping.ts",
+        "export:officials": "tsx scripts/export-officials.ts",
+        "validate:build": "tsx scripts/validate-build.ts",
+        "pin:ipfs": "tsx scripts/pin-to-ipfs.ts",
+    "push:cids": "tsx scripts/push-cids.ts"
     },
     "dependencies": {
         "@msgpack/msgpack": "^3.0.0",

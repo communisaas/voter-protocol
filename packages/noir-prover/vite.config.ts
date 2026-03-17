@@ -25,7 +25,7 @@ export default defineConfig({
         },
         rollupOptions: {
             // Externalize peer dependencies - consumers must provide them
-            external: ['@aztec/bb.js', '@noir-lang/noir_js', 'pako'],
+            external: ['@aztec/bb.js', '@noir-lang/noir_js', '@voter-protocol/crypto', 'pako'],
         },
         target: 'esnext',
         minify: false,

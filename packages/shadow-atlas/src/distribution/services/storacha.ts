@@ -17,6 +17,8 @@
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
  */
 
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import type { IPinningService } from '../regional-pinning-service.js';
 import type {
   Region,
@@ -52,11 +54,63 @@ export interface StorachaConfig {
 }
 
 /**
+ * Minimal file-like shape expected by Storacha's uploadDirectory.
+ * Mirrors @storacha/client's FileLike (BlobLike + name) without importing it.
+ */
+interface StorachaFileLike {
+  name: string;
+  stream: () => ReadableStream;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  text: () => Promise<string>;
+  slice: (start?: number, end?: number) => Blob;
+  readonly size: number;
+  readonly type: string;
+}
+
+/**
  * Storacha client interface — just the methods we use.
  * Avoids importing the full @storacha/client types at the interface level.
  */
 interface StorachaClientHandle {
   uploadFile: (blob: Blob) => Promise<{ toString: () => string }>;
+  uploadDirectory: (files: StorachaFileLike[]) => Promise<{ toString: () => string }>;
+}
+
+/**
+ * Recursively walk a directory tree and produce StorachaFileLike objects.
+ * Each file's `name` is its path relative to `rootDir` using forward slashes,
+ * preserving directory structure in the resulting UnixFS DAG.
+ */
+function walkDirectory(rootDir: string): StorachaFileLike[] {
+  const results: StorachaFileLike[] = [];
+
+  function walk(currentDir: string): void {
+    const entries = readdirSync(currentDir);
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry);
+      const stat = statSync(fullPath);
+      if (stat.isDirectory()) {
+        walk(fullPath);
+      } else if (stat.isFile()) {
+        const relativePath = relative(rootDir, fullPath).split('\\').join('/');
+        const fileBuffer = readFileSync(fullPath);
+        const blob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+
+        results.push({
+          name: relativePath,
+          stream: () => blob.stream(),
+          arrayBuffer: () => blob.arrayBuffer(),
+          text: () => blob.text(),
+          slice: (start?: number, end?: number) => blob.slice(start, end),
+          size: blob.size,
+          type: blob.type,
+        });
+      }
+    }
+  }
+
+  walk(rootDir);
+  return results;
 }
 
 /**
@@ -114,6 +168,11 @@ export class StorachaPinningService implements IPinningService {
         const cid = await client.uploadFile(blob);
         return { toString: () => cid.toString() };
       },
+      uploadDirectory: async (files: StorachaFileLike[]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cid = await client.uploadDirectory(files as any);
+        return { toString: () => cid.toString() };
+      },
     };
 
     return this.client;
@@ -169,6 +228,61 @@ export class StorachaPinningService implements IPinningService {
       const durationMs = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
+      return {
+        success: false,
+        cid: '',
+        service: this.type,
+        region: this.region,
+        pinnedAt: new Date(),
+        sizeBytes: 0,
+        durationMs,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Pin an entire directory tree to Storacha as a single UnixFS DAG.
+   * Returns a single root CID that addresses all files via paths.
+   *
+   * @param dirPath - Absolute path to directory on disk
+   * @returns PinResult with the root CID
+   */
+  async pinDirectory(dirPath: string): Promise<PinResult> {
+    const startTime = Date.now();
+    try {
+      // Walk directory tree, create FileLike objects
+      const files = walkDirectory(dirPath);
+
+      const client = await this.getClient();
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`Storacha directory upload timed out after ${this.timeoutMs}ms`)),
+          this.timeoutMs,
+        );
+      });
+
+      const result = await Promise.race([
+        client.uploadDirectory(files),
+        timeoutPromise,
+      ]);
+      const cid = result.toString();
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      const durationMs = Date.now() - startTime;
+
+      return {
+        success: true,
+        cid,
+        service: this.type,
+        region: this.region,
+        pinnedAt: new Date(),
+        sizeBytes: totalSize,
+        durationMs,
+      };
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
         cid: '',

@@ -284,20 +284,20 @@ export const CIRCUIT_SLOT_NAMES = [
   'SCHOOL_UNIFIED',     // 7: Unified school districts (K-12)
   'SCHOOL_ELEMENTARY',  // 8: Elementary school districts
   'SCHOOL_SECONDARY',   // 9: Secondary / High school districts
-  'SCHOOL_BOARD',       // 10: School board trustee areas
-  'VOTING_PRECINCT',    // 11: Electoral precincts / polling places
+  'COMMUNITY_COLLEGE',  // 10: Community college districts
+  'WATER_SEWER',        // 11: Water / sewer / sanitation districts
   'FIRE_EMS',           // 12: Fire protection and emergency services
-  'WATER',              // 13: Water and sewer districts
-  'UTILITY',            // 14: General utility districts
-  'TRANSIT',            // 15: Public transportation districts
-  'LIBRARY',            // 16: Library districts
-  'HOSPITAL',           // 17: Hospital / Healthcare districts
-  'PARK_REC',           // 18: Parks and recreation districts
+  'TRANSIT',            // 13: Transit / transportation districts
+  'HOSPITAL',           // 14: Hospital / healthcare districts
+  'LIBRARY',            // 15: Library districts
+  'PARK_REC',           // 16: Parks and recreation districts
+  'CONSERVATION',       // 17: Conservation / soil / environmental districts
+  'UTILITY',            // 18: PUD / MUD / electric co-op districts
   'JUDICIAL',           // 19: Judicial districts / court jurisdictions
-  'CONSERVATION',       // 20: Conservation / soil / environmental districts
-  'TRIBAL',             // 21: Tribal and indigenous governance
-  'OVERFLOW_1',         // 22: Rare/miscellaneous special districts (Group A)
-  'OVERFLOW_2',         // 23: Rare/miscellaneous special districts (Group B)
+  'TOWNSHIP',           // 20: Township / MCD / New England town
+  'VOTING_PRECINCT',    // 21: Voting tabulation districts / precincts
+  'TRIBAL',             // 22: Tribal / indigenous governance (AIANNH)
+  'OVERFLOW',           // 23: Rare/miscellaneous special districts
 ] as const;
 
 /**
@@ -384,7 +384,6 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
     // =========================================================================
     case BoundaryType.CITY_LIMITS:
     case BoundaryType.CDP:
-    case BoundaryType.TOWNSHIP:
     case BoundaryType.BOROUGH:
     case BoundaryType.VILLAGE:
       return 5;
@@ -416,17 +415,21 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
       return 9;
 
     // =========================================================================
-    // SLOT 10: SCHOOL_BOARD (School board trustee areas)
+    // SLOT 10: COMMUNITY_COLLEGE (Community college districts)
     // =========================================================================
     case BoundaryType.SCHOOL_BOARD_DISTRICT:
+      // School board trustee areas share slot 10 with community college
       return 10;
 
     // =========================================================================
-    // SLOT 11: VOTING_PRECINCT (Electoral precincts / polling places)
+    // SLOT 11: WATER_SEWER (Water / sewer / sanitation districts)
     // =========================================================================
-    case BoundaryType.VOTING_DISTRICT:
-    case BoundaryType.VOTING_PRECINCT:
-    case BoundaryType.ELECTION_DISTRICT:
+    case BoundaryType.WATER_DISTRICT:
+    case BoundaryType.SEWER_DISTRICT:
+    case BoundaryType.SANITATION_DISTRICT:
+    case BoundaryType.IRRIGATION_DISTRICT:
+    case BoundaryType.FLOOD_CONTROL_DISTRICT:
+    case BoundaryType.DRAINAGE_DISTRICT:
       return 11;
 
     // =========================================================================
@@ -438,56 +441,55 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
       return 12;
 
     // =========================================================================
-    // SLOT 13: WATER (Water and sewer districts)
-    // =========================================================================
-    case BoundaryType.WATER_DISTRICT:
-    case BoundaryType.SEWER_DISTRICT:
-    case BoundaryType.SANITATION_DISTRICT:
-    case BoundaryType.IRRIGATION_DISTRICT:
-    case BoundaryType.FLOOD_CONTROL_DISTRICT:
-    case BoundaryType.DRAINAGE_DISTRICT:
-      return 13;
-
-    // =========================================================================
-    // SLOT 14: UTILITY (General utility districts)
-    // =========================================================================
-    case BoundaryType.UTILITY_DISTRICT:
-    case BoundaryType.PUBLIC_UTILITY_DISTRICT:
-    case BoundaryType.POWER_DISTRICT:
-    case BoundaryType.ELECTRIC_DISTRICT:
-    case BoundaryType.GAS_DISTRICT:
-      return 14;
-
-    // =========================================================================
-    // SLOT 15: TRANSIT (Public transportation districts)
+    // SLOT 13: TRANSIT (Transit / transportation districts)
     // =========================================================================
     case BoundaryType.TRANSIT_DISTRICT:
     case BoundaryType.TRANSPORTATION_DISTRICT:
     case BoundaryType.METRO_TRANSIT_DISTRICT:
     case BoundaryType.PORT_DISTRICT:
     case BoundaryType.AIRPORT_DISTRICT:
-      return 15;
+      return 13;
 
     // =========================================================================
-    // SLOT 16: LIBRARY (Library districts - often elected boards)
-    // =========================================================================
-    case BoundaryType.LIBRARY_DISTRICT:
-      return 16;
-
-    // =========================================================================
-    // SLOT 17: HOSPITAL (Hospital / Healthcare districts)
+    // SLOT 14: HOSPITAL (Hospital / healthcare districts)
     // =========================================================================
     case BoundaryType.HOSPITAL_DISTRICT:
     case BoundaryType.HEALTHCARE_DISTRICT:
     case BoundaryType.AMBULANCE_DISTRICT:
-      return 17;
+      return 14;
 
     // =========================================================================
-    // SLOT 18: PARK_REC (Parks and recreation districts)
+    // SLOT 15: LIBRARY (Library districts)
+    // =========================================================================
+    case BoundaryType.LIBRARY_DISTRICT:
+      return 15;
+
+    // =========================================================================
+    // SLOT 16: PARK_REC (Parks and recreation districts)
     // =========================================================================
     case BoundaryType.PARK_DISTRICT:
     case BoundaryType.RECREATION_DISTRICT:
     case BoundaryType.OPEN_SPACE_DISTRICT:
+      return 16;
+
+    // =========================================================================
+    // SLOT 17: CONSERVATION (Conservation / soil / environmental districts)
+    // =========================================================================
+    case BoundaryType.CONSERVATION_DISTRICT:
+    case BoundaryType.SOIL_CONSERVATION_DISTRICT:
+    case BoundaryType.RESOURCE_CONSERVATION_DISTRICT:
+    case BoundaryType.WATERSHED_DISTRICT:
+    case BoundaryType.GROUNDWATER_DISTRICT:
+      return 17;
+
+    // =========================================================================
+    // SLOT 18: UTILITY (PUD / MUD / electric co-op districts)
+    // =========================================================================
+    case BoundaryType.UTILITY_DISTRICT:
+    case BoundaryType.PUBLIC_UTILITY_DISTRICT:
+    case BoundaryType.POWER_DISTRICT:
+    case BoundaryType.ELECTRIC_DISTRICT:
+    case BoundaryType.GAS_DISTRICT:
       return 18;
 
     // =========================================================================
@@ -500,27 +502,31 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
       return 19;
 
     // =========================================================================
-    // SLOT 20: CONSERVATION (Conservation / soil / environmental districts)
+    // SLOT 20: TOWNSHIP (Township / MCD / New England town)
     // =========================================================================
-    case BoundaryType.CONSERVATION_DISTRICT:
-    case BoundaryType.SOIL_CONSERVATION_DISTRICT:
-    case BoundaryType.RESOURCE_CONSERVATION_DISTRICT:
-    case BoundaryType.WATERSHED_DISTRICT:
-    case BoundaryType.GROUNDWATER_DISTRICT:
+    case BoundaryType.TOWNSHIP:
       return 20;
 
     // =========================================================================
-    // SLOT 21: TRIBAL (Tribal and indigenous governance)
+    // SLOT 21: VOTING_PRECINCT (Voting tabulation districts / precincts)
+    // =========================================================================
+    case BoundaryType.VOTING_DISTRICT:
+    case BoundaryType.VOTING_PRECINCT:
+    case BoundaryType.ELECTION_DISTRICT:
+      return 21;
+
+    // =========================================================================
+    // SLOT 22: TRIBAL (Tribal / indigenous governance)
     // =========================================================================
     case BoundaryType.TRIBAL_AREA:
     case BoundaryType.ALASKA_NATIVE_CORP:
     case BoundaryType.TRIBAL_SUBDIVISION:
     case BoundaryType.TRIBAL_BLOCK_GROUP:
     case BoundaryType.TRIBAL_TRACT:
-      return 21;
+      return 22;
 
     // =========================================================================
-    // SLOT 22: OVERFLOW_1 (Rare/miscellaneous special districts - Group A)
+    // SLOT 23: OVERFLOW (Rare/miscellaneous special districts)
     // =========================================================================
     case BoundaryType.CEMETERY_DISTRICT:
     case BoundaryType.MOSQUITO_DISTRICT:
@@ -531,11 +537,6 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
     case BoundaryType.ROAD_DISTRICT:
     case BoundaryType.COMMUNITY_SERVICES_DISTRICT:
     case BoundaryType.IMPROVEMENT_DISTRICT:
-      return 22;
-
-    // =========================================================================
-    // SLOT 23: OVERFLOW_2 (Rare/miscellaneous special districts - Group B)
-    // =========================================================================
     case BoundaryType.ASSESSMENT_DISTRICT:
     case BoundaryType.BUSINESS_IMPROVEMENT_DISTRICT:
     case BoundaryType.TAX_INCREMENT_DISTRICT:
@@ -651,20 +652,20 @@ export function getAllCircuitSlotMetadata(): CircuitSlotMetadata[] {
     SCHOOL_UNIFIED: 'Unified K-12 school districts',
     SCHOOL_ELEMENTARY: 'Elementary school districts',
     SCHOOL_SECONDARY: 'Secondary/high school districts',
-    SCHOOL_BOARD: 'School board trustee areas',
-    VOTING_PRECINCT: 'Electoral precincts and polling places',
+    COMMUNITY_COLLEGE: 'Community college districts',
+    WATER_SEWER: 'Water, sewer, and sanitation districts',
     FIRE_EMS: 'Fire protection and emergency services districts',
-    WATER: 'Water, sewer, and irrigation districts',
-    UTILITY: 'Public utility districts (power, electric, gas)',
-    TRANSIT: 'Public transportation and port districts',
-    LIBRARY: 'Library districts',
+    TRANSIT: 'Transit and transportation districts',
     HOSPITAL: 'Hospital and healthcare districts',
+    LIBRARY: 'Library districts',
     PARK_REC: 'Parks and recreation districts',
-    JUDICIAL: 'Judicial districts and court jurisdictions',
     CONSERVATION: 'Conservation and environmental districts',
-    TRIBAL: 'Tribal and indigenous governance areas',
-    OVERFLOW_1: 'Miscellaneous special districts (Group A)',
-    OVERFLOW_2: 'Miscellaneous special districts (Group B)',
+    UTILITY: 'Public utility districts (PUD, MUD, electric co-op)',
+    JUDICIAL: 'Judicial districts and court jurisdictions',
+    TOWNSHIP: 'Township / MCD / New England town',
+    VOTING_PRECINCT: 'Voting tabulation districts and precincts',
+    TRIBAL: 'Tribal and indigenous governance areas (AIANNH)',
+    OVERFLOW: 'Miscellaneous special districts',
   };
 
   return CIRCUIT_SLOT_NAMES.map((name, index) => ({

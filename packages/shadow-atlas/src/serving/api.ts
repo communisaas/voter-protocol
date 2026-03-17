@@ -2073,27 +2073,9 @@ export class ShadowAtlasAPI {
       const msg = error instanceof Error ? error.message : 'Unknown error';
 
       if (msg === 'DUPLICATE_LEAF') {
-        // Natural idempotency: return existing proof instead of 400.
-        // Proof verified this is ZK-safe — fresh proof has the longest
-        // validity window before root rotation.
-        const existingIndex = this.registrationService!.findLeafIndex(validation.data.leaf);
-        if (existingIndex !== undefined) {
-          const existingResult = this.registrationService!.getProof(existingIndex);
-          const responseData = { ...existingResult, alreadyRegistered: true };
-
-          // Cache for idempotency key
-          if (idempotencyKey) {
-            this.idempotencyCache.set(idempotencyKey, {
-              result: responseData,
-              expiresAt: Date.now() + this.idempotencyCacheTTL,
-            });
-          }
-
-          res.setHeader('Cache-Control', 'no-store');
-          this.sendSuccessResponse(res, responseData, requestId, false);
-          return;
-        }
-        // Fallback: if index lookup fails unexpectedly, return oracle-resistant 400
+        // CR-006: Return 400 indistinguishable from other validation errors
+        // to prevent registration oracle attacks. Clients needing idempotency
+        // should use the X-Idempotency-Key header instead.
         this.sendErrorResponse(
           res, 400, 'INVALID_PARAMETERS',
           'Invalid registration parameters',

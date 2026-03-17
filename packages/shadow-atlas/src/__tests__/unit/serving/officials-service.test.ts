@@ -62,6 +62,7 @@ function seedTestMembers(dbPath: string): void {
       delegate_type TEXT,
       state_fips TEXT,
       cd_geoid TEXT,
+      congress_session TEXT DEFAULT '119th',
       start_date TEXT,
       end_date TEXT,
       ingested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -73,41 +74,41 @@ function seedTestMembers(dbPath: string): void {
     INSERT INTO federal_members (
       bioguide_id, name, first_name, last_name, party, chamber,
       state, district, senate_class, phone, cwc_code, is_voting,
-      delegate_type, state_fips, cd_geoid
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      delegate_type, state_fips, cd_geoid, congress_session
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   // CA-12 House rep
   insert.run('P000197', 'Nancy Pelosi', 'Nancy', 'Pelosi', 'Democrat', 'house',
-    'CA', '12', null, '202-555-1234', 'HCA12', 1, null, '06', '0612');
+    'CA', '12', null, '202-555-1234', 'HCA12', 1, null, '06', '0612', '119th');
 
   // CA Senators
   insert.run('S001150', 'Adam Schiff', 'Adam', 'Schiff', 'Democrat', 'senate',
-    'CA', null, 1, '202-555-2345', null, 1, null, '06', null);
+    'CA', null, 1, '202-555-2345', null, 1, null, '06', null, '119th');
   insert.run('P000145', 'Alex Padilla', 'Alex', 'Padilla', 'Democrat', 'senate',
-    'CA', null, 3, '202-555-3456', null, 1, null, '06', null);
+    'CA', null, 3, '202-555-3456', null, 1, null, '06', null, '119th');
 
   // VT at-large (single CD)
   insert.run('B001310', 'Becca Balint', 'Becca', 'Balint', 'Democrat', 'house',
-    'VT', '00', null, '202-555-4567', 'HVT00', 1, null, '50', '5000');
+    'VT', '00', null, '202-555-4567', 'HVT00', 1, null, '50', '5000', '119th');
 
   // VT Senators
   insert.run('S000033', 'Bernard Sanders', 'Bernard', 'Sanders', 'Independent', 'senate',
-    'VT', null, 1, '202-555-5678', null, 1, null, '50', null);
+    'VT', null, 1, '202-555-5678', null, 1, null, '50', null, '119th');
   insert.run('W000800', 'Peter Welch', 'Peter', 'Welch', 'Democrat', 'senate',
-    'VT', null, 3, '202-555-6789', null, 1, null, '50', null);
+    'VT', null, 3, '202-555-6789', null, 1, null, '50', null, '119th');
 
   // DC delegate (non-voting)
   insert.run('N000147', 'Eleanor Holmes Norton', 'Eleanor', 'Norton', 'Democrat', 'house',
-    'DC', '00', null, '202-555-7890', 'HDC00', 0, 'delegate', '11', '1100');
+    'DC', '00', null, '202-555-7890', 'HDC00', 0, 'delegate', '11', '1100', '119th');
 
   // PR resident commissioner (non-voting)
   insert.run('H001234', 'Pablo Hernandez', 'Pablo', 'Hernandez', 'Democrat', 'house',
-    'PR', '00', null, '202-555-8901', 'HPR00', 0, 'resident_commissioner', '72', '7200');
+    'PR', '00', null, '202-555-8901', 'HPR00', 0, 'resident_commissioner', '72', '7200', '119th');
 
   // GU delegate (non-voting) — territory test data
   insert.run('M001234', 'James Moylan', 'James', 'Moylan', 'Republican', 'house',
-    'GU', '00', null, '202-555-9012', 'HGU00', 0, 'delegate', '66', '6698');
+    'GU', '00', null, '202-555-9012', 'HGU00', 0, 'delegate', '66', '6698', '119th');
 
   db.close();
 }

@@ -24,6 +24,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 function createMockLookupService() {
   return {
     lookup: vi.fn(),
+    lookupAll: vi.fn(),
     close: vi.fn(),
     clearCache: vi.fn(),
     getMetrics: vi.fn().mockReturnValue({
@@ -229,13 +230,15 @@ describe('Shadow Atlas API v2 - Request Validation', () => {
       },
       provenance: {
         source: 'municipal-gis',
-        publishedDate: '2024-01-01',
-        verifiedDate: '2024-01-15',
+        authority: 'municipal' as const,
+        timestamp: Date.now(),
+        method: 'api',
+        responseHash: '0xabcdef',
       },
     };
 
-    mockLookupService.lookup.mockReturnValue({
-      district: mockDistrict,
+    mockLookupService.lookupAll.mockReturnValue({
+      districts: [mockDistrict],
       latencyMs: 5,
       cacheHit: false,
     });
@@ -400,8 +403,8 @@ describe('Shadow Atlas API v2 - Rate Limiting', () => {
 
   beforeEach(() => {
     const mockLookupService = createMockLookupService();
-    mockLookupService.lookup.mockReturnValue({
-      district: null,
+    mockLookupService.lookupAll.mockReturnValue({
+      districts: [],
       latencyMs: 1,
       cacheHit: false,
     });
@@ -612,14 +615,16 @@ describe('Shadow Atlas API v2 - Cache Headers', () => {
       },
       provenance: {
         source: 'municipal-gis',
-        publishedDate: '2024-01-01',
-        verifiedDate: '2024-01-15',
+        authority: 'municipal' as const,
+        timestamp: Date.now(),
+        method: 'api',
+        responseHash: '0xabcdef',
       },
     };
 
     // First request (cache miss)
-    mockLookupService.lookup.mockReturnValue({
-      district: mockDistrict,
+    mockLookupService.lookupAll.mockReturnValue({
+      districts: [mockDistrict],
       latencyMs: 5,
       cacheHit: false,
     });
@@ -631,8 +636,8 @@ describe('Shadow Atlas API v2 - Cache Headers', () => {
     expect(response1.headers['x-cache']).toBe('MISS');
 
     // Second request (cache hit)
-    mockLookupService.lookup.mockReturnValue({
-      district: mockDistrict,
+    mockLookupService.lookupAll.mockReturnValue({
+      districts: [mockDistrict],
       latencyMs: 1,
       cacheHit: true,
     });
