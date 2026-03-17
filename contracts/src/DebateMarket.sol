@@ -955,11 +955,17 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	function emergencyWithdraw(bytes32 debateId, bytes32 nullifier) external nonReentrant {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
-		if (debate.status != DebateStatus.ACTIVE && debate.status != DebateStatus.CANCELLED) revert DebateNotActive();
-		if (debate.status == DebateStatus.CANCELLED) {
+
+		// FP5-F01: Allow emergency withdrawal from AWAITING_GOVERNANCE.
+		// RESOLVING and UNDER_APPEAL have permissionless exits (resolveDebateWithAI, finalizeAppeal),
+		// but AWAITING_GOVERNANCE requires governance action. If governance disappears, funds lock.
+		DebateStatus status = debate.status;
+		if (status == DebateStatus.CANCELLED) {
 			// Cancelled debates: immediate withdrawal (no 30-day wait)
-		} else {
+		} else if (status == DebateStatus.ACTIVE || status == DebateStatus.AWAITING_GOVERNANCE) {
 			if (block.timestamp < debate.deadline + EMERGENCY_WITHDRAW_DELAY) revert DebateStillActive();
+		} else {
+			revert DebateNotActive();
 		}
 
 		StakeRecord storage record = stakeRecords[debateId][nullifier];
@@ -1182,12 +1188,11 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 			return;
 		}
 
-		SD59x18 b = lmsrLiquidity[debateId];
-
 		// Apply all revealed trades to LMSR quantities (pure signal — no token accounting)
+		// Quantities store raw weighted amounts; computePrice divides by b once (FP-3 fix)
 		for (uint256 i = 0; i < numReveals; i++) {
 			TradeReveal storage reveal = reveals[i];
-			SD59x18 delta = sd(int256(reveal.weightedAmount) * 1e18) / b;
+			SD59x18 delta = sd(int256(reveal.weightedAmount) * 1e18);
 
 			if (reveal.direction == TradeDirection.BUY) {
 				lmsrQuantities[debateId][reveal.argumentIndex] =
@@ -1393,6 +1398,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		if (block.timestamp < debate.deadline) revert DebateStillActive();
 		if (debate.aiScoresSubmitted) revert AIScoresAlreadySubmitted();
 		if (debate.argumentCount == 0) revert NoArgumentsSubmitted();
+		if (debate.uniqueParticipants < minParticipants) revert InsufficientParticipation();
 		if (packedScores.length != debate.argumentCount) revert ArgumentNotFound();
 		if (block.timestamp > deadline) revert SignatureExpired();
 
@@ -1517,6 +1523,9 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 		Debate storage debate = debates[debateId];
 		if (debate.deadline == 0) revert DebateNotFound();
 		if (debate.status != DebateStatus.AWAITING_GOVERNANCE) revert DebateNotAwaitingGovernance();
+		/// @dev SC-5: Governance must wait until resolutionDeadline (snapshotted in escalateToGovernance)
+		///      before resolving. Prevents instant governance resolution after escalation.
+		if (block.timestamp < debate.resolutionDeadline) revert ResolutionDeadlineNotReached();
 		if (winningIndex >= debate.argumentCount) revert ArgumentNotFound();
 
 		Argument storage winner = arguments[debateId][winningIndex];
@@ -1619,9 +1628,12 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	}
 
 	/// @notice Set minimum unique participants required for resolution (governance only)
-	/// @param newMin New minimum (must be >= 1, <= BOND_RETURN_THRESHOLD)
+	/// @dev SC-6: Only allow lowering. Raising would retroactively cancel active debates
+	///      that already passed their participation deadline with the old threshold.
+	///      On mainnet (external LMSR library), switch to two-phase with timelock.
+	/// @param newMin New minimum (must be >= 1, <= current minParticipants)
 	function setMinParticipants(uint256 newMin) external onlyGovernance {
-		if (newMin == 0 || newMin > BOND_RETURN_THRESHOLD) revert MinParticipantsOutOfRange();
+		if (newMin == 0 || newMin > minParticipants) revert MinParticipantsOutOfRange();
 		uint256 old = minParticipants;
 		minParticipants = newMin;
 		emit MinParticipantsUpdated(old, newMin);
@@ -1816,7 +1828,7 @@ contract DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 	function deriveDomain(
 		bytes32 baseDomain,
 		bytes32 propositionHash
-	) public pure returns (bytes32) {
+	) internal pure returns (bytes32) {
 		uint256 raw = uint256(keccak256(abi.encodePacked(baseDomain, "debate", propositionHash)));
 		return bytes32(raw % BN254_MODULUS);
 	}

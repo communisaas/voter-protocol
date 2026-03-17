@@ -2264,8 +2264,8 @@ contract DebateMarketTest is Test {
         bytes32 propHash1 = keccak256("Proposition A");
         bytes32 propHash2 = keccak256("Proposition B");
 
-        bytes32 derived1 = market.deriveDomain(ACTION_DOMAIN, propHash1);
-        bytes32 derived2 = market.deriveDomain(ACTION_DOMAIN, propHash2);
+        bytes32 derived1 = _deriveDomain(ACTION_DOMAIN, propHash1);
+        bytes32 derived2 = _deriveDomain(ACTION_DOMAIN, propHash2);
 
         assertTrue(derived1 != derived2, "Different propositions must produce different derived domains");
 
@@ -2698,6 +2698,7 @@ contract DebateMarketTest is Test {
 
         vm.prank(governance);
         market.escalateToGovernance(debateId);
+        skip(2 days); // SC-5: must wait past resolutionDeadline
         vm.prank(governance);
         market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
 
@@ -2735,6 +2736,7 @@ contract DebateMarketTest is Test {
 
         vm.prank(governance);
         market.escalateToGovernance(debateId);
+        skip(2 days); // SC-5: must wait past resolutionDeadline
         vm.prank(governance);
         market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
 
@@ -2761,6 +2763,7 @@ contract DebateMarketTest is Test {
 
         vm.prank(governance);
         market.escalateToGovernance(debateId);
+        skip(2 days); // SC-5: must wait past resolutionDeadline
         vm.prank(governance);
         market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
 
@@ -2850,6 +2853,7 @@ contract DebateMarketTest is Test {
         vm.warp(block.timestamp + STANDARD_DURATION + 1);
         vm.prank(governance);
         market.escalateToGovernance(debateId);
+        skip(2 days); // SC-5: must wait past resolutionDeadline
         vm.prank(governance);
         market.submitGovernanceResolution(debateId, 0, keccak256("reason"));
 
@@ -3036,6 +3040,37 @@ contract DebateMarketTest is Test {
         _warpAndResolve(debateId);
 
         winningIndex = 1;
+    }
+
+    // ============================================================================
+    // SC-6: setMinParticipants lowering-only
+    // ============================================================================
+
+    function test_setMinParticipants_revert_raising() public {
+        assertEq(market.minParticipants(), 1);
+        vm.prank(governance);
+        vm.expectRevert(DebateMarket.MinParticipantsOutOfRange.selector);
+        market.setMinParticipants(2);
+    }
+
+    function test_setMinParticipants_revert_zero() public {
+        vm.prank(governance);
+        vm.expectRevert(DebateMarket.MinParticipantsOutOfRange.selector);
+        market.setMinParticipants(0);
+    }
+
+    function test_setMinParticipants_sameLower() public {
+        assertEq(market.minParticipants(), 1);
+        vm.prank(governance);
+        market.setMinParticipants(1);
+        assertEq(market.minParticipants(), 1);
+    }
+
+    /// @dev Local helper replicating DebateMarket.deriveDomain (now internal)
+    function _deriveDomain(bytes32 baseDomain, bytes32 propositionHash) internal pure returns (bytes32) {
+        uint256 BN254_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+        uint256 raw = uint256(keccak256(abi.encodePacked(baseDomain, "debate", propositionHash)));
+        return bytes32(raw % BN254_MOD);
     }
 }
 

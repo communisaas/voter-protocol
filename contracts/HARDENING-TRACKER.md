@@ -87,6 +87,49 @@
 
 ---
 
+## Second-Pass Findings (Brutalist Review #2, 2026-03-15)
+
+| ID | Severity | Finding | File(s) | Status |
+|----|----------|---------|---------|--------|
+| SC-5 | HIGH | `submitGovernanceResolution` has no `resolutionDeadline` check — governance can resolve instantly after escalation, bypassing the deliberation window | `DebateMarket.sol:1512-1520` | DONE (Cycle 4) |
+| SC-6 | MEDIUM | `setMinParticipants` allows raising — retroactively cancels active debates that already passed their participation deadline with sufficient participants under the old threshold | `DebateMarket.sol:1621-1628` | DONE (Cycle 4) |
+| SM-8 | MEDIUM | Stranded USDC in CANCELLED debates — no sweep mechanism for abandoned stakes after cancellation + emergency withdrawal period | `DebateMarket.sol` | DEFERRED (EIP-170) |
+| SL-10 | LOW | `DebateMarket.deriveDomain()` is `public` but only called internally — wastes ABI exposure + bytecode | `DebateMarket.sol:1816` | DONE (Cycle 4) |
+| SL-11 | LOW | DistrictGate `setActionDomainMinAuthority` asymmetry — lowering is instant, raising is timelocked | `DistrictGate.sol` | WONTFIX |
+| SL-12 | LOW | EngagementRootRegistry `expiresAt: 0` — newly registered roots never expire despite `MAX_ENGAGEMENT_ROOT_LIFETIME` existing | `EngagementRootRegistry.sol:92` | DONE (Cycle 4) |
+| SL-13 | LOW | Position privacy dedup at `userRoot` granularity — should be per-district for Sybil resistance | `DebateMarket.sol` | WONTFIX |
+| SL-14 | INFO | `MAX_DISTRICT_SLOTS` type `uint256` — should be `uint8` to match usage | `Constants.sol` | DONE (Cycle 4) |
+
+**SM-8 rationale for DEFERRED**: A sweep function for abandoned stakes requires ~100 bytes bytecode. DebateMarket has 38-byte margin. CANCELLED debates already allow immediate emergency withdrawal. Deferred to mainnet LMSR library deployment (SA-2 Phase 2).
+
+**SL-11 rationale for WONTFIX**: The asymmetry is CORRECT. Lowering `minAuthority` is permissive (more users can participate — safe to apply instantly). Raising is restrictive (excludes active users — needs timelock for community notice). The finding misunderstands the security model.
+
+**SL-13 rationale for WONTFIX**: Proper fix requires ZK circuit `districtId` output field. `userRoot`→`cellMapRoot` swap only improves from system-level to country-level dedup, not district-level. Requires circuit changes outside Solidity scope.
+
+---
+
+## Third-Pass Findings (Brutalist Review #3, 2026-03-15)
+
+| ID | Claim | Verdict | Status |
+|----|-------|---------|--------|
+| TP-1 | `resolveDebate` reads live `resolutionExtension` — governance can delay community resolution | VALID, LOW | WONTFIX |
+| TP-2 | Fund stranding if all winners emergencyWithdraw before resolution | VALID edge case, LOW | DEFERRED |
+| TP-3 | `setEpochDuration` mid-epoch can skip reveal phase | VALID, INFO | WONTFIX |
+| TP-4 | `setProtocolFee` retroactive taxation for active participants | INVALID | REJECTED |
+| TP-5 | 10-minute timelock vs "7-14 day" documentation in TimelockGovernance | VALID, INFO | DONE (Cycle 4) |
+
+**TP-1 rationale for WONTFIX**: `resolveDebate` (community fallback) reads live `resolutionExtension` (line 794), not a snapshot. If governance increases it from 48h to 90d, community resolution is delayed for all ACTIVE debates. However: (1) the primary AI resolution path (`submitAIEvaluation`) does NOT use `resolutionExtension`, (2) emergency withdrawal is available at 30 days, (3) snapshotting at debate creation adds a Debate struct field — too expensive for 38-byte margin. Governance trust assumption.
+
+**TP-2 rationale for DEFERRED**: If all winners emergency withdraw (30+ days after deadline, still ACTIVE), then someone calls `resolveDebate`, remaining losers can't `claimSettlement` (wrong argument) or `emergencyWithdraw` (RESOLVED status). Funds strand permanently. Extremely unlikely: requires 30+ days of no resolution + all winners withdraw + some losers don't. Fix deferred to mainnet.
+
+**TP-3 rationale for WONTFIX**: Decreasing `epochDuration` mid-epoch can make committed trades unrevealed. No fund loss (LMSR trades have no token flow). Nullifier consumption is the only lasting effect. Governance self-harm scenario.
+
+**TP-4 rationale for REJECTED**: Protocol fee is applied at DEPOSIT time in `_pullStake()` (line 615), not at settlement. `record.stakeAmount` stores the net (post-fee) amount. Changing the fee only affects future stakes. No retroactive taxation.
+
+**TP-5 fix (Cycle 4)**: TimelockGovernance NatSpec updated — "7-14 days" → "configurable timelock (minimum 10 minutes)", section headers and function docs updated to reference `GOVERNANCE_TIMELOCK` instead of hardcoded "7-day".
+
+---
+
 ## Findings Evaluated as NOISE (Not Tracked)
 
 These were flagged by Brutalist critics but assessed as invalid, overblown, or intended behavior:
@@ -209,3 +252,134 @@ Existing coverage gaps (from `memory/audit-findings.md`) plus new gaps identifie
 | + SA-3 | 24,561 | 15 |
 
 **Worktree merge regression (Cycle 3)**: Cycle 3 Phase 1 worktree agents branched from HEAD, overwriting uncommitted Cycle 1/2 changes on 5 source files (4 registries + AIEvaluationRegistry) and pragma pins on 10+ files. All changes were reconstructed from test file expectations. Lesson: commit before launching worktree agents.
+
+---
+
+## Cycle 4 — Completed (2026-03-15)
+
+**Scope**: SC-5, SC-6, SM-4 (expiresAt), SL-10, SL-14, TP-5 (6 findings from second + third pass reviews)
+**Result**: 823/823 tests pass. DebateMarket: 24,538 bytes (38 margin). 4 findings DONE, 1 DEFERRED, 4 WONTFIX, 1 REJECTED.
+**New tests**: 4 (1 SC-5 boundary test + 3 SC-6 lowering-only tests)
+
+| Finding | Fix Summary |
+|---------|-------------|
+| SC-5 | `resolutionDeadline` check added to `submitGovernanceResolution`. Governance must wait past snapshotted deadline before resolving escalated debates. |
+| SC-6 | `setMinParticipants` restricted to lowering-only (`newMin > minParticipants` reverts). Prevents retroactive cancellation of active debates. |
+| SL-10 | `deriveDomain` visibility `public pure` → `internal pure`. Saves ~50 bytes ABI overhead. Tests use local `_deriveDomain` helper. |
+| SL-12/SM-4 | `expiresAt` auto-computed as `uint64(block.timestamp + MAX_ENGAGEMENT_ROOT_LIFETIME)` at registration. No more `expiresAt: 0` roots. |
+| SL-14 | `MAX_DISTRICT_SLOTS` type `uint256` → `uint8` in `Constants.sol`. |
+| TP-5 | TimelockGovernance NatSpec corrected — removed hardcoded "7-day" references, now references `GOVERNANCE_TIMELOCK`. |
+
+**Bytecode progression (Cycle 4)**:
+| Phase | Runtime (B) | Margin (B) |
+|-------|-------------|------------|
+| Baseline (post Cycle 3) | 24,561 | 15 |
+| + SL-10 (deriveDomain internal) | 24,511 | 65 |
+| + SC-5 (resolutionDeadline check) | 24,537 | 39 |
+| + SC-6 (lowering-only setter) | 24,538 | 38 |
+
+**Third Brutalist review summary**: 3-round adversarial debate (Gemini CON vs Codex PRO). 5 claims evaluated: 2 valid (TP-1, TP-2) but low-severity with existing mitigations, 1 informational (TP-3), 1 invalid (TP-4 — misunderstands fee timing), 1 NatSpec fix (TP-5). No new HIGH or MEDIUM findings.
+
+---
+
+## Fourth-Pass Findings (Brutalist Review #4, 2026-03-15)
+
+> 6 AI critics across 3 verticals (security, architecture, adversarial debate). Every finding traced against actual code and validated/invalidated.
+
+| ID | Severity | Finding | File(s) | Status |
+|----|----------|---------|---------|--------|
+| FP-1 | **CRITICAL** | RESOLVING deadlock — `submitAIEvaluation` sets `status = RESOLVING` without checking `uniqueParticipants >= minParticipants`. `resolveDebateWithAI` then reverts `InsufficientParticipation`. No exit path (emergencyWithdraw requires ACTIVE/CANCELLED). **Permanent fund lock.** | `DebateMarket.sol:1389-1441` | DONE (Cycle 5) |
+| FP-2 | HIGH | `getActiveModels()` OOB on re-registration — `executeModelRemoval` deactivates but doesn't remove from `modelList`. `executeModelRegistration` pushes duplicate. `getActiveModels()` allocates `_modelCount` slots but finds more active entries → array OOB revert | `AIEvaluationRegistry.sol:152-175,303-311` | DONE (Cycle 5) |
+| FP-3 | MEDIUM | LMSR double-division — `executeEpoch` stores `weightedAmount/b` in lmsrQuantities, then `computePrice` divides by `b` again. Effective liquidity = b², not b. Prices more uniform than intended (dampened signal) | `DebateMarket.sol:1190`, `LMSRMath.sol:71` | DONE (Cycle 5) |
+| FP-4 | MEDIUM | `revealTrade` uncapped — No per-reveal check against `MAX_REVEALS_PER_EPOCH`. >256 reveals brick `executeEpoch` permanently via `TooManyReveals()` | `DebateMarket.sol:1066-1150,1168` | DEFERRED (EIP-170) |
+| FP-5 | MEDIUM | `_countValidSignatures` O(n²) — uncapped `signatures.length` with inner duplicate-check loop. Griefing with 1000+ garbage sigs | `DebateMarket.sol:2039-2066` | DEFERRED (EIP-170) |
+| FP-6 | MEDIUM | Fee-on-cancel — `_pullStake` extracts fee at deposit. `emergencyWithdraw` returns `stakeAmount` (net). Protocol keeps fees from cancelled debates permanently | `DebateMarket.sol:614-619` | DEFERRED (design decision) |
+
+### Invalidated Claims
+
+| Claim | Verdict | Reason |
+|-------|---------|--------|
+| int256 overflow in LMSR liquidity math | INVALID | Solidity 0.8.x checked arithmetic reverts on overflow, doesn't silently wrap |
+| EIP-712 execution context hijacking | INVALID | Known meta-tx trust assumption; Scroll has no public mempool |
+| Settlement precision loss near type(uint256).max | INVALID | Requires physically impossible USDC amounts (~10^59 tokens) |
+| Cross-chain EIP-712 replay | INVALID | Domain separator includes `chainId + address(this)` |
+| BN254 derived domain collision | INVALID | 2^127 work required; not practical |
+| Emergency withdraw drains winning pool | DUPLICATE | Already tracked as TP-2 |
+| Governance bypass of AI resolution | DUPLICATE | Known Phase 1 design, documented |
+| Appeal mechanism is theater | DUPLICATE | Known Phase 1 limitation |
+
+### Deferred Rationale
+
+**FP-4**: Requires >256 valid ZK proofs + commitments in a single 5-minute epoch window. Substantial cost (256+ proof generations + L2 gas). Impact is one epoch's LMSR quantities not updating — no fund loss. Fix adds ~20 bytes to DebateMarket (current margin: 317 bytes post FP-3 fix).
+
+**FP-5**: `signatures.length` is bounded by the quorum caller's choice. Griefing only wastes the caller's gas. AI evaluation submission is an authorized operation. Fix requires replacing O(n²) dedup with O(n) bitmap — adds ~40 bytes.
+
+**FP-6**: Design trade-off. Fee is applied at deposit, not at settlement. On cancellation, protocol keeps the 2% fee as compensation for on-chain state storage. User gets back `stakeAmount` (the net amount they were told they'd stake). No user expectation violation — the fee was disclosed at `submitArgument` time.
+
+---
+
+## Cycle 5 — Completed (2026-03-15)
+
+**Scope**: FP-1, FP-2, FP-3 (3 findings from fourth-pass review)
+**Result**: 825/825 tests pass. DebateMarket: 24,259 bytes (317 margin). AIEvaluationRegistry: 4,309 bytes.
+**New tests**: 2 (1 FP-1 deadlock prevention + 1 FP-2 re-registration OOB prevention)
+
+| Finding | Fix Summary |
+|---------|-------------|
+| FP-1 | `if (debate.uniqueParticipants < minParticipants) revert InsufficientParticipation()` added to `submitAIEvaluation`. Prevents transition to RESOLVING when debate is underparticipated. |
+| FP-2 | De-duplication check in `executeModelRegistration` — iterates `modelList` before push, skips if address already present. O(n) on panel size (~5-10 models). |
+| FP-3 | Removed `/ b` from `executeEpoch` line 1190. Quantities now store raw `weightedAmount * 1e18`, and `computePrice` handles the single division by `b`. Also reclaimed 279 bytes of bytecode. |
+
+**Bytecode progression (Cycle 5)**:
+| Phase | Runtime (B) | Margin (B) |
+|-------|-------------|------------|
+| Baseline (post Cycle 4) | 24,538 | 38 |
+| + FP-1 (minParticipants check) | ~24,558 | ~18 |
+| + FP-3 (remove /b in executeEpoch) | 24,259 | 317 |
+
+---
+
+## Fifth-Pass Findings (Brutalist Review #5, 2026-03-15)
+
+> 6 AI critics across 3 verticals (security deep-dive, edge-case hunting, adversarial debate). Every finding traced against actual code and validated/invalidated.
+
+| ID | Claimed Severity | Finding | Verdict | Status |
+|----|-----------------|---------|---------|--------|
+| FP5-F01 | CRITICAL | `emergencyWithdraw` unavailable for RESOLVING/AWAITING_GOVERNANCE/UNDER_APPEAL — funds permanently locked | **PARTIALLY VALID (MEDIUM)** — RESOLVING has permissionless exit (`resolveDebateWithAI`), UNDER_APPEAL has permissionless exit (`finalizeAppeal`). Only AWAITING_GOVERNANCE can truly lock if governance disappears. | DONE (Cycle 6) |
+| FP5-F02 | CRITICAL | Ghost-weight: `emergencyWithdraw` doesn't decrement `weightedScore` — resolution uses stale scores | **INVALID** — emergencyWithdraw requires 30 days past deadline; resolution requires only `resolutionExtension` past deadline. Resolution always happens first. Even in edge case, accounting remains solvent. | REJECTED |
+| FP5-F03 | HIGH | Domain squatting via `proposeDebate` — attacker front-runs same `(baseDomain, propositionHash)` for $1 | **INVALID (LOW at most)** — Scroll L2 has no public mempool (centralized sequencer). Costs USDC bond. Trivial mitigation: change one byte of proposition text. | REJECTED |
+| FP5-F04 | HIGH | Multiple pending governance transfers — race condition via mapping | **INVALID (LOW)** — Only governance can initiate. `cancelGovernanceTransfer` exists. Safe multisig handles operationally. No external attack vector. | REJECTED |
+| FP5-F05 | MEDIUM | CampaignRegistry gas bomb — `try/catch` forwards unlimited gas | **INVALID (LOW)** — Governance-controlled registry. EIP-150 63/64 rule retains sufficient gas. `try/catch` silently catches failures. | REJECTED |
+| FP5-F06 | MEDIUM | TP-2 severity upgrade — loser fund stranding more plausible | **INVALID** — Timing constraint (30-day emergency delay vs minutes/hours resolution) makes scenario impossible. | REJECTED |
+| FP5-F07 | MEDIUM | Nullifier poisoning by authorized callers — `recordNullifier` has no domain-ownership check | **INVALID** — Only DistrictGate is authorized, validates ZK proofs before calling. Governance controls authorized caller list. | REJECTED |
+
+### FP5-F01 Analysis
+
+**The only valid finding from this pass.** The state machine has 6 statuses. `emergencyWithdraw` only allows ACTIVE and CANCELLED. For the other 4:
+
+| Status | Permissionless Exit? | Risk if no exit? |
+|--------|---------------------|------------------|
+| RESOLVED | N/A — use `claimSettlement` | None |
+| RESOLVING | Yes — `resolveDebateWithAI` (anyone) | None |
+| UNDER_APPEAL | Yes — `finalizeAppeal` (anyone, time-gated) | None |
+| AWAITING_GOVERNANCE | **No** — requires `submitGovernanceResolution` (governance-only) | **Funds lock if governance disappears** |
+
+**Fix**: Added AWAITING_GOVERNANCE to `emergencyWithdraw` status check with the same 30-day delay. This provides a safety valve without undermining the governance resolution flow.
+
+---
+
+## Cycle 6 — Completed (2026-03-15)
+
+**Scope**: FP5-F01 (1 finding from fifth-pass review)
+**Result**: 827/827 tests pass. DebateMarket: 24,258 bytes (318 margin).
+**New tests**: 2 (1 AWAITING_GOVERNANCE withdrawal success + 1 RESOLVING rejection confirmation)
+
+| Finding | Fix Summary |
+|---------|-------------|
+| FP5-F01 | `emergencyWithdraw` status check expanded from `ACTIVE \|\| CANCELLED` to `ACTIVE \|\| AWAITING_GOVERNANCE \|\| CANCELLED`. AWAITING_GOVERNANCE uses same 30-day delay as ACTIVE. RESOLVING and UNDER_APPEAL correctly excluded (permissionless exits exist). |
+
+**Bytecode progression (Cycle 6)**:
+| Phase | Runtime (B) | Margin (B) |
+|-------|-------------|------------|
+| Baseline (post Cycle 5) | 24,259 | 317 |
+| + FP5-F01 (AWAITING_GOVERNANCE) | 24,258 | 318 |

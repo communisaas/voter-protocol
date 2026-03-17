@@ -58,7 +58,7 @@ contract EngagementRootRegistryTest is Test {
         assertEq(meta.depth, DEPTH_20);
         assertTrue(meta.isActive);
         assertEq(meta.registeredAt, uint32(block.timestamp));
-        assertEq(meta.expiresAt, 0);
+        assertEq(meta.expiresAt, uint64(block.timestamp + 180 days));
     }
 
     function test_RegisterEngagementRoot_MultipleSupportedDepths() public {
@@ -488,7 +488,7 @@ contract EngagementRootRegistryTest is Test {
         assertEq(meta.depth, DEPTH_20);
         assertTrue(meta.isActive);
         assertGt(meta.registeredAt, 0);
-        assertEq(meta.expiresAt, 0);
+        assertEq(meta.expiresAt, uint64(block.timestamp + 180 days));
     }
 
     // ============ Scenario Tests ============

@@ -7,7 +7,7 @@ pragma solidity 0.8.28;
 ///
 /// THREAT MODEL (HONEST):
 /// - Single point of failure: Founder compromise = governance compromise
-/// - Mitigation: All critical operations have timelocks (7-14 days)
+/// - Mitigation: Governance transfer has configurable timelock (minimum 10 minutes)
 /// - Community response: Monitor events, exit protocol during timelock if malicious
 ///
 /// WHAT THIS PROVIDES:
@@ -69,13 +69,13 @@ abstract contract TimelockGovernance {
     }
 
     // ============================================================================
-    // Governance Transfer (7-day timelock)
+    // Governance Transfer (configurable timelock, minimum 10 minutes)
     // ============================================================================
 
-    /// @notice Initiate governance transfer (starts 7-day timelock)
+    /// @notice Initiate governance transfer (starts GOVERNANCE_TIMELOCK countdown)
     /// @param newGovernance New governance address
     /// @dev Anyone can monitor GovernanceTransferInitiated events
-    ///      Community has 7 days to respond if transfer looks malicious
+    ///      Community has GOVERNANCE_TIMELOCK seconds to respond if transfer looks malicious
     function initiateGovernanceTransfer(address newGovernance) external onlyGovernance {
         if (newGovernance == address(0)) revert ZeroAddress();
         if (newGovernance == governance) revert SameAddress();
@@ -86,7 +86,7 @@ abstract contract TimelockGovernance {
         emit GovernanceTransferInitiated(newGovernance, executeTime);
     }
 
-    /// @notice Execute governance transfer (after 7-day timelock)
+    /// @notice Execute governance transfer (after GOVERNANCE_TIMELOCK expires)
     /// @param newGovernance New governance address
     /// @dev Can be called by anyone after timelock expires
     function executeGovernanceTransfer(address newGovernance) external virtual {

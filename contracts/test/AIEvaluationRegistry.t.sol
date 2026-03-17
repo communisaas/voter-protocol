@@ -597,4 +597,38 @@ contract AIEvaluationRegistryTest is Test {
 
 		assertFalse(registry.isRegistered(signer5));
 	}
+
+	// ============================================================================
+	// FP-2: Re-registration must not duplicate modelList entry
+	// ============================================================================
+
+	function test_reRegistration_noModelListDuplicate() public {
+		// Remove signer5 (provider 4)
+		vm.prank(governance);
+		registry.initiateModelRemoval(signer5);
+		skip(MODEL_TIMELOCK);
+		registry.executeModelRemoval(signer5);
+		assertFalse(registry.isRegistered(signer5));
+		assertEq(registry.modelCount(), 4);
+
+		// Re-register signer5 on same provider slot
+		vm.prank(governance);
+		registry.initiateModelRegistration(signer5, 4);
+		skip(MODEL_TIMELOCK);
+		registry.executeModelRegistration(signer5);
+
+		assertTrue(registry.isRegistered(signer5));
+		assertEq(registry.modelCount(), 5);
+
+		// getActiveModels() must not revert (OOB) and must return exactly 5
+		address[] memory active = registry.getActiveModels();
+		assertEq(active.length, 5);
+
+		// Verify no duplicates in the returned array
+		for (uint256 i = 0; i < active.length; i++) {
+			for (uint256 j = i + 1; j < active.length; j++) {
+				assertTrue(active[i] != active[j], "duplicate in getActiveModels");
+			}
+		}
+	}
 }

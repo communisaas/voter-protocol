@@ -619,6 +619,8 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
+		skip(2 days); // SC-5: must wait past resolutionDeadline
+
 		bytes32 justification = keccak256("AI models disagreed on factual claims");
 
 		vm.prank(governance);
@@ -655,6 +657,18 @@ contract DebateMarketAIResolutionTest is Test {
 		market.submitGovernanceResolution(debateId, 0, bytes32(0));
 	}
 
+	function test_submitGovernanceResolution_revert_beforeResolutionDeadline() public {
+		bytes32 debateId = _createDebateWithArguments();
+		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+		vm.prank(governance);
+		market.escalateToGovernance(debateId);
+
+		// Try immediately (before resolutionDeadline)
+		vm.prank(governance);
+		vm.expectRevert(DebateMarket.ResolutionDeadlineNotReached.selector);
+		market.submitGovernanceResolution(debateId, 0, keccak256("too early"));
+	}
+
 	// ============================================================================
 	// APPEAL TESTS
 	// ============================================================================
@@ -665,6 +679,7 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
+		skip(2 days); // SC-5: must wait past resolutionDeadline
 		vm.prank(governance);
 		market.submitGovernanceResolution(debateId, 1, keccak256("reason"));
 
@@ -683,6 +698,7 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
+		skip(2 days); // SC-5: must wait past resolutionDeadline
 		vm.prank(governance);
 		market.submitGovernanceResolution(debateId, 1, keccak256("reason"));
 
@@ -700,6 +716,7 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
+		skip(2 days); // SC-5: must wait past resolutionDeadline
 		vm.prank(governance);
 		market.submitGovernanceResolution(debateId, 1, keccak256("reason"));
 
@@ -721,6 +738,7 @@ contract DebateMarketAIResolutionTest is Test {
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
 
+		skip(2 days); // SC-5: must wait past resolutionDeadline
 		vm.prank(governance);
 		market.submitGovernanceResolution(debateId, 1, keccak256("reason"));
 
@@ -763,6 +781,8 @@ contract DebateMarketAIResolutionTest is Test {
 		// AI consensus fails → escalate
 		vm.prank(governance);
 		market.escalateToGovernance(debateId);
+
+		skip(2 days); // SC-5: must wait past resolutionDeadline
 
 		// Governance resolves with arg1 winning
 		vm.prank(governance);
@@ -833,7 +853,7 @@ contract DebateMarketAIResolutionTest is Test {
 		);
 
 		// Build public inputs array
-		bytes32 debateActionDomain = market.deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
+		bytes32 debateActionDomain = _deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
 
 		// Argument 0: arguer1, SUPPORT, tier 3, stake STANDARD_STAKE
 		uint256[31] memory pi1;
@@ -906,7 +926,7 @@ contract DebateMarketAIResolutionTest is Test {
 			PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
 		);
 
-		bytes32 debateActionDomain = market.deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
+		bytes32 debateActionDomain = _deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
 
 		// Both args: same tier, same stake → same community score
 		uint256[31] memory pi1;
@@ -993,7 +1013,148 @@ contract DebateMarketAIResolutionTest is Test {
 		}
 	}
 
+	// ============================================================================
+	// FP-1: RESOLVING DEADLOCK — submitAIEvaluation must check minParticipants
+	// ============================================================================
+
+	function test_submitAIEvaluation_revert_insufficientParticipation() public {
+		// Deploy a fresh market with default minParticipants=3 (not lowered in setUp)
+		MockDebateWeightVerifier dwv = new MockDebateWeightVerifier();
+		MockPositionNoteVerifier pnv = new MockPositionNoteVerifier();
+		DebateMarket freshMarket = new DebateMarket(
+			address(mockGate), address(dwv), address(pnv),
+			address(registry), governance, address(token), 200
+		);
+		mockGate.setDeriverAuthorized(address(freshMarket), true);
+		vm.prank(governance);
+		freshMarket.setResolutionExtension(1 days);
+		// minParticipants stays at default (3)
+
+		// Fund and approve
+		vm.prank(arguer1);
+		token.approve(address(freshMarket), type(uint256).max);
+		vm.prank(proposer);
+		token.approve(address(freshMarket), type(uint256).max);
+
+		// Create debate with only 1 argument (1 unique participant)
+		vm.prank(proposer);
+		bytes32 debateId = freshMarket.proposeDebate(
+			PROPOSITION_HASH, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
+		);
+
+		bytes32 debateActionDomain = _deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
+		uint256[31] memory pi1;
+		pi1[27] = uint256(debateActionDomain);
+		pi1[26] = uint256(NULLIFIER_1);
+		pi1[30] = 3;
+		vm.prank(arguer1);
+		freshMarket.submitArgument(
+			debateId, DebateMarket.Stance.SUPPORT, keccak256("arg1"), bytes32(0),
+			STANDARD_STAKE, arguer1, DUMMY_PROOF, pi1, VERIFIER_DEPTH, block.timestamp + 1 hours, "",
+			address(0)
+		);
+
+		// Advance past deadline
+		vm.warp(block.timestamp + STANDARD_DURATION + 1);
+
+		// Prepare valid AI scores and signatures
+		uint256[] memory scores = new uint256[](1);
+		scores[0] = _packScores(8000, 7000, 6000, 5000, 4000);
+		uint256 sigDeadline = block.timestamp + 1 hours;
+
+		// Sign using freshMarket's domain separator
+		bytes32 structHash = keccak256(
+			abi.encode(
+				freshMarket.AI_EVALUATION_TYPEHASH(),
+				debateId,
+				keccak256(abi.encodePacked(scores)),
+				uint256(0),
+				sigDeadline
+			)
+		);
+		bytes32 digest = keccak256(
+			abi.encodePacked("\x19\x01", freshMarket.AI_EVAL_DOMAIN_SEPARATOR(), structHash)
+		);
+		uint256[5] memory keys = [MODEL_KEY_1, MODEL_KEY_2, MODEL_KEY_3, MODEL_KEY_4, MODEL_KEY_5];
+		bytes[] memory sigs = new bytes[](5);
+		for (uint256 i = 0; i < 5; i++) {
+			(uint8 v, bytes32 r, bytes32 s) = vm.sign(keys[i], digest);
+			sigs[i] = abi.encodePacked(r, s, v);
+		}
+
+		// submitAIEvaluation should revert — debate has 1 participant, min is 3
+		vm.expectRevert(DebateMarket.InsufficientParticipation.selector);
+		freshMarket.submitAIEvaluation(debateId, scores, sigDeadline, sigs);
+	}
+
+	// ============================================================================
+	// FP5-F01: Emergency withdrawal from AWAITING_GOVERNANCE
+	// ============================================================================
+
+	function test_emergencyWithdraw_awaitingGovernance() public {
+		bytes32 debateId = _createDebateWithArguments();
+
+		// Advance past deadline + resolution extension
+		skip(STANDARD_DURATION + 1 days + 1);
+
+		// Escalate to AWAITING_GOVERNANCE
+		vm.prank(governance);
+		market.escalateToGovernance(debateId);
+
+		// Verify status is AWAITING_GOVERNANCE
+		(,,,,,,,,,,,DebateMarket.DebateStatus status,,,,,,,,,) = market.debates(debateId);
+		assertEq(uint8(status), uint8(DebateMarket.DebateStatus.AWAITING_GOVERNANCE));
+
+		// Before 30-day delay: should revert
+		vm.expectRevert(DebateMarket.DebateStillActive.selector);
+		vm.prank(arguer1);
+		market.emergencyWithdraw(debateId, NULLIFIER_1);
+
+		// Advance past 30-day emergency delay (from debate.deadline, not from escalation)
+		skip(30 days);
+
+		// Now should succeed
+		uint256 balBefore = token.balanceOf(arguer1);
+		vm.prank(arguer1);
+		market.emergencyWithdraw(debateId, NULLIFIER_1);
+		uint256 balAfter = token.balanceOf(arguer1);
+
+		// Should get back original stake minus fee (2e6 * 98% = 1.96e6)
+		assertGt(balAfter, balBefore);
+	}
+
+	function test_emergencyWithdraw_resolving_reverts() public {
+		bytes32 debateId = _createDebateWithArguments();
+
+		// Submit AI scores to transition to RESOLVING
+		skip(STANDARD_DURATION + 1);
+		uint256[] memory scores = new uint256[](3);
+		scores[0] = _packScores(9000, 8000, 7000, 6000, 5000);
+		scores[1] = _packScores(5000, 5000, 5000, 5000, 5000);
+		scores[2] = _packScores(4000, 4000, 4000, 4000, 4000);
+		uint256 sigDeadline = block.timestamp + 1 hours;
+		bytes[] memory sigs = _signEvaluation(debateId, scores, 0, sigDeadline);
+		market.submitAIEvaluation(debateId, scores, sigDeadline, sigs);
+
+		// Verify RESOLVING
+		(,,,,,,,,,,,DebateMarket.DebateStatus s,,,,,,,,,) = market.debates(debateId);
+		assertEq(uint8(s), uint8(DebateMarket.DebateStatus.RESOLVING));
+
+		// Even after 30 days, RESOLVING is not allowed (use resolveDebateWithAI instead)
+		skip(30 days + 1);
+		vm.expectRevert(DebateMarket.DebateNotActive.selector);
+		vm.prank(arguer1);
+		market.emergencyWithdraw(debateId, NULLIFIER_1);
+	}
+
 	uint256 public constant MIN_PROPOSER_BOND = 1e6;
+
+	/// @dev Local helper replicating DebateMarket.deriveDomain (now internal)
+	function _deriveDomain(bytes32 baseDomain, bytes32 propositionHash) internal pure returns (bytes32) {
+		uint256 BN254_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+		uint256 raw = uint256(keccak256(abi.encodePacked(baseDomain, "debate", propositionHash)));
+		return bytes32(raw % BN254_MOD);
+	}
 }
 
 // ============================================================================

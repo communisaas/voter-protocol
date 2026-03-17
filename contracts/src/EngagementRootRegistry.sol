@@ -30,7 +30,7 @@ contract EngagementRootRegistry is AbstractRootLifecycle {
         uint8 depth;            // Merkle tree depth (18, 20, 22, or 24)
         bool isActive;          // Governance toggle (default true on registration)
         uint32 registeredAt;    // Registration timestamp (packed for gas efficiency)
-        uint64 expiresAt;       // Auto-sunset timestamp (0 = never expires)
+        uint64 expiresAt;       // Auto-sunset timestamp (default: registeredAt + 180 days)
     }
 
     /// @notice Maps engagement Merkle root to metadata
@@ -89,7 +89,7 @@ contract EngagementRootRegistry is AbstractRootLifecycle {
             depth: depth,
             isActive: true,
             registeredAt: uint32(block.timestamp),
-            expiresAt: 0
+            expiresAt: uint64(block.timestamp + MAX_ENGAGEMENT_ROOT_LIFETIME)
         });
 
         emit EngagementRootRegistered(root, depth, block.timestamp);

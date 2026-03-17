@@ -270,25 +270,33 @@ These are UI prompts, not automatic market creation. A human must still open the
 
 When the trade window closes, resolution proceeds in two stages:
 
-**Stage 1: AI Evaluation Panel**
+**Stage 1: AI Evaluation (TEE-Attested)**
 
-A panel of N AI models (N ≥ 3, configurable by governance) independently evaluates each argument on:
+Open-weight AI models evaluate each argument inside a hardware-attested Trusted Execution Environment (AWS Nitro Enclave). The enclave runs on Graviton ARM processors with pre-baked model weights (Llama 8B Q4, Mistral 7B Q4). Nobody — not even the operator — can observe or manipulate intermediate computation.
+
+Each argument is scored on:
 
 | Dimension | Weight | What It Measures |
 |---|---|---|
-| Reasoning quality | 0.30 | Logical coherence, absence of fallacies |
+| Reasoning quality | 0.25 | Logical coherence, absence of fallacies |
 | Factual accuracy | 0.25 | Verifiable claims supported by evidence |
 | Evidence strength | 0.20 | Quality and relevance of citations |
 | Constructiveness | 0.15 | Does the argument advance the discourse? |
-| Feasibility | 0.10 | If AMEND: is the proposed change actionable? |
+| Feasibility | 0.15 | If AMEND: is the proposed change actionable? |
 
-Each model produces a score vector `[s_1, ..., s_k]` per argument. The panel score is the median across models (robust to any single model being gamed).
+Multiple models produce score vectors per argument. The evaluation score is the median across models (robust to any single model being compromised).
 
 ```
 ai_score(argument_i) = median(model_1_score_i, ..., model_N_score_i)
 ```
 
-AI evaluation happens off-chain. The panel submits a signed attestation of scores to the contract. The attestation requires M-of-N model agreement (M = ceil(2N/3)) — if models disagree beyond threshold, the market extends by 48 hours for human review.
+The enclave produces a **Nitro attestation document** — cryptographic proof binding the evaluation code, model weights (by hash), inputs, and outputs. The attestation hash is posted on-chain alongside the scores.
+
+AI evaluation happens off-chain inside the enclave. The attestation is submitted to the contract as proof of honest computation. If model agreement falls below threshold (models disagree beyond 20% on median), the market extends by 48 hours for human governance review.
+
+**Source grounding:** Before scoring, the enclave extracts verifiable claims from each argument and retrieves external sources (via Exa neural search). Scores for accuracy and evidence dimensions are grounded in actual source material, not model training data alone. Per-claim verdicts and source citations are included in the evaluation transparency data.
+
+**Cost:** ~$0.12 per debate evaluation (on-demand Graviton instance, not always-on). Source retrieval adds ~$0.06/debate. No standing infrastructure.
 
 **Stage 2: Tier-Weighted Community Signal**
 
@@ -319,21 +327,29 @@ The argument with the highest `final_score` wins. Ties go to the earlier-submitt
 
 The hybrid ensures that neither AI evaluation nor financial weight alone determines the outcome. A factually wrong argument cannot win just because many Tier 1 users staked on it — the AI panel will score it low. A niche but well-reasoned argument cannot win against overwhelming community conviction — the community signal will dominate.
 
-### 6.3 AI Panel Security
+### 6.3 Evaluation Security
 
-The AI evaluation panel is a new trust assumption. Attack vectors:
+The TEE-attested evaluation introduces a hardware trust assumption instead of a provider diversity assumption. Attack vectors:
 
 **Prompt injection via argument text:** Arguments are user-submitted text evaluated by AI models. A malicious argument could contain prompt injection attempting to manipulate its own score.
 
 *Mitigation:* Models evaluate arguments in a sandboxed context with explicit instructions to ignore meta-directives in argument text. Arguments are passed as data, not as instructions. The median-of-N-models approach means a single manipulated model cannot determine the outcome.
 
-**Model collusion:** If the same entity controls multiple models in the panel, they can manipulate scores.
+**Enclave compromise (side-channel attacks on Nitro):** If the TEE is compromised, the operator could observe or manipulate evaluation.
 
-*Mitigation:* The panel must include models from at least 3 distinct providers (e.g., Anthropic, OpenAI, Google). Governance controls the panel composition. Provider diversity is enforced at the contract level via a model registry.
+*Mitigation:* AWS Nitro Enclaves have no persistent storage, no external networking (except through the vsock proxy), and no operator access — even root on the parent instance cannot inspect enclave memory. The attestation document's PCR measurements are verified on-chain. A compromised enclave would produce a different PCR hash, detectable by any auditor. Additionally, Nitro Enclaves have been extensively audited and no practical side-channel attacks have been demonstrated on the platform.
+
+**Model weight tampering:** The operator could load different model weights than claimed.
+
+*Mitigation:* The EIF (Enclave Image File) includes model weights. The image hash is part of the attestation PCR measurements. Any change to weights produces a different attestation. The expected PCR values are published and verifiable by anyone.
 
 **Stale evaluation:** AI models evaluate at a point in time. Arguments submitted late in the window may reference information the models haven't seen.
 
-*Mitigation:* AI evaluation runs after the trade window closes, evaluating all arguments with current knowledge. The evaluation window is 24 hours after trade close — long enough for thorough evaluation, short enough to avoid market-stalling.
+*Mitigation:* AI evaluation runs after the trade window closes, evaluating all arguments with current knowledge. Source grounding via Exa retrieval ensures claims are checked against live web sources, not just model training data. The evaluation window is 24 hours after trade close.
+
+**API dependency (source retrieval):** The Exa search API is an external dependency that could manipulate retrieved sources.
+
+*Mitigation:* Source retrieval is supplementary — it improves accuracy and evidence scores but is not required. If Exa is unavailable, evaluation proceeds ungrounded (same as a human evaluator without references). The per-claim verdicts are included in the transparency data so users can verify source quality.
 
 ### 6.4 Governance Override
 
@@ -573,34 +589,47 @@ DebateMarket is Pausable, ReentrancyGuard, TimelockGovernance {
 }
 ```
 
-### 9.2 AI Evaluation Registry
+### 9.2 TEE Evaluation Registry
 
-A separate contract manages the AI evaluation panel:
+A separate contract manages the TEE-attested evaluation pipeline:
 
 ```solidity
-AIEvaluationRegistry is TimelockGovernance {
+TEEEvaluationRegistry is TimelockGovernance {
 
-    /// @notice Registered evaluation model signers
-    mapping(address => bool) public registeredModels;
+    /// @notice Expected PCR0 (enclave image hash) for valid evaluations
+    bytes32 public expectedPCR0;
 
-    /// @notice Minimum models for quorum
-    uint256 public quorumThreshold; // M in M-of-N
+    /// @notice Expected PCR1 (kernel hash) for valid evaluations
+    bytes32 public expectedPCR1;
 
-    /// @notice Total registered models
-    uint256 public modelCount;
+    /// @notice Expected PCR2 (application hash) for valid evaluations
+    bytes32 public expectedPCR2;
+
+    /// @notice Authorized evaluation submitter (enclave's ephemeral signer)
+    mapping(address => bool) public authorizedSubmitters;
 
     /// @notice Resolution weight for AI vs community (18-decimal, 0 to 1e18)
     uint256 public aiWeight; // default 0.4e18
 
+    /// @notice Verify a Nitro attestation document's PCR measurements
+    function verifyAttestation(bytes calldata attestationDoc) external view returns (bool);
+
+    /// @notice Submit evaluation with attestation proof
+    function submitEvaluation(
+        bytes32 debateId,
+        uint256[] calldata argumentScores,
+        bytes32 attestationHash     // keccak256(attestationDoc)
+    ) external;
+
     // All mutations via 7-day timelock (inherited from TimelockGovernance)
-    function proposeModelRegistration(address model) external onlyGovernance;
-    function executeModelRegistration(address model) external;
-    function proposeModelRemoval(address model) external onlyGovernance;
-    function executeModelRemoval(address model) external;
+    function proposePCRUpdate(bytes32 pcr0, bytes32 pcr1, bytes32 pcr2) external onlyGovernance;
+    function executePCRUpdate() external;
     function proposeWeightChange(uint256 newAiWeight) external onlyGovernance;
     function executeWeightChange() external;
 }
 ```
+
+The registry stores expected PCR measurements (hashes of the enclave image, kernel, and application). When the enclave submits evaluation results, the attestation hash is recorded on-chain. Anyone can fetch the full attestation document from the evaluation API and verify the PCR measurements match the registry — proving the evaluation was computed by the expected code with the expected model weights.
 
 ### 9.3 Interaction with Existing Contracts
 
@@ -703,9 +732,11 @@ A debate market with 2 participants produces a valid resolution but a weak signa
 
 *Not a bug.* The protocol does not claim thin markets are authoritative. It surfaces the signal with full context.
 
-### 12.2 AI Panel Capture
+### 12.2 Evaluation Integrity Failure
 
-If the AI evaluation panel is compromised (models colluded or prompt-injected), the `α = 0.4` weight means the community signal (60%) can override. A completely wrong AI evaluation flips the outcome only if the community signal is close to 50/50. If the community signal is decisive (e.g., 80/20), the AI cannot override it.
+If the TEE evaluation is compromised (enclave side-channel, model weights tampered), the `α = 0.4` weight means the community signal (60%) can override. A completely wrong evaluation flips the outcome only if the community signal is close to 50/50. If the community signal is decisive (e.g., 80/20), the AI cannot override it.
+
+The attestation hash on-chain enables post-hoc auditing. Anyone can fetch the full Nitro attestation document and verify the PCR measurements against the expected values in the TEEEvaluationRegistry. A mismatched PCR hash is grounds for appeal.
 
 Governance can reduce `α` to 0 in an emergency, falling back to pure community resolution (the existing DebateMarket behavior).
 
@@ -745,10 +776,10 @@ Additionally, the challenge market architecture's Section 6 solutions apply: bli
 | `Template.hasActiveDebate` | EXISTS | Populate from market state |
 | `Debate` + `DebateArgument` Prisma models | EXISTS | Add market pricing fields (§8.1) |
 | `DebateMarket.sol` | EXISTS → EXTENDED | Add LMSR pricing, commit-reveal epochs, AI resolution |
-| `AIEvaluationRegistry.sol` | NEW | AI panel management + resolution weight governance |
+| `TEEEvaluationRegistry.sol` | NEW | TEE attestation verification + resolution weight governance |
 | Commit-reveal batch trading | NEW | Epoch-based trade commitment and reveal |
 | LMSR pricing engine | NEW | Logarithmic market scoring rule (on-chain, fixed-point) |
-| AI evaluation pipeline | NEW | Off-chain multi-model scoring, on-chain attestation |
+| TEE evaluation pipeline | NEW | Nitro Enclave multi-model scoring, on-chain attestation hash |
 | Debate signal UI | NEW | Template card integration, debate view, price sparklines |
 | Position note circuit (Phase 2) | NEW | Noir circuit for shielded position pool |
 | Flow encryption (Phase 3) | NEW | ElGamal + threshold decryption infrastructure |

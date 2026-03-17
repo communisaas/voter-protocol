@@ -519,7 +519,7 @@ contract DebateMarketLMSRTest is Test {
             STANDARD_BOND
         );
 
-        bytes32 derivedDomain = market.deriveDomain(ACTION_DOMAIN, keccak256("tiny-district"));
+        bytes32 derivedDomain = _deriveDomain(ACTION_DOMAIN, keccak256("tiny-district"));
 
         // Submit 2 arguments
         vm.prank(trader1);
@@ -649,9 +649,7 @@ contract DebateMarketLMSRTest is Test {
     // ============================================================================
 
     function _expectedDebateDomain() internal pure returns (bytes32) {
-        uint256 BN254_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-        uint256 raw = uint256(keccak256(abi.encodePacked(ACTION_DOMAIN, "debate", PROPOSITION_HASH)));
-        return bytes32(raw % BN254_MOD);
+        return _deriveDomain(ACTION_DOMAIN, PROPOSITION_HASH);
     }
 
     function _makePublicInputs(
@@ -730,7 +728,7 @@ contract DebateMarketLMSRTest is Test {
             propHash2, STANDARD_DURATION, JURISDICTION_SIZE, ACTION_DOMAIN, STANDARD_BOND
         );
 
-        bytes32 derivedDomain = market.deriveDomain(ACTION_DOMAIN, propHash2);
+        bytes32 derivedDomain = _deriveDomain(ACTION_DOMAIN, propHash2);
         address[3] memory arguers = [trader1, trader2, trader3];
 
         for (uint256 i = 0; i < count && i < 3; i++) {
@@ -795,7 +793,7 @@ contract DebateMarketLMSRTest is Test {
         uint8 /* tier — unused in Phase 2 */
     ) internal {
         bytes32 propHash2 = keccak256("second-debate");
-        bytes32 derivedDomain = market.deriveDomain(ACTION_DOMAIN, propHash2);
+        bytes32 derivedDomain = _deriveDomain(ACTION_DOMAIN, propHash2);
         bytes32 nonce = keccak256(abi.encodePacked("nonce2", argumentIndex, weightedAmount));
         bytes32 noteCommitment = keccak256(abi.encodePacked("nc2", argumentIndex, weightedAmount));
         bytes32 commitHash = keccak256(
@@ -816,6 +814,13 @@ contract DebateMarketLMSRTest is Test {
         market.revealTrade(debateId, 0, 0, argumentIndex, DebateMarket.TradeDirection.BUY, nonce, DUMMY_PROOF, dwInputs);
 
         vm.warp(block.timestamp + 200);
+    }
+
+    /// @dev Local helper replicating DebateMarket.deriveDomain (now internal)
+    function _deriveDomain(bytes32 baseDomain, bytes32 propositionHash) internal pure returns (bytes32) {
+        uint256 BN254_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+        uint256 raw = uint256(keccak256(abi.encodePacked(baseDomain, "debate", propositionHash)));
+        return bytes32(raw % BN254_MOD);
     }
 }
 

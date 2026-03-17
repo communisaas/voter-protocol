@@ -156,11 +156,22 @@ contract AIEvaluationRegistry is IAIEvaluationRegistry, TimelockGovernance {
 
 		uint8 providerSlot = pending.providerSlot;
 
+		// Check if signer was previously registered (re-registration case)
+		bool alreadyInList = false;
+		for (uint256 i = 0; i < modelList.length; i++) {
+			if (modelList[i] == signer) {
+				alreadyInList = true;
+				break;
+			}
+		}
+
 		models[signer] = ModelInfo({
 			providerSlot: providerSlot,
 			active: true
 		});
-		modelList.push(signer);
+		if (!alreadyInList) {
+			modelList.push(signer);
+		}
 		_modelCount++;
 
 		// SM-7: Update provider count state variable
