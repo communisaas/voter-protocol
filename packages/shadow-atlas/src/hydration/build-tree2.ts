@@ -344,7 +344,7 @@ async function main(): Promise<void> {
         // If it's an H3 index, group by res-3 parent. Otherwise it's a fallback key.
         return h3Cell.startsWith('geoid-') ? h3Cell : cellToParent(h3Cell, 3);
       },
-      cellIdToKey: (cellId) => cellId.toString(),
+      cellIdToKey: (cellId) => getH3ForGeoid(cellId.toString()),
       outputDir: opts.cellChunksDir,
       log: console.log,
     });

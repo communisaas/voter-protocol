@@ -131,6 +131,7 @@ export async function buildCellChunks(
         const proof = await treeResult.tree.getProof(entry.cellId);
 
         cells[entry.key] = {
+          c: toHex(entry.cellId),
           d: entry.mapping.districts.map(toHex),
           p: proof.siblings.map(s => toHex(s as bigint)),
           b: [...proof.pathBits],

@@ -167,7 +167,7 @@ async function main() {
 			if (h3.startsWith('geoid-') || h3.startsWith('virtual-')) return h3;
 			return cellToParent(h3, 3);
 		},
-		cellIdToKey: (cellId) => cellId.toString(),
+		cellIdToKey: (cellId) => getH3(cellId.toString()),
 		outputDir,
 		log: console.log,
 	});

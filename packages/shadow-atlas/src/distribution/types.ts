@@ -382,15 +382,22 @@ export interface CellChunkFile {
  * Per-cell entry within a CellChunkFile.
  *
  * Field names are single-letter to minimize JSON size on IPFS:
- *   d = districts, p = path (SMT siblings), b = bits (direction), a = attempt
+ *   c = cell_id, d = districts, p = path (SMT siblings), b = bits (direction), a = attempt
  *
  * The client reads these directly as circuit inputs:
+ *   - `c` → private input `cell_id` (the BN254 field element the circuit uses)
  *   - `d` → public input `districts[24]`
  *   - `p` → private input `cell_map_path[TREE_DEPTH]`
  *   - `b` → private input `cell_map_path_bits[TREE_DEPTH]`
  *   - `a` → used for position derivation verification (informational)
+ *
+ * IMPORTANT: Cells are keyed by H3 index (what the browser knows from latLngToCell),
+ * but the circuit uses the GEOID-encoded `cell_id` (stored in `c`). The browser must
+ * use `c` as the circuit's cell_id input.
  */
 export interface CellEntry {
+  /** cell_id as 0x-hex BN254 field element (GEOID encoded — for circuit private input) */
+  readonly c: string;
   /** districts[24] as 0x-hex BN254 field elements (circuit public input) */
   readonly d: readonly string[];
   /** SMT siblings from leaf to root, 0x-hex BN254 (length = depth) */
