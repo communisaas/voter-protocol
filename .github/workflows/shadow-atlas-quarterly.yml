@@ -230,13 +230,19 @@ jobs:
           retention-days: 180
 
   # =========================================================================
-  # Phase 3: Validate build (quality gate — blocks IPFS pin on failure)
+  # Phase 2c: Generate Cell Chunks + District Index (depends on cell tree snapshot)
   # =========================================================================
-  validate-build:
-    name: Validate Build
+  generate-cell-chunks:
+    name: Generate Cell Chunks + District Index
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [export-officials, build-cell-tree-snapshot]
+    timeout-minutes: 90
+    needs: [build-cell-tree-snapshot]
+    outputs:
+      total_cell_chunks: ${{ steps.generate.outputs.total_cell_chunks }}
+      total_cells: ${{ steps.generate.outputs.total_cells }}
+      populated_slots: ${{ steps.generate.outputs.populated_slots }}
+    env:
+      NODE_OPTIONS: '--max-old-space-size=8192'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -251,20 +257,92 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download all chunked artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: chunked-with-officials
-          path: packages/shadow-atlas/output/chunked/
-          merge-multiple: true
-
       - name: Download cell tree snapshot
         uses: actions/download-artifact@v4
         with:
           name: cell-tree-snapshot
           path: packages/shadow-atlas/output/chunked/US/merkle/
 
-      - name: Run validation checks (7 checks)
+      - name: Download chunked build (for existing districts/officials)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: chunked-with-officials
+          path: packages/shadow-atlas/output/chunked/
+          merge-multiple: true
+
+      - name: Cache TIGER tract centroids
+        uses: actions/cache@v4
+        with:
+          path: packages/shadow-atlas/data/baf-cache
+          key: tiger-centroids-2024-${{ hashFiles('packages/shadow-atlas/src/hydration/tract-centroid-index.ts') }}
+          restore-keys: |
+            tiger-centroids-2024-
+
+      - name: Generate cell chunks and district index
+        id: generate
+        working-directory: packages/shadow-atlas
+        run: |
+          mkdir -p data/baf-cache
+
+          npx tsx scripts/generate-cell-chunks.ts \
+            --snapshot output/chunked/US/merkle/cell-tree-snapshot.json \
+            --output output/chunked \
+            --cache-dir data/baf-cache
+
+          # Extract stats
+          TOTAL_CELL_CHUNKS=$(jq -r '.totalChunks' output/chunked/US/manifest-cells.json)
+          TOTAL_CELLS=$(jq -r 'reduce (.chunks | to_entries[].value.cellCount) as $c (0; . + $c)' output/chunked/US/manifest-cells.json 2>/dev/null || echo "N/A")
+          POPULATED_SLOTS=$(jq -r '.slots | keys | length' output/chunked/US/district-index.json)
+
+          echo "total_cell_chunks=$TOTAL_CELL_CHUNKS" >> $GITHUB_OUTPUT
+          echo "total_cells=$TOTAL_CELLS" >> $GITHUB_OUTPUT
+          echo "populated_slots=$POPULATED_SLOTS" >> $GITHUB_OUTPUT
+
+          echo "### Cell Chunks + District Index" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cell chunks:** $TOTAL_CELL_CHUNKS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Populated district slots:** $POPULATED_SLOTS of 24" >> $GITHUB_STEP_SUMMARY
+          echo "- **District index size:** $(ls -lh output/chunked/US/district-index.json | awk '{print $5}')" >> $GITHUB_STEP_SUMMARY
+
+          # Count unique congressional districts
+          CD_COUNT=$(jq -r '.slots["0"] | keys | length' output/chunked/US/district-index.json 2>/dev/null || echo "N/A")
+          echo "- **Congressional districts:** $CD_COUNT" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload chunked output with cell chunks
+        uses: actions/upload-artifact@v4
+        with:
+          name: chunked-with-cell-chunks
+          path: packages/shadow-atlas/output/chunked/
+          retention-days: 180
+
+  # =========================================================================
+  # Phase 3: Validate build (quality gate — blocks IPFS pin on failure)
+  # =========================================================================
+  validate-build:
+    name: Validate Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [export-officials, build-cell-tree-snapshot, generate-cell-chunks]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download complete build (with cell chunks)
+        uses: actions/download-artifact@v4
+        with:
+          name: chunked-with-cell-chunks
+          path: packages/shadow-atlas/output/chunked/
+
+      - name: Run validation checks
         working-directory: packages/shadow-atlas
         run: |
           # validate-build.ts exits non-zero on any failure.
@@ -287,8 +365,8 @@ jobs:
   publish-ipfs:
     name: Pin to IPFS (Directory)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [validate-build, build-chunked]
+    timeout-minutes: 90
+    needs: [validate-build]
     if: inputs.publish_ipfs != 'false'
     outputs:
       root_cid: ${{ steps.pin.outputs.root_cid }}
@@ -306,11 +384,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download validated chunked output
+      - name: Download validated build
         uses: actions/download-artifact@v4
         with:
           name: chunked-validated
           path: packages/shadow-atlas/output/chunked/
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Pin directory to Storacha
         id: pin
@@ -346,9 +426,9 @@ jobs:
           echo "| **Total Cells** | ${{ needs.validate-build.result == 'success' && needs.build-chunked.outputs.total_cells || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Gateway Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [manifest.json](https://w3s.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Root directory](https://w3s.link/ipfs/$ROOT_CID/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [dweb.link mirror](https://dweb.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- [manifest.json](https://storacha.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Root directory](https://storacha.link/ipfs/$ROOT_CID/)" >> $GITHUB_STEP_SUMMARY
+          echo "- [dweb.link mirror](https://storacha.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload pin results
         uses: actions/upload-artifact@v4
@@ -468,6 +548,7 @@ jobs:
       - build-chunked
       - export-officials
       - build-cell-tree-snapshot
+      - generate-cell-chunks
       - validate-build
       - publish-ipfs
       - push-cids
@@ -494,6 +575,7 @@ jobs:
               `| Build Chunked Mapping | ${{ needs.build-chunked.result }} |`,
               `| Export Officials | ${{ needs.export-officials.result }} |`,
               `| Build Cell Tree | ${{ needs.build-cell-tree-snapshot.result }} |`,
+              `| Generate Cell Chunks | ${{ needs.generate-cell-chunks.result }} |`,
               `| Validate Build | ${{ needs.validate-build.result }} |`,
               `| Pin to IPFS | ${{ needs.publish-ipfs.result }} |`,
               `| Push CIDs | ${{ needs.push-cids.result }} |`,
@@ -503,12 +585,14 @@ jobs:
               `- **Total chunks:** ${totalChunks}`,
               `- **Total cells:** ${totalCells}`,
               `- **Root CID:** \`${rootCid}\``,
+              `- **Cell chunks:** ${{ needs.generate-cell-chunks.outputs.total_cell_chunks || 'N/A' }}`,
+              `- **District slots:** ${{ needs.generate-cell-chunks.outputs.populated_slots || 'N/A' }}/24`,
               `- **Resolution:** 7 (child) / 3 (parent) — ~5.16 km² per cell`,
               '',
               '### Gateway Links',
               rootCid !== 'N/A' ? [
-                `- [manifest.json](https://w3s.link/ipfs/${rootCid}/manifest.json)`,
-                `- [Root directory](https://w3s.link/ipfs/${rootCid}/)`,
+                `- [manifest.json](https://storacha.link/ipfs/${rootCid}/manifest.json)`,
+                `- [Root directory](https://storacha.link/ipfs/${rootCid}/)`,
               ].join('\n') : '- *IPFS pinning was skipped or failed*',
               '',
               '---',
@@ -568,6 +652,7 @@ jobs:
               'chunked-with-officials',
               'cell-tree-snapshot',
               'chunked-validated',
+              'chunked-with-cell-chunks',
               'pin-results',
               // Legacy artifact names (from old monolithic pipeline)
               'h3-mapping',

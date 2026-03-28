@@ -14,9 +14,10 @@
  * 4. Actual cell chunk files match the expected encoding
  */
 
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
@@ -55,7 +56,10 @@ interface CellChunkFile {
   h3Index?: Record<string, string>;
 }
 
-describe('cellId round-trip: IPFS chunk c field → circuit cell_id', () => {
+const hasSnapshot = existsSync(SNAPSHOT_PATH);
+const describeIfSnapshot = hasSnapshot ? describe : describe.skip;
+
+describeIfSnapshot('cellId round-trip: IPFS chunk c field → circuit cell_id', () => {
   let mappings: SnapshotMapping[];
 
   beforeAll(async () => {
