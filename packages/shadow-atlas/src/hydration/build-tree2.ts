@@ -20,8 +20,9 @@
  * @packageDocumentation
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 import { downloadBAFs } from './baf-downloader.js';
 import { parseBAFFilesAsync } from './baf-parser.js';
 import { overlayBEFs, REDISTRICTED_STATES } from './bef-overlay.js';
@@ -32,6 +33,7 @@ import { loadWardBoundaries } from './ward-boundary-loader.js';
 import { loadWardsFromRTree } from './rtree-ward-reader.js';
 import { overlaySupplementalDistricts } from './supplemental-overlay.js';
 import { buildTractCentroidIndex } from './tract-centroid-index.js';
+import { buildCellChunks, buildCellChunksManifestEntry } from '../distribution/build-cell-chunks.js';
 
 // ============================================================================
 // CLI Argument Parsing
@@ -45,6 +47,7 @@ interface CLIOptions {
   includeWards: boolean;
   wardCacheDir: string;
   wardsFromRTree?: string; // Path to shadow-atlas.db — read wards from R-tree instead of ArcGIS
+  cellChunksDir?: string;  // Output directory for IPFS cell chunk files
 }
 
 function parseArgs(): CLIOptions {
@@ -81,6 +84,9 @@ function parseArgs(): CLIOptions {
         opts.wardsFromRTree = args[++i];
         opts.includeWards = true;
         break;
+      case '--cells-dir':
+        opts.cellChunksDir = args[++i];
+        break;
       case '--help':
         console.log(`
 Usage: build-tree2.ts [options]
@@ -93,6 +99,7 @@ Options:
   --include-wards        Overlay city council ward boundaries (slot 6)
   --ward-cache-dir <p>   Directory for cached ward data (default: data/ward-cache)
   --wards-from-rtree <p> Read wards from shadow-atlas.db (unified source, no ArcGIS download)
+  --cells-dir <path>     Output IPFS cell chunk files (districts + SMT proofs per H3 parent)
   --help                 Show this help
 `);
         process.exit(0);
@@ -116,9 +123,11 @@ async function main(): Promise<void> {
   console.log(`Output:       ${opts.outputPath}`);
   console.log(`SMT depth:    ${opts.depth}`);
   console.log(`Wards:        ${opts.wardsFromRTree ? `YES (from R-tree: ${opts.wardsFromRTree})` : opts.includeWards ? 'YES (slot 6, ArcGIS)' : 'no'}`);
+  console.log(`Cell chunks:  ${opts.cellChunksDir ?? 'no (use --cells-dir to enable)'}`);
   console.log();
 
-  const totalSteps = opts.includeWards ? 6 : 5;
+  const baseSteps = opts.includeWards ? 6 : 5;
+  const totalSteps = opts.cellChunksDir ? baseSteps + 1 : baseSteps;
 
   // Step 1: Download BAFs
   console.log(`[1/${totalSteps}] Downloading Census BAF files...`);
@@ -268,8 +277,89 @@ async function main(): Promise<void> {
     })),
   };
 
-  await writeFile(opts.outputPath, JSON.stringify(snapshot, null, 2) + '\n');
+  await atomicWriteFile(opts.outputPath, JSON.stringify(snapshot, null, 2) + '\n');
   console.log(`Snapshot written to ${opts.outputPath}`);
+
+  // Step 6: Build IPFS cell chunks (districts + SMT proofs per H3 parent)
+  if (opts.cellChunksDir) {
+    console.log();
+    console.log(`[${totalSteps}/${totalSteps}] Building IPFS cell chunks (districts + SMT proofs)...`);
+
+    // Use tract centroids to map GEOID → H3 cell → H3 res-3 parent for grouping.
+    // Tracts without centroids (virtual cells from split tracts) use GEOID prefix grouping.
+    const { latLngToCell, cellToParent } = await import('h3-js');
+
+    // Build centroid index for states in the current run
+    const stateFilterSet = opts.stateCode
+      ? [opts.stateCode]
+      : [...new Set([...allBlocks.values()].map(b => b.stateFips))];
+
+    console.log(`  → Building tract centroid index for ${stateFilterSet.length} state(s)...`);
+    const centroidIndex = await buildTractCentroidIndex(stateFilterSet, {
+      cacheDir: opts.cacheDir,
+      log: (msg) => console.log(`    ${msg}`),
+    });
+
+    // Build GEOID → H3 mapping from centroids
+    const geoidToH3Cache = new Map<string, string>();
+    let centroidHits = 0;
+    let centroidMisses = 0;
+
+    const getH3ForGeoid = (geoid: string): string => {
+      const cached = geoidToH3Cache.get(geoid);
+      if (cached) return cached;
+
+      const centroid = centroidIndex.getCentroid(geoid);
+      if (centroid) {
+        const h3Cell = latLngToCell(centroid[1], centroid[0], 7); // [lon, lat] → latLngToCell(lat, lng, res)
+        geoidToH3Cache.set(geoid, h3Cell);
+        centroidHits++;
+        return h3Cell;
+      }
+
+      // Virtual cells (split tracts) may not have centroids.
+      // Use the parent tract GEOID (first 11 digits) for lookup.
+      const parentGeoid = geoid.slice(0, 11);
+      if (parentGeoid !== geoid) {
+        const parentCentroid = centroidIndex.getCentroid(parentGeoid);
+        if (parentCentroid) {
+          const h3Cell = latLngToCell(parentCentroid[1], parentCentroid[0], 7);
+          geoidToH3Cache.set(geoid, h3Cell);
+          centroidHits++;
+          return h3Cell;
+        }
+      }
+
+      // Fallback: use GEOID county prefix as group key
+      centroidMisses++;
+      const fallback = `geoid-${geoid.slice(0, 5)}`;
+      geoidToH3Cache.set(geoid, fallback);
+      return fallback;
+    };
+
+    const cellChunksResult = await buildCellChunks(treeResult, mappings, {
+      country: 'US',
+      groupFn: (cellId) => {
+        const h3Cell = getH3ForGeoid(cellId.toString());
+        // If it's an H3 index, group by res-3 parent. Otherwise it's a fallback key.
+        return h3Cell.startsWith('geoid-') ? h3Cell : cellToParent(h3Cell, 3);
+      },
+      cellIdToKey: (cellId) => cellId.toString(),
+      outputDir: opts.cellChunksDir,
+      log: console.log,
+    });
+
+    console.log(`  → Centroid hits: ${centroidHits.toLocaleString()}, misses: ${centroidMisses.toLocaleString()}`);
+    console.log(`  → ${cellChunksResult.totalChunks.toLocaleString()} chunks, ${cellChunksResult.totalCells.toLocaleString()} cells`);
+    console.log(`  → Completed in ${(cellChunksResult.durationMs / 1000).toFixed(1)}s`);
+
+    // Write manifest entry
+    const manifestEntry = buildCellChunksManifestEntry(cellChunksResult, treeResult, 'US');
+    const manifestPath = `${opts.cellChunksDir}/US/manifest-cells.json`;
+    await mkdir(dirname(manifestPath), { recursive: true });
+    await atomicWriteFile(manifestPath, JSON.stringify(manifestEntry, null, 2) + '\n');
+    console.log(`  → Manifest written to ${manifestPath}`);
+  }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\nDone in ${elapsed}s.`);

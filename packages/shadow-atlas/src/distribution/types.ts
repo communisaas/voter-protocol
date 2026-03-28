@@ -44,7 +44,7 @@ export interface RegionConfig {
   readonly gateways: readonly string[];
   readonly pinningServices: readonly string[];
   readonly priority: number; // 0 = highest priority
-  readonly healthCheckUrl: string;
+  readonly healthCheckCID: string;
 }
 
 // ============================================================================
@@ -321,4 +321,82 @@ export interface FallbackResolutionResult {
   readonly attemptCount: number;
   readonly totalDurationMs: number;
   readonly errors: readonly DistributionError[];
+}
+
+// ============================================================================
+// CID Validation (R47-F3: Shared utility — defense-in-depth at every gateway URL site)
+// ============================================================================
+
+/**
+ * CID format regex: CIDv0 (Qm + 44 base58) or CIDv1 in multiple multibase encodings.
+ * R73-F11: Accept CIDv1 in base32 (b), base36 (k), and base58btc (z) multibase encodings.
+ * Extracted from R20-M2 (fallback-resolver) for reuse across all distribution services.
+ */
+// R73-F11: Accept CIDv1 in base32 (b), base36 (k), and base58btc (z) multibase encodings
+export const CID_FORMAT_REGEX = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,}|k[a-z0-9]{50,}|z[1-9A-HJ-NP-Za-km-z]{46,})$/;
+
+/**
+ * Validate CID format before use in URL construction.
+ * Prevents SSRF/path-traversal via malformed CID parameters.
+ */
+export function isValidCID(cid: string): boolean {
+  return CID_FORMAT_REGEX.test(cid);
+}
+
+// ============================================================================
+// Cell Chunk Types (Client-Side ZKP — IPFS-distributed SMT proofs)
+// ============================================================================
+
+/**
+ * Combined cell chunk file: districts + Tree 2 SMT proofs per H3 res-3 parent.
+ *
+ * Published to IPFS at `{rootCID}/{country}/cells/{parentCell}.json`.
+ * One fetch gives the client everything needed for client-side ZK proof generation:
+ * district slots, SMT siblings, path bits, and the tree root.
+ *
+ * The client never contacts the Shadow Atlas server for Tree 2 data —
+ * eliminating the cell_id privacy leak in `GET /cell-proof?cell_id=X`.
+ *
+ * Size: ~260 KB raw / ~50-80 KB gzipped per chunk (~87 cells avg for US).
+ */
+export interface CellChunkFile {
+  /** Schema version. Must be 1. */
+  readonly version: 1;
+  /** ISO 3166-1 alpha-2 country code */
+  readonly country: string;
+  /** H3 cell index of the res-3 parent that groups these cells */
+  readonly parentCell: string;
+  /** Tree 2 SMT root (0x-hex BN254 field element) — same for all cells in this epoch */
+  readonly cellMapRoot: string;
+  /** SMT depth (e.g., 20) */
+  readonly depth: number;
+  /** ISO 8601 generation timestamp */
+  readonly generated: string;
+  /** Map of cell_id (string) → CellEntry */
+  readonly cells: Readonly<Record<string, CellEntry>>;
+  /** Number of cells in this chunk (integrity check) */
+  readonly cellCount: number;
+}
+
+/**
+ * Per-cell entry within a CellChunkFile.
+ *
+ * Field names are single-letter to minimize JSON size on IPFS:
+ *   d = districts, p = path (SMT siblings), b = bits (direction), a = attempt
+ *
+ * The client reads these directly as circuit inputs:
+ *   - `d` → public input `districts[24]`
+ *   - `p` → private input `cell_map_path[TREE_DEPTH]`
+ *   - `b` → private input `cell_map_path_bits[TREE_DEPTH]`
+ *   - `a` → used for position derivation verification (informational)
+ */
+export interface CellEntry {
+  /** districts[24] as 0x-hex BN254 field elements (circuit public input) */
+  readonly d: readonly string[];
+  /** SMT siblings from leaf to root, 0x-hex BN254 (length = depth) */
+  readonly p: readonly string[];
+  /** SMT direction bits: 0 = left child, 1 = right child (length = depth) */
+  readonly b: readonly number[];
+  /** SMT collision attempt counter (0 in most cases) */
+  readonly a: number;
 }
