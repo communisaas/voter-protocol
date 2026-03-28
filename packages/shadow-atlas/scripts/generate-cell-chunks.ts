@@ -81,9 +81,16 @@ async function main() {
 		}));
 		console.log(`  → Format: build-tree2 v${snapshot.version}`);
 	} else if (snapshot.cells) {
-		// Format B: build-cell-tree-snapshot.ts output — { cells: [{ cellId: "0x...", districts: ["0x...", ...] }] }
+		// Format B: build-cell-tree-snapshot.ts output
+		// cellId may be: "0x..." (hex field element), "872756711ffffff" (H3 hex), or decimal string
+		// districts are always "0x..." hex field elements
+		const parseCellId = (id: string): bigint => {
+			if (id.startsWith('0x') || id.startsWith('0X')) return BigInt(id);
+			if (/^[0-9a-f]+$/i.test(id)) return BigInt('0x' + id); // H3 hex index
+			return BigInt(id); // decimal string
+		};
 		mappings = snapshot.cells.map((c: { cellId: string; districts: string[] }) => ({
-			cellId: BigInt(c.cellId),
+			cellId: parseCellId(c.cellId),
 			districts: c.districts.map((d: string) => BigInt(d)),
 		}));
 		console.log(`  → Format: cell-tree-snapshot v${snapshot.version}`);
