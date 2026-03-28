@@ -266,9 +266,8 @@ jobs:
       - name: Download chunked build (for existing districts/officials)
         uses: actions/download-artifact@v4
         with:
-          pattern: chunked-with-officials
+          name: chunked-with-officials
           path: packages/shadow-atlas/output/chunked/
-          merge-multiple: true
 
       - name: Cache TIGER tract centroids
         uses: actions/cache@v4
@@ -389,8 +388,6 @@ jobs:
         with:
           name: chunked-validated
           path: packages/shadow-atlas/output/chunked/
-        env:
-          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Pin directory to Storacha
         id: pin

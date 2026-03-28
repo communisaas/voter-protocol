@@ -66,15 +66,30 @@ async function main() {
 	console.log(`Output:   ${outputDir}`);
 	console.log();
 
-	// Step 1: Load snapshot
+	// Step 1: Load snapshot (supports both formats)
 	console.log('[1/4] Loading snapshot...');
 	const raw = await readFile(snapshotPath, 'utf-8');
 	const snapshot = JSON.parse(raw);
 
-	const mappings: CellDistrictMapping[] = snapshot.mappings.map((m: { cellId: string; districts: string[] }) => ({
-		cellId: BigInt(m.cellId),
-		districts: m.districts.map((d: string) => BigInt(d)),
-	}));
+	let mappings: CellDistrictMapping[];
+
+	if (snapshot.mappings) {
+		// Format A: build-tree2.ts v3 output — { mappings: [{ cellId: "6001400100", districts: ["613", ...] }] }
+		mappings = snapshot.mappings.map((m: { cellId: string; districts: string[] }) => ({
+			cellId: BigInt(m.cellId),
+			districts: m.districts.map((d: string) => BigInt(d)),
+		}));
+		console.log(`  → Format: build-tree2 v${snapshot.version}`);
+	} else if (snapshot.cells) {
+		// Format B: build-cell-tree-snapshot.ts output — { cells: [{ cellId: "0x...", districts: ["0x...", ...] }] }
+		mappings = snapshot.cells.map((c: { cellId: string; districts: string[] }) => ({
+			cellId: BigInt(c.cellId),
+			districts: c.districts.map((d: string) => BigInt(d)),
+		}));
+		console.log(`  → Format: cell-tree-snapshot v${snapshot.version}`);
+	} else {
+		throw new Error('Unrecognized snapshot format: expected "mappings" or "cells" array');
+	}
 
 	console.log(`  → ${mappings.length.toLocaleString()} cells, depth ${snapshot.depth}`);
 	console.log(`  → State filter: ${snapshot.stateFilter ?? 'ALL'}`);
