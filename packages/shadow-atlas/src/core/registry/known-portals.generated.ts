@@ -4,7 +4,7 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/known-portals.ndjson
- * !! Generated: 2026-01-24T06:47:59.452Z
+ * !! Generated: 2026-03-28T23:07:21.056Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
@@ -17,7 +17,6 @@ export type PortalType =
   | 'municipal-gis'    // City-operated GIS portal
   | 'regional-gis'     // Regional council operated GIS
   | 'county-gis'       // County-operated GIS portal
-  | 'county-planning'  // County planning commission GIS
   | 'state-gis'        // State-operated GIS portal
   | 'socrata'          // Socrata open data platform
   | 'geojson'          // Direct GeoJSON file
@@ -47,7 +46,6 @@ export interface KnownPortal {
   readonly notes?: string;
   readonly webmapLayerName?: string;
   readonly authoritativeSource?: string;
-  readonly wardCount?: number;
   // Golden vector specific fields
   readonly sourceType?: 'golden-vector';
   readonly goldenVectorPath?: string;

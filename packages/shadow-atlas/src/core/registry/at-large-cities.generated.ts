@@ -4,7 +4,7 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * !! THIS FILE IS AUTO-GENERATED - DO NOT EDIT MANUALLY !!
  * !! Source: data/registries/at-large-cities.ndjson
- * !! Generated: 2026-01-24T06:47:59.470Z
+ * !! Generated: 2026-03-28T23:07:21.064Z
  * !! To modify: Edit the NDJSON file, then run: npm run registry:generate
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
@@ -14,15 +14,12 @@
  */
 
 export interface AtLargeCity {
-  readonly cityFips?: string;
   readonly cityName: string;
   readonly state: string;
   readonly councilSize: number;
-  readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
+  readonly electionMethod: 'at-large' | 'proportional';
   readonly source: string;
   readonly notes?: string;
-  readonly discoveredBy?: string;
-  readonly lastVerified?: string;
 }
 
 export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {
