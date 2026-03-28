@@ -17,7 +17,7 @@
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import type { IPinningService } from '../regional-pinning-service.js';
 import type {
@@ -25,6 +25,7 @@ import type {
   PinningServiceType,
   PinResult,
 } from '../types.js';
+import { isValidCID } from '../types.js';
 import { logger } from '../../core/utils/logger.js';
 
 /** Storacha IPFS gateway (replaces w3s.link) */
@@ -57,7 +58,7 @@ export interface StorachaConfig {
  * Minimal file-like shape expected by Storacha's uploadDirectory.
  * Mirrors @storacha/client's FileLike (BlobLike + name) without importing it.
  */
-interface StorachaFileLike {
+export interface StorachaFileLike {
   name: string;
   stream: () => ReadableStream;
   arrayBuffer: () => Promise<ArrayBuffer>;
@@ -76,22 +77,55 @@ interface StorachaClientHandle {
   uploadDirectory: (files: StorachaFileLike[]) => Promise<{ toString: () => string }>;
 }
 
+/** Maximum directory recursion depth to prevent infinite traversal */
+const MAX_WALK_DEPTH = 10;
+
+/** Maximum total directory size in bytes to prevent memory exhaustion during upload (2GB) */
+const MAX_DIRECTORY_SIZE = 2 * 1024 * 1024 * 1024;
+
 /**
  * Recursively walk a directory tree and produce StorachaFileLike objects.
  * Each file's `name` is its path relative to `rootDir` using forward slashes,
  * preserving directory structure in the resulting UnixFS DAG.
+ *
+ * Security: uses lstatSync to detect symlinks (skipped), realpathSync to
+ * prevent symlink traversal outside rootDir, and depth limiting.
  */
-function walkDirectory(rootDir: string): StorachaFileLike[] {
+export function walkDirectory(rootDir: string, maxDepth: number = MAX_WALK_DEPTH): StorachaFileLike[] {
   const results: StorachaFileLike[] = [];
+  const resolvedRoot = realpathSync(rootDir);
 
-  function walk(currentDir: string): void {
-    const entries = readdirSync(currentDir);
+  function walk(currentDir: string, depth: number): void {
+    if (depth > maxDepth) {
+      logger.warn('walkDirectory: max depth exceeded, skipping', { currentDir, maxDepth });
+      return;
+    }
+
+    const entries = readdirSync(currentDir).sort();
     for (const entry of entries) {
       const fullPath = join(currentDir, entry);
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
-        walk(fullPath);
-      } else if (stat.isFile()) {
+      const lstat = lstatSync(fullPath);
+
+      // Skip symlinks entirely — prevents traversal attacks
+      if (lstat.isSymbolicLink()) {
+        logger.warn('walkDirectory: skipping symlink', { path: fullPath });
+        continue;
+      }
+
+      // Containment check — resolved path must stay within rootDir
+      const resolvedPath = realpathSync(fullPath);
+      if (!resolvedPath.startsWith(resolvedRoot + '/') && resolvedPath !== resolvedRoot) {
+        logger.warn('walkDirectory: path escapes root directory, skipping', {
+          path: fullPath,
+          resolvedPath,
+          resolvedRoot,
+        });
+        continue;
+      }
+
+      if (lstat.isDirectory()) {
+        walk(fullPath, depth + 1);
+      } else if (lstat.isFile()) {
         const relativePath = relative(rootDir, fullPath).split('\\').join('/');
         const fileBuffer = readFileSync(fullPath);
         const blob = new Blob([fileBuffer], { type: 'application/octet-stream' });
@@ -109,8 +143,37 @@ function walkDirectory(rootDir: string): StorachaFileLike[] {
     }
   }
 
-  walk(rootDir);
+  walk(rootDir, 0);
   return results;
+}
+
+/**
+ * Dry-pass directory size computation using lstatSync (no file reads).
+ * Used by pinDirectory to reject oversized directories before loading into memory.
+ */
+function computeDirectorySize(rootDir: string, maxDepth: number = MAX_WALK_DEPTH): number {
+  let totalSize = 0;
+  const resolvedRoot = realpathSync(rootDir);
+
+  function walk(currentDir: string, depth: number): void {
+    if (depth > maxDepth) return;
+    const entries = readdirSync(currentDir).sort();
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry);
+      const lstat = lstatSync(fullPath);
+      if (lstat.isSymbolicLink()) continue;
+      const resolvedPath = realpathSync(fullPath);
+      if (!resolvedPath.startsWith(resolvedRoot + '/') && resolvedPath !== resolvedRoot) continue;
+      if (lstat.isDirectory()) {
+        walk(fullPath, depth + 1);
+      } else if (lstat.isFile()) {
+        totalSize += lstat.size;
+      }
+    }
+  }
+
+  walk(rootDir, 0);
+  return totalSize;
 }
 
 /**
@@ -128,6 +191,9 @@ export class StorachaPinningService implements IPinningService {
   // Storacha client (lazy initialized)
   private client: StorachaClientHandle | null = null;
 
+  // Busy guard — prevents concurrent uploads (zombie background uploads)
+  private uploading = false;
+
   constructor(config: StorachaConfig) {
     this.config = config;
     this.region = config.region;
@@ -140,11 +206,28 @@ export class StorachaPinningService implements IPinningService {
    * Dynamic import avoids bundling issues — @storacha/client is only
    * needed in the quarterly pipeline (Node.js/tsx), never in CF Workers.
    */
+  // R41-FIX: Serialization lock prevents concurrent getClient() initialization
+  private clientInitPromise: Promise<StorachaClientHandle> | null = null;
+
   private async getClient(): Promise<StorachaClientHandle> {
     if (this.client) {
       return this.client;
     }
 
+    // R41-FIX: If init already in-flight, await the existing promise instead of starting another
+    if (this.clientInitPromise) {
+      return this.clientInitPromise;
+    }
+
+    this.clientInitPromise = this.initClient();
+    try {
+      return await this.clientInitPromise;
+    } finally {
+      this.clientInitPromise = null;
+    }
+  }
+
+  private async initClient(): Promise<StorachaClientHandle> {
     // Dynamic imports — @storacha/client is ESM-only
     const [ClientMod, SignerMod, StoreMod, ProofMod] = await Promise.all([
       import('@storacha/client'),
@@ -161,6 +244,15 @@ export class StorachaPinningService implements IPinningService {
     // Add UCAN delegation proof and set the target space
     const proof = await ProofMod.parse(this.config.proof);
     const space = await client.addSpace(proof);
+
+    // BR7-M5: Verify the space derived from proof matches configured spaceDid
+    const derivedDid = space.did();
+    if (derivedDid !== this.config.spaceDid) {
+      throw new Error(
+        `Storacha space DID mismatch: proof resolves to ${derivedDid} but config expects ${this.config.spaceDid}`
+      );
+    }
+
     await client.setCurrentSpace(space.did());
 
     this.client = {
@@ -188,7 +280,22 @@ export class StorachaPinningService implements IPinningService {
       readonly metadata?: Record<string, string>;
     }
   ): Promise<PinResult> {
+    if (this.uploading) {
+      return {
+        success: false,
+        cid: '',
+        service: this.type,
+        region: this.region,
+        pinnedAt: new Date(),
+        sizeBytes: 0,
+        durationMs: 0,
+        error: 'Upload already in progress',
+      };
+    }
+
+    this.uploading = true;
     const startTime = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     try {
       // Convert Uint8Array to Blob
@@ -202,15 +309,18 @@ export class StorachaPinningService implements IPinningService {
 
       const client = await this.getClient();
 
-      // Apply timeout via AbortController race
+      // R97-DST-F2: Storacha SDK does not accept AbortSignal — uploadFile has no
+      // cancellation API. Promise.race is the only timeout mechanism available.
+      // Ghost pins may accumulate if the underlying upload succeeds after timeout.
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`Storacha upload timed out after ${this.timeoutMs}ms`)), this.timeoutMs);
+        timer = setTimeout(() => reject(new Error(`Storacha upload timed out after ${this.timeoutMs}ms`)), this.timeoutMs);
       });
 
       const result = await Promise.race([
         client.uploadFile(blob),
         timeoutPromise,
       ]);
+      clearTimeout(timer);
       const cid = result.toString();
 
       const durationMs = Date.now() - startTime;
@@ -225,6 +335,7 @@ export class StorachaPinningService implements IPinningService {
         durationMs,
       };
     } catch (error) {
+      clearTimeout(timer);
       const durationMs = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -238,6 +349,8 @@ export class StorachaPinningService implements IPinningService {
         durationMs,
         error: errorMessage,
       };
+    } finally {
+      this.uploading = false;
     }
   }
 
@@ -249,15 +362,52 @@ export class StorachaPinningService implements IPinningService {
    * @returns PinResult with the root CID
    */
   async pinDirectory(dirPath: string): Promise<PinResult> {
+    if (this.uploading) {
+      return {
+        success: false,
+        cid: '',
+        service: this.type,
+        region: this.region,
+        pinnedAt: new Date(),
+        sizeBytes: 0,
+        durationMs: 0,
+        error: 'Upload already in progress',
+      };
+    }
+
+    this.uploading = true;
     const startTime = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     try {
+      // BR7-H8: Check directory size before loading into memory
+      const dirSize = computeDirectorySize(dirPath);
+      if (dirSize > MAX_DIRECTORY_SIZE) {
+        return {
+          success: false,
+          cid: '',
+          service: this.type,
+          region: this.region,
+          pinnedAt: new Date(),
+          sizeBytes: 0,
+          durationMs: Date.now() - startTime,
+          error: `Directory size ${(dirSize / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_DIRECTORY_SIZE / 1024 / 1024}MB limit`,
+        };
+      }
+
       // Walk directory tree, create FileLike objects
       const files = walkDirectory(dirPath);
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      logger.info('StorachaPinningService: directory walk complete', {
+        fileCount: files.length,
+        totalSizeMB: (totalSize / 1024 / 1024).toFixed(1),
+      });
 
       const client = await this.getClient();
 
+      // R97-DST-F2: Storacha SDK does not accept AbortSignal on uploadDirectory.
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
+        timer = setTimeout(
           () => reject(new Error(`Storacha directory upload timed out after ${this.timeoutMs}ms`)),
           this.timeoutMs,
         );
@@ -267,8 +417,8 @@ export class StorachaPinningService implements IPinningService {
         client.uploadDirectory(files),
         timeoutPromise,
       ]);
+      clearTimeout(timer);
       const cid = result.toString();
-      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
       const durationMs = Date.now() - startTime;
 
       return {
@@ -281,6 +431,7 @@ export class StorachaPinningService implements IPinningService {
         durationMs,
       };
     } catch (error) {
+      clearTimeout(timer);
       const durationMs = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
@@ -293,6 +444,8 @@ export class StorachaPinningService implements IPinningService {
         durationMs,
         error: errorMessage,
       };
+    } finally {
+      this.uploading = false;
     }
   }
 
@@ -300,6 +453,11 @@ export class StorachaPinningService implements IPinningService {
    * Verify pin exists on Storacha via IPFS gateway
    */
   async verify(cid: string): Promise<boolean> {
+    // R47-F3: CID format validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) {
+      logger.warn('StorachaPinningService: invalid CID format in verify()', { cid: cid.slice(0, 20) });
+      return false;
+    }
     try {
       const gatewayUrl = `${STORACHA_GATEWAY}/${cid}`;
       const response = await fetch(gatewayUrl, {

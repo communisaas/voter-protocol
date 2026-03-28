@@ -26,7 +26,7 @@
  *   pin-results.json     - CIDs and metadata for all pinned artifacts
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, lstatSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 import { createStorachaPinningService } from '../src/distribution/services/storacha.js';
@@ -40,7 +40,14 @@ const SKIP_PATTERNS = [
   'metadata.json',       // Build stats, not client-consumable
   '-sample.json',        // Subset for integration testing
   'pin-results.json',    // Our own output file
+  '.worker-',            // Worker temp files from chunked build
 ];
+
+/** Maximum allowed size of a Brotli-compressed file before decompression (500 MB). */
+const MAX_COMPRESSED_SIZE = 500 * 1024 * 1024;
+
+/** Maximum allowed size of decompressed content (2 GB). */
+const MAX_DECOMPRESSED_SIZE = 2 * 1024 * 1024 * 1024;
 
 interface ArtifactResult {
   name: string;
@@ -89,13 +96,16 @@ async function verifyGatewayPath(url: string): Promise<boolean> {
   }
 }
 
-/** Count files recursively in a directory */
+/** Count files recursively in a directory (skips symlinks) */
 function countFiles(dir: string): number {
   let count = 0;
   const entries = readdirSync(dir);
   for (const entry of entries) {
     const fullPath = join(dir, entry);
-    const stat = statSync(fullPath);
+    const stat = lstatSync(fullPath);
+    if (stat.isSymbolicLink()) {
+      continue;
+    }
     if (stat.isDirectory()) {
       count += countFiles(fullPath);
     } else if (stat.isFile()) {
@@ -105,13 +115,16 @@ function countFiles(dir: string): number {
   return count;
 }
 
-/** Sum file sizes recursively in a directory */
+/** Sum file sizes recursively in a directory (skips symlinks) */
 function totalDirSize(dir: string): number {
   let total = 0;
   const entries = readdirSync(dir);
   for (const entry of entries) {
     const fullPath = join(dir, entry);
-    const stat = statSync(fullPath);
+    const stat = lstatSync(fullPath);
+    if (stat.isSymbolicLink()) {
+      continue;
+    }
     if (stat.isDirectory()) {
       total += totalDirSize(fullPath);
     } else if (stat.isFile()) {
@@ -140,8 +153,8 @@ async function main() {
       case '--all': {
         const dir = args[++i];
         const files = readdirSync(dir).filter((f) => {
-          const stat = statSync(join(dir, f));
-          if (!stat.isFile() || f.startsWith('.')) return false;
+          const stat = lstatSync(join(dir, f));
+          if (stat.isSymbolicLink() || !stat.isFile() || f.startsWith('.')) return false;
           // Skip non-client files (metadata, samples, our own output)
           if (SKIP_PATTERNS.some((p) => f.includes(p))) return false;
           return true;
@@ -212,7 +225,7 @@ async function main() {
     spaceDid,
     agentPrivateKey: agentKey,
     proof,
-    timeoutMs: directoryMode ? 1200000 : 600000, // 20 min for directory, 10 min for single files
+    timeoutMs: directoryMode ? 3600000 : 600000, // 60 min for directory, 10 min for single files
   });
 
   // Health check
@@ -248,42 +261,65 @@ async function main() {
     console.log(`Duration: ${result.durationMs}ms`);
     console.log();
 
-    // Verify via gateway
+    // Verify via gateway — discover countries from output directory
     console.log('Verifying directory contents via gateway...');
 
-    // 1. Check manifest
-    const manifestOk = await verifyGatewayPath(`${gatewayBase}/US/manifest.json`);
-    console.log(`  US/manifest.json: ${manifestOk ? 'OK' : 'FAIL'}`);
+    // Discover countries from output directory (2-letter uppercase subdirectories)
+    const countries = readdirSync(directoryMode.path)
+      .filter(entry => {
+        const fullPath = join(directoryMode.path, entry);
+        return lstatSync(fullPath).isDirectory() && /^[A-Z]{2}$/.test(entry);
+      });
 
-    // 2. Check a random chunk
-    let chunkOk = false;
-    const districtsDir = join(directoryMode.path, 'US', 'districts');
-    if (existsSync(districtsDir)) {
-      const chunks = readdirSync(districtsDir);
-      if (chunks.length > 0) {
-        const randomChunk = chunks[Math.floor(Math.random() * chunks.length)];
-        chunkOk = await verifyGatewayPath(`${gatewayBase}/US/districts/${randomChunk}`);
-        console.log(`  US/districts/${randomChunk}: ${chunkOk ? 'OK' : 'FAIL'}`);
-      }
+    if (countries.length === 0) {
+      console.log('  WARNING: No country directories found in output directory');
     }
 
-    // 3. Check a random officials file (if exists)
-    let officialsOk = true;
-    const officialsDir = join(directoryMode.path, 'US', 'officials');
-    if (existsSync(officialsDir)) {
-      const officials = readdirSync(officialsDir);
-      if (officials.length > 0) {
-        const randomOfficial = officials[Math.floor(Math.random() * officials.length)];
-        officialsOk = await verifyGatewayPath(`${gatewayBase}/US/officials/${randomOfficial}`);
-        console.log(`  US/officials/${randomOfficial}: ${officialsOk ? 'OK' : 'FAIL'}`);
+    let allManifestsOk = true;
+    let anyChunkOk = true;
+    let allOfficialsOk = true;
+
+    for (const ctry of countries) {
+      console.log(`  [${ctry}]`);
+
+      // 1. Check manifest
+      const manifestOk = await verifyGatewayPath(`${gatewayBase}/${ctry}/manifest.json`);
+      console.log(`    ${ctry}/manifest.json: ${manifestOk ? 'OK' : 'FAIL'}`);
+      if (!manifestOk) allManifestsOk = false;
+
+      // 2. Check a random chunk (if districts dir exists)
+      let chunkOk = true; // default OK if no chunks to check
+      const districtsDir = join(directoryMode.path, ctry, 'districts');
+      if (existsSync(districtsDir)) {
+        const chunks = readdirSync(districtsDir).filter(f => f.endsWith('.json'));
+        if (chunks.length > 0) {
+          const randomChunk = chunks[Math.floor(Math.random() * chunks.length)];
+          chunkOk = await verifyGatewayPath(`${gatewayBase}/${ctry}/districts/${randomChunk}`);
+          console.log(`    ${ctry}/districts/${randomChunk}: ${chunkOk ? 'OK' : 'FAIL'}`);
+          if (!chunkOk) anyChunkOk = false;
+        }
       }
+
+      // 3. Check a random officials file (if exists)
+      let officialsOk = true;
+      const officialsDir = join(directoryMode.path, ctry, 'officials');
+      if (existsSync(officialsDir)) {
+        const officials = readdirSync(officialsDir).filter(f => f.endsWith('.json'));
+        if (officials.length > 0) {
+          const randomOfficial = officials[Math.floor(Math.random() * officials.length)];
+          officialsOk = await verifyGatewayPath(`${gatewayBase}/${ctry}/officials/${randomOfficial}`);
+          console.log(`    ${ctry}/officials/${randomOfficial}: ${officialsOk ? 'OK' : 'FAIL'}`);
+          if (!officialsOk) allOfficialsOk = false;
+        }
+      }
+
     }
 
-    const verified = manifestOk && chunkOk && officialsOk;
+    const verified = allManifestsOk && anyChunkOk && allOfficialsOk;
     const totalDurationMs = Date.now() - dirStartTime;
 
     console.log();
-    console.log(`Overall verified: ${verified}`);
+    console.log(`Overall verified: ${verified} (${countries.length} country/countries checked)`);
 
     const dirOutput: DirectoryPinOutput = {
       timestamp: new Date().toISOString(),
@@ -295,9 +331,9 @@ async function main() {
       gateway: gatewayBase,
       verified,
       verificationDetails: {
-        manifest: manifestOk,
-        randomChunk: chunkOk,
-        randomOfficials: officialsOk,
+        manifest: allManifestsOk,
+        randomChunk: anyChunkOk,
+        randomOfficials: allOfficialsOk,
       },
       durationMs: totalDurationMs,
     };
@@ -306,7 +342,9 @@ async function main() {
     console.log(`Results written to: ${outputPath}`);
 
     if (!verified) {
-      console.error('WARNING: Not all verification checks passed.');
+      // R64-F3: exit 1 on verification failure so downstream scripts can detect it
+      console.error('ERROR: Not all verification checks passed. Aborting with exit code 1.');
+      process.exit(1);
     }
 
     return;
@@ -331,8 +369,14 @@ async function main() {
       // response.json(). Pinning compressed bytes would require every client
       // to handle decompression. Pin the uncompressed JSON instead.
       if (artifact.path.endsWith('.br')) {
+        if (content.length > MAX_COMPRESSED_SIZE) {
+          throw new Error(`Compressed file exceeds maximum size (${MAX_COMPRESSED_SIZE} bytes)`);
+        }
         console.log(`  Decompressing Brotli (${(content.length / 1024).toFixed(1)} KB compressed)...`);
         content = Buffer.from(brotliDecompressSync(content));
+        if (content.length > MAX_DECOMPRESSED_SIZE) {
+          throw new Error(`Decompressed content exceeds maximum size (${MAX_DECOMPRESSED_SIZE} bytes)`);
+        }
         pinName = pinName.replace(/\.br$/, '');
         console.log(`  Decompressed: ${(content.length / 1024 / 1024).toFixed(1)} MB`);
       }
@@ -433,6 +477,6 @@ Environment:
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err);
+  console.error('Fatal error:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
