@@ -19,7 +19,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { buildCellMapTree, type CellDistrictMapping } from '../src/tree-builder.js';
-import { buildCellChunks, buildCellChunksManifestEntry } from '../src/distribution/build-cell-chunks.js';
+import { buildCellChunks, buildCellChunksManifestEntry, buildDistrictIndex } from '../src/distribution/build-cell-chunks.js';
 import { latLngToCell, cellToParent } from 'h3-js';
 import { buildTractCentroidIndex } from '../src/hydration/tract-centroid-index.js';
 import { atomicWriteFile } from '../src/core/utils/atomic-write.js';
@@ -193,6 +193,20 @@ async function main() {
 	} catch {
 		console.log(`  → No main manifest found at ${mainManifestPath} (cells-only manifest written)`);
 	}
+
+	// Step 5: Build district index (O(1) lookups by district for all 24 slots)
+	console.log();
+	console.log('[5/5] Building district index...');
+	const districtIndex = buildDistrictIndex(result, mappings);
+	const populatedSlots = Object.keys(districtIndex.slots).length;
+	const totalDistricts = Object.values(districtIndex.slots)
+		.reduce((sum, s) => sum + Object.keys(s).length, 0);
+	console.log(`  → ${populatedSlots} populated slots, ${totalDistricts} unique district values`);
+	console.log(`  → ${Object.keys(districtIndex.labels).length} field element labels`);
+
+	const indexPath = `${outputDir}/US/district-index.json`;
+	await atomicWriteFile(indexPath, JSON.stringify(districtIndex) + '\n');
+	console.log(`  → Written to ${indexPath}`);
 
 	const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 	console.log(`\nDone in ${elapsed}s.`);

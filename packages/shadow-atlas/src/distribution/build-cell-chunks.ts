@@ -219,3 +219,119 @@ export function buildCellChunksManifestEntry(
     chunks: chunkEntries,
   };
 }
+
+// ============================================================================
+// District Index Builder
+// ============================================================================
+
+/**
+ * A district index entry: maps a field element to the chunk keys containing it.
+ *
+ * Published at `{rootCID}/{country}/district-index.json`.
+ * The browser fetches this once, then does O(1) lookups.
+ */
+export interface DistrictIndex {
+  /** Schema version */
+  version: 1;
+  /** ISO 8601 generation timestamp */
+  generated: string;
+  /**
+   * Per-slot index: slot number → { fieldElementHex → chunkKey[] }
+   *
+   * Example:
+   *   "0": {                                    // slot 0 = Congressional District
+   *     "0x...0264": ["832830fffffffff", ...],  // GEOID 0612 → CA-12
+   *     "0x...0265": ["832831fffffffff", ...],  // GEOID 0613 → CA-13
+   *   },
+   *   "2": {                                    // slot 2 = State Senate
+   *     "0x...1781": ["832830fffffffff", ...],  // GEOID 6017
+   *   }
+   *
+   * Only slots with real (non-zero) data are included.
+   */
+  slots: Record<string, Record<string, string[]>>;
+  /**
+   * Reverse lookup: fieldElementHex → human-readable label.
+   * Built from the raw GEOID values (not all have human-readable forms).
+   *
+   * Example: "0x...0264" → "0612"
+   *
+   * The browser uses slotNames from the main manifest to label the slot,
+   * and this table to decode the raw GEOID for display or matching.
+   */
+  labels: Record<string, string>;
+}
+
+/**
+ * Build a district index from the generated cell chunks.
+ *
+ * Scans every cell in every chunk, extracts non-zero district values
+ * from all 24 slots, and maps each unique (slot, districtHex) pair
+ * to the list of chunk keys containing cells with that district.
+ *
+ * The browser uses this to go from "user's verified district" → chunk key
+ * in O(1) instead of scanning all chunks.
+ */
+export function buildDistrictIndex(
+  result: BuildCellChunksResult,
+  mappings: readonly CellDistrictMapping[],
+): DistrictIndex {
+  const slots: Record<string, Record<string, Set<string>>> = {};
+  const labels = new Map<string, string>();
+
+  // Build a reverse map: fieldElementHex → raw GEOID string
+  // from the original mappings (which have the bigint values)
+  const fieldToGeoid = new Map<string, string>();
+  for (const m of mappings) {
+    for (const d of m.districts) {
+      if (d !== 0n) {
+        const hex = toHex(d);
+        if (!fieldToGeoid.has(hex)) {
+          fieldToGeoid.set(hex, d.toString());
+        }
+      }
+    }
+  }
+
+  // Scan all chunks
+  for (const [chunkKey, chunk] of result.chunks) {
+    for (const entry of Object.values(chunk.cells)) {
+      for (let slot = 0; slot < entry.d.length; slot++) {
+        const districtHex = entry.d[slot];
+        // Skip zero values (empty slots)
+        if (districtHex === '0x' + '0'.repeat(64)) continue;
+
+        const slotKey = String(slot);
+        if (!slots[slotKey]) slots[slotKey] = {};
+        if (!slots[slotKey][districtHex]) slots[slotKey][districtHex] = new Set();
+        slots[slotKey][districtHex].add(chunkKey);
+
+        // Store label
+        if (!labels.has(districtHex)) {
+          labels.set(districtHex, fieldToGeoid.get(districtHex) ?? districtHex);
+        }
+      }
+    }
+  }
+
+  // Convert Sets to arrays
+  const slotsOut: Record<string, Record<string, string[]>> = {};
+  for (const [slotKey, districts] of Object.entries(slots)) {
+    slotsOut[slotKey] = {};
+    for (const [hex, chunkKeys] of Object.entries(districts)) {
+      slotsOut[slotKey][hex] = [...chunkKeys];
+    }
+  }
+
+  const labelsOut: Record<string, string> = {};
+  for (const [hex, label] of labels) {
+    labelsOut[hex] = label;
+  }
+
+  return {
+    version: 1,
+    generated: new Date().toISOString(),
+    slots: slotsOut,
+    labels: labelsOut,
+  };
+}
