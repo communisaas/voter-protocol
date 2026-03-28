@@ -372,10 +372,16 @@ export interface CellChunkFile {
   readonly depth: number;
   /** ISO 8601 generation timestamp */
   readonly generated: string;
-  /** Map of cell_id (string) → CellEntry */
+  /** Map of cellId (GEOID string) → CellEntry */
   readonly cells: Readonly<Record<string, CellEntry>>;
   /** Number of cells in this chunk (integrity check) */
   readonly cellCount: number;
+  /**
+   * Optional reverse index: H3 res-7 cell → cellId key in `cells`.
+   * Allows O(1) lookup by lat/lng for the browser location path.
+   * Only present for real tract cells (virtual cells have no H3 mapping).
+   */
+  readonly h3Index?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -391,9 +397,9 @@ export interface CellChunkFile {
  *   - `b` → private input `cell_map_path_bits[TREE_DEPTH]`
  *   - `a` → used for position derivation verification (informational)
  *
- * IMPORTANT: Cells are keyed by H3 index (what the browser knows from latLngToCell),
- * but the circuit uses the GEOID-encoded `cell_id` (stored in `c`). The browser must
- * use `c` as the circuit's cell_id input.
+ * Cells are keyed by cellId (GEOID bigint as string). The `h3Index` field on the
+ * parent CellChunkFile provides O(1) H3 → cellId reverse lookup for lat/lng queries.
+ * The circuit uses the GEOID-encoded `cell_id` (stored in `c`) as its private input.
  */
 export interface CellEntry {
   /** cell_id as 0x-hex BN254 field element (GEOID encoded — for circuit private input) */

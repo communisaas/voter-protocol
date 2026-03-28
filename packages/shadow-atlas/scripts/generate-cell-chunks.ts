@@ -109,48 +109,83 @@ async function main() {
 	});
 	console.log(`  → ${centroidIndex.size.toLocaleString()} tract centroids indexed`);
 
-	// Build GEOID → H3 mapping
+	// Build GEOID → H3 mapping (for grouping, not for chunk keys)
 	const geoidToH3Cache = new Map<string, string>();
 	let hits = 0;
 	let misses = 0;
 
-	const getH3 = (geoid: string): string => {
-		const cached = geoidToH3Cache.get(geoid);
-		if (cached) return cached;
-
-		// BigInt drops leading zeros. Restore to 11-char FIPS for centroid lookup.
+	/** Resolve a real tract GEOID to its H3 res-7 cell. Returns undefined if no centroid. */
+	const resolveRealH3 = (geoid: string): string | undefined => {
 		const paddedGeoid = geoid.length <= 11 ? geoid.padStart(11, '0') : geoid;
 
 		const centroid = centroidIndex.getCentroid(paddedGeoid);
 		if (centroid) {
-			const h3 = latLngToCell(centroid[1], centroid[0], 7);
-			geoidToH3Cache.set(geoid, h3);
-			hits++;
-			return h3;
+			return latLngToCell(centroid[1], centroid[0], 7);
 		}
 
 		// Also try unpadded (in case centroid index uses raw geoid)
 		if (paddedGeoid !== geoid) {
 			const c2 = centroidIndex.getCentroid(geoid);
 			if (c2) {
-				const h3 = latLngToCell(c2[1], c2[0], 7);
-				geoidToH3Cache.set(geoid, h3);
-				hits++;
-				return h3;
+				return latLngToCell(c2[1], c2[0], 7);
 			}
 		}
 
-		// Virtual cells (hash-derived, 30+ chars): try parent tract GEOID
-		if (geoid.length > 12) {
-			// Virtual cells don't have a simple GEOID prefix. Fall back.
+		return undefined;
+	};
+
+	// First pass: build district → H3 res-3 parent mapping from real cells.
+	// Virtual cells will be assigned to the same H3 group as real cells in their district.
+	const districtToH3Parent = new Map<string, string>();
+	for (const m of mappings) {
+		const geoid = m.cellId.toString();
+		if (geoid.length > 12) continue; // skip virtual cells
+
+		const h3 = resolveRealH3(geoid);
+		if (!h3) continue;
+
+		const parent = cellToParent(h3, 3);
+		const districtKey = m.districts[0].toString(); // congressional district (slot 0)
+		if (!districtToH3Parent.has(districtKey)) {
+			districtToH3Parent.set(districtKey, parent);
+		}
+	}
+	console.log(`  → ${districtToH3Parent.size} congressional districts mapped to H3 groups`);
+
+	/** Get H3 res-3 parent for grouping. Works for both real and virtual cells. */
+	const getH3Parent = (cellId: bigint, mapping: CellDistrictMapping): string => {
+		const geoid = cellId.toString();
+		const cached = geoidToH3Cache.get(geoid);
+		if (cached) return cached;
+
+		// Real cells: resolve via centroid
+		if (geoid.length <= 12) {
+			const h3 = resolveRealH3(geoid);
+			if (h3) {
+				const parent = cellToParent(h3, 3);
+				geoidToH3Cache.set(geoid, parent);
+				hits++;
+				return parent;
+			}
 			misses++;
-			const fallback = `virtual-${(BigInt(geoid) % 1000n).toString()}`;
+			// Fallback: try district mapping
+			const districtKey = mapping.districts[0].toString();
+			const fallback = districtToH3Parent.get(districtKey) ?? `geoid-${geoid.padStart(11, '0').slice(0, 5)}`;
 			geoidToH3Cache.set(geoid, fallback);
 			return fallback;
 		}
 
+		// Virtual cells: map to the same H3 group as a real cell in the same congressional district
+		const districtKey = mapping.districts[0].toString();
+		const parent = districtToH3Parent.get(districtKey);
+		if (parent) {
+			geoidToH3Cache.set(geoid, parent);
+			hits++;
+			return parent;
+		}
+
 		misses++;
-		const fallback = `geoid-${paddedGeoid.slice(0, 5)}`;
+		const fallback = `virtual-${districtKey}`;
 		geoidToH3Cache.set(geoid, fallback);
 		return fallback;
 	};
@@ -158,16 +193,30 @@ async function main() {
 	console.log();
 
 	// Step 4: Generate cell chunks
+	// Key insight: cellIdToKey must be UNIQUE per cell (use cellId string),
+	// while groupFn determines which chunk file a cell lands in (H3 res-3 parent).
+	// Previous bug: cellIdToKey returned H3 res-7 which collided for multiple tracts.
 	console.log('[4/4] Generating cell chunks...');
+
+	// Build a mapping lookup for the groupFn (needs access to districts for virtual cells)
+	const cellIdToMapping = new Map<string, CellDistrictMapping>();
+	for (const m of mappings) {
+		cellIdToMapping.set(m.cellId.toString(), m);
+	}
+
 	const result = await buildCellChunks(treeResult, mappings, {
 		country: 'US',
 		groupFn: (cellId) => {
-			const h3 = getH3(cellId.toString());
-			// Non-H3 fallback keys (virtual cells, missing centroids) group as-is
-			if (h3.startsWith('geoid-') || h3.startsWith('virtual-')) return h3;
-			return cellToParent(h3, 3);
+			const mapping = cellIdToMapping.get(cellId.toString())!;
+			return getH3Parent(cellId, mapping);
 		},
-		cellIdToKey: (cellId) => getH3(cellId.toString()),
+		cellIdToKey: (cellId) => cellId.toString(),
+		h3Fn: (cellId) => {
+			// Only real tract cells get an H3 index entry (virtual cells have no centroid)
+			const geoid = cellId.toString();
+			if (geoid.length > 12) return undefined;
+			return resolveRealH3(geoid);
+		},
 		outputDir,
 		log: console.log,
 	});

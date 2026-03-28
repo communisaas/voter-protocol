@@ -52,6 +52,13 @@ export interface BuildCellChunksOptions {
    */
   cellIdToKey?: (cellId: bigint) => string;
 
+  /**
+   * Optional: Map a tree cellId (bigint) to its H3 res-7 cell index.
+   * Used to build the `h3Index` reverse mapping in each chunk, enabling
+   * O(1) lat/lng lookups in the browser. Returns undefined for virtual cells.
+   */
+  h3Fn?: (cellId: bigint) => string | undefined;
+
   /** Output directory for chunk files. Files written to `{outputDir}/{country}/cells/` */
   outputDir?: string;
 
@@ -125,6 +132,7 @@ export async function buildCellChunks(
 
   for (const [groupKey, entries] of groups) {
     const cells: Record<string, CellEntry> = {};
+    const h3Index: Record<string, string> = {};
 
     for (const entry of entries) {
       try {
@@ -137,6 +145,14 @@ export async function buildCellChunks(
           b: [...proof.pathBits],
           a: proof.attempt ?? 0,
         };
+
+        // Build H3 reverse index if h3Fn is provided
+        if (options.h3Fn) {
+          const h3Key = options.h3Fn(entry.cellId);
+          if (h3Key) {
+            h3Index[h3Key] = entry.key;
+          }
+        }
       } catch (err) {
         proofErrors++;
         log(`  ⚠ Proof generation failed for cell ${entry.cellId}: ${err}`);
@@ -146,6 +162,7 @@ export async function buildCellChunks(
     const cellCount = Object.keys(cells).length;
     if (cellCount === 0) continue;
 
+    const hasH3Index = Object.keys(h3Index).length > 0;
     const chunk: CellChunkFile = {
       version: 1,
       country: options.country,
@@ -155,6 +172,7 @@ export async function buildCellChunks(
       generated,
       cells,
       cellCount,
+      ...(hasH3Index ? { h3Index } : {}),
     };
 
     chunks.set(groupKey, chunk);
