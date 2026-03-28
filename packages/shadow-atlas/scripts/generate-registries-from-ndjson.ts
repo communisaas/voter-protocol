@@ -91,7 +91,7 @@ async function generateKnownPortals(): Promise<number> {
     authoritativeSource?: string;
   }>('known-portals.ndjson');
 
-  const now = new Date().toISOString();
+  const now = 'see git log for generation date';
 
   let output = `/**
  * Known Council District Data Portals
@@ -184,7 +184,7 @@ async function generateQuarantinedPortals(): Promise<number> {
     quarantinedAt: string;
   }>('quarantined-portals.ndjson');
 
-  const now = new Date().toISOString();
+  const now = 'see git log for generation date';
 
   let output = `/**
  * Quarantined Portal Entries
@@ -247,7 +247,7 @@ async function generateAtLargeCities(): Promise<number> {
     notes?: string;
   }>('at-large-cities.ndjson');
 
-  const now = new Date().toISOString();
+  const now = 'see git log for generation date';
 
   let output = `/**
  * At-Large City Council Registry
