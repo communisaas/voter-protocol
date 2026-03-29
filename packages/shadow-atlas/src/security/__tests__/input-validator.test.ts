@@ -195,7 +195,9 @@ describe('Input Validator - URL Validation', () => {
     const httpURL = 'http://tigerweb.geo.census.gov/api/...';
     const result = validateURL(httpURL);
     expect(result.success).toBe(false);
-    expect(result.error).toContain('HTTPS');
+    if (!result.success) {
+      expect(result.error).toContain('HTTPS');
+    }
   });
 
   test('rejects URLs not in allowlist', () => {
@@ -208,7 +210,9 @@ describe('Input Validator - URL Validation', () => {
     for (const url of maliciousURLs) {
       const result = validateURL(url);
       expect(result.success).toBe(false);
-      expect(result.error).toContain('allowlist');
+      if (!result.success) {
+        expect(result.error).toContain('allowlist');
+      }
     }
   });
 
@@ -224,7 +228,9 @@ describe('Input Validator - URL Validation', () => {
     for (const url of privateURLs) {
       const result = validateURL(url);
       expect(result.success).toBe(false);
-      expect(result.error).toContain('private');
+      if (!result.success) {
+        expect(result.error).toContain('private');
+      }
     }
   });
 
@@ -325,7 +331,9 @@ describe('Input Validator - GeoJSON Validation', () => {
 
     const result = validateGeoJSON(oversized);
     expect(result.success).toBe(false);
-    expect(result.error).toContain('too large');
+    if (!result.success) {
+      expect(result.error).toContain('too large');
+    }
   });
 
   test('rejects invalid GeoJSON structure', () => {

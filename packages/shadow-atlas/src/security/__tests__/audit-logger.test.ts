@@ -69,10 +69,35 @@ async function createMockLogFile(
 /**
  * Compute event hash (must match logger implementation)
  */
+/** R36-SEC-03: Deep-sort keys to match updated logger implementation */
+function sortKeysDeep(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sortKeysDeep);
+  const sorted = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(obj as Record<string, unknown>).sort()) {
+    sorted[key] = sortKeysDeep((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
 function computeEventHash(event: SecurityEvent): string {
   const { eventHash, ...eventWithoutHash } = event;
-  const normalized = JSON.stringify(eventWithoutHash, Object.keys(eventWithoutHash).sort());
+  const normalized = JSON.stringify(sortKeysDeep(eventWithoutHash));
   return createHash('sha256').update(normalized).digest('hex');
+}
+
+/** Create a SecurityEvent with its eventHash computed and set (bypasses readonly for tests) */
+function createHashedEvent(
+  overrides: Partial<SecurityEvent> & { id: string; timestamp: string; previousHash?: string },
+): SecurityEvent {
+  const base = {
+    ...createTestEvent(overrides),
+    id: overrides.id,
+    timestamp: overrides.timestamp,
+    previousHash: overrides.previousHash,
+  } as SecurityEvent;
+  const hash = computeEventHash(base);
+  return { ...base, eventHash: hash } as SecurityEvent;
 }
 
 // ============================================================================
@@ -425,29 +450,9 @@ describe('queryAuditLogs', () => {
 describe('verifyAuditLogIntegrity', () => {
   it('should verify valid hash chain', async () => {
     // Create events with proper hash chain
-    const event1: SecurityEvent = {
-      ...createTestEvent(),
-      id: '1',
-      timestamp: new Date().toISOString(),
-      previousHash: undefined,
-    } as SecurityEvent;
-    event1.eventHash = computeEventHash(event1);
-
-    const event2: SecurityEvent = {
-      ...createTestEvent(),
-      id: '2',
-      timestamp: new Date().toISOString(),
-      previousHash: event1.eventHash,
-    } as SecurityEvent;
-    event2.eventHash = computeEventHash(event2);
-
-    const event3: SecurityEvent = {
-      ...createTestEvent(),
-      id: '3',
-      timestamp: new Date().toISOString(),
-      previousHash: event2.eventHash,
-    } as SecurityEvent;
-    event3.eventHash = computeEventHash(event3);
+    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
+    const event2 = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: event1.eventHash });
+    const event3 = createHashedEvent({ id: '3', timestamp: new Date().toISOString(), previousHash: event2.eventHash });
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [
       event1,
@@ -464,21 +469,8 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should detect broken hash chain link', async () => {
-    const event1: SecurityEvent = {
-      ...createTestEvent(),
-      id: '1',
-      timestamp: new Date().toISOString(),
-      previousHash: undefined,
-    } as SecurityEvent;
-    event1.eventHash = computeEventHash(event1);
-
-    const event2: SecurityEvent = {
-      ...createTestEvent(),
-      id: '2',
-      timestamp: new Date().toISOString(),
-      previousHash: 'WRONG_HASH', // Broken link
-    } as SecurityEvent;
-    event2.eventHash = computeEventHash(event2);
+    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
+    const event2 = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: 'WRONG_HASH' });
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [event1, event2]);
 
@@ -491,21 +483,9 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should detect tampered event hash', async () => {
-    const event1: SecurityEvent = {
-      ...createTestEvent(),
-      id: '1',
-      timestamp: new Date().toISOString(),
-      previousHash: undefined,
-    } as SecurityEvent;
-    event1.eventHash = computeEventHash(event1);
-
-    const event2: SecurityEvent = {
-      ...createTestEvent(),
-      id: '2',
-      timestamp: new Date().toISOString(),
-      previousHash: event1.eventHash,
-    } as SecurityEvent;
-    event2.eventHash = 'TAMPERED_HASH'; // Wrong hash
+    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
+    const event2Base = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: event1.eventHash });
+    const event2 = { ...event2Base, eventHash: 'TAMPERED_HASH' } as SecurityEvent; // Wrong hash
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [event1, event2]);
 
@@ -529,13 +509,7 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should handle malformed JSON', async () => {
-    const event1: SecurityEvent = {
-      ...createTestEvent(),
-      id: '1',
-      timestamp: new Date().toISOString(),
-      previousHash: undefined,
-    } as SecurityEvent;
-    event1.eventHash = computeEventHash(event1);
+    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
 
     const content = `${JSON.stringify(event1)}\n{invalid json}\n`;
     const logFile = join(TEST_LOG_DIR, 'security-test.jsonl');
@@ -563,15 +537,16 @@ describe('verifyAuditLogIntegrity', () => {
     let previousHash: string | undefined = undefined;
 
     for (let i = 0; i < 100; i++) {
-      const event: SecurityEvent = {
+      const eventBase = {
         ...createTestEvent({ data: { index: i } }),
         id: `${i}`,
         timestamp: new Date().toISOString(),
         previousHash,
       } as SecurityEvent;
-      event.eventHash = computeEventHash(event);
+      const eventHash = computeEventHash(eventBase);
+      const event = { ...eventBase, eventHash } as SecurityEvent;
       events.push(event);
-      previousHash = event.eventHash;
+      previousHash = eventHash;
     }
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-large.jsonl', events);
