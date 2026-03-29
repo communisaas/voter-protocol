@@ -25,7 +25,7 @@ import {
 import { ServerSigner } from '../../../serving/signing.js';
 import { loadCellDistrictMappings } from '../../../cell-district-loader.js';
 import { buildCellMapTree, toCellMapState } from '../../../tree-builder.js';
-import { loadCellMapStateFromSnapshot } from '../../../hydration/snapshot-loader.js';
+import { loadCellMapStateFromSnapshot, loadCellMapStateVerified } from '../../../hydration/snapshot-loader.js';
 import { createConfiguredServices } from '../../../distribution/services/index.js';
 import { logger } from '../../../core/utils/logger.js';
 import { promises as fsPromises } from 'fs';
@@ -42,6 +42,8 @@ export interface ServeOptions {
   cellMapSnapshot?: string;
   cellMapState?: string;
   bafCacheDir?: string;
+  rpcUrl?: string;
+  snapshotAnchor?: string;
 }
 
 export async function serveCommand(options: ServeOptions): Promise<void> {
@@ -120,11 +122,26 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     let cellMapState: CellMapState | null = null;
     const snapshotPath = options.cellMapSnapshot ?? process.env.CELL_MAP_SNAPSHOT;
     const stateCode = options.cellMapState ?? process.env.CELL_MAP_STATE;
+    const rpcUrl = options.rpcUrl ?? process.env.SCROLL_RPC_URL;
+    const snapshotAnchor = options.snapshotAnchor ?? process.env.SNAPSHOT_ANCHOR_ADDRESS;
 
     if (snapshotPath) {
       // Fast path: load pre-built snapshot (seconds, not minutes)
       logger.info('Loading Tree 2 from snapshot...', { path: snapshotPath });
-      cellMapState = await loadCellMapStateFromSnapshot(snapshotPath);
+
+      if (rpcUrl && snapshotAnchor) {
+        // Verified path: check on-chain root before accepting snapshot
+        logger.info('Verifying snapshot against on-chain root...', {
+          rpcUrl,
+          snapshotAnchor,
+        });
+        const result = await loadCellMapStateVerified(snapshotPath, rpcUrl, snapshotAnchor);
+        cellMapState = result.state;
+      } else {
+        logger.info('No --rpc-url/--snapshot-anchor — skipping on-chain root verification');
+        cellMapState = await loadCellMapStateFromSnapshot(snapshotPath);
+      }
+
       logger.info('Tree 2 loaded from snapshot', {
         root: '0x' + cellMapState.root.toString(16).slice(0, 16) + '...',
         cellCount: cellMapState.commitments.size,
@@ -298,7 +315,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
                 event.epoch + 1,
                 event.timestamp,
               );
-            } else if (event.type === 'DebateResolved') {
+            } else if (event.type === 'DebateResolved' || event.type === 'DebateResolvedWithAI') {
               debateRelayer.untrackDebate(event.debateId);
             } else if (event.type === 'TradeCommitted' && event.epoch === 0) {
               // First commit on a new debate — register with epoch 0 starting now
@@ -403,22 +420,27 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     logger.info('Debate service started (SSE + market state)');
 
     // MED-005: Graceful shutdown — await async operations before exiting
+    // R74-F6: Guard against double-signal (SIGTERM then SIGINT) causing concurrent shutdown
+    let shuttingDown = false;
     const shutdown = async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       logger.info('Received shutdown signal, stopping server...');
       try {
-        if (debateRelayer) debateRelayer.stop();
+        // R74-F6: Stop HTTP server first to reject new requests during cleanup.
+        // api.stop() also closes registration/engagement/debate/sync services,
+        // so subsequent close() calls below are safe no-ops.
+        await api.stop();
+        // R22-M1: Stop scanner to prevent callbacks firing against stopped services
         if (chainScanner) await chainScanner.stop();
+        if (debateRelayer) debateRelayer.stop();
         if (officialsService) officialsService.close();
         if (bubbleService) bubbleService.close();
-        await syncService.shutdown(registrationService.getInsertionLog());
-        await registrationService.close();
-        await engagementService.close();
       } catch (err) {
         logger.error('Shutdown error', {
           error: err instanceof Error ? err.message : String(err),
         });
       }
-      await api.stop();
       process.exit(0);
     };
 

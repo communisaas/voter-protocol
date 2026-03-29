@@ -417,7 +417,7 @@ function createProgram(): Command {
       if (options.includeVtd) args.push('--include-vtd');
       if (options.output) args.push('--output', options.output);
       const scriptPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli', 'commands', 'validate', 'comprehensive.ts');
-      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit', shell: true });
+      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit' });
       child.on('close', (code) => process.exit(code ?? 0));
     });
 
@@ -429,7 +429,7 @@ function createProgram(): Command {
       const args: string[] = [];
       if (options.strict) args.push('--strict');
       const scriptPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli', 'commands', 'validate', 'production-ready.ts');
-      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit', shell: true });
+      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit' });
       child.on('close', (code) => process.exit(code ?? 0));
     });
 
@@ -449,7 +449,7 @@ function createProgram(): Command {
       if (options.providers === false) args.push('--no-providers');
       if (options.uniqueness === false) args.push('--no-uniqueness');
       const scriptPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli', 'commands', 'validate', 'international.ts');
-      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit', shell: true });
+      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit' });
       child.on('close', (code) => process.exit(code ?? 0));
     });
 
@@ -471,7 +471,7 @@ function createProgram(): Command {
       if (options.format) args.push('--format', options.format);
       if (options.verbose) args.push('--verbose');
       const scriptPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli', 'commands', 'validate', 'fips.ts');
-      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit', shell: true });
+      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit' });
       child.on('close', (code) => process.exit(code ?? 0));
     });
 
@@ -495,7 +495,7 @@ function createProgram(): Command {
       if (options.format) args.push('--format', options.format);
       if (options.verbose) args.push('--verbose');
       const scriptPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli', 'commands', 'validate', 'discover-results.ts');
-      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit', shell: true });
+      const child = spawn('npx', ['tsx', scriptPath, ...args], { stdio: 'inherit' });
       child.on('close', (code) => process.exit(code ?? 0));
     });
 
@@ -842,6 +842,8 @@ function createProgram(): Command {
     .option('--rate-limit <n>', 'Rate limit per minute', parseInt)
     .option('--ipfs-gateway <url>', 'IPFS gateway URL')
     .option('--snapshots-dir <path>', 'Snapshots directory')
+    .option('--rpc-url <url>', 'Scroll RPC URL for on-chain root verification (env: SCROLL_RPC_URL)')
+    .option('--snapshot-anchor <address>', 'SnapshotAnchor contract address (env: SNAPSHOT_ANCHOR_ADDRESS)')
     .action(async (options) => {
       await serveCommand({
         port: options.port,
@@ -851,6 +853,8 @@ function createProgram(): Command {
         rateLimitPerMinute: options.rateLimit,
         ipfsGateway: options.ipfsGateway,
         snapshotsDir: options.snapshotsDir,
+        rpcUrl: options.rpcUrl,
+        snapshotAnchor: options.snapshotAnchor,
       });
     });
 
