@@ -818,7 +818,7 @@ describe('SqlitePersistenceAdapter', () => {
 
       expect(version).toBeGreaterThan(0);
       expect(Number.isInteger(version)).toBe(true);
-      expect(version).toBe(1); // Current schema version
+      expect(version).toBe(2); // Current schema version
     });
   });
 
