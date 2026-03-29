@@ -57,7 +57,7 @@ describe.skipIf(!RUN || !HAS_REGISTRY_DATA)('Ward Overlay: DC End-to-End', () =>
     }
 
     // BEF overlay (DC isn't redistricted, but run for completeness)
-    await overlayBEFs(allBlocks, { cacheDir: CACHE_DIR });
+    await overlayBEFs(allBlocks, { cacheDir: CACHE_DIR, delimiter: ',' });
 
     // Save a copy without wards for comparison
     blocksWithoutWards = new Map();

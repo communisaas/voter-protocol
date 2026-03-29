@@ -15,7 +15,7 @@
  */
 
 import { DISTRICT_SLOT_COUNT, type CellDistrictMapping } from './tree-builder.js';
-import { US_JURISDICTION } from './jurisdiction.js';
+import { US_JURISDICTION, BN254_MODULUS } from './jurisdiction.js';
 import { downloadBAFs } from './hydration/baf-downloader.js';
 import { parseBAFFilesAsync } from './hydration/baf-parser.js';
 import { overlayBEFs } from './hydration/bef-overlay.js';
@@ -94,7 +94,12 @@ export const DISTRICT_TYPE_TO_SLOT: Record<string, number> = { ...US_JURISDICTIO
 export function encodeGeoidAsField(geoid: string): bigint {
   // Fast path: numeric GEOIDs (vast majority)
   if (/^\d+$/.test(geoid)) {
-    return BigInt(geoid);
+    const result = BigInt(geoid);
+    // R69-C1: Explicit BN254 validation — defense in depth matching jurisdiction.ts encodeCellId() pattern.
+    if (result >= BN254_MODULUS) {
+      throw new Error(`Numeric GEOID exceeds BN254 field modulus: ${geoid}`);
+    }
+    return result;
   }
 
   // Slow path: non-numeric GEOIDs - pack UTF-8 bytes
@@ -106,7 +111,12 @@ export function encodeGeoidAsField(geoid: string): bigint {
     throw new Error(`GEOID too long for field encoding: ${geoid} (${bytes.length} bytes)`);
   }
 
-  return BigInt('0x' + bytes.toString('hex'));
+  const result = BigInt('0x' + bytes.toString('hex'));
+  // R69-C1: BN254 validation on packed hex path too.
+  if (result >= BN254_MODULUS) {
+    throw new Error(`Packed GEOID exceeds BN254 field modulus: ${geoid}`);
+  }
+  return result;
 }
 
 // ============================================================================
@@ -208,7 +218,7 @@ export async function loadCellDistrictMappings(
   }
 
   // Step 3: Overlay BEFs for redistricted states (119th Congress)
-  await overlayBEFs(allBlocks, { cacheDir });
+  await overlayBEFs(allBlocks, { cacheDir, delimiter: ',' });
 
   // Step 4: Resolve to tract-level cells
   const { mappings } = resolveCells(allBlocks);
