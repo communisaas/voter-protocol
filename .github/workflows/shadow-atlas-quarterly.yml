@@ -518,21 +518,39 @@ jobs:
           name: pin-results
           path: packages/shadow-atlas/output/
 
+      - name: Download cell tree snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: cell-tree-snapshot
+          path: packages/shadow-atlas/output/chunked/US/merkle/
+
+      - name: Extract snapshot root and CID
+        id: extract-root
+        run: |
+          ROOT=$(jq -r '.root' packages/shadow-atlas/output/chunked/US/merkle/cell-tree-snapshot.json)
+          CID=$(jq -r '.rootCid' packages/shadow-atlas/output/pin-results.json)
+          echo "cell_map_root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "ipfs_cid=$CID" >> "$GITHUB_OUTPUT"
+          echo "Cell map root: $ROOT"
+          echo "IPFS CID: $CID"
+
       - name: Update on-chain registry
         working-directory: contracts
         env:
           PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
           RPC_URL: ${{ secrets.SCROLL_RPC_URL }}
+          CELL_MAP_ROOT: ${{ steps.extract-root.outputs.cell_map_root }}
+          IPFS_CID: ${{ steps.extract-root.outputs.ipfs_cid }}
+          EPOCH: ${{ github.run_number }}
+          SNAPSHOT_ANCHOR_ADDRESS: ${{ vars.SNAPSHOT_ANCHOR_ADDRESS }}
         run: |
-          # TODO: Implement Foundry script to update DistrictRegistry with:
-          # - Root CID from pin-results.json
-          # - Quarterly epoch number
-          #
-          # Script should call DistrictRegistry.updateSnapshot(rootCid)
-          # or equivalent function once contract supports IPFS CID storage.
-          echo "On-chain registry update not yet implemented"
-          echo "Pin results:"
-          cat ../packages/shadow-atlas/output/pin-results.json | jq '{ rootCid, timestamp }'
+          forge script script/UpdateSnapshot.s.sol:UpdateSnapshot \
+            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
+
+          echo "### On-Chain Registry Update" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cell Map Root:** \`$CELL_MAP_ROOT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **IPFS CID:** \`$IPFS_CID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Epoch:** $EPOCH" >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================
   # Notifications
