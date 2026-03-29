@@ -104,9 +104,13 @@ function createMockResponse(): {
   const headers: Record<string, string | string[]> = {};
   let body = '';
 
+  let headersSent = false;
   const res = {
+    headersSent: false,
+    socket: { writableEnded: false, destroyed: false },
     writeHead: vi.fn((status: number, hdrs?: Record<string, string | string[]>) => {
       statusCode = status;
+      headersSent = true;
       if (hdrs) Object.entries(hdrs).forEach(([k, v]) => { headers[k.toLowerCase()] = v; });
       return res;
     }),
@@ -127,10 +131,13 @@ function createMockResponse(): {
     statusCode: 200,
   } as unknown as ServerResponse;
 
-  // Sync statusCode property with writeHead calls
+  // Sync statusCode and headersSent properties with writeHead calls
   Object.defineProperty(res, 'statusCode', {
     get: () => statusCode,
     set: (v: number) => { statusCode = v; },
+  });
+  Object.defineProperty(res, 'headersSent', {
+    get: () => headersSent,
   });
 
   return {
