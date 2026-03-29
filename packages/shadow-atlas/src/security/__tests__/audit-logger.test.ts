@@ -88,12 +88,12 @@ function computeEventHash(event: SecurityEvent): string {
 
 /** Create a SecurityEvent with its eventHash computed and set (bypasses readonly for tests) */
 function createHashedEvent(
-  overrides: Partial<SecurityEvent> & { id: string; timestamp: string; previousHash?: string },
+  overrides: Partial<SecurityEvent> & { id?: string; timestamp?: string; previousHash?: string },
 ): SecurityEvent {
   const base = {
     ...createTestEvent(overrides),
-    id: overrides.id,
-    timestamp: overrides.timestamp,
+    id: overrides.id ?? randomUUID(),
+    timestamp: overrides.timestamp ?? new Date().toISOString(),
     previousHash: overrides.previousHash,
   } as SecurityEvent;
   const hash = computeEventHash(base);
@@ -203,20 +203,21 @@ describe('SecurityAuditLogger - Log File Cleanup', () => {
 describe('queryAuditLogs', () => {
   it('should query logs by date range', async () => {
     const baseTime = new Date('2025-01-01T00:00:00Z');
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent(),
-        id: '1',
+        id: id1,
         timestamp: new Date(baseTime.getTime()).toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent(),
-        id: '2',
+        id: id2,
         timestamp: new Date(baseTime.getTime() + 3600000).toISOString(), // +1 hour
       } as SecurityEvent,
       {
         ...createTestEvent(),
-        id: '3',
+        id: id3,
         timestamp: new Date(baseTime.getTime() + 7200000).toISOString(), // +2 hours
       } as SecurityEvent,
     ];
@@ -230,24 +231,25 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(1);
-    expect(results[0]?.id).toBe('2');
+    expect(results[0]?.id).toBe(id2);
   });
 
   it('should query logs by severity', async () => {
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ severity: 'info' }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ severity: 'critical' }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ severity: 'high' }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -260,24 +262,25 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['2', '3']);
+    expect(results.map((e) => e.id).sort()).toEqual([id2, id3].sort());
   });
 
   it('should query logs by category', async () => {
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ category: 'authentication' }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ category: 'authorization' }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ category: 'authentication' }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -290,24 +293,25 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['1', '3']);
+    expect(results.map((e) => e.id).sort()).toEqual([id1, id3].sort());
   });
 
   it('should query logs by event type', async () => {
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ eventType: 'api_key_auth' }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ eventType: 'ip_auth' }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ eventType: 'api_key_auth' }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -320,24 +324,25 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['1', '3']);
+    expect(results.map((e) => e.id).sort()).toEqual([id1, id3].sort());
   });
 
   it('should query logs by client IP', async () => {
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ client: { ip: '192.168.1.1' } }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ client: { ip: '10.0.0.1' } }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ client: { ip: '192.168.1.1' } }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -350,25 +355,26 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['1', '3']);
+    expect(results.map((e) => e.id).sort()).toEqual([id1, id3].sort());
   });
 
   it('should query logs by correlation ID', async () => {
     const correlationId = randomUUID();
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ correlationId }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ correlationId: randomUUID() }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ correlationId }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -381,25 +387,26 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['1', '3']);
+    expect(results.map((e) => e.id).sort()).toEqual([id1, id3].sort());
   });
 
   it('should handle multiple filters combined', async () => {
     const correlationId = randomUUID();
+    const id1 = randomUUID(), id2 = randomUUID(), id3 = randomUUID();
     const events: SecurityEvent[] = [
       {
         ...createTestEvent({ severity: 'critical', correlationId }),
-        id: '1',
+        id: id1,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ severity: 'info', correlationId }),
-        id: '2',
+        id: id2,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
       {
         ...createTestEvent({ severity: 'critical', correlationId: randomUUID() }),
-        id: '3',
+        id: id3,
         timestamp: new Date().toISOString(),
       } as SecurityEvent,
     ];
@@ -413,7 +420,7 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(1);
-    expect(results[0]?.id).toBe('1');
+    expect(results[0]?.id).toBe(id1);
   });
 
   it('should return empty array for non-existent log directory', async () => {
@@ -425,13 +432,14 @@ describe('queryAuditLogs', () => {
   });
 
   it('should skip malformed log entries', async () => {
+    const id1 = randomUUID(), id2 = randomUUID();
     const validEvent: SecurityEvent = {
       ...createTestEvent(),
-      id: '1',
+      id: id1,
       timestamp: new Date().toISOString(),
     } as SecurityEvent;
 
-    const content = `${JSON.stringify(validEvent)}\n{invalid json}\n${JSON.stringify({ ...validEvent, id: '2' })}\n`;
+    const content = `${JSON.stringify(validEvent)}\n{invalid json}\n${JSON.stringify({ ...validEvent, id: id2 })}\n`;
     await writeFile(join(TEST_LOG_DIR, 'security-test.jsonl'), content, 'utf8');
 
     const results = await queryAuditLogs({
@@ -439,7 +447,7 @@ describe('queryAuditLogs', () => {
     });
 
     expect(results.length).toBe(2);
-    expect(results.map((e) => e.id).sort()).toEqual(['1', '2']);
+    expect(results.map((e) => e.id).sort()).toEqual([id1, id2].sort());
   });
 });
 
@@ -450,9 +458,9 @@ describe('queryAuditLogs', () => {
 describe('verifyAuditLogIntegrity', () => {
   it('should verify valid hash chain', async () => {
     // Create events with proper hash chain
-    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
-    const event2 = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: event1.eventHash });
-    const event3 = createHashedEvent({ id: '3', timestamp: new Date().toISOString(), previousHash: event2.eventHash });
+    const event1 = createHashedEvent({ previousHash: undefined });
+    const event2 = createHashedEvent({ previousHash: event1.eventHash });
+    const event3 = createHashedEvent({ previousHash: event2.eventHash });
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [
       event1,
@@ -469,8 +477,8 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should detect broken hash chain link', async () => {
-    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
-    const event2 = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: 'WRONG_HASH' });
+    const event1 = createHashedEvent({ previousHash: undefined });
+    const event2 = createHashedEvent({ previousHash: 'aa'.repeat(32) }); // Valid hex but wrong chain link
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [event1, event2]);
 
@@ -483,9 +491,9 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should detect tampered event hash', async () => {
-    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
-    const event2Base = createHashedEvent({ id: '2', timestamp: new Date().toISOString(), previousHash: event1.eventHash });
-    const event2 = { ...event2Base, eventHash: 'TAMPERED_HASH' } as SecurityEvent; // Wrong hash
+    const event1 = createHashedEvent({ previousHash: undefined });
+    const event2Base = createHashedEvent({ previousHash: event1.eventHash });
+    const event2 = { ...event2Base, eventHash: 'bb'.repeat(32) } as SecurityEvent; // Valid hex but wrong hash
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-test.jsonl', [event1, event2]);
 
@@ -509,7 +517,7 @@ describe('verifyAuditLogIntegrity', () => {
   });
 
   it('should handle malformed JSON', async () => {
-    const event1 = createHashedEvent({ id: '1', timestamp: new Date().toISOString(), previousHash: undefined });
+    const event1 = createHashedEvent({ previousHash: undefined });
 
     const content = `${JSON.stringify(event1)}\n{invalid json}\n`;
     const logFile = join(TEST_LOG_DIR, 'security-test.jsonl');
@@ -537,16 +545,9 @@ describe('verifyAuditLogIntegrity', () => {
     let previousHash: string | undefined = undefined;
 
     for (let i = 0; i < 100; i++) {
-      const eventBase = {
-        ...createTestEvent({ data: { index: i } }),
-        id: `${i}`,
-        timestamp: new Date().toISOString(),
-        previousHash,
-      } as SecurityEvent;
-      const eventHash = computeEventHash(eventBase);
-      const event = { ...eventBase, eventHash } as SecurityEvent;
+      const event = createHashedEvent({ data: { index: i }, previousHash });
       events.push(event);
-      previousHash = eventHash;
+      previousHash = event.eventHash;
     }
 
     const logFile = await createMockLogFile(TEST_LOG_DIR, 'security-large.jsonl', events);
