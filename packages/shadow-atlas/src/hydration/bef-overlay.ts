@@ -12,17 +12,18 @@
  *   AL (01), GA (13), LA (22), NC (37), NY (36)
  *
  * BEF source:
- *   https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2023/119-congressional-district-bef/
+ *   https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2025/119-congressional-district-befs/
  *
  * @packageDocumentation
  */
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import JSZip from 'jszip';
 import type { BlockRecord } from './baf-parser.js';
 import { safeZipEntryPath } from './safe-extract.js';
 import { fetchBufferWithSizeLimit } from './fetch-with-size-limit.js';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 
 // ============================================================================
 // Constants
@@ -54,8 +55,8 @@ export interface BEFOverlayOptions {
   maxRetries?: number;
   /**
    * Explicit delimiter for BEF file parsing.
-   * Census BEF files use pipe ('|') as the standard delimiter.
-   * Default: '|'
+   * 119th Congress Census BEF files use comma (',') with GEOID,CDFP headers.
+   * Required — omitting throws (R102-HYD-F02).
    */
   delimiter?: string;
   /** Log function. */
@@ -123,7 +124,7 @@ export async function overlayBEFs(
       if (entry) {
         const content = await entry.async('nodebuffer');
         const outPath = safeZipEntryPath(befFilename, befDir);
-        await writeFile(outPath, content);
+        await atomicWriteFile(outPath, content);
       }
     }
     log('[BEF] Extracted 5 state BEF files');
@@ -157,9 +158,9 @@ export async function overlayBEFs(
     if (explicitDelimiter) {
       delimiter = explicitDelimiter;
     } else {
-      // Fallback auto-detect from header line — last resort only
-      delimiter = lines[0]?.includes('|') ? '|' : ',';
-      log(`[BEF] WARNING: No explicit delimiter set for state ${fips}, auto-detected '${delimiter === '|' ? 'pipe' : 'comma'}'. Set delimiter option to suppress this warning.`);
+      // R102-HYD-F02: Throw on missing delimiter instead of auto-detecting.
+      // Auto-detect was demoted to warned fallback in H-5, now fully removed.
+      throw new Error(`[BEF] No explicit delimiter set for state ${fips}. Set delimiter option (pipe '|' or comma ',').`);
     }
     log(`[BEF] Using delimiter '${delimiter === '|' ? 'pipe' : delimiter === ',' ? 'comma' : delimiter}' for state ${fips}`);
 
@@ -171,7 +172,8 @@ export async function overlayBEFs(
       const blockId = parts[0];
       const district = parts[1]?.trim();
 
-      if (!blockId || !district || /^Z+$/.test(district)) continue;
+      // R102-HYD-F03: Validate BLOCKID format (15-digit FIPS block code), matching BAF parser.
+      if (!blockId || !/^\d{15}$/.test(blockId) || !district || /^Z+$/.test(district)) continue;
 
       const block = blocks.get(blockId);
       if (!block) continue;

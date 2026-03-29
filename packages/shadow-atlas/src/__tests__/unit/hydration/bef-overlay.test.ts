@@ -1,11 +1,10 @@
 /**
- * Tests for BEF overlay delimiter handling (H-5).
+ * Tests for BEF overlay delimiter handling (H-5, R102-HYD-F02).
  *
  * Verifies that:
- * 1. Explicit pipe delimiter parses Census BEF files correctly
- * 2. Explicit comma delimiter parses CSV-formatted BEF files correctly
- * 3. Auto-detect fallback works but logs a warning
- * 4. Default delimiter is pipe when not specified (Census standard)
+ * 1. Explicit comma delimiter parses real Census BEF files correctly (GEOID,CDFP)
+ * 2. Missing delimiter throws (auto-detect removed in R102-HYD-F02)
+ * 3. ZZ district codes are skipped
  */
 
 import { describe, it, expect } from 'vitest';
@@ -60,47 +59,19 @@ describe('BEF overlay delimiter handling', () => {
     }
   }
 
-  it('parses pipe-delimited BEF with explicit delimiter', async () => {
+  it('parses comma-delimited BEF with GEOID,CDFP header (real Census format)', async () => {
     const dir = await setup();
     try {
-      // Pipe-delimited BEF content (Census standard)
-      const befContent = `BLOCKID|CDFP
-0100000001000|02
-0100000001001|03
+      // Real Census 119th Congress BEF format: comma-delimited, 15-digit GEOIDs
+      const befContent = `GEOID,CDFP
+010000000001000,02
+010000000001001,03
 `;
       await setupBefCache(dir, '01', befContent);
 
       const blocks = new Map<string, BlockRecord>();
-      blocks.set('0100000001000', makeBlock('0100000001000', '01'));
-      blocks.set('0100000001001', makeBlock('0100000001001', '01'));
-
-      const result = await overlayBEFs(blocks, {
-        cacheDir: dir,
-        delimiter: '|',
-        log: () => {},
-      });
-
-      expect(result.totalUpdated).toBe(2);
-      expect(blocks.get('0100000001000')!.districts.get(0)).toBe('0102');
-      expect(blocks.get('0100000001001')!.districts.get(0)).toBe('0103');
-    } finally {
-      await cleanup();
-    }
-  });
-
-  it('parses comma-delimited BEF with explicit delimiter', async () => {
-    const dir = await setup();
-    try {
-      // Comma-delimited BEF content
-      const befContent = `BLOCKID,CDFP
-0100000002000,04
-0100000002001,05
-`;
-      await setupBefCache(dir, '01', befContent);
-
-      const blocks = new Map<string, BlockRecord>();
-      blocks.set('0100000002000', makeBlock('0100000002000', '01'));
-      blocks.set('0100000002001', makeBlock('0100000002001', '01'));
+      blocks.set('010000000001000', makeBlock('010000000001000', '01'));
+      blocks.set('010000000001001', makeBlock('010000000001001', '01'));
 
       const result = await overlayBEFs(blocks, {
         cacheDir: dir,
@@ -109,36 +80,59 @@ describe('BEF overlay delimiter handling', () => {
       });
 
       expect(result.totalUpdated).toBe(2);
-      expect(blocks.get('0100000002000')!.districts.get(0)).toBe('0104');
-      expect(blocks.get('0100000002001')!.districts.get(0)).toBe('0105');
+      expect(blocks.get('010000000001000')!.districts.get(0)).toBe('0102');
+      expect(blocks.get('010000000001001')!.districts.get(0)).toBe('0103');
     } finally {
       await cleanup();
     }
   });
 
-  it('auto-detect fallback logs a warning', async () => {
+  it('parses comma-delimited BEF with 15-digit GEOIDs', async () => {
     const dir = await setup();
     try {
-      // Pipe-delimited — auto-detect should pick pipe
-      const befContent = `BLOCKID|CDFP
-0100000003000|06
+      // Comma-delimited BEF content with 15-digit GEOIDs
+      const befContent = `GEOID,CDFP
+010000000002000,04
+010000000002001,05
 `;
       await setupBefCache(dir, '01', befContent);
 
       const blocks = new Map<string, BlockRecord>();
-      blocks.set('0100000003000', makeBlock('0100000003000', '01'));
+      blocks.set('010000000002000', makeBlock('010000000002000', '01'));
+      blocks.set('010000000002001', makeBlock('010000000002001', '01'));
 
-      const logs: string[] = [];
       const result = await overlayBEFs(blocks, {
         cacheDir: dir,
-        // No explicit delimiter — should auto-detect and warn
-        log: (msg) => logs.push(msg),
+        delimiter: ',',
+        log: () => {},
       });
 
-      expect(result.totalUpdated).toBe(1);
-      // Should have logged a warning about auto-detection
-      const warningLog = logs.find(l => l.includes('WARNING') && l.includes('auto-detected'));
-      expect(warningLog).toBeDefined();
+      expect(result.totalUpdated).toBe(2);
+      expect(blocks.get('010000000002000')!.districts.get(0)).toBe('0104');
+      expect(blocks.get('010000000002001')!.districts.get(0)).toBe('0105');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('throws when no explicit delimiter is provided (R102-HYD-F02)', async () => {
+    const dir = await setup();
+    try {
+      const befContent = `GEOID,CDFP
+010000000003000,06
+`;
+      await setupBefCache(dir, '01', befContent);
+
+      const blocks = new Map<string, BlockRecord>();
+      blocks.set('010000000003000', makeBlock('010000000003000', '01'));
+
+      await expect(
+        overlayBEFs(blocks, {
+          cacheDir: dir,
+          // No explicit delimiter — should throw
+          log: () => {},
+        }),
+      ).rejects.toThrow('No explicit delimiter');
     } finally {
       await cleanup();
     }
@@ -147,26 +141,26 @@ describe('BEF overlay delimiter handling', () => {
   it('skips ZZ district codes', async () => {
     const dir = await setup();
     try {
-      const befContent = `BLOCKID|CDFP
-0100000004000|ZZ
-0100000004001|07
+      const befContent = `GEOID,CDFP
+010000000004000,ZZ
+010000000004001,07
 `;
       await setupBefCache(dir, '01', befContent);
 
       const blocks = new Map<string, BlockRecord>();
-      blocks.set('0100000004000', makeBlock('0100000004000', '01'));
-      blocks.set('0100000004001', makeBlock('0100000004001', '01'));
+      blocks.set('010000000004000', makeBlock('010000000004000', '01'));
+      blocks.set('010000000004001', makeBlock('010000000004001', '01'));
 
       const result = await overlayBEFs(blocks, {
         cacheDir: dir,
-        delimiter: '|',
+        delimiter: ',',
         log: () => {},
       });
 
       // ZZ should be skipped
       expect(result.totalUpdated).toBe(1);
-      expect(blocks.get('0100000004000')!.districts.get(0)).toBe('0101'); // unchanged
-      expect(blocks.get('0100000004001')!.districts.get(0)).toBe('0107');
+      expect(blocks.get('010000000004000')!.districts.get(0)).toBe('0101'); // unchanged
+      expect(blocks.get('010000000004001')!.districts.get(0)).toBe('0107');
     } finally {
       await cleanup();
     }
