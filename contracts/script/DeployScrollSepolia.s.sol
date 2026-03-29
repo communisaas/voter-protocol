@@ -9,6 +9,7 @@ import "../src/DistrictGate.sol";
 import "../src/CampaignRegistry.sol";
 import "../src/UserRootRegistry.sol";
 import "../src/CellMapRegistry.sol";
+import "../src/SnapshotAnchor.sol";
 
 /// @title Deploy to Scroll Sepolia — Genesis Model
 /// @notice Mirrors the exact mainnet deployment flow on Scroll Sepolia testnet.
@@ -158,22 +159,22 @@ contract DeployScrollSepolia is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy DistrictRegistry
-        console.log("[1/7] Deploying DistrictRegistry...");
+        console.log("[1/8] Deploying DistrictRegistry...");
         DistrictRegistry districtRegistry = new DistrictRegistry(deployer, 10 minutes);
         console.log("      DistrictRegistry deployed at:", address(districtRegistry));
 
         // 2. Deploy NullifierRegistry
-        console.log("[2/7] Deploying NullifierRegistry...");
+        console.log("[2/8] Deploying NullifierRegistry...");
         NullifierRegistry nullifierRegistry = new NullifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      NullifierRegistry deployed at:", address(nullifierRegistry));
 
         // 3. Deploy VerifierRegistry
-        console.log("[3/7] Deploying VerifierRegistry...");
+        console.log("[3/8] Deploying VerifierRegistry...");
         VerifierRegistry verifierRegistry = new VerifierRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      VerifierRegistry deployed at:", address(verifierRegistry));
 
         // 4. Deploy DistrictGate
-        console.log("[4/7] Deploying DistrictGate...");
+        console.log("[4/8] Deploying DistrictGate...");
         DistrictGate gate = new DistrictGate(
             address(verifierRegistry),
             address(districtRegistry),
@@ -187,19 +188,24 @@ contract DeployScrollSepolia is Script {
         console.log("      DistrictGate deployed at:", address(gate));
 
         // 5. Deploy CampaignRegistry
-        console.log("[5/7] Deploying CampaignRegistry...");
+        console.log("[5/8] Deploying CampaignRegistry...");
         CampaignRegistry campaignRegistry = new CampaignRegistry(deployer, 10 minutes, 10 minutes);
         console.log("      CampaignRegistry deployed at:", address(campaignRegistry));
 
         // 6. Deploy UserRootRegistry (Tree 1)
-        console.log("[6/7] Deploying UserRootRegistry...");
+        console.log("[6/8] Deploying UserRootRegistry...");
         UserRootRegistry userRootRegistry = new UserRootRegistry(deployer, 10 minutes);
         console.log("      UserRootRegistry deployed at:", address(userRootRegistry));
 
         // 7. Deploy CellMapRegistry (Tree 2)
-        console.log("[7/7] Deploying CellMapRegistry...");
+        console.log("[7/8] Deploying CellMapRegistry...");
         CellMapRegistry cellMapRegistry = new CellMapRegistry(deployer, 10 minutes);
         console.log("      CellMapRegistry deployed at:", address(cellMapRegistry));
+
+        // 8. Deploy SnapshotAnchor
+        console.log("[8/8] Deploying SnapshotAnchor...");
+        SnapshotAnchor snapshotAnchor = new SnapshotAnchor(deployer, 10 minutes);
+        console.log("      SnapshotAnchor deployed at:", address(snapshotAnchor));
 
         // =====================================================================
         // Genesis Configuration (direct — no timelocks)
@@ -256,6 +262,7 @@ contract DeployScrollSepolia is Script {
             campaignRegistry.initiateGovernanceTransfer(governanceTarget);
             userRootRegistry.initiateGovernanceTransfer(governanceTarget);
             cellMapRegistry.initiateGovernanceTransfer(governanceTarget);
+            snapshotAnchor.initiateGovernanceTransfer(governanceTarget);
         }
 
         vm.stopBroadcast();
@@ -277,6 +284,7 @@ contract DeployScrollSepolia is Script {
         console.log("  CampaignRegistry:   ", address(campaignRegistry));
         console.log("  UserRootRegistry:   ", address(userRootRegistry));
         console.log("  CellMapRegistry:    ", address(cellMapRegistry));
+        console.log("  SnapshotAnchor:     ", address(snapshotAnchor));
         console.log("");
         console.log("Genesis Status:");
         for (uint256 i = 0; i < registeredDepths.length; i++) {
@@ -296,7 +304,7 @@ contract DeployScrollSepolia is Script {
             console.log("");
             console.log("  AFTER 7 DAYS - Execute governance transfer:");
             console.log("  *.executeGovernanceTransfer(", governanceTarget, ")");
-            console.log("  (call on all 7 contracts)");
+            console.log("  (call on all 8 contracts)");
             console.log("");
         }
         console.log("============================================================");
