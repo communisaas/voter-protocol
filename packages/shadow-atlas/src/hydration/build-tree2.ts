@@ -160,6 +160,7 @@ async function main(): Promise<void> {
   console.log(`[3/${totalSteps}] Overlaying 119th Congress BEFs...`);
   const befResult = await overlayBEFs(allBlocks, {
     cacheDir: opts.cacheDir,
+    delimiter: ',',
     log: console.log,
   });
   console.log(`  → ${befResult.totalUpdated.toLocaleString()} blocks updated in ${befResult.updatedByState.size} states`);
