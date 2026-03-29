@@ -119,7 +119,7 @@ describe('AustraliaBoundaryProvider', () => {
       const federalLayer = provider.layers.get('federal');
       expect(federalLayer).toBeDefined();
       expect(federalLayer?.type).toBe('federal');
-      expect(federalLayer?.expectedCount).toBe(150);
+      expect(federalLayer?.expectedCount).toBe(151);
       expect(federalLayer?.authority).toBe('national-statistics');
       expect(federalLayer?.vintage).toBe(2024);
     });
@@ -231,10 +231,10 @@ describe('AustraliaBoundaryProvider', () => {
 
   describe('Validation', () => {
     it('should validate count match', async () => {
-      // Create mock response with exactly 150 features (expected count)
+      // Create mock response with exactly 151 features (expected count)
       const fullResponse: FeatureCollection = {
         type: 'FeatureCollection',
-        features: Array.from({ length: 150 }, (_, i) => ({
+        features: Array.from({ length: 151 }, (_, i) => ({
           type: 'Feature' as const,
           properties: {
             DIV_CODE: `DIV${i.toString().padStart(3, '0')}`,
@@ -263,8 +263,8 @@ describe('AustraliaBoundaryProvider', () => {
 
       const result = await provider.extractFederalDivisions();
 
-      expect(result.actualCount).toBe(150);
-      expect(result.expectedCount).toBe(150);
+      expect(result.actualCount).toBe(151);
+      expect(result.expectedCount).toBe(151);
       expect(result.matched).toBe(true);
     });
 
@@ -277,7 +277,7 @@ describe('AustraliaBoundaryProvider', () => {
       const result = await provider.extractFederalDivisions();
 
       expect(result.actualCount).toBe(2);
-      expect(result.expectedCount).toBe(150);
+      expect(result.expectedCount).toBe(151);
       expect(result.matched).toBe(false);
     });
 
@@ -524,7 +524,7 @@ describe('AustraliaBoundaryProvider', () => {
     it('should return expected counts for all layers', async () => {
       const counts = await provider.getExpectedCounts();
 
-      expect(counts.get('federal')).toBe(150);
+      expect(counts.get('federal')).toBe(151);
     });
   });
 
