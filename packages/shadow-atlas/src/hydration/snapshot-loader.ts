@@ -11,6 +11,8 @@
 import { readFile } from 'node:fs/promises';
 import { buildCellMapTree, toCellMapState, type CellDistrictMapping } from '../tree-builder.js';
 import type { CellMapState } from '../serving/registration-service.js';
+import { BN254_MODULUS } from '../jurisdiction.js';
+import { fetchCurrentSnapshotRoot } from './chain-root-reader.js';
 
 /**
  * Vintage metadata for a Tree 2 snapshot.
@@ -117,10 +119,23 @@ export async function loadSnapshotWithVintage(
   }
 
   // Reconstruct CellDistrictMapping[] from serialized data
-  const mappings: CellDistrictMapping[] = snapshot.mappings.map(m => ({
-    cellId: BigInt(m.cellId),
-    districts: m.districts.map(d => BigInt(d)),
-  }));
+  // R67: Validate all BigInt values against BN254 field modulus.
+  // Out-of-field values would produce tree roots that diverge from Noir circuit expectations.
+  const mappings: CellDistrictMapping[] = snapshot.mappings.map((m, i) => {
+    const cellId = BigInt(m.cellId);
+    // R69-H1: Reject negative values — defense in depth against tampered snapshot JSON.
+    if (cellId < 0n || cellId >= BN254_MODULUS) {
+      throw new Error(`Snapshot mapping[${i}] cellId out of BN254 field range: ${m.cellId}`);
+    }
+    const districts = m.districts.map((d, j) => {
+      const val = BigInt(d);
+      if (val < 0n || val >= BN254_MODULUS) {
+        throw new Error(`Snapshot mapping[${i}] district[${j}] out of BN254 field range: ${d}`);
+      }
+      return val;
+    });
+    return { cellId, districts };
+  });
 
   // Rebuild SMT from mappings
   const result = await buildCellMapTree(mappings, snapshot.depth);
@@ -149,4 +164,44 @@ export async function loadSnapshotWithVintage(
     state: toCellMapState(result),
     vintage: snapshot.vintage ?? null,
   };
+}
+
+/**
+ * Load CellMapState with on-chain root verification.
+ *
+ * Fetches the current snapshot root from the SnapshotAnchor contract and
+ * verifies the loaded snapshot against it. If the chain call fails or the
+ * contract is not yet deployed, falls back to an unverified load with a
+ * warning — this allows the server to start in pre-deployment environments.
+ *
+ * @param snapshotPath - Path to the tree2-snapshot.json file
+ * @param rpcUrl - JSON-RPC endpoint URL (e.g., Scroll RPC)
+ * @param snapshotAnchorAddress - Deployed SnapshotAnchor contract address
+ * @returns CellMapState + vintage metadata (same as loadSnapshotWithVintage)
+ */
+export async function loadCellMapStateVerified(
+  snapshotPath: string,
+  rpcUrl: string,
+  snapshotAnchorAddress: string,
+): Promise<SnapshotLoadResult> {
+  let onChainRoot: { cellMapRoot: bigint; ipfsCid: string; epoch: number } | null = null;
+
+  try {
+    onChainRoot = await fetchCurrentSnapshotRoot(rpcUrl, snapshotAnchorAddress);
+  } catch (err) {
+    console.warn(
+      '[snapshot-loader] Chain root unavailable — loading without verification',
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  if (onChainRoot) {
+    return loadSnapshotWithVintage(snapshotPath, {
+      expectedRoot: onChainRoot.cellMapRoot,
+    });
+  }
+
+  // Contract not deployed or returned null — fall back to unverified load
+  console.warn('[snapshot-loader] Chain root unavailable — loading without verification');
+  return loadSnapshotWithVintage(snapshotPath);
 }
