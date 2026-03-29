@@ -173,6 +173,7 @@ const TEST_CONFIG: ChainScannerConfig = {
   startBlock: 100,
   pollIntervalMs: 60_000,
   maxBlockRange: 1000,
+  confirmationDepth: 0, // Disable for unit tests — cursor tests should not lag behind tip
 };
 
 describe('ChainScanner', () => {
@@ -626,13 +627,11 @@ describe('ChainScanner', () => {
         vi.stubGlobal('fetch', mockFn);
 
         const scanner = await ChainScanner.create(TEST_CONFIG);
-        // parseInt(null, 16) = NaN, which will cause fromBlock > latestBlock
-        // to be true (NaN comparisons are always false), so this should
-        // either return empty or throw depending on implementation
-        const events = await scanner.pollOnce();
-        // NaN > 99 is false, so it enters the loop, but NaN comparisons
-        // will cause issues. The key property: it should not hang.
-        expect(Array.isArray(events)).toBe(true);
+        // R42-FIX: rpcCall now throws on null/undefined result instead of
+        // propagating undefined as T (which caused NaN cursor corruption)
+        await expect(scanner.pollOnce()).rejects.toThrow(
+          'RPC returned empty result for method eth_blockNumber'
+        );
       });
     });
 
