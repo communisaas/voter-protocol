@@ -7,8 +7,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DownloadDLQ } from '../../../acquisition/download-dlq.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('DownloadDLQ', () => {
   let db: Database.Database;
@@ -19,7 +22,7 @@ describe('DownloadDLQ', () => {
     db = new Database(':memory:');
 
     // Load schema
-    const schemaPath = join(process.cwd(), 'src/persistence/schema.sql');
+    const schemaPath = join(__dirname, '../../../persistence/schema.sql');
     const schema = readFileSync(schemaPath, 'utf-8');
     db.exec(schema);
 
@@ -325,7 +328,7 @@ describe('DownloadDLQ', () => {
     it('should return stats summary', async () => {
       // Create fresh database for this test to avoid state from previous tests
       const testDb = new Database(':memory:');
-      const schemaPath = join(process.cwd(), 'src/persistence/schema.sql');
+      const schemaPath = join(__dirname, '../../../persistence/schema.sql');
       const schema = readFileSync(schemaPath, 'utf-8');
       testDb.exec(schema);
       const testDlq = new DownloadDLQ(testDb);
@@ -377,7 +380,7 @@ describe('DownloadDLQ', () => {
     it('should return failures for specific job', async () => {
       // Create fresh database for this test to avoid state from previous tests
       const testDb = new Database(':memory:');
-      const schemaPath = join(process.cwd(), 'src/persistence/schema.sql');
+      const schemaPath = join(__dirname, '../../../persistence/schema.sql');
       const schema = readFileSync(schemaPath, 'utf-8');
       testDb.exec(schema);
       const testDlq = new DownloadDLQ(testDb);

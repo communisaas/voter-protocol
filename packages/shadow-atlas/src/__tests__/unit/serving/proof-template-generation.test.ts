@@ -392,9 +392,10 @@ describe('SnapshotManager - Proof Storage', () => {
     expect(template).toBeNull();
   });
 
-  it('should return null for non-existent snapshot', async () => {
-    const template = await snapshotManager.getProofTemplate('non-existent-snapshot', 'cd-01');
-    expect(template).toBeNull();
+  it('should throw for invalid snapshot ID format', async () => {
+    await expect(
+      snapshotManager.getProofTemplate('non-existent-snapshot', 'cd-01')
+    ).rejects.toThrow('Invalid snapshot ID format');
   });
 
   it('should retrieve full proof template store', async () => {

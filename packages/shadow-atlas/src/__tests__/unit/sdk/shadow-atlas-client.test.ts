@@ -631,7 +631,7 @@ describe('ShadowAtlasClient - Merkle Proof Verification', () => {
     client = new ShadowAtlasClient();
   });
 
-  it('verifies valid Merkle proof', () => {
+  it('verifies valid Merkle proof', async () => {
     // Note: This is a simplified test. Real Poseidon hash verification
     // requires actual cryptographic computation.
     const districtId = '0809';
@@ -646,11 +646,11 @@ describe('ShadowAtlasClient - Merkle Proof Verification', () => {
     };
 
     // Verification will fail in test environment without proper Poseidon setup
-    const isValid = client.verifyProof(districtId, proof);
+    const isValid = await client.verifyProof(districtId, proof);
     expect(typeof isValid).toBe('boolean');
   });
 
-  it('handles verification errors gracefully', () => {
+  it('handles verification errors gracefully', async () => {
     const districtId = '0809';
     const invalidProof = {
       root: 'invalid',
@@ -659,7 +659,7 @@ describe('ShadowAtlasClient - Merkle Proof Verification', () => {
       pathIndices: [0],
     };
 
-    const isValid = client.verifyProof(districtId, invalidProof);
+    const isValid = await client.verifyProof(districtId, invalidProof);
     expect(isValid).toBe(false);
   });
 });

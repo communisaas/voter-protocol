@@ -8,6 +8,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StateGISClearinghouseScanner } from './state-gis-clearinghouse.js';
 import type { CityTarget } from '../../validators/geographic-validator.js';
 
+// Mock URL validator to always pass (test URLs aren't in the real allowlist)
+vi.mock('../../security/input-validator.js', () => ({
+  validateURL: vi.fn((url: string) => ({ success: true, data: url })),
+}));
+
 // Mock state GIS portal registry
 vi.mock('../../core/registry/state-gis-portals.js', () => ({
   getStatePortal: vi.fn((state: string) => {

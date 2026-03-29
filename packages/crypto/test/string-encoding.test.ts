@@ -38,19 +38,21 @@ const CHUNK_SIZE = 31;
 
 /**
  * Golden test vector: hash of empty string
- * Empty string produces hashSingle(0n)
+ * Empty string produces hashSingle(0n) (length-prefixed, BA-022)
  */
-const HASH_EMPTY_STRING = 11250791130336988991462250958918728798886439319225016858543557054782819955502n;
+const HASH_EMPTY_STRING = 19918955537188974640275502270345037015548280862301442546474376571040241611505n;
 
 /**
  * Golden test vector: hash of "hello"
+ * BA-022: hashPair(hashSingle(5n), 0x68656c6c6f)
  */
-const HASH_HELLO = 20295016858894593428496862809304457135181095319758016614231461188944930689651n;
+const HASH_HELLO = 20477477904946483159185841972227506861491996374656427994511915245453687913558n;
 
 /**
  * Golden test vector: hash of "voter-protocol-cve-006"
+ * BA-022: hashPair(hashSingle(22n), 0x766f7465722d70726f746f636f6c2d6376652d303036)
  */
-const HASH_PROTOCOL_STRING = 18611551177496161129560967712699392992457741027215021515979218815229220122625n;
+const HASH_PROTOCOL_STRING = 11353653129648389514150722603806975136779426700304574859638383521217385389221n;
 
 // ============================================================================
 // TEST SUITE
@@ -251,16 +253,17 @@ describe('String-to-Field Encoding Specification', () => {
   // --------------------------------------------------------------------------
 
   describe('multi-chunk hashing', () => {
-    it('single chunk uses hashSingle', async () => {
+    it('single chunk uses length-prefixed hashPair (BA-022)', async () => {
       const shortStr = 'hello'; // 5 bytes, single chunk
       const hash = await hasher.hashString(shortStr);
 
-      // Convert to field element manually
+      // BA-022: hashString starts with hashSingle(byteLength), then folds chunks
       const bytes = Buffer.from(shortStr, 'utf-8');
       const fieldElement = BigInt('0x' + bytes.toString('hex'));
 
-      // Should equal hashSingle of that field element
-      const expectedHash = await hasher.hashSingle(fieldElement);
+      // Expected: hashPair(hashSingle(5n), fieldElement)
+      const lengthHash = await hasher.hashSingle(BigInt(bytes.length));
+      const expectedHash = await hasher.hashPair(lengthHash, fieldElement);
       expect(hash).toBe(expectedHash);
     });
 

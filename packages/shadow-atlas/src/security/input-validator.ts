@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod';
+import { isPrivateAddress } from './url-validator.js';
 
 // ============================================================================
 // Coordinate Validation
@@ -210,6 +211,10 @@ export function validateStateFips(
  * 3. Add with a comment indicating the organization
  * 4. Test that the domain works with validateURL()
  */
+// R54-S2: This list and url-validator.ts URL_ALLOWLIST_PATTERNS serve different
+// code paths (secureFetch vs discovery pipeline). Keep them in sync when adding
+// new domains. See url-validator.ts for the discovery pipeline's pattern-based
+// allowlist with per-domain metadata.
 const ALLOWED_DOMAINS = [
   // US Census Bureau
   'tigerweb.geo.census.gov',
@@ -272,31 +277,14 @@ const ALLOWED_DOMAINS = [
 export function isPublicURL(url: string): boolean {
   try {
     const parsed = new URL(url);
-    const hostname = parsed.hostname;
 
     // Reject non-HTTPS
     if (parsed.protocol !== 'https:') {
       return false;
     }
 
-    // Reject private IP ranges (RFC 1918)
-    const privateIPRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.)/;
-    if (privateIPRegex.test(hostname)) {
-      return false;
-    }
-
-    // Reject localhost
-    if (hostname === 'localhost' || hostname === '::1') {
-      return false;
-    }
-
-    // Reject link-local addresses
-    if (hostname.startsWith('169.254.')) {
-      return false;
-    }
-
-    // Reject IPv6 loopback and link-local
-    if (hostname === '::1' || hostname.startsWith('fe80:') || hostname.startsWith('fc') || hostname.startsWith('fd')) {
+    // Delegate all private/internal address checks to canonical function
+    if (isPrivateAddress(parsed.hostname)) {
       return false;
     }
 
@@ -385,20 +373,7 @@ export const URLSchema = z.string()
     (url) => {
       try {
         const parsed = new URL(url);
-        const hostname = parsed.hostname;
-
-        // Reject private IP ranges (RFC 1918)
-        const privateIPRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.)/;
-        if (privateIPRegex.test(hostname)) {
-          return false;
-        }
-
-        // Reject localhost
-        if (hostname === 'localhost' || hostname === '::1') {
-          return false;
-        }
-
-        return true;
+        return !isPrivateAddress(parsed.hostname);
       } catch {
         return false;
       }
@@ -851,7 +826,9 @@ export function sanitizeLogData(data: Record<string, unknown>): Record<string, u
 
   for (const [key, value] of Object.entries(data)) {
     // Redact sensitive fields
-    if (['password', 'apiKey', 'token', 'secret'].includes(key.toLowerCase())) {
+    // R73-F09: Use substring matching (consistent with audit-logger sanitizePII)
+    const lowerKey = key.toLowerCase();
+    if (['password', 'apikey', 'token', 'secret', 'auth', 'credential'].some(s => lowerKey.includes(s))) {
       sanitized[key] = '[REDACTED]';
       continue;
     }
@@ -989,7 +966,7 @@ export type ValidatedDiscoveryWorkflowState = z.infer<typeof DiscoveryWorkflowSt
  * SA-014: Validates checkpoint state for resumable batch operations
  */
 export const CheckpointStateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().regex(/^ckpt_\d+_[a-z0-9]+$/, 'Checkpoint ID must match ckpt_<timestamp>_<suffix> format'),
   startedAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   completedStates: z.array(z.string().regex(/^\d{2}$/, 'State FIPS must be 2 digits')),

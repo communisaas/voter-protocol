@@ -566,7 +566,7 @@ describe('Input Validator - Checkpoint State Schema (SA-014)', () => {
 
   test('accepts valid checkpoint state', () => {
     const validCheckpoint = JSON.stringify({
-      id: '550e8400-e29b-41d4-a716-446655440000',
+      id: 'ckpt_1706356800000_abc123',
       startedAt: '2025-01-15T10:00:00Z',
       updatedAt: '2025-01-15T11:00:00Z',
       completedStates: ['01', '06'],
@@ -583,13 +583,13 @@ describe('Input Validator - Checkpoint State Schema (SA-014)', () => {
     });
 
     const checkpoint = parseCheckpointState(validCheckpoint);
-    expect(checkpoint.id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(checkpoint.id).toBe('ckpt_1706356800000_abc123');
     expect(checkpoint.completedStates).toHaveLength(2);
   });
 
   test('rejects invalid state FIPS codes', () => {
     const invalidFips = JSON.stringify({
-      id: '550e8400-e29b-41d4-a716-446655440000',
+      id: 'ckpt_1706356800000_abc123',
       startedAt: '2025-01-15T10:00:00Z',
       updatedAt: '2025-01-15T11:00:00Z',
       completedStates: ['ABC'], // Invalid - must be 2 digits
@@ -608,9 +608,9 @@ describe('Input Validator - Checkpoint State Schema (SA-014)', () => {
     expect(() => parseCheckpointState(invalidFips)).toThrow();
   });
 
-  test('rejects invalid UUID', () => {
+  test('rejects invalid checkpoint ID format', () => {
     const invalidUuid = JSON.stringify({
-      id: 'not-a-uuid',
+      id: 'not-a-valid-checkpoint-id',
       startedAt: '2025-01-15T10:00:00Z',
       updatedAt: '2025-01-15T11:00:00Z',
       completedStates: [],

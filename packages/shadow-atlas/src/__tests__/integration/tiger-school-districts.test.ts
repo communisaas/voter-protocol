@@ -30,12 +30,12 @@ import { isCI, runIntegration, delay, API_RATE_LIMIT_MS, retryWithBackoff } from
 // Skip Control
 // ============================================================================
 
-// Skip in CI unless integration tests enabled
-const skipInCI = isCI && !runIntegration;
+// Skip unless RUN_INTEGRATION=true is explicitly set (these hit real Census APIs)
+const skipIntegration = process.env.RUN_INTEGRATION !== 'true';
 
 // Log skip status for debugging
-if (skipInCI) {
-  console.log('Skipping TIGER School District Integration tests (CI without RUN_INTEGRATION)');
+if (skipIntegration) {
+  console.log('Skipping TIGER School District Integration tests (set RUN_INTEGRATION=true to enable)');
 }
 
 // ============================================================================
@@ -271,7 +271,7 @@ function hasValidCoordinates(geometry: Polygon | MultiPolygon): boolean {
 // Integration Tests - TIGERweb API
 // ============================================================================
 
-describe.skipIf(skipInCI)('TIGER School District Integration', () => {
+describe.skipIf(skipIntegration)('TIGER School District Integration', () => {
   describe('TIGERweb API - Point-in-Polygon Queries', () => {
     for (const district of KNOWN_DISTRICTS) {
       it(`should find ${district.name} at known coordinates`, async () => {
