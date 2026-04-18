@@ -435,14 +435,85 @@ jobs:
           retention-days: 180
 
   # =========================================================================
-  # Phase 5a: Push root CID to Cloudflare Pages secret
+  # Phase 4b: Upload to Cloudflare R2 (primary production read path)
+  # =========================================================================
+  upload-r2:
+    name: Upload to R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate-build]
+    outputs:
+      atlas_base_url: ${{ steps.upload.outputs.atlas_base_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download validated build
+        uses: actions/download-artifact@v4
+        with:
+          name: chunked-validated
+          path: packages/shadow-atlas/output/chunked/
+
+      - name: Upload to R2
+        id: upload
+        working-directory: packages/shadow-atlas
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: shadow-atlas
+          R2_PUBLIC_URL: https://atlas.commons.email
+        run: |
+          npx tsx scripts/upload-to-r2.ts \
+            --directory output/chunked/ \
+            --output output/r2-upload-results.json
+
+          # Extract versioned public URL for push-cids
+          ATLAS_URL=$(jq -r '.publicUrl' output/r2-upload-results.json)
+          echo "atlas_base_url=$ATLAS_URL" >> $GITHUB_OUTPUT
+
+      - name: Write R2 summary
+        run: |
+          FILES=$(jq -r '.totalFiles' packages/shadow-atlas/output/r2-upload-results.json)
+          SIZE_MB=$(jq -r '.totalSizeBytes / 1048576 | floor' packages/shadow-atlas/output/r2-upload-results.json)
+          DURATION=$(jq -r '.durationMs / 1000 | floor' packages/shadow-atlas/output/r2-upload-results.json)
+          VERIFIED=$(jq -r '.verified' packages/shadow-atlas/output/r2-upload-results.json)
+
+          echo "## R2 Upload Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Files** | $FILES |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Size** | ${SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Duration** | ${DURATION}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Verified** | $VERIFIED |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload R2 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-upload-results
+          path: packages/shadow-atlas/output/r2-upload-results.json
+          retention-days: 180
+
+  # =========================================================================
+  # Phase 5a: Push CID + R2 URL to Cloudflare Pages
   # =========================================================================
   push-cids:
-    name: Push CID to Cloudflare
+    name: Push Config to Cloudflare
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [publish-ipfs]
-    if: inputs.publish_ipfs != 'false' && inputs.push_cids != 'false'
+    needs: [publish-ipfs, upload-r2]
+    if: always() && (needs.publish-ipfs.result == 'success' || needs.upload-r2.result == 'success') && inputs.push_cids != 'false'
     environment:
       name: production
     steps:
@@ -465,21 +536,23 @@ jobs:
           name: pin-results
           path: packages/shadow-atlas/output/
 
-      - name: Push CID to Cloudflare Pages
+      - name: Push config to Cloudflare Pages
         working-directory: packages/shadow-atlas
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ATLAS_BASE_URL: ${{ needs.upload-r2.outputs.atlas_base_url || 'https://atlas.commons.email' }}
         run: |
           npx tsx scripts/push-cids.ts \
             --pin-results output/pin-results.json \
+            --atlas-url "$ATLAS_BASE_URL" \
             --project commons
 
-          ROOT_CID=$(jq -r '.rootCid' output/pin-results.json)
-          echo "### CID Push" >> $GITHUB_STEP_SUMMARY
+          ROOT_CID=$(jq -r '.rootCid // "N/A"' output/pin-results.json)
+          echo "### Config Push" >> $GITHUB_STEP_SUMMARY
           echo "- **Root CID:** \`$ROOT_CID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ATLAS_BASE_URL:** $ATLAS_BASE_URL" >> $GITHUB_STEP_SUMMARY
           echo "- **Project:** commons" >> $GITHUB_STEP_SUMMARY
-          echo "- **Secret:** IPFS_CID_ROOT" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** Updated" >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================

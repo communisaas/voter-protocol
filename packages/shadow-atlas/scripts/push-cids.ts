@@ -53,10 +53,12 @@ interface CloudflareApiResponse {
 function parseArgs(argv: string[]): {
   pinResultsPath: string;
   project: string;
+  atlasBaseUrl: string;
   dryRun: boolean;
 } {
   let pinResultsPath = './pin-results.json';
   let project = process.env['CF_PAGES_PROJECT'] ?? 'commons';
+  let atlasBaseUrl = process.env['ATLAS_BASE_URL'] ?? '';
   let dryRun = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -72,6 +74,13 @@ function parseArgs(argv: string[]): {
         project = argv[++i];
         if (!project) {
           console.error('Error: --project requires a name argument.');
+          process.exit(2);
+        }
+        break;
+      case '--atlas-url':
+        atlasBaseUrl = argv[++i];
+        if (!atlasBaseUrl) {
+          console.error('Error: --atlas-url requires a URL argument.');
           process.exit(2);
         }
         break;
@@ -115,6 +124,15 @@ Environment:
 // Read pin-results.json
 // ---------------------------------------------------------------------------
 
+const CID_PATTERN = /^(bafy[a-zA-Z0-9]{50,}|Qm[a-zA-Z0-9]{44,})$/;
+
+function validateCidFormat(cid: string, sourcePath: string): void {
+  if (!CID_PATTERN.test(cid)) {
+    console.error(`Error: CID from ${sourcePath} does not match expected format (CIDv1 bafy... or CIDv0 Qm...): ${cid}`);
+    process.exit(2);
+  }
+}
+
 function extractRootCid(filePath: string): { rootCid: string; pinnedAt: string | null } {
   console.log('Reading pin-results.json...');
 
@@ -150,6 +168,13 @@ function extractRootCid(filePath: string): { rootCid: string; pinnedAt: string |
     if (pinnedAt) {
       console.log(`  Pinned at: ${pinnedAt}`);
     }
+    validateCidFormat(dir.rootCid, filePath);
+    // R64-F4: Refuse to promote unverified snapshots to production
+    if ('verified' in data && data['verified'] === false) {
+      console.error('Error: pin-results.json has verified=false — verification checks did not pass.');
+      console.error('  Refusing to promote unverified CID to production.');
+      process.exit(2);
+    }
     return { rootCid: dir.rootCid, pinnedAt };
   }
 
@@ -182,6 +207,7 @@ function extractRootCid(filePath: string): { rootCid: string; pinnedAt: string |
     if (pinnedAt) {
       console.log(`  Pinned at: ${pinnedAt}`);
     }
+    validateCidFormat(first.cid, filePath);
     return { rootCid: first.cid, pinnedAt };
   }
 
@@ -196,26 +222,38 @@ function extractRootCid(filePath: string): { rootCid: string; pinnedAt: string |
 // Cloudflare API
 // ---------------------------------------------------------------------------
 
-async function setEnvVar(
+async function setEnvVars(
   accountId: string,
   projectName: string,
   apiToken: string,
-  rootCid: string
+  rootCid: string,
+  atlasBaseUrl?: string,
 ): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}`;
 
-  console.log(`\nSetting IPFS_CID_ROOT on Cloudflare Pages project '${projectName}'...`);
+  const envVars: Record<string, { type: string; value: string }> = {
+    IPFS_CID_ROOT: {
+      type: 'secret_text',
+      value: rootCid,
+    },
+  };
+
+  // Set ATLAS_BASE_URL when R2 is the primary content source
+  if (atlasBaseUrl) {
+    envVars['ATLAS_BASE_URL'] = {
+      type: 'plain_text',
+      value: atlasBaseUrl,
+    };
+    console.log(`\nSetting IPFS_CID_ROOT + ATLAS_BASE_URL on Cloudflare Pages project '${projectName}'...`);
+  } else {
+    console.log(`\nSetting IPFS_CID_ROOT on Cloudflare Pages project '${projectName}'...`);
+  }
   console.log(`  API: PATCH /accounts/${accountId.slice(0, 8)}..../pages/projects/${projectName}`);
 
   const body = {
     deployment_configs: {
       production: {
-        env_vars: {
-          IPFS_CID_ROOT: {
-            type: 'secret_text',
-            value: rootCid,
-          },
-        },
+        env_vars: envVars,
       },
     },
   };
@@ -323,7 +361,7 @@ async function verifyEnvVar(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const { pinResultsPath, project, dryRun } = parseArgs(process.argv.slice(2));
+  const { pinResultsPath, project, atlasBaseUrl, dryRun } = parseArgs(process.argv.slice(2));
 
   // Step 1: Extract root CID
   const { rootCid } = extractRootCid(pinResultsPath);
@@ -355,7 +393,7 @@ async function main(): Promise<void> {
   if (dryRun) {
     console.log('\n[DRY RUN] Would execute:');
     console.log(
-      `  PATCH https://api.cloudflare.com/client/v4/accounts/${accountId ?? '<CLOUDFLARE_ACCOUNT_ID>'}/pages/projects/${project}`
+      `  PATCH https://api.cloudflare.com/client/v4/accounts/${accountId ? accountId.slice(0, 8) + '...' : '<CLOUDFLARE_ACCOUNT_ID>'}/pages/projects/${project}`
     );
     console.log('  Body: {');
     console.log('    "deployment_configs": {');
@@ -374,7 +412,23 @@ async function main(): Promise<void> {
   }
 
   // Step 4: Set the env var (apiToken and accountId guaranteed non-null here)
-  await setEnvVar(accountId!, project, apiToken!, rootCid);
+  console.log('\nPrevious CID (for rollback): check Cloudflare dashboard — API redacts secret values');
+  await setEnvVars(accountId!, project, apiToken!, rootCid, atlasBaseUrl || undefined);
+
+  // Step 4b: Gateway verification (non-blocking — propagation takes time)
+  try {
+    const gatewayUrl = `https://storacha.link/ipfs/${rootCid}/US/manifest.json`;
+    console.log(`\nVerifying gateway availability: HEAD ${gatewayUrl}`);
+    const gatewayResp = await fetch(gatewayUrl, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(30_000),
+    });
+    console.log(
+      `  Gateway verification: ${gatewayResp.ok ? 'PASS' : 'PENDING (gateway may need propagation time)'}`
+    );
+  } catch {
+    console.warn('  WARNING: Gateway verification request failed (gateway may need propagation time)');
+  }
 
   // Step 5: Verify
   await verifyEnvVar(accountId!, project, apiToken!);
