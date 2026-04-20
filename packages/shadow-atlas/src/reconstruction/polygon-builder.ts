@@ -114,7 +114,9 @@ export function closeRing(ring: readonly Position[]): Position[] {
   const first = ring[0];
   const last = ring[ring.length - 1];
 
-  if (first[0] === last[0] && first[1] === last[1]) {
+  // Use epsilon comparison instead of strict equality for floating-point coordinates.
+  // After segment merging, coordinates may differ by sub-millimeter amounts that fail ===.
+  if (Math.abs(first[0] - last[0]) < 1e-10 && Math.abs(first[1] - last[1]) < 1e-10) {
     return [...ring];
   }
 
@@ -253,7 +255,9 @@ function perpendicularDistance(
   const dx = x2 - x1;
   const dy = y2 - y1;
 
-  if (dx === 0 && dy === 0) {
+  // Epsilon guard — floating point near-zero values bypass exact === 0 check.
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-20) {
     return Math.sqrt((x - x1) ** 2 + (y - y1) ** 2);
   }
 
@@ -523,15 +527,21 @@ export function buildWardPolygon(
 ): PolygonBuildResult {
   const result = buildPolygonFromMatches(wardMatch.segmentMatches, config);
 
-  // Add ward properties to polygon
+  // Create new polygon with ward properties instead of mutating returned object.
   if (result.success && result.polygon) {
-    result.polygon.properties = {
-      ...result.polygon.properties,
-      wardId: wardMatch.description.wardId,
-      wardName: wardMatch.description.wardName,
-      cityFips: wardMatch.description.cityFips,
-      cityName: wardMatch.description.cityName,
-      state: wardMatch.description.state,
+    return {
+      ...result,
+      polygon: {
+        ...result.polygon,
+        properties: {
+          ...result.polygon.properties,
+          wardId: wardMatch.description.wardId,
+          wardName: wardMatch.description.wardName,
+          cityFips: wardMatch.description.cityFips,
+          cityName: wardMatch.description.cityName,
+          state: wardMatch.description.state,
+        },
+      },
     };
   }
 

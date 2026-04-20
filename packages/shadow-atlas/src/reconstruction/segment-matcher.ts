@@ -122,6 +122,11 @@ function closestPointOnLineString(
   point: Position,
   line: readonly Position[]
 ): { point: Position; distance: number; segmentIndex: number } {
+  // Guard against empty coordinate arrays — callers pass geometry
+  // coordinates which may be empty for degenerate features.
+  if (line.length === 0) {
+    return { point, distance: Infinity, segmentIndex: 0 };
+  }
   let minDistance = Infinity;
   let closestPoint: Position = line[0];
   let segmentIndex = 0;
@@ -633,12 +638,15 @@ function mergeSegmentCoordinates(
 
     // If end is closer, we should reverse to start from reference point
     if (distToEnd < distToStart) {
-      allCoords.push(...[...firstCoords].reverse());
+      // Loop push prevents stack overflow on >16K coordinates.
+      const reversed = [...firstCoords].reverse();
+      for (const coord of reversed) allCoords.push(coord);
     } else {
-      allCoords.push(...firstCoords);
+      for (const coord of firstCoords) allCoords.push(coord);
     }
   } else {
-    allCoords.push(...firstCoords);
+    // Loop push prevents stack overflow on >16K coordinates.
+    for (const coord of firstCoords) allCoords.push(coord);
   }
 
   // Add remaining segments, checking orientation
@@ -657,9 +665,12 @@ function mergeSegmentCoordinates(
 
     if (reversed) {
       const reversedCoords = [...currentCoords].reverse();
-      allCoords.push(...(skipFirst ? reversedCoords.slice(1) : reversedCoords));
+      // Loop push prevents stack overflow on >16K coordinates.
+      const toAdd = skipFirst ? reversedCoords.slice(1) : reversedCoords;
+      for (const coord of toAdd) allCoords.push(coord);
     } else {
-      allCoords.push(...(skipFirst ? currentCoords.slice(1) : currentCoords));
+      const toAdd = skipFirst ? currentCoords.slice(1) : currentCoords;
+      for (const coord of toAdd) allCoords.push(coord);
     }
   }
 
@@ -924,7 +935,8 @@ export function matchWardDescription(
           continue;
         }
       }
-      allCoords.push(...match.coordinates);
+      // Loop push prevents stack overflow
+      for (const coord of match.coordinates) allCoords.push(coord);
     }
 
     // Check if ring closes
@@ -934,8 +946,10 @@ export function matchWardDescription(
       const closingGap = haversineDistance(first, last);
 
       if (closingGap <= config.maxSegmentGap) {
-        // Close the ring
-        const closedRing = [...allCoords, first];
+        // Epsilon ring closure
+        // If last point is already within epsilon of first, don't add duplicate vertex.
+        const alreadyClosed = Math.abs(first[0] - last[0]) < 1e-10 && Math.abs(first[1] - last[1]) < 1e-10;
+        const closedRing = alreadyClosed ? [...allCoords] : [...allCoords, first];
         ringClosed = true;
 
         // Create polygon feature

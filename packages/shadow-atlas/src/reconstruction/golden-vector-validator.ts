@@ -20,6 +20,9 @@ import {
 } from './polygon-builder';
 import { haversineDistance } from './segment-matcher';
 
+/** Maximum ring vertices for O(n²) Hausdorff — 5000² = 25M ops max */
+const MAX_RING_VERTICES = 5000;
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -79,10 +82,33 @@ function calculateCentroid(ring: readonly Position[]): Position {
   }
 
   area /= 2;
+  // Guard degenerate polygons (collinear points, near-zero area).
+  if (Math.abs(area) < 1e-10) {
+    // Fallback: arithmetic mean of vertices.
+    const n = ring.length - 1; // exclude closing vertex
+    const mx = ring.slice(0, n).reduce((s, [x]) => s + x, 0) / n;
+    const my = ring.slice(0, n).reduce((s, [, y]) => s + y, 0) / n;
+    return [mx, my];
+  }
   cx /= 6 * area;
   cy /= 6 * area;
 
+  // NaN centroid guard — near-zero area can produce NaN via division.
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+    const n = ring.length - 1;
+    const mx = ring.slice(0, n).reduce((s, [x]) => s + x, 0) / n;
+    const my = ring.slice(0, n).reduce((s, [, y]) => s + y, 0) / n;
+    return [mx, my];
+  }
+
   return [cx, cy];
+}
+
+/** Uniformly sample a ring down to maxVertices if it exceeds the limit */
+function sampleRing(ring: readonly Position[], maxVertices: number): readonly Position[] {
+  if (ring.length <= maxVertices) return ring;
+  const stride = Math.ceil(ring.length / maxVertices);
+  return ring.filter((_, i) => i % stride === 0);
 }
 
 /**
@@ -93,9 +119,11 @@ function hausdorffDistance(
   ring1: readonly Position[],
   ring2: readonly Position[]
 ): number {
-  // Sample points from ring1 and find max min distance to ring2
-  const d1 = maxMinDistance(ring1, ring2);
-  const d2 = maxMinDistance(ring2, ring1);
+  // Limit ring size to prevent O(n²) explosion.
+  const sampled1 = sampleRing(ring1, MAX_RING_VERTICES);
+  const sampled2 = sampleRing(ring2, MAX_RING_VERTICES);
+  const d1 = maxMinDistance(sampled1, sampled2);
+  const d2 = maxMinDistance(sampled2, sampled1);
   return Math.max(d1, d2);
 }
 
@@ -133,10 +161,11 @@ function approximateIoU(
   const lons = allPoints.map(([lon]) => lon);
   const lats = allPoints.map(([, lat]) => lat);
 
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
+  // Avoid spread on large arrays (stack overflow risk).
+  const minLon = lons.reduce((a, b) => a < b ? a : b, Infinity);
+  const maxLon = lons.reduce((a, b) => a > b ? a : b, -Infinity);
+  const minLat = lats.reduce((a, b) => a < b ? a : b, Infinity);
+  const maxLat = lats.reduce((a, b) => a > b ? a : b, -Infinity);
 
   // Sample on a grid
   const gridSize = 50;
@@ -288,25 +317,26 @@ export function validateWardAgainstGolden(
   const iou = approximateIoU(actualRing, expectedRing);
 
   // Check against thresholds
-  if (hausdorff > config.maxHausdorffDistance) {
+  // NaN/Infinity guard — non-finite metrics must fail validation.
+  if (!Number.isFinite(hausdorff) || hausdorff > config.maxHausdorffDistance) {
     failures.push(
       `Hausdorff distance ${hausdorff.toFixed(1)}m exceeds max ${config.maxHausdorffDistance}m`
     );
   }
 
-  if (areaDiff > config.maxAreaDifferenceRatio) {
+  if (!Number.isFinite(areaDiff) || areaDiff > config.maxAreaDifferenceRatio) {
     failures.push(
       `Area difference ${(areaDiff * 100).toFixed(1)}% exceeds max ${config.maxAreaDifferenceRatio * 100}%`
     );
   }
 
-  if (centroidDist > config.maxCentroidDistance) {
+  if (!Number.isFinite(centroidDist) || centroidDist > config.maxCentroidDistance) {
     failures.push(
       `Centroid distance ${centroidDist.toFixed(1)}m exceeds max ${config.maxCentroidDistance}m`
     );
   }
 
-  if (iou < config.minOverlapRatio) {
+  if (!Number.isFinite(iou) || iou < config.minOverlapRatio) {
     failures.push(
       `IoU ${(iou * 100).toFixed(1)}% below minimum ${config.minOverlapRatio * 100}%`
     );
@@ -444,9 +474,18 @@ export function serializeGoldenVector(vector: GoldenVector): string {
 export function deserializeGoldenVector(json: string): GoldenVector {
   const parsed = JSON.parse(json);
 
-  // Validate required fields
-  if (!parsed.cityFips || !parsed.cityName || !parsed.expectedPolygons) {
-    throw new Error('Invalid golden vector: missing required fields');
+  // Validate all required GoldenVector fields, not just 3.
+  if (
+    typeof parsed.cityFips !== 'string' ||
+    typeof parsed.cityName !== 'string' ||
+    typeof parsed.state !== 'string' ||
+    typeof parsed.expectedWardCount !== 'number' ||
+    !Array.isArray(parsed.expectedPolygons) ||
+    !Array.isArray(parsed.legalDescriptions) ||
+    typeof parsed.verifiedAt !== 'string' ||
+    typeof parsed.verificationSource !== 'string'
+  ) {
+    throw new Error('Invalid golden vector: missing or malformed required fields');
   }
 
   return parsed as GoldenVector;

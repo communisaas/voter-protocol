@@ -23,9 +23,13 @@
  * ```
  */
 
-import pdfParse from 'pdf-parse';
+import { Worker } from 'node:worker_threads';
+import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 import { readFile } from 'fs/promises';
 import { createHash } from 'crypto';
+import { fetchBufferWithSizeLimit } from '../hydration/fetch-with-size-limit.js';
+import { isPublicURL } from '../security/input-validator.js';
 
 // =============================================================================
 // Types
@@ -37,7 +41,7 @@ import { createHash } from 'crypto';
 export type ExtractionConfidence = 'high' | 'medium' | 'low';
 
 /**
- * PDF metadata extracted by pdf-parse
+ * PDF metadata extracted by pdf2json
  */
 export interface PDFMetadata {
   /** PDF version */
@@ -347,19 +351,105 @@ function computeHash(buffer: Buffer): string {
 }
 
 /**
- * Extract metadata from pdf-parse result
+ * Result from pdf2json parsing
  */
-function extractMetadata(pdfData: pdfParse.Result): PDFMetadata {
-  const info = pdfData.info || {};
+interface Pdf2JsonResult {
+  pages: number;
+  text: string;
+  meta: Record<string, unknown>;
+}
+
+/**
+ * Parse a PDF buffer in an isolated worker thread.
+ *
+ * The previous implementation wrapped PDFParser in a Promise with
+ * setTimeout. When timeout fired, it rejected the promise BUT THE PARSER
+ * CONTINUED RUNNING — consuming CPU and memory. Worker threads solve this:
+ * worker.terminate() actually kills the thread and frees resources.
+ */
+const PDF_PARSE_TIMEOUT_MS = 30_000;
+
+async function parsePdfBuffer(buffer: Buffer, timeoutMs: number = PDF_PARSE_TIMEOUT_MS): Promise<Pdf2JsonResult> {
+  const workerPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'pdf-worker.js',
+  );
+
+  return new Promise((resolve, reject) => {
+    // Copy into a standalone ArrayBuffer for transfer (zero-copy to worker)
+    const ab = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength,
+    ) as ArrayBuffer;
+    const worker = new Worker(workerPath, {
+      workerData: { buffer: ab },
+      transferList: [ab],
+    });
+
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        worker.terminate();
+        reject(new Error(`PDF parsing timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    worker.on('message', (msg: {
+      type: string;
+      message?: string;
+      pages?: number;
+      text?: string;
+      meta?: Record<string, unknown>;
+    }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+
+      if (msg.type === 'error') {
+        reject(new Error(msg.message ?? 'PDF parse error'));
+      } else {
+        resolve({
+          pages: msg.pages ?? 0,
+          text: msg.text ?? '',
+          meta: msg.meta ?? {},
+        });
+      }
+      worker.terminate();
+    });
+
+    worker.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    worker.on('exit', (code) => {
+      if (!settled && code !== 0) {
+        settled = true;
+        clearTimeout(timer);
+        reject(new Error(`PDF worker exited with code ${code}`));
+      }
+    });
+  });
+}
+
+/**
+ * Extract metadata from pdf2json result
+ */
+function extractMetadata(result: Pdf2JsonResult): PDFMetadata {
+  const meta = result.meta || {};
   return {
-    version: pdfData.version || 'unknown',
-    numPages: pdfData.numpages || 0,
-    title: info.Title || null,
-    author: info.Author || null,
-    subject: info.Subject || null,
-    creationDate: info.CreationDate || null,
-    modificationDate: info.ModDate || null,
-    producer: info.Producer || null,
+    version: String(meta.PDFFormatVersion || 'unknown'),
+    numPages: result.pages,
+    title: meta.Title ? String(meta.Title) : null,
+    author: meta.Author ? String(meta.Author) : null,
+    subject: meta.Subject ? String(meta.Subject) : null,
+    creationDate: meta.CreationDate ? String(meta.CreationDate) : null,
+    modificationDate: meta.ModDate ? String(meta.ModDate) : null,
+    producer: meta.Producer ? String(meta.Producer) : null,
   };
 }
 
@@ -380,13 +470,13 @@ export async function extractTextFromPDF(
     const contentHash = computeHash(buffer);
 
     // Parse PDF
-    const pdfData = await pdfParse(buffer);
+    const result = await parsePdfBuffer(buffer);
 
     // Extract metadata
-    const metadata = extractMetadata(pdfData);
+    const metadata = extractMetadata(result);
 
     // Validate extraction
-    if (!pdfData.text || pdfData.text.trim().length === 0) {
+    if (!result.text || result.text.trim().length === 0) {
       warnings.push('PDF contains no extractable text (may be scanned image)');
     }
 
@@ -396,7 +486,7 @@ export async function extractTextFromPDF(
 
     return {
       success: true,
-      text: pdfData.text,
+      text: result.text,
       metadata,
       contentHash,
       source: filePath,
@@ -438,25 +528,57 @@ export async function extractTextFromPDF(
 export async function extractTextFromPDFUrl(url: string): Promise<PDFExtractionResult> {
   const warnings: string[] = [];
 
+  // R53-A1: Validate URL protocol to prevent SSRF
+  // R80-M4: Block private/internal IPs to prevent SSRF via PDF URLs
   try {
-    // Fetch PDF
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`Only HTTP/HTTPS URLs are supported for PDF extraction, got: ${parsed.protocol}`);
     }
+    if (!isPublicURL(url)) {
+      throw new Error('PDF URL resolves to a private/internal IP range — blocked for SSRF prevention');
+    }
+  } catch (error) {
+    // Re-throw our own protocol error; wrap TypeError from invalid URL
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      text: '',
+      metadata: {
+        version: 'unknown',
+        numPages: 0,
+        title: null,
+        author: null,
+        subject: null,
+        creationDate: null,
+        modificationDate: null,
+        producer: null,
+      },
+      contentHash: '',
+      source: url,
+      fileSizeBytes: 0,
+      extractedAt: new Date().toISOString(),
+      warnings: Object.freeze([]),
+      error: message,
+    };
+  }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+  try {
+    // Fetch PDF with 50 MB size limit and 30 s timeout
+    const PDF_MAX_BYTES = 50 * 1024 * 1024;
+    const buffer = await fetchBufferWithSizeLimit(url, PDF_MAX_BYTES, {
+      signal: AbortSignal.timeout(30_000),
+    });
     const contentHash = computeHash(buffer);
 
     // Parse PDF
-    const pdfData = await pdfParse(buffer);
+    const result = await parsePdfBuffer(buffer);
 
     // Extract metadata
-    const metadata = extractMetadata(pdfData);
+    const metadata = extractMetadata(result);
 
     // Validate extraction
-    if (!pdfData.text || pdfData.text.trim().length === 0) {
+    if (!result.text || result.text.trim().length === 0) {
       warnings.push('PDF contains no extractable text (may be scanned image)');
     }
 
@@ -466,7 +588,7 @@ export async function extractTextFromPDFUrl(url: string): Promise<PDFExtractionR
 
     return {
       success: true,
-      text: pdfData.text,
+      text: result.text,
       metadata,
       contentHash,
       source: url,

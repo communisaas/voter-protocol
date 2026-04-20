@@ -130,28 +130,33 @@ function parseSegmentText(
 
   // Check for municipal boundary
   for (const pattern of config.patterns.municipalBoundary) {
+    // Reset lastIndex BEFORE test/return — if the pattern has the
+    // global flag and matches, early return leaves lastIndex > 0, causing the
+    // next call with the same config to skip characters.
+    pattern.lastIndex = 0;
     if (pattern.test(trimmed)) {
+      pattern.lastIndex = 0;
       referenceType = 'municipal_boundary';
       featureName = 'city limits';
       confidence = 'high';
       parseNotes = 'Matched municipal boundary pattern';
       return { rawText: trimmed, referenceType, featureName, direction, from, to, confidence, parseNotes };
     }
-    pattern.lastIndex = 0; // Reset regex
   }
 
   // Check for natural feature
   for (const pattern of config.patterns.naturalFeature) {
+    // Same fix — reset before exec, and before early return
+    pattern.lastIndex = 0;
     const match = pattern.exec(trimmed);
     if (match) {
+      pattern.lastIndex = 0;
       referenceType = 'natural_feature';
       featureName = match[1].trim();
       confidence = 'high';
       parseNotes = 'Matched natural feature pattern';
-      pattern.lastIndex = 0;
       return { rawText: trimmed, referenceType, featureName, direction, from, to, confidence, parseNotes };
     }
-    pattern.lastIndex = 0;
   }
 
   // Check for railroad
@@ -179,6 +184,7 @@ function parseSegmentText(
 
   // Extract direction
   for (const pattern of config.patterns.direction) {
+    pattern.lastIndex = 0; // R86-REC-M1
     const match = pattern.exec(trimmed);
     if (match) {
       const dirText = match[1].toLowerCase();
@@ -186,11 +192,11 @@ function parseSegmentText(
       pattern.lastIndex = 0;
       break;
     }
-    pattern.lastIndex = 0;
   }
 
   // Try to extract street name using patterns
   for (const pattern of config.patterns.streetCenterline) {
+    pattern.lastIndex = 0; // R86-REC-M1
     const match = pattern.exec(trimmed);
     if (match) {
       featureName = match[1].trim();
@@ -199,7 +205,6 @@ function parseSegmentText(
       pattern.lastIndex = 0;
       break;
     }
-    pattern.lastIndex = 0;
   }
 
   // If no pattern match, try extracting street candidates
@@ -365,6 +370,12 @@ export function parseLegalDescription(
   text: string,
   config: ParserConfig = getDefaultParserConfig()
 ): ParseResult {
+  // Guard against unbounded input that could cause regex timeouts or OOM.
+  const MAX_INPUT_LENGTH = 1_000_000; // 1MB — generous for any legal description
+  if (text.length > MAX_INPUT_LENGTH) {
+    throw new Error(`Input text exceeds maximum length (${text.length} > ${MAX_INPUT_LENGTH})`);
+  }
+
   const warnings: string[] = [];
 
   // Split into raw segments
