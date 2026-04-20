@@ -20,6 +20,9 @@ import { writeFile, rename, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { mkdir } from 'fs/promises';
 
+/** Monotonic counter prevents same-PID same-ms temp path collisions. */
+let atomicWriteCounter = 0;
+
 /**
  * Atomically write string data to file
  *
@@ -36,14 +39,14 @@ import { mkdir } from 'fs/promises';
  */
 export async function atomicWriteFile(
   filePath: string,
-  data: string,
+  data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ): Promise<void> {
   // Ensure parent directory exists
   await mkdir(dirname(filePath), { recursive: true });
 
-  // Use PID + timestamp to prevent conflicts between concurrent processes
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  // Add monotonic counter to prevent same-ms collisions within a process.
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${atomicWriteCounter++}.tmp`;
 
   try {
     // Write to temporary file
@@ -98,7 +101,7 @@ export async function atomicWriteJSON(
  */
 export function atomicWriteFileSync(
   filePath: string,
-  data: string,
+  data: string | Buffer | Uint8Array,
   encoding: BufferEncoding = 'utf-8'
 ): void {
   const fs = require('fs');
@@ -107,7 +110,8 @@ export function atomicWriteFileSync(
   // Ensure parent directory exists
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  // Add monotonic counter — propagate to sync variant.
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${atomicWriteCounter++}.tmp`;
 
   try {
     fs.writeFileSync(tempPath, data, encoding);

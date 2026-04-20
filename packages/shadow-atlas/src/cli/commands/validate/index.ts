@@ -165,9 +165,10 @@ async function main(): Promise<void> {
     const subcommandFile = join(__dirname, `${subcommand}.ts`);
     const subcommandArgs = args.slice(1);
 
+    // R61-M1: Removed shell: true — unnecessary with spawn array args,
+    // prevents shell metacharacter injection from CLI arguments.
     const child = spawn('npx', ['tsx', subcommandFile, ...subcommandArgs], {
       stdio: 'inherit',
-      shell: true,
     });
 
     child.on('close', (code) => {

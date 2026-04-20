@@ -13,10 +13,12 @@
  * @packageDocumentation
  */
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
 import type { WardEntry } from './ward-registry.js';
+import { fetchWithSizeLimit } from './fetch-with-size-limit.js';
 
 // ============================================================================
 // Types
@@ -207,12 +209,14 @@ async function loadSingleCity(
       fromCache = true;
     } else {
       geojson = await fetchWardGeoJSON(entry.sourceUrl, maxRetries);
-      await writeFile(cachePath, JSON.stringify(geojson));
+      // R71-HYD-M3: Atomic write via shared atomicWriteFile utility
+      await atomicWriteFile(cachePath, JSON.stringify(geojson));
     }
   } catch {
     // Cache miss or stale — download
     geojson = await fetchWardGeoJSON(entry.sourceUrl, maxRetries);
-    await writeFile(cachePath, JSON.stringify(geojson));
+    // R71-HYD-M3: Atomic write via shared atomicWriteFile utility
+    await atomicWriteFile(cachePath, JSON.stringify(geojson));
   }
 
   if (!geojson.features || geojson.features.length === 0) {
@@ -235,6 +239,19 @@ async function loadSingleCity(
 }
 
 /**
+ * R58-A2: Extract a deterministic anchor point [lon, lat] from a feature's geometry.
+ * Uses the first coordinate of the exterior ring. Falls back to [0, 0] for
+ * null/unsupported geometries (these are filtered out later).
+ */
+function featureAnchor(feature: Feature): [number, number] {
+  const geom = feature.geometry;
+  if (!geom) return [0, 0];
+  if (geom.type === 'Polygon') return geom.coordinates[0]?.[0] as [number, number] ?? [0, 0];
+  if (geom.type === 'MultiPolygon') return geom.coordinates[0]?.[0]?.[0] as [number, number] ?? [0, 0];
+  return [0, 0];
+}
+
+/**
  * Parse GeoJSON features into WardBoundary objects.
  *
  * Extracts ward numbers and builds ward GEOIDs.
@@ -247,8 +264,20 @@ function parseWardFeatures(
   const wards: WardBoundary[] = [];
   const usedNumbers = new Set<number>();
 
-  for (let i = 0; i < features.length; i++) {
-    const feature = features[i];
+  // R58-A2: Sort features by geometry anchor point for deterministic ward numbering.
+  // ArcGIS FeatureServer does not guarantee stable feature ordering across requests.
+  // Without this sort, "next available" ward numbers and index-based fallbacks
+  // depend on iteration order, producing different GEOIDs (and thus different
+  // Merkle roots) from the same source data.
+  const sorted = [...features].sort((a, b) => {
+    const [ax, ay] = featureAnchor(a);
+    const [bx, by] = featureAnchor(b);
+    if (ay !== by) return ay - by; // latitude first
+    return ax - bx;                // then longitude
+  });
+
+  for (let i = 0; i < sorted.length; i++) {
+    const feature = sorted[i];
     const geom = feature.geometry;
 
     // Only accept Polygon and MultiPolygon geometries
@@ -299,17 +328,16 @@ async function fetchWardGeoJSON(
   layerUrl: string,
   maxRetries: number,
 ): Promise<FeatureCollection> {
+  // R49-F2: Size-limited fetch — ward boundaries are large GeoJSON but should never exceed 100 MB
+  const MAX_SIZE = 100 * 1024 * 1024;
   const queryUrl = `${layerUrl}/query?where=1%3D1&outFields=*&f=geojson`;
 
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const resp = await fetch(queryUrl);
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      }
-      const data = await resp.json();
+      const text = await fetchWithSizeLimit(queryUrl, MAX_SIZE);
+      const data = JSON.parse(text);
 
       // ArcGIS sometimes returns error objects instead of GeoJSON
       if (data.error) {

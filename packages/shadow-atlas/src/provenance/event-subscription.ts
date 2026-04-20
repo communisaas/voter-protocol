@@ -25,6 +25,7 @@ import type { SourceFreshness } from './primary-comparator.js';
 import { gapDetector } from './gap-detector.js';
 import type { GapBoundaryType } from './gap-detector.js';
 import { authorityRegistry } from './authority-registry.js';
+import { createHmac } from 'node:crypto';
 import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
@@ -143,6 +144,69 @@ interface PollingState {
 }
 
 // ============================================================================
+// R68-F9: Webhook URL validation (SSRF prevention)
+// ============================================================================
+
+/**
+ * Validate that a webhook URL is safe to deliver events to.
+ * Rejects private/internal IPs and non-HTTPS schemes.
+ *
+ * @throws Error if URL is invalid, uses non-HTTPS scheme, or targets a private IP
+ */
+function validateWebhookUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid webhook URL: ${url}`);
+  }
+
+  // Require HTTPS (except localhost in dev — still blocked by IP check below)
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Webhook URL must use HTTPS: ${url}`);
+  }
+
+  const hostname = parsed.hostname;
+
+  // Block localhost variants
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]') {
+    throw new Error(`Webhook URL must not target localhost: ${url}`);
+  }
+
+  // Block private IPv4 ranges (RFC 1918 + link-local + loopback)
+  const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match;
+    const first = parseInt(a!, 10);
+    const second = parseInt(b!, 10);
+
+    if (
+      first === 10 ||                                    // 10.0.0.0/8
+      first === 127 ||                                   // 127.0.0.0/8
+      (first === 172 && second >= 16 && second <= 31) || // 172.16.0.0/12
+      (first === 192 && second === 168) ||               // 192.168.0.0/16
+      (first === 169 && second === 254) ||               // 169.254.0.0/16 (link-local)
+      first === 0                                        // 0.0.0.0/8
+    ) {
+      throw new Error(`Webhook URL must not target private IP: ${url}`);
+    }
+  }
+
+  // Block IPv6 private ranges (fc00::/7 ULA, fe80::/10 link-local)
+  if (hostname.startsWith('[')) {
+    const ipv6 = hostname.slice(1, -1).toLowerCase();
+    if (ipv6.startsWith('fc') || ipv6.startsWith('fd') || ipv6.startsWith('fe8') || ipv6 === '::1') {
+      throw new Error(`Webhook URL must not target private IPv6: ${url}`);
+    }
+  }
+
+  // Block metadata endpoints (cloud provider SSRF targets)
+  if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+    throw new Error(`Webhook URL must not target cloud metadata endpoint: ${url}`);
+  }
+}
+
+// ============================================================================
 // Event Subscription Service
 // ============================================================================
 
@@ -158,6 +222,13 @@ export class EventSubscriptionService {
   private readonly webhooks: Map<string, WebhookSubscription> = new Map();
   private readonly pollingStates: Map<string, PollingState> = new Map();
   private readonly eventListeners: Array<(event: FreshnessEvent) => void> = [];
+
+  // R60-C3: Track seen RSS entry GUIDs to prevent infinite event replay.
+  // processRSSFeed() re-emits events for ALL matching entries on every call.
+  // Without dedup, periodic monitoring produces duplicate source-updated events.
+  // R77-P2: Capped at 10K entries to prevent unbounded memory growth in long-running processes.
+  private static readonly MAX_SEEN_GUIDS = 10_000;
+  private readonly seenRSSGuids: Set<string> = new Set();
 
   private readonly rssFeedUrls: Map<SourceType, readonly string[]> = new Map([
     ['tiger', ['https://www.census.gov/programs-surveys/geography/technical-documentation/complete-technical-documentation/tiger-geo-line.rss']],
@@ -284,16 +355,6 @@ export class EventSubscriptionService {
       return match ? match[1].trim() : null;
     };
 
-    const getAllTagContent = (tag: string, content: string): string[] => {
-      const regex = new RegExp(`<${tag}[^>]*>([^<]+)</${tag}>`, 'gi');
-      const matches: string[] = [];
-      let match;
-      while ((match = regex.exec(content)) !== null) {
-        matches.push(match[1].trim());
-      }
-      return matches;
-    };
-
     const title = getTagContent('title', xml) || 'Unknown Feed';
     const link = getTagContent('link', xml) || feedUrl;
     const description = getTagContent('description', xml) || '';
@@ -370,16 +431,18 @@ export class EventSubscriptionService {
     ];
 
     for (const entry of feed.entries) {
+      // R60-C3: Dedup by guid (or link+title fallback). Without this,
+      // every call to monitorRSSFeeds() re-emits events for all matching
+      // entries, triggering duplicate downloads indefinitely.
+      const dedupKey = entry.guid ?? `${entry.link}|${entry.title}`;
+      if (this.seenRSSGuids.has(dedupKey)) continue;
+
       const hasRelevantKeyword = releaseKeywords.some(keyword =>
         entry.title.toLowerCase().includes(keyword.toLowerCase()) ||
         (entry.description?.toLowerCase().includes(keyword.toLowerCase()) ?? false)
       );
 
       if (hasRelevantKeyword) {
-        // Extract year from title/description if possible
-        const yearMatch = entry.title.match(/\b(20\d{2})\b/) ||
-                         entry.description?.match(/\b(20\d{2})\b/);
-
         // Emit source-updated event
         await this.emitEvent({
           type: 'source-updated',
@@ -387,6 +450,20 @@ export class EventSubscriptionService {
           newDate: entry.pubDate,
           url: entry.link,
         });
+
+        this.seenRSSGuids.add(dedupKey);
+
+        // R77-P2: Enforce cap to prevent unbounded memory growth.
+        // Set preserves insertion order — evict oldest entries first.
+        if (this.seenRSSGuids.size > EventSubscriptionService.MAX_SEEN_GUIDS) {
+          const excess = this.seenRSSGuids.size - EventSubscriptionService.MAX_SEEN_GUIDS;
+          let removed = 0;
+          for (const key of this.seenRSSGuids) {
+            if (removed >= excess) break;
+            this.seenRSSGuids.delete(key);
+            removed++;
+          }
+        }
       }
     }
   }
@@ -408,6 +485,9 @@ export class EventSubscriptionService {
       readonly secret?: string;
     }
   ): string {
+    // R68-F9: Validate webhook URL to prevent SSRF against internal services.
+    validateWebhookUrl(url);
+
     const id = this.generateWebhookId();
     const subscription: WebhookSubscription = {
       id,
@@ -493,13 +573,24 @@ export class EventSubscriptionService {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
+        // R60-H4: Timeout prevents a malicious/slow webhook endpoint from
+        // hanging the delivery loop indefinitely. RSS fetch already has a
+        // timeout (feedFetchTimeoutMs) — webhooks should be consistent.
         const response = await fetch(subscription.url, {
           method: 'POST',
+          signal: AbortSignal.timeout(10000), // 10 seconds
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0 (Webhook)',
+            // R77-P1: HMAC-SHA256 signature instead of raw secret transmission.
+            // Previous code sent the secret as a plaintext header — any network
+            // observer could extract it and forge webhook events.
             ...(subscription.secret
-              ? { 'X-Webhook-Secret': subscription.secret }
+              ? {
+                  'X-Webhook-Signature': createHmac('sha256', subscription.secret)
+                    .update(JSON.stringify(payload))
+                    .digest('hex'),
+                }
               : {}),
           },
           body: JSON.stringify(payload),

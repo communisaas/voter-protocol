@@ -78,10 +78,10 @@ export async function createDatabaseAdapter(
         );
       }
 
-      // SQLite: sqlite:///absolute/path or sqlite://relative/path
-      dbPath = url.pathname.startsWith('/')
-        ? url.pathname.slice(1) // Remove leading slash for absolute paths
-        : url.pathname;
+      // SQLite: sqlite:///absolute/path → url.pathname = '/absolute/path' (keep as-is)
+      //         sqlite://relative/path  → url.pathname = 'relative/path'
+      // For POSIX, url.pathname already contains the correct path.
+      dbPath = url.pathname;
 
       if (!dbPath) {
         dbPath = '.shadow-atlas/shadow-atlas.db';

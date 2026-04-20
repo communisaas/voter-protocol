@@ -22,7 +22,8 @@
  */
 
 import type { Command } from 'commander';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
+import { atomicWriteFile } from '../../../core/utils/atomic-write.js';
 import {
   getAuditLogPath,
   type AuditEntry,
@@ -337,9 +338,9 @@ async function fixIssues(
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-    // Write back to file
+    // Atomic write prevents corruption if crash during --fix rewrite.
     const content = sorted.map((e) => JSON.stringify(e)).join('\n') + '\n';
-    await writeFile(logPath, content, 'utf-8');
+    await atomicWriteFile(logPath, content);
     fixed += chronologyIssues.length;
 
     // Mark issues as fixed

@@ -80,8 +80,19 @@ export async function runApply(options: ApplyOptions): Promise<MigrationResult> 
       // Use the first existing path or default to .ts
       migrationPath = possiblePaths[0];
     } else {
-      // It's a relative path
+      // It's a relative path — resolve and validate containment
       migrationPath = resolve(process.cwd(), migration);
+    }
+  }
+
+  // Prevent path traversal via dynamic import() — ensure resolved
+  // path stays within CWD or migrations directory.
+  {
+    const migrationsDir = resolve(getMigrationsDir());
+    const cwd = resolve(process.cwd());
+    const normalized = resolve(migrationPath);
+    if (!normalized.startsWith(migrationsDir + '/') && !normalized.startsWith(cwd + '/')) {
+      throw new Error(`Migration path resolves outside allowed directories: ${normalized}`);
     }
   }
 

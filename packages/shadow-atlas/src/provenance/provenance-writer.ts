@@ -191,9 +191,14 @@ class FileLock {
       try {
         // O_CREAT | O_EXCL ensures atomic lock acquisition
         this.lockHandle = await fs.open(this.lockPath, 'wx');
+        // R70-H3: Write PID + timestamp so stale locks can be detected
+        await this.lockHandle.write(`${process.pid}:${Date.now()}\n`);
         return;
       } catch (error) {
+        // R70-H3: On last retry, check if lock is stale (>30s old) and force-remove
         if (attempt === this.maxRetries - 1) {
+          const overridden = await this.tryOverrideStaleLock();
+          if (overridden) return;
           throw new Error(`Failed to acquire lock after ${this.maxRetries} attempts`);
         }
         // Exponential backoff with jitter
@@ -201,6 +206,33 @@ class FileLock {
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
+  }
+
+  /**
+   * R70-H3: Check if an existing lock file is stale (>30s) and override it.
+   * A lock is stale if its mtime is older than 30 seconds — indicates the
+   * holding process crashed without releasing.
+   */
+  private async tryOverrideStaleLock(): Promise<boolean> {
+    const STALE_THRESHOLD_MS = 30_000;
+    try {
+      const stat = await fs.stat(this.lockPath);
+      const age = Date.now() - stat.mtimeMs;
+      if (age > STALE_THRESHOLD_MS) {
+        logger.warn('Overriding stale lock file', {
+          lockPath: this.lockPath,
+          ageMs: Math.round(age),
+        });
+        await fs.unlink(this.lockPath);
+        // Try to acquire again after removing stale lock
+        this.lockHandle = await fs.open(this.lockPath, 'wx');
+        await this.lockHandle.write(`${process.pid}:${Date.now()}\n`);
+        return true;
+      }
+    } catch {
+      // Lock file may have been removed by another process — that's fine
+    }
+    return false;
   }
 
   /**
@@ -287,9 +319,12 @@ export class ProvenanceWriter {
     // Create staging directory
     await fs.mkdir(this.stagingDir, { recursive: true });
 
-    // Unique staging file per agent + timestamp
+    // R60-H6: Sanitize agentId to prevent path traversal. Strip everything
+    // except alphanumeric, hyphens, and underscores. An agentId containing
+    // "../../etc/cron.d/malicious" would write outside the staging directory.
+    const safeAgentId = agentId.replace(/[^a-zA-Z0-9_-]/g, '_');
     const timestamp = Date.now();
-    const stagingFile = path.join(this.stagingDir, `${agentId}-${timestamp}.ndjson`);
+    const stagingFile = path.join(this.stagingDir, `${safeAgentId}-${timestamp}.ndjson`);
 
     // Append entry (no lock needed - file is unique)
     const line = JSON.stringify(entry) + '\n';
@@ -328,9 +363,12 @@ export class ProvenanceWriter {
       const newLine = JSON.stringify(entry) + '\n';
       const updatedData = existingData + newLine;
 
-      // Compress and write back
+      // R65-P1: Atomic write — write to temp file, then rename.
+      // If the process crashes during write, the original file is preserved.
+      const tmpPath = logPath + '.tmp';
       const compressed = await gzip(Buffer.from(updatedData, 'utf-8'));
-      await fs.writeFile(logPath, compressed);
+      await fs.writeFile(tmpPath, compressed);
+      await fs.rename(tmpPath, logPath);
     } finally {
       // Always release lock
       await lock.release();
@@ -494,6 +532,14 @@ export class ProvenanceWriter {
 
     if (!Array.isArray(entry.tried) || entry.tried.length === 0) {
       throw new Error('Tried tiers (tried) must be non-empty array');
+    }
+
+    // R77-P3: Validate FIPS format — must be numeric string of 2-15 digits.
+    // FIPS codes: 2 (state), 5 (county), 11 (tract), 12 (block group), 15 (block).
+    // Reject non-numeric or wildly out-of-range values to prevent path traversal
+    // in sharded log paths and catch upstream data corruption.
+    if (!/^\d{2,15}$/.test(entry.f)) {
+      throw new Error(`Invalid FIPS code format: "${entry.f}" (must be 2-15 digits)`);
     }
   }
 

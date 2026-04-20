@@ -17,9 +17,9 @@
 import { mkdir, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import JSZip from 'jszip';
-import { writeFile } from 'node:fs/promises';
 import { safeZipEntryPath } from './safe-extract.js';
 import { fetchBufferWithSizeLimit } from './fetch-with-size-limit.js';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 
 // ============================================================================
 // State FIPS Table
@@ -159,7 +159,7 @@ export async function downloadBAFs(
       if (name.endsWith('.txt') && !entry.dir) {
         const content = await entry.async('nodebuffer');
         const outPath = safeZipEntryPath(name, stateDir);
-        await writeFile(outPath, content);
+        await atomicWriteFile(outPath, content);
         files.push(outPath);
       }
     }

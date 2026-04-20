@@ -12,12 +12,13 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'fs';
-import { writeFile, readFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { createHash } from 'node:crypto';
 import { fetchWithSizeLimit } from './fetch-with-size-limit.js';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 
 // ============================================================================
 // Types
@@ -242,22 +243,33 @@ export function parseCSVString(
 
 /**
  * Derive a cache filename from a URL.
+ * R74-H4: Include a hash of the full URL to prevent cache collisions
+ * when two different URLs share the same last path segment.
  */
 function cacheFilenameFromUrl(url: string): string {
   const urlObj = new URL(url);
   const pathParts = urlObj.pathname.split('/');
   const lastPart = pathParts[pathParts.length - 1] || 'concordance';
   // Sanitize for filesystem
-  return lastPart.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const sanitized = lastPart.replace(/[^a-zA-Z0-9._-]/g, '_');
+  // R74-H4: 8-char hash prefix from full URL to prevent cross-origin cache collisions
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    hash = ((hash << 5) - hash + url.charCodeAt(i)) | 0;
+  }
+  const hashHex = (hash >>> 0).toString(16).padStart(8, '0');
+  return `${hashHex}_${sanitized}`;
 }
 
 /**
  * Download a file from a URL and save to cache.
  * Uses size-limited fetch (100 MB default) to prevent memory exhaustion.
- * If expectedSha256 is provided, verifies the file after writing and removes it on mismatch.
+ * If expectedSha256 is provided, verifies the in-memory buffer before writing (no TOCTOU).
+ * Writes atomically via temp file + rename.
  */
 async function downloadToCache(url: string, cachePath: string, expectedSha256?: string): Promise<void> {
-  const text = await fetchWithSizeLimit(url);
+  // R23-HYD-H3: 60s timeout to prevent hanging on slow/stalled downloads
+  const text = await fetchWithSizeLimit(url, undefined, { signal: AbortSignal.timeout(60_000) });
 
   if (!text.trim()) {
     throw new Error(`Empty response from ${url}`);
@@ -269,19 +281,20 @@ async function downloadToCache(url: string, cachePath: string, expectedSha256?: 
     mkdirSync(dir, { recursive: true });
   }
 
-  await writeFile(cachePath, text, 'utf-8');
-
-  // SHA-256 verification
+  // R39-FIX: SHA-256 verification on in-memory buffer BEFORE writing to disk
+  // Eliminates TOCTOU window (prior code wrote file, then re-read from disk for hashing)
   if (expectedSha256) {
-    const fileContent = readFileSync(cachePath);
-    const actualHash = createHash('sha256').update(fileContent).digest('hex');
+    const actualHash = createHash('sha256').update(text).digest('hex');
     if (actualHash !== expectedSha256) {
-      unlinkSync(cachePath);
       throw new Error(
-        `SHA-256 mismatch for ${url}: expected ${expectedSha256}, got ${actualHash}. File removed.`
+        `SHA-256 mismatch for ${url}: expected ${expectedSha256}, got ${actualHash}. File not written.`
       );
     }
   }
+
+  // R39-FIX: Atomic write via shared atomicWriteFile utility
+  // Prevents partial files from being read by concurrent processes
+  await atomicWriteFile(cachePath, text);
 }
 
 /**
@@ -311,9 +324,15 @@ export function verifySha256(filePath: string, expectedSha256?: string): string 
  * @returns Parsed concordance mappings
  * @throws Error if required columns are missing or download fails
  */
+export interface LoadConcordanceOptions {
+  /** R35: Print computed SHA-256 hashes for each downloaded URL to stdout */
+  recordHashes?: boolean;
+}
+
 export async function loadConcordance(
   config: ConcordanceConfig,
   cacheDir: string,
+  options?: LoadConcordanceOptions,
 ): Promise<ConcordanceResult> {
   const delimiter = config.delimiter ?? ',';
   const filename = config.cacheFilename ?? cacheFilenameFromUrl(config.url);
@@ -338,7 +357,18 @@ export async function loadConcordance(
       console.log(`Cache stale (${Math.floor(ageMs / 86400000)}d old, max ${config.maxAgeDays ?? 90}d): re-downloading`);
       fromCache = false;
       await downloadToCache(config.url, cachePath, config.sha256);
+    } else if (config.sha256) {
+      // R47-F2: Re-verify SHA-256 on cache reads to detect tampering between runs.
+      // downloadToCache() only verifies on fresh download — cached files were unprotected.
+      verifySha256(cachePath, config.sha256);
     }
+  }
+
+  // R35: Record SHA-256 hash of the downloaded file for sources-manifest population
+  if (options?.recordHashes) {
+    const fileContent = readFileSync(cachePath);
+    const computedHash = createHash('sha256').update(fileContent).digest('hex');
+    console.log(`SOURCE_HASH: '${config.url}': '${computedHash}',`);
   }
 
   // Parse CSV via streaming
@@ -404,6 +434,14 @@ export async function loadConcordance(
 
   // M-1: Sort by unitId for deterministic output regardless of CSV row order
   mappings.sort((a, b) => a.unitId < b.unitId ? -1 : a.unitId > b.unitId ? 1 : 0);
+
+  // R28-HYD-C1: Warn when SHA-256 hash is not configured — integrity verification is dead code until populated
+  if (!config.sha256) {
+    console.warn(
+      '[concordance-loader] WARNING: No SHA-256 hash configured for concordance source — integrity verification skipped',
+      { url: config.url }
+    );
+  }
 
   return {
     mappings,

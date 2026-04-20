@@ -7,7 +7,7 @@
 PRAGMA foreign_keys = ON;
 
 -- municipalities: finite universe (19k US incorporated places)
-CREATE TABLE municipalities (
+CREATE TABLE IF NOT EXISTS municipalities (
   id TEXT PRIMARY KEY,              -- "ca-los_angeles"
   name TEXT NOT NULL,               -- "Los Angeles, CA"
   state TEXT NOT NULL,              -- "CA"
@@ -17,11 +17,11 @@ CREATE TABLE municipalities (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
-CREATE INDEX idx_muni_state ON municipalities(state);
-CREATE INDEX idx_muni_pop ON municipalities(population DESC);
+CREATE INDEX IF NOT EXISTS idx_muni_state ON municipalities(state);
+CREATE INDEX IF NOT EXISTS idx_muni_pop ON municipalities(population DESC);
 
 -- sources: discovered portal endpoints per municipality
-CREATE TABLE sources (
+CREATE TABLE IF NOT EXISTS sources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   muni_id TEXT NOT NULL REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: source is meaningless without its municipality
   kind TEXT NOT NULL CHECK (kind IN ('arcgis','socrata','ckan','geojson')),
@@ -34,10 +34,10 @@ CREATE TABLE sources (
   UNIQUE (muni_id, kind, url)
 );
 
-CREATE INDEX idx_sources_muni ON sources(muni_id);
+CREATE INDEX IF NOT EXISTS idx_sources_muni ON sources(muni_id);
 
 -- selections: chosen source per municipality (LLM or heuristic decision)
-CREATE TABLE selections (
+CREATE TABLE IF NOT EXISTS selections (
   muni_id TEXT PRIMARY KEY REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: selection is meaningless without its municipality
   source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,  -- CASCADE: if source is deleted, selection must be re-evaluated
   district_field TEXT,              -- e.g., "DISTRICT", "WARD"
@@ -49,12 +49,12 @@ CREATE TABLE selections (
   model TEXT                        -- e.g., "gemini-2.5-flash" if llm
 );
 
-CREATE INDEX idx_selections_confidence ON selections(confidence);
-CREATE INDEX idx_selections_decided_by ON selections(decided_by);
-CREATE INDEX idx_selections_source_id ON selections(source_id);  -- PERFORMANCE: fast lookup of which selections use a given source
+CREATE INDEX IF NOT EXISTS idx_selections_confidence ON selections(confidence);
+CREATE INDEX IF NOT EXISTS idx_selections_decided_by ON selections(decided_by);
+CREATE INDEX IF NOT EXISTS idx_selections_source_id ON selections(source_id);  -- PERFORMANCE: fast lookup of which selections use a given source
 
 -- artifacts: normalized GeoJSON blobs (content-addressed)
-CREATE TABLE artifacts (
+CREATE TABLE IF NOT EXISTS artifacts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   muni_id TEXT NOT NULL REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: artifact is meaningless without its municipality
   content_sha256 TEXT NOT NULL,     -- key into R2/S3
@@ -67,18 +67,18 @@ CREATE TABLE artifacts (
   UNIQUE (content_sha256)           -- deduplication
 );
 
-CREATE INDEX idx_artifacts_muni ON artifacts(muni_id);
-CREATE INDEX idx_artifacts_sha ON artifacts(content_sha256);
+CREATE INDEX IF NOT EXISTS idx_artifacts_muni ON artifacts(muni_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_sha ON artifacts(content_sha256);
 
 -- heads: pointers to current artifact per municipality
-CREATE TABLE heads (
+CREATE TABLE IF NOT EXISTS heads (
   muni_id TEXT PRIMARY KEY REFERENCES municipalities(id) ON DELETE CASCADE,  -- CASCADE: head pointer is meaningless without its municipality
   artifact_id INTEGER NOT NULL REFERENCES artifacts(id) ON DELETE RESTRICT,  -- RESTRICT: cannot delete an artifact that is the current head (delete head first)
   updated_at TEXT NOT NULL
 );
 
 -- events: append-only provenance log
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ts TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   run_id TEXT NOT NULL,             -- batch/cron run identifier
@@ -90,7 +90,7 @@ CREATE TABLE events (
   error TEXT                        -- error message if kind='ERROR'
 );
 
-CREATE INDEX idx_events_ts ON events(ts DESC);
-CREATE INDEX idx_events_muni ON events(muni_id);
-CREATE INDEX idx_events_kind ON events(kind);
-CREATE INDEX idx_events_run ON events(run_id);
+CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_events_muni ON events(muni_id);
+CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind);
+CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);

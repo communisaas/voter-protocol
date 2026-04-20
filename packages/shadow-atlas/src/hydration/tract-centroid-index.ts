@@ -16,8 +16,9 @@
  * @packageDocumentation
  */
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 import * as shapefile from 'shapefile';
 import JSZip from 'jszip';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
@@ -125,12 +126,10 @@ async function loadStateCentroids(
   const zipUrl = `${TIGER_TRACT_BASE_URL}/tl_2024_${stateFips}_tract.zip`;
   log(`[TRACT] Downloading TIGER tracts for state ${stateFips}...`);
 
-  const resp = await fetch(zipUrl);
-  if (!resp.ok) {
-    throw new Error(`Failed to download ${zipUrl}: HTTP ${resp.status}`);
-  }
-
-  const zipBuffer = Buffer.from(await resp.arrayBuffer());
+  // R79-S02: Use fetchBufferWithSizeLimit instead of raw fetch to enforce
+  // redirect: 'error' (SSRF prevention) and size limit (OOM prevention).
+  const { fetchBufferWithSizeLimit } = await import('./fetch-with-size-limit.js');
+  const zipBuffer = await fetchBufferWithSizeLimit(zipUrl, 500 * 1024 * 1024); // 500MB cap
 
   // Extract shapefile components
   const zip = await JSZip.loadAsync(zipBuffer);
@@ -179,7 +178,7 @@ async function loadStateCentroids(
   for (const [geoid, centroid] of centroids) {
     cacheObj[geoid] = centroid;
   }
-  await writeFile(cacheFile, JSON.stringify(cacheObj));
+  await atomicWriteFile(cacheFile, JSON.stringify(cacheObj));
 
   return centroids;
 }

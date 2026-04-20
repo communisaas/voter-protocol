@@ -6,13 +6,22 @@
  */
 
 import { Pool, type PoolClient, type PoolConfig } from 'pg';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { DatabaseAdapter } from '../repository';
 import { logger } from '../../core/utils/logger.js';
 
+// R62-H1: Per-context transaction isolation. Instance-level transactionClient/transactionDepth
+// caused cross-request contamination in concurrent environments (Cloudflare Workers).
+// AsyncLocalStorage ensures each async context (request) gets its own transaction client.
+interface TransactionContext {
+  client: PoolClient;
+  depth: number;
+}
+
+const txStorage = new AsyncLocalStorage<TransactionContext>();
+
 export class PostgreSQLAdapter implements DatabaseAdapter {
   private pool: Pool;
-  private transactionClient: PoolClient | null = null;
-  private transactionDepth = 0;
 
   constructor(config: PoolConfig) {
     this.pool = new Pool({
@@ -32,11 +41,17 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     });
   }
 
+  // R62-H1: Queries route through the current transaction's client (via AsyncLocalStorage)
+  // or fall back to the pool for non-transactional queries.
+  private getClient(): PoolClient | Pool {
+    return txStorage.getStore()?.client ?? this.pool;
+  }
+
   async queryOne<T>(
     sql: string,
     params: ReadonlyArray<unknown> = []
   ): Promise<T | null> {
-    const client = this.transactionClient ?? this.pool;
+    const client = this.getClient();
     const result = await client.query(this.parameterize(sql), [...params]);
     return (result.rows[0] as T | undefined) ?? null;
   }
@@ -45,7 +60,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     sql: string,
     params: ReadonlyArray<unknown> = []
   ): Promise<ReadonlyArray<T>> {
-    const client = this.transactionClient ?? this.pool;
+    const client = this.getClient();
     const result = await client.query(this.parameterize(sql), [...params]);
     return result.rows as T[];
   }
@@ -54,62 +69,45 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
     sql: string,
     params: ReadonlyArray<unknown> = []
   ): Promise<number> {
-    const client = this.transactionClient ?? this.pool;
+    const client = this.getClient();
     const result = await client.query(this.parameterize(sql), [...params]);
     return result.rowCount ?? 0;
   }
 
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    // Support nested transactions via savepoints
-    const savepoint = `sp_${this.transactionDepth}`;
-    this.transactionDepth++;
+    const existing = txStorage.getStore();
+
+    if (existing) {
+      // Nested transaction — use savepoint on the existing client
+      const savepoint = `sp_${existing.depth}`;
+      existing.depth++;
+      try {
+        await existing.client.query(`SAVEPOINT ${savepoint}`);
+        const result = await fn();
+        await existing.client.query(`RELEASE SAVEPOINT ${savepoint}`);
+        return result;
+      } catch (error) {
+        await existing.client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        throw error;
+      } finally {
+        existing.depth--;
+      }
+    }
+
+    // Top-level transaction — acquire a dedicated client for this async context
+    const client = await this.pool.connect();
+    const ctx: TransactionContext = { client, depth: 1 };
 
     try {
-      if (this.transactionDepth === 1) {
-        // Acquire client for entire transaction
-        this.transactionClient = await this.pool.connect();
-        await this.transactionClient.query('BEGIN');
-      } else {
-        // Nested transaction - use savepoint
-        if (!this.transactionClient) {
-          throw new Error('No active transaction client');
-        }
-        await this.transactionClient.query(`SAVEPOINT ${savepoint}`);
-      }
-
-      const result = await fn();
-
-      if (this.transactionDepth === 1) {
-        if (!this.transactionClient) {
-          throw new Error('No active transaction client');
-        }
-        await this.transactionClient.query('COMMIT');
-        this.transactionClient.release();
-        this.transactionClient = null;
-      } else {
-        if (!this.transactionClient) {
-          throw new Error('No active transaction client');
-        }
-        await this.transactionClient.query(`RELEASE SAVEPOINT ${savepoint}`);
-      }
-
-      this.transactionDepth--;
+      await client.query('BEGIN');
+      const result = await txStorage.run(ctx, fn);
+      await client.query('COMMIT');
       return result;
     } catch (error) {
-      if (this.transactionDepth === 1) {
-        if (this.transactionClient) {
-          await this.transactionClient.query('ROLLBACK');
-          this.transactionClient.release();
-          this.transactionClient = null;
-        }
-      } else {
-        if (this.transactionClient) {
-          await this.transactionClient.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-        }
-      }
-
-      this.transactionDepth--;
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -119,10 +117,49 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
   /**
    * Convert SQLite-style ? placeholders to PostgreSQL $1, $2, etc.
+   *
+   * R62-H2: The naive regex `/\?/g` replaced ALL `?` characters, including those
+   * inside string literals ('What?'), comments, and PostgreSQL's JSONB `?` operator.
+   * This parser skips quoted strings so only actual parameter placeholders are replaced.
    */
   private parameterize(sql: string): string {
     let paramIndex = 1;
-    return sql.replace(/\?/g, () => `$${paramIndex++}`);
+    let result = '';
+    let i = 0;
+    while (i < sql.length) {
+      const ch = sql[i];
+      // Skip single-quoted string literals
+      if (ch === "'") {
+        let j = i + 1;
+        while (j < sql.length) {
+          if (sql[j] === "'" && sql[j + 1] === "'") {
+            j += 2; // escaped quote
+          } else if (sql[j] === "'") {
+            j++;
+            break;
+          } else {
+            j++;
+          }
+        }
+        result += sql.slice(i, j);
+        i = j;
+      // Skip double-quoted identifiers
+      } else if (ch === '"') {
+        let j = i + 1;
+        while (j < sql.length && sql[j] !== '"') j++;
+        j++; // closing quote
+        result += sql.slice(i, j);
+        i = j;
+      // Replace parameter placeholder
+      } else if (ch === '?') {
+        result += `$${paramIndex++}`;
+        i++;
+      } else {
+        result += ch;
+        i++;
+      }
+    }
+    return result;
   }
 
   /**
@@ -138,7 +175,9 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
    */
   async optimize(): Promise<void> {
     // VACUUM cannot run inside transaction
-    if (this.transactionClient) {
+    // R63-M2: Updated from stale `this.transactionClient` (removed in R62-H1)
+    // to use AsyncLocalStorage context check.
+    if (txStorage.getStore()) {
       throw new Error('Cannot vacuum inside transaction');
     }
 
@@ -183,6 +222,21 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
    * Requires pg_dump binary in PATH.
    */
   async backup(destinationPath: string): Promise<void> {
+    // Reject path traversal AND arbitrary absolute paths.
+    // R78-C2-P only blocked ".." but accepted "/etc/cron.d/backdoor".
+    const { resolve, isAbsolute } = await import('path');
+    if (destinationPath.includes('..')) {
+      throw new Error('Backup destination path must not contain ".." traversal');
+    }
+    if (isAbsolute(destinationPath)) {
+      throw new Error('Backup destination must be a relative path');
+    }
+    const resolved = resolve(destinationPath);
+    // Validate resolved path stays under cwd to prevent symlink traversal.
+    const cwd = process.cwd();
+    if (!resolved.startsWith(cwd + '/') && resolved !== cwd) {
+      throw new Error('Backup destination resolves outside working directory');
+    }
     const { spawn } = await import('child_process');
 
     return new Promise((resolve, reject) => {
@@ -193,7 +247,7 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
         '-p', String(config.port ?? 5432),
         '-U', config.user ?? 'postgres',
         '-d', config.database ?? 'postgres',
-        '-f', destinationPath,
+        '-f', resolved,
         '-F', 'c', // Custom format (compressed)
       ];
 

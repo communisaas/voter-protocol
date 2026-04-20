@@ -222,7 +222,9 @@ export function getRegistryPath(registry: keyof typeof REGISTRY_PATHS): string {
  */
 export async function appendAuditEntry(entry: Omit<AuditEntry, 'id' | 'timestamp'>): Promise<void> {
   const auditPath = getRegistryPath('auditLog');
-  await mkdir(dirname(auditPath), { recursive: true });
+  // Restrict audit log directory permissions (operator-only).
+  // Matches fix in cli/lib/audit.ts.
+  await mkdir(dirname(auditPath), { recursive: true, mode: 0o700 });
 
   const fullEntry: AuditEntry = {
     id: randomUUID(),
@@ -240,10 +242,14 @@ export async function appendAuditEntry(entry: Omit<AuditEntry, 'id' | 'timestamp
 
   try {
     const { appendFile } = await import('fs/promises');
-    await appendFile(auditPath, line, 'utf-8');
+    // Restrict audit log file permissions (operator-only).
+    await appendFile(auditPath, line, { encoding: 'utf-8', mode: 0o600 });
   } catch (error) {
     // If file doesn't exist, create it
     await atomicWriteFile(auditPath, line);
+    // Restrict permissions on newly created audit log (match appendFile mode above).
+    const { chmod } = await import('fs/promises');
+    await chmod(auditPath, 0o600);
   }
 }
 

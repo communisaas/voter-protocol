@@ -40,14 +40,15 @@ export function parseDatabaseUrl(databaseUrl: string): AdapterConfig {
   const url = new URL(databaseUrl);
 
   if (url.protocol === 'sqlite:') {
-    // SQLite: sqlite:///absolute/path or sqlite://relative/path
-    const filepath = url.pathname.startsWith('/')
-      ? url.pathname.slice(1) // Remove leading slash for absolute paths
-      : url.pathname;
+    // SQLite: sqlite:///absolute/path → url.pathname = '/absolute/path' (keep as-is)
+    //         sqlite://relative/path  → url.pathname = 'relative/path'
+    // For POSIX, url.pathname already contains the correct path.
+    // new URL('sqlite:///var/lib/app.db').pathname === '/var/lib/app.db'
+    const filepath = url.pathname || '.shadow-atlas/shadow-atlas.db';
 
     return {
       type: 'sqlite',
-      url: filepath || '.shadow-atlas/shadow-atlas.db',
+      url: filepath,
     };
   }
 
@@ -116,7 +117,7 @@ export async function createDatabaseAdapter(
       user: url.username,
       password: url.password,
       database: url.pathname.slice(1), // Remove leading slash
-      ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: false } : undefined,
+      ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' } : undefined,
     };
 
     const adapter = new PostgreSQLAdapter(poolConfig);
@@ -172,7 +173,7 @@ export async function createAdapterFromConfig(
       user: url.username,
       password: url.password,
       database: url.pathname.slice(1),
-      ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: false } : undefined,
+      ssl: url.searchParams.get('ssl') === 'true' ? { rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' } : undefined,
     };
 
     const adapter = new PostgreSQLAdapter(poolConfig);

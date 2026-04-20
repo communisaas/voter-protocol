@@ -387,15 +387,36 @@ class FileLock {
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
         this.lockHandle = await fs.open(this.lockPath, 'wx');
+        await this.lockHandle.write(`${process.pid}:${Date.now()}\n`);
         return;
       } catch {
         if (attempt === this.maxRetries - 1) {
+          // R72-PROV-H1: Try to override stale lock (port of R70-H3)
+          const overridden = await this.tryOverrideStaleLock();
+          if (overridden) return;
           throw new Error(`Failed to acquire lock after ${this.maxRetries} attempts`);
         }
         const delay = this.retryDelayMs * (1 + Math.random());
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
+  }
+
+  private async tryOverrideStaleLock(): Promise<boolean> {
+    const STALE_THRESHOLD_MS = 30_000;
+    try {
+      const stat = await fs.stat(this.lockPath);
+      const age = Date.now() - stat.mtimeMs;
+      if (age > STALE_THRESHOLD_MS) {
+        await fs.unlink(this.lockPath);
+        this.lockHandle = await fs.open(this.lockPath, 'wx');
+        await this.lockHandle.write(`${process.pid}:${Date.now()}\n`);
+        return true;
+      }
+    } catch {
+      // Override failed — another process may have acquired
+    }
+    return false;
   }
 
   async release(): Promise<void> {
@@ -639,9 +660,11 @@ export class TessellationProvenanceWriter {
       const newLine = JSON.stringify(entry) + '\n';
       const updatedData = existingData + newLine;
 
-      // Compress and write
+      // R72-PROV-M1: Atomic write — tmp+rename prevents corrupt gzip on crash
       const compressed = await gzip(Buffer.from(updatedData, 'utf-8'));
-      await fs.writeFile(logPath, compressed);
+      const tmpPath = `${logPath}.tmp`;
+      await fs.writeFile(tmpPath, compressed);
+      await fs.rename(tmpPath, logPath);
     } finally {
       await lock.release();
     }

@@ -296,9 +296,11 @@ export class ShadowAtlasRepository {
     }));
   }
 
-  async getExtractionCoverage(): Promise<ReadonlyArray<ExtractionCoverageView>> {
+  async getExtractionCoverage(limit = 10000): Promise<ReadonlyArray<ExtractionCoverageView>> {
+    // Add LIMIT to prevent unbounded result sets.
     return this.db.queryMany<ExtractionCoverageView>(
-      'SELECT * FROM v_extraction_coverage ORDER BY state_code, layer_type'
+      'SELECT * FROM v_extraction_coverage ORDER BY state_code, layer_type LIMIT ?',
+      [limit]
     );
   }
 
@@ -505,9 +507,11 @@ export class ShadowAtlasRepository {
     return row;
   }
 
-  async getRegistryGaps(): Promise<ReadonlyArray<RegistryGapView>> {
+  async getRegistryGaps(limit = 10000): Promise<ReadonlyArray<RegistryGapView>> {
+    // Add LIMIT to prevent unbounded result sets.
     return this.db.queryMany<RegistryGapView>(
-      'SELECT * FROM v_registry_gaps ORDER BY occurrence_count DESC'
+      'SELECT * FROM v_registry_gaps ORDER BY occurrence_count DESC LIMIT ?',
+      [limit]
     );
   }
 
@@ -688,18 +692,26 @@ export class ShadowAtlasRepository {
     jobId: JobId,
     field: 'completed_tasks' | 'failed_tasks' | 'skipped_tasks'
   ): Promise<JobRow> {
-    return this.db.transaction(async () => {
-      const current = await this.getJob(jobId);
-      if (!current) {
-        throw new Error(`Job not found: ${jobId}`);
-      }
+    // Runtime allowlist for field parameter. TypeScript union type
+    // guards at compile time only — bypass via `as any` or JS callers would allow
+    // SQL injection through the interpolated column name.
+    const ALLOWED_FIELDS = ['completed_tasks', 'failed_tasks', 'skipped_tasks'] as const;
+    if (!ALLOWED_FIELDS.includes(field as typeof ALLOWED_FIELDS[number])) {
+      throw new Error(`Invalid progress field: ${field}`);
+    }
 
-      const update: JobUpdate = {
-        updated_at: nowISO8601(),
-        [field]: current[field] + 1,
-      };
+    // Atomic SQL increment instead of read-modify-write.
+    // Previous pattern (SELECT→increment in JS→UPDATE) loses updates under
+    // concurrent calls: two callers read 5, both write 6 instead of 7.
+    await this.db.execute(
+      `UPDATE jobs SET ${field} = ${field} + 1, updated_at = ? WHERE id = ? AND archived_at IS NULL`,
+      [nowISO8601(), jobId]
+    );
 
-      return this.updateJob(jobId, update);
-    });
+    const row = await this.getJob(jobId);
+    if (!row) {
+      throw new Error(`Job not found: ${jobId}`);
+    }
+    return row;
   }
 }

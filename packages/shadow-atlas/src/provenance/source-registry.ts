@@ -417,7 +417,16 @@ export class SourceRegistry {
    */
   async checkFreshness(url: string): Promise<FreshnessCheck> {
     try {
-      const response = await fetch(url, { method: 'HEAD' });
+      // R60-M8: Timeout prevents a slow/unresponsive source from hanging
+      // selectSource() indefinitely. Consistent with feedFetchTimeoutMs pattern.
+      // R77-P4: redirect: 'manual' prevents open-redirect → SSRF chains.
+      // A HEAD check only needs the origin server's response headers, not
+      // whatever a 3xx location might point at (could be internal).
+      const response = await fetch(url, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(10000),
+        redirect: 'manual',
+      });
 
       if (!response.ok) {
         return {

@@ -126,12 +126,13 @@ export async function logAudit(
 
   const logPath = getAuditLogPath(globalConfig.dataDir);
 
-  // Ensure audit directory exists
-  await mkdir(dirname(logPath), { recursive: true });
+  // Restrict audit log directory/file permissions (operator-only).
+  // Default umask (0o022) leaves audit logs world-readable on shared systems.
+  await mkdir(dirname(logPath), { recursive: true, mode: 0o700 });
 
   // Append entry to audit log
   const line = JSON.stringify(auditEntry) + '\n';
-  await appendFile(logPath, line, 'utf-8');
+  await appendFile(logPath, line, { encoding: 'utf-8', mode: 0o600 });
 
   return auditEntry;
 }

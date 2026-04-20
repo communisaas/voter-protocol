@@ -28,6 +28,9 @@ export class SQLiteAdapter implements DatabaseAdapter {
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    // Match R62-M1 — WAL + NORMAL risks silent transaction loss on crash.
+    this.db.pragma('synchronous = FULL');
+    this.db.pragma('busy_timeout = 5000');
     this.db.pragma('foreign_keys = ON');
   }
 
@@ -310,11 +313,13 @@ export class SQLiteAdapter implements DatabaseAdapter {
     }));
   }
 
-  async getEventsByRun(run_id: string): Promise<Event[]> {
+  async getEventsByRun(run_id: string, limit: number = 10000): Promise<Event[]> {
+    // Add LIMIT to prevent OOM on large run event sets.
+    // Other similar methods (getEventsByMuni, getErrors) already have LIMIT.
     const stmt = this.db.prepare(`
-      SELECT * FROM events WHERE run_id = ? ORDER BY ts ASC
+      SELECT * FROM events WHERE run_id = ? ORDER BY ts ASC LIMIT ?
     `);
-    const rows = stmt.all(run_id) as (Omit<Event, 'payload'> & { payload: string })[];
+    const rows = stmt.all(run_id, limit) as (Omit<Event, 'payload'> & { payload: string })[];
 
     return rows.map(row => ({
       ...row,

@@ -9,6 +9,7 @@
  */
 
 import { promises as fs } from 'fs';
+import { createHash } from 'crypto';
 import { join, dirname } from 'path';
 import type { StorageAdapter } from '../types';
 
@@ -27,6 +28,9 @@ export class FilesystemStorageAdapter implements StorageAdapter {
    * Example: 2b2ee... -> {basePath}/2b/2ee/2b2ee...geojson
    */
   private getPath(sha256: string): string {
+    if (!/^[0-9a-f]{64}$/i.test(sha256)) {
+      throw new Error(`Invalid SHA-256 hash: ${sha256}`);
+    }
     const shard1 = sha256.slice(0, 2);
     const shard2 = sha256.slice(2, 5);
     return join(this.basePath, shard1, shard2, `${sha256}.geojson`);
@@ -36,23 +40,39 @@ export class FilesystemStorageAdapter implements StorageAdapter {
    * Get metadata path (JSON sidecar)
    */
   private getMetaPath(sha256: string): string {
+    if (!/^[0-9a-f]{64}$/i.test(sha256)) {
+      throw new Error(`Invalid SHA-256 hash: ${sha256}`);
+    }
     const shard1 = sha256.slice(0, 2);
     const shard2 = sha256.slice(2, 5);
     return join(this.basePath, shard1, shard2, `${sha256}.meta.json`);
   }
 
   async put(sha256: string, data: Buffer, metadata: Record<string, string>): Promise<void> {
+    // R69-ARC-F4: Verify content matches the SHA-256 key — enforce content-addressing.
+    const actualHash = createHash('sha256').update(data).digest('hex');
+    if (actualHash !== sha256.toLowerCase()) {
+      throw new Error(`Content hash mismatch: expected ${sha256}, got ${actualHash}`);
+    }
+
     const path = this.getPath(sha256);
     const metaPath = this.getMetaPath(sha256);
 
     // Create directory
     await fs.mkdir(dirname(path), { recursive: true });
 
-    // Write blob
-    await fs.writeFile(path, data);
+    // R68-F4: Atomic writes — write to .tmp then rename to prevent partial
+    // reads on crash. rename() is atomic on POSIX within the same filesystem.
+    const tmpPath = `${path}.tmp`;
+    const tmpMetaPath = `${metaPath}.tmp`;
 
-    // Write metadata
-    await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2));
+    // Write blob atomically
+    await fs.writeFile(tmpPath, data);
+    await fs.rename(tmpPath, path);
+
+    // Write metadata atomically
+    await fs.writeFile(tmpMetaPath, JSON.stringify(metadata, null, 2));
+    await fs.rename(tmpMetaPath, metaPath);
   }
 
   async get(sha256: string): Promise<Buffer | null> {
@@ -108,7 +128,11 @@ export class FilesystemStorageAdapter implements StorageAdapter {
 
     try {
       const data = await fs.readFile(metaPath, 'utf-8');
-      return JSON.parse(data) as Record<string, string>;
+      const parsed: unknown = JSON.parse(data);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error(`Invalid metadata format for ${sha256}: expected a plain object`);
+      }
+      return parsed as Record<string, string>;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;

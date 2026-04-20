@@ -14,6 +14,8 @@
  */
 
 import { logger } from '../core/utils/logger.js';
+// R81-P4: Import authority registry for claim validation
+import { AuthorityRegistry } from './authority-registry.js';
 
 /**
  * Source claim for a boundary
@@ -78,6 +80,9 @@ interface ResolutionDecision {
   /** Whether resolution required manual override */
   readonly manualOverride: boolean;
 
+  /** R81-P10: Operator who created a manual override (only set when manualOverride=true) */
+  readonly operatorId?: string;
+
   /** List of rejected alternatives with reasons */
   readonly rejected: readonly {
     readonly sourceId: string;
@@ -97,6 +102,72 @@ interface ResolutionResult {
 
   /** Full resolution decision record */
   readonly decision: ResolutionDecision;
+}
+
+// R81-P4: Authority validator interface for cross-checking caller-provided claims
+/**
+ * Validates source claim metadata (isPrimary, authorityLevel) against
+ * the authority registry. Used by resolveConflict() when an
+ * AuthorityRegistry instance is provided.
+ *
+ * Returns corrected values. If the source is unknown to the registry,
+ * returns the original values unchanged (caller is trusted for unknown sources).
+ */
+interface ValidatedClaimFields {
+  readonly isPrimary: boolean;
+  readonly authorityLevel: number;
+  readonly corrected: boolean;
+}
+
+/**
+ * Validate a single source claim's authority fields against the registry.
+ *
+ * Strategy: look up the source name across all boundary types. If found in
+ * any primarySources list, isPrimary=true and authorityLevel>=4. If found
+ * only in aggregatorSources, isPrimary=false and authorityLevel<=3.
+ * Unknown sources pass through unchanged.
+ *
+ * R81-P4: Prevents callers from elevating aggregator sources to primary status.
+ */
+function validateClaimAgainstRegistry(
+  claim: SourceClaim,
+  registry: AuthorityRegistry
+): ValidatedClaimFields {
+  let foundAsPrimary = false;
+  let foundAsAggregator = false;
+
+  for (const boundaryType of registry.getBoundaryTypes()) {
+    const entry = registry.getAuthority(boundaryType);
+
+    for (const ps of entry.primarySources) {
+      if (ps.name === claim.sourceName || ps.entity === claim.sourceName) {
+        foundAsPrimary = true;
+        break;
+      }
+    }
+    if (foundAsPrimary) break;
+
+    for (const ag of entry.aggregatorSources) {
+      if (ag.name === claim.sourceName) {
+        foundAsAggregator = true;
+      }
+    }
+  }
+
+  if (foundAsPrimary) {
+    const correctedLevel = Math.max(claim.authorityLevel, 4);
+    const corrected = !claim.isPrimary || claim.authorityLevel !== correctedLevel;
+    return { isPrimary: true, authorityLevel: correctedLevel, corrected };
+  }
+
+  if (foundAsAggregator) {
+    const correctedLevel = Math.min(claim.authorityLevel, 3);
+    const corrected = claim.isPrimary || claim.authorityLevel !== correctedLevel;
+    return { isPrimary: false, authorityLevel: correctedLevel, corrected };
+  }
+
+  // Unknown source — trust caller values
+  return { isPrimary: claim.isPrimary, authorityLevel: claim.authorityLevel, corrected: false };
 }
 
 /**
@@ -123,23 +194,55 @@ export class ConflictResolver {
    * - Among same tier, freshest wins
    * - Ties broken by authority level
    *
+   * R81-P4: If authorityRegistry is provided, each claim's isPrimary and
+   * authorityLevel are validated against the registry before resolution.
+   * Mismatches are logged at WARN and corrected to registry values.
+   *
    * @param boundaryId - Identifier for the boundary being resolved
    * @param sources - Array of competing source claims
+   * @param authorityRegistry - Optional authority registry for claim validation
    * @returns Resolution result with winner and decision record
    * @throws Error if no valid sources provided
    */
   async resolveConflict(
     boundaryId: string,
-    sources: readonly SourceClaim[]
+    sources: readonly SourceClaim[],
+    authorityRegistry?: AuthorityRegistry
   ): Promise<ResolutionResult> {
     // Validate input
     if (sources.length === 0) {
       throw new Error(`No sources provided for boundary: ${boundaryId}`);
     }
 
+    // R81-P4: Validate and correct claim authority fields against the registry
+    let validatedSources: readonly SourceClaim[];
+    if (authorityRegistry) {
+      validatedSources = sources.map(claim => {
+        const validated = validateClaimAgainstRegistry(claim, authorityRegistry);
+        if (validated.corrected) {
+          logger.warn('R81-P4: Corrected source claim authority fields from registry', {
+            sourceId: claim.sourceId,
+            sourceName: claim.sourceName,
+            callerIsPrimary: claim.isPrimary,
+            registryIsPrimary: validated.isPrimary,
+            callerAuthorityLevel: claim.authorityLevel,
+            registryAuthorityLevel: validated.authorityLevel,
+          });
+          return {
+            ...claim,
+            isPrimary: validated.isPrimary,
+            authorityLevel: validated.authorityLevel,
+          };
+        }
+        return claim;
+      });
+    } else {
+      validatedSources = sources;
+    }
+
     // Single source - no conflict
-    if (sources.length === 1) {
-      const winner = sources[0];
+    if (validatedSources.length === 1) {
+      const winner = validatedSources[0];
       return {
         winner,
         decision: {
@@ -157,8 +260,8 @@ export class ConflictResolver {
     }
 
     // Multiple sources - resolve conflict
-    const primarySources = sources.filter(s => s.isPrimary);
-    const aggregatorSources = sources.filter(s => !s.isPrimary);
+    const primarySources = validatedSources.filter(s => s.isPrimary);
+    const aggregatorSources = validatedSources.filter(s => !s.isPrimary);
 
     let winner: SourceClaim;
     let reason: string;
@@ -358,25 +461,45 @@ export class ConflictResolver {
   /**
    * Create manual override decision
    *
-   * Allows human override of automatic resolution for edge cases.
+   * R81-P10: Allows human override of automatic resolution for edge cases.
+   * This method should ONLY be called by authorized operators. Caller is
+   * responsible for verifying operator authorization before invoking.
+   * All overrides are logged at WARN level with the operator identity
+   * for audit trail purposes.
    *
    * @param boundaryId - Boundary being resolved
    * @param selectedSourceId - Manually selected source ID
    * @param sources - All available source claims
    * @param reason - Human-provided reason for override
-   * @returns Resolution result with manual override flag
+   * @param operatorId - R81-P10: Required identifier of the operator performing the override
+   * @returns Resolution result with manual override flag and operator identity
    */
   createManualOverride(
     boundaryId: string,
     selectedSourceId: string,
     sources: readonly SourceClaim[],
-    reason: string
+    reason: string,
+    operatorId: string
   ): ResolutionResult {
+    // R81-P10: Validate operatorId is non-empty
+    if (!operatorId || operatorId.trim().length === 0) {
+      throw new Error('operatorId is required for manual overrides');
+    }
+
     const winner = sources.find(s => s.sourceId === selectedSourceId);
 
     if (!winner) {
       throw new Error(`Selected source ${selectedSourceId} not found in source list`);
     }
+
+    // R81-P10: Log the override with operator identity at WARN level
+    logger.warn('R81-P10: Manual override created', {
+      boundaryId,
+      selectedSourceId,
+      operatorId,
+      reason,
+      sourcesConsidered: sources.length,
+    });
 
     const rejected = sources
       .filter(s => s.sourceId !== selectedSourceId)
@@ -391,12 +514,13 @@ export class ConflictResolver {
       decision: {
         boundaryId,
         winner: winner.sourceId,
-        reason: `MANUAL OVERRIDE: ${reason}`,
+        reason: `MANUAL OVERRIDE by ${operatorId}: ${reason}`,
         freshness: winner.lastModified,
         alternativesCounted: sources.length - 1,
         timestamp: new Date().toISOString(),
         confidence: 75, // Medium confidence for manual overrides
         manualOverride: true,
+        operatorId, // R81-P10: Track who made the override
         rejected,
       },
     };

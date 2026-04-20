@@ -16,6 +16,7 @@ import * as path from 'path';
 import * as zlib from 'zlib';
 import { promisify } from 'util';
 import { logger } from '../core/utils/logger.js';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -377,7 +378,7 @@ export async function appendProvenance(
 
     // Compress and write back
     const compressed = await gzip(Buffer.from(updatedData, 'utf-8'));
-    await fs.writeFile(logPath, compressed);
+    await atomicWriteFile(logPath, compressed);
   } finally {
     // Always release lock
     await lock.release();

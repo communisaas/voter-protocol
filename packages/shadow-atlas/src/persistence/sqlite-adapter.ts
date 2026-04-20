@@ -124,6 +124,7 @@ interface NotConfiguredRow {
 
 interface SnapshotRow {
   readonly id: string;
+  readonly job_id: string | null;
   readonly merkle_root: string;
   readonly ipfs_cid: string;
   readonly boundary_count: number;
@@ -160,12 +161,15 @@ export class SqlitePersistenceAdapter {
 
     // Enable WAL mode for concurrent reads
     this.db.pragma('journal_mode = WAL');
+    this.db.pragma('busy_timeout = 5000');
 
     // Enable foreign keys
     this.db.pragma('foreign_keys = ON');
 
-    // Optimize for fast writes
-    this.db.pragma('synchronous = NORMAL');
+    // R62-M1: Use FULL synchronous mode — this adapter manages snapshots and Merkle
+    // roots. With NORMAL + WAL, last transactions can be silently lost on crash,
+    // orphaning on-chain roots that reference vanished snapshot records.
+    this.db.pragma('synchronous = FULL');
     this.db.pragma('temp_store = MEMORY');
   }
 
@@ -221,8 +225,11 @@ export class SqlitePersistenceAdapter {
       `).get() as { version: number | null } | undefined;
 
       return row?.version ?? 0;
-    } catch {
-      return 0;
+    } catch (error: unknown) {
+      // R21-M2: Only swallow "no such table" for fresh databases; rethrow unexpected errors.
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('no such table')) return 0;
+      throw error;
     }
   }
 
@@ -318,6 +325,17 @@ export class SqlitePersistenceAdapter {
             CREATE INDEX idx_extractions_state_layer ON extractions(state, layer);
             CREATE INDEX idx_snapshots_merkle_root ON snapshots(merkle_root);
             CREATE INDEX idx_validation_results_snapshot ON validation_results(snapshot_id);
+          `);
+        },
+      },
+      {
+        version: 2,
+        name: 'add_snapshot_job_id',
+        up: (db) => {
+          // Add job_id column to snapshots for provenance tracking.
+          // SQLite ALTER TABLE ADD COLUMN safely handles existing rows (defaults to NULL).
+          db.exec(`
+            ALTER TABLE snapshots ADD COLUMN job_id TEXT DEFAULT NULL;
           `);
         },
       },
@@ -452,8 +470,16 @@ export class SqlitePersistenceAdapter {
       checkedAt: new Date(row.checked_at),
     }));
 
-    // Parse options
-    const options = JSON.parse(jobRow.options_json) as OrchestrationOptions;
+    // Parse options (corrupted JSON in DB crashes the adapter — throw descriptive error)
+    let options: OrchestrationOptions;
+    try {
+      options = JSON.parse(jobRow.options_json) as OrchestrationOptions;
+    } catch {
+      throw new Error(
+        `Corrupt options_json in jobs table for job ${jobRow.job_id}. ` +
+        `Cannot reconstruct job state from corrupted persistence data.`
+      );
+    }
 
     return {
       jobId: jobRow.job_id,
@@ -618,22 +644,25 @@ export class SqlitePersistenceAdapter {
     jobId: string,
     task: NotConfiguredTask
   ): Promise<void> {
-    this.db.prepare(`
-      INSERT INTO not_configured (
-        job_id, state, layer, reason, checked_at
-      ) VALUES (?, ?, ?, ?, ?)
-    `).run(
-      jobId,
-      task.state,
-      task.layer,
-      task.reason,
-      task.checkedAt.toISOString()
-    );
+    // R21-M1: Wrap INSERT + UPDATE in transaction for atomicity
+    this.db.transaction(() => {
+      this.db.prepare(`
+        INSERT INTO not_configured (
+          job_id, state, layer, reason, checked_at
+        ) VALUES (?, ?, ?, ?, ?)
+      `).run(
+        jobId,
+        task.state,
+        task.layer,
+        task.reason,
+        task.checkedAt.toISOString()
+      );
 
-    // Update timestamp
-    this.db.prepare(`
-      UPDATE jobs SET updated_at = ? WHERE job_id = ?
-    `).run(new Date().toISOString(), jobId);
+      // Update timestamp
+      this.db.prepare(`
+        UPDATE jobs SET updated_at = ? WHERE job_id = ?
+      `).run(new Date().toISOString(), jobId);
+    })();
   }
 
   /**
@@ -726,11 +755,12 @@ export class SqlitePersistenceAdapter {
 
     this.db.prepare(`
       INSERT INTO snapshots (
-        id, merkle_root, ipfs_cid, boundary_count,
+        id, job_id, merkle_root, ipfs_cid, boundary_count,
         created_at, regions_json
-      ) VALUES (?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       snapshotId,
+      jobId,
       snapshot.merkleRoot,
       snapshot.ipfsCID,
       snapshot.boundaryCount,
@@ -756,13 +786,21 @@ export class SqlitePersistenceAdapter {
       return null;
     }
 
+    let regions: readonly string[];
+    try {
+      regions = JSON.parse(row.regions_json) as readonly string[];
+    } catch {
+      console.warn('Corrupt regions_json in snapshots table, defaulting to empty', { snapshotId: row.id });
+      regions = [];
+    }
+
     return {
       id: row.id,
       merkleRoot: row.merkle_root,
       ipfsCID: row.ipfs_cid,
       boundaryCount: row.boundary_count,
       createdAt: new Date(row.created_at),
-      regions: JSON.parse(row.regions_json) as readonly string[],
+      regions,
     };
   }
 
@@ -779,14 +817,23 @@ export class SqlitePersistenceAdapter {
       LIMIT ?
     `).all(limit) as SnapshotRow[];
 
-    return rows.map(row => ({
-      id: row.id,
-      merkleRoot: row.merkle_root,
-      ipfsCID: row.ipfs_cid,
-      boundaryCount: row.boundary_count,
-      createdAt: new Date(row.created_at),
-      regions: JSON.parse(row.regions_json) as readonly string[],
-    }));
+    return rows.map(row => {
+      let regions: readonly string[];
+      try {
+        regions = JSON.parse(row.regions_json) as readonly string[];
+      } catch {
+        console.warn('Corrupt regions_json in snapshots table, defaulting to empty', { snapshotId: row.id });
+        regions = [];
+      }
+      return {
+        id: row.id,
+        merkleRoot: row.merkle_root,
+        ipfsCID: row.ipfs_cid,
+        boundaryCount: row.boundary_count,
+        createdAt: new Date(row.created_at),
+        regions,
+      };
+    });
   }
 
   /**
@@ -804,13 +851,21 @@ export class SqlitePersistenceAdapter {
       return null;
     }
 
+    let regions: readonly string[];
+    try {
+      regions = JSON.parse(row.regions_json) as readonly string[];
+    } catch {
+      console.warn('Corrupt regions_json in snapshots table, defaulting to empty', { snapshotId: row.id });
+      regions = [];
+    }
+
     return {
       id: row.id,
       merkleRoot: row.merkle_root,
       ipfsCID: row.ipfs_cid,
       boundaryCount: row.boundary_count,
       createdAt: new Date(row.created_at),
-      regions: JSON.parse(row.regions_json) as readonly string[],
+      regions,
     };
   }
 
@@ -862,12 +917,19 @@ export class SqlitePersistenceAdapter {
     const results = new Map<string, ValidationResult>();
 
     for (const row of rows) {
+      let warnings: readonly string[];
+      try {
+        warnings = JSON.parse(row.warnings_json) as readonly string[];
+      } catch {
+        console.warn('Corrupt warnings_json in validation_results table, defaulting to empty', { boundaryId: row.boundary_id, snapshotId });
+        warnings = [];
+      }
       results.set(row.boundary_id, {
         boundaryId: row.boundary_id,
         geometryValid: Boolean(row.geometry_valid),
         geoidValid: Boolean(row.geoid_valid),
         confidence: row.confidence,
-        warnings: JSON.parse(row.warnings_json) as readonly string[],
+        warnings,
         validatedAt: new Date(row.validated_at),
       });
     }

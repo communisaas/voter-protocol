@@ -1,7 +1,7 @@
 -- Derived Views: Recompute on read, no storage
 
 -- v_status: current status per municipality
-CREATE VIEW v_status AS
+CREATE VIEW IF NOT EXISTS v_status AS
 SELECT
   m.id AS muni_id,
   m.name,
@@ -28,7 +28,7 @@ LEFT JOIN (
 ) src ON src.muni_id = m.id;
 
 -- v_coverage: state-level coverage metrics
-CREATE VIEW v_coverage AS
+CREATE VIEW IF NOT EXISTS v_coverage AS
 SELECT
   state,
   COUNT(*) AS total_munis,
@@ -42,7 +42,7 @@ GROUP BY state
 ORDER BY pct_complete DESC, total_munis DESC;
 
 -- v_errors: recent errors for debugging
-CREATE VIEW v_errors AS
+CREATE VIEW IF NOT EXISTS v_errors AS
 SELECT
   ts,
   muni_id,
@@ -56,7 +56,7 @@ ORDER BY ts DESC
 LIMIT 100;
 
 -- v_llm_usage: token/call tracking
-CREATE VIEW v_llm_usage AS
+CREATE VIEW IF NOT EXISTS v_llm_usage AS
 SELECT
   DATE(ts) AS date,
   model,

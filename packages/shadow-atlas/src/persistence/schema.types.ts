@@ -390,28 +390,32 @@ export type SnapshotRegions = ReadonlyArray<string>;
 // Type Guards - Runtime validation for branded types
 // ============================================================================
 
+// R78-M2-P: Validate UUID format instead of accepting any non-empty string.
+// IDs are generated via randomUUID(), so runtime guards should enforce this.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function isJobId(value: string): value is JobId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isExtractionId(value: string): value is ExtractionId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isFailureId(value: string): value is FailureId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isNotConfiguredId(value: string): value is NotConfiguredId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isSnapshotId(value: string): value is SnapshotId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isValidationResultId(value: string): value is ValidationResultId {
-  return typeof value === 'string' && value.length > 0;
+  return UUID_RE.test(value);
 }
 
 export function isJobStatus(value: string): value is JobStatus {

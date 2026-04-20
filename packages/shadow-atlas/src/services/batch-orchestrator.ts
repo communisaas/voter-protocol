@@ -45,9 +45,10 @@ import type {
   StatewideWardProgress,
   CityWardData,
 } from './batch-orchestrator.types.js';
-import { writeFile, mkdir, readFile } from 'fs/promises';
+import { mkdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { exec } from 'child_process';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import type { FeatureCollection, Feature, Polygon, MultiPolygon } from 'geojson';
 import { CensusPlaceListLoader } from '../core/registry/census-place-list.js';
@@ -57,7 +58,7 @@ import * as http from 'http';
 import { createWriteStream } from 'fs';
 import { logger } from '../core/utils/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // ============================================================================
 // Validation Report Types
@@ -541,7 +542,7 @@ export class BatchOrchestrator {
 
       // Write individual city file
       const cityOutputPath = join(stateDir, 'cities', `${fips}.geojson`);
-      await writeFile(cityOutputPath, JSON.stringify(cityGeoJSON, null, 2), 'utf-8');
+      await atomicWriteFile(cityOutputPath, JSON.stringify(cityGeoJSON, null, 2));
 
       results.push({
         fips,
@@ -567,7 +568,7 @@ export class BatchOrchestrator {
     // Generate registry entries
     const registryEntries = this.generateRegistryEntries(results);
     const registryEntriesPath = join(stateDir, 'registry-entries.json');
-    await writeFile(registryEntriesPath, JSON.stringify(registryEntries, null, 2), 'utf-8');
+    await atomicWriteFile(registryEntriesPath, JSON.stringify(registryEntries, null, 2));
 
     // Generate extraction summary
     const summary = {
@@ -585,7 +586,7 @@ export class BatchOrchestrator {
     };
 
     const summaryPath = join(stateDir, 'extraction-summary.json');
-    await writeFile(summaryPath, JSON.stringify(summary, null, 2), 'utf-8');
+    await atomicWriteFile(summaryPath, JSON.stringify(summary, null, 2));
 
     // Final notification
     await this.notifyStatewideProgress(state, 'completed', 'Extraction complete', options?.onProgress);
@@ -719,7 +720,7 @@ export class BatchOrchestrator {
     };
 
     // Write report to file
-    await writeFile(outputPath, JSON.stringify(report, null, 2), 'utf-8');
+    await atomicWriteFile(outputPath, JSON.stringify(report, null, 2));
   }
 
   // ============================================================================
@@ -727,21 +728,61 @@ export class BatchOrchestrator {
   // ============================================================================
 
   /**
-   * Download file from URL (with redirect support)
+   * Check if a redirect URL is safe (not pointing to private/loopback addresses)
    */
-  private async downloadFile(url: string, outputPath: string): Promise<void> {
+  private static isAllowedRedirectUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+      const hostname = parsed.hostname;
+      if (
+        /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|localhost$|\[::1\]|\[fc|\[fd)/i.test(
+          hostname
+        )
+      )
+        return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Download file from URL (with redirect support and SSRF protection)
+   */
+  private async downloadFile(
+    url: string,
+    outputPath: string,
+    maxRedirects: number = 5
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const client = url.startsWith('https') ? https : http;
 
       client.get(url, (response) => {
         // Handle redirects
         if (response.statusCode === 301 || response.statusCode === 302) {
+          if (maxRedirects <= 0) {
+            reject(new Error('Too many redirects'));
+            return;
+          }
           const redirectUrl = response.headers.location;
           if (!redirectUrl) {
             reject(new Error('Redirect without location header'));
             return;
           }
-          this.downloadFile(redirectUrl, outputPath).then(resolve).catch(reject);
+          // Resolve relative redirects against the current URL
+          const resolvedUrl = new URL(redirectUrl, url).toString();
+          if (!BatchOrchestrator.isAllowedRedirectUrl(resolvedUrl)) {
+            reject(
+              new Error(
+                `Redirect to disallowed URL blocked (private/loopback address): ${resolvedUrl}`
+              )
+            );
+            return;
+          }
+          this.downloadFile(resolvedUrl, outputPath, maxRedirects - 1)
+            .then(resolve)
+            .catch(reject);
           return;
         }
 
@@ -769,14 +810,20 @@ export class BatchOrchestrator {
    * Unzip shapefile archive
    */
   private async unzipShapefile(zipPath: string, outputDir: string): Promise<void> {
-    await execAsync(`unzip -o "${zipPath}" -d "${outputDir}"`);
+    // R79-A9: Validate paths don't contain traversal sequences before extraction.
+    // The safe-extract utility prevents zip-slip by checking resolved paths.
+    const { resolve } = await import('path');
+    if (zipPath.includes('..') || outputDir.includes('..')) {
+      throw new Error('Zip path or output dir must not contain ".." traversal');
+    }
+    await execFileAsync('unzip', ['-o', zipPath, '-d', resolve(outputDir)]);
   }
 
   /**
    * Find shapefile path in extracted directory
    */
   private async findShapefilePath(extractDir: string): Promise<string> {
-    const { stdout } = await execAsync(`find "${extractDir}" -name "*.shp" -type f`);
+    const { stdout } = await execFileAsync('find', [extractDir, '-name', '*.shp', '-type', 'f']);
     const shpFiles = stdout.trim().split('\n').filter(Boolean);
 
     if (shpFiles.length === 0) {
@@ -790,7 +837,7 @@ export class BatchOrchestrator {
    * Convert shapefile to GeoJSON using ogr2ogr
    */
   private async shapefileToGeoJSON(shpPath: string, outputPath: string): Promise<void> {
-    await execAsync(`ogr2ogr -f GeoJSON -t_srs EPSG:4326 "${outputPath}" "${shpPath}"`);
+    await execFileAsync('ogr2ogr', ['-f', 'GeoJSON', '-t_srs', 'EPSG:4326', outputPath, shpPath]);
   }
 
   /**
@@ -1122,9 +1169,11 @@ export class BatchOrchestrator {
           error: lastError.message,
         });
 
-        // Retry delay
+        // Retry delay with exponential backoff + jitter to prevent thundering herd
         if (attempt < options.maxRetries) {
-          await this.delay(options.retryDelayMs);
+          const jitter = Math.random() * options.retryDelayMs * 0.5;
+          const backoff = options.retryDelayMs * Math.pow(1.5, attempt - 1);
+          await this.delay(Math.min(backoff + jitter, 60_000));
         }
       }
     }
@@ -1290,12 +1339,15 @@ export class BatchOrchestrator {
       return 'completed';
     }
 
-    if (failedTasks > 0 && completedTasks + failedTasks === totalTasks) {
-      return 'partial';
-    }
-
+    // R76-F3: Check total failure BEFORE partial — previous ordering returned 'partial'
+    // even when all tasks failed (completedTasks=0, failedTasks=totalTasks satisfies
+    // both conditions, but 'failed' is the correct status).
     if (failedTasks === totalTasks) {
       return 'failed';
+    }
+
+    if (failedTasks > 0 && completedTasks + failedTasks === totalTasks) {
+      return 'partial';
     }
 
     return 'running';

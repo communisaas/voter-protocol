@@ -369,7 +369,8 @@ export class FieldMapper {
     }
 
     const key = String(sourceValue);
-    const mappedValue = transform.lookupTable[key];
+    // Guard against prototype chain access (__proto__, constructor, toString).
+    const mappedValue = Object.hasOwn(transform.lookupTable, key) ? transform.lookupTable[key] : undefined;
 
     if (mappedValue !== undefined) {
       return {

@@ -20,6 +20,10 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     // WAL mode for better concurrency
     this.db.pragma('journal_mode = WAL');
+    this.db.pragma('busy_timeout = 5000');
+    // R72-M3: Match R62-M1 from legacy adapter — FULL sync prevents silent
+    // transaction loss on crash with WAL mode (critical for Merkle root integrity)
+    this.db.pragma('synchronous = FULL');
 
     // Reasonable cache size (10MB)
     this.db.pragma('cache_size = -10000');
@@ -120,8 +124,12 @@ export class SQLiteAdapter implements DatabaseAdapter {
     // WAL file size (if exists)
     let walSizeBytes = 0;
     try {
-      const walPages = this.db.pragma('wal_checkpoint(PASSIVE)', { simple: true }) as number;
-      walSizeBytes = walPages * pageSize;
+      // Use stat() on WAL file instead of wal_checkpoint(PASSIVE)
+      // which triggers an actual checkpoint (write op masquerading as monitoring read).
+      const { statSync } = await import('fs');
+      const dbPath = this.db.name;
+      const walStats = statSync(`${dbPath}-wal`);
+      walSizeBytes = walStats.size;
     } catch {
       // WAL file might not exist
     }
@@ -138,7 +146,22 @@ export class SQLiteAdapter implements DatabaseAdapter {
    * Backup database to file.
    */
   async backup(destinationPath: string): Promise<void> {
-    await this.db.backup(destinationPath);
+    // Reject path traversal AND arbitrary absolute paths.
+    // R78-C2-P's relative() logic was dead code — it never caught absolute paths.
+    const { resolve, isAbsolute } = await import('path');
+    if (destinationPath.includes('..')) {
+      throw new Error('Backup destination path must not contain ".." traversal');
+    }
+    if (isAbsolute(destinationPath)) {
+      throw new Error('Backup destination must be a relative path');
+    }
+    // Validate resolved path stays under cwd to prevent symlink traversal.
+    const resolvedDest = resolve(destinationPath);
+    const cwd = process.cwd();
+    if (!resolvedDest.startsWith(cwd + '/') && resolvedDest !== cwd) {
+      throw new Error('Backup destination resolves outside working directory');
+    }
+    await this.db.backup(resolvedDest);
   }
 }
 

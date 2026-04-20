@@ -473,6 +473,33 @@ function normalizePortalType(type?: string): PortalType {
  * Validate a portal by fetching and checking structure
  */
 async function validatePortal(portal: KnownPortal): Promise<void> {
+  // R22-M4: SSRF prevention — only allow https URLs to public hosts
+  let url: URL;
+  try {
+    url = new URL(portal.downloadUrl);
+  } catch {
+    throw new Error(`Invalid URL: ${portal.downloadUrl}`);
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`Blocked URL scheme: ${url.protocol} (only http/https allowed)`);
+  }
+  // Block private/loopback addresses
+  const hostname = url.hostname.toLowerCase();
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0' ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('172.') ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('169.254.') ||
+    hostname.endsWith('.internal') ||
+    hostname.endsWith('.local')
+  ) {
+    throw new Error(`Blocked private/loopback URL: ${hostname}`);
+  }
+
   // Quick HEAD request first
   const headResponse = await fetch(portal.downloadUrl, {
     method: 'HEAD',
