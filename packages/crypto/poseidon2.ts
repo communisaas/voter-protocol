@@ -19,7 +19,7 @@
 
 import { Noir } from '@noir-lang/noir_js';
 import type { CompiledCircuit } from '@noir-lang/noir_js';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -29,11 +29,28 @@ import { dirname, join } from 'path';
 const __dirname_compat = typeof __dirname !== 'undefined'
   ? __dirname
   : dirname(fileURLToPath(import.meta.url));
+
+// Noir artifacts live at the package root (not under dist/). package.json ships
+// them that way via `files`. Two candidate layouts must be supported:
+//   - Source layout (dev, vitest, tsx):   packages/crypto/<file>.ts      → ./noir/<rel>
+//   - Built/installed layout (dist, npm): packages/crypto/dist/<file>.js → ../noir/<rel>
+// Probe both so this module works whether loaded from source or from dist.
+function resolveArtifact(rel: string): string {
+  const candidates = [
+    join(__dirname_compat, rel),       // source layout
+    join(__dirname_compat, '..', rel), // dist layout
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  throw new Error(`Noir artifact not found: ${rel} (searched: ${candidates.join(', ')})`);
+}
+
 const fixturesCircuit = JSON.parse(
-  readFileSync(join(__dirname_compat, 'noir/fixtures/target/fixtures.json'), 'utf-8')
+  readFileSync(resolveArtifact('noir/fixtures/target/fixtures.json'), 'utf-8')
 );
 const spongeHelperCircuit = JSON.parse(
-  readFileSync(join(__dirname_compat, 'noir/sponge_helper/target/sponge_helper.json'), 'utf-8')
+  readFileSync(resolveArtifact('noir/sponge_helper/target/sponge_helper.json'), 'utf-8')
 );
 
 /**
