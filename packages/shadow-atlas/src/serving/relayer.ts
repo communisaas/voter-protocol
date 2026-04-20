@@ -10,18 +10,18 @@
  * - Uses @noble/curves/secp256k1 for signing and @noble/hashes/sha3 for keccak
  * - Implements a minimal RLP encoder for EIP-1559 (type-2) transaction signing
  * - Trade submissions are batched: incoming calls are queued in memory and
- *   drained every batchIntervalMs to submit transactions sequentially
+ * drained every batchIntervalMs to submit transactions sequentially
  * - Epoch keeper runs on a 60s interval and calls executeEpoch when the reveal
- *   window of an active debate has closed
+ * window of an active debate has closed
  * - Dead-letter array captures failed submissions; no indefinite retry
  * - Health stats exposed via getStats()
  *
  * RLP ENCODING REFERENCE (EIP-1559 type-2):
- *   signing payload:  0x02 || rlp([chainId, nonce, maxPriorityFeePerGas,
- *                                   maxFeePerGas, gasLimit, to, value, data, accessList])
- *   signed envelope:  0x02 || rlp([chainId, nonce, maxPriorityFeePerGas,
- *                                   maxFeePerGas, gasLimit, to, value, data, accessList,
- *                                   v, r, s])
+ * signing payload: 0x02 || rlp([chainId, nonce, maxPriorityFeePerGas,
+ * maxFeePerGas, gasLimit, to, value, data, accessList])
+ * signed envelope: 0x02 || rlp([chainId, nonce, maxPriorityFeePerGas,
+ * maxFeePerGas, gasLimit, to, value, data, accessList,
+ * v, r, s])
  *
  * SPEC REFERENCE: specs/STAKED-DEBATE-PROTOCOL-SPEC.md
  */
@@ -30,6 +30,28 @@ import { secp256k1 } from '@noble/curves/secp256k1';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { logger } from '../core/utils/logger.js';
+import { rlpEncode } from './rlp.js';
+import type { RLPInput } from './rlp.js';
+import {
+  encodeCommitTrade,
+  encodeRevealTrade,
+  encodeExecuteEpoch,
+} from './abi-encoder.js';
+import type { CommitTradeParams, RevealTradeParams } from './relayer-types.js';
+
+// ============================================================================
+// Hex Parsing (R60 — consistency with chain-scanner.ts)
+// ============================================================================
+
+/** Safe hex-to-number via BigInt. Throws RangeError if value > MAX_SAFE_INTEGER. */
+function safeHexToNumber(hex: string): number {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const n = BigInt('0x' + clean);
+  if (n > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError(`Hex value 0x${clean} exceeds Number.MAX_SAFE_INTEGER`);
+  }
+  return Number(n);
+}
 
 // ============================================================================
 // Config + Public Types
@@ -50,27 +72,8 @@ export interface RelayerConfig {
   readonly batchIntervalMs?: number;
 }
 
-export interface CommitTradeParams {
-  debateId: string;       // bytes32 hex
-  commitHash: string;     // bytes32 hex
-  signer: string;         // address hex — the user's Ethereum address
-  proof: string;          // hex-encoded proof bytes from the ZK prover
-  publicInputs: string[]; // 31 uint256 hex values (must be exactly 31 elements)
-  verifierDepth: number;  // uint8 — Merkle depth selector for the verifier registry
-  deadline: bigint;       // uint256 — unix timestamp after which the relay is void
-  signature: string;      // hex-encoded EIP-712 signature bytes from the user
-}
-
-export interface RevealTradeParams {
-  debateId: string;
-  epoch: number;
-  commitIndex: number;
-  argumentIndex: number;
-  direction: 0 | 1;       // 0 = BUY, 1 = SELL (TradeDirection enum → uint8)
-  stakeAmount: bigint;    // uint256 — stake placed at commit time
-  engagementTier: number; // uint8 — tier 0/1/2 derived from engagement tree
-  salt: string;           // bytes32 hex — the random salt used in commitHash
-}
+// BR7-R3-L2: Types extracted to relayer-types.ts to break import cycle with abi-encoder.ts
+export type { CommitTradeParams, RevealTradeParams } from './relayer-types.js';
 
 export interface TxReceipt {
   transactionHash: string;
@@ -122,257 +125,15 @@ interface DebateEpochState {
 }
 
 // ============================================================================
-// RLP Encoder
+// RLP + ABI: imported from./rlp.js and./abi-encoder.js (extraction)
 // ============================================================================
-
-type RLPInput = Uint8Array | bigint | number | string | RLPInput[];
-
-/**
- * Minimal RLP encoder per the Ethereum Yellow Paper spec.
- *
- * Rules:
- *   - Single byte in [0x00, 0x7f]: encoded as itself
- *   - Byte string 0–55 bytes: (0x80 + len) prefix then bytes
- *   - Byte string >55 bytes: (0xb7 + len_of_len) prefix, then BE length, then bytes
- *   - List whose total payload is 0–55 bytes: (0xc0 + payload_len) then items
- *   - List whose total payload >55 bytes: (0xf7 + len_of_len) then BE length then items
- */
-function rlpEncode(input: RLPInput): Uint8Array {
-  if (Array.isArray(input)) {
-    const encodedItems = input.map(item => rlpEncode(item));
-    const payload = concat(...encodedItems);
-    return concat(rlpLengthPrefix(payload.length, 0xc0, 0xf7), payload);
-  }
-
-  // Normalise scalar inputs to Uint8Array
-  let bytes: Uint8Array;
-  if (input instanceof Uint8Array) {
-    bytes = input;
-  } else if (typeof input === 'bigint') {
-    bytes = bigintToMinimalBytes(input);
-  } else if (typeof input === 'number') {
-    bytes = bigintToMinimalBytes(BigInt(input));
-  } else if (typeof input === 'string') {
-    // Treat as hex string (with or without 0x prefix)
-    const hex = input.startsWith('0x') || input.startsWith('0X') ? input.slice(2) : input;
-    bytes = hex.length === 0 ? new Uint8Array(0) : hexToBytes(hex.length % 2 === 0 ? hex : '0' + hex);
-  } else {
-    bytes = new Uint8Array(0);
-  }
-
-  if (bytes.length === 1 && bytes[0] <= 0x7f) {
-    // Single byte shortcut — no length prefix needed
-    return bytes;
-  }
-
-  return concat(rlpLengthPrefix(bytes.length, 0x80, 0xb7), bytes);
-}
-
-/** Build the RLP length prefix for either a string or a list. */
-function rlpLengthPrefix(length: number, shortBase: number, longBase: number): Uint8Array {
-  if (length <= 55) {
-    return new Uint8Array([shortBase + length]);
-  }
-  const lenBytes = numberToMinimalBytes(length);
-  return new Uint8Array([longBase + lenBytes.length, ...lenBytes]);
-}
-
-/** Encode a non-negative integer as the minimum number of big-endian bytes. */
-function bigintToMinimalBytes(value: bigint): Uint8Array {
-  if (value === 0n) return new Uint8Array(0);
-  let hex = value.toString(16);
-  if (hex.length % 2 !== 0) hex = '0' + hex;
-  return hexToBytes(hex);
-}
-
-/** Encode a non-negative JS number as the minimum number of big-endian bytes. */
-function numberToMinimalBytes(value: number): number[] {
-  if (value === 0) return [];
-  const bytes: number[] = [];
-  let v = value;
-  while (v > 0) {
-    bytes.unshift(v & 0xff);
-    v = Math.floor(v / 256);
-  }
-  return bytes;
-}
-
-/** Concatenate multiple Uint8Arrays. */
-function concat(...arrays: Uint8Array[]): Uint8Array {
-  const total = arrays.reduce((s, a) => s + a.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const arr of arrays) {
-    result.set(arr, offset);
-    offset += arr.length;
-  }
-  return result;
-}
-
-// ============================================================================
-// ABI Encoding Helpers
-// ============================================================================
-
-/** Compute keccak256 of an ASCII function signature string and return "0x" + 8 hex chars. */
-function functionSelector(sig: string): string {
-  const hash = keccak_256(new TextEncoder().encode(sig));
-  return '0x' + bytesToHex(hash).slice(0, 8);
-}
-
-/** Left-pad a hex value (without 0x) to 32 bytes (64 hex chars). */
-function abiPadLeft(hex: string): string {
-  return hex.replace(/^0x/i, '').padStart(64, '0');
-}
-
-/**
- * Encode executeEpoch(bytes32 debateId, uint256 epoch).
- *
- * calldata = selector(4 bytes) + abi.encode(debateId, epoch)
- */
-function encodeExecuteEpoch(debateId: string, epoch: number): string {
-  const sel = functionSelector('executeEpoch(bytes32,uint256)');
-  return sel + abiPadLeft(debateId) + abiPadLeft(epoch.toString(16));
-}
-
-/**
- * Encode a `bytes` dynamic value into its ABI tail representation:
- *   [32-byte length][data padded to next 32-byte boundary]
- *
- * Input must be a hex string (with or without 0x prefix).
- */
-function encodeDynamicBytes(data: string): string {
-  const hex = data.replace(/^0x/i, '');
-  // Each pair of hex chars is one byte
-  const byteLen = hex.length / 2;
-  const lenSlot = abiPadLeft(byteLen.toString(16));
-  // Pad the data to a multiple of 32 bytes (64 hex chars)
-  const paddedHex = hex.padEnd(Math.ceil(hex.length / 64) * 64, '0');
-  return lenSlot + paddedHex;
-}
-
-/**
- * Encode commitTrade with the full canonical ABI for the DebateMarket contract:
- *
- *   commitTrade(bytes32,bytes32,address,bytes,uint256[31],uint8,uint256,bytes)
- *
- * ABI layout (offsets are measured from byte 0 of the encoding, i.e. after the selector):
- *
- *   Head (static part, one 32-byte slot per parameter):
- *     slot  0  debateId      (bytes32, static)
- *     slot  1  commitHash    (bytes32, static)
- *     slot  2  signer        (address, left-padded, static)
- *     slot  3  offset→proof  (bytes, dynamic)
- *     slots 4–34  publicInputs[0..30]  (uint256[31], static fixed array = 31 inline slots)
- *     slot 35  verifierDepth (uint8, static)
- *     slot 36  deadline      (uint256, static)
- *     slot 37  offset→signature  (bytes, dynamic)
- *
- *   Tail (dynamic data, appended after the head):
- *     proof:     length slot + padded data
- *     signature: length slot + padded data
- *
- * The offset for each dynamic value is the byte distance from the start of the encoding
- * (slot 0) to the first byte of that value's tail entry.
- *
- * Total head size: 38 slots × 32 bytes = 1216 bytes.
- * proof offset   = 1216 (0x4c0)
- * signature offset depends on proof tail length.
- */
-function encodeCommitTrade(params: CommitTradeParams): string {
-  const sel = functionSelector('commitTrade(bytes32,bytes32,address,bytes,uint256[31],uint8,uint256,bytes)');
-
-  // --- Head section ---
-  // Slots 0-2: fixed value types
-  const headFixed0 = abiPadLeft(params.debateId);   // slot 0
-  const headFixed1 = abiPadLeft(params.commitHash); // slot 1
-  const headFixed2 = abiPadLeft(params.signer);     // slot 2 (address, left-padded by abiPadLeft)
-
-  // Slot 3: offset to proof tail
-  // Head = 38 slots × 32 bytes = 1216 bytes; proof is first tail entry.
-  const HEAD_SLOTS = 38;
-  const HEAD_BYTES = HEAD_SLOTS * 32; // 1216
-  const proofOffset = HEAD_BYTES; // 1216 = 0x4c0
-
-  const headOffset3 = abiPadLeft(proofOffset.toString(16));
-
-  // Slots 4–34: publicInputs[0..30] inline (uint256[31] is a static fixed-size array)
-  if (params.publicInputs.length !== 31) {
-    throw new Error(
-      `commitTrade: publicInputs must have exactly 31 elements, got ${params.publicInputs.length}`,
-    );
-  }
-  const headPublicInputs = params.publicInputs.map(v => abiPadLeft(v)).join('');
-
-  // Slot 35: verifierDepth (uint8)
-  const headFixed35 = abiPadLeft(params.verifierDepth.toString(16));
-
-  // Slot 36: deadline (uint256)
-  const headFixed36 = abiPadLeft(params.deadline.toString(16));
-
-  // Slot 37: offset to signature tail (comes after proof tail)
-  const proofHex = params.proof.replace(/^0x/i, '');
-  const proofByteLen = proofHex.length / 2;
-  // Proof tail = 1 length slot (32 bytes) + padded data
-  const proofTailBytes = 32 + Math.ceil(proofByteLen / 32) * 32;
-  const sigOffset = HEAD_BYTES + proofTailBytes;
-  const headOffset37 = abiPadLeft(sigOffset.toString(16));
-
-  // --- Tail section ---
-  const proofTail = encodeDynamicBytes(params.proof);
-  const sigTail   = encodeDynamicBytes(params.signature);
-
-  return (
-    sel +
-    headFixed0 +
-    headFixed1 +
-    headFixed2 +
-    headOffset3 +
-    headPublicInputs +
-    headFixed35 +
-    headFixed36 +
-    headOffset37 +
-    proofTail +
-    sigTail
-  );
-}
-
-/**
- * Encode revealTrade with the full canonical ABI for the DebateMarket contract:
- *
- *   revealTrade(bytes32,uint256,uint256,uint256,uint8,uint256,uint8,bytes32)
- *
- * All parameters are static value types; they pack into consecutive 32-byte slots.
- * Parameter order:
- *   debateId       bytes32
- *   epoch          uint256
- *   commitIndex    uint256
- *   argumentIndex  uint256
- *   direction      uint8   (TradeDirection enum)
- *   stakeAmount    uint256
- *   engagementTier uint8
- *   salt           bytes32
- */
-function encodeRevealTrade(params: RevealTradeParams): string {
-  const sel = functionSelector('revealTrade(bytes32,uint256,uint256,uint256,uint8,uint256,uint8,bytes32)');
-  return (
-    sel +
-    abiPadLeft(params.debateId) +
-    abiPadLeft(params.epoch.toString(16)) +
-    abiPadLeft(params.commitIndex.toString(16)) +
-    abiPadLeft(params.argumentIndex.toString(16)) +
-    abiPadLeft(params.direction.toString(16)) +
-    abiPadLeft(params.stakeAmount.toString(16)) +
-    abiPadLeft(params.engagementTier.toString(16)) +
-    abiPadLeft(params.salt)
-  );
-}
 
 // ============================================================================
 // Address Derivation
 // ============================================================================
 
-/** Derive the Ethereum address (checksummed hex) from an secp256k1 private key. */
-function privateKeyToAddress(privateKey: Uint8Array): string {
+/** Derive the Ethereum address (lowercase hex with 0x prefix) from an secp256k1 private key. */
+export function privateKeyToAddress(privateKey: Uint8Array): string {
   // Uncompressed public key: 0x04 + 64 bytes (x || y), take the 64-byte body
   const publicKey = secp256k1.getPublicKey(privateKey, false); // 65 bytes
   const pubKeyBody = publicKey.slice(1); // drop 0x04 prefix
@@ -410,6 +171,15 @@ export class DebateRelayer {
 
   // Maximum dead-letter entries to retain (prevents unbounded memory growth).
   private readonly MAX_DEAD_LETTERS = 1000;
+
+  /** Maximum queued trades before rejecting new submissions. */
+  private readonly MAX_QUEUE_SIZE = 10_000;
+
+  // Prevents post-shutdown operations (signing with zeroed key).
+  private stopped = false;
+
+  // Monotonic JSON-RPC request ID counter (avoids collisions from Date.now())
+  private rpcIdCounter = 0;
 
   // Per-debate epoch execution lock: prevents concurrent executeEpoch calls for
   // the same debate/epoch if the keeper loop fires while a prior call is in flight.
@@ -516,6 +286,8 @@ export class DebateRelayer {
    * Stop all timers. Transactions already in flight continue to completion.
    */
   stop(): void {
+    this.stopped = true;
+
     if (this.batchTimer) {
       clearInterval(this.batchTimer);
       this.batchTimer = null;
@@ -524,6 +296,10 @@ export class DebateRelayer {
       clearInterval(this.epochTimer);
       this.epochTimer = null;
     }
+
+    // Zeroize private key material on shutdown.
+    // Prevents key recovery from process memory dumps or core files.
+    this.privateKeyBytes.fill(0);
 
     logger.info('DebateRelayer: stopped', {
       queueDepth: this.tradeQueue.length,
@@ -540,6 +316,16 @@ export class DebateRelayer {
    * Enqueue a commitTrade call for the next batch window.
    */
   queueCommitTrade(params: CommitTradeParams): void {
+    if (this.stopped) {
+      throw new Error('DebateRelayer: cannot queue trades after stop()');
+    }
+    if (this.tradeQueue.length >= this.MAX_QUEUE_SIZE) {
+      logger.warn('DebateRelayer: trade queue full, rejecting submission', {
+        queueDepth: this.tradeQueue.length,
+        maxQueueSize: this.MAX_QUEUE_SIZE,
+      });
+      throw new Error('Trade queue is full — try again later');
+    }
     this.tradeQueue.push({ type: 'commit', params });
     logger.debug('DebateRelayer: commit queued', {
       debateId: params.debateId,
@@ -553,6 +339,17 @@ export class DebateRelayer {
    * Enqueue a revealTrade call for the next batch window.
    */
   queueRevealTrade(params: RevealTradeParams): void {
+    // Propagate stopped guard from queueCommitTrade.
+    if (this.stopped) {
+      throw new Error('DebateRelayer: cannot queue trades after stop()');
+    }
+    if (this.tradeQueue.length >= this.MAX_QUEUE_SIZE) {
+      logger.warn('DebateRelayer: trade queue full, rejecting submission', {
+        queueDepth: this.tradeQueue.length,
+        maxQueueSize: this.MAX_QUEUE_SIZE,
+      });
+      throw new Error('Trade queue is full — try again later');
+    }
     this.tradeQueue.push({ type: 'reveal', params });
     logger.debug('DebateRelayer: reveal queued', {
       debateId: params.debateId,
@@ -570,6 +367,18 @@ export class DebateRelayer {
    * Called by the serve command when the debate service receives on-chain events.
    */
   trackDebate(debateId: string, currentEpoch: number, epochStartTime: number): void {
+    // Validate epoch parameters.
+    if (!Number.isFinite(epochStartTime) || epochStartTime < 0) {
+      throw new Error(`DebateRelayer: invalid epochStartTime: ${epochStartTime}`);
+    }
+    if (!Number.isInteger(currentEpoch) || currentEpoch < 0) {
+      throw new Error(`DebateRelayer: invalid currentEpoch: ${currentEpoch}`);
+    }
+    const maxFutureSeconds = 365 * 24 * 3600;
+    if (epochStartTime > Math.floor(Date.now() / 1000) + maxFutureSeconds) {
+      throw new Error(`DebateRelayer: epochStartTime too far in future: ${epochStartTime}`);
+    }
+
     const existing = this.activeDebates.get(debateId);
     this.activeDebates.set(debateId, {
       debateId,
@@ -647,22 +456,27 @@ export class DebateRelayer {
         : encodeRevealTrade(trade.params);
 
     const txHash = await this.submitTx(this.config.debateMarketAddress, calldata);
-    const receipt = await this.waitForReceipt(txHash);
 
-    if (receipt.status !== 1) {
-      throw new Error(`Transaction reverted: ${txHash}`);
+    try {
+      const receipt = await this.waitForReceipt(txHash);
+
+      if (receipt.status !== 1) {
+        throw new Error(`Transaction reverted: ${txHash}`);
+      }
+
+      this.stats._totalGasUsedBigInt += receipt.gasUsed;
+
+      logger.info('DebateRelayer: trade submitted', {
+        type: trade.type,
+        debateId: trade.params.debateId,
+        // epoch only present on reveal params; commit params identify by debateId+deadline
+        ...(trade.type === 'reveal' ? { epoch: (trade.params as RevealTradeParams).epoch } : {}),
+        txHash,
+        gasUsed: receipt.gasUsed.toString(),
+      });
+    } catch (err) {
+      throw err;
     }
-
-    this.stats._totalGasUsedBigInt += receipt.gasUsed;
-
-    logger.info('DebateRelayer: trade submitted', {
-      type: trade.type,
-      debateId: trade.params.debateId,
-      // epoch only present on reveal params; commit params identify by debateId+deadline
-      ...(trade.type === 'reveal' ? { epoch: (trade.params as RevealTradeParams).epoch } : {}),
-      txHash,
-      gasUsed: receipt.gasUsed.toString(),
-    });
   }
 
   // ========================================================================
@@ -707,7 +521,7 @@ export class DebateRelayer {
     try {
       // Warn if we missed epochs (elapsed > 2× epoch duration and still unexecuted)
       const epochsMissed = Math.floor(epochElapsed / EPOCH_DURATION_SECONDS) - 1;
-      if (epochsMissed > 1) {
+      if (epochsMissed > 0) {
         logger.warn('DebateRelayer: epoch keeper missed epochs', {
           debateId: state.debateId,
           currentEpoch: state.currentEpoch,
@@ -728,12 +542,15 @@ export class DebateRelayer {
         const receipt = await this.waitForReceipt(txHash);
 
         if (receipt.status !== 1) {
-          // The contract may revert with EpochAlreadyExecuted or NoRevealsToExecute —
-          // both are benign from the keeper's perspective.
-          logger.info('DebateRelayer: executeEpoch reverted (likely already executed or no reveals)', {
+          // R22-H3: Log as warning, not info — a revert may indicate a real problem
+          // (OOG, access control, bad calldata) rather than the benign cases
+          // (EpochAlreadyExecuted, NoRevealsToExecute). We still mark epoch done to
+          // avoid infinite retry loops, but the warning severity ensures operator visibility.
+          logger.warn('DebateRelayer: executeEpoch reverted on-chain', {
             debateId: state.debateId,
             epoch: state.currentEpoch,
             txHash,
+            gasUsed: receipt.gasUsed.toString(),
           });
           // Mark as executed locally so we don't keep retrying this epoch
           state.lastExecutedEpoch = state.currentEpoch;
@@ -789,12 +606,12 @@ export class DebateRelayer {
    * R-4: Without this, two concurrent callers (e.g. a trade submission racing an
    * epoch execution) could both call getNonce() at the same time, receive the same
    * nonce value, and produce a collision where the second transaction silently
-   * replaces the first.  The lock ensures that nonce fetch + sign + broadcast is
+   * replaces the first. The lock ensures that nonce fetch + sign + broadcast is
    * atomic from the perspective of this process.
    */
   private submitTx(to: string, data: string, value: bigint = 0n): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      this.txLock = this.txLock.then(async () => {
+      this.txLock = this.txLock.catch(() => {}).then(async () => {
         try {
           const result = await this._submitTxImpl(to, data, value);
           resolve(result);
@@ -811,6 +628,11 @@ export class DebateRelayer {
    * Called only through submitTx() which serializes concurrent callers.
    */
   private async _submitTxImpl(to: string, data: string, value: bigint = 0n): Promise<string> {
+    // Reject operations after shutdown to prevent signing with zeroed key.
+    if (this.stopped) {
+      throw new Error('DebateRelayer: cannot submit transaction after stop()');
+    }
+
     const [nonce, gasPrice] = await Promise.all([
       this.getNonce(),
       this.getGasPrice(),
@@ -852,6 +674,11 @@ export class DebateRelayer {
     const msgHash = keccak_256(signingPayload);
     const sig = secp256k1.sign(msgHash, this.privateKeyBytes);
 
+    // Assert recovery parameter exists — BigInt(undefined) would crash.
+    if (sig.recovery === undefined) {
+      throw new Error('secp256k1.sign did not return recovery parameter');
+    }
+
     // EIP-1559: v is the recovery bit (0 or 1), NOT 27/28
     const v = sig.recovery;
     const r = sig.r;
@@ -859,9 +686,9 @@ export class DebateRelayer {
 
     // Convert r and s to 32-byte big-endian Uint8Arrays.
     // WARNING: do NOT refactor r/s from Uint8Array to BigInt and pass them directly
-    // into RLP encoding.  rlpEncode() treats bigint inputs as minimal-length integers
+    // into RLP encoding. rlpEncode() treats bigint inputs as minimal-length integers
     // (leading zeros stripped), which would produce a malformed signature for any r
-    // or s value whose most-significant byte is 0x00.  Always go via the hex→bytes
+    // or s value whose most-significant byte is 0x00. Always go via the hex→bytes
     // path so the 32-byte width is preserved.
     const rHex = r.toString(16).padStart(64, '0');
     const sHex = s.toString(16).padStart(64, '0');
@@ -909,9 +736,9 @@ export class DebateRelayer {
       } | null>('eth_getTransactionReceipt', [txHash]);
 
       if (receipt !== null) {
-        const blockNumber = parseInt(receipt.blockNumber, 16);
+        const blockNumber = safeHexToNumber(receipt.blockNumber);
         const gasUsed = BigInt(receipt.gasUsed);
-        const status = parseInt(receipt.status, 16);
+        const status = safeHexToNumber(receipt.status);
 
         // Decrement in-flight counter once confirmed
         this.noncePendingCount = Math.max(0, this.noncePendingCount - 1);
@@ -922,6 +749,7 @@ export class DebateRelayer {
       await sleep(pollMs);
     }
 
+    this.noncePendingCount = Math.max(0, this.noncePendingCount - 1);
     throw new Error(`Transaction ${txHash} not mined within ${timeoutMs}ms`);
   }
 
@@ -941,7 +769,7 @@ export class DebateRelayer {
       'eth_getTransactionCount',
       [this.address, 'pending'],
     );
-    const chainNonceInt = parseInt(chainNonce, 16);
+    const chainNonceInt = safeHexToNumber(chainNonce);
 
     if (this.nonce === null) {
       // First call — initialize from chain
@@ -949,7 +777,8 @@ export class DebateRelayer {
     } else if (chainNonceInt > this.nonce) {
       // Chain is ahead — a transaction confirmed, advance our counter
       this.nonce = chainNonceInt;
-    } else if (this.nonce > chainNonceInt + this.noncePendingCount + 5) {
+    } else if (this.nonce >= chainNonceInt + this.noncePendingCount + 5) {
+      // R46-FIX: Changed > to >= to catch exact-boundary desync (5 dropped txs → nonce == chain+5)
       // Detected desync: our local nonce is too far ahead of chain
       logger.warn('DebateRelayer: nonce desync detected, resetting from chain', {
         localNonce: this.nonce,
@@ -967,22 +796,53 @@ export class DebateRelayer {
    * Estimate gas for a call using eth_estimateGas.
    * Adds a 20% buffer and caps to a reasonable maximum.
    */
+  // R22-H2: Hard cap on gas limit — prevents runaway estimates from draining the wallet.
+  // commitTrade/revealTrade ≈200-500K gas; executeEpoch ≈500K-2M gas. 5M is generous.
+  private static readonly MAX_GAS_LIMIT = 5_000_000n;
+
   private async estimateGas(to: string, data: string): Promise<bigint> {
+    const params = [{ from: this.address, to, data }];
+
+    // First attempt
     try {
-      const estimate = await this.rpcCall<string>('eth_estimateGas', [{
-        from: this.address,
-        to,
-        data,
-      }]);
-      // Add 20% buffer to avoid edge-case out-of-gas failures
-      return (BigInt(estimate) * 120n) / 100n;
-    } catch (err) {
-      // Estimation failed (transaction will likely revert) — use a safe fallback
-      // so we can still submit and get a receipt with the revert reason.
-      logger.warn('DebateRelayer: gas estimation failed, using fallback', {
-        error: err instanceof Error ? err.message : String(err),
+      const estimate = await this.rpcCall<string>('eth_estimateGas', params);
+      const buffered = (BigInt(estimate) * 120n) / 100n;
+      if (buffered > DebateRelayer.MAX_GAS_LIMIT) {
+        logger.warn('DebateRelayer: gas estimate exceeds MAX_GAS_LIMIT, capping', {
+          estimated: buffered.toString(),
+          cap: DebateRelayer.MAX_GAS_LIMIT.toString(),
+        });
+        return DebateRelayer.MAX_GAS_LIMIT;
+      }
+      return buffered;
+    } catch (firstErr) {
+      // Retry once — some estimation failures are RPC-transient
+      logger.warn('DebateRelayer: gas estimation failed, retrying once', {
+        error: firstErr instanceof Error ? firstErr.message : String(firstErr),
       });
-      return 300_000n;
+    }
+
+    // Wait 2s and retry
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    try {
+      const estimate = await this.rpcCall<string>('eth_estimateGas', params);
+      const buffered = (BigInt(estimate) * 120n) / 100n;
+      if (buffered > DebateRelayer.MAX_GAS_LIMIT) {
+        logger.warn('DebateRelayer: gas estimate exceeds MAX_GAS_LIMIT on retry, capping', {
+          estimated: buffered.toString(),
+          cap: DebateRelayer.MAX_GAS_LIMIT.toString(),
+        });
+        return DebateRelayer.MAX_GAS_LIMIT;
+      }
+      return buffered;
+    } catch (retryErr) {
+      // Fail fast — don't waste gas on a transaction that will revert
+      const message = retryErr instanceof Error ? retryErr.message : String(retryErr);
+      logger.error('DebateRelayer: gas estimation failed after retry — transaction will NOT be submitted', {
+        error: message,
+      });
+      throw new Error(`Gas estimation failed after retry: ${message}`);
     }
   }
 
@@ -1009,11 +869,13 @@ export class DebateRelayer {
         computed < this.config.maxGasPrice ? computed : this.config.maxGasPrice;
 
       return { maxFeePerGas, maxPriorityFeePerGas };
-    } catch {
+    } catch (err) {
       // Fallback to safe static values if the RPC call fails
+      logger.warn('DebateRelayer: eth_gasPrice failed, using fallback', { error: err instanceof Error ? err.message : String(err) });
+      // Use configured maxGasPrice instead of hardcoded 1 gwei.
       return {
-        maxFeePerGas: 1_000_000_000n,    // 1 gwei
-        maxPriorityFeePerGas: 100_000n,  // 0.0001 gwei
+        maxFeePerGas: this.config.maxGasPrice,
+        maxPriorityFeePerGas: 100_000n,
       };
     }
   }
@@ -1026,7 +888,8 @@ export class DebateRelayer {
     const response = await fetch(this.config.rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++this.rpcIdCounter, method, params }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -1040,6 +903,12 @@ export class DebateRelayer {
 
     if (json.error) {
       throw new Error(`RPC error: ${json.error.code} ${json.error.message}`);
+    }
+
+    // R43-FIX: Guard against RPC responses with no result field (returns undefined as T).
+    // Only checks undefined, not null — waitForReceipt legitimately receives null for pending txs.
+    if (json.result === undefined) {
+      throw new Error(`RPC returned no result for method ${method}`);
     }
 
     return json.result as T;

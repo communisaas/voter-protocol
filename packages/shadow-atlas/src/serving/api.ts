@@ -99,11 +99,12 @@ const lookupSchema = z
       .min(-180, 'Longitude must be >= -180')
       .max(180, 'Longitude must be <= 180')
       .optional(),
-    layers: z
-      .array(
+    layers: z.preprocess(
+      (val) => (typeof val === 'string' ? [val] : val),
+      z.array(
         z.enum(['congressional', 'state_senate', 'state_house', 'county', 'municipal'])
       )
-      .optional(),
+    ).optional(),
   })
   .refine((data) => (data.lat !== undefined && data.lng !== undefined), {
     message: 'Both lat and lng must be provided',
@@ -244,10 +245,12 @@ const communityFieldContributeSchema = z.object({
  * Rate limiter with sliding window
  */
 class RateLimiter {
-  private readonly requests: Map<string, number[]> = new Map();
+  private readonly requests: Map<string, { timestamps: number[]; lastSeen: number }> = new Map();
   private readonly maxRequests: number;
   private readonly windowMs: number;
   private readonly cleanupInterval: ReturnType<typeof setInterval>;
+  /** R5-M2: Hard cap on tracked clients to prevent unbounded Map growth */
+  private readonly maxClients = 100_000;
 
   constructor(maxRequests: number, windowMs = 60000) {
     this.maxRequests = maxRequests;
@@ -256,12 +259,12 @@ class RateLimiter {
     // BR7-012: Sweep stale entries every 5 minutes to prevent memory leak
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
-      for (const [key, timestamps] of this.requests) {
-        const recent = timestamps.filter(t => now - t < this.windowMs);
+      for (const [key, entry] of this.requests) {
+        const recent = entry.timestamps.filter(t => now - t < this.windowMs);
         if (recent.length === 0) {
           this.requests.delete(key);
         } else {
-          this.requests.set(key, recent);
+          this.requests.set(key, { timestamps: recent, lastSeen: entry.lastSeen });
         }
       }
     }, 5 * 60 * 1000);
@@ -273,10 +276,11 @@ class RateLimiter {
     resetAt: number;
   } {
     const now = Date.now();
-    const requests = this.requests.get(clientId) || [];
+    const existing = this.requests.get(clientId);
+    const timestamps = existing ? existing.timestamps : [];
 
     // Remove old requests outside window
-    const recentRequests = requests.filter((timestamp) => now - timestamp < this.windowMs);
+    const recentRequests = timestamps.filter((timestamp) => now - timestamp < this.windowMs);
 
     const allowed = recentRequests.length < this.maxRequests;
     const remaining = Math.max(0, this.maxRequests - recentRequests.length);
@@ -284,7 +288,35 @@ class RateLimiter {
 
     if (allowed) {
       recentRequests.push(now);
-      this.requests.set(clientId, recentRequests);
+
+      // R5-M2: Guard against unbounded Map growth from unique client IPs
+      if (!this.requests.has(clientId) && this.requests.size >= this.maxClients) {
+        logger.warn('RateLimiter client cap reached, triggering emergency sweep', {
+          mapSize: this.requests.size,
+          maxClients: this.maxClients,
+        });
+
+        // Mini-sweep: delete all entries with no timestamps in the current window
+        for (const [key, entry] of this.requests) {
+          const recent = entry.timestamps.filter(t => now - t < this.windowMs);
+          if (recent.length === 0) {
+            this.requests.delete(key);
+          }
+        }
+
+        // LRU eviction — evict least-recently-seen clients, not oldest by
+        // insertion order. FIFO eviction prematurely releases rate-limited attackers.
+        if (this.requests.size >= this.maxClients) {
+          const toEvict = Math.ceil(this.requests.size * 0.1);
+          const entries = [...this.requests.entries()]
+            .sort((a, b) => a[1].lastSeen - b[1].lastSeen);
+          for (let i = 0; i < toEvict && i < entries.length; i++) {
+            this.requests.delete(entries[i][0]);
+          }
+        }
+      }
+
+      this.requests.set(clientId, { timestamps: recentRequests, lastSeen: now });
     }
 
     return { allowed, remaining, resetAt };
@@ -339,7 +371,41 @@ export class ShadowAtlasAPI {
    */
   private readonly idempotencyCache: Map<string, { result: unknown; expiresAt: number }> = new Map();
   private readonly idempotencyCacheTTL = 60 * 60 * 1000; // 1 hour
+  /** BR7-R1: Cap cache size to prevent memory DoS from sustained unique-key requests within the TTL window. */
+  private readonly MAX_IDEMPOTENCY_CACHE_SIZE = 10_000;
   private readonly idempotencyCacheCleanup: ReturnType<typeof setInterval>;
+
+  /**
+   * Scope idempotency keys to auth context and route to prevent
+   * cross-client cache poisoning.
+   */
+  private scopedIdempotencyKey(rawKey: string, route: string): string {
+    const secret = this.registrationAuthToken ?? 'anonymous';
+    return createHmac('sha256', secret)
+      .update(`${route}:${rawKey}`)
+      .digest('hex')
+      .slice(0, 32);
+  }
+
+  /**
+   * BR7-R1 / BR7-R3-H1: Cache an idempotency result with eviction guard.
+   * Evicts the oldest 10% of entries when the cache is at capacity to prevent
+   * memory DoS from sustained unique-key requests within the TTL window.
+   */
+  private cacheIdempotencyResult(key: string, result: unknown): void {
+    if (this.idempotencyCache.size >= this.MAX_IDEMPOTENCY_CACHE_SIZE) {
+      const entries = [...this.idempotencyCache.entries()]
+        .sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+      const evictCount = Math.ceil(this.MAX_IDEMPOTENCY_CACHE_SIZE * 0.1);
+      for (let i = 0; i < evictCount && i < entries.length; i++) {
+        this.idempotencyCache.delete(entries[i][0]);
+      }
+    }
+    this.idempotencyCache.set(key, {
+      result,
+      expiresAt: Date.now() + this.idempotencyCacheTTL,
+    });
+  }
 
   constructor(
     lookupService: DistrictLookupService | null,
@@ -484,6 +550,17 @@ export class ShadowAtlasAPI {
    * Start HTTP server
    */
   start(): void {
+    // R22-M3: Handle server bind errors (EADDRINUSE, EACCES) gracefully
+    this.server.on('error', (err: NodeJS.ErrnoException) => {
+      logger.error('Shadow Atlas API server failed to start', {
+        code: err.code,
+        message: err.message,
+        port: this.port,
+        host: this.host,
+      });
+      process.exit(1);
+    });
+
     this.server.listen(this.port, this.host, () => {
       logger.info('Shadow Atlas API server started', {
         version: this.apiVersion.version,
@@ -546,7 +623,6 @@ export class ShadowAtlasAPI {
     this.syncService.start();
   }
 
-  /**
   /**
    * Stop HTTP server with graceful shutdown.
    * BR7-013: Closes pending connections, flushes insertion log, uploads final state.
@@ -656,19 +732,19 @@ export class ShadowAtlasAPI {
       } else if (basePath === '/cell-proof' && req.method === 'GET') {
         await this.handleCellProof(url, res, req, requestId, startTime);
       } else if (basePath === '/cell-map-info' && req.method === 'GET') {
-        this.handleCellMapInfo(res, requestId);
+        this.handleCellMapInfo(res, req, requestId);
       } else if (basePath.match(/^\/districts\/[\w-]+$/) && req.method === 'GET') {
         await this.handleDistrictById(basePath, res, req, requestId, startTime);
       } else if (basePath === '/health' && req.method === 'GET') {
-        this.handleHealth(res, requestId, startTime);
+        this.handleHealth(res, req, requestId, startTime);
       } else if (basePath === '/metrics' && req.method === 'GET') {
         this.handleMetrics(res, req);
       } else if (basePath === '/signing-key' && req.method === 'GET') {
         this.handleSigningKey(res, requestId, req);
       } else if (basePath === '/snapshot' && req.method === 'GET') {
-        await this.handleSnapshot(res, requestId, startTime);
+        await this.handleSnapshot(res, req, requestId, startTime);
       } else if (basePath === '/snapshots' && req.method === 'GET') {
-        await this.handleSnapshots(res, requestId, startTime);
+        await this.handleSnapshots(res, req, requestId, startTime);
       } else if (basePath === '/engagement-info' && req.method === 'GET') {
         this.handleEngagementInfo(res, req, requestId);
       } else if (basePath.match(/^\/engagement-path\/\d{1,10}$/) && req.method === 'GET') {
@@ -704,7 +780,7 @@ export class ShadowAtlasAPI {
           res,
           404,
           'NOT_FOUND',
-          `Endpoint not found: ${pathname}`,
+          'Endpoint not found',
           requestId,
         );
       }
@@ -761,7 +837,17 @@ export class ShadowAtlasAPI {
     }
 
     // Validate query parameters with Zod
-    const params = Object.fromEntries(url.searchParams.entries());
+    // Accumulate multi-value params (e.g. ?layers=cd&layers=county)
+    // so Zod's z.array() fields receive arrays instead of last-wins scalars.
+    const params: Record<string, string | string[]> = {};
+    for (const [key, value] of url.searchParams.entries()) {
+      const existing = params[key];
+      if (existing !== undefined) {
+        params[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+      } else {
+        params[key] = value;
+      }
+    }
     const validation = lookupSchema.safeParse(params);
 
     if (!validation.success) {
@@ -1818,7 +1904,7 @@ export class ShadowAtlasAPI {
     }
 
     // Parse body
-    const body = await this.readBody(req);
+    const body = await this.readBody(req, 128 * 1024);
     if (!body) {
       this.sendErrorResponse(res, 400, 'INVALID_BODY', 'Request body is required', requestId);
       return;
@@ -1874,6 +1960,18 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // R11-H1: Rate limit read endpoints — getInfo() iterates all contributions (O(N))
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    // R13-L1: Full rate limit header triplet (was missing X-RateLimit-Limit)
+    res.setHeader('X-RateLimit-Limit', String(this.rateLimiter['maxRequests']));
+    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
+    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     const info = this.communityFieldService.getInfo();
     res.setHeader('Cache-Control', 'private, max-age=60');
     this.sendSuccessResponse(res, info, requestId, true);
@@ -1898,6 +1996,18 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // R11-H1: Rate limit read endpoints — getContributions() can return 100K entries
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    // R13-L1: Full rate limit header triplet (was missing X-RateLimit-Limit)
+    res.setHeader('X-RateLimit-Limit', String(this.rateLimiter['maxRequests']));
+    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
+    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     const epochDate = basePath.replace('/community-field/epoch/', '');
     const summary = this.communityFieldService.getEpochSummary(epochDate);
 
@@ -1906,12 +2016,11 @@ export class ShadowAtlasAPI {
       return;
     }
 
-    const contributions = this.communityFieldService.getContributions(epochDate);
+    // R11-M1: Return summary only — strip per-contribution nullifiers and timestamps
+    // to preserve the privacy model ("WHERE without WHO"). Raw contribution data
+    // (including epochNullifier, submittedAt) enables cross-epoch behavioral fingerprinting.
     res.setHeader('Cache-Control', 'private, max-age=60');
-    this.sendSuccessResponse(res, {
-      ...summary,
-      contributions,
-    }, requestId, true);
+    this.sendSuccessResponse(res, summary, requestId, true);
   }
 
   /**
@@ -2013,7 +2122,15 @@ export class ShadowAtlasAPI {
     }
 
     // Idempotency key support: if present, check cache before proceeding
-    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    const rawIdempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    // Enforce length limit — propagate to serving layer.
+    if (rawIdempotencyKey && rawIdempotencyKey.length > 256) {
+      this.sendErrorResponse(res, 400, 'INVALID_IDEMPOTENCY_KEY', 'Idempotency key exceeds maximum length (256)', requestId);
+      return;
+    }
+    const idempotencyKey = rawIdempotencyKey
+      ? this.scopedIdempotencyKey(rawIdempotencyKey, '/v1/register')
+      : undefined;
     if (idempotencyKey) {
       const cached = this.idempotencyCache.get(idempotencyKey);
       if (cached && Date.now() < cached.expiresAt) {
@@ -2057,10 +2174,7 @@ export class ShadowAtlasAPI {
 
       // Cache result by idempotency key
       if (idempotencyKey) {
-        this.idempotencyCache.set(idempotencyKey, {
-          result: responseData,
-          expiresAt: Date.now() + this.idempotencyCacheTTL,
-        });
+        this.cacheIdempotencyResult(idempotencyKey, responseData);
       }
 
       // No cache for mutations
@@ -2197,7 +2311,15 @@ export class ShadowAtlasAPI {
     }
 
     // Idempotency key support: if present, check cache before proceeding
-    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    const rawIdempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    // Enforce length limit — propagate to serving layer.
+    if (rawIdempotencyKey && rawIdempotencyKey.length > 256) {
+      this.sendErrorResponse(res, 400, 'INVALID_IDEMPOTENCY_KEY', 'Idempotency key exceeds maximum length (256)', requestId);
+      return;
+    }
+    const idempotencyKey = rawIdempotencyKey
+      ? this.scopedIdempotencyKey(rawIdempotencyKey, '/v1/register/replace')
+      : undefined;
     if (idempotencyKey) {
       const cached = this.idempotencyCache.get(idempotencyKey);
       if (cached && Date.now() < cached.expiresAt) {
@@ -2240,10 +2362,7 @@ export class ShadowAtlasAPI {
 
       // Cache result by idempotency key
       if (idempotencyKey) {
-        this.idempotencyCache.set(idempotencyKey, {
-          result: responseData,
-          expiresAt: Date.now() + this.idempotencyCacheTTL,
-        });
+        this.cacheIdempotencyResult(idempotencyKey, responseData);
       }
 
       // No cache for mutations
@@ -2299,6 +2418,14 @@ export class ShadowAtlasAPI {
     req: IncomingMessage,
     requestId: string,
   ): void {
+    // R49-H1: Rate limit tree leaf endpoint
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     if (!this.registrationService) {
       this.sendErrorResponse(
         res, 501, 'REGISTRATION_UNAVAILABLE',
@@ -2336,6 +2463,8 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // R11-M3: Auth'd endpoints must not be cached publicly by CDN/proxies
+    res.setHeader('Cache-Control', 'private, no-store');
     this.sendSuccessResponse(res, {
       leafIndex: index,
       leaf: result.leaf,
@@ -2354,6 +2483,14 @@ export class ShadowAtlasAPI {
     req: IncomingMessage,
     requestId: string,
   ): void {
+    // R49-H1: Rate limit tree info endpoint
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     if (!this.registrationService) {
       this.sendErrorResponse(
         res, 501, 'REGISTRATION_UNAVAILABLE',
@@ -2378,6 +2515,8 @@ export class ShadowAtlasAPI {
       }
     }
 
+    // R11-M3: Auth'd endpoints must not be cached publicly by CDN/proxies
+    res.setHeader('Cache-Control', 'private, no-store');
     this.sendSuccessResponse(res, {
       treeSize: this.registrationService.leafCount,
       root: this.registrationService.getRootHex(),
@@ -2496,8 +2635,17 @@ export class ShadowAtlasAPI {
    */
   private handleCellMapInfo(
     res: ServerResponse,
+    req: IncomingMessage,
     requestId: string,
   ): void {
+    // Rate limit to prevent enumeration / DoS
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     if (!this.cellMapState) {
       this.sendSuccessResponse(res, {
         available: false,
@@ -2591,6 +2739,12 @@ export class ShadowAtlasAPI {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       if (msg.includes('out of range')) {
         this.sendErrorResponse(res, 404, 'LEAF_NOT_FOUND', 'Leaf index out of range', requestId);
+      } else if (msg.includes('currently being modified')) {
+        // getProof() now throws during tree modification instead of
+        // returning stale data. Signal via 503 so clients retry.
+        res.setHeader('Retry-After', '1');
+        this.sendErrorResponse(res, 503, 'TREE_UPDATING',
+          'Engagement tree is being updated — retry shortly.', requestId);
       } else {
         this.healthMonitor.recordError(msg);
         this.sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Engagement proof failed', requestId);
@@ -2756,6 +2910,26 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // Idempotency key support: if present, check cache before proceeding
+    const rawIdempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    // Enforce length limit — propagate to serving layer.
+    if (rawIdempotencyKey && rawIdempotencyKey.length > 256) {
+      this.sendErrorResponse(res, 400, 'INVALID_IDEMPOTENCY_KEY', 'Idempotency key exceeds maximum length (256)', requestId);
+      return;
+    }
+    const idempotencyKey = rawIdempotencyKey
+      ? this.scopedIdempotencyKey(rawIdempotencyKey, '/v1/engagement/register')
+      : undefined;
+    if (idempotencyKey) {
+      const cached = this.idempotencyCache.get(idempotencyKey);
+      if (cached && Date.now() < cached.expiresAt) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('X-Idempotency-Cached', 'true');
+        this.sendSuccessResponse(res, cached.result, requestId, false);
+        return;
+      }
+    }
+
     try {
       const { signerAddress, identityCommitment: icStr } = validation.data;
       const ic = BigInt(icStr.startsWith('0x') ? icStr : '0x' + icStr);
@@ -2767,11 +2941,15 @@ export class ShadowAtlasAPI {
         this.syncService.notifyInsertion(engLog);
       }
 
+      const responseData = { leafIndex, engagementRoot: this.engagementService.getRootHex() };
+
+      // Cache result by idempotency key
+      if (idempotencyKey) {
+        this.cacheIdempotencyResult(idempotencyKey, responseData);
+      }
+
       res.setHeader('Cache-Control', 'no-store');
-      this.sendSuccessResponse(res, {
-        leafIndex,
-        engagementRoot: this.engagementService.getRootHex(),
-      }, requestId, false);
+      this.sendSuccessResponse(res, responseData, requestId, false);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       if (msg === 'IDENTITY_ALREADY_REGISTERED' || msg === 'SIGNER_ALREADY_REGISTERED') {
@@ -2931,6 +3109,13 @@ export class ShadowAtlasAPI {
         return;
       }
 
+      // R66-F7: Warn client if the position tree has insertion gaps.
+      // Gaps mean the tree is incomplete — proofs may fail on-chain verification.
+      const treeGaps = this.debateService.getPositionTreeGapCount(debateId);
+      if (treeGaps > 0) {
+        res.setHeader('X-Position-Tree-Gaps', String(treeGaps));
+      }
+
       const root = await this.debateService.getPositionRoot(debateId);
 
       // Serialize bigint path elements as 0x-prefixed hex — JSON cannot represent bigints
@@ -2998,6 +3183,24 @@ export class ShadowAtlasAPI {
       return;
     }
 
+    // R9-M4: Reject SSE connections for nonexistent debates.
+    // Without this, an attacker can fill the 1000-client pool with fake debate IDs.
+    if (!this.debateService.getMarketState(debateId)) {
+      this.sendErrorResponse(
+        res, 404, 'DEBATE_NOT_FOUND',
+        'Debate not found or not yet proposed',
+        requestId,
+      );
+      return;
+    }
+
+    // R33-M5: Check capacity BEFORE sending 200 headers to avoid 200→error sequence.
+    // Pre-check only (not atomic registration) — actual registration happens after headers.
+    if (!this.debateService.hasSSECapacity(clientId)) {
+      this.sendErrorResponse(res, 503, 'SSE_CAPACITY_REACHED', 'Too many active connections', requestId);
+      return;
+    }
+
     // Set SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -3007,27 +3210,29 @@ export class ShadowAtlasAPI {
       'X-Request-ID': requestId,
       'X-API-Version': this.apiVersion.version,
     });
-
-    // Flush headers immediately
     res.flushHeaders();
+
+    // Atomic capacity check + registration (global + per-IP limits)
+    if (!this.debateService.tryAddSSEClient(debateId, res, clientId)) {
+      // Race: capacity filled between pre-check and registration — end stream
+      res.write('event: error\ndata: {"code":"SSE_CAPACITY_REACHED","message":"Too many active connections"}\n\n');
+      res.end();
+      return;
+    }
 
     logger.info('SSE stream opened', {
       requestId,
       debateId,
     });
-
-    // Delegate to debate service for subscription management
-    this.debateService.addSSEClient(debateId, res);
   }
 
   /**
-   * Read and parse JSON request body (max 1KB for registration).
+   * Read and parse JSON request body (configurable max size, default 1KB).
    */
-  private readBody(req: IncomingMessage): Promise<unknown | null> {
+  private readBody(req: IncomingMessage, maxSize = 1024): Promise<unknown | null> {
     return new Promise((resolve) => {
       const chunks: Buffer[] = [];
       let size = 0;
-      const maxSize = 1024; // 1KB max for registration body
       let resolved = false;
 
       // BR7-010: Slowloris protection — abort if body isn't received within 10s
@@ -3046,6 +3251,9 @@ export class ShadowAtlasAPI {
             resolved = true;
             clearTimeout(timeout);
             resolve(null);
+            // R64-H2: Destroy request stream to stop reading; callers handle error response.
+            // Prior raw socket.end('HTTP/1.1 413...') was a protocol violation under HTTP/2
+            // and raced with the caller's sendErrorResponse (which has headersSent guard).
             req.destroy();
           }
           return;
@@ -3083,9 +3291,18 @@ export class ShadowAtlasAPI {
    */
   private handleHealth(
     res: ServerResponse,
+    req: IncomingMessage,
     requestId: string,
     startTime: number
   ): void {
+    // Rate limit health endpoint to prevent monitoring abuse
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     const metrics = this.healthMonitor.getMetrics();
 
     // BR5-013: Strip sensitive data from public health endpoint.
@@ -3165,9 +3382,18 @@ export class ShadowAtlasAPI {
    */
   private async handleSnapshot(
     res: ServerResponse,
+    req: IncomingMessage,
     requestId: string,
     startTime: number
   ): Promise<void> {
+    // Rate limit snapshot endpoint
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     const snapshot = await this.syncService.getLatestSnapshot();
 
     if (!snapshot) {
@@ -3194,9 +3420,18 @@ export class ShadowAtlasAPI {
    */
   private async handleSnapshots(
     res: ServerResponse,
+    req: IncomingMessage,
     requestId: string,
     startTime: number
   ): Promise<void> {
+    // Rate limit snapshots listing endpoint
+    const clientId = this.getClientId(req);
+    const rateResult = this.rateLimiter.check(clientId);
+    if (!rateResult.allowed) {
+      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
+      return;
+    }
+
     const snapshots = await this.syncService.listSnapshots();
 
     this.sendSuccessResponse(
@@ -3276,6 +3511,8 @@ export class ShadowAtlasAPI {
     }
 
     // Security headers
+    // R57-S3: HSTS — defense-in-depth (Cloudflare handles at edge in production)
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
@@ -3303,6 +3540,9 @@ export class ShadowAtlasAPI {
     requestId: string,
     cached: boolean
   ): void {
+    // R36-F3: Guard against double-response (same pattern as sendErrorResponse)
+    if (res.headersSent || !res.socket || res.socket.writableEnded || res.socket.destroyed) return;
+
     const response: APIResponse<T> = {
       success: true,
       data,
@@ -3340,6 +3580,9 @@ export class ShadowAtlasAPI {
     requestId: string,
     details?: unknown
   ): void {
+    // R35-F2+R36-F5: Guard against double-response (readBody 413, partial writes, etc.)
+    if (res.headersSent || !res.socket || res.socket.writableEnded || res.socket.destroyed) return;
+
     const response: APIResponse<never> = {
       success: false,
       error: {

@@ -91,6 +91,8 @@ function createMockResponse(): {
   let body = '';
 
   const res = {
+    headersSent: false,
+    socket: { writableEnded: false, destroyed: false },
     writeHead: vi.fn((status: number, hdrs?: Record<string, string | string[]>) => {
       statusCode = status;
       if (hdrs) {
