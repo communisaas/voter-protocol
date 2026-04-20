@@ -1,6 +1,6 @@
 {
     "name": "@voter-protocol/noir-prover",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Browser-native ZK prover for VOTER Protocol using Barretenberg/Noir",
     "type": "module",
     "main": "./dist/index.cjs",
