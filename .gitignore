@@ -264,3 +264,4 @@ packages/shadow-atlas/pin-results.json
 
 # Noir circuit test inputs (contain local paths)
 packages/crypto/noir/*/Prover.toml
+.gemini/
