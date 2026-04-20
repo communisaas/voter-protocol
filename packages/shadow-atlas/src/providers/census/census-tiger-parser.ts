@@ -6,7 +6,7 @@
  *
  * Data Source:
  * - URL: https://www2.census.gov/geo/tiger/TIGER2025/PLACE/tl_2025_us_place.zip
- * - Format: Shapefile (.shp + .dbf + .shx + .prj)
+ * - Format: Shapefile (.shp +.dbf +.shx +.prj)
  * - Size: ~50MB compressed, ~200MB uncompressed
  * - Fields: GEOID, NAME, STATEFP, PLACEFP, LSAD, ALAND, AWATER
  *
@@ -14,7 +14,7 @@
  */
 
 import { open as parseShapefile } from 'shapefile';
-import * as turf from '@turf/turf';
+import { bbox as turfBbox } from '@turf/bbox';
 import { logger } from '../../core/utils/logger.js';
 
 // TypeScript interfaces for type safety
@@ -79,7 +79,7 @@ function normalizePlaceName(name: string): string {
 /**
  * Parse Census TIGER/Line shapefile and extract municipalities
  *
- * @param shapefilePath - Path to .shp file (local or URL)
+ * @param shapefilePath - Path to.shp file (local or URL)
  * @returns Array of municipalities with geometry bounding boxes
  */
 export async function parseCensusTIGERPlaces(
@@ -120,7 +120,7 @@ export async function parseCensusTIGERPlaces(
     const id = `${stateAbbr.toLowerCase()}-${normalizedName}`;
 
     // Calculate bounding box from geometry
-    const bbox = turf.bbox(feature.geometry);
+    const bbox = turfBbox(feature.geometry);
     const [minLng, minLat, maxLng, maxLat] = bbox;
 
     // Create municipality record
@@ -162,7 +162,12 @@ export async function fetchPopulationData(): Promise<Map<string, number>> {
   // Census API - 2020 Decennial Census (Population counts)
   const apiUrl = 'https://api.census.gov/data/2020/dec/pl?get=NAME,P1_001N&for=place:*&in=state:*';
 
-  const response = await fetch(apiUrl);
+  // Add redirect blocking + timeout/F3 hardening.
+  const response = await fetch(apiUrl, {
+    redirect: 'error',
+    signal: AbortSignal.timeout(30000),
+    headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
+  });
   if (!response.ok) {
     throw new Error(`Census API error: ${response.status} ${response.statusText}`);
   }

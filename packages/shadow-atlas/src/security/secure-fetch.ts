@@ -20,7 +20,44 @@
  */
 
 import { validateURL, validateURLWithOptions, isPublicURL } from './input-validator.js';
+import { isPrivateAddress } from './url-validator.js';
 import { logger } from '../core/utils/logger.js';
+import { lookup } from 'node:dns/promises';
+
+// ============================================================================
+// R54-S1: DNS Rebinding Prevention
+// ============================================================================
+
+/**
+ * Resolve hostname via DNS and validate the resolved IP is public.
+ * Closes the DNS rebinding TOCTOU gap: hostname string passes validation,
+ * but a second DNS resolution (during fetch) could return a private IP.
+ *
+ * By resolving once here and checking the actual IP, we ensure the hostname
+ * does not point to internal infrastructure at resolution time.
+ */
+async function resolveAndValidateDNS(hostname: string): Promise<void> {
+  // Skip IP literals (already validated by isPublicURL)
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':')) {
+    return;
+  }
+
+  try {
+    const { address } = await lookup(hostname);
+    if (isPrivateAddress(address)) {
+      throw new Error(`DNS rebinding detected: ${hostname} resolved to private IP`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('DNS rebinding')) {
+      throw error;
+    }
+    // R77-P6: Don't silently swallow DNS lookup failures. A failed lookup could
+    // mask a TOCTOU race: attacker's DNS returns public IP for our check, then
+    // private IP for fetch(). By throwing here we fail closed — if we can't
+    // verify the IP is public, we don't let the request through.
+    throw new Error(`DNS lookup failed for ${hostname}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 /**
  * Secure fetch options
@@ -132,6 +169,24 @@ export async function secureFetch(
     });
   }
 
+  // R54-S1: Resolve DNS and validate resolved IP is public (closes rebinding TOCTOU)
+  try {
+    const parsedUrl = new URL(validation.data);
+    await resolveAndValidateDNS(parsedUrl.hostname);
+  } catch (error) {
+    const dnsError = error instanceof Error ? error.message : String(error);
+    logger.warn('Secure fetch DNS validation failed', {
+      url: sanitizeUrlForLog(url),
+      error: dnsError,
+    });
+    return {
+      validated: false,
+      bypassed: false,
+      url,
+      error: dnsError,
+    };
+  }
+
   // Perform fetch with timeout
   try {
     const controller = new AbortController();
@@ -139,8 +194,67 @@ export async function secureFetch(
 
     const response = await fetch(validation.data, {
       ...fetchOptions,
+      redirect: 'manual',
       signal: controller.signal,
     });
+
+    // Handle redirects with revalidation to prevent SSRF via redirect
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) {
+        clearTimeout(timeoutId);
+        return { validated: false, bypassed: false, url: validation.data, error: 'Redirect with no Location header' };
+      }
+      const redirectUrl = new URL(location, validation.data).href;
+      const redirectValidation = validateURLWithOptions(redirectUrl, { bypassAllowlist, reason: bypassReason });
+      if (!redirectValidation.success) {
+        clearTimeout(timeoutId);
+        const redirectError = 'error' in redirectValidation ? redirectValidation.error : 'Validation failed';
+        logger.warn('Secure fetch redirect target blocked', {
+          url: sanitizeUrlForLog(url),
+          redirectTarget: sanitizeUrlForLog(redirectUrl),
+          error: redirectError,
+        });
+        return { validated: false, bypassed: false, url: redirectUrl, error: `Redirect target blocked: ${redirectUrl}` };
+      }
+      // R57-S2: DNS validation on redirect target (closes SSRF via redirect rebinding)
+      try {
+        const parsedRedirect = new URL(redirectValidation.data);
+        await resolveAndValidateDNS(parsedRedirect.hostname);
+      } catch (dnsErr) {
+        clearTimeout(timeoutId);
+        const dnsError = dnsErr instanceof Error ? dnsErr.message : String(dnsErr);
+        logger.warn('Secure fetch redirect DNS validation failed', {
+          url: sanitizeUrlForLog(url),
+          redirectTarget: sanitizeUrlForLog(redirectUrl),
+          error: dnsError,
+        });
+        return { validated: false, bypassed: false, url: redirectUrl, error: `Redirect DNS blocked: ${dnsError}` };
+      }
+      // Follow the validated redirect (one hop only)
+      const redirectResponse = await fetch(redirectValidation.data, {
+        ...fetchOptions,
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      // R73-F01: Block chained redirects — second response must not be another redirect
+      if (redirectResponse.status >= 300 && redirectResponse.status < 400) {
+        return {
+          validated: false,
+          bypassed: false,
+          url: redirectValidation.data,
+          response: redirectResponse,
+          error: `Chained redirect detected (${redirectResponse.status}) — only one redirect hop is allowed`,
+        };
+      }
+      return {
+        validated: true,
+        bypassed: redirectValidation.bypassed,
+        url: redirectValidation.data,
+        response: redirectResponse,
+      };
+    }
 
     clearTimeout(timeoutId);
 
@@ -246,7 +360,7 @@ function sanitizeUrlForLog(url: string): string {
   try {
     const parsed = new URL(url);
     // Redact potentially sensitive query parameters
-    const sensitiveParams = ['key', 'token', 'password', 'secret', 'api_key', 'apikey'];
+    const sensitiveParams = ['key', 'token', 'password', 'secret', 'api_key', 'apikey', 'username'];
     for (const param of sensitiveParams) {
       if (parsed.searchParams.has(param)) {
         parsed.searchParams.set(param, '[REDACTED]');

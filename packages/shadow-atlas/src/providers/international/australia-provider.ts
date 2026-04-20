@@ -430,7 +430,8 @@ export class AustraliaCountryProvider extends CountryProvider<
         type: 'federal',
         name: 'CED (2024) ASGS Ed. 3',
         endpoint: `${this.baseUrl}/ASGS2024/CED/FeatureServer/0`,
-        expectedCount: 150,
+        // Corrected from 150 to 151 (2021 redistribution added Bean).
+        expectedCount: 151,
         updateSchedule: 'event-driven',
         authority: 'national-statistics',
         vintage: 2024,
@@ -586,12 +587,14 @@ export class AustraliaCountryProvider extends CountryProvider<
       if (!layer) return true;
 
       const metadataUrl = `${layer.endpoint}?f=json`;
+      // Block redirects to prevent SSRF.
       const res = await fetch(metadataUrl, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(10000),
+        redirect: 'error',
       });
 
       if (!res.ok) return true;
@@ -642,12 +645,14 @@ export class AustraliaCountryProvider extends CountryProvider<
       }
 
       const metadataUrl = `${layer.endpoint}?f=json`;
+      // Block redirects to prevent SSRF.
       const response = await fetch(metadataUrl, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(this.timeoutMs),
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -926,11 +931,13 @@ export class AustraliaCountryProvider extends CountryProvider<
         url: this.concordanceZipUrl,
       });
 
+      // Block redirects to prevent SSRF.
       const response = await fetch(this.concordanceZipUrl, {
         headers: {
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0 (civic data, research)',
         },
         signal: AbortSignal.timeout(120000), // 2 min timeout for large file
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -1002,7 +1009,15 @@ export class AustraliaCountryProvider extends CountryProvider<
       const filename = zipBuffer.toString('utf-8', offset + 30, offset + 30 + filenameLen);
       const dataStart = offset + 30 + filenameLen + extraLen;
 
-      if (filename.endsWith(targetFilename) || filename === targetFilename) {
+      // R66-C2: Reject path traversal entries (zip-slip defense-in-depth)
+      if (filename.includes('..') || filename.startsWith('/')) {
+        offset = dataStart + compressedSize;
+        continue;
+      }
+
+      // Match only the basename to prevent directory prefix confusion
+      const basename = filename.split('/').pop() ?? '';
+      if (basename === targetFilename) {
         const compressedData = zipBuffer.subarray(dataStart, dataStart + compressedSize);
 
         if (compressionMethod === 0) {
@@ -1010,7 +1025,8 @@ export class AustraliaCountryProvider extends CountryProvider<
           return compressedData.toString('utf-8');
         } else if (compressionMethod === 8) {
           // Deflated
-          const decompressed = inflateRawSync(compressedData);
+          // Decompression bomb protection
+          const decompressed = inflateRawSync(compressedData, { maxOutputLength: 500 * 1024 * 1024 });
           return decompressed.toString('utf-8');
         } else {
           throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
@@ -1175,12 +1191,14 @@ export class AustraliaCountryProvider extends CountryProvider<
     // Try the export/download variation
     const csvUrl = `${endpoint}&csv=1`;
 
+    // Block redirects to prevent SSRF.
     const response = await fetch(csvUrl, {
       headers: {
         Accept: 'text/csv, application/csv, */*',
         'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
       },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!response.ok) {
@@ -1226,12 +1244,14 @@ export class AustraliaCountryProvider extends CountryProvider<
     // First page with House of Representatives filter
     const firstUrl = `${baseEndpoint}?q=&mem=1&par=-1&gen=0&ps=0&st=1`;
 
+    // Block redirects to prevent SSRF.
     const firstResponse = await fetch(firstUrl, {
       headers: {
         Accept: 'text/html',
         'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
       },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!firstResponse.ok) {
@@ -1260,12 +1280,14 @@ export class AustraliaCountryProvider extends CountryProvider<
       const pageUrl = `${baseEndpoint}?q=&mem=1&par=-1&gen=0&ps=0&st=1&page=${p}`;
 
       try {
+        // Block redirects to prevent SSRF.
         const response = await fetch(pageUrl, {
           headers: {
             Accept: 'text/html',
             'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
           },
           signal: AbortSignal.timeout(30000),
+          redirect: 'error',
         });
 
         if (!response.ok) {

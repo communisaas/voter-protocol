@@ -7,9 +7,11 @@
  * TYPE SAFETY: Nuclear-level strictness. All data validated before commitment.
  *
  * SECURITY PRINCIPLE: Zero trust. Verify everything cryptographically.
+ * NOTE: Merkle proof verification checks path computation only — the caller
+ * must supply a trusted expectedRoot (e.g., from on-chain commitment).
  */
 
-import { createHash } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import type { Polygon, MultiPolygon, Position } from 'geojson';
 import { hashPair as poseidon2HashPair } from '@voter-protocol/crypto/poseidon2';
 
@@ -53,8 +55,10 @@ export interface BoundaryIntegrityCheck {
 /**
  * Verify Merkle proof
  *
- * SECURITY: Cryptographically verify boundary is in committed Merkle tree.
- * Prevents accepting fraudulent boundaries not in authoritative snapshot.
+ * SECURITY: Verify that a leaf hashes to expectedRoot via the given path.
+ * This proves membership IF expectedRoot is trusted (e.g., fetched from an
+ * on-chain commitment). The function does NOT verify the root itself — the
+ * caller is responsible for anchoring expectedRoot to a trusted source.
  *
  * NOTE: This function is async because Poseidon2 hashing uses Noir WASM internally.
  * The proof verification must compute hashes along the path from leaf to root,
@@ -372,7 +376,7 @@ function calculateSignedArea(ring: Position[]): number {
  * SECURITY: Detect data corruption or incomplete extractions.
  * Mismatch = potential data integrity issue.
  */
-export const EXPECTED_BOUNDARY_COUNTS: Record<string, number> = {
+export const EXPECTED_BOUNDARY_COUNTS: Readonly<Record<string, number>> = Object.freeze({
   // US Congressional Districts (435 voting + 6 non-voting territories)
   'US-congressional': 441,
 
@@ -388,9 +392,9 @@ export const EXPECTED_BOUNDARY_COUNTS: Record<string, number> = {
   // UK Parliamentary Constituencies
   'GB-parliamentary': 650,
 
-  // Canada Federal Electoral Districts
-  'CA-federal': 338,
-};
+  // Canada Federal Electoral Districts (2023 Representation Order — 343 ridings)
+  'CA-federal': 343,
+});
 
 /**
  * Verify boundary count matches expected
@@ -408,8 +412,11 @@ export function verifyBoundaryCount(
   const expected = EXPECTED_BOUNDARY_COUNTS[jurisdiction];
 
   if (expected === undefined) {
-    // Unknown jurisdiction - cannot validate
-    return { valid: true };
+    // Fail-closed for unknown jurisdictions
+    return {
+      valid: false,
+      error: `Unknown jurisdiction: ${jurisdiction} — not in EXPECTED_BOUNDARY_COUNTS`,
+    };
   }
 
   const diff = Math.abs(actualCount - expected);
@@ -580,12 +587,18 @@ function boundingBoxesSimilar(
  * @returns SHA256 hash (hex string)
  */
 export function computeContentHash(data: unknown): string {
-  // Normalize JSON (sort keys, no whitespace)
-  const normalized = JSON.stringify(data, Object.keys(data as object).sort());
+  const normalized = JSON.stringify(sortKeysRecursive(data));
+  return createHash('sha256').update(normalized).digest('hex');
+}
 
-  return createHash('sha256')
-    .update(normalized)
-    .digest('hex');
+function sortKeysRecursive(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sortKeysRecursive);
+  const sorted = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(obj as Record<string, unknown>).sort()) {
+    sorted[key] = sortKeysRecursive((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
 }
 
 /**
@@ -596,8 +609,18 @@ export function computeContentHash(data: unknown): string {
  * @returns True if hash matches, false otherwise
  */
 export function verifyContentHash(data: unknown, expectedHash: string): boolean {
+  // Validate hex format before Buffer.from — it silently truncates
+  // non-hex characters (e.g., 'aabbXX' → Buffer<aa bb>), which could cause
+  // unexpected length matches on malformed inputs.
+  if (!/^[0-9a-f]{64}$/i.test(expectedHash)) {
+    return false;
+  }
   const actualHash = computeContentHash(data);
-  return actualHash === expectedHash;
+  // Use constant-time comparison to prevent timing side channels
+  const actualBuf = Buffer.from(actualHash, 'hex');
+  const expectedBuf = Buffer.from(expectedHash, 'hex');
+  if (actualBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(actualBuf, expectedBuf);
 }
 
 // ============================================================================
@@ -631,6 +654,13 @@ export function verifySnapshotIntegrity(snapshot: {
       `Boundary count mismatch: metadata says ${snapshot.boundaryCount}, ` +
       `actual count ${snapshot.boundaries.length}`
     );
+  }
+
+  // R41-FIX: Warn that merkleRoot is accepted but NOT verified against recomputed tree
+  // Full recomputation requires all leaves + Poseidon2 hashing — too expensive for a format check.
+  // Callers needing cryptographic verification should use verifyMerkleProof() directly.
+  if (snapshot.merkleRoot === 0n) {
+    warnings.push('merkleRoot is zero — likely uninitialized');
   }
 
   // Verify IPFS CID format (if not empty)

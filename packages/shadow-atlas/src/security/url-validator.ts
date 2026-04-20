@@ -246,6 +246,28 @@ export const URL_ALLOWLIST_PATTERNS: readonly URLPattern[] = Object.freeze([
     description: 'Canadian Government open data',
     organization: 'Government of Canada',
   },
+
+  // R77-P7: European and open-data platform domains used in discovery pipeline.
+  // These were present in source configs but missing from the allowlist,
+  // causing silent fetch failures in multi-country discovery runs.
+  {
+    type: 'exact',
+    domain: 'datos.gob.es',
+    description: 'Spanish Government open data portal',
+    organization: 'Government of Spain',
+  },
+  {
+    type: 'exact',
+    domain: 'dati.gov.it',
+    description: 'Italian Government open data portal',
+    organization: 'Government of Italy',
+  },
+  {
+    type: 'suffix',
+    domain: '.opendatasoft.com',
+    description: 'OpenDataSoft platform instances',
+    organization: 'Opendatasoft',
+  },
 ]);
 
 // ============================================================================
@@ -308,35 +330,226 @@ export function matchAllowlistPattern(hostname: string): URLPattern | null {
 }
 
 /**
- * Check if URL points to private/internal network
+ * Canonical private/internal address check.
  *
- * SECURITY: Blocks SSRF attacks targeting internal infrastructure
+ * SECURITY: Single source of truth for SSRF prevention.
+ * Handles all IPv4 encodings (dotted, decimal, octal, hex),
+ * all IPv6 forms (full, abbreviated, mapped, compatible),
+ * zone IDs, and bracket stripping.
  *
- * @param hostname - Hostname to check
- * @returns true if hostname is private/internal
+ * Unified implementation.
+ */
+export function isPrivateAddress(hostname: string): boolean {
+  // Step 1: Strip IPv6 brackets
+  let h = hostname;
+  if (h.startsWith('[') && h.endsWith(']')) {
+    h = h.slice(1, -1);
+  }
+
+  // Step 2: Strip zone ID (%25... or %...)
+  const zoneIdx = h.indexOf('%');
+  if (zoneIdx !== -1) {
+    h = h.slice(0, zoneIdx);
+  }
+
+  // Step 3: Hostname literals
+  if (h === 'localhost' || h === 'localhost.') return true;
+
+  // Step 4: Try parsing as IPv4 (handles dotted, decimal, octal, hex)
+  const ipv4 = parseIPv4(h);
+  if (ipv4 !== null) {
+    return isPrivateIPv4(ipv4);
+  }
+
+  // Step 5: Try parsing as IPv6
+  const ipv6 = parseIPv6(h);
+  if (ipv6 !== null) {
+    // Check for IPv4-mapped (::ffff:x.x.x.x) and IPv4-compatible (::x.x.x.x)
+    const mapped = extractMappedIPv4(ipv6);
+    if (mapped !== null) {
+      return isPrivateIPv4(mapped);
+    }
+    return isPrivateIPv6(ipv6);
+  }
+
+  // Step 6: Not an IP — could be a hostname. Not private by IP check.
+  return false;
+}
+
+/**
+ * @deprecated Use isPrivateAddress() instead. Kept for backwards compatibility.
  */
 export function isPrivateHostname(hostname: string): boolean {
-  // Localhost
-  if (hostname === 'localhost' || hostname === '::1') {
-    return true;
+  return isPrivateAddress(hostname);
+}
+
+// ============================================================================
+// Private IP parsing helpers (not exported)
+// ============================================================================
+
+/**
+ * Parse an IPv4 address string into a 32-bit unsigned integer.
+ * Handles dotted decimal, single decimal, octal (0-prefix), hex (0x-prefix).
+ * Returns null if not a valid IPv4 address.
+ */
+function parseIPv4(addr: string): number | null {
+  // Single integer form: 2130706433 → 127.0.0.1
+  if (/^\d+$/.test(addr)) {
+    const n = Number(addr);
+    if (n >= 0 && n <= 0xFFFFFFFF && Number.isInteger(n)) {
+      return n >>> 0;
+    }
+    return null;
   }
 
-  // Private IPv4 ranges (RFC 1918)
-  const privateIPv4Regex = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.)/;
-  if (privateIPv4Regex.test(hostname)) {
-    return true;
+  // Hex form: 0x7f000001
+  if (/^0x[0-9a-fA-F]+$/i.test(addr)) {
+    const n = parseInt(addr, 16);
+    if (n >= 0 && n <= 0xFFFFFFFF) {
+      return n >>> 0;
+    }
+    return null;
   }
 
-  // Link-local addresses (AWS metadata, etc.)
-  if (hostname.startsWith('169.254.')) {
-    return true;
+  // Dotted form: each octet can be decimal, octal (0-prefix), or hex (0x-prefix)
+  const parts = addr.split('.');
+  if (parts.length !== 4) return null;
+
+  let result = 0;
+  for (const part of parts) {
+    let octet: number;
+    if (part.startsWith('0x') || part.startsWith('0X')) {
+      octet = parseInt(part, 16);
+    } else if (part.startsWith('0') && part.length > 1) {
+      // Octal
+      octet = parseInt(part, 8);
+    } else {
+      octet = parseInt(part, 10);
+    }
+    if (isNaN(octet) || octet < 0 || octet > 255) return null;
+    result = (result << 8) | octet;
+  }
+  return result >>> 0;
+}
+
+/**
+ * Check if a 32-bit IPv4 address is in a private/reserved range.
+ */
+function isPrivateIPv4(ip: number): boolean {
+  const b0 = (ip >>> 24) & 0xFF;
+  const b1 = (ip >>> 16) & 0xFF;
+
+  // 127.0.0.0/8 — loopback
+  if (b0 === 127) return true;
+  // 10.0.0.0/8
+  if (b0 === 10) return true;
+  // 172.16.0.0/12
+  if (b0 === 172 && b1 >= 16 && b1 <= 31) return true;
+  // 192.168.0.0/16
+  if (b0 === 192 && b1 === 168) return true;
+  // 169.254.0.0/16 — link-local
+  if (b0 === 169 && b1 === 254) return true;
+  // 0.0.0.0/8 — this network
+  if (b0 === 0) return true;
+  // 100.64.0.0/10 — CGNAT/shared (RFC 6598)
+  if (b0 === 100 && b1 >= 64 && b1 <= 127) return true;
+  // 198.18.0.0/15 — benchmarking
+  if (b0 === 198 && (b1 === 18 || b1 === 19)) return true;
+
+  return false;
+}
+
+/**
+ * Parse an IPv6 address into a 16-byte Uint8Array.
+ * Handles :: shorthand, mixed IPv4 suffix (::ffff:1.2.3.4).
+ * Returns null if not valid IPv6.
+ */
+function parseIPv6(addr: string): Uint8Array | null {
+  const lower = addr.toLowerCase();
+
+  // Must contain at least one colon to be IPv6
+  if (!lower.includes(':')) return null;
+
+  // Handle mixed IPv4 suffix (e.g., ::ffff:192.168.1.1)
+  let ipv6Part = lower;
+  let ipv4Suffix: number | null = null;
+  const lastColon = lower.lastIndexOf(':');
+  const possibleIPv4 = lower.slice(lastColon + 1);
+  if (possibleIPv4.includes('.')) {
+    ipv4Suffix = parseIPv4(possibleIPv4);
+    if (ipv4Suffix === null) return null;
+    ipv6Part = lower.slice(0, lastColon + 1) + '0:0';  // placeholder
   }
 
-  // IPv6 private ranges
-  if (hostname === '::1' || hostname.startsWith('fe80:') || hostname.startsWith('fc') || hostname.startsWith('fd')) {
-    return true;
+  // Split on ::
+  const doubleSplit = ipv6Part.split('::');
+  if (doubleSplit.length > 2) return null;  // multiple :: not allowed
+
+  let groups: number[];
+  if (doubleSplit.length === 2) {
+    const left = doubleSplit[0] ? doubleSplit[0].split(':') : [];
+    const right = doubleSplit[1] ? doubleSplit[1].split(':') : [];
+    const missing = 8 - left.length - right.length;
+    if (missing < 0) return null;
+    groups = [
+      ...left.map(g => parseInt(g || '0', 16)),
+      ...Array(missing).fill(0) as number[],
+      ...right.map(g => parseInt(g || '0', 16)),
+    ];
+  } else {
+    groups = ipv6Part.split(':').map(g => parseInt(g, 16));
   }
 
+  if (groups.length !== 8) return null;
+  if (groups.some(g => isNaN(g) || g < 0 || g > 0xFFFF)) return null;
+
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 8; i++) {
+    bytes[i * 2] = (groups[i] >>> 8) & 0xFF;
+    bytes[i * 2 + 1] = groups[i] & 0xFF;
+  }
+
+  // Replace last 4 bytes with actual IPv4 if mixed notation
+  if (ipv4Suffix !== null) {
+    bytes[12] = (ipv4Suffix >>> 24) & 0xFF;
+    bytes[13] = (ipv4Suffix >>> 16) & 0xFF;
+    bytes[14] = (ipv4Suffix >>> 8) & 0xFF;
+    bytes[15] = ipv4Suffix & 0xFF;
+  }
+
+  return bytes;
+}
+
+/**
+ * Extract IPv4 from IPv4-mapped (::ffff:x.x.x.x) or IPv4-compatible (::x.x.x.x) IPv6.
+ * Returns the 32-bit IPv4 or null.
+ */
+function extractMappedIPv4(ipv6: Uint8Array): number | null {
+  // ::ffff:x.x.x.x — bytes 0-9 are 0, bytes 10-11 are 0xFF
+  const isMapped = ipv6.slice(0, 10).every(b => b === 0) &&
+                   ipv6[10] === 0xFF && ipv6[11] === 0xFF;
+  // ::x.x.x.x — all first 12 bytes are 0 (IPv4-compatible, deprecated but still seen)
+  const isCompatible = ipv6.slice(0, 12).every(b => b === 0) &&
+                       (ipv6[12] !== 0 || ipv6[13] !== 0 || ipv6[14] !== 0 || ipv6[15] !== 0);
+
+  if (isMapped || isCompatible) {
+    return ((ipv6[12] << 24) | (ipv6[13] << 16) | (ipv6[14] << 8) | ipv6[15]) >>> 0;
+  }
+  return null;
+}
+
+/**
+ * Check if a 16-byte IPv6 address is private/reserved.
+ */
+function isPrivateIPv6(ipv6: Uint8Array): boolean {
+  // ::1 — loopback
+  if (ipv6.slice(0, 15).every(b => b === 0) && ipv6[15] === 1) return true;
+  // :: (all zeros) — unspecified
+  if (ipv6.every(b => b === 0)) return true;
+  // fc00::/7 — unique local (ULA)
+  if ((ipv6[0] & 0xFE) === 0xFC) return true;
+  // fe80::/10 — link-local
+  if (ipv6[0] === 0xFE && (ipv6[1] & 0xC0) === 0x80) return true;
   return false;
 }
 
@@ -353,9 +566,9 @@ export function isPrivateHostname(hostname: string): boolean {
  * @example
  * const result = validateDiscoveryURL('https://hub.arcgis.com/api/v3/datasets', 'arcgis-scanner');
  * if (result.allowed) {
- *   const response = await fetch(result.url);
+ * const response = await fetch(result.url);
  * } else {
- *   logger.warn('URL blocked', { error: result.error });
+ * logger.warn('URL blocked', { error: result.error });
  * }
  */
 export function validateDiscoveryURL(url: string, source: string = 'unknown'): URLValidationResult {
@@ -381,7 +594,7 @@ export function validateDiscoveryURL(url: string, source: string = 'unknown'): U
   }
 
   // Step 3: Block private/internal hostnames
-  if (isPrivateHostname(parsed.hostname)) {
+  if (isPrivateAddress(parsed.hostname)) {
     logBlockedURL(url, parsed.hostname, 'URL points to private/internal network', source);
     return {
       allowed: false,
@@ -426,7 +639,7 @@ export function isURLSafeForBypass(url: string): boolean {
     }
 
     // Must not be private/internal
-    if (isPrivateHostname(parsed.hostname)) {
+    if (isPrivateAddress(parsed.hostname)) {
       return false;
     }
 

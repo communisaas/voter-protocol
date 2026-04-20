@@ -414,12 +414,14 @@ export class USCountryProvider extends CountryProvider<
 
     try {
       // Test TIGERweb availability
+      // Block redirects to prevent SSRF via compromised upstream.
       const response = await fetch(`${CD_LAYER_URL}?f=json`, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(15000),
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -654,9 +656,11 @@ export class USCountryProvider extends CountryProvider<
   ): Promise<USOfficial[]> {
     // Step 1: Fetch YAML
     logger.info('Fetching congress-legislators YAML', { country: 'US' });
+    // Block redirects to prevent SSRF via compromised upstream.
     const response = await fetch(LEGISLATORS_URL, {
       headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!response.ok) {

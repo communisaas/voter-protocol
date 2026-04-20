@@ -19,6 +19,7 @@ import type {
   PinningServiceType,
   PinResult,
 } from '../types.js';
+import { isValidCID } from '../types.js';
 import { logger } from '../../core/utils/logger.js';
 
 // ============================================================================
@@ -92,6 +93,7 @@ export class LighthousePinningService implements IPinningService {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
+        // Block redirects to prevent auth header leak via SSRF.
         const response = await fetch(`${this.apiEndpoint}/api/v0/add`, {
           method: 'POST',
           headers: {
@@ -99,14 +101,20 @@ export class LighthousePinningService implements IPinningService {
           },
           body: formData,
           signal: controller.signal,
+          redirect: 'error',
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
+          // R50-S2: Limit error response body to prevent OOM on malicious endpoints
+          const errorText = (await response.text()).slice(0, 4096);
           throw new Error(`Lighthouse upload failed: ${response.status} ${errorText}`);
         }
 
         const result = await response.json() as { Hash: string; Size: string };
+        // R57-C2: Validate CID field exists and is a non-empty string
+        if (!result.Hash || typeof result.Hash !== 'string') {
+          throw new Error(`Lighthouse returned invalid CID: ${JSON.stringify(result.Hash)}`);
+        }
         const cid = result.Hash;
         const durationMs = Date.now() - startTime;
 
@@ -143,6 +151,8 @@ export class LighthousePinningService implements IPinningService {
    * Verify pin exists on Lighthouse via IPFS gateway
    */
   async verify(cid: string): Promise<boolean> {
+    // R47-F3: CID format validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) return false;
     try {
       const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${cid}`;
       const response = await fetch(gatewayUrl, {
@@ -162,7 +172,10 @@ export class LighthousePinningService implements IPinningService {
    * even after removal from the user's space.
    */
   async unpin(cid: string): Promise<void> {
+    // R47-F3: CID format validation before URL construction (query injection prevention)
+    if (!isValidCID(cid)) throw new Error(`Invalid CID format: ${cid.slice(0, 20)}`);
     try {
+      // Block redirects to prevent auth header leak via SSRF.
       const response = await fetch(
         `${this.apiEndpoint}/api/v0/pin/rm?arg=${cid}`,
         {
@@ -171,6 +184,7 @@ export class LighthousePinningService implements IPinningService {
             'Authorization': `Bearer ${this.config.apiKey}`,
           },
           signal: AbortSignal.timeout(10000),
+          redirect: 'error',
         }
       );
 

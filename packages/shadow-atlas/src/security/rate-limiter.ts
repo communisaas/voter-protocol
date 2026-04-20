@@ -95,6 +95,11 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
   // Cleanup stale buckets every 5 minutes
   private readonly cleanupInterval: ReturnType<typeof setInterval>;
 
+  // R65-C3: Cap ipBuckets to prevent memory exhaustion from IP-churning DDoS.
+  // Mirrors R55-S1 pattern from resilience/rate-limiter.ts.
+  private static readonly MAX_IP_BUCKETS = 10_000;
+  private static readonly MAX_API_KEY_BUCKETS = 10_000;
+
   constructor(
     ipConfig: RateLimitConfig = { maxRequests: 60, windowMs: 60000 },
     apiKeyConfig: RateLimitConfig = { maxRequests: 1000, windowMs: 60000 },
@@ -262,8 +267,9 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
 
     // Consume from IP bucket
     if (!ipBucket.consume(cost)) {
-      // Unlikely race, but handle gracefully
-      // Note: global tokens already consumed, this is acceptable
+      // R68-F01: Refund global tokens — prevents permanent token leak when IP
+      // bucket rejects after global bucket already consumed.
+      this.globalBucket.refund(cost);
       return false;
     }
 
@@ -300,6 +306,16 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
     let bucket = this.ipBuckets.get(ip);
 
     if (!bucket) {
+      // R65-C3: Evict stale entries when at capacity
+      if (this.ipBuckets.size >= MultiTierRateLimiter.MAX_IP_BUCKETS) {
+        this.cleanup();
+        // If still at capacity after cleanup, evict the oldest (first) entry
+        if (this.ipBuckets.size >= MultiTierRateLimiter.MAX_IP_BUCKETS) {
+          const firstKey = this.ipBuckets.keys().next().value;
+          if (firstKey !== undefined) this.ipBuckets.delete(firstKey);
+        }
+      }
+
       const config: UnifiedRateLimiterConfig = {
         maxTokens: this.ipConfig.maxRequests,
         refillRate: this.ipConfig.maxRequests / (this.ipConfig.windowMs / 1000),
@@ -319,6 +335,16 @@ export class MultiTierRateLimiter implements UnifiedRateLimiter {
     let bucket = this.apiKeyBuckets.get(apiKey);
 
     if (!bucket) {
+      // R65-C3: Evict stale entries when at capacity
+      if (this.apiKeyBuckets.size >= MultiTierRateLimiter.MAX_API_KEY_BUCKETS) {
+        this.cleanup();
+        // If still at capacity after cleanup, evict the oldest (first) entry
+        if (this.apiKeyBuckets.size >= MultiTierRateLimiter.MAX_API_KEY_BUCKETS) {
+          const firstKey = this.apiKeyBuckets.keys().next().value;
+          if (firstKey !== undefined) this.apiKeyBuckets.delete(firstKey);
+        }
+      }
+
       const config: UnifiedRateLimiterConfig = {
         maxTokens: this.apiKeyConfig.maxRequests,
         refillRate: this.apiKeyConfig.maxRequests / (this.apiKeyConfig.windowMs / 1000),
@@ -437,7 +463,7 @@ export function getClientIdentifier(
   // const fingerprint = generateFingerprint(req);
 
   return {
-    ip,
+    ip: normalizeIP(ip),
     apiKey,
   };
 }

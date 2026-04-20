@@ -113,6 +113,21 @@ export interface AuditLogConfig {
 }
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+/** Recursively sort object keys for deterministic JSON serialization */
+function sortKeysDeep(obj: unknown): unknown {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sortKeysDeep);
+  const sorted = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(obj as Record<string, unknown>).sort()) {
+    sorted[key] = sortKeysDeep((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
+// ============================================================================
 // Security Audit Logger
 // ============================================================================
 
@@ -133,6 +148,8 @@ export class SecurityAuditLogger {
   private lastEventHash: string | undefined;
   private eventBuffer: SecurityEvent[] = [];
   private flushInterval: ReturnType<typeof setInterval> | undefined;
+  // R48-F3: Serialize concurrent flushes to prevent duplicate events and hash chain forks
+  private flushPromise: Promise<void> | null = null;
 
   constructor(config: Partial<AuditLogConfig> = {}) {
     this.config = {
@@ -149,6 +166,56 @@ export class SecurityAuditLogger {
 
     // Flush buffer every 5 seconds
     this.flushInterval = setInterval(() => this.flush(), 5000);
+  }
+
+  /**
+   * R54: Load the last event hash from persisted state on startup.
+   * Call after construction to restore hash chain continuity across restarts.
+   * Best-effort — starts a fresh chain if loading fails.
+   */
+  async initialize(): Promise<void> {
+    await this.loadLastHash();
+  }
+
+  /**
+   * R54: Restore lastEventHash from the most recent .chain anchor file,
+   * falling back to the last line of the most recent .ndjson/.jsonl log.
+   */
+  private async loadLastHash(): Promise<void> {
+    if (!this.config.enableHashChain) return;
+    try {
+      const files = await readdir(this.config.logDir);
+
+      // Try .chain files first (written on rotation)
+      const chainFiles = files.filter(f => f.endsWith('.chain')).sort();
+      if (chainFiles.length > 0) {
+        const lastChainFile = join(this.config.logDir, chainFiles[chainFiles.length - 1]);
+        const chainData = JSON.parse(await readFile(lastChainFile, 'utf-8'));
+        if (chainData.lastEventHash) {
+          this.lastEventHash = chainData.lastEventHash;
+          return;
+        }
+      }
+
+      // Fallback: read last line of most recent log file
+      const logFiles = files
+        .filter(f => f.endsWith('.jsonl') || f.endsWith('.ndjson'))
+        .sort();
+      if (logFiles.length > 0) {
+        const lastLogFile = join(this.config.logDir, logFiles[logFiles.length - 1]);
+        const content = await readFile(lastLogFile, 'utf-8');
+        const lines = content.trim().split('\n').filter(l => l.length > 0);
+        if (lines.length > 0) {
+          const lastEvent = JSON.parse(lines[lines.length - 1]);
+          if (lastEvent.eventHash) {
+            this.lastEventHash = lastEvent.eventHash;
+          }
+        }
+      }
+    } catch {
+      // R54: Best-effort — start fresh chain if load fails
+      logger.warn('AuditLogger: could not load last event hash, starting fresh chain');
+    }
   }
 
   /**
@@ -381,40 +448,68 @@ export class SecurityAuditLogger {
   }
 
   /**
-   * Flush buffered events to disk
+   * Flush buffered events to disk.
+   * R48-F3: Serialized — concurrent callers chain through flushPromise so the
+   * interval timer and a critical-event flush cannot interleave, which would
+   * duplicate events and fork the hash chain.
    */
   async flush(): Promise<void> {
-    if (this.eventBuffer.length === 0) {
-      return;
-    }
+    const doFlush = async (): Promise<void> => {
+      if (this.eventBuffer.length === 0) {
+        return;
+      }
 
-    // Ensure log directory exists
-    await mkdir(this.config.logDir, { recursive: true });
+      // Ensure log directory exists
+      // Restrict audit log directory permissions (operator-only).
+      await mkdir(this.config.logDir, { recursive: true, mode: 0o700 });
 
-    // Serialize events
-    const logLines = this.eventBuffer.map((event) => JSON.stringify(event)).join('\n') + '\n';
-    const logSize = Buffer.byteLength(logLines, 'utf8');
+      // Serialize events
+      const logLines = this.eventBuffer.map((event) => JSON.stringify(event)).join('\n') + '\n';
+      const logSize = Buffer.byteLength(logLines, 'utf8');
 
-    // Check if rotation needed
-    if (this.currentFileSize + logSize > this.config.maxFileSize) {
-      await this.rotateLogFile();
-    }
+      // Check if rotation needed
+      if (this.currentFileSize + logSize > this.config.maxFileSize) {
+        await this.rotateLogFile();
+      }
 
-    // Append to current log file
-    await appendFile(this.currentLogFile, logLines, 'utf8');
-    this.currentFileSize += logSize;
+      // Append to current log file
+      // Restrict audit log file permissions (operator-only).
+      await appendFile(this.currentLogFile, logLines, { encoding: 'utf8', mode: 0o600 });
+      this.currentFileSize += logSize;
 
-    // Clear buffer
-    this.eventBuffer = [];
+      // Clear buffer
+      this.eventBuffer = [];
+    };
+
+    // Chain through flushPromise so concurrent calls serialize
+    this.flushPromise = (this.flushPromise ?? Promise.resolve()).then(doFlush, doFlush);
+    return this.flushPromise;
   }
 
   /**
    * Rotate log file
    */
   private async rotateLogFile(): Promise<void> {
+    // R65-H5: Persist hash chain anchor before rotation
+    const previousFile = this.currentLogFile;
+
     // Generate new log file name
     this.currentLogFile = this.generateLogFileName();
     this.currentFileSize = 0;
+
+    // Write chain anchor linking previous file to new file
+    if (this.lastEventHash && previousFile) {
+      const chainFile = previousFile + '.chain';
+      try {
+        await writeFile(chainFile, JSON.stringify({
+          lastEventHash: this.lastEventHash,
+          rotatedAt: new Date().toISOString(),
+          nextFile: this.currentLogFile,
+        }));
+      } catch {
+        // Best-effort — don't block rotation on chain persistence failure
+      }
+    }
 
     // Cleanup old log files (beyond maxFiles limit)
     await cleanupOldLogFiles(this.config.logDir, this.config.maxFiles);
@@ -435,8 +530,9 @@ export class SecurityAuditLogger {
     // Exclude eventHash itself from hash computation
     const { eventHash, ...eventWithoutHash } = event;
 
-    // Normalize JSON (sort keys)
-    const normalized = JSON.stringify(eventWithoutHash, Object.keys(eventWithoutHash).sort());
+    // Deep-sort all keys recursively for deterministic hashing
+    // (shallow Object.keys().sort() only sorted top-level, not nested objects)
+    const normalized = JSON.stringify(sortKeysDeep(eventWithoutHash));
 
     return createHash('sha256').update(normalized).digest('hex');
   }
@@ -457,10 +553,27 @@ export class SecurityAuditLogger {
    *
    * SECURITY: Remove sensitive data before logging (GDPR/CCPA compliance).
    */
-  private sanitizePII(data: Record<string, unknown>): Record<string, unknown> {
+  private sanitizePII(data: Record<string, unknown>, depth: number = 0): Record<string, unknown> {
+    // R82-S2: Depth limit to prevent circular reference issues
+    if (depth > 5) return data;
+
     const sanitized: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(data)) {
+      // R82-S2: Recursively sanitize nested objects
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        sanitized[key] = this.sanitizePII(value as Record<string, unknown>, depth + 1);
+        continue;
+      }
+      if (Array.isArray(value)) {
+        sanitized[key] = value.map(item =>
+          typeof item === 'object' && item !== null && !Array.isArray(item)
+            ? this.sanitizePII(item as Record<string, unknown>, depth + 1)
+            : item
+        );
+        continue;
+      }
+
       // Redact sensitive fields
       const lowerKey = key.toLowerCase();
 
@@ -562,8 +675,15 @@ export function extractClientInfo(req: {
   socket: { remoteAddress?: string };
   headers: Record<string, string | string[] | undefined>;
 }): SecurityEvent['client'] {
+  // Normalize IPv6-mapped IPv4 (::ffff:x.x.x.x → x.x.x.x) to match
+  // rate-limiter.ts normalizeIP(). Without this, the same client appears under
+  // different IPs in audit logs vs rate limiter, breaking correlation.
+  let ip = req.socket.remoteAddress || 'unknown';
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
   return {
-    ip: req.socket.remoteAddress || 'unknown',
+    ip,
     apiKeyHash: undefined, // Set separately after key extraction
     userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
   };
@@ -916,8 +1036,8 @@ function computeEventHashForVerification(event: SecurityEvent): string {
   // Exclude eventHash itself from computation (same as logger)
   const { eventHash, ...eventWithoutHash } = event;
 
-  // Normalize JSON (sort keys for determinism)
-  const normalized = JSON.stringify(eventWithoutHash, Object.keys(eventWithoutHash).sort());
+  // Deep-sort all keys recursively for deterministic hashing
+  const normalized = JSON.stringify(sortKeysDeep(eventWithoutHash));
 
   return createHash('sha256').update(normalized).digest('hex');
 }

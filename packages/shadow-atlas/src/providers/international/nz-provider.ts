@@ -1036,9 +1036,11 @@ export class NZCountryProvider extends CountryProvider<
       const featureServerBase = `${this.baseUrl}/New_Zealand_Electorates__2020_and_2025__WFL1/FeatureServer`;
       const metaUrl = `${featureServerBase}?f=json`;
 
+      // Block redirects to prevent SSRF.
       const res = await fetch(metaUrl, {
         headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
         signal: AbortSignal.timeout(10000),
+        redirect: 'error',
       });
 
       if (!res.ok) return true;
@@ -1333,7 +1335,11 @@ export class NZCountryProvider extends CountryProvider<
 
     const url = `${endpoint}/query?${params.toString()}`;
 
-    const response = await fetch(url);
+    // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
+    const response = await fetch(url, {
+      redirect: 'error',
+      signal: AbortSignal.timeout(30000),
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -1361,6 +1367,17 @@ export class NZCountryProvider extends CountryProvider<
       redirect: 'follow',
     });
 
+    // Validate final URL hostname after redirect to prevent
+    // redirect-based SSRF (data.govt.nz is known to redirect).
+    const finalUrl = response.url;
+    if (finalUrl) {
+      const finalHost = new URL(finalUrl).hostname;
+      const allowedHosts = ['catalogue.data.govt.nz', 'data.govt.nz', 'koordinates.com'];
+      if (!allowedHosts.some(h => finalHost === h || finalHost.endsWith('.' + h))) {
+        throw new Error(`data.govt.nz redirected to unexpected host: ${finalHost}`);
+      }
+    }
+
     if (!response.ok) {
       throw new Error(`data.govt.nz returned HTTP ${response.status}`);
     }
@@ -1384,12 +1401,14 @@ export class NZCountryProvider extends CountryProvider<
   private async fetchFromWikipedia(endpoint: string): Promise<RawNZMP[]> {
     logger.info('Fetching NZ MPs from Wikipedia', { endpoint });
 
+    // Block redirects to prevent SSRF.
     const response = await fetch(endpoint, {
       headers: {
         'User-Agent': 'VOTER-Protocol-Ingestion/1.0 (civic data, research)',
         Accept: 'application/json',
       },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!response.ok) {
@@ -1422,12 +1441,14 @@ export class NZCountryProvider extends CountryProvider<
   private async fetchFromParliamentNZ(endpoint: string): Promise<RawNZMP[]> {
     logger.info('Fetching NZ MPs from parliament.nz', { endpoint });
 
+    // Block redirects to prevent SSRF.
     const response = await fetch(endpoint, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; VOTER-Protocol-Ingestion/1.0)',
         Accept: 'text/html',
       },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!response.ok) {

@@ -434,6 +434,8 @@ export abstract class BaseInternationalProvider<
           headers: {
             'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
           },
+          // Apply timeout to HEAD requests (consistent with fetchGeoJSON).
+          signal: AbortSignal.timeout(this.timeoutMs),
         });
 
         // Check Last-Modified header
@@ -563,6 +565,8 @@ export abstract class BaseInternationalProvider<
             ...additionalHeaders,
           },
           signal: AbortSignal.timeout(this.timeoutMs),
+          // Block redirect-following to prevent SSRF via redirect chains.
+          redirect: 'error',
         });
 
         if (!response.ok) {
@@ -629,6 +633,10 @@ export abstract class BaseInternationalProvider<
       ? `&maxAllowableOffset=${geometryPrecision}`
       : '';
 
+    // Guard against infinite pagination loops
+    let pageCount = 0;
+    const maxPages = 500;
+
     while (hasMore) {
       const separator = baseQueryUrl.includes('?') ? '&' : '?';
       const pageUrl = `${baseQueryUrl}${separator}resultOffset=${offset}&resultRecordCount=${pageSize}${precisionParam}`;
@@ -655,6 +663,8 @@ export abstract class BaseInternationalProvider<
               'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
             },
             signal: AbortSignal.timeout(pageTimeoutMs),
+            // Block redirect-following to prevent SSRF via redirect chains.
+            redirect: 'error',
           });
 
           if (!response.ok) {
@@ -686,6 +696,16 @@ export abstract class BaseInternationalProvider<
 
       if (!pageData) {
         throw lastError ?? new Error('Page fetch failed after all retries');
+      }
+
+      pageCount++;
+      if (pageCount >= maxPages) {
+        logger.warn('fetchGeoJSONPaginated: hit maxPages limit', {
+          maxPages,
+          offset,
+          totalFeatures: allFeatures.length,
+        });
+        break;
       }
 
       allFeatures.push(...pageData.features);

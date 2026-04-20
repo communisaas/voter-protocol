@@ -442,11 +442,14 @@ export class UKCountryProvider extends CountryProvider<
     const endpoint = this.buildLayerEndpoint(layerConfig.name);
     const metadataUrl = `${endpoint}?f=json`;
 
+    // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
     const response = await fetch(metadataUrl, {
       headers: {
         Accept: 'application/json',
         'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
       },
+      redirect: 'error',
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
@@ -922,20 +925,32 @@ export class UKCountryProvider extends CountryProvider<
   private async fetchAllMembers(): Promise<UKParliamentMember[]> {
     const allMembers: UKParliamentMember[] = [];
     let skip = 0;
+    const MAX_PAGES = 50;
+    let pageCount = 0;
 
     while (true) {
+      if (++pageCount > MAX_PAGES) {
+        logger.warn(`UK pagination exceeded ${MAX_PAGES} pages, stopping`, {
+          country: 'UK',
+          fetched: allMembers.length,
+        });
+        break;
+      }
+
       const url =
         `${UKCountryProvider.PARLIAMENT_API_BASE}/Members/Search` +
         `?House=1&IsCurrentMember=true&skip=${skip}&take=${UKCountryProvider.PAGE_SIZE}`;
 
       logger.debug('Fetching MPs page', { country: 'UK', skip, take: UKCountryProvider.PAGE_SIZE });
 
+      // Block redirects to prevent SSRF.
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(30000),
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -974,12 +989,14 @@ export class UKCountryProvider extends CountryProvider<
   }> {
     try {
       const url = `${UKCountryProvider.PARLIAMENT_API_BASE}/Members/${memberId}/Contact`;
+      // Block redirects to prevent SSRF.
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(15000),
+        redirect: 'error',
       });
 
       if (!response.ok) {

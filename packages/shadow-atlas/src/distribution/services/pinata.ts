@@ -19,6 +19,7 @@ import type {
   PinningServiceType,
   PinResult,
 } from '../types.js';
+import { isValidCID } from '../types.js';
 
 /**
  * Pinata client configuration
@@ -146,15 +147,18 @@ export class PinataPinningService implements IPinningService {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
+        // Block redirects to prevent auth header leak via SSRF.
         const response = await fetch(`${this.apiEndpoint}/pinning/pinFileToIPFS`, {
           method: 'POST',
           headers: this.getAuthHeaders(),
           body: formData,
           signal: controller.signal,
+          redirect: 'error',
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
+          // R50-S2: Limit error response body to prevent OOM on malicious endpoints
+          const errorText = (await response.text()).slice(0, 4096);
           throw new Error(`Pinata upload failed: ${response.status} ${errorText}`);
         }
 
@@ -194,13 +198,17 @@ export class PinataPinningService implements IPinningService {
    * Verify pin exists on Pinata
    */
   async verify(cid: string): Promise<boolean> {
+    // R47-F3: CID format validation before URL construction (query injection prevention)
+    if (!isValidCID(cid)) return false;
     try {
+      // Block redirects to prevent auth header leak via SSRF.
       const response = await fetch(
         `${this.apiEndpoint}/data/pinList?hashContains=${cid}`,
         {
           method: 'GET',
           headers: this.getAuthHeaders(),
           signal: AbortSignal.timeout(10000),
+          redirect: 'error',
         }
       );
 
@@ -219,17 +227,22 @@ export class PinataPinningService implements IPinningService {
    * Unpin content from Pinata
    */
   async unpin(cid: string): Promise<void> {
+    // R47-F3: CID format validation before URL construction (path traversal prevention)
+    if (!isValidCID(cid)) throw new Error(`Invalid CID format: ${cid.slice(0, 20)}`);
+    // Block redirects to prevent auth header leak via SSRF.
     const response = await fetch(
       `${this.apiEndpoint}/pinning/unpin/${cid}`,
       {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(10000),
+        redirect: 'error',
       }
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      // R50-S2: Limit error response body to prevent OOM on malicious endpoints
+      const errorText = (await response.text()).slice(0, 4096);
       throw new Error(`Pinata unpin failed: ${response.status} ${errorText}`);
     }
   }
@@ -239,12 +252,14 @@ export class PinataPinningService implements IPinningService {
    */
   async healthCheck(): Promise<boolean> {
     try {
+      // Block redirects to prevent auth header leak via SSRF.
       const response = await fetch(
         `${this.apiEndpoint}/data/testAuthentication`,
         {
           method: 'GET',
           headers: this.getAuthHeaders(),
           signal: AbortSignal.timeout(5000),
+          redirect: 'error',
         }
       );
 
@@ -258,6 +273,8 @@ export class PinataPinningService implements IPinningService {
    * Get gateway URL for a CID
    */
   getGatewayUrl(cid: string): string {
+    // R50-S1: CID validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) throw new Error(`Invalid CID format: ${cid.slice(0, 20)}`);
     return `${this.gatewayUrl}/ipfs/${cid}`;
   }
 }

@@ -512,9 +512,14 @@ export abstract class CountryProvider<
   } {
     const errors: { field: string; message: string; recordId?: string }[] = [];
 
-    for (const record of records) {
+    // R25-PROV-L1: Track invalid record indices to avoid undefined recordId collapse in Set
+    const invalidIndices = new Set<number>();
+
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
       const result = schema.safeParse(record);
       if (!result.success && result.error) {
+        invalidIndices.add(i);
         for (const issue of result.error.issues) {
           errors.push({
             field: issue.path.join('.'),
@@ -526,7 +531,7 @@ export abstract class CountryProvider<
     }
 
     // 80% threshold: fail if valid records < 80% of expected
-    const validCount = records.length - new Set(errors.map(e => e.recordId)).size;
+    const validCount = records.length - invalidIndices.size;
     const threshold = Math.floor(expectedCount * 0.8);
     const passed = validCount >= threshold;
 

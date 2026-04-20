@@ -360,17 +360,18 @@ describe('Integrity Checker - Boundary Count Verification', () => {
     expect(result.valid).toBe(true);
   });
 
-  test('returns valid for unknown jurisdictions', () => {
+  test('returns invalid for unknown jurisdictions (fail-closed)', () => {
     const result = verifyBoundaryCount('UNKNOWN-jurisdiction', 100);
-    expect(result.valid).toBe(true);
-    expect(result.expected).toBeUndefined();
+    // R23-SEC-M4: Unknown jurisdictions now fail-closed
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Unknown jurisdiction');
   });
 
   test('validates all known jurisdictions', () => {
     expect(EXPECTED_BOUNDARY_COUNTS['US-congressional']).toBe(441);
     expect(EXPECTED_BOUNDARY_COUNTS['US-county']).toBe(3143);
     expect(EXPECTED_BOUNDARY_COUNTS['GB-parliamentary']).toBe(650);
-    expect(EXPECTED_BOUNDARY_COUNTS['CA-federal']).toBe(338);
+    expect(EXPECTED_BOUNDARY_COUNTS['CA-federal']).toBe(343);
   });
 });
 

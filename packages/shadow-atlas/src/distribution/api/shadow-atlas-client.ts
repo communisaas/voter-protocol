@@ -183,6 +183,8 @@ export class ShadowAtlasError extends Error {
 interface CacheEntry<T> {
   readonly data: T;
   readonly timestamp: number;
+  /** Track last access time for LRU eviction (separate from TTL timestamp). */
+  lastAccessed: number;
 }
 
 /**
@@ -197,6 +199,7 @@ export class ShadowAtlasClient {
   private readonly cacheEnabled: boolean;
   private readonly cacheTTL: number;
   private readonly cache: Map<string, CacheEntry<unknown>>;
+  private static readonly MAX_CACHE_SIZE = 10_000;
 
   // Rate limit tracking
   private rateLimitRemaining?: number;
@@ -452,10 +455,12 @@ export class ShadowAtlasClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
+        // Block redirects to prevent auth header leak via SSRF.
         const response = await fetch(url, {
           method: 'GET',
           headers,
           signal: controller.signal,
+          redirect: 'error',
         });
 
         clearTimeout(timeoutId);
@@ -479,7 +484,7 @@ export class ShadowAtlasClient {
           // Rate limit exceeded - wait and retry
           if (response.status === 429 && attempt < this.retryAttempts - 1) {
             const resetAt = this.rateLimitReset ? this.rateLimitReset * 1000 : Date.now() + 60000;
-            const waitMs = Math.max(0, resetAt - Date.now());
+            const waitMs = Math.min(Math.max(0, resetAt - Date.now()), 120_000); // cap at 2 minutes
             await this.sleep(waitMs);
             continue;
           }
@@ -527,6 +532,8 @@ export class ShadowAtlasClient {
       return undefined;
     }
 
+    // Refresh access time for LRU eviction.
+    entry.lastAccessed = Date.now();
     return entry.data;
   }
 
@@ -534,9 +541,24 @@ export class ShadowAtlasClient {
    * Set cache
    */
   private setCache<T>(key: string, data: T): void {
+    // LRU eviction — evict least-recently-accessed, not insertion-order first.
+    if (this.cache.size >= ShadowAtlasClient.MAX_CACHE_SIZE) {
+      let oldestKey: string | undefined;
+      let oldestTime = Infinity;
+      for (const [k, v] of this.cache) {
+        const entry = v as CacheEntry<unknown>;
+        if (entry.lastAccessed < oldestTime) {
+          oldestTime = entry.lastAccessed;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey !== undefined) this.cache.delete(oldestKey);
+    }
+    const now = Date.now();
     this.cache.set(key, {
       data,
-      timestamp: Date.now(),
+      timestamp: now,
+      lastAccessed: now,
     });
   }
 
@@ -559,8 +581,11 @@ export class ShadowAtlasClient {
     const padded = new Uint8Array(32);
     padded.set(bytes.slice(0, 32));
 
-    // Convert to bigint
-    const value = BigInt('0x' + Buffer.from(padded).toString('hex'));
+    // Convert to bigint, reduce modulo BN254 field to ensure valid Poseidon2 input.
+    // R63-H2: 32 bytes = 256 bits can exceed BN254 modulus (~254.8 bits).
+    // Without reduction, Poseidon2 behavior is undefined for out-of-range inputs.
+    const BN254_FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+    const value = BigInt('0x' + Buffer.from(padded).toString('hex')) % BN254_FIELD_MODULUS;
 
     // Hash with Poseidon2
     const hasher = await getHasher();

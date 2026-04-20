@@ -19,6 +19,7 @@ import type {
   PinningServiceType,
   PinResult,
 } from '../types.js';
+import { isValidCID } from '../types.js';
 
 /**
  * Fleek client configuration
@@ -126,15 +127,18 @@ export class FleekPinningService implements IPinningService {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
+        // Block redirects to prevent auth header leak via SSRF.
         const response = await fetch(`${this.apiEndpoint}/storage/upload`, {
           method: 'POST',
           headers: this.getAuthHeaders(),
           body: formData,
           signal: controller.signal,
+          redirect: 'error',
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
+          // R50-S2: Limit error response body to prevent OOM on malicious endpoints
+          const errorText = (await response.text()).slice(0, 4096);
           throw new Error(`Fleek upload failed: ${response.status} ${errorText}`);
         }
 
@@ -176,6 +180,8 @@ export class FleekPinningService implements IPinningService {
    * Checks via the Fleek gateway.
    */
   async verify(cid: string): Promise<boolean> {
+    // R47-F3: CID format validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) return false;
     try {
       const response = await fetch(
         `${this.gatewayUrl}/ipfs/${cid}`,
@@ -195,17 +201,22 @@ export class FleekPinningService implements IPinningService {
    * Unpin content from Fleek
    */
   async unpin(cid: string): Promise<void> {
+    // R47-F3: CID format validation before URL construction (path traversal prevention)
+    if (!isValidCID(cid)) throw new Error(`Invalid CID format: ${cid.slice(0, 20)}`);
+    // Block redirects to prevent auth header leak via SSRF.
     const response = await fetch(
       `${this.apiEndpoint}/storage/pin/${cid}`,
       {
         method: 'DELETE',
         headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(10000),
+        redirect: 'error',
       }
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      // R50-S2: Limit error response body to prevent OOM on malicious endpoints
+      const errorText = (await response.text()).slice(0, 4096);
       throw new Error(`Fleek unpin failed: ${response.status} ${errorText}`);
     }
   }
@@ -234,6 +245,8 @@ export class FleekPinningService implements IPinningService {
    * Get gateway URL for a CID
    */
   getGatewayUrl(cid: string): string {
+    // R50-S1: CID validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) throw new Error(`Invalid CID format: ${cid.slice(0, 20)}`);
     return `${this.gatewayUrl}/ipfs/${cid}`;
   }
 }

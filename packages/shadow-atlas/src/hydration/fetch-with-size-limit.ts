@@ -5,11 +5,39 @@
  * a configurable maximum, preventing memory exhaustion from
  * malicious or misconfigured servers.
  *
+ * NOTE: DNS rebinding is a known limitation — we validate the hostname
+ * string, not the resolved IP. For DNS-resolution-level SSRF prevention,
+ * use the secure-fetch.ts module instead.
+ *
  * @packageDocumentation
  */
 
+import { isPrivateAddress } from '../security/url-validator.js';
+
 /** Default maximum response size: 100 MB */
 export const DEFAULT_MAX_BYTES = 104_857_600;
+
+/**
+ * Validate URL before fetch — SSRF prevention.
+ * IP validation + protocol scheme check.
+ *
+ * @param url - URL to validate
+ * @param allowPrivate - If true, skip private IP check (for dev/testing only)
+ * @throws Error if URL targets private IP or uses non-http(s) scheme
+ */
+function validateFetchTarget(url: string, allowPrivate: boolean): void {
+  const parsed = new URL(url);
+
+  // Block non-http(s) schemes (file://, ftp://, data://, etc.)
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`fetchWithSizeLimit: blocked non-HTTP scheme: ${parsed.protocol}`);
+  }
+
+  // Block private/internal IPs (SSRF prevention)
+  if (!allowPrivate && isPrivateAddress(parsed.hostname)) {
+    throw new Error(`fetchWithSizeLimit: blocked private address: ${parsed.hostname}`);
+  }
+}
 
 /**
  * Fetch a URL and return the response as text, aborting if the response
@@ -18,6 +46,7 @@ export const DEFAULT_MAX_BYTES = 104_857_600;
  * @param url - URL to fetch
  * @param maxBytes - Maximum allowed response size in bytes (default: 100 MB)
  * @param init - Optional fetch RequestInit (headers, signal, etc.)
+ * @param options - Optional settings (e.g. allowPrivate for dev/testing)
  * @returns The response body as a string
  * @throws Error if the response body exceeds maxBytes or the request fails
  */
@@ -25,8 +54,14 @@ export async function fetchWithSizeLimit(
   url: string,
   maxBytes: number = DEFAULT_MAX_BYTES,
   init?: RequestInit,
+  options?: { readonly allowPrivate?: boolean },
 ): Promise<string> {
-  const response = await fetch(url, init);
+  // Validate target before fetch.
+  validateFetchTarget(url, options?.allowPrivate ?? false);
+  // R66-C1 + R67-H1: Prevent silent redirect-following (SSRF vector).
+  // Spread order: caller's init first, then redirect: 'error' — cannot be overridden.
+  const mergedInit: RequestInit = { ...init, redirect: 'error' };
+  const response = await fetch(url, mergedInit);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
@@ -95,6 +130,7 @@ export async function fetchWithSizeLimit(
  * @param url - URL to fetch
  * @param maxBytes - Maximum allowed response size in bytes (default: 100 MB)
  * @param init - Optional fetch RequestInit (headers, signal, etc.)
+ * @param options - Optional settings (e.g. allowPrivate for dev/testing)
  * @returns The response body as a Buffer
  * @throws Error if the response body exceeds maxBytes or the request fails
  */
@@ -102,8 +138,14 @@ export async function fetchBufferWithSizeLimit(
   url: string,
   maxBytes: number = DEFAULT_MAX_BYTES,
   init?: RequestInit,
+  options?: { readonly allowPrivate?: boolean },
 ): Promise<Buffer> {
-  const response = await fetch(url, init);
+  // Validate target before fetch.
+  validateFetchTarget(url, options?.allowPrivate ?? false);
+  // R66-C1 + R67-H1: Prevent silent redirect-following (SSRF vector).
+  // Spread order: caller's init first, then redirect: 'error' — cannot be overridden.
+  const mergedInit: RequestInit = { ...init, redirect: 'error' };
+  const response = await fetch(url, mergedInit);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${url}: ${response.status} ${response.statusText}`,

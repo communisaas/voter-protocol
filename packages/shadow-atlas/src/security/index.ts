@@ -90,6 +90,7 @@ export {
   isURLSafeForBypass,
   batchValidateDiscoveryURLs,
   matchAllowlistPattern,
+  isPrivateAddress,
   isPrivateHostname,
   isDomainAllowed,
   getMatchingPatternDescription,

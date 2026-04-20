@@ -564,11 +564,14 @@ export class CanadaCountryProvider extends CountryProvider<
       const url = `${this.representApiUrl}/boundaries/?contains=${lat},${lng}&sets=federal-electoral-districts-2023-representation-order`;
       logger.info('Resolving address to district', { country: 'Canada', lat, lng });
 
+      // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -662,9 +665,11 @@ export class CanadaCountryProvider extends CountryProvider<
   async hasChangedSince(lastExtraction: Date): Promise<boolean> {
     try {
       const url = `${this.representApiUrl}/boundary-sets/federal-electoral-districts-2023-representation-order/?format=json`;
+      // Block redirects to prevent SSRF.
       const res = await fetch(url, {
         headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0' },
         signal: AbortSignal.timeout(10000),
+        redirect: 'error',
       });
 
       if (!res.ok) return true;
@@ -716,11 +721,14 @@ export class CanadaCountryProvider extends CountryProvider<
 
     try {
       const url = `${this.representApiUrl}/boundaries/federal-electoral-districts-2023-representation-order/?limit=1`;
+      // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
+        redirect: 'error',
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -898,7 +906,11 @@ export class CanadaCountryProvider extends CountryProvider<
     // Extract CSV from ZIP if not already cached
     if (!existsSync(csvCachePath)) {
       logger.info(`CA GAF: downloading ZIP from ${this.gafUrl}...`);
-      const response = await fetch(this.gafUrl);
+      // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
+      const response = await fetch(this.gafUrl, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(120000),
+      });
       if (!response.ok) {
         throw new Error(
           `Failed to download CA GAF ZIP: ${response.status} ${response.statusText}`
@@ -1036,7 +1048,15 @@ export class CanadaCountryProvider extends CountryProvider<
       const filename = zipBuffer.toString('utf-8', offset + 30, offset + 30 + filenameLen);
       const dataStart = offset + 30 + filenameLen + extraLen;
 
-      if (filename.endsWith(targetFilename) || filename === targetFilename) {
+      // R66-C2: Reject path traversal entries (zip-slip defense-in-depth)
+      if (filename.includes('..') || filename.startsWith('/')) {
+        offset = dataStart + compressedSize;
+        continue;
+      }
+
+      // Match only the basename to prevent directory prefix confusion
+      const basename = filename.split('/').pop() ?? '';
+      if (basename === targetFilename) {
         const compressedData = zipBuffer.subarray(dataStart, dataStart + compressedSize);
 
         if (compressionMethod === 0) {
@@ -1044,8 +1064,9 @@ export class CanadaCountryProvider extends CountryProvider<
           return compressedData.toString('utf-8');
         } else if (compressionMethod === 8) {
           // Deflated
+          const MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024; // 500MB — ignore ZIP header's uncompressedSize
           const decompressed = inflateRawSync(compressedData, {
-            maxOutputLength: uncompressedSize || 500 * 1024 * 1024, // 500MB safety cap
+            maxOutputLength: MAX_DECOMPRESSED_SIZE,
           });
           return decompressed.toString('utf-8');
         } else {
@@ -1087,9 +1108,11 @@ export class CanadaCountryProvider extends CountryProvider<
         authority: boundaryLayer.authority,
         vintage: boundaryLayer.vintage,
       }],
-      // Use the officials sources that succeeded (we pass all as if they succeeded
-      // for assessment — the actual attempts are in the extraction result)
-      this.officialsSources.map(s => ({
+      // R59-H3-prov: Pass only the first (successful) source rather than
+      // fabricating success: true for all sources, which inflates confidence.
+      // At validation time, extraction already succeeded via trySourceChain,
+      // so exactly one source produced the officials we're validating.
+      this.officialsSources.slice(0, 1).map(s => ({
         source: s.name,
         success: true,
         durationMs: 0,
@@ -1159,7 +1182,8 @@ export class CanadaCountryProvider extends CountryProvider<
 
     while (nextUrl) {
       logger.debug('Fetching riding metadata', { url: nextUrl });
-      const response = await fetch(nextUrl, { headers });
+      // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
+      const response = await fetch(nextUrl, { headers, redirect: 'error', signal: AbortSignal.timeout(30000) });
       if (!response.ok) throw new Error(`HTTP ${response.status} from metadata endpoint`);
       const data = (await response.json()) as RepresentBoundariesResponse;
 
@@ -1168,8 +1192,22 @@ export class CanadaCountryProvider extends CountryProvider<
       }
 
       nextUrl = data.meta?.next ?? null;
-      if (nextUrl && !nextUrl.startsWith('http')) {
-        nextUrl = `${this.representApiUrl}${nextUrl}`;
+      if (nextUrl) {
+        // R34-H1: Always resolve through URL constructor to catch protocol-relative
+        // URLs (//attacker.com/path) that bypass the startsWith('http') check.
+        try {
+          const resolved = new URL(nextUrl, this.representApiUrl);
+          const baseParsed = new URL(this.representApiUrl);
+          if (resolved.hostname !== baseParsed.hostname) {
+            logger.warn('Represent API returned next URL with foreign hostname, stopping pagination', { nextUrl, expected: baseParsed.hostname });
+            nextUrl = null;
+          } else {
+            nextUrl = resolved.href;
+          }
+        } catch {
+          logger.warn('Represent API returned malformed next URL', { nextUrl });
+          nextUrl = null;
+        }
       }
     }
 
@@ -1178,7 +1216,8 @@ export class CanadaCountryProvider extends CountryProvider<
     // Step 2: Fetch all simple_shape geometries (single bulk request)
     const shapesUrl = `${endpoint}simple_shape?limit=500`;
     logger.debug('Fetching riding geometries', { url: shapesUrl });
-    const shapesResponse = await fetch(shapesUrl, { headers });
+    // Block redirects to prevent SSRF. Add timeout to prevent indefinite hang.
+    const shapesResponse = await fetch(shapesUrl, { headers, redirect: 'error', signal: AbortSignal.timeout(120000) });
     if (!shapesResponse.ok) throw new Error(`HTTP ${shapesResponse.status} from shapes endpoint`);
     const shapesData = (await shapesResponse.json()) as {
       objects: Array<{ name: string; simple_shape?: RepresentBoundary['simple_shape'] }>;
@@ -1388,12 +1427,14 @@ export class CanadaCountryProvider extends CountryProvider<
   ): Promise<CAOfficial[]> {
     logger.info('Fetching MPs from ourcommons.ca XML', { endpoint });
 
+    // Block redirects to prevent SSRF.
     const response = await fetch(endpoint, {
       headers: {
         Accept: 'application/xml, text/xml',
         'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
       },
       signal: AbortSignal.timeout(30000),
+      redirect: 'error',
     });
 
     if (!response.ok) {
@@ -1523,12 +1564,14 @@ export class CanadaCountryProvider extends CountryProvider<
     let nextUrl: string | null = `${endpoint}?limit=500`;
 
     while (nextUrl) {
+      // Block redirects to prevent SSRF.
       const response = await fetch(nextUrl, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0',
         },
         signal: AbortSignal.timeout(30000),
+        redirect: 'error',
       });
 
       if (!response.ok) {
@@ -1539,8 +1582,22 @@ export class CanadaCountryProvider extends CountryProvider<
       allMPs.push(...data.objects);
 
       nextUrl = data.meta.next;
-      if (nextUrl && !nextUrl.startsWith('http')) {
-        nextUrl = `https://represent.opennorth.ca${nextUrl}`;
+      if (nextUrl) {
+        // R34-H1: Always resolve through URL constructor to catch protocol-relative
+        // URLs (//attacker.com/path) that bypass the startsWith('http') check.
+        try {
+          const resolved = new URL(nextUrl, this.representApiUrl);
+          const baseParsed = new URL(this.representApiUrl);
+          if (resolved.hostname !== baseParsed.hostname) {
+            logger.warn('Represent API returned next URL with foreign hostname, stopping pagination', { nextUrl, expected: baseParsed.hostname });
+            nextUrl = null;
+          } else {
+            nextUrl = resolved.href;
+          }
+        } catch {
+          logger.warn('Represent API returned malformed next URL', { nextUrl });
+          nextUrl = null;
+        }
       }
     }
 
@@ -1664,13 +1721,22 @@ function extractXMLField(block: string, fieldName: string): string | null {
   const regex = new RegExp(`<${fieldName}>([^<]*)</${fieldName}>`);
   const match = block.match(regex);
   if (!match) return null;
-  // Decode basic XML entities
+  // Decode XML entities — numeric first to avoid double-decoding (e.g. &#38; → & not then &amp;)
   return match[1]
+    // Guard against invalid code points that crash String.fromCodePoint().
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try { return String.fromCodePoint(parseInt(hex as string, 16)); } catch { return ''; }
+    })
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try { return String.fromCodePoint(parseInt(dec as string, 10)); } catch { return ''; }
+    })
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
+    // Strip control characters that could corrupt downstream parsing.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .trim();
 }
 
