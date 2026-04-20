@@ -20,7 +20,10 @@
  */
 
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { booleanValid } from '@turf/boolean-valid';
+import { intersect } from '@turf/intersect';
+import { featureCollection } from '@turf/helpers';
 
 // =============================================================================
 // Types
@@ -288,9 +291,9 @@ export class CouncilDistrictValidator {
     if (!expected) {
       return {
         name: 'Expected Count',
-        status: 'WARN',
+        status: 'FAIL',
         weight: 20,
-        message: `No expected count registered for ${cityFips}`,
+        message: `No expected count registered for ${cityFips} (fail-closed: unknown jurisdictions must be registered before commitment)`,
         details: { cityFips, actualCount, reason: 'Add to expected count registry' },
       };
     }
@@ -387,12 +390,12 @@ export class CouncilDistrictValidator {
     for (let i = 0; i < features.features.length; i++) {
       for (let j = i + 1; j < features.features.length; j++) {
         try {
-          const intersection = turf.intersect(
-            turf.featureCollection([features.features[i], features.features[j]])
+          const intersection = intersect(
+            featureCollection([features.features[i], features.features[j]])
           );
 
           if (intersection) {
-            const area = turf.area(intersection);
+            const area = turfArea(intersection);
             if (area > THRESHOLDS.MAX_OVERLAP_AREA) {
               overlapCount++;
               maxOverlapArea = Math.max(maxOverlapArea, area);
@@ -412,7 +415,7 @@ export class CouncilDistrictValidator {
     let invalidGeometries = 0;
     for (const feature of features.features) {
       try {
-        if (!turf.booleanValid(feature)) {
+        if (!booleanValid(feature)) {
           invalidGeometries++;
         }
       } catch {
@@ -703,7 +706,7 @@ export class CouncilDistrictValidator {
 
     const areas = features.features.map(f => {
       try {
-        return turf.area(f) / 1_000_000; // Convert to km²
+        return turfArea(f) / 1_000_000; // Convert to km²
       } catch {
         return 0;
       }

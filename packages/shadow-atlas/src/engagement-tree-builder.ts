@@ -84,11 +84,11 @@ export interface EngagementBuildResult {
  * The registry is populated when action domains are whitelisted in
  * DistrictGate's allowedActionDomains mapping. Each domain is registered
  * with its category:
- *   1 = Congressional contact
- *   2 = Template creation
- *   3 = Challenge participation
- *   4 = Campaign support
- *   5 = Governance vote
+ * 1 = Congressional contact
+ * 2 = Template creation
+ * 3 = Challenge participation
+ * 4 = Campaign support
+ * 5 = Governance vote
  *
  * Keys are lowercase hex (with 0x prefix).
  */
@@ -115,9 +115,9 @@ export class EngagementTreeBuilder {
    * Events are grouped by signer, deduped by nullifier, and metrics derived.
    *
    * @param categoryRegistry - Maps action domain hashes to category (1-5).
-   *   Required for diversity_score computation. Without it, diversityScore
-   *   will be 0 for all entries (action domains are keccak256 hashes with
-   *   no structured prefix byte).
+   * Required for diversity_score computation. Without it, diversityScore
+   * will be 0 for all entries (action domains are keccak256 hashes with
+   * no structured prefix byte).
    */
   static buildFromEvents(
     events: readonly NullifierEvent[],
@@ -179,7 +179,7 @@ export class EngagementTreeBuilder {
    * Computes tenure from earliest event timestamp.
    *
    * @param categoryRegistry - Maps action domain hashes to category (1-5).
-   *   If not provided, diversityScore will be 0.
+   * If not provided, diversityScore will be 0.
    */
   static computeMetricsForSigner(
     events: readonly NullifierEvent[],
@@ -198,17 +198,26 @@ export class EngagementTreeBuilder {
     let earliestTimestamp = Infinity;
 
     for (const event of events) {
-      const nullLower = event.nullifier.toLowerCase();
-      if (seenNullifiers.has(nullLower)) continue;
-      seenNullifiers.add(nullLower);
+      // R34-C1: Canonical nullifier normalization — RPC providers may return
+      // 0x1 vs 0x0000...001 for the same nullifier. Strip prefix, lowercase,
+      // then pad to 64 hex chars for BN254 field element dedup.
+      const stripped = event.nullifier.startsWith('0x')
+        ? event.nullifier.slice(2)
+        : event.nullifier;
+      const nullNormalized = stripped.toLowerCase().padStart(64, '0');
+      if (seenNullifiers.has(nullNormalized)) continue;
+      seenNullifiers.add(nullNormalized);
 
       const category = EngagementTreeBuilder.getActionCategory(event.actionDomain, categoryRegistry);
       if (category > 0) {
         categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
       }
 
-      if (event.timestamp < earliestTimestamp) {
-        earliestTimestamp = event.timestamp;
+      // Validate timestamp bounds: must be positive and not in the far future (1 hour grace)
+      if (event.timestamp > 0 && event.timestamp <= refTime + 3600) {
+        if (event.timestamp < earliestTimestamp) {
+          earliestTimestamp = event.timestamp;
+        }
       }
     }
 
@@ -237,7 +246,8 @@ export class EngagementTreeBuilder {
   static getActionCategory(actionDomain: string, categoryRegistry?: ActionCategoryRegistry): number {
     if (categoryRegistry) {
       const key = actionDomain.toLowerCase();
-      return categoryRegistry.get(key) ?? 0;
+      const raw = categoryRegistry.get(key) ?? 0;
+      return (raw >= 1 && raw <= 5) ? raw : 0;
     }
     // No registry: cannot determine category from hash bytes
     return 0;

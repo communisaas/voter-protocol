@@ -26,19 +26,19 @@ import { logger } from '../core/utils/logger.js';
  * ```typescript
  * // Static fallback
  * const fallback = new FallbackExecutor({
- *   strategy: 'static_response',
- *   staticValue: { districts: [] },
+ * strategy: 'static_response',
+ * staticValue: { districts: [] },
  * });
  *
  * const result = await fallback.execute(
- *   async () => fetchFromIPFS(),
- *   staleCache // optional cached value
+ * async () => fetchFromIPFS(),
+ * staleCache // optional cached value
  * );
  *
  * // Stale cache fallback
  * const staleFallback = new FallbackExecutor({
- *   strategy: 'stale_cache',
- *   staleDataMaxAgeMs: 3600000, // 1 hour
+ * strategy: 'stale_cache',
+ * staleDataMaxAgeMs: 3600000, // 1 hour
  * });
  * ```
  */
@@ -46,6 +46,13 @@ export class FallbackExecutor<T> {
   private readonly config: FallbackConfig<T>;
 
   constructor(config: FallbackConfig<T>) {
+    // R51-C1: Fail-fast on unimplemented strategies to prevent runtime surprises
+    if (config.strategy === 'degraded_service' || config.strategy === 'fail_open') {
+      throw new Error(
+        `Fallback strategy '${config.strategy}' is not yet implemented. ` +
+        `Use 'static_response' or 'stale_cache' instead.`
+      );
+    }
     this.config = config;
   }
 
@@ -126,7 +133,9 @@ export class FallbackExecutor<T> {
 
     // Check if cache is too old
     const age = Date.now() - cachedValue.timestamp;
-    const maxAge = this.config.staleDataMaxAgeMs ?? Infinity;
+    // R78-M2-R: Default to 24 hours instead of Infinity. Infinite default means
+    // poisoned cache data is served indefinitely after the upstream recovers.
+    const maxAge = this.config.staleDataMaxAgeMs ?? 86_400_000; // 24 hours
 
     if (age > maxAge) {
       throw new Error(

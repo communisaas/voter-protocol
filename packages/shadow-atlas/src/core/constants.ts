@@ -133,7 +133,7 @@ export const COUNTRY_DEPTH_MAPPING: Record<string, CircuitDepth> = {
   SVK: 20, // Slovakia
 
   // Asia-Pacific
-  NZL: 20, // New Zealand
+  NZL: 18, // New Zealand — reconciled with NZ_JURISDICTION.recommendedDepth (53K meshblocks fit in 2^18)
   SGP: 20, // Singapore
   TWN: 20, // Taiwan
 
@@ -141,13 +141,13 @@ export const COUNTRY_DEPTH_MAPPING: Record<string, CircuitDepth> = {
   ISR: 20, // Israel
 
   // Americas
-  CAN: 20, // Canada
+  CAN: 18, // Canada — reconciled with CA_JURISDICTION.recommendedDepth (56K DAs fit in 2^18)
   CHL: 20, // Chile
   COL: 20, // Colombia
 
   // === DEPTH 22: Large Countries (≤4M districts) ===
   // Major democracies
-  AUS: 22, // Australia
+  AUS: 18, // Australia — reconciled with AU_JURISDICTION.recommendedDepth (62K SA1s fit in 2^18)
   DEU: 22, // Germany
   ESP: 22, // Spain
   FRA: 22, // France

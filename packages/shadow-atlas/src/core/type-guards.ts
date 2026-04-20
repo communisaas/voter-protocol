@@ -128,6 +128,9 @@ export function mapLayerToBoundaryType(layer: TIGERLayerType): BoundaryType {
     'puma': BoundaryType.PUMA,
     'submcd': BoundaryType.SUBMINOR_CIVIL_DIVISION,
     'estate': BoundaryType.ESTATE,
+    'concity': BoundaryType.CONSOLIDATED_CITY,
+    'cnecta': BoundaryType.COMBINED_NECTA,
+    'mil': BoundaryType.MILITARY_INSTALLATION,
   };
 
   const boundaryType = mapping[layer];

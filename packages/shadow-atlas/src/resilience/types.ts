@@ -67,6 +67,14 @@ export type RetryableErrorType =
   | 'temporary_failure';
 
 /**
+ * All classified error types (superset of RetryableErrorType).
+ * Includes non-retryable error classifications used by the error classifier.
+ */
+export type ErrorClassification =
+  | RetryableErrorType
+  | 'circuit_breaker_open'; // open circuit — must NOT be retried
+
+/**
  * Retry attempt metadata
  */
 export interface RetryAttempt {

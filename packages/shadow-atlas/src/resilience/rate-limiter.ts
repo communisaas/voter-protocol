@@ -48,16 +48,16 @@ export class RateLimitExceededError extends Error {
  * @example
  * ```typescript
  * const limiter = new TokenBucketRateLimiter({
- *   maxTokens: 100,
- *   refillRate: 10, // 10 tokens per second
- *   refillIntervalMs: 100, // refill every 100ms
- *   burstSize: 20,
+ * maxTokens: 100,
+ * refillRate: 10, // 10 tokens per second
+ * refillIntervalMs: 100, // refill every 100ms
+ * burstSize: 20,
  * });
  *
  * if (limiter.tryConsume()) {
- *   // Process request
+ * // Process request
  * } else {
- *   // Rate limited
+ * // Rate limited
  * }
  * ```
  */
@@ -67,6 +67,8 @@ export class TokenBucketRateLimiter implements UnifiedRateLimiter {
   private requestsAllowed = 0;
   private requestsRejected = 0;
   private refillIntervalHandle?: ReturnType<typeof setInterval>;
+  // R78-H3-R: Track actual last access time for cleanup accuracy
+  private lastAccessTime: number = Date.now();
 
   constructor(config: RateLimiterConfig) {
     this.bucket = new TokenBucket({
@@ -87,6 +89,7 @@ export class TokenBucketRateLimiter implements UnifiedRateLimiter {
    */
   consume(clientId: string, cost = 1): boolean {
     const consumed = this.bucket.consume(cost);
+    this.lastAccessTime = Date.now(); // R78-H3-R: Track actual access time
 
     if (consumed) {
       this.requestsAllowed++;
@@ -170,7 +173,10 @@ export class TokenBucketRateLimiter implements UnifiedRateLimiter {
       refillRate: this.config.refillRate,
       requestsAllowed: this.requestsAllowed,
       requestsRejected: this.requestsRejected,
-      lastRefillTime: Date.now(), // Approximate - base class doesn't expose this
+      // R78-H3-R: Return actual last access time, not fabricated Date.now().
+      // Fabricated time caused cleanup() to never detect inactive clients
+      // (now - now ≈ 0, always below inactiveThresholdMs).
+      lastRefillTime: this.lastAccessTime ?? Date.now(),
     };
   }
 
@@ -289,6 +295,9 @@ export class MultiClientRateLimiter implements UnifiedRateLimiter {
     limiter.consumeOrThrow(clientId, tokens);
   }
 
+  // R55-S1: Cap the number of tracked clients to prevent memory exhaustion via spoofed clientIds
+  private readonly maxClients = 10_000;
+
   /**
    * Get or create limiter for client
    */
@@ -296,6 +305,17 @@ export class MultiClientRateLimiter implements UnifiedRateLimiter {
     let limiter = this.limiters.get(clientId);
 
     if (!limiter) {
+      // R55-S1: Evict oldest inactive clients when at capacity
+      if (this.limiters.size >= this.maxClients) {
+        this.cleanup();
+        // If still at capacity after cleanup, evict the first (oldest) entry
+        if (this.limiters.size >= this.maxClients) {
+          const firstKey = this.limiters.keys().next().value;
+          if (firstKey !== undefined) {
+            this.limiters.delete(firstKey);
+          }
+        }
+      }
       limiter = new TokenBucketRateLimiter(this.config);
       this.limiters.set(clientId, limiter);
     }

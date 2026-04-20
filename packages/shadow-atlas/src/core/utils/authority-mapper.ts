@@ -149,8 +149,9 @@ export function mapUrlToAuthority(
 } {
   const urlLower = url.toLowerCase();
 
-  // State GIS patterns
-  const stateGisPatterns = [
+  // State GIS patterns — use hostname matching to prevent subdomain spoofing
+  // (e.g. 'geodata.hawaii.gov.evil.com' must NOT match 'geodata.hawaii.gov')
+  const stateGisHosts = [
     'geodata.hawaii.gov',
     'gis.ny.gov',
     'data.colorado.gov',
@@ -167,27 +168,40 @@ export function mapUrlToAuthority(
     'www.nconemap.gov',
     'vgin.vdem.virginia.gov',
     'data.georgiaspatial.org',
-    'www.mass.gov/info-details/massgis',
+    'www.mass.gov',
     'data-wi-dnr.opendata.arcgis.com',
   ];
 
-  for (const pattern of stateGisPatterns) {
-    if (urlLower.includes(pattern)) {
-      return {
-        numeric: 4,
-        semantic: 'state-agency',
-        detectedType: 'state-gis',
-      };
+  try {
+    const parsedUrl = new URL(urlLower.startsWith('http') ? urlLower : `https://${urlLower}`);
+    const host = parsedUrl.hostname;
+    for (const pattern of stateGisHosts) {
+      if (host === pattern || host.endsWith(`.${pattern}`)) {
+        return {
+          numeric: 4,
+          semantic: 'state-agency',
+          detectedType: 'state-gis',
+        };
+      }
     }
+  } catch {
+    // Invalid URL — fall through
   }
 
-  // Census TIGER patterns
-  if (urlLower.includes('census.gov') || urlLower.includes('tiger')) {
-    return {
-      numeric: 5,
-      semantic: 'federal-mandate',
-      detectedType: 'census-tiger',
-    };
+  // Census TIGER patterns — use hostname parsing to prevent subdomain spoofing
+  // (e.g. 'census.gov.evil.com' must NOT match)
+  try {
+    const parsedUrl = new URL(urlLower.startsWith('http') ? urlLower : `https://${urlLower}`);
+    const host = parsedUrl.hostname;
+    if (host === 'census.gov' || host.endsWith('.census.gov')) {
+      return {
+        numeric: 5,
+        semantic: 'federal-mandate',
+        detectedType: 'census-tiger',
+      };
+    }
+  } catch {
+    // Invalid URL — fall through to default
   }
 
   // Default to provided portal type
@@ -386,6 +400,7 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
     case BoundaryType.CDP:
     case BoundaryType.BOROUGH:
     case BoundaryType.VILLAGE:
+    case BoundaryType.CONSOLIDATED_CITY:
       return 5;
 
     // =========================================================================
@@ -560,6 +575,8 @@ export function boundaryTypeToSlot(type: BoundaryType): CircuitSlotIndex | typeo
     case BoundaryType.PUMA:
     case BoundaryType.SUBMINOR_CIVIL_DIVISION:
     case BoundaryType.ESTATE:
+    case BoundaryType.COMBINED_NECTA:
+    case BoundaryType.MILITARY_INSTALLATION:
     case BoundaryType.COUNTRY:
       return NO_CIRCUIT_SLOT;
 
@@ -589,6 +606,9 @@ export function getSlotName(slotIndex: CircuitSlotIndex): CircuitSlotName {
  */
 export function getSlotIndex(slotName: CircuitSlotName): CircuitSlotIndex {
   const index = CIRCUIT_SLOT_NAMES.indexOf(slotName);
+  if (index === -1) {
+    throw new Error(`Unknown circuit slot name: ${slotName}`);
+  }
   return index as CircuitSlotIndex;
 }
 

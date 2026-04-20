@@ -66,7 +66,7 @@ export class TransformationNormalizer {
     for (let i = 0; i < dataset.geojson.features.length; i++) {
       const feature = dataset.geojson.features[i];
       const district = this.normalizeFeature(feature, dataset.provenance, i);
-      normalized.push(district);
+      if (district) normalized.push(district);
     }
 
     return normalized;
@@ -90,12 +90,13 @@ export class TransformationNormalizer {
       for (let i = 0; i < dataset.geojson.features.length; i++) {
         const feature = dataset.geojson.features[i];
 
-        // Count vertices before normalization
-        const verticesBefore = this.countVertices(feature);
+        // R41-FIX: Guard countVertices against null geometry (RFC 7946 §3.2)
+        const verticesBefore = feature.geometry ? this.countVertices(feature) : 0;
         totalVerticesBefore += verticesBefore;
         featureCount++;
 
         const district = this.normalizeFeature(feature, dataset.provenance, i);
+        if (!district) continue;
         allDistricts.push(district);
 
         // Count vertices after normalization
@@ -109,9 +110,9 @@ export class TransformationNormalizer {
       stats: {
         total: featureCount,
         normalized: allDistricts.length,
-        avgVertexCountBefore: totalVerticesBefore / featureCount,
-        avgVertexCountAfter: totalVerticesAfter / featureCount,
-        simplificationRatio: totalVerticesAfter / totalVerticesBefore,
+        avgVertexCountBefore: featureCount > 0 ? totalVerticesBefore / featureCount : 0,
+        avgVertexCountAfter: featureCount > 0 ? totalVerticesAfter / featureCount : 0,
+        simplificationRatio: totalVerticesBefore > 0 ? totalVerticesAfter / totalVerticesBefore : 1,
       },
     };
   }
@@ -123,11 +124,27 @@ export class TransformationNormalizer {
     feature: Feature,
     provenance: ProvenanceMetadata,
     index: number
-  ): NormalizedDistrict {
+  ): NormalizedDistrict | null {
+    // R40-FIX: Guard against null geometry (valid per RFC 7946 §3.2)
+    if (!feature.geometry) {
+      console.warn('Skipping feature with null geometry', { index });
+      return null;
+    }
+    // Guard against non-polygonal geometry types
+    if (feature.geometry.type !== 'Polygon' && feature.geometry.type !== 'MultiPolygon') {
+      console.warn('Skipping non-polygonal feature', { type: feature.geometry.type, index });
+      return null;
+    }
     // STEP 1: Normalize geometry
     const normalizedGeometry = this.normalizeGeometry(
       feature.geometry as Polygon | MultiPolygon
     );
+
+    // R41-FIX: normalizeGeometry returns null if post-simplification geometry is degenerate
+    if (!normalizedGeometry) {
+      console.warn('Skipping feature with degenerate post-simplification geometry', { index });
+      return null;
+    }
 
     // STEP 2: Extract metadata
     const name = this.extractName(feature, index);
@@ -158,7 +175,7 @@ export class TransformationNormalizer {
    */
   private normalizeGeometry(
     geometry: Polygon | MultiPolygon
-  ): Polygon | MultiPolygon {
+  ): (Polygon | MultiPolygon) | null {
     // STEP 1: Clean coordinates (remove duplicates, invalid points)
     let feature: Feature = {
       type: 'Feature',
@@ -176,6 +193,12 @@ export class TransformationNormalizer {
       tolerance: this.options.tolerance,
       highQuality: this.options.highQuality,
     }) as Feature;
+
+    // R40-FIX: Validate post-simplification geometry is not degenerate
+    // R41-FIX: Return null instead of throwing — allows batch to continue past bad features
+    if (!feature.geometry || !this.hasMinimumVertices(feature.geometry as Polygon | MultiPolygon)) {
+      return null;
+    }
 
     // STEP 4: Round coordinates to precision
     const roundedGeometry = this.roundCoordinates(
@@ -196,17 +219,35 @@ export class TransformationNormalizer {
     if (geometry.type === 'Polygon') {
       return {
         type: 'Polygon',
-        coordinates: geometry.coordinates.map(ring =>
-          ring.map(coord => this.roundPosition(coord, precision))
-        ),
+        coordinates: geometry.coordinates.map(ring => {
+          const rounded = ring.map(coord => this.roundPosition(coord, precision));
+          // R82-Enforce ring closure after rounding — rounding can break first==last invariant
+          if (rounded.length >= 4) {
+            const first = rounded[0];
+            const last = rounded[rounded.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+              rounded[rounded.length - 1] = [...first];
+            }
+          }
+          return rounded;
+        }),
       };
     } else {
       return {
         type: 'MultiPolygon',
         coordinates: geometry.coordinates.map(polygon =>
-          polygon.map(ring =>
-            ring.map(coord => this.roundPosition(coord, precision))
-          )
+          polygon.map(ring => {
+            const rounded = ring.map(coord => this.roundPosition(coord, precision));
+            // R82-Enforce ring closure after rounding — rounding can break first==last invariant
+            if (rounded.length >= 4) {
+              const first = rounded[0];
+              const last = rounded[rounded.length - 1];
+              if (first[0] !== last[0] || first[1] !== last[1]) {
+                rounded[rounded.length - 1] = [...first];
+              }
+            }
+            return rounded;
+          })
         ),
       };
     }
@@ -294,14 +335,20 @@ export class TransformationNormalizer {
   private inferDistrictType(
     properties: Record<string, unknown>
   ): 'council' | 'ward' | 'municipal' {
-    const propsStr = JSON.stringify(properties).toLowerCase();
-
-    if (propsStr.includes('council')) {
-      return 'council';
-    }
-
-    if (propsStr.includes('ward')) {
-      return 'ward';
+    // R78-H4-T: Check property values directly instead of JSON.stringify per feature.
+    // Previous implementation serialized the entire properties object to string
+    // (95K unnecessary serializations during national builds) and could misclassify
+    // districts whose property values incidentally contained "council" or "ward"
+    // (e.g., city name "Council Bluffs").
+    for (const val of Object.values(properties)) {
+      if (typeof val !== 'string') continue;
+      const lower = val.toLowerCase();
+      if (lower === 'council' || lower.includes('council district')) {
+        return 'council';
+      }
+      if (lower === 'ward' || lower.includes('ward ')) {
+        return 'ward';
+      }
     }
 
     return 'municipal';
@@ -314,16 +361,23 @@ export class TransformationNormalizer {
     geometry: Polygon | MultiPolygon
   ): BoundingBox {
     const coords = this.extractAllCoordinates(geometry);
-
-    const lons = coords.map(c => c[0]);
-    const lats = coords.map(c => c[1]);
-
-    return {
-      minLon: Math.min(...lons),
-      maxLon: Math.max(...lons),
-      minLat: Math.min(...lats),
-      maxLat: Math.max(...lats),
-    };
+    // R40-FIX: Guard against empty coordinate sets (degenerate geometry)
+    if (coords.length === 0) {
+      throw new Error('Cannot compute bounding box for geometry with zero coordinates');
+    }
+    // Iterative min/max avoids stack overflow on large polygons
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const c of coords) {
+      if (c[0] < minLon) minLon = c[0];
+      if (c[0] > maxLon) maxLon = c[0];
+      if (c[1] < minLat) minLat = c[1];
+      if (c[1] > maxLat) maxLat = c[1];
+    }
+    // R40-FIX: Sanity-check bbox values are finite (guards against NaN/Infinity propagation)
+    if (!Number.isFinite(minLon) || !Number.isFinite(maxLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) {
+      throw new Error(`Bounding box contains non-finite values: [${minLon}, ${minLat}, ${maxLon}, ${maxLat}]`);
+    }
+    return { minLon, maxLon, minLat, maxLat };
   }
 
   /**
@@ -334,19 +388,37 @@ export class TransformationNormalizer {
   ): Position[] {
     const coords: Position[] = [];
 
+    // Use for-of loop instead of spread to avoid stack overflow on large rings (50K+ vertices)
     if (geometry.type === 'Polygon') {
       for (const ring of geometry.coordinates) {
-        coords.push(...ring);
+        for (const coord of ring) {
+          coords.push(coord);
+        }
       }
     } else {
       for (const polygon of geometry.coordinates) {
         for (const ring of polygon) {
-          coords.push(...ring);
+          for (const coord of ring) {
+            coords.push(coord);
+          }
         }
       }
     }
 
     return coords;
+  }
+
+  /**
+   * R40-FIX: Check that geometry has minimum vertex count after simplification.
+   * A closed polygon ring requires at least 4 coordinates (3 distinct + closing).
+   */
+  private hasMinimumVertices(geometry: Polygon | MultiPolygon): boolean {
+    if (geometry.type === 'Polygon') {
+      return geometry.coordinates.length > 0 && geometry.coordinates[0].length >= 4;
+    }
+    // MultiPolygon: every sub-polygon must have at least one ring with ≥4 vertices
+    return geometry.coordinates.length > 0 &&
+      geometry.coordinates.every(poly => poly.length > 0 && poly[0].length >= 4);
   }
 
   /**
@@ -378,14 +450,16 @@ export class TransformationNormalizer {
   private canonicalizeGeometry(
     geometry: Polygon | MultiPolygon
   ): Record<string, unknown> {
+    // Use same Math.round approach as roundCoordinates for consistency
+    const factor = Math.pow(10, this.options.coordinatePrecision);
     // Round to precision and sort (deterministic)
     if (geometry.type === 'Polygon') {
       return {
         type: 'Polygon',
         coordinates: geometry.coordinates.map(ring =>
           ring.map(pos => [
-            Number(pos[0].toFixed(this.options.coordinatePrecision)),
-            Number(pos[1].toFixed(this.options.coordinatePrecision)),
+            Math.round(pos[0] * factor) / factor,
+            Math.round(pos[1] * factor) / factor,
           ])
         ),
       };
@@ -395,8 +469,8 @@ export class TransformationNormalizer {
         coordinates: geometry.coordinates.map(polygon =>
           polygon.map(ring =>
             ring.map(pos => [
-              Number(pos[0].toFixed(this.options.coordinatePrecision)),
-              Number(pos[1].toFixed(this.options.coordinatePrecision)),
+              Math.round(pos[0] * factor) / factor,
+              Math.round(pos[1] * factor) / factor,
             ])
           )
         ),

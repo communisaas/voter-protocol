@@ -6,19 +6,19 @@
  * Zero redundancy - delegates to existing pre-validation, tessellation, and boundary resolvers.
  *
  * VALIDATION TIERS (configurable per-city):
- *   TIER_STRUCTURE  - HTTP fetch + GeoJSON structure (current bulk-ingest behavior)
- *   TIER_SANITY     - + Pre-validation sanity checks (centroid, feature count) [~10ms]
- *   TIER_FULL       - + Tessellation proof (geometric axioms) [~500-2000ms]
+ * TIER_STRUCTURE - HTTP fetch + GeoJSON structure (current bulk-ingest behavior)
+ * TIER_SANITY - + Pre-validation sanity checks (centroid, feature count) [~10ms]
+ * TIER_FULL - + Tessellation proof (geometric axioms) [~500-2000ms]
  *
  * USAGE:
- *   const validator = new IngestionValidator();
- *   const result = await validator.validate(fips, url, ValidationTier.SANITY);
+ * const validator = new IngestionValidator();
+ * const result = await validator.validate(fips, url, ValidationTier.SANITY);
  *
  * DESIGN PRINCIPLES:
- *   - Fail-fast: Cheaper checks run first
- *   - No redundancy: All geometric logic delegates to existing validators
- *   - Configurable: Tier selection balances speed vs. thoroughness
- *   - Auditable: Full diagnostics at every stage
+ * - Fail-fast: Cheaper checks run first
+ * - No redundancy: All geometric logic delegates to existing validators
+ * - Configurable: Tier selection balances speed vs. thoroughness
+ * - Auditable: Full diagnostics at every stage
  */
 
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
@@ -39,6 +39,7 @@ import {
 import { EXPECTED_DISTRICT_COUNTS, type DistrictCountRecord, type GovernanceType } from '../../core/registry/district-count-registry.js';
 import { AT_LARGE_CITIES } from '../../core/registry/at-large-cities.generated.js';
 import { QUARANTINED_PORTALS } from '../../core/registry/quarantined-portals.generated.js';
+import { fetchWithSizeLimit } from '../../hydration/fetch-with-size-limit.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FIPS CORRECTION REGISTRY
@@ -55,7 +56,7 @@ import { QUARANTINED_PORTALS } from '../../core/registry/quarantined-portals.gen
  * - Farmington, NM data mapped to Torrance County (35057) instead of city (3525800)
  * - Hermiston, OR data mapped to Umatilla County (41059) instead of city (4159470)
  * - Honolulu city data mapped to Honolulu County (15003) which includes Northwestern
- *   Hawaiian Islands 1000km away, causing 824km centroid failure
+ * Hawaiian Islands 1000km away, causing 824km centroid failure
  */
 const FIPS_CORRECTIONS: Record<string, { correctFips: string; cityName: string; reason: string }> = {
   // Farmington, NM - Layer says "2022 Farmington City Council Districts"
@@ -395,10 +396,13 @@ export class IngestionValidator {
     baseResult.city = { fips, name: boundary.name, state: boundary.stateAbbr };
 
     // Run sanity checks (uses existing pre-validation-sanity.ts)
+    // Pass expectedCount as-is (may be null). runSanityChecks handles
+    // null by skipping the count ratio check rather than substituting actual count
+    // (which would make the ratio always 1.0, defeating the check).
     const sanityResult = runSanityChecks(
       districts,
       boundary,
-      expectedCount ?? structureValidation.featureCount, // Use actual count if no expected
+      expectedCount,
       options.sanityOptions
     );
 
@@ -422,6 +426,11 @@ export class IngestionValidator {
     // TIER 3: Tessellation Proof (full geometric validation)
     // ─────────────────────────────────────────────────────────────────────
 
+    // For tessellation proof, expectedCount null means we don't have
+    // a registry entry. Use actual feature count as fallback here because the
+    // tessellation cardinality axiom is a structural check (not a gaming vector
+    // like the sanity count ratio). The tessellation proof validates geometric
+    // properties regardless of expected count.
     const proof = this.tessellationValidator.prove(
       districts,
       boundary.geometry,
@@ -530,19 +539,13 @@ export class IngestionValidator {
     url: string,
     timeoutMs: number
   ): Promise<FeatureCollection<Polygon | MultiPolygon>> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data as FeatureCollection<Polygon | MultiPolygon>;
-    } finally {
-      clearTimeout(timeout);
-    }
+    // R75-H3: Use size-limited fetch to prevent OOM from oversized GeoJSON responses.
+    // 50MB limit — largest US county GeoJSON is ~30MB.
+    const text = await fetchWithSizeLimit(url, 50 * 1024 * 1024, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = JSON.parse(text);
+    return data as FeatureCollection<Polygon | MultiPolygon>;
   }
 
   private validateStructure(

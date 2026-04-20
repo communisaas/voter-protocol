@@ -430,12 +430,13 @@ export class MunicipalBoundaryResolver {
       }
 
       // Import turf for geometry operations
-      const turf = await import('@turf/turf');
+      const { rewind } = await import('@turf/rewind');
+      const { area: turfArea } = await import('@turf/area');
 
       // Rewind all features to ensure correct winding order (GeoJSON requires CCW exterior rings)
-      // ArcGIS often returns CW polygons - use turf.rewind to normalize
+      // ArcGIS often returns CW polygons - use rewind to normalize
       const rewoundFeatures = data.features.map((f: Feature<Polygon | MultiPolygon>) =>
-        turf.rewind(f, { reverse: false, mutate: false }) as Feature<Polygon | MultiPolygon>
+        rewind(f, { reverse: false, mutate: false }) as Feature<Polygon | MultiPolygon>
       );
 
       // For multi-feature responses (like NYC boroughs), compute union
@@ -448,7 +449,7 @@ export class MunicipalBoundaryResolver {
       }
 
       // Use configured areas or compute from geometry
-      const computedArea = turf.area(geometry);
+      const computedArea = turfArea(geometry);
 
       const landArea = config.landAreaSqM ?? computedArea;
       const waterArea = config.waterAreaSqM ?? 0;
@@ -519,14 +520,15 @@ export class MunicipalBoundaryResolver {
       return features[0];
     }
 
-    const turf = await import('@turf/turf');
+    const { union: turfUnion } = await import('@turf/union');
+    const { featureCollection } = await import('@turf/helpers');
 
     let result = features[0];
     for (let i = 1; i < features.length; i++) {
       try {
-        const union = turf.union(turf.featureCollection([result, features[i]]));
-        if (union) {
-          result = union as Feature<Polygon | MultiPolygon>;
+        const u = turfUnion(featureCollection([result, features[i]]));
+        if (u) {
+          result = u as Feature<Polygon | MultiPolygon>;
         }
       } catch {
         // Continue with partial union

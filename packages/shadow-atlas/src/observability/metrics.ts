@@ -89,6 +89,20 @@ export interface HealthSummary {
 }
 
 // ============================================================================
+// Path Normalization
+// ============================================================================
+
+// Normalize dynamic path segments to prevent metric cardinality explosion.
+// Replaces UUIDs, numeric IDs, FIPS codes, coordinates, and hex strings with placeholders.
+function normalizeMetricPath(path: string): string {
+  return path
+    .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:uuid')
+    .replace(/\/0x[0-9a-fA-F]+/g, '/:hex')
+    .replace(/\/-?\d+\.\d+/g, '/:coord')
+    .replace(/\/\d+/g, '/:id');
+}
+
+// ============================================================================
 // Metrics Store
 // ============================================================================
 
@@ -224,10 +238,18 @@ export class MetricsStore {
     });
 
     if (error) {
+      // Normalize error strings to prevent metric cardinality explosion.
+      // Strip timestamps, request IDs, URLs, and numeric values that make each error unique.
+      const normalizedError = error
+        .substring(0, 100)
+        .replace(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}[:\d.Z]*/g, ':timestamp')
+        .replace(/https?:\/\/[^\s,)]+/g, ':url')
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':uuid')
+        .replace(/\b\d{3,}\b/g, ':num');
       this.record({
         type: 'provider_error',
         value: 1,
-        labels: { ...labels, error: error.substring(0, 100) },
+        labels: { ...labels, error: normalizedError },
       });
     }
   }
@@ -258,7 +280,8 @@ export class MetricsStore {
     latencyMs: number,
     cacheHit: boolean
   ): void {
-    const labels = { method, path, status: statusCode.toString() };
+    // Normalize path to prevent metric cardinality explosion.
+    const labels = { method, path: normalizeMetricPath(path), status: statusCode.toString() };
 
     // Record request count
     this.record({
@@ -287,7 +310,7 @@ export class MetricsStore {
     this.record({
       type: cacheHit ? 'cache_hit' : 'cache_miss',
       value: 1,
-      labels: { path },
+      labels: { path: normalizeMetricPath(path) },
     });
   }
 

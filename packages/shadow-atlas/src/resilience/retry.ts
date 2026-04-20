@@ -16,7 +16,7 @@
  * - "Exponential Backoff And Jitter" (AWS Architecture Blog)
  */
 
-import type { RetryConfig, RetryAttempt, RetryableErrorType } from './types.js';
+import type { RetryConfig, RetryAttempt, RetryableErrorType, ErrorClassification } from './types.js';
 
 /**
  * Retry exhausted error (thrown after max attempts)
@@ -54,17 +54,17 @@ export class RetryTimeoutError extends Error {
  * @example
  * ```typescript
  * const retry = new RetryExecutor({
- *   maxAttempts: 3,
- *   initialDelayMs: 100,
- *   maxDelayMs: 5000,
- *   backoffMultiplier: 2,
- *   jitterFactor: 0.1,
- *   retryableErrors: ['network_timeout', 'rate_limit'],
- *   timeoutMs: 30000,
+ * maxAttempts: 3,
+ * initialDelayMs: 100,
+ * maxDelayMs: 5000,
+ * backoffMultiplier: 2,
+ * jitterFactor: 0.1,
+ * retryableErrors: ['network_timeout', 'rate_limit'],
+ * timeoutMs: 30000,
  * });
  *
  * const result = await retry.execute(async () => {
- *   return fetch('https://upstream.example.com/api');
+ * return fetch('https://upstream.example.com/api');
  * });
  * ```
  */
@@ -98,7 +98,8 @@ export class RetryExecutor {
 
         // Determine if error is retryable
         const errorType = this.classifyError(lastError);
-        const retryable = errorType !== null && this.config.retryableErrors.includes(errorType);
+        const retryable = errorType !== null &&
+          (this.config.retryableErrors as readonly string[]).includes(errorType);
 
         // Calculate backoff delay
         const delay = this.calculateDelay(attempt);
@@ -137,19 +138,26 @@ export class RetryExecutor {
     // Cap at max delay
     const cappedDelay = Math.min(exponentialDelay, this.config.maxDelayMs);
 
-    // Add jitter to prevent thundering herd
-    // Jitter range: [delay * (1 - jitterFactor), delay * (1 + jitterFactor)]
+    // R51-C2: Add positive-only jitter to prevent thundering herd
+    // Range: [delay * (1 - jitterFactor), delay * (1 + jitterFactor)]
+    // Clamped to minimum 1ms to prevent zero-delay retries
     const jitterRange = cappedDelay * this.config.jitterFactor;
     const jitter = Math.random() * 2 * jitterRange - jitterRange;
 
-    return Math.max(0, Math.floor(cappedDelay + jitter));
+    return Math.max(1, Math.floor(cappedDelay + jitter));
   }
 
   /**
    * Classify error into retry type
    */
-  private classifyError(error: Error): RetryableErrorType | null {
+  private classifyError(error: Error): ErrorClassification | null {
     const message = error.message.toLowerCase();
+
+    // Circuit breaker open errors should NOT be retried — the circuit is
+    // intentionally blocking requests. Retrying just wastes attempts.
+    if (message.includes('circuit breaker') && message.includes('is open')) {
+      return 'circuit_breaker_open';
+    }
 
     // Network timeouts
     if (
@@ -186,7 +194,7 @@ export class RetryExecutor {
       return 'gateway_timeout';
     }
 
-    // Temporary failures (circuit breaker open, etc.)
+    // Temporary failures
     if (message.includes('temporary') || message.includes('circuit breaker')) {
       return 'temporary_failure';
     }

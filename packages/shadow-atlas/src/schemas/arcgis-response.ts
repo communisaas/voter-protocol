@@ -215,11 +215,12 @@ export type ValidatedArcGISFolderListing = z.infer<typeof ArcGISFolderListingSch
 
 /**
  * GeoJSON position (coordinate pair)
+ * Reject Infinity/NaN — invalid coordinates should not pass validation.
  */
 const GeoJSONPositionSchema = z.tuple([
-  z.number(), // longitude
-  z.number(), // latitude
-]).rest(z.number()); // optional altitude
+  z.number().finite(), // longitude
+  z.number().finite(), // latitude
+]).rest(z.number().finite()); // optional altitude
 
 /**
  * GeoJSON linear ring (for polygons)
@@ -270,7 +271,8 @@ export type ValidatedGeoJSONFeature = z.infer<typeof GeoJSONFeatureSchema>;
 export const ArcGISGeoJSONResponseSchema = z.object({
   type: z.literal('FeatureCollection'),
   features: z.array(GeoJSONFeatureSchema).max(100000),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+  // Add .finite() to bbox (propagation).
+  bbox: z.tuple([z.number().finite(), z.number().finite(), z.number().finite(), z.number().finite()]).optional(),
 });
 
 export type ValidatedArcGISGeoJSONResponse = z.infer<typeof ArcGISGeoJSONResponseSchema>;

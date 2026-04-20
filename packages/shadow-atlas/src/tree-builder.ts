@@ -6,16 +6,16 @@
  * (Engagement) is constructed separately by engagement-tree-builder.ts.
  *
  * TREE 1 (User Identity Tree):
- *   Standard balanced binary Merkle tree containing user registration leaves.
- *   Leaf = Poseidon2_Hash4(userSecret, cellId, registrationSalt, authorityLevel)
- *   Uses the existing ShadowAtlasMerkleTree infrastructure.
+ * Standard balanced binary Merkle tree containing user registration leaves.
+ * Leaf = Poseidon2_Hash4(userSecret, cellId, registrationSalt, authorityLevel)
+ * Uses the existing ShadowAtlasMerkleTree infrastructure.
  *
  * TREE 2 (Cell-District Mapping Tree):
- *   Sparse Merkle Tree mapping geographic cell IDs to 24-slot district arrays.
- *   Leaf = Poseidon2Hash2(cell_id, district_commitment)
- *   where district_commitment = poseidon2Sponge(districts[0..24])
- *   Uses SparseMerkleTree from @voter-protocol/crypto.
- *   Jurisdiction-agnostic: cell IDs and slot semantics defined by JurisdictionConfig.
+ * Sparse Merkle Tree mapping geographic cell IDs to 24-slot district arrays.
+ * Leaf = Poseidon2Hash2(cell_id, district_commitment)
+ * where district_commitment = poseidon2Sponge(districts[0..24])
+ * Uses SparseMerkleTree from @voter-protocol/crypto.
+ * Jurisdiction-agnostic: cell IDs and slot semantics defined by JurisdictionConfig.
  *
  * SPEC REFERENCE: TWO-TREE-ARCHITECTURE-SPEC.md Sections 2, 3, 10
  *
@@ -167,12 +167,19 @@ export interface UserProof {
 
 /** Module-level hasher cache (initialized on first use) */
 let _hasher: Poseidon2Hasher | null = null;
+/** Serialize concurrent init calls to prevent duplicate getHasher() work. */
+let _hasherInitPromise: Promise<Poseidon2Hasher> | null = null;
 
 async function ensureHasher(): Promise<Poseidon2Hasher> {
-  if (!_hasher) {
-    _hasher = await getHasher();
+  if (_hasher) return _hasher;
+  if (!_hasherInitPromise) {
+    _hasherInitPromise = getHasher().then((h) => {
+      _hasher = h;
+      _hasherInitPromise = null;
+      return h;
+    });
   }
-  return _hasher;
+  return _hasherInitPromise;
 }
 
 // ============================================================================
@@ -218,9 +225,9 @@ export async function computeCellMapLeaf(cellId: bigint, districtCommitment: big
  * Build the Cell-District Mapping tree (Tree 2).
  *
  * For each cell mapping:
- *   1. Compute district_commitment = poseidon2Sponge(districts[0..24])
- *   2. Compute cell_map_leaf = poseidon2Hash2(cell_id, district_commitment)
- *   3. Insert into SMT with key=cell_id, value=cell_map_leaf
+ * 1. Compute district_commitment = poseidon2Sponge(districts[0..24])
+ * 2. Compute cell_map_leaf = poseidon2Hash2(cell_id, district_commitment)
+ * 3. Insert into SMT with key=cell_id, value=cell_map_leaf
  *
  * @param mappings - Array of cell-to-district mappings
  * @param depth - SMT depth (default: 20 for ~1M capacity)
@@ -428,7 +435,7 @@ export async function computeUserLeaf(user: UserRegistration): Promise<bigint> {
  * leaves. The tree is built bottom-up with parallel pair hashing.
  *
  * For each user:
- *   user_leaf = hash4(userSecret, cellId, registrationSalt, authorityLevel)
+ * user_leaf = hash4(userSecret, cellId, registrationSalt, authorityLevel)
  *
  * Leaves are padded with a deterministic padding hash to fill to 2^depth.
  *
@@ -713,7 +720,7 @@ export async function getCellMapProof(
 
   return {
     proof,
-    districts: mapping.districts,
+    districts: [...mapping.districts], // R53-C6: Defensive copy prevents external mutation
     districtCommitment: commitment,
   };
 }

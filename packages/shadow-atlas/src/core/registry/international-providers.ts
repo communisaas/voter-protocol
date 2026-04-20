@@ -57,7 +57,7 @@ import { logger } from '../utils/logger.js';
  *
  * CURRENT COVERAGE (Phase 1 - COMPLETE):
  * - GB: United Kingdom (650 parliamentary constituencies)
- * - CA: Canada (338 federal electoral districts)
+ * - CA: Canada (343 federal electoral districts)
  * - AU: Australia (151 federal electoral divisions)
  * - NZ: New Zealand (72 electorates: 65 general + 7 Māori)
  *
@@ -77,20 +77,20 @@ export const INTERNATIONAL_PROVIDERS = new Map<
   ['NZ', new NewZealandBoundaryProvider()],
 
   // Phase 2: EU (Pending - 27 countries)
-  // ['DE', new GermanyBoundaryProvider()],    // Germany (Priority 1)
-  // ['FR', new FranceBoundaryProvider()],     // France (Priority 1)
-  // ['IT', new ItalyBoundaryProvider()],      // Italy (Priority 1)
-  // ['ES', new SpainBoundaryProvider()],      // Spain (Priority 1)
-  // ['PL', new PolandBoundaryProvider()],     // Poland (Priority 1)
-  // ... (22 more EU countries)
+  // ['DE', new GermanyBoundaryProvider()], // Germany (Priority 1)
+  // ['FR', new FranceBoundaryProvider()], // France (Priority 1)
+  // ['IT', new ItalyBoundaryProvider()], // Italy (Priority 1)
+  // ['ES', new SpainBoundaryProvider()], // Spain (Priority 1)
+  // ['PL', new PolandBoundaryProvider()], // Poland (Priority 1)
+  //... (22 more EU countries)
 
   // Phase 3: G20 + Major Democracies (Pending)
-  // ['JP', new JapanBoundaryProvider()],      // Japan
+  // ['JP', new JapanBoundaryProvider()], // Japan
   // ['KR', new SouthKoreaBoundaryProvider()], // South Korea
-  // ['IN', new IndiaBoundaryProvider()],      // India
-  // ['BR', new BrazilBoundaryProvider()],     // Brazil
-  // ['MX', new MexicoBoundaryProvider()],     // Mexico
-  // ... (20+ more countries)
+  // ['IN', new IndiaBoundaryProvider()], // India
+  // ['BR', new BrazilBoundaryProvider()], // Brazil
+  // ['MX', new MexicoBoundaryProvider()], // Mexico
+  //... (20+ more countries)
 ]);
 
 // ============================================================================
@@ -106,7 +106,7 @@ export const INTERNATIONAL_PROVIDERS = new Map<
  * @example
  * const ukProvider = getProviderForCountry('GB');
  * if (ukProvider) {
- *   const result = await ukProvider.extractAll();
+ * const result = await ukProvider.extractAll();
  * }
  */
 export function getProviderForCountry(
@@ -169,7 +169,8 @@ export function getProviderSummary(): Array<{
     });
   }
 
-  return summaries.sort((a, b) => a.country.localeCompare(b.country));
+  // Deterministic byte-order sort (same as)
+  return summaries.sort((a, b) => a.country < b.country ? -1 : a.country > b.country ? 1 : 0);
 }
 
 // ============================================================================
@@ -188,9 +189,9 @@ export function getProviderSummary(): Array<{
  *
  * @example
  * const results = await extractMultipleCountries(['GB', 'CA', 'AU'], {
- *   concurrency: 3,
- *   continueOnError: true,
- *   onProgress: (p) => console.log(`${p.completed}/${p.total} complete`)
+ * concurrency: 3,
+ * continueOnError: true,
+ * onProgress: (p) => console.log(`${p.completed}/${p.total} complete`)
  * });
  */
 export async function extractMultipleCountries(
@@ -304,9 +305,9 @@ export async function extractMultipleCountries(
  * @example
  * const health = await checkAllProvidersHealth();
  * for (const [country, status] of health) {
- *   if (!status.available) {
- *     console.error(`${country} provider unavailable: ${status.issues}`);
- *   }
+ * if (!status.available) {
+ * console.error(`${country} provider unavailable: ${status.issues}`);
+ * }
  * }
  */
 export async function checkAllProvidersHealth(options: {

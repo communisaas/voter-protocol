@@ -35,15 +35,15 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: packages/crypto/package-lock.json
+          cache-dependency-path: packages/shadow-atlas/package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: npm ci
 
       - name: Run health check
         id: health
-        working-directory: packages/crypto
+        working-directory: packages/shadow-atlas
         run: |
           # Run health check and capture output
           npx tsx services/shadow-atlas/scripts/health-check-ci.ts > health-output.json 2>&1 || true
@@ -73,7 +73,8 @@ jobs:
             let healthData = { issues: ['Health check failed'] };
 
             try {
-              const content = fs.readFileSync('packages/crypto/health-output.json', 'utf8');
+              // Fix path — this action monitors shadow-atlas, not crypto.
+              const content = fs.readFileSync('packages/shadow-atlas/health-output.json', 'utf8');
               healthData = JSON.parse(content);
             } catch (e) {
               console.log('Could not parse health output');

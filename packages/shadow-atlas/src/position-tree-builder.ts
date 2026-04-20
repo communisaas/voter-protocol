@@ -4,7 +4,7 @@
  * Append-only balanced binary Merkle tree for debate position commitments.
  * Each leaf records a single trade reveal as:
  *
- *   commitment = Poseidon2(argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT)
+ * commitment = Poseidon2(argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT)
  *
  * where DOMAIN_POS_COMMIT = 0x50434d ("PCM") occupies the 4th state slot,
  * using the same permutation state layout as all other Poseidon2 calls in this
@@ -12,7 +12,7 @@
  *
  * Merkle node hashing uses the standard pair hash:
  *
- *   node = Poseidon2(left, right, DOMAIN_HASH2, 0)
+ * node = Poseidon2(left, right, DOMAIN_HASH2, 0)
  *
  * where DOMAIN_HASH2 = 0x48324d ("H2M"). This matches hashPair() throughout
  * Trees 1 and 2, and is what the position_note Noir circuit expects when it
@@ -43,7 +43,7 @@ import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
 
 /**
  * Domain tag for position commitment leaf hashing.
- * Matches Noir circuit: global DOMAIN_POS_COMMIT: Field = 0x50434d  // "PCM"
+ * Matches Noir circuit: global DOMAIN_POS_COMMIT: Field = 0x50434d // "PCM"
  *
  * State layout passed to Poseidon2 permutation: [argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT]
  * Uses hashWithCustomDomain3() on the Poseidon2Hasher.
@@ -65,13 +65,13 @@ export const POSITION_TREE_DEFAULT_DEPTH = 20;
  * A Merkle proof for a position commitment leaf.
  *
  * Provides all data needed by PositionNoteNoirProver.generateProof():
- *   path  -> position_path  (Merkle siblings, length = depth)
- *   index -> position_index (leaf position in tree)
+ * path -> position_path (Merkle siblings, length = depth)
+ * index -> position_index (leaf position in tree)
  *
  * The circuit derives path direction bits from the index:
- *   bit[i] = (index >> i) & 1
- *   bit=0: current node is left child (sibling is right)
- *   bit=1: current node is right child (sibling is left)
+ * bit[i] = (index >> i) & 1
+ * bit=0: current node is left child (sibling is right)
+ * bit=1: current node is right child (sibling is left)
  */
 export interface PositionMerkleProof {
   /** Sibling hashes from leaf level to root (length = tree depth) */
@@ -111,12 +111,19 @@ export interface PositionTreeState {
 // ============================================================================
 
 let _hasher: Poseidon2Hasher | null = null;
+/** Serialize concurrent init calls */
+let _hasherInitPromise: Promise<Poseidon2Hasher> | null = null;
 
 async function ensureHasher(): Promise<Poseidon2Hasher> {
-  if (!_hasher) {
-    _hasher = await getHasher();
+  if (_hasher) return _hasher;
+  if (!_hasherInitPromise) {
+    _hasherInitPromise = getHasher().then((h) => {
+      _hasher = h;
+      _hasherInitPromise = null;
+      return h;
+    });
   }
-  return _hasher;
+  return _hasherInitPromise;
 }
 
 // ============================================================================
@@ -127,17 +134,17 @@ async function ensureHasher(): Promise<Poseidon2Hasher> {
  * Off-chain Merkle tree for position commitments.
  *
  * ARCHITECTURE:
- *   Full layer-by-layer storage (layers[0] = leaves, layers[depth] = root).
- *   Each appendPosition() call updates only the O(depth) path from the new
- *   leaf to the root. All other paths are untouched.
+ * Full layer-by-layer storage (layers[0] = leaves, layers[depth] = root).
+ * Each appendPosition() call updates only the O(depth) path from the new
+ * leaf to the root. All other paths are untouched.
  *
  * THREAD SAFETY:
- *   Not thread-safe. Insertions must be serialized. DebateService should
- *   await each appendPosition() call before processing the next event.
+ * Not thread-safe. Insertions must be serialized. DebateService should
+ * await each appendPosition() call before processing the next event.
  *
  * PERSISTENCE:
- *   In-memory only. Rebuild from commitments array after restart:
- *     const builder = await buildPositionTreeFromCommitments(storedCommitments, depth)
+ * In-memory only. Rebuild from commitments array after restart:
+ * const builder = await buildPositionTreeFromCommitments(storedCommitments, depth)
  */
 export class PositionTreeBuilder {
   /** Insertion-ordered commitment leaves (real positions only, no padding) */
@@ -164,9 +171,10 @@ export class PositionTreeBuilder {
   /** Initialization promise for concurrent-safe lazy init */
   private initPromise: Promise<void> | null = null;
 
+  // R53-C2: Cap depth at 24 to prevent OOM (depth=32 → 4.3B array elements)
   constructor(depth: number = POSITION_TREE_DEFAULT_DEPTH) {
-    if (!Number.isInteger(depth) || depth < 1 || depth > 32) {
-      throw new RangeError(`PositionTreeBuilder: depth must be an integer in [1, 32], got ${depth}`);
+    if (!Number.isInteger(depth) || depth < 1 || depth > 24) {
+      throw new RangeError(`PositionTreeBuilder: depth must be an integer in [1, 24], got ${depth}`);
     }
     this.depth = depth;
   }
@@ -179,15 +187,15 @@ export class PositionTreeBuilder {
    * Append a new position commitment to the tree.
    *
    * Computes:
-   *   commitment = Poseidon2(argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT)
+   * commitment = Poseidon2(argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT)
    *
    * then inserts the commitment at the next available leaf slot and recomputes
    * the O(depth) path from that leaf up to the root.
    *
-   * @param argumentIndex  - Argument index from TradeRevealed event (uint256 → bigint)
+   * @param argumentIndex - Argument index from TradeRevealed event (uint256 → bigint)
    * @param weightedAmount - Stake-weighted trade amount from TradeRevealed event
-   * @param randomness     - Blinding randomness committed by the trader
-   * @returns              - Leaf index and the commitment hash
+   * @param randomness - Blinding randomness committed by the trader
+   * @returns - Leaf index and the commitment hash
    * @throws Error if tree has reached capacity
    */
   async appendPosition(
@@ -206,6 +214,15 @@ export class PositionTreeBuilder {
     }
 
     const hasher = await ensureHasher();
+
+    // Validate inputs are valid BN254 field elements — propagate from jurisdiction.ts.
+    const BN254_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+    if (argumentIndex >= BN254_MODULUS || weightedAmount >= BN254_MODULUS || randomness >= BN254_MODULUS) {
+      throw new Error('PositionTreeBuilder: input exceeds BN254 field modulus');
+    }
+    if (argumentIndex < 0n || weightedAmount < 0n || randomness < 0n) {
+      throw new Error('PositionTreeBuilder: input must be non-negative');
+    }
 
     // commitment = Poseidon2(argumentIndex, weightedAmount, randomness, DOMAIN_POS_COMMIT)
     // Uses the custom-domain path so DOMAIN_POS_COMMIT occupies state slot 3.
@@ -338,7 +355,7 @@ export class PositionTreeBuilder {
    * Return a copy of the real commitment leaves in insertion order.
    *
    * Use to reconstruct the tree after a restart:
-   *   const builder2 = await buildPositionTreeFromCommitments(builder.getLeaves(), depth)
+   * const builder2 = await buildPositionTreeFromCommitments(builder.getLeaves(), depth)
    */
   getLeaves(): bigint[] {
     return [...this.commitmentLeaves];
@@ -351,7 +368,7 @@ export class PositionTreeBuilder {
    * persisted data. Callers must supply valid field elements.
    *
    * @param commitment - Pre-computed position commitment (field element)
-   * @returns          - Leaf index at which the commitment was inserted
+   * @returns - Leaf index at which the commitment was inserted
    */
   async insertCommitment(commitment: bigint): Promise<number> {
     await this._ensureInit();
@@ -462,10 +479,10 @@ export class PositionTreeBuilder {
  * Convenience wrapper for one-off usage (e.g., in tests or API handlers that
  * need the commitment value without a full PositionTreeBuilder).
  *
- * @param argumentIndex  - Argument index (uint256 as bigint)
+ * @param argumentIndex - Argument index (uint256 as bigint)
  * @param weightedAmount - Stake-weighted trade amount (uint256 as bigint)
- * @param randomness     - Blinding randomness (field element)
- * @returns              - Position commitment as bigint
+ * @param randomness - Blinding randomness (field element)
+ * @returns - Position commitment as bigint
  */
 export async function computePositionCommitment(
   argumentIndex: bigint,
@@ -483,8 +500,8 @@ export async function computePositionCommitment(
  * position root. Use this after a server restart to restore proof capability.
  *
  * @param commitments - Ordered list of position commitments (insertion order)
- * @param depth       - Tree depth (default: 20)
- * @returns           - Initialized PositionTreeBuilder
+ * @param depth - Tree depth (default: 20)
+ * @returns - Initialized PositionTreeBuilder
  */
 export async function buildPositionTreeFromCommitments(
   commitments: bigint[],
@@ -502,12 +519,12 @@ export async function buildPositionTreeFromCommitments(
  *
  * Useful for API-layer validation before submitting to the circuit.
  *
- * @param commitment   - Position commitment (leaf value)
- * @param path         - Sibling hashes from leaf to root (length = depth)
- * @param index        - Leaf index in tree
+ * @param commitment - Position commitment (leaf value)
+ * @param path - Sibling hashes from leaf to root (length = depth)
+ * @param index - Leaf index in tree
  * @param expectedRoot - Expected Merkle root
- * @param depth        - Tree depth (default: 20)
- * @returns            - true if proof is valid
+ * @param depth - Tree depth (default: 20)
+ * @returns - true if proof is valid
  */
 export async function verifyPositionMerkleProof(
   commitment: bigint,

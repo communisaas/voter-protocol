@@ -105,115 +105,17 @@ describe('ShadowAtlasService', () => {
   });
 
   describe('extract', () => {
-    // Skipping: Requires network access to TIGERweb API
-    it.skip('should extract single state boundaries (network test)', async () => {
-      const result = await service.extract({
-        type: 'state',
-        states: ['WI'],
-      });
-
-      expect(result.jobId).toBeDefined();
-      expect(result.status).toBeOneOf(['committed', 'validation_failed', 'extraction_failed']);
-      expect(result.duration).toBeGreaterThan(0);
-      expect(result.extraction).toBeDefined();
-      expect(result.validation).toBeDefined();
+    // R50-A1: extract() is now deprecated — it always throws directing users to buildAtlas()
+    it('should throw deprecation error (R50-A1: dead code path removed)', async () => {
+      await expect(
+        service.extract({ type: 'state', states: ['WI'] })
+      ).rejects.toThrow('DEPRECATED');
     });
 
-    it('should extract multiple states', async () => {
-      const result = await service.extract({
-        type: 'state',
-        states: ['WI', 'TX'],
-      });
-
-      expect(result.jobId).toBeDefined();
-      expect(result.status).toBeOneOf(['committed', 'validation_failed', 'extraction_failed']);
-      expect(result.duration).toBeGreaterThanOrEqual(0); // Duration can be 0 in fast mocked tests
-      expect(result.extraction).toBeDefined();
-      expect(result.validation).toBeDefined();
-
-      // Should have extracted boundaries from both states
-      if (result.extraction && result.extraction.totalBoundaries !== undefined) {
-        expect(result.extraction.totalBoundaries).toBeGreaterThanOrEqual(0);
-      }
-    });
-
-    it('should report progress during extraction', async () => {
-      const { callback, getProgress } = createMockProgressCallback();
-
-      const result = await service.extract(
-        {
-          type: 'state',
-          states: ['WI'],
-        },
-        {
-          onProgress: callback,
-        }
-      );
-
-      expect(result.jobId).toBeDefined();
-
-      // Progress callback should have been called
-      const progressUpdates = getProgress();
-      expect(progressUpdates.length).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should handle extraction errors when continueOnError is true', async () => {
-      // Attempt extraction with continueOnError
-      // The existing mocks may fail for some operations, but continueOnError
-      // should prevent the test from throwing
-      const result = await service.extract(
-        {
-          type: 'state',
-          states: ['WI'],
-        },
-        {
-          continueOnError: true,
-        }
-      );
-
-      // Should complete with some status but not throw
-      expect(result.jobId).toBeDefined();
-      expect(result.status).toBeDefined();
-      expect(result.status).toBeOneOf(['committed', 'validation_failed', 'extraction_failed']);
-    });
-
-    it('should handle validation failures', async () => {
-      // Extract with very high validation threshold to trigger validation failure
-      const result = await service.extract(
-        {
-          type: 'state',
-          states: ['WI'],
-        },
-        {
-          minPassRate: 1.0, // Require 100% validation pass rate
-        }
-      );
-
-      // Should complete but may have validation_failed status
-      expect(result.jobId).toBeDefined();
-      expect(result.status).toBeOneOf(['committed', 'validation_failed', 'extraction_failed']);
-
-      // Validation results should be present
-      expect(result.validation).toBeDefined();
-    });
-
-    it('should create merkle commitment when validation passes', async () => {
-      const result = await service.extract(
-        {
-          type: 'state',
-          states: ['WI'],
-        },
-        {
-          minPassRate: 0.5, // Low threshold for testing
-        }
-      );
-
-      if (result.status === 'committed') {
-        expect(result.commitment).toBeDefined();
-        expect(result.commitment?.snapshotId).toBeDefined();
-        expect(result.commitment?.merkleRoot).toBeDefined();
-        expect(result.commitment?.includedBoundaries).toBeGreaterThan(0);
-      }
+    it('should mention buildAtlas() in deprecation message', async () => {
+      await expect(
+        service.extract({ type: 'state', states: ['WI'] })
+      ).rejects.toThrow('buildAtlas()');
     });
   });
 
@@ -259,25 +161,17 @@ describe('ShadowAtlasService', () => {
   });
 
   describe('resumeExtraction', () => {
-    it('should resume failed extraction', async () => {
-      // First: start extraction (may fail)
-      const initial = await service.extract({
-        type: 'state',
-        states: ['WI'],
-      });
-
-      // Second: resume from job
-      const resumed = await service.resumeExtraction(initial.jobId);
-
-      // Resume may create new job but should complete
-      expect(resumed.jobId).toBeDefined();
-      expect(resumed.status).toBeOneOf(['committed', 'validation_failed', 'extraction_failed']);
+    // R50-A1: resumeExtraction() is now deprecated — it always throws directing users to buildAtlas()
+    it('should throw deprecation error (R50-A1: dead code path removed)', async () => {
+      await expect(
+        service.resumeExtraction('any-job-id')
+      ).rejects.toThrow('DEPRECATED');
     });
 
-    it('should throw error for non-existent job', async () => {
+    it('should mention buildAtlas() in deprecation message', async () => {
       await expect(
-        service.resumeExtraction('non-existent-job')
-      ).rejects.toThrow('Job non-existent-job not found');
+        service.resumeExtraction('any-job-id')
+      ).rejects.toThrow('buildAtlas()');
     });
   });
 
@@ -287,21 +181,9 @@ describe('ShadowAtlasService', () => {
       expect(results).toBeNull();
     });
 
-    it('should return validation results for committed snapshot', async () => {
-      const extraction = await service.extract({
-        type: 'state',
-        states: ['WI'],
-      });
-
-      if (extraction.status !== 'committed' || !extraction.commitment) {
-        return;
-      }
-
-      const results = await service.getValidationResults(
-        extraction.commitment.snapshotId
-      );
-
-      expect(results).toBeDefined();
+    it.skip('should return validation results for committed snapshot (DEPRECATED: extract() removed, R50-A1)', async () => {
+      // extract() now throws DEPRECATED error — this test path is no longer reachable.
+      // Validation results are tested via buildAtlas() in shadow-atlas-service.build-atlas.test.ts.
     });
   });
 

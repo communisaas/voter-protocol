@@ -20,7 +20,9 @@
  * - Detailed diagnostics: Include measurements for debugging
  */
 
-import * as turf from '@turf/turf';
+import { centroid as turfCentroid } from '@turf/centroid';
+import { distance } from '@turf/distance';
+import { point } from '@turf/helpers';
 import type { Feature, FeatureCollection, Polygon, MultiPolygon, Point } from 'geojson';
 import type { MunicipalBoundary } from './municipal-boundary.js';
 
@@ -42,7 +44,7 @@ export interface SanityCheckResult {
     readonly featureCount: {
       readonly passed: boolean;
       readonly actual: number;
-      readonly expected: number;
+      readonly expected: number | null;
       readonly ratio: number;
     };
   };
@@ -104,15 +106,15 @@ const DEFAULT_MAX_FEATURE_COUNT_RATIO = 3.0;
  * @example
  * ```typescript
  * const result = runSanityChecks(
- *   districtFeatures,
- *   municipalBoundary,
- *   9  // Expected district count for San Diego
+ * districtFeatures,
+ * municipalBoundary,
+ * 9 // Expected district count for San Diego
  * );
  *
  * if (!result.passed) {
- *   console.error(`Pre-validation failed: ${result.failReason}`);
- *   // Skip expensive tessellation validation
- *   return;
+ * console.error(`Pre-validation failed: ${result.failReason}`);
+ * // Skip expensive tessellation validation
+ * return;
  * }
  *
  * // Proceed to full tessellation proof
@@ -136,7 +138,7 @@ const DEFAULT_MAX_FEATURE_COUNT_RATIO = 3.0;
 export function runSanityChecks(
   districts: FeatureCollection<Polygon | MultiPolygon>,
   boundary: MunicipalBoundary,
-  expectedDistrictCount: number,
+  expectedDistrictCount: number | null,
   options?: SanityCheckOptions
 ): SanityCheckResult {
   const maxCentroidDistanceKm = options?.maxCentroidDistanceKm ?? DEFAULT_MAX_CENTROID_DISTANCE_KM;
@@ -151,31 +153,45 @@ export function runSanityChecks(
   // ========================================================================
 
   const actualCount = districts.features.length;
-  const countRatio = expectedDistrictCount > 0 ? actualCount / expectedDistrictCount : 0;
 
-  // Check both over-count (wrong granularity) and under-count (missing data)
-  const countCheckPassed = countRatio <= maxFeatureCountRatio && countRatio >= (1 / maxFeatureCountRatio);
+  // When expectedDistrictCount is null (FIPS not in registry),
+  // skip the count ratio check entirely rather than substituting actual count
+  // (which would make the ratio always 1.0, defeating the check).
+  if (expectedDistrictCount !== null) {
+    const countRatio = expectedDistrictCount > 0 ? actualCount / expectedDistrictCount : 0;
 
-  if (!countCheckPassed) {
-    const direction = countRatio > maxFeatureCountRatio ? 'too many' : 'too few';
-    return {
-      passed: false,
-      checks: {
-        centroidProximity: {
-          passed: true, // Not tested yet
-          distanceKm: 0,
-          threshold: maxCentroidDistanceKm,
+    // Check both over-count (wrong granularity) and under-count (missing data)
+    const countCheckPassed = countRatio <= maxFeatureCountRatio && countRatio >= (1 / maxFeatureCountRatio);
+
+    if (!countCheckPassed) {
+      const direction = countRatio > maxFeatureCountRatio ? 'too many' : 'too few';
+      return {
+        passed: false,
+        checks: {
+          centroidProximity: {
+            // R79-F8: Report as not-tested instead of falsely claiming passed.
+            passed: false,
+            distanceKm: -1, // sentinel: not computed
+            threshold: maxCentroidDistanceKm,
+          },
+          featureCount: {
+            passed: false,
+            actual: actualCount,
+            expected: expectedDistrictCount,
+            ratio: countRatio,
+          },
         },
-        featureCount: {
-          passed: false,
-          actual: actualCount,
-          expected: expectedDistrictCount,
-          ratio: countRatio,
-        },
-      },
-      failReason: `Feature count mismatch: found ${actualCount} features, expected ${expectedDistrictCount} (ratio ${countRatio.toFixed(2)}x, ${direction})`,
-    };
+        failReason: `Feature count mismatch: found ${actualCount} features, expected ${expectedDistrictCount} (ratio ${countRatio.toFixed(2)}x, ${direction})`,
+      };
+    }
   }
+
+  // Compute count ratio for use in return values.
+  // When expectedDistrictCount is null, ratio is -1 (sentinel: not applicable).
+  const countRatio = expectedDistrictCount !== null && expectedDistrictCount > 0
+    ? actualCount / expectedDistrictCount
+    : -1;
+  const countCheckPassed = expectedDistrictCount !== null;
 
   // ========================================================================
   // CHECK 2: Centroid Proximity
@@ -187,20 +203,20 @@ export function runSanityChecks(
     // Use simple approach: compute centroid of each district, then average
     // This is faster than union → centroid and avoids topology errors
     const districtCentroids: Point[] = districts.features.map((feature) => {
-      const centroid = turf.centroid(feature);
+      const centroid = turfCentroid(feature);
       return centroid.geometry;
     });
 
     // Average centroid positions
     const avgLon = districtCentroids.reduce((sum, pt) => sum + pt.coordinates[0], 0) / districtCentroids.length;
     const avgLat = districtCentroids.reduce((sum, pt) => sum + pt.coordinates[1], 0) / districtCentroids.length;
-    const districtCentroid = turf.point([avgLon, avgLat]);
+    const districtCentroid = point([avgLon, avgLat]);
 
     // Compute municipal boundary centroid
-    const municipalCentroid = turf.centroid(municipalGeometry);
+    const municipalCentroid = turfCentroid(municipalGeometry);
 
     // Compute distance
-    const distanceKm = turf.distance(districtCentroid, municipalCentroid, { units: 'kilometers' });
+    const distanceKm = distance(districtCentroid, municipalCentroid, { units: 'kilometers' });
 
     const centroidCheckPassed = distanceKm <= maxCentroidDistanceKm;
 
@@ -214,7 +230,7 @@ export function runSanityChecks(
             threshold: maxCentroidDistanceKm,
           },
           featureCount: {
-            passed: true,
+            passed: countCheckPassed,
             actual: actualCount,
             expected: expectedDistrictCount,
             ratio: countRatio,
@@ -234,7 +250,7 @@ export function runSanityChecks(
           threshold: maxCentroidDistanceKm,
         },
         featureCount: {
-          passed: true,
+          passed: countCheckPassed,
           actual: actualCount,
           expected: expectedDistrictCount,
           ratio: countRatio,
@@ -243,24 +259,24 @@ export function runSanityChecks(
       failReason: null,
     };
   } catch (error) {
-    // Geometry computation failed - return passing result to allow tessellation to handle it
-    // (Sanity checks should never block valid data, only catch obvious errors)
+    // Geometry computation failed - fail closed to prevent corrupt data from passing
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
-      passed: true,
+      passed: false,
       checks: {
         centroidProximity: {
-          passed: true,
+          passed: false,
           distanceKm: 0,
           threshold: maxCentroidDistanceKm,
         },
         featureCount: {
-          passed: true,
+          passed: false,
           actual: actualCount,
           expected: expectedDistrictCount,
           ratio: countRatio,
         },
       },
-      failReason: null,
+      failReason: `Geometric computation failed during centroid proximity check: ${errorMessage}`,
     };
   }
 }
@@ -275,7 +291,7 @@ export function runSanityChecks(
 export function passesSanityChecks(
   districts: FeatureCollection<Polygon | MultiPolygon>,
   boundary: MunicipalBoundary,
-  expectedDistrictCount: number,
+  expectedDistrictCount: number | null,
   options?: SanityCheckOptions
 ): boolean {
   return runSanityChecks(districts, boundary, expectedDistrictCount, options).passed;

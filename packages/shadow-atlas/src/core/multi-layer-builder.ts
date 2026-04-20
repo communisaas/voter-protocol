@@ -357,14 +357,18 @@ export class MultiLayerMerkleTreeBuilder {
   private sortBoundaries(
     boundaries: readonly MerkleBoundaryInput[]
   ): MerkleBoundaryInput[] {
+    // Use byte-order comparison, NOT localeCompare.
+    // localeCompare without explicit locale is environment-dependent and produces
+    // non-deterministic Merkle roots across different runtime locales.
     return [...boundaries].sort((a, b) => {
-      // Primary sort: Boundary type (alphabetical)
+      // Primary sort: Boundary type (byte-order)
       if (a.boundaryType !== b.boundaryType) {
-        return a.boundaryType.localeCompare(b.boundaryType);
+        return a.boundaryType < b.boundaryType ? -1 : 1;
       }
 
-      // Secondary sort: ID (lexicographic)
-      return a.id.localeCompare(b.id);
+      // Secondary sort: ID (byte-order)
+      if (a.id === b.id) return 0;
+      return a.id < b.id ? -1 : 1;
     });
   }
 
@@ -448,7 +452,7 @@ export class MultiLayerMerkleTreeBuilder {
   /**
    * Batch hash multiple geometry strings in parallel
    *
-   * Uses simple XOR-based hashing (deterministic, fast).
+   * Uses SHA-256 hashing with 31-byte BN254-safe truncation (WS-5 fix).
    * For cryptographic security, geometry is included in leaf hash
    * which uses Poseidon2.
    *
@@ -488,10 +492,10 @@ export class MultiLayerMerkleTreeBuilder {
    * For 730k leaves:
    * - Level 0: 365k pairs hashed in parallel batches
    * - Level 1: 182k pairs hashed in parallel batches
-   * - ... etc
+   * -... etc
    *
    * @param leaves - Leaf hashes to build tree from
-   * @returns Complete tree layers [leaves, ..., root]
+   * @returns Complete tree layers [leaves,..., root]
    */
   private async buildTreeLayers(leaves: readonly bigint[]): Promise<bigint[][]> {
     if (leaves.length === 0) {
@@ -589,14 +593,15 @@ export class MultiLayerMerkleTreeBuilder {
     return JSON.stringify(
       {
         version: '2.0.0',
-        root: '0x' + tree.root.toString(16),
+        // Pad to 64 hex chars for consistent string comparison with circuit outputs
+        root: '0x' + tree.root.toString(16).padStart(64, '0'),
         boundaryCount: tree.boundaryCount,
         layerCounts: tree.layerCounts,
         leaves: tree.leaves.map(l => ({
           id: l.boundaryId,
           type: l.boundaryType,
           name: l.boundaryName,
-          hash: '0x' + l.leafHash.toString(16),
+          hash: '0x' + l.leafHash.toString(16).padStart(64, '0'),
           index: l.index,
         })),
         metadata: {

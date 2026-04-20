@@ -184,7 +184,11 @@ export const SocrataGeoJSONFeatureSchema = z.object({
       z.literal('MultiLineString'),
       z.literal('MultiPolygon'),
     ]),
-    coordinates: z.array(z.unknown()), // Complex nested structure
+    // Validate coordinate finiteness (propagation — Socrata path).
+    coordinates: z.array(z.unknown()).refine(
+      (arr) => { const chk = (v: unknown): boolean => { if (typeof v === 'number') return Number.isFinite(v); if (Array.isArray(v)) return v.every(chk); return true; }; return chk(arr); },
+      'Coordinates must contain only finite numbers',
+    ),
   }).nullable(),
   properties: z.record(z.unknown()).nullable(),
 });
@@ -302,9 +306,26 @@ export function isSocrataError(data: unknown): data is ValidatedSocrataErrorResp
   if (typeof data !== 'object' || data === null) {
     return false;
   }
-  // Socrata errors have either error:true or a message/code field
   const obj = data as Record<string, unknown>;
-  return obj.error === true || (typeof obj.message === 'string' && typeof obj.code === 'string');
+  // Require error:true as primary signal. The previous fallback
+  // (message+code strings) false-positived on valid GeoJSON features containing
+  // "message" and "code" properties (e.g., district codes, status messages).
+  // Socrata error responses always set error:true; message/code alone is ambiguous.
+  if (obj.error === true) {
+    return true;
+  }
+  // Tighten secondary path — require code to match Socrata error code
+  // format (dot-separated segments like "query.compiler.malformed") to avoid
+  // false-positives on data objects that happen to have message+code fields.
+  if (
+    typeof obj.message === 'string' &&
+    typeof obj.code === 'string' &&
+    /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/.test(obj.code) &&
+    obj.type !== 'FeatureCollection'
+  ) {
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================

@@ -121,9 +121,10 @@ export type ValidatedTIGERWebLayerDetail = z.infer<typeof TIGERWebLayerDetailSch
 export const TIGERWebFeatureSchema = z.object({
   attributes: z.record(z.unknown()),
   geometry: z.object({
-    rings: z.array(z.array(z.tuple([z.number(), z.number()]))).optional(),
-    x: z.number().optional(),
-    y: z.number().optional(),
+    // Validate coordinate finiteness on ArcGIS native format (propagation).
+    rings: z.array(z.array(z.tuple([z.number().finite(), z.number().finite()]))).optional(),
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
     spatialReference: z.object({
       wkid: z.number().int().optional(),
     }).optional(),
@@ -168,7 +169,11 @@ export const TIGERWebGeoJSONResponseSchema = z.object({
     id: z.union([z.string(), z.number()]).optional(),
     geometry: z.object({
       type: z.union([z.literal('Polygon'), z.literal('MultiPolygon')]),
-      coordinates: z.array(z.unknown()), // Complex nested structure, validate separately if needed
+      // Validate coordinate finiteness (propagation — Census path was missed).
+      coordinates: z.array(z.unknown()).refine(
+        (arr) => { const chk = (v: unknown): boolean => { if (typeof v === 'number') return Number.isFinite(v); if (Array.isArray(v)) return v.every(chk); return true; }; return chk(arr); },
+        'Coordinates must contain only finite numbers',
+      ),
     }).nullable(),
     properties: z.record(z.unknown()).nullable(),
   })).max(100000),
@@ -176,7 +181,8 @@ export const TIGERWebGeoJSONResponseSchema = z.object({
     type: z.string().optional(),
     properties: z.record(z.unknown()).optional(),
   }).optional(),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+  // Add .finite() to bbox (propagation).
+  bbox: z.tuple([z.number().finite(), z.number().finite(), z.number().finite(), z.number().finite()]).optional(),
 });
 
 export type ValidatedTIGERWebGeoJSONResponse = z.infer<typeof TIGERWebGeoJSONResponseSchema>;
@@ -262,7 +268,11 @@ export const TIGERLineFeatureSchema = z.object({
   properties: TIGERLineAttributeSchema.nullable(),
   geometry: z.object({
     type: z.union([z.literal('Polygon'), z.literal('MultiPolygon')]),
-    coordinates: z.array(z.unknown()),
+    // Validate coordinate finiteness (propagation — TIGER/Line path).
+    coordinates: z.array(z.unknown()).refine(
+      (arr) => { const chk = (v: unknown): boolean => { if (typeof v === 'number') return Number.isFinite(v); if (Array.isArray(v)) return v.every(chk); return true; }; return chk(arr); },
+      'Coordinates must contain only finite numbers',
+    ),
   }).nullable(),
 });
 
@@ -276,7 +286,8 @@ export type ValidatedTIGERLineFeature = z.infer<typeof TIGERLineFeatureSchema>;
 export const TIGERLineFeatureCollectionSchema = z.object({
   type: z.literal('FeatureCollection'),
   features: z.array(TIGERLineFeatureSchema).max(500000),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+  // Add .finite() to bbox.
+  bbox: z.tuple([z.number().finite(), z.number().finite(), z.number().finite(), z.number().finite()]).optional(),
 });
 
 export type ValidatedTIGERLineFeatureCollection = z.infer<typeof TIGERLineFeatureCollectionSchema>;
@@ -302,10 +313,27 @@ export type ValidatedArcGISErrorResponse = z.infer<typeof ArcGISErrorResponseSch
 
 /**
  * Check if response is an ArcGIS error
+ *
+ * Use lightweight type guards instead of safeParse.
+ * safeParse matches any object with { error: { code: number, message: string } },
+ * which false-positives on valid GeoJSON FeatureCollections that happen to carry
+ * an "error" property (same class as for Socrata).
  */
 export function isArcGISError(data: unknown): data is ValidatedArcGISErrorResponse {
-  const result = ArcGISErrorResponseSchema.safeParse(data);
-  return result.success;
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
+  // ArcGIS errors have { error: { code: <number>, message: <string> } }.
+  // Reject if the outer object looks like a FeatureCollection — that's valid GeoJSON, not an error.
+  if (obj.type === 'FeatureCollection') {
+    return false;
+  }
+  if (typeof obj.error === 'object' && obj.error !== null) {
+    const err = obj.error as Record<string, unknown>;
+    return typeof err.code === 'number' && typeof err.message === 'string';
+  }
+  return false;
 }
 
 // ============================================================================

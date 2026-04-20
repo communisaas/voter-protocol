@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { polygon as turfPolygon, feature as turfFeature, featureCollection } from '@turf/helpers';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 import { runSanityChecks, passesSanityChecks } from '../../../validators/council/pre-validation-sanity.js';
 import type { MunicipalBoundary } from '../../../validators/council/municipal-boundary.js';
@@ -54,14 +55,14 @@ function createMockBoundary(
   heightKm: number = 10
 ): MunicipalBoundary {
   const polygon = createRectangle(centerLon, centerLat, widthKm, heightKm);
-  const area = turf.area(turf.polygon(polygon.coordinates));
+  const area = turfArea(turfPolygon(polygon.coordinates));
 
   return {
     fips,
     name: 'Test City',
     stateFips: '06',
     stateAbbr: 'CA',
-    geometry: turf.feature(polygon),
+    geometry: turfFeature(polygon),
     areaSqM: area,
     landAreaSqM: area,
     waterAreaSqM: 0,
@@ -94,10 +95,10 @@ function createDistricts(
       2  // 2km height
     );
 
-    features.push(turf.feature(polygon, { districtId: i + 1 }));
+    features.push(turfFeature(polygon, { districtId: i + 1 }));
   }
 
-  return turf.featureCollection(features);
+  return featureCollection(features);
 }
 
 // =============================================================================
@@ -295,7 +296,7 @@ describe('Pre-Validation Sanity Checks', () => {
   describe('Edge Cases', () => {
     it('should handle empty district collection', () => {
       const boundary = createMockBoundary('0666000', -117.1611, 32.7157);
-      const emptyDistricts = turf.featureCollection([]);
+      const emptyDistricts = featureCollection([]);
 
       const result = runSanityChecks(emptyDistricts, boundary, 9);
 
@@ -327,7 +328,7 @@ describe('Pre-Validation Sanity Checks', () => {
     it('should handle geometry computation errors gracefully', () => {
       const boundary = createMockBoundary('0666000', -117.1611, 32.7157);
       // Create invalid geometry (self-intersecting polygon)
-      const invalidFeature = turf.feature({
+      const invalidFeature = turfFeature({
         type: 'Polygon',
         coordinates: [[
           [-117.16, 32.71],
@@ -337,7 +338,7 @@ describe('Pre-Validation Sanity Checks', () => {
           [-117.16, 32.71],
         ]],
       } as Polygon);
-      const invalidDistricts = turf.featureCollection([invalidFeature]);
+      const invalidDistricts = featureCollection([invalidFeature]);
 
       // Should not throw, should pass (allow tessellation to handle geometry errors)
       const result = runSanityChecks(invalidDistricts, boundary, 9);

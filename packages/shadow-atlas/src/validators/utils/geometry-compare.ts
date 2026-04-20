@@ -20,8 +20,11 @@
  */
 
 import type { Polygon, MultiPolygon, Feature } from 'geojson';
-import { area, intersect, featureCollection, centroid, distance, point } from '@turf/turf';
-import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
+import { area } from '@turf/area';
+import { intersect } from '@turf/intersect';
+import { centroid } from '@turf/centroid';
+import { distance } from '@turf/distance';
+import { point, featureCollection, polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
 import { logger } from '../../core/utils/logger.js';
 
 /**
@@ -152,15 +155,19 @@ export function calculateJaccardSimilarity(
     const area1 = area(feature1);
     const area2 = area(feature2);
 
-    // If either geometry has zero area, they can't match
-    if (area1 === 0 || area2 === 0) {
+    // epsilon comparison — floating-point area from Turf.js may
+    // return extremely small but non-zero values for degenerate geometries.
+    const AREA_EPSILON = 1e-10; // square meters — smaller than any real boundary
+
+    // If either geometry has effectively zero area, they can't match
+    if (Math.abs(area1) < AREA_EPSILON || Math.abs(area2) < AREA_EPSILON) {
       return 0;
     }
 
     const intersectionArea = calculateIntersectionArea(geom1, geom2);
     const unionArea = area1 + area2 - intersectionArea;
 
-    if (unionArea === 0) {
+    if (Math.abs(unionArea) < AREA_EPSILON) {
       return 0;
     }
 

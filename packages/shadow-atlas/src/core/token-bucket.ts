@@ -79,6 +79,16 @@ export class TokenBucket {
   }
 
   /**
+   * Refund tokens (e.g., when a downstream consume fails after this bucket succeeded).
+   * Capped at maxTokens to prevent over-refunding.
+   *
+   * @param cost - Number of tokens to refund
+   */
+  refund(cost: number): void {
+    this.tokens = Math.min(this.maxTokens, this.tokens + cost);
+  }
+
+  /**
    * Get remaining tokens
    */
   getRemaining(): number {

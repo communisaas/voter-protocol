@@ -69,20 +69,21 @@ interface QueuedRequest<T> {
  * @example
  * ```typescript
  * const bulkhead = new Bulkhead({
- *   name: 'ipfs-downloads',
- *   maxConcurrent: 5,
- *   maxQueueSize: 10,
- *   queueTimeoutMs: 5000,
+ * name: 'ipfs-downloads',
+ * maxConcurrent: 5,
+ * maxQueueSize: 10,
+ * queueTimeoutMs: 5000,
  * });
  *
  * const result = await bulkhead.execute(async () => {
- *   return downloadFromIPFS(cid);
+ * return downloadFromIPFS(cid);
  * });
  * ```
  */
 export class Bulkhead {
   private readonly config: BulkheadConfig;
   private activeCount = 0;
+  private resetGeneration = 0; // generation counter to prevent stale decrements after reset()
   private readonly queue: Array<QueuedRequest<unknown>> = [];
   private rejectedCount = 0;
   private completedCount = 0;
@@ -127,6 +128,7 @@ export class Bulkhead {
    */
   private async executeImmediate<T>(fn: () => Promise<T>): Promise<T> {
     this.activeCount++;
+    const gen = this.resetGeneration; // capture generation before execution
     const startTime = Date.now();
 
     try {
@@ -134,9 +136,14 @@ export class Bulkhead {
       return result;
     } finally {
       const executionTime = Date.now() - startTime;
-      this.activeCount--;
-      this.completedCount++;
-      this.totalExecutionMs += executionTime;
+      // Only decrement if no reset occurred during execution.
+      // After reset(), activeCount is zeroed and resetGeneration is bumped,
+      // so stale finally blocks skip the decrement instead of driving negative.
+      if (gen === this.resetGeneration) {
+        this.activeCount--;
+        this.completedCount++;
+        this.totalExecutionMs += executionTime;
+      }
 
       // Process next queued request if any
       this.processNextQueued();
@@ -236,6 +243,11 @@ export class Bulkhead {
     this.rejectedCount = 0;
     this.completedCount = 0;
     this.totalExecutionMs = 0;
+    // Invalidate in-flight decrements. Bumping the generation
+    // counter ensures that any in-flight finally blocks (captured with the
+    // old generation) will skip the activeCount-- decrement.
+    this.resetGeneration++;
+    this.activeCount = 0;
   }
 
   /**

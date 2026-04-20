@@ -241,11 +241,20 @@ export function detectOverlaps(
             });
           }
         }
-      } catch {
-        // Intersection failed - log but continue
-        logger.warn('Topology intersection calculation failed', {
+      } catch (error) {
+        // Fail-closed on intersection error — report as potential overlap
+        // rather than silently skipping (matches tessellation-proof.ts pattern)
+        logger.warn('Topology intersection calculation failed, treating as overlap', {
           geoid1: boundary.id,
           geoid2: candidate.geoid,
+          error: (error as Error).message,
+        });
+        overlaps.push({
+          geoid1: boundary.id,
+          geoid2: candidate.geoid,
+          overlapAreaSqM: -1, // Unknown — computation failed
+          overlapPercentage1: 100,
+          overlapPercentage2: 100,
         });
       }
     }
@@ -401,14 +410,18 @@ export function detectGaps(
       gapRegions,
     };
   } catch {
-    // Difference failed - assume no gaps
+    // Difference computation failed — fail-closed: treat as 100% gap
+    logger.error('Gap detection difference computation failed, failing closed', {
+      parentId: parentBoundary.id,
+      childCount: validChildren.length,
+    });
     return {
       parentAreaSqM,
       childrenAreaSqM,
-      gapAreaSqM: 0,
-      gapPercentage: 0,
-      exceedsThreshold: false,
-      gapCount: 0,
+      gapAreaSqM: parentAreaSqM,
+      gapPercentage: 100,
+      exceedsThreshold: true,
+      gapCount: -1,
     };
   }
 }

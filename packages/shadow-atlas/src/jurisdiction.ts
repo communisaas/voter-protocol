@@ -351,7 +351,7 @@ export const US_JURISDICTION: JurisdictionConfig = {
  * Riding codes are 5-digit numeric (e.g., "35001" for an Ontario riding).
  * Both are safely numeric — direct BigInt conversion.
  *
- * ~56,000 DAs nationally + 338 ridings — well within field bounds.
+ * ~56,000 DAs nationally + 343 ridings — well within field bounds.
  */
 function encodeCanadaCellId(unitId: string): bigint {
   if (!unitId || !unitId.trim()) {
@@ -435,7 +435,7 @@ export const CA_JURISDICTION: JurisdictionConfig = {
     'census_division': 7, 'cd': 7,
   },
 
-  recommendedDepth: 18,  // 338 ridings + ~56K DAs → fits in 2^18 = 262K
+  recommendedDepth: 18,  // 343 ridings + ~56K DAs → fits in 2^18 = 262K
   encodeCellId: encodeCanadaCellId,
 };
 

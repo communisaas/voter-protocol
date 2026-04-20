@@ -74,9 +74,13 @@ export enum BoundaryType {
   // ===========================================================================
   CITY_LIMITS = 'city_limits',
   CDP = 'cdp',                               // Census Designated Places (unincorporated)
-  TOWNSHIP = 'township',                     // Civil townships (New England, Midwest)
   BOROUGH = 'borough',                       // Borough (PA, AK, NJ)
   VILLAGE = 'village',                       // Village (various states)
+
+  // ===========================================================================
+  // SLOT 20: TOWNSHIP (Township / MCD / New England town)
+  // ===========================================================================
+  TOWNSHIP = 'township',                     // Civil townships (New England, Midwest)
 
   // ===========================================================================
   // SLOT 6: CITY_COUNCIL (City council / ward districts)
@@ -106,11 +110,6 @@ export enum BoundaryType {
   SCHOOL_BOARD_DISTRICT = 'school_board_district',
 
   // ===========================================================================
-  // SLOT 11: WATER_SEWER (Water / sewer / sanitation districts)
-  // See authority-mapper.ts for full mapping
-  // ===========================================================================
-
-  // ===========================================================================
   // SLOT 21: VOTING_PRECINCT (Voting tabulation districts / precincts)
   // ===========================================================================
   VOTING_DISTRICT = 'voting_district',
@@ -125,7 +124,7 @@ export enum BoundaryType {
   EMS_DISTRICT = 'ems_district',
 
   // ===========================================================================
-  // SLOT 13: WATER (Water and sewer districts)
+  // SLOT 11: WATER_SEWER (Water and sewer districts)
   // ===========================================================================
   WATER_DISTRICT = 'water_district',
   SEWER_DISTRICT = 'sewer_district',
@@ -135,7 +134,7 @@ export enum BoundaryType {
   DRAINAGE_DISTRICT = 'drainage_district',
 
   // ===========================================================================
-  // SLOT 14: UTILITY (General utility districts)
+  // SLOT 18: UTILITY (General utility districts)
   // ===========================================================================
   UTILITY_DISTRICT = 'utility_district',
   PUBLIC_UTILITY_DISTRICT = 'public_utility_district',
@@ -144,7 +143,7 @@ export enum BoundaryType {
   GAS_DISTRICT = 'gas_district',
 
   // ===========================================================================
-  // SLOT 15: TRANSIT (Public transportation districts)
+  // SLOT 13: TRANSIT (Public transportation districts)
   // ===========================================================================
   TRANSIT_DISTRICT = 'transit_district',
   TRANSPORTATION_DISTRICT = 'transportation_district',
@@ -153,19 +152,19 @@ export enum BoundaryType {
   AIRPORT_DISTRICT = 'airport_district',
 
   // ===========================================================================
-  // SLOT 16: LIBRARY (Library districts - often elected boards)
+  // SLOT 15: LIBRARY (Library districts - often elected boards)
   // ===========================================================================
   LIBRARY_DISTRICT = 'library_district',
 
   // ===========================================================================
-  // SLOT 17: HOSPITAL (Hospital / Healthcare districts)
+  // SLOT 14: HOSPITAL (Hospital / Healthcare districts)
   // ===========================================================================
   HOSPITAL_DISTRICT = 'hospital_district',
   HEALTHCARE_DISTRICT = 'healthcare_district',
   AMBULANCE_DISTRICT = 'ambulance_district',
 
   // ===========================================================================
-  // SLOT 18: PARK_REC (Parks and recreation districts)
+  // SLOT 16: PARK_REC (Parks and recreation districts)
   // ===========================================================================
   PARK_DISTRICT = 'park_district',
   RECREATION_DISTRICT = 'recreation_district',
@@ -180,7 +179,7 @@ export enum BoundaryType {
   SUPERIOR_COURT_DISTRICT = 'superior_court_district',
 
   // ===========================================================================
-  // SLOT 20: CONSERVATION (Conservation / soil / environmental districts)
+  // SLOT 17: CONSERVATION (Conservation / soil / environmental districts)
   // ===========================================================================
   CONSERVATION_DISTRICT = 'conservation_district',
   SOIL_CONSERVATION_DISTRICT = 'soil_conservation_district',
@@ -189,7 +188,7 @@ export enum BoundaryType {
   GROUNDWATER_DISTRICT = 'groundwater_district',
 
   // ===========================================================================
-  // SLOT 21: TRIBAL (Tribal and indigenous governance)
+  // SLOT 22: TRIBAL (Tribal and indigenous governance)
   // ===========================================================================
   TRIBAL_AREA = 'tribal_area',                    // AIANNH - American Indian/Alaska Native/Native Hawaiian Areas
   ALASKA_NATIVE_CORP = 'alaska_native_corp',      // ANRC - Alaska Native Regional Corporations
@@ -198,7 +197,7 @@ export enum BoundaryType {
   TRIBAL_TRACT = 'tribal_tract',                  // TTRACT - Tribal Census Tracts
 
   // ===========================================================================
-  // SLOT 22: OVERFLOW_1 (Rare/miscellaneous special districts - Group A)
+  // SLOT 23: OVERFLOW_1 (Rare/miscellaneous special districts - Group A)
   // ===========================================================================
   CEMETERY_DISTRICT = 'cemetery_district',
   MOSQUITO_DISTRICT = 'mosquito_district',
@@ -236,6 +235,9 @@ export enum BoundaryType {
   PUMA = 'puma',                                  // Public Use Microdata Areas
   SUBMINOR_CIVIL_DIVISION = 'subminor_civil_division',  // SUBMCD - Subminor Civil Divisions
   ESTATE = 'estate',                              // ESTATE - Estates in USVI
+  CONSOLIDATED_CITY = 'consolidated_city',        // CONCITY - Consolidated Cities (city-county mergers)
+  COMBINED_NECTA = 'combined_necta',              // CNECTA - Combined New England City and Town Areas
+  MILITARY_INSTALLATION = 'military_installation', // MIL - Military Installations
   COUNTRY = 'country',                            // National boundary (top level)
 }
 
@@ -273,6 +275,7 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   [BoundaryType.TOWNSHIP]: 1.2,
   [BoundaryType.BOROUGH]: 1.3,
   [BoundaryType.VILLAGE]: 1.4,
+  [BoundaryType.CONSOLIDATED_CITY]: 1.5,
 
   // ===========================================================================
   // Tier 2: School districts (highest priority special districts - elected)
@@ -394,6 +397,7 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   [BoundaryType.NECTA_DIVISION]: 13.2,
   [BoundaryType.NECTA]: 13.3,
   [BoundaryType.URBAN_AREA]: 13.4,
+  [BoundaryType.COMBINED_NECTA]: 13.5,
 
   // ===========================================================================
   // Tier 14: State/Province
@@ -409,6 +413,7 @@ export const PRECISION_RANK: Record<BoundaryType, number> = {
   [BoundaryType.TRIBAL_TRACT]: 15.3,
   [BoundaryType.BLOCK_GROUP]: 15.4,
   [BoundaryType.TRIBAL_BLOCK_GROUP]: 15.5,
+  [BoundaryType.MILITARY_INSTALLATION]: 15.6,
 
   // ===========================================================================
   // Tier 16: Country (coarsest)

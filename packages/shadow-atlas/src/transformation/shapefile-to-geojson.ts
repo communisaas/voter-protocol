@@ -13,7 +13,7 @@ export interface TransformOptions {
 /**
  * Transform Shapefile buffer to GeoJSON
  *
- * Handles TIGER/Line shapefiles that come as ZIP archives containing .shp, .dbf, .prj, .shx files.
+ * Handles TIGER/Line shapefiles that come as ZIP archives containing.shp,.dbf,.prj,.shx files.
  * Supports both raw ZIP files and gzipped archives.
  *
  * @param data - Buffer containing shapefile data (ZIP or gzipped ZIP)
@@ -33,7 +33,7 @@ export async function transformShapefileToGeoJSON(
         format: 'shapefile-to-geojson'
     });
 
-    // Extract .shp and .dbf from archive
+    // Extract.shp and.dbf from archive
     const { shpBuffer, dbfBuffer } = await extractShapefileComponents(data);
 
     logger.info('Extracted shapefile components', {
@@ -42,6 +42,8 @@ export async function transformShapefileToGeoJSON(
     });
 
     // Parse shapefile using shapefile library
+    // Safety limit on feature accumulation to prevent malicious shapefiles
+    const MAX_FEATURES = 500_000;
     const features: Array<GeoJSON.Feature<Geometry, GeoJsonProperties>> = [];
 
     try {
@@ -52,6 +54,9 @@ export async function transformShapefileToGeoJSON(
         while (!result.done) {
             if (result.value) {
                 features.push(result.value);
+            }
+            if (features.length > MAX_FEATURES) {
+                throw new Error(`Feature count exceeds safety limit of ${MAX_FEATURES} — input may be malicious or malformed`);
             }
             result = await source.read();
         }
@@ -77,7 +82,7 @@ export async function transformShapefileToGeoJSON(
 }
 
 /**
- * Extract .shp and .dbf files from shapefile archive
+ * Extract.shp and.dbf files from shapefile archive
  *
  * Handles both raw ZIP and gzipped ZIP formats.
  * Detects format using magic bytes:
@@ -85,7 +90,7 @@ export async function transformShapefileToGeoJSON(
  * - GZIP: 0x1F 0x8B
  *
  * @param data - Buffer containing archive data
- * @returns Object containing .shp and .dbf buffers
+ * @returns Object containing.shp and.dbf buffers
  */
 async function extractShapefileComponents(
     data: Buffer
@@ -115,20 +120,25 @@ async function extractShapefileComponents(
 }
 
 /**
- * Extract .shp and .dbf files from ZIP archive
+ * Extract.shp and.dbf files from ZIP archive
  *
  * @param data - Buffer containing ZIP archive
- * @returns Object containing .shp and .dbf buffers
+ * @returns Object containing.shp and.dbf buffers
  */
 async function extractFromZip(
     data: Buffer
 ): Promise<{ shpBuffer: Buffer; dbfBuffer: Buffer }> {
+    // ZIP bomb protection — hard cap per file and cumulative extraction limit
+    const MAX_EXTRACTED_BYTES = 500 * 1024 * 1024; // 500MB per file (matches gunzip limit)
+    const MAX_CUMULATIVE_BYTES = 1_000 * 1024 * 1024; // 1GB cumulative
+
     try {
         const zip = await JSZip.loadAsync(data);
 
-        // Find .shp and .dbf files
+        // Find.shp and.dbf files
         let shpBuffer: Buffer | null = null;
         let dbfBuffer: Buffer | null = null;
+        let cumulativeSize = 0;
 
         for (const [filename, file] of Object.entries(zip.files)) {
             if (file.dir) continue;
@@ -137,10 +147,24 @@ async function extractFromZip(
 
             if (lowerName.endsWith('.shp')) {
                 shpBuffer = await file.async('nodebuffer');
-                logger.info('Found .shp file', { filename });
+                if (shpBuffer.length > MAX_EXTRACTED_BYTES) {
+                    throw new Error(`Extracted .shp file size ${shpBuffer.length} exceeds limit of ${MAX_EXTRACTED_BYTES} bytes (ZIP bomb protection)`);
+                }
+                cumulativeSize += shpBuffer.length;
+                if (cumulativeSize > MAX_CUMULATIVE_BYTES) {
+                    throw new Error(`Cumulative extracted size ${cumulativeSize} exceeds limit of ${MAX_CUMULATIVE_BYTES} bytes (ZIP bomb protection)`);
+                }
+                logger.info('Found .shp file', { filename, size: shpBuffer.length });
             } else if (lowerName.endsWith('.dbf')) {
                 dbfBuffer = await file.async('nodebuffer');
-                logger.info('Found .dbf file', { filename });
+                if (dbfBuffer.length > MAX_EXTRACTED_BYTES) {
+                    throw new Error(`Extracted .dbf file size ${dbfBuffer.length} exceeds limit of ${MAX_EXTRACTED_BYTES} bytes (ZIP bomb protection)`);
+                }
+                cumulativeSize += dbfBuffer.length;
+                if (cumulativeSize > MAX_CUMULATIVE_BYTES) {
+                    throw new Error(`Cumulative extracted size ${cumulativeSize} exceeds limit of ${MAX_CUMULATIVE_BYTES} bytes (ZIP bomb protection)`);
+                }
+                logger.info('Found .dbf file', { filename, size: dbfBuffer.length });
             }
         }
 
@@ -166,7 +190,13 @@ async function extractFromZip(
  */
 function gunzipBuffer(data: Buffer): Buffer {
     try {
-        return gunzipSync(data);
+        const decompressed = gunzipSync(data);
+        // Decompression bomb protection — reject if decompressed > 500MB
+        const MAX_DECOMPRESSED_BYTES = 500 * 1024 * 1024;
+        if (decompressed.length > MAX_DECOMPRESSED_BYTES) {
+            throw new Error(`Decompressed size ${decompressed.length} exceeds limit of ${MAX_DECOMPRESSED_BYTES} bytes`);
+        }
+        return decompressed;
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to decompress gzip: ${message}`);

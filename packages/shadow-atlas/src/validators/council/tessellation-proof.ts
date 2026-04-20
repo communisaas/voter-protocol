@@ -4,8 +4,8 @@
  * THEOREM: Council districts are correct ⟺ they tessellate the municipal boundary.
  *
  * PROOF STRUCTURE:
- * 1. EXCLUSIVITY: ∀i,j where i≠j: area(district_i ∩ district_j) = 0
- * 2. EXHAUSTIVITY: area(⋃districts) = area(municipal_boundary)
+ * 1. EXCLUSIVITY: ∀i,j where i≠j: turfArea(district_i ∩ district_j) = 0
+ * 2. EXHAUSTIVITY: turfArea(⋃districts) = turfArea(municipal_boundary)
  * 3. CONTAINMENT: ⋃districts ⊆ municipal_boundary
  * 4. CARDINALITY: |districts| = expected_count
  *
@@ -20,7 +20,12 @@
  */
 
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { difference as turfDifference } from '@turf/difference';
+import { intersect } from '@turf/intersect';
+import { rewind } from '@turf/rewind';
+import { union as turfUnion } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
 
 // =============================================================================
 // Types
@@ -223,7 +228,7 @@ export class TessellationProofValidator {
    * @param expectedCount - Expected number of districts
    * @param landAreaSqM - Optional authoritative land area (excludes water)
    * @param authoritativeDistrictArea - Optional pre-computed district total from source
-   *        (bypasses turf.area() which has projection artifacts with GeoJSON)
+   * (bypasses turfArea() which has projection artifacts with GeoJSON)
    * @param waterAreaSqM - Optional water area for coastal city detection
    * @returns Binary proof result with diagnostics
    */
@@ -258,7 +263,7 @@ export class TessellationProofValidator {
     let municipalArea: number;
     try {
       // Prefer Census AREALAND (excludes water) over polygon area
-      municipalArea = landAreaSqM ?? turf.area(municipalBoundary);
+      municipalArea = landAreaSqM ?? turfArea(municipalBoundary);
     } catch (error) {
       return this.fail('exhaustivity', {
         districtCount,
@@ -276,7 +281,7 @@ export class TessellationProofValidator {
       districtUnion = this.computeUnion(features);
       // Prefer authoritative area from source (e.g., Shape__Area sum from ArcGIS)
       // GeoJSON reprojection to WGS84 introduces systematic area calculation errors
-      districtUnionArea = authoritativeDistrictArea ?? turf.area(districtUnion);
+      districtUnionArea = authoritativeDistrictArea ?? turfArea(districtUnion);
     } catch (error) {
       return this.fail('exhaustivity', {
         districtCount,
@@ -319,6 +324,17 @@ export class TessellationProofValidator {
     }
 
     // Axiom 2: Exhaustivity - complete coverage (neither too little nor too much)
+    // R56-C2: Guard against zero/negative municipal area (degenerate boundary geometry)
+    if (municipalArea <= 0) {
+      return this.fail('exhaustivity', {
+        districtCount,
+        expectedCount,
+        municipalArea,
+        districtUnionArea,
+        reason: `Municipal boundary has zero or negative area (${municipalArea.toFixed(0)} sq m) — degenerate geometry`,
+        problematicDistricts: [],
+      });
+    }
     const coverageRatio = districtUnionArea / municipalArea;
     const uncoveredArea = municipalArea - districtUnionArea;
 
@@ -401,24 +417,33 @@ export class TessellationProofValidator {
     const overlappingPairs: [number, number][] = [];
 
     // Pairwise intersection check
+    // R75-H2: Track intersection failures — geometry errors must not silently pass exclusivity.
+    let intersectionFailures = 0;
     for (let i = 0; i < features.length; i++) {
       for (let j = i + 1; j < features.length; j++) {
         try {
-          const intersection = turf.intersect(
-            turf.featureCollection([features[i], features[j]])
+          const intersection = intersect(
+            featureCollection([features[i], features[j]])
           );
 
           if (intersection) {
-            const overlapArea = turf.area(intersection);
+            const overlapArea = turfArea(intersection);
             if (overlapArea > GEOMETRY_TOLERANCE.OVERLAP_EPSILON) {
               totalOverlap += overlapArea;
               overlappingPairs.push([i, j]);
             }
           }
         } catch {
-          // Invalid geometry - will be caught by other checks
+          // R75-H2: Count failures instead of silently skipping.
+          intersectionFailures++;
         }
       }
+    }
+
+    if (intersectionFailures > 0) {
+      // Treat geometry errors as potential overlap — fail exclusivity.
+      totalOverlap = Infinity;
+      overlappingPairs.push([-1, -1]); // sentinel: geometry error
     }
 
     return { totalOverlap, overlappingPairs };
@@ -432,18 +457,19 @@ export class TessellationProofValidator {
     municipalBoundary: Feature<Polygon | MultiPolygon>
   ): { outsideArea: number } {
     try {
-      const difference = turf.difference(
-        turf.featureCollection([districtUnion, municipalBoundary])
+      const difference = turfDifference(
+        featureCollection([districtUnion, municipalBoundary])
       );
 
       if (!difference) {
         return { outsideArea: 0 };
       }
 
-      return { outsideArea: turf.area(difference) };
+      return { outsideArea: turfArea(difference) };
     } catch {
-      // If difference computation fails, assume containment passes
-      return { outsideArea: 0 };
+      // R75-C1: Fail closed — geometry computation failure ≠ containment pass.
+      // Matches fail-closed pattern in topology/detector.ts:403-417.
+      return { outsideArea: Infinity };
     }
   }
 
@@ -453,13 +479,13 @@ export class TessellationProofValidator {
    * GEOMETRY NORMALIZATION:
    * GeoJSON spec requires counterclockwise exterior rings. Many GIS exports
    * have inconsistent winding order, causing negative area calculations.
-   * We normalize with turf.rewind() before union operations.
+   * We normalize with rewind() before union operations.
    */
   private computeUnion(features: Feature<Polygon | MultiPolygon>[]): Feature<Polygon | MultiPolygon> {
     // Filter and normalize geometry winding order
     const validFeatures = features
       .filter((f) => f && f.geometry && f.geometry.type && f.geometry.coordinates)
-      .map((f) => turf.rewind(f, { reverse: false }) as Feature<Polygon | MultiPolygon>);
+      .map((f) => rewind(f, { reverse: false }) as Feature<Polygon | MultiPolygon>);
 
     if (validFeatures.length === 0) {
       throw new Error('Cannot compute union of empty feature set - all features have invalid geometry');
@@ -467,15 +493,24 @@ export class TessellationProofValidator {
 
     let result = validFeatures[0];
 
+    let droppedCount = 0;
     for (let i = 1; i < validFeatures.length; i++) {
       try {
-        const union = turf.union(turf.featureCollection([result, validFeatures[i]]));
+        const union = turfUnion(featureCollection([result, validFeatures[i]]));
         if (union) {
           result = union as Feature<Polygon | MultiPolygon>;
         }
       } catch {
-        // Continue with partial union
+        // R75-C2: Track dropped districts instead of silently continuing.
+        droppedCount++;
       }
+    }
+
+    if (droppedCount > 0) {
+      throw new Error(
+        `Union dropped ${droppedCount}/${validFeatures.length} districts due to geometry errors — ` +
+        `axiom checks would run against incomplete union`
+      );
     }
 
     return result;

@@ -85,8 +85,8 @@ describe('PositionTreeBuilder construction', () => {
     expect(() => new PositionTreeBuilder(0)).toThrow(RangeError);
   });
 
-  it('rejects depth > 32', () => {
-    expect(() => new PositionTreeBuilder(33)).toThrow(RangeError);
+  it('rejects depth > 24', () => {
+    expect(() => new PositionTreeBuilder(25)).toThrow(RangeError);
   });
 
   it('starts with zero leaf count', () => {

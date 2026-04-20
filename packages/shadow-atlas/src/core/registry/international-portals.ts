@@ -11,7 +11,7 @@
  * 3. Open data initiatives (Represent API, Open North)
  *
  * COVERAGE STRATEGY:
- * Phase 1: UK (650 constituencies), Canada (338 ridings) - English-speaking democracies
+ * Phase 1: UK (650 constituencies), Canada (343 ridings) - English-speaking democracies
  * Phase 2: EU democracies (Germany, France, Netherlands) - INSPIRE directive compliance
  * Phase 3: Global democracies (Australia, New Zealand, India)
  *
@@ -148,7 +148,7 @@ export const INTERNATIONAL_PORTALS: Record<string, InternationalPortalConfig> = 
     layers: {
       federal: {
         endpoint: 'https://represent.opennorth.ca/boundaries/federal-electoral-districts/',
-        expectedCount: 338,
+        expectedCount: 343, // 2023 Representation Order
         vintage: 2023,
         lastVerified: '2025-12-17',
         notes:

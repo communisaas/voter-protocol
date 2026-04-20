@@ -48,7 +48,7 @@ import { join } from 'node:path';
  * overlap because the same geographic territory is served by different districts
  * for different grade levels.
  *
- * DUAL-SYSTEM STATES (9 total):
+ * DUAL-SYSTEM STATES (14 total — R56-C1 added AL, IN, MS, NY, ND):
  * - Connecticut (09): 166 elementary districts
  * - Illinois (17): 859 elementary + 102 secondary districts
  * - Maine (23): 260 elementary districts
@@ -68,13 +68,18 @@ import { join } from 'node:path';
  * - ELSD-ELSD and SCSD-SCSD overlaps are NEVER valid (same type shouldn't overlap)
  */
 export const DUAL_SYSTEM_STATES: ReadonlySet<string> = new Set([
+  '01', // Alabama
   '09', // Connecticut
   '17', // Illinois
+  '18', // Indiana
   '23', // Maine
   '25', // Massachusetts
+  '28', // Mississippi
   '30', // Montana
   '33', // New Hampshire
   '34', // New Jersey
+  '36', // New York
+  '38', // North Dakota
   '44', // Rhode Island
   '50', // Vermont
 ]);
@@ -290,7 +295,7 @@ export const DEFAULT_SCHOOL_HALT_OPTIONS: SchoolDistrictHaltOptions = {
  */
 const DISTRICT_SYSTEM_CONFIG: Record<string, DistrictSystemConfig> = {
   // Unified-only states (most common)
-  '01': { type: 'unified-only', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Alabama: Actually uses elem/sec
+  '01': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Alabama: R56-C1 — uses elem/sec, not unified
   '02': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Alaska
   '04': { type: 'mixed', allowsUnified: true, allowsElementary: false, allowsSecondary: true }, // Arizona
   '05': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Arkansas
@@ -304,7 +309,7 @@ const DISTRICT_SYSTEM_CONFIG: Record<string, DistrictSystemConfig> = {
   '15': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Hawaii
   '16': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Idaho
   '17': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Illinois
-  '18': { type: 'unified-only', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Indiana: Actually uses elem/sec
+  '18': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Indiana: R56-C1 — uses elem/sec, not unified
   '19': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Iowa
   '20': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Kansas
   '21': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Kentucky
@@ -314,7 +319,7 @@ const DISTRICT_SYSTEM_CONFIG: Record<string, DistrictSystemConfig> = {
   '25': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: false }, // Massachusetts
   '26': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Michigan
   '27': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Minnesota
-  '28': { type: 'unified-only', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Mississippi: Actually uses elem/sec
+  '28': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // Mississippi: R56-C1 — uses elem/sec, not unified
   '29': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Missouri
   '30': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: false }, // Montana
   '31': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Nebraska
@@ -322,9 +327,9 @@ const DISTRICT_SYSTEM_CONFIG: Record<string, DistrictSystemConfig> = {
   '33': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: false }, // New Hampshire
   '34': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: false }, // New Jersey
   '35': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // New Mexico
-  '36': { type: 'unified-only', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // New York: Actually uses elem/sec
+  '36': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // New York: R56-C1 — uses elem/sec, not unified
   '37': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // North Carolina
-  '38': { type: 'unified-only', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // North Dakota: Actually uses elem/sec
+  '38': { type: 'dual-system', allowsUnified: false, allowsElementary: true, allowsSecondary: true }, // North Dakota: R56-C1 — uses elem/sec, not unified
   '39': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Ohio
   '40': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Oklahoma
   '41': { type: 'unified-only', allowsUnified: true, allowsElementary: false, allowsSecondary: false }, // Oregon
@@ -367,7 +372,10 @@ export class SchoolDistrictValidator {
   async computeCoverageWithoutStateBoundary(
     allBoundaries: readonly NormalizedBoundary[]
   ): Promise<CoverageResult> {
-    const turf = await import('@turf/turf');
+    const { area: turfArea } = await import('@turf/area');
+    const { union: turfUnion } = await import('@turf/union');
+    const { convex } = await import('@turf/convex');
+    const { feature, featureCollection, points } = await import('@turf/helpers');
 
     // Handle edge case: no boundaries
     if (allBoundaries.length === 0) {
@@ -381,13 +389,13 @@ export class SchoolDistrictValidator {
     }
 
     // Compute union of all boundaries
-    let union = turf.feature(allBoundaries[0].geometry);
+    let unionResult = feature(allBoundaries[0].geometry);
     for (let i = 1; i < allBoundaries.length; i++) {
       try {
-        const nextFeature = turf.feature(allBoundaries[i].geometry);
-        const result = turf.union(turf.featureCollection([union, nextFeature]));
+        const nextFeature = feature(allBoundaries[i].geometry);
+        const result = turfUnion(featureCollection([unionResult, nextFeature]));
         if (result) {
-          union = result;
+          unionResult = result;
         }
       } catch (error) {
         // Union failed - likely invalid geometry, skip this boundary
@@ -398,7 +406,7 @@ export class SchoolDistrictValidator {
       }
     }
 
-    const totalArea = turf.area(union);
+    const totalArea = turfArea(unionResult);
     const coveredArea = totalArea; // By definition, the union covers the full area
 
     // Compute convex hull to estimate expected coverage area
@@ -412,9 +420,9 @@ export class SchoolDistrictValidator {
       }
     });
 
-    const points = turf.points(allCoordinates);
-    const hull = turf.convex(points);
-    const expectedArea = hull ? turf.area(hull) : totalArea;
+    const pts = points(allCoordinates);
+    const hull = convex(pts);
+    const expectedArea = hull ? turfArea(hull) : totalArea;
 
     // Coverage is ratio of actual covered area to expected convex hull area
     const coveragePercent = (totalArea / expectedArea) * 100;
@@ -702,26 +710,26 @@ export class SchoolDistrictValidator {
    * @example
    * ```typescript
    * try {
-   *   const result = validator.validateWithHaltGates(
-   *     '06', // California
-   *     unsdBoundaries,
-   *     elsdBoundaries,
-   *     scsdBoundaries,
-   *     {
-   *       haltOnOverlapError: true,
-   *       haltOnCoverageError: true,
-   *       haltOnCountMismatch: true,
-   *     },
-   *     2024
-   *   );
-   *   // Validation passed, safe to add to Merkle tree
-   *   addToMerkleTree([...unsdBoundaries, ...elsdBoundaries, ...scsdBoundaries]);
+   * const result = validator.validateWithHaltGates(
+   * '06', // California
+   * unsdBoundaries,
+   * elsdBoundaries,
+   * scsdBoundaries,
+   * {
+   * haltOnOverlapError: true,
+   * haltOnCoverageError: true,
+   * haltOnCountMismatch: true,
+   * },
+   * 2024
+   * );
+   * // Validation passed, safe to add to Merkle tree
+   * addToMerkleTree([...unsdBoundaries,...elsdBoundaries,...scsdBoundaries]);
    * } catch (error) {
-   *   if (error instanceof ValidationHaltError) {
-   *     console.error(`Build halted: ${error.message}`);
-   *     console.error(`Stage: ${error.stage}, State: ${error.stateFips}`);
-   *   }
-   *   throw error;
+   * if (error instanceof ValidationHaltError) {
+   * console.error(`Build halted: ${error.message}`);
+   * console.error(`Stage: ${error.stage}, State: ${error.stateFips}`);
+   * }
+   * throw error;
    * }
    * ```
    */
@@ -897,13 +905,21 @@ export class SchoolDistrictValidator {
           throw error;
         }
 
-        // Other errors (e.g., network issues) - log warning but continue
-        logger.warn('School district coverage validation failed', {
+        // R79-F5: Fail-closed on coverage errors. Previously this logged a warning and
+        // continued, allowing data to commit without coverage verification. For a Merkle
+        // tree gate, coverage must be verified or the build must halt.
+        logger.error('School district coverage validation failed — halting (fail-closed)', {
           stateName,
           stateFips,
           error: (error as Error).message,
         });
-        notes.push(`Coverage validation skipped due to error: ${(error as Error).message}`);
+        throw new ValidationHaltError(
+          `School district coverage validation failed due to infrastructure error: ${(error as Error).message}`,
+          {
+            stage: 'completeness',
+            details: { stateName, stateFips, infrastructureError: (error as Error).message },
+          }
+        );
       }
     }
 
@@ -1183,10 +1199,14 @@ export class SchoolDistrictValidator {
     stateGeometry: Polygon | MultiPolygon
   ): Promise<CoverageResult> {
     // Import turf.js for spatial operations
-    const turf = await import('@turf/turf');
+    const { area: turfArea } = await import('@turf/area');
+    const { centroid } = await import('@turf/centroid');
+    const { difference: turfDifference } = await import('@turf/difference');
+    const { union: turfUnion } = await import('@turf/union');
+    const { feature, featureCollection } = await import('@turf/helpers');
 
     // Calculate total state area
-    const totalArea = turf.area(turf.feature(stateGeometry));
+    const totalArea = turfArea(feature(stateGeometry));
 
     // Handle edge case: no boundaries
     if (allBoundaries.length === 0) {
@@ -1196,7 +1216,7 @@ export class SchoolDistrictValidator {
         coveragePercent: 0,
         gaps: [{
           areaSqM: totalArea,
-          centroid: turf.centroid(turf.feature(stateGeometry)).geometry.coordinates as unknown as { lat: number; lon: number },
+          centroid: centroid(feature(stateGeometry)).geometry.coordinates as unknown as { lat: number; lon: number },
           description: 'Entire state uncovered - no school districts found',
         }],
         valid: false,
@@ -1204,13 +1224,13 @@ export class SchoolDistrictValidator {
     }
 
     // Union all boundaries to compute covered area
-    let union = turf.feature(allBoundaries[0].geometry);
+    let unionResult = feature(allBoundaries[0].geometry);
     for (let i = 1; i < allBoundaries.length; i++) {
       try {
-        const nextFeature = turf.feature(allBoundaries[i].geometry);
-        const result = turf.union(turf.featureCollection([union, nextFeature]));
+        const nextFeature = feature(allBoundaries[i].geometry);
+        const result = turfUnion(featureCollection([unionResult, nextFeature]));
         if (result) {
-          union = result;
+          unionResult = result;
         }
       } catch (error) {
         // Union failed - likely invalid geometry, skip this boundary
@@ -1221,19 +1241,19 @@ export class SchoolDistrictValidator {
       }
     }
 
-    const coveredArea = turf.area(union);
+    const coveredArea = turfArea(unionResult);
     const coveragePercent = (coveredArea / totalArea) * 100;
 
     // Find gaps (difference between state and covered area)
     const gaps: GapRegion[] = [];
     try {
-      const stateFeature = turf.feature(stateGeometry);
-      const difference = turf.difference(turf.featureCollection([stateFeature, union]));
+      const stateFeature = feature(stateGeometry);
+      const diff = turfDifference(featureCollection([stateFeature, unionResult]));
 
-      if (difference && difference.geometry) {
-        const gapArea = turf.area(difference);
+      if (diff && diff.geometry) {
+        const gapArea = turfArea(diff);
         if (gapArea > 0) {
-          const centroidCoords = turf.centroid(difference).geometry.coordinates;
+          const centroidCoords = centroid(diff).geometry.coordinates;
           gaps.push({
             areaSqM: gapArea,
             centroid: { lat: centroidCoords[1], lon: centroidCoords[0] },
@@ -1266,13 +1286,15 @@ export class SchoolDistrictValidator {
     geom1: Polygon | MultiPolygon,
     geom2: Polygon | MultiPolygon
   ): Promise<number> {
-    const turf = await import('@turf/turf');
+    const { area: turfArea } = await import('@turf/area');
+    const { intersect } = await import('@turf/intersect');
+    const { feature, featureCollection } = await import('@turf/helpers');
 
     try {
-      const feature1 = turf.feature(geom1);
-      const feature2 = turf.feature(geom2);
-      const intersection = turf.intersect(turf.featureCollection([feature1, feature2]));
-      return intersection ? turf.area(intersection) : 0;
+      const feature1 = feature(geom1);
+      const feature2 = feature(geom2);
+      const intersection = intersect(featureCollection([feature1, feature2]));
+      return intersection ? turfArea(intersection) : 0;
     } catch (error) {
       // Intersection failed (likely invalid geometries or no overlap)
       return 0;
@@ -1283,8 +1305,9 @@ export class SchoolDistrictValidator {
    * Calculate geometry area using turf.area()
    */
   private async calculateArea(geometry: Polygon | MultiPolygon): Promise<number> {
-    const turf = await import('@turf/turf');
-    return turf.area(turf.feature(geometry));
+    const { area: turfArea } = await import('@turf/area');
+    const { feature } = await import('@turf/helpers');
+    return turfArea(feature(geometry));
   }
 
   /**

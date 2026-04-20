@@ -48,6 +48,9 @@ export interface Alert {
   readonly firedAt: Date;
   readonly resolvedAt?: Date;
   readonly context: Record<string, unknown>;
+  // Track whether notification delivery failed.
+  // Alert condition is real, but channels may not have been reached.
+  notificationFailed?: boolean;
 }
 
 /**
@@ -227,17 +230,31 @@ export class WebhookAlertChannel implements AlertChannel {
       });
 
       if (!response.ok) {
+        // Mask webhook URL — it may contain embedded credentials
+        // (e.g., Slack webhook tokens). Log only the hostname for diagnostics.
         logger.error('Webhook failed', {
           status: response.status,
           statusText: response.statusText,
-          url: this.webhookUrl,
+          webhookHost: new URL(this.webhookUrl).hostname,
         });
+        // Propagate notification failures so callers can distinguish
+        // fired-and-notified from fired-but-failed.
+        throw new Error(`Webhook notification failed: ${response.status}`);
       }
     } catch (error) {
+      // Same masking on error path
+      let webhookHost: string;
+      try {
+        webhookHost = new URL(this.webhookUrl).hostname;
+      } catch {
+        webhookHost = '(invalid URL)';
+      }
       logger.error('Failed to send webhook', {
         error: error instanceof Error ? error.message : String(error),
-        url: this.webhookUrl,
+        webhookHost,
       });
+      // Re-throw so evaluate() sees the failure.
+      throw error;
     }
   }
 }
@@ -291,7 +308,17 @@ export class AlertManager {
         };
 
         this.activeAlerts.set(rule.name, alert);
-        await this.notify(alert);
+        try {
+          await this.notify(alert);
+        } catch (notifyErr) {
+          // Mark alert as fired but notification failed.
+          // Don't remove from activeAlerts — the alert condition is real.
+          alert.notificationFailed = true;
+          logger.error('Alert notification failed', {
+            rule: rule.name,
+            error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+          });
+        }
         triggered.push(alert);
       } else if (!shouldFire && existing) {
         // Alert resolved
@@ -302,7 +329,16 @@ export class AlertManager {
         };
 
         this.activeAlerts.delete(rule.name);
-        await this.notify(resolved);
+        try {
+          await this.notify(resolved);
+        } catch (notifyErr) {
+          // Mark resolved alert notification as failed.
+          resolved.notificationFailed = true;
+          logger.error('Alert notification failed', {
+            rule: rule.name,
+            error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+          });
+        }
         triggered.push(resolved);
       }
     }

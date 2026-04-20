@@ -11,7 +11,11 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { bbox as turfBbox } from '@turf/bbox';
+import { intersect } from '@turf/intersect';
+import { union as turfUnion } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
 import type { Feature, Polygon } from 'geojson';
 
 import {
@@ -38,7 +42,7 @@ describe('Fixture Self-Validation', () => {
 
     test('calculates correct area for simple rectangle', () => {
       const polygon = createRectanglePolygon(-5, -5, 5, 5);
-      const area = turf.area({ type: 'Feature', properties: {}, geometry: polygon });
+      const area = turfArea({ type: 'Feature', properties: {}, geometry: polygon });
 
       // 10×10 square in unit space (assuming degrees)
       // turf.area uses spherical geometry, so approximate
@@ -82,7 +86,7 @@ describe('Fixture Self-Validation', () => {
       const coords = parent.geometry.coordinates[0];
 
       // Verify bounding box
-      const bbox = turf.bbox(parent);
+      const bbox = turfBbox(parent);
       expect(bbox).toEqual([-5, -5, 5, 5]);
     });
 
@@ -93,7 +97,7 @@ describe('Fixture Self-Validation', () => {
       const childrenUnion = children.reduce<Feature<Polygon> | null>(
         (union, child) => {
           if (!union) return child as Feature<Polygon>;
-          const result = turf.union(turf.featureCollection([union, child as Feature<Polygon>]));
+          const result = turfUnion(featureCollection([union, child as Feature<Polygon>]));
           return result as Feature<Polygon>;
         },
         null
@@ -102,8 +106,8 @@ describe('Fixture Self-Validation', () => {
       expect(childrenUnion).not.toBeNull();
 
       // Calculate area difference
-      const parentArea = turf.area(parent);
-      const unionArea = turf.area(childrenUnion!);
+      const parentArea = turfArea(parent);
+      const unionArea = turfArea(childrenUnion!);
 
       // Areas should match within floating-point tolerance
       const gapPercentage = Math.abs((parentArea - unionArea) / parentArea) * 100;
@@ -116,8 +120,8 @@ describe('Fixture Self-Validation', () => {
       // Check all pairs for intersections
       for (let i = 0; i < children.length; i++) {
         for (let j = i + 1; j < children.length; j++) {
-          const intersection = turf.intersect(
-            turf.featureCollection([
+          const intersection = intersect(
+            featureCollection([
               children[i] as Feature<Polygon>,
               children[j] as Feature<Polygon>
             ])
@@ -125,7 +129,7 @@ describe('Fixture Self-Validation', () => {
 
           // Perfect tiling should have zero-area intersections (shared edges only)
           if (intersection) {
-            const intersectionArea = turf.area(intersection);
+            const intersectionArea = turfArea(intersection);
             expect(intersectionArea).toBeLessThan(0.0001); // Essentially zero
           }
         }
@@ -144,9 +148,9 @@ describe('Fixture Self-Validation', () => {
     test('has detectable gap (0.5% of parent area)', () => {
       const [parent, ...children] = PERFECT_TILING_FIXTURE.features;
 
-      const parentArea = turf.area(parent);
+      const parentArea = turfArea(parent);
       const childrenTotalArea = children.reduce(
-        (sum, child) => sum + turf.area(child),
+        (sum, child) => sum + turfArea(child),
         0
       );
 
@@ -166,15 +170,15 @@ describe('Fixture Self-Validation', () => {
       const vtdNW = children[0] as Feature<Polygon>;
       const vtdNE = children[1] as Feature<Polygon>;
 
-      const intersection = turf.intersect(turf.featureCollection([vtdNW, vtdNE]));
+      const intersection = intersect(featureCollection([vtdNW, vtdNE]));
       expect(intersection).not.toBeNull();
 
-      const intersectionArea = turf.area(intersection!);
+      const intersectionArea = turfArea(intersection!);
       expect(intersectionArea).toBeGreaterThan(0.1); // Non-trivial overlap
 
       // Calculate overlap percentage relative to parent
       const [parent] = OVERLAP_DETECTED_FIXTURE.features;
-      const parentArea = turf.area(parent);
+      const parentArea = turfArea(parent);
       const overlapPercentage = (intersectionArea / parentArea) * 100;
 
       expect(overlapPercentage).toBeGreaterThan(0.001); // Exceeds tolerance
@@ -188,10 +192,10 @@ describe('Fixture Self-Validation', () => {
       const cityA = places[0] as Feature<Polygon>;
       const cityB = places[1] as Feature<Polygon>;
 
-      const intersection = turf.intersect(turf.featureCollection([cityA, cityB]));
+      const intersection = intersect(featureCollection([cityA, cityB]));
       expect(intersection).not.toBeNull();
 
-      const intersectionArea = turf.area(intersection!);
+      const intersectionArea = turfArea(intersection!);
       expect(intersectionArea).toBeGreaterThan(1); // Significant overlap
 
       // This is VALID for PLACE layer (non-tiling)
@@ -210,17 +214,17 @@ describe('Fixture Self-Validation', () => {
     test('county subdivisions perfectly tile within county', () => {
       const [parent, ...cousubs] = PERFECT_COUSUB_FIXTURE.features;
 
-      const parentArea = turf.area(parent);
+      const parentArea = turfArea(parent);
       const cousubsUnion = cousubs.reduce<Feature<Polygon> | null>(
         (union, cousub) => {
           if (!union) return cousub as Feature<Polygon>;
-          const result = turf.union(turf.featureCollection([union, cousub as Feature<Polygon>]));
+          const result = turfUnion(featureCollection([union, cousub as Feature<Polygon>]));
           return result as Feature<Polygon>;
         },
         null
       );
 
-      const unionArea = turf.area(cousubsUnion!);
+      const unionArea = turfArea(cousubsUnion!);
       const gapPercentage = Math.abs((parentArea - unionArea) / parentArea) * 100;
 
       expect(gapPercentage).toBeLessThan(0.001); // Perfect tiling
@@ -362,7 +366,7 @@ describe('Fixture Self-Validation', () => {
     test('turf.area works on all fixtures', () => {
       for (const meta of ALL_TOPOLOGY_FIXTURES) {
         for (const feature of meta.fixture.features) {
-          const area = turf.area(feature);
+          const area = turfArea(feature);
 
           expect(area).toBeGreaterThan(0);
           expect(Number.isFinite(area)).toBe(true);
@@ -377,14 +381,14 @@ describe('Fixture Self-Validation', () => {
         const union = children.reduce<Feature<Polygon> | null>(
           (acc, child) => {
             if (!acc) return child as Feature<Polygon>;
-            const result = turf.union(turf.featureCollection([acc, child as Feature<Polygon>]));
+            const result = turfUnion(featureCollection([acc, child as Feature<Polygon>]));
             return result as Feature<Polygon>;
           },
           null
         );
 
         expect(union).not.toBeNull();
-        expect(turf.area(union!)).toBeGreaterThan(0);
+        expect(turfArea(union!)).toBeGreaterThan(0);
       }
     });
 
@@ -392,15 +396,15 @@ describe('Fixture Self-Validation', () => {
       const [, ...children] = OVERLAP_DETECTED_FIXTURE.features;
 
       // VTD NW and NE should intersect
-      const intersection = turf.intersect(
-        turf.featureCollection([
+      const intersection = intersect(
+        featureCollection([
           children[0] as Feature<Polygon>,
           children[1] as Feature<Polygon>
         ])
       );
 
       expect(intersection).not.toBeNull();
-      expect(turf.area(intersection!)).toBeGreaterThan(0);
+      expect(turfArea(intersection!)).toBeGreaterThan(0);
     });
   });
 });
@@ -420,23 +424,23 @@ describe('Demonstration: Using Fixtures with Real Topology Validator', () => {
     overlapPercentage: number;
     errors: string[];
   } {
-    const parentArea = turf.area(config.parent);
+    const parentArea = turfArea(config.parent);
 
     // Calculate union of all children (handles overlaps)
     const childrenUnion = config.children.reduce<Feature<Polygon> | null>(
       (union, child) => {
         if (!union) return child;
-        const result = turf.union(turf.featureCollection([union, child]));
+        const result = turfUnion(featureCollection([union, child]));
         return result as Feature<Polygon>;
       },
       null
     );
 
-    const unionArea = childrenUnion ? turf.area(childrenUnion) : 0;
+    const unionArea = childrenUnion ? turfArea(childrenUnion) : 0;
 
     // Calculate total area including overlaps
     const totalChildArea = config.children.reduce(
-      (sum, child) => sum + turf.area(child),
+      (sum, child) => sum + turfArea(child),
       0
     );
 

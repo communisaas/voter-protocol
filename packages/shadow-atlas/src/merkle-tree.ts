@@ -6,10 +6,10 @@
  * Structure: Single-tier balanced binary Merkle tree per legislative district
  * Depth: Configurable circuit depth (18, 20, 22, 24). Default: 20
  * Capacity by depth:
- *   - 18: ~262K addresses (small municipal districts)
- *   - 20: ~1M addresses (UK constituencies, medium countries) - DEFAULT
- *   - 22: ~4M addresses (federal/large countries)
- *   - 24: ~16M addresses (mega-scale national systems)
+ * - 18: ~262K addresses (small municipal districts)
+ * - 20: ~1M addresses (UK constituencies, medium countries) - DEFAULT
+ * - 22: ~4M addresses (federal/large countries)
+ * - 24: ~16M addresses (mega-scale national systems)
  * Hash Function: Poseidon2 (Noir stdlib via @noir-lang/noir_js)
  *
  * PERFORMANCE OPTIMIZATIONS:
@@ -227,28 +227,39 @@ export class ShadowAtlasMerkleTree {
     }
 
     // SECURITY: Detect duplicates before hashing
-    const uniqueAddresses = new Set(addresses);
-    if (uniqueAddresses.size !== addresses.length) {
-      const duplicates = addresses.filter((addr, index) =>
-        addresses.indexOf(addr) !== index
-      );
+    // R53-C3: Set-based O(n) duplicate detection (replaces O(n²) indexOf scan)
+    const uniqueAddresses = new Set<string>();
+    const duplicates: string[] = [];
+    let totalDuplicates = 0;
+    for (const addr of addresses) {
+      if (uniqueAddresses.has(addr)) {
+        totalDuplicates++;
+        if (duplicates.length < 5) duplicates.push(addr);
+      } else {
+        uniqueAddresses.add(addr);
+      }
+    }
+    if (totalDuplicates > 0) {
       throw new Error(
-        `Duplicate addresses detected: ${duplicates.slice(0, 5).join(', ')}${duplicates.length > 5 ? '...' : ''}. ` +
+        `Duplicate addresses detected: ${duplicates.join(', ')}${totalDuplicates > 5 ? '...' : ''}. ` +
         `Each address must be unique within a district tree.`
       );
     }
 
+    // R47-F1: Sort addresses lexicographically for deterministic tree roots.
+    // JSDoc at line 190 promises sorting; callers (ProofService, tree-builder) rely on it.
+    const sortedAddresses = [...addresses].sort();
+
     // Initialize hasher singleton
     const hasher = await getHasher();
 
-    // Build address -> index map for O(1) proof generation
+    // Build address -> index map for O(1) proof generation (uses sorted order)
     const addressToIndex = new Map<string, number>();
-    addresses.forEach((addr, idx) => addressToIndex.set(addr, idx));
+    sortedAddresses.forEach((addr, idx) => addressToIndex.set(addr, idx));
 
-    // Step 1: Hash all addresses in parallel
-    console.time('merkle:hash-addresses');
-    const addressHashes = await hasher.hashStringsBatch(addresses, batchSize);
-    console.timeEnd('merkle:hash-addresses');
+    // R53-C1: Removed console.time() calls from production code
+    // Step 1: Hash all sorted addresses in parallel
+    const addressHashes = await hasher.hashStringsBatch(sortedAddresses, batchSize);
 
     // Step 2: Compute padding hash once
     const paddingHash = await hasher.hashString(PADDING_LEAF);
@@ -260,14 +271,12 @@ export class ShadowAtlasMerkleTree {
     }
 
     // Step 4: Build tree layers with parallel hashing
-    console.time('merkle:build-tree');
     const layers = await ShadowAtlasMerkleTree.buildTreeParallel(
       leaves,
       depth,
       hasher,
       batchSize
     );
-    console.timeEnd('merkle:build-tree');
 
     return new ShadowAtlasMerkleTree(leaves, layers, hasher, depth, addressToIndex);
   }
@@ -278,7 +287,7 @@ export class ShadowAtlasMerkleTree {
    * PARALLELISM: At each level, all pairs are hashed concurrently.
    * Level 0: 4096 leaves → 2048 pairs hashed in parallel
    * Level 1: 2048 nodes → 1024 pairs hashed in parallel
-   * ... etc
+   *... etc
    */
   private static async buildTreeParallel(
     leaves: bigint[],
@@ -440,7 +449,7 @@ export class ShadowAtlasMerkleTree {
 /**
  * Factory: Create Shadow Atlas Merkle tree
  *
- * @param addresses - Array of address strings (sorted lexicographically recommended)
+ * @param addresses - Array of address strings (sorted internally for determinism)
  * @param config - Optional configuration for parallelism tuning
  * @returns Promise<ShadowAtlasMerkleTree>
  */
@@ -465,7 +474,7 @@ export async function createShadowAtlasMerkleTree(
  *
  * Hash structure:
  * - Without provenance: hash4(typeHash, idHash, geometryHash, authority)
- * - With provenance:    hash4(typeHash, idHash, geometryHash, hash2(authority, provenanceHash))
+ * - With provenance: hash4(typeHash, idHash, geometryHash, hash2(authority, provenanceHash))
  *
  * The hash2(authority, provenanceHash) combines authority level with provenance into a
  * single field, maintaining hash4 arity while adding provenance commitment.
@@ -563,10 +572,10 @@ export async function exportToIPFS(
   // Serialize tree to JSON
   const treeData = {
     version: '2.0.0',
-    root: '0x' + tree.getRoot().toString(16),
+    root: '0x' + tree.getRoot().toString(16).padStart(64, '0'),
     leaves: tree.getLeaves().map((leaf, index) => ({
       index,
-      hash: '0x' + leaf.toString(16),
+      hash: '0x' + leaf.toString(16).padStart(64, '0'),
     })),
     metadata: {
       depth: tree.getDepth(),
@@ -615,6 +624,9 @@ async function uploadToWeb3Storage(
 
   const result = await response.json();
   const cid = result.cid;
+  if (!cid || typeof cid !== 'string') {
+    throw new Error('Web3.Storage response missing CID');
+  }
 
   return {
     cid,
@@ -649,6 +661,9 @@ async function uploadToPinata(
 
   const result = await response.json();
   const cid = result.IpfsHash;
+  if (!cid || typeof cid !== 'string') {
+    throw new Error('Pinata response missing IpfsHash');
+  }
 
   return {
     cid,

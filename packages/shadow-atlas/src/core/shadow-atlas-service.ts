@@ -21,14 +21,14 @@
  *
  * // Full extraction pipeline
  * const result = await atlas.extract({
- *   type: 'country',
- *   country: 'US',
+ * type: 'country',
+ * country: 'US',
  * });
  *
  * // Incremental update
  * const update = await atlas.incrementalUpdate(
- *   result.commitment.snapshotId,
- *   { states: ['WI', 'MI'] }
+ * result.commitment.snapshotId,
+ * { states: ['WI', 'MI'] }
  * );
  * ```
  *
@@ -37,7 +37,7 @@
 
 import { randomUUID, createHash } from 'crypto';
 import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { hostname } from 'os';
 import type {
@@ -262,16 +262,30 @@ export class ShadowAtlasService {
     this.initialized = true;
   }
 
+  // R48-F4: Guard against double-close throwing on already-closed adapters
+  private closed = false;
+
   /**
    * Close database connections
    */
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
+
     if (this.persistenceAdapter) {
       this.persistenceAdapter.close();
     }
     if (this.metrics) {
       this.metrics.close();
     }
+    // Close all lifecycle-managed resources
+    if (this.snapshotManager) {
+      try { this.snapshotManager.close?.(); } catch { /* best effort */ }
+    }
+    if (this.provenanceWriter) {
+      try { (this.provenanceWriter as any).close?.(); } catch { /* best effort */ }
+    }
+    this.initialized = false;
   }
 
   /**
@@ -291,98 +305,41 @@ export class ShadowAtlasService {
   /**
    * Execute full extraction pipeline: extract → validate → commit
    *
-   * @param scope - What to extract (state, country, region, global)
-   * @param options - Extraction options (concurrency, validation, storage)
-   * @returns Pipeline result with extraction stats, validation results, and commitment
+   * @deprecated REMOVED - Use buildAtlas() instead.
+   * This method called commitToMerkleTree() which used SHA256 (NOT ZK-compatible).
+   * R50-A1: Dead code path — commitToMerkleTree() always threw DEPRECATED error.
+   *
+   * @param _scope - What to extract (state, country, region, global)
+   * @param _options - Extraction options (concurrency, validation, storage)
+   * @returns Never - always throws
+   * @throws Error Always throws deprecation error
    */
   async extract(
-    scope: ExtractionScope,
-    options: ExtractionOptions = {}
+    _scope: ExtractionScope,
+    _options: ExtractionOptions = {}
   ): Promise<PipelineResult> {
-    const startTime = Date.now();
-    const jobId = randomUUID();
-
-    // Create job state for resume capability
-    const jobState = {
-      jobId,
-      scope,
-      options,
-      startedAt: new Date(),
-      completedScopes: [] as string[],
-      failedScopes: [] as string[],
-      status: 'in_progress' as const,
-    };
-    this.jobStates.set(jobId, jobState);
-
-    try {
-      // 1. Extract boundaries based on scope
-      const stateResults = await this.extractByScope(scope, options);
-
-      // 2. Validate extractions
-      const validationResult = await this.validateExtractions(stateResults, options);
-
-      // 3. Determine if validation passes threshold
-      const minPassRate = options.minPassRate ?? this.config.validation.minPassRate;
-      const validationPassed = validationResult.passRate >= minPassRate;
-
-      if (!validationPassed) {
-        const duration = Date.now() - startTime;
-        return {
-          jobId,
-          status: 'validation_failed',
-          duration,
-          extraction: this.summarizeExtractions(stateResults),
-          validation: validationResult,
-        };
-      }
-
-      // 4. Commit to Merkle tree
-      const commitment = await this.commitToMerkleTree(stateResults, jobId);
-
-      const duration = Date.now() - startTime;
-
-      // Update job state
-      this.jobStates.set(jobId, {
-        ...jobState,
-        status: 'completed',
-      });
-
-      return {
-        jobId,
-        status: 'committed',
-        duration,
-        extraction: this.summarizeExtractions(stateResults),
-        validation: validationResult,
-        commitment,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      this.jobStates.set(jobId, {
-        ...jobState,
-        status: 'failed',
-      });
-
-      return {
-        jobId,
-        status: 'extraction_failed',
-        duration,
-        extraction: this.summarizeExtractions([]),
-        validation: {
-          passed: 0,
-          warned: 0,
-          failed: 0,
-          passRate: 0,
-          results: new Map(),
-        },
-      };
-    }
+    throw new Error(
+      'DEPRECATED: extract() has been removed because it called commitToMerkleTree() which used SHA256 (NOT ZK-compatible).\n' +
+      '\n' +
+      'MIGRATION:\n' +
+      '  Use buildAtlas() instead:\n' +
+      '\n' +
+      '    const atlas = new ShadowAtlasService();\n' +
+      '    await atlas.initialize();\n' +
+      '    const result = await atlas.buildAtlas({\n' +
+      '      layers: [\'cd\', \'sldu\', \'sldl\', \'county\'],\n' +
+      '      year: 2024,\n' +
+      '    });\n' +
+      '\n' +
+      'The buildAtlas() method uses MultiLayerMerkleTreeBuilder with Poseidon2 (ZK-compatible).'
+    );
   }
 
   /**
    * Incremental update: only re-extract changed boundaries
    *
    * @deprecated REMOVED - Use buildAtlas() instead with full rebuild.
-   *             This method used the legacy SHA256-based integration which is NOT ZK-compatible.
+   * This method used the legacy SHA256-based integration which is NOT ZK-compatible.
    *
    * @param snapshotId - ID of existing snapshot to update
    * @param scope - What to update (subset of original scope)
@@ -433,23 +390,29 @@ export class ShadowAtlasService {
   /**
    * Resume a partial/failed extraction
    *
-   * @param jobId - Job ID to resume
-   * @returns Pipeline result
+   * @deprecated REMOVED - Use buildAtlas() instead.
+   * This method called extract() which is deprecated (R50-A1).
+   *
+   * @param _jobId - Job ID to resume
+   * @returns Never - always throws
+   * @throws Error Always throws deprecation error
    */
-  async resumeExtraction(jobId: string): Promise<PipelineResult> {
-    const jobState = this.jobStates.get(jobId);
-    if (!jobState) {
-      throw new Error(`Job ${jobId} not found`);
-    }
-
-    // Determine remaining scope
-    const remainingScope = this.computeRemainingScope(jobState);
-
-    // Continue extraction
-    return this.extract(remainingScope, {
-      ...jobState.options,
-      resumeFromJob: jobId,
-    });
+  async resumeExtraction(_jobId: string): Promise<PipelineResult> {
+    throw new Error(
+      'DEPRECATED: resumeExtraction() has been removed because it called extract() which used SHA256 (NOT ZK-compatible).\n' +
+      '\n' +
+      'MIGRATION:\n' +
+      '  Use buildAtlas() instead:\n' +
+      '\n' +
+      '    const atlas = new ShadowAtlasService();\n' +
+      '    await atlas.initialize();\n' +
+      '    const result = await atlas.buildAtlas({\n' +
+      '      layers: [\'cd\', \'sldu\', \'sldl\', \'county\'],\n' +
+      '      year: 2024,\n' +
+      '    });\n' +
+      '\n' +
+      'The buildAtlas() method uses MultiLayerMerkleTreeBuilder with Poseidon2 (ZK-compatible).'
+    );
   }
 
   /**
@@ -1103,21 +1066,20 @@ export class ShadowAtlasService {
 
         // Simple validation: check if we got expected feature count
         const hasExpectedCount = layer.featureCount === layer.expectedCount;
-        const hasWarnings = layer.featureCount !== layer.expectedCount;
 
+        // R21-L1: hasExpectedCount and !hasExpectedCount are exhaustive — the
+        // else branch was dead code. Now correctly routes the two outcomes.
         if (hasExpectedCount) {
           passed++;
-        } else if (hasWarnings) {
-          warned++;
         } else {
-          failed++;
+          warned++;
         }
 
         results.set(`${stateResult.state}-${layer.layerType}`, {
           valid: layer.success,
           confidence: hasExpectedCount ? 90 : 60,
           issues: layer.error ? [layer.error] : [],
-          warnings: hasWarnings ? [`Expected ${layer.expectedCount} features, got ${layer.featureCount}`] : [],
+          warnings: !hasExpectedCount ? [`Expected ${layer.expectedCount} features, got ${layer.featureCount}`] : [],
         });
       }
     }
@@ -1138,7 +1100,7 @@ export class ShadowAtlasService {
    * Commit state results to Merkle tree
    *
    * @deprecated REMOVED - Use buildAtlas() instead.
-   *             This method used the legacy SHA256-based integration which is NOT ZK-compatible.
+   * This method used the legacy SHA256-based integration which is NOT ZK-compatible.
    *
    * @throws Error Always throws deprecation error
    */
@@ -1499,14 +1461,14 @@ export class ShadowAtlasService {
    *
    * // Check if congressional districts have changed
    * const changes = await atlas.checkForChanges({
-   *   layers: ['cd', 'sldu'],
-   *   states: ['55', '26'],  // Wisconsin, Michigan
-   *   year: 2024,
+   * layers: ['cd', 'sldu'],
+   * states: ['55', '26'], // Wisconsin, Michigan
+   * year: 2024,
    * });
    *
    * if (changes.hasChanges) {
-   *   console.log(`${changes.changedLayers.length} layers need rebuild`);
-   *   await atlas.buildAtlas({ layers: changes.changedLayers as TIGERLayerType[] });
+   * console.log(`${changes.changedLayers.length} layers need rebuild`);
+   * await atlas.buildAtlas({ layers: changes.changedLayers as TIGERLayerType[] });
    * }
    * ```
    */
@@ -1616,15 +1578,15 @@ export class ShadowAtlasService {
    *
    * // Only rebuild if TIGER sources have changed
    * const result = await atlas.buildIfChanged({
-   *   layers: ['cd', 'sldu', 'sldl', 'county'],
-   *   year: 2024,
-   *   qualityThreshold: 80,
+   * layers: ['cd', 'sldu', 'sldl', 'county'],
+   * year: 2024,
+   * qualityThreshold: 80,
    * });
    *
    * if (result.status === 'skipped') {
-   *   console.log('No changes detected - skipping build');
+   * console.log('No changes detected - skipping build');
    * } else {
-   *   console.log(`Built new Atlas with root: 0x${result.result.merkleRoot.toString(16)}`);
+   * console.log(`Built new Atlas with root: 0x${result.result.merkleRoot.toString(16)}`);
    * }
    * ```
    */
@@ -1881,10 +1843,10 @@ export class ShadowAtlasService {
    *
    * // Build full US atlas with all layers
    * const result = await atlas.buildAtlas({
-   *   layers: ['cd', 'sldu', 'sldl', 'county'],
-   *   year: 2024,
-   *   qualityThreshold: 80,
-   *   outputPath: './shadow-atlas-output/atlas-2024.json'
+   * layers: ['cd', 'sldu', 'sldl', 'county'],
+   * year: 2024,
+   * qualityThreshold: 80,
+   * outputPath: './shadow-atlas-output/atlas-2024.json'
    * });
    *
    * console.log(`Merkle root: 0x${result.merkleRoot.toString(16)}`);
@@ -2486,6 +2448,13 @@ export class ShadowAtlasService {
 
     // Export to JSON if requested
     if (options.outputPath) {
+      // Sanitize output path against traversal
+      const resolvedOutput = resolve(options.outputPath);
+      const resolvedCwd = resolve(process.cwd());
+      if (!resolvedOutput.startsWith(resolvedCwd) && !resolvedOutput.startsWith('/tmp')) {
+        throw new Error(`Output path escapes working directory: ${options.outputPath}`);
+      }
+
       const { writeFile, mkdir } = await import('node:fs/promises');
       const { dirname } = await import('node:path');
 
@@ -2529,7 +2498,10 @@ export class ShadowAtlasService {
       }
 
       // Write manifest alongside main output
-      const manifestPath = options.outputPath.replace('.json', '-manifest.json');
+      // Replace only the final.json extension
+      const manifestPath = options.outputPath.endsWith('.json')
+        ? options.outputPath.slice(0, -5) + '-manifest.json'
+        : options.outputPath + '-manifest.json';
       await writeFile(manifestPath, JSON.stringify(buildManifest, null, 2));
 
       this.log.info('Atlas exported', {
@@ -2828,10 +2800,10 @@ export class ShadowAtlasService {
       // Convert to ProofTemplate format (hex strings for serialization)
       const proofTemplate: ProofTemplate = {
         districtId: leaf.boundaryId,
-        merkleRoot: `0x${merkleProof.root.toString(16)}`,
-        siblings: merkleProof.siblings.map(s => `0x${s.toString(16)}`),
+        merkleRoot: `0x${merkleProof.root.toString(16).padStart(64, '0')}`,
+        siblings: merkleProof.siblings.map(s => `0x${s.toString(16).padStart(64, '0')}`),
         pathIndices: [...merkleProof.pathIndices],
-        leafHash: `0x${merkleProof.leaf.toString(16)}`,
+        leafHash: `0x${merkleProof.leaf.toString(16).padStart(64, '0')}`,
         boundaryType: leaf.boundaryType,
         authority: this.getAuthorityFromBoundaryType(leaf.boundaryType),
         leafIndex: leaf.index,
@@ -2891,7 +2863,7 @@ export class ShadowAtlasService {
    * @returns Array of cross-validation summaries
    *
    * @throws {BuildValidationError} When failOnMismatch is true and any states fail validation.
-   *         Contains all validation results for debugging.
+   * Contains all validation results for debugging.
    *
    * @internal This is a stub implementation. Full cross-validation requires
    * state GIS portal access which is rate-limited and expensive.
@@ -3238,7 +3210,8 @@ export class ShadowAtlasService {
               state: stateFips,
               error: error instanceof Error ? error.message : String(error),
             });
-            coveragePercent = 100; // Assume complete if we can't compute
+            // Fail-closed — assume 0% coverage on computation error
+            coveragePercent = 0;
           }
         }
 

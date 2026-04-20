@@ -342,6 +342,12 @@ export class TransformationValidator {
     for (let i = 0; i < dataset.geojson.features.length; i++) {
       const feature = dataset.geojson.features[i];
 
+      // R44-FIX: Guard null geometry (RFC 7946 §3.2 allows "geometry": null)
+      if (!feature.geometry) {
+        warnings.push(`Feature ${i}: null geometry — skipping validation`);
+        continue;
+      }
+
       // Validate geometry type
       if (
         feature.geometry.type !== 'Polygon' &&
@@ -361,12 +367,21 @@ export class TransformationValidator {
       }
 
       // Validate coordinate ranges (basic sanity check)
+      // Number.isFinite() guards against NaN bypass (NaN < -180 is false in JS)
       for (const [lon, lat] of coords) {
-        if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+        if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
           issues.push(`Feature ${i}: Invalid coordinates [${lon}, ${lat}]`);
           invalidFeatures.push(i);
           break;
         }
+      }
+
+      // R54-C1: Hard cap at 1M coordinates — reject as likely corrupt/attack data
+      const MAX_COORDS_PER_FEATURE = 1_000_000;
+      if (coords.length > MAX_COORDS_PER_FEATURE) {
+        issues.push(`Feature ${i}: Coordinate count ${coords.length} exceeds hard cap of ${MAX_COORDS_PER_FEATURE}`);
+        invalidFeatures.push(i);
+        continue;
       }
 
       // Check for excessive vertex count (>10,000 = likely error)
@@ -449,15 +464,18 @@ export class TransformationValidator {
       warnings.push(`Unusually low district count: ${discoveredCount} (possible at-large)`);
     }
 
-    if (discoveredCount > 100) {
+    // R82-Raise hard-reject threshold; >100 is a warning, >1000 is rejection
+    if (discoveredCount > 1000) {
       return {
         valid: false,
         confidence: 0,
-        issues: [
-          `Unusually high district count: ${discoveredCount} (likely voting precincts, not council districts)`,
-        ],
+        issues: [`Extremely high district count: ${discoveredCount} — likely precinct-level data, not legislative districts`],
         warnings: [],
       };
+    }
+    if (discoveredCount > 100) {
+      // Warn but don't reject — national legislatures can exceed 100 (UK: 650, US: 435)
+      warnings.push(`High district count: ${discoveredCount} — verify this is legislative, not precinct-level data`);
     }
 
     return {
@@ -475,7 +493,9 @@ export class TransformationValidator {
     // Extract from ArcGIS REST URL
     if (source.includes('/MapServer/') || source.includes('/FeatureServer/')) {
       const parts = source.split('/');
-      const layerIndex = parts.indexOf('MapServer') || parts.indexOf('FeatureServer');
+      // R40-FIX: indexOf returns 0 for position-0 match which is falsy — use !== -1 instead of ||
+      const msIdx = parts.indexOf('MapServer');
+      const layerIndex = msIdx !== -1 ? msIdx : parts.indexOf('FeatureServer');
       if (layerIndex > 0 && parts[layerIndex - 1]) {
         return parts[layerIndex - 1];
       }
@@ -490,9 +510,13 @@ export class TransformationValidator {
     }
 
     // Fallback: Use last path segment
-    const url = new URL(source);
-    const segments = url.pathname.split('/').filter(Boolean);
-    return segments[segments.length - 1] || 'unknown';
+    try {
+      const url = new URL(source);
+      const segments = url.pathname.split('/').filter(Boolean);
+      return segments[segments.length - 1] || 'unknown';
+    } catch {
+      return 'unknown';
+    }
   }
 
   /**

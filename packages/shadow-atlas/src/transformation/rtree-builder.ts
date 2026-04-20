@@ -124,6 +124,35 @@ export class RTreeBuilder {
     // Insert in transaction (much faster)
     const insertAll = db.transaction((districts: readonly NormalizedDistrict[]) => {
       for (const district of districts) {
+        // R54-C2: Guard against null/invalid geometry and bbox
+        if (!district.geometry) {
+          logger.warn('Skipping district with null geometry', { id: district.id });
+          continue;
+        }
+        if (
+          !district.bbox ||
+          district.bbox.length < 4 ||
+          !district.bbox.every(Number.isFinite)
+        ) {
+          logger.warn('Skipping district with invalid bbox', {
+            id: district.id,
+            bbox: district.bbox,
+          });
+          continue;
+        }
+
+        // R62-M2: Reject degenerate bounding boxes where min > max.
+        // SQLite R-tree stores values as-is without swapping. A bbox [10,10,5,5]
+        // creates an entry with empty range that never matches spatial queries,
+        // making the district invisible — silent disenfranchisement.
+        if (district.bbox[0] > district.bbox[2] || district.bbox[1] > district.bbox[3]) {
+          logger.warn('Skipping district with degenerate bbox (min > max)', {
+            id: district.id,
+            bbox: district.bbox,
+          });
+          continue;
+        }
+
         // Insert into main table
         insertDistrict.run(
           district.id,

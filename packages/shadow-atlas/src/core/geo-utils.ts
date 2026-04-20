@@ -51,11 +51,14 @@ export function extractCoordinatesFromFeature(feature: Feature): Position[] {
 export function extractCoordinatesFromGeometry(geometry: Geometry): Position[] {
     const coords: Position[] = [];
 
+    // Use for-of loops instead of spread to avoid stack overflow on large geometries (50K+ vertices)
     switch (geometry.type) {
         case 'Polygon': {
             const polygon = geometry as Polygon;
             for (const ring of polygon.coordinates) {
-                coords.push(...ring);
+                for (const coord of ring) {
+                    coords.push(coord);
+                }
             }
             break;
         }
@@ -63,7 +66,9 @@ export function extractCoordinatesFromGeometry(geometry: Geometry): Position[] {
             const multiPolygon = geometry as MultiPolygon;
             for (const polygon of multiPolygon.coordinates) {
                 for (const ring of polygon) {
-                    coords.push(...ring);
+                    for (const coord of ring) {
+                        coords.push(coord);
+                    }
                 }
             }
             break;
@@ -76,17 +81,32 @@ export function extractCoordinatesFromGeometry(geometry: Geometry): Position[] {
         case 'MultiPoint':
         case 'LineString': {
             const lineOrMultiPoint = geometry as { coordinates: Position[] };
-            coords.push(...lineOrMultiPoint.coordinates);
+            for (const coord of lineOrMultiPoint.coordinates) {
+                coords.push(coord);
+            }
             break;
         }
         case 'MultiLineString': {
             const multiLine = geometry as { coordinates: Position[][] };
             for (const line of multiLine.coordinates) {
-                coords.push(...line);
+                for (const coord of line) {
+                    coords.push(coord);
+                }
             }
             break;
         }
-        // GeometryCollection not handled - returns empty
+        // Handle GeometryCollection recursively, consistent with
+        // calculateCentroidFromBBox which already handles it (line 381).
+        case 'GeometryCollection': {
+            const collection = geometry as { geometries: Geometry[] };
+            for (const geom of collection.geometries) {
+                const subCoords = extractCoordinatesFromGeometry(geom);
+                for (const coord of subCoords) {
+                    coords.push(coord);
+                }
+            }
+            break;
+        }
     }
 
     return coords;
@@ -105,10 +125,22 @@ export function extractExteriorCoordinates(
     geometry: Polygon | MultiPolygon | { readonly type: 'Polygon'; readonly coordinates: readonly (readonly [number, number][])[] } | { readonly type: 'MultiPolygon'; readonly coordinates: readonly (readonly (readonly [number, number][])[])[] }
 ): Position[] {
     if (geometry.type === 'Polygon') {
-        return [...geometry.coordinates[0]] as Position[]; // First ring is exterior
+        // Copy without spread to avoid stack overflow on large rings
+        const ring = geometry.coordinates[0];
+        const result: Position[] = [];
+        for (const coord of ring) {
+            result.push(coord as Position);
+        }
+        return result;
     } else {
-        // MultiPolygon: all exterior rings
-        return geometry.coordinates.flatMap(polygon => [...polygon[0]]) as Position[];
+        // MultiPolygon: all exterior rings — iterate without spread
+        const result: Position[] = [];
+        for (const polygon of geometry.coordinates) {
+            for (const coord of polygon[0]) {
+                result.push(coord as Position);
+            }
+        }
+        return result;
     }
 }
 
@@ -369,6 +401,10 @@ export function calculateCentroidFromBBox(geometry: Geometry): [number, number] 
         processCoords((geometry as Polygon | MultiPolygon).coordinates);
     }
 
+    if (minX === Infinity || maxX === -Infinity || minY === Infinity || maxY === -Infinity) {
+        throw new Error('Cannot calculate centroid: geometry has no coordinates');
+    }
+
     return [(minX + maxX) / 2, (minY + maxY) / 2];
 }
 
@@ -433,12 +469,29 @@ export function pointInGeometry(
 ): boolean {
     if (geometry.type === 'Polygon') {
         // Test against exterior ring (first ring)
-        return raycastPointInRing(point, geometry.coordinates[0]);
+        if (!raycastPointInRing(point, geometry.coordinates[0])) {
+            return false;
+        }
+        // Check interior rings (holes) — point inside a hole is outside the polygon
+        for (let i = 1; i < geometry.coordinates.length; i++) {
+            if (raycastPointInRing(point, geometry.coordinates[i])) {
+                return false; // Point is inside a hole
+            }
+        }
+        return true;
     } else {
-        // MultiPolygon: test against any polygon
+        // MultiPolygon: test against any polygon (including its holes)
         for (const polygon of geometry.coordinates) {
             if (raycastPointInRing(point, polygon[0])) {
-                return true;
+                // Check holes for this polygon
+                let inHole = false;
+                for (let i = 1; i < polygon.length; i++) {
+                    if (raycastPointInRing(point, polygon[i])) {
+                        inHole = true;
+                        break;
+                    }
+                }
+                if (!inHole) return true;
             }
         }
         return false;

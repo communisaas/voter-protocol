@@ -99,12 +99,14 @@ const TEXAS_UNSD_4 = createTestPolygon(-94.0, 30.0, -93.0, 31.0); // Adjacent, n
 
 describe('Dual-System State Detection', () => {
   describe('DUAL_SYSTEM_STATES constant', () => {
-    it('should contain exactly 9 states', () => {
-      expect(DUAL_SYSTEM_STATES.size).toBe(9);
+    it('should contain exactly 14 states', () => {
+      // R56-C1: Added AL, IN, MS, NY, ND — they use elem/sec, not unified
+      expect(DUAL_SYSTEM_STATES.size).toBe(14);
     });
 
     it('should include all known dual-system states', () => {
-      const expectedStates = ['09', '17', '23', '25', '30', '33', '34', '44', '50'];
+      // R56-C1: Expanded from 9 to 14 states
+      const expectedStates = ['01', '09', '17', '18', '23', '25', '28', '30', '33', '34', '36', '38', '44', '50'];
       for (const state of expectedStates) {
         expect(DUAL_SYSTEM_STATES.has(state)).toBe(true);
       }
@@ -113,8 +115,7 @@ describe('Dual-System State Detection', () => {
     it('should be a ReadonlySet (immutable)', () => {
       // TypeScript prevents modification, but verify runtime behavior
       expect(typeof DUAL_SYSTEM_STATES.add).toBe('function');
-      // The set should still only have 9 elements
-      expect(DUAL_SYSTEM_STATES.size).toBe(9);
+      expect(DUAL_SYSTEM_STATES.size).toBe(14);
     });
   });
 
@@ -171,8 +172,9 @@ describe('Dual-System State Detection', () => {
       expect(isDualSystemState('12')).toBe(false);
     });
 
-    it('should return false for New York (36) - unified with special cases', () => {
-      expect(isDualSystemState('36')).toBe(false);
+    // R56-C1: NY is now dual-system (uses elem/sec, not unified)
+    it('should return true for New York (36) - uses elem/sec districts', () => {
+      expect(isDualSystemState('36')).toBe(true);
     });
 
     it('should return false for invalid FIPS code', () => {

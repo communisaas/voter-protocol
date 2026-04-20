@@ -158,8 +158,11 @@ export class Tracer {
     kind: SpanKind = SpanKind.SERVER,
     attributes?: SpanAttributes
   ): TraceContext {
-    const traceId = randomUUID();
-    const spanId = randomUUID();
+    // W3C traceparent requires 32-char lowercase hex trace-id and 16-char
+    // span-id. randomUUID() includes hyphens — strip them. Span ID is 16 hex chars
+    // (8 bytes), so take the first 16 chars of the stripped UUID.
+    const traceId = randomUUID().replace(/-/g, '');
+    const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
     const samplingDecision = this.sampler(traceId);
 
     if (!samplingDecision) {
@@ -197,11 +200,13 @@ export class Tracer {
   ): TraceContext {
     if (!context.samplingDecision) {
       // Not sampling, return minimal context
-      const spanId = randomUUID();
+      // Strip hyphens and truncate to 16 hex chars for W3C compliance.
+      const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
       return { ...context, spanId, parentSpanId: context.spanId, samplingDecision: false };
     }
 
-    const spanId = randomUUID();
+    // Strip hyphens and truncate to 16 hex chars for W3C compliance.
+    const spanId = randomUUID().replace(/-/g, '').slice(0, 16);
     const span: ActiveSpan = {
       traceId: context.traceId,
       spanId,
@@ -443,6 +448,19 @@ export function parseTraceContext(traceparent?: string): TraceContext | null {
   }
 
   const [, traceId, spanId, flags] = parts;
+
+  // Validate trace-id (32 hex), span-id (16 hex), flags (2 hex)
+  // per W3C Trace Context spec. Reject all-zeros (invalid per spec).
+  if (
+    !/^[0-9a-f]{32}$/.test(traceId) ||
+    !/^[0-9a-f]{16}$/.test(spanId) ||
+    !/^[0-9a-f]{2}$/.test(flags) ||
+    traceId === '00000000000000000000000000000000' ||
+    spanId === '0000000000000000'
+  ) {
+    return null;
+  }
+
   const samplingDecision = parseInt(flags, 16) & 1 ? true : false;
 
   return { traceId, spanId, samplingDecision };
