@@ -7,7 +7,6 @@
  * ROLLOUT STRATEGY:
  * - Phase 1: Deploy to primary regions (Americas)
  * - Phase 2: Deploy to secondary regions (Europe)
- * - Phase 3: Deploy globally (Asia-Pacific)
  * - Automatic rollback on failure
  *
  * TYPE SAFETY: Nuclear-level strictness. No `any`, no loose casts.
@@ -75,6 +74,11 @@ export class UpdateCoordinator {
   ): Promise<GlobalPublishResult> {
     const startTime = Date.now();
 
+    // R41-FIX: Guard against concurrent rollouts — second call would overwrite first's state
+    if (this.currentRollout) {
+      throw new Error('Rollout already in progress — cannot start concurrent update');
+    }
+
     // Serialize snapshot to JSON
     const snapshot = this.serializeSnapshot(merkleTree, metadata);
     const content = new Blob([JSON.stringify(snapshot, null, 2)], {
@@ -128,7 +132,11 @@ export class UpdateCoordinator {
         regionalStatuses.push(...phaseResult.failedRegions);
 
         // Check phase success
+        // Phase success requires at least one region to succeed AND failed count within budget.
+        // Without the successfulRegions check, a 1-region phase can fail 100% and still pass
+        // when maxFailuresPerPhase >= 1.
         const phaseSuccessful =
+          phaseResult.successfulRegions.length > 0 &&
           phaseResult.failedRegions.length <= this.rolloutConfig.maxFailuresPerPhase;
 
         if (!phaseSuccessful) {
@@ -178,11 +186,17 @@ export class UpdateCoordinator {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
+      // R59-M5: Calculate actual replica count from regions that succeeded before
+      // the error, instead of hardcoding 0 (which discards partial progress).
+      const partialReplicaCount = regionalStatuses
+        .filter(s => s.status === 'completed')  // R71-DIST-M5: RegionalPublishStatus has status field, not success
+        .reduce((sum, s) => sum + s.pinResults.length, 0);
+
       return {
         success: false,
         cid: firstCID ?? '',
         regions: regionalStatuses,
-        totalReplicaCount: 0,
+        totalReplicaCount: partialReplicaCount,
         totalDurationMs: Date.now() - startTime,
         publishedAt: new Date(),
       };
@@ -243,8 +257,19 @@ export class UpdateCoordinator {
           };
         }
 
-        // Verify CID consistency
+        // R57-C5: Validate CID exists before treating as successful
         const cid = result.results[0]?.cid;
+        if (!cid) {
+          return {
+            region,
+            status: 'failed' as const,
+            error: 'Pin succeeded but returned empty/undefined CID',
+            startedAt,
+            completedAt: new Date(),
+            pinResults: result.results,
+          };
+        }
+        // Verify CID consistency
         if (expectedCID && cid !== expectedCID) {
           return {
             region,
@@ -350,24 +375,20 @@ export class UpdateCoordinator {
     readonly totalGateways: number;
     readonly avgLatencyMs: number;
   }> {
-    // Map regions to IPFS public gateways
-    const gateways: Readonly<Record<Region, string>> = {
-      'americas-east': 'https://gateway.pinata.cloud',
-      'americas-west': 'https://w3s.link',
-      'americas-south': 'https://dweb.link',
-      'europe-west': 'https://ipfs.io',
-      'europe-central': 'https://cf-ipfs.com',
-      'africa-south': 'https://gateway.pinata.cloud',
-      'asia-east': 'https://hardbin.com',
-      'asia-southeast': 'https://4everland.io',
-      'asia-south': 'https://ipfs.fleek.co',
-      'oceania': 'https://nftstorage.link',
+    // Map regions to IPFS public gateways (must match DEFAULT_REGIONS)
+    const gateways: Partial<Record<Region, string>> = {
+      'americas-east': 'https://w3s.link',
+      'americas-west': 'https://dweb.link',
+      'europe-west': 'https://gateway.pinata.cloud',
+      'asia-east': 'https://dweb.link',
+      'asia-southeast': 'https://dweb.link',
+      'oceania': 'https://dweb.link',
     };
 
     // Perform HEAD requests to verify CID availability
     const results = await Promise.allSettled(
-      regions.map(async (region) => {
-        const gateway = gateways[region];
+      regions.filter(region => gateways[region] != null).map(async (region) => {
+        const gateway = gateways[region]!;
         const url = `${gateway}/ipfs/${cid}`;
         const start = Date.now();
 
@@ -451,8 +472,7 @@ export class UpdateCoordinator {
         if (!service) return;
 
         try {
-          // Unpin from all services in region
-          // (Implementation would call service.unpin() for each pinning service)
+          await service.unpin(cid);
           logger.info('Rolled back region', {
             region: status.region,
             cid,
@@ -477,18 +497,13 @@ export class UpdateCoordinator {
     metadata: SnapshotMetadata
   ): unknown {
     return {
+      merkleRoot: merkleTree.root,
+      leaves: merkleTree.leaves,
       metadata: {
         id: metadata.id,
-        merkleRoot: metadata.merkleRoot,
         boundaryCount: metadata.boundaryCount,
         createdAt: metadata.createdAt.toISOString(),
         regions: metadata.regions,
-      },
-      merkleTree: {
-        root: merkleTree.root,
-        leaves: merkleTree.leaves,
-        tree: merkleTree.tree,
-        districtCount: merkleTree.districts.length,
       },
     };
   }

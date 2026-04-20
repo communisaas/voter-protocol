@@ -92,12 +92,16 @@ export class RegionalPinningService {
   private readonly maxParallelUploads: number;
   private readonly retryAttempts: number;
 
-  // Health tracking
-  private readonly serviceHealth = new Map<PinningServiceType, {
+  // R36-H1: Health tracking keyed by compound key (type:index) to prevent collision
+  // when multiple instances of the same service type are registered
+  private readonly serviceHealth = new Map<string, {
     consecutive_failures: number;
     last_success: Date | null;
     last_failure: Date | null;
   }>();
+
+  /** Map service instance to its health key */
+  private readonly serviceKeyMap = new Map<IPinningService, string>();
 
   constructor(
     region: Region,
@@ -112,9 +116,14 @@ export class RegionalPinningService {
     this.maxParallelUploads = options.maxParallelUploads ?? 3;
     this.retryAttempts = options.retryAttempts ?? 3;
 
-    // Initialize health tracking
+    // Initialize health tracking with unique keys per instance
+    const typeCounts = new Map<PinningServiceType, number>();
     for (const service of services) {
-      this.serviceHealth.set(service.type, {
+      const idx = typeCounts.get(service.type) ?? 0;
+      typeCounts.set(service.type, idx + 1);
+      const key = idx === 0 ? service.type : `${service.type}:${idx}`;
+      this.serviceKeyMap.set(service, key);
+      this.serviceHealth.set(key, {
         consecutive_failures: 0,
         last_success: null,
         last_failure: null,
@@ -140,7 +149,10 @@ export class RegionalPinningService {
     readonly results: readonly PinResult[];
     readonly errors: readonly DistributionError[];
   }> {
-    const requiredSuccesses = options.requiredSuccesses ?? 1;
+    // R38-M1+R39-H2: Validate requiredSuccesses — must be finite positive integer
+    // Math.max(1, Math.floor(NaN)) === NaN, so guard with Number.isFinite
+    const rawRequired = options.requiredSuccesses ?? 1;
+    const requiredSuccesses = Number.isFinite(rawRequired) ? Math.max(1, Math.floor(rawRequired)) : 1;
     const results: PinResult[] = [];
     const errors: DistributionError[] = [];
 
@@ -161,17 +173,28 @@ export class RegionalPinningService {
       };
     }
 
-    // Pin to services in parallel (limited concurrency)
-    const pinPromises = healthyServices.map(service =>
+    // R33-M3: Enforce maxParallelUploads concurrency limit
+    const limited = healthyServices.slice(0, this.maxParallelUploads);
+    const pinPromises = limited.map(service =>
       this.pinWithRetry(service, content, options)
     );
 
     const settled = await Promise.allSettled(pinPromises);
 
-    for (const result of settled) {
+    // R37-H1: Zip results with service instances for per-instance health tracking
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i];
+      const service = limited[i];
       if (result.status === 'fulfilled') {
         results.push(result.value);
-        this.recordSuccess(result.value.service);
+        // R41-NOTE: pinWithRetry always returns success:true or throws,
+        // so this branch always records success. The fulfilled+!success path
+        // is structurally unreachable but kept as defensive fallback.
+        if (result.value.success) {
+          this.recordSuccess(service);
+        } else {
+          this.recordFailure(service, result.value.error ?? 'Pin returned success:false');
+        }
       } else {
         const error: DistributionError = {
           type: 'replication_failed',
@@ -198,17 +221,21 @@ export class RegionalPinningService {
    *
    * Checks all services in parallel, succeeds if ANY service has the pin.
    */
+  /**
+   * R38-H1b: Use compound keys (matching serviceKeyMap) to avoid multi-instance collision
+   */
   async verifyPin(cid: string): Promise<{
     readonly pinned: boolean;
-    readonly services: readonly PinningServiceType[];
-    readonly unavailable: readonly PinningServiceType[];
+    readonly services: readonly string[];
+    readonly unavailable: readonly string[];
   }> {
     const verifyPromises = this.services.map(async service => {
+      const key = this.serviceKeyMap.get(service) ?? service.type;
       try {
         const pinned = await service.verify(cid);
-        return { service: service.type, pinned };
+        return { key, pinned };
       } catch {
-        return { service: service.type, pinned: false };
+        return { key, pinned: false };
       }
     });
 
@@ -216,11 +243,11 @@ export class RegionalPinningService {
 
     const pinnedServices = results
       .filter(r => r.pinned)
-      .map(r => r.service);
+      .map(r => r.key);
 
     const unavailable = results
       .filter(r => !r.pinned)
-      .map(r => r.service);
+      .map(r => r.key);
 
     return {
       pinned: pinnedServices.length > 0,
@@ -230,20 +257,51 @@ export class RegionalPinningService {
   }
 
   /**
-   * Health check for all services in region
+   * Unpin content from all services in region
+   *
+   * Attempts to unpin from all services in parallel.
+   * Logs per-service results but does not throw on partial failure.
    */
-  async healthCheck(): Promise<ReadonlyMap<PinningServiceType, boolean>> {
+  async unpin(cid: string): Promise<void> {
+    const unpinPromises = this.services.map(async service => {
+      // R39-M1: Use compound key for per-instance log disambiguation
+      const serviceKey = this.serviceKeyMap.get(service) ?? service.type;
+      try {
+        await service.unpin(cid);
+        logger.info('Unpinned from service', {
+          region: this.region,
+          service: serviceKey,
+          cid,
+        });
+      } catch (error) {
+        logger.warn('Failed to unpin from service', {
+          region: this.region,
+          service: serviceKey,
+          cid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+    await Promise.allSettled(unpinPromises);
+  }
+
+  /**
+   * Health check for all services in region
+   * R38-H1a: Use compound keys (matching serviceKeyMap) to avoid multi-instance collision
+   */
+  async healthCheck(): Promise<ReadonlyMap<string, boolean>> {
     const healthPromises = this.services.map(async service => {
+      const key = this.serviceKeyMap.get(service) ?? service.type;
       try {
         const healthy = await service.healthCheck();
-        return { type: service.type, healthy };
+        return { key, healthy };
       } catch {
-        return { type: service.type, healthy: false };
+        return { key, healthy: false };
       }
     });
 
     const results = await Promise.all(healthPromises);
-    return new Map(results.map(r => [r.type, r.healthy]));
+    return new Map(results.map(r => [r.key, r.healthy]));
   }
 
   // ==========================================================================
@@ -266,20 +324,24 @@ export class RegionalPinningService {
     for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
       try {
         const result = await service.pin(content, options);
-        return result;
+        if (result.success) {
+          return result;
+        }
+        // Treat success:false as retryable failure
+        lastError = new Error(`Pin returned success:false from ${service.type ?? 'unknown'}`);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+      }
 
-        // Exponential backoff: 1s, 2s, 4s
-        if (attempt < this.retryAttempts - 1) {
-          const delayMs = Math.pow(2, attempt) * 1000;
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-        }
+      // Exponential backoff: 1s, 2s, 4s
+      if (attempt < this.retryAttempts - 1) {
+        const delayMs = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
 
-    // All retries failed
-    this.recordFailure(service.type, lastError?.message ?? 'Unknown error');
+    // All retries failed — R37-H1: pass instance, not type
+    this.recordFailure(service, lastError?.message ?? 'Unknown error');
 
     throw new Error(
       `Failed to pin to ${service.type} in ${this.region} after ${this.retryAttempts} attempts: ${lastError?.message}`
@@ -293,18 +355,21 @@ export class RegionalPinningService {
    */
   private getHealthyServices(): readonly IPinningService[] {
     return this.services.filter(service => {
-      const health = this.serviceHealth.get(service.type);
+      const key = this.serviceKeyMap.get(service);
+      const health = key ? this.serviceHealth.get(key) : undefined;
       return health && health.consecutive_failures < 3;
     });
   }
 
   /**
    * Record successful pin
+   * R37-H1: Takes service instance (not type) for per-instance health tracking
    */
-  private recordSuccess(serviceType: PinningServiceType): void {
-    const health = this.serviceHealth.get(serviceType);
-    if (health) {
-      this.serviceHealth.set(serviceType, {
+  private recordSuccess(service: IPinningService): void {
+    const key = this.serviceKeyMap.get(service);
+    const health = key ? this.serviceHealth.get(key) : undefined;
+    if (health && key) {
+      this.serviceHealth.set(key, {
         consecutive_failures: 0,
         last_success: new Date(),
         last_failure: health.last_failure,
@@ -314,11 +379,13 @@ export class RegionalPinningService {
 
   /**
    * Record failed pin
+   * R37-H1: Takes service instance (not type) for per-instance health tracking
    */
-  private recordFailure(serviceType: PinningServiceType, error: string): void {
-    const health = this.serviceHealth.get(serviceType);
-    if (health) {
-      this.serviceHealth.set(serviceType, {
+  private recordFailure(service: IPinningService, error: string): void {
+    const key = this.serviceKeyMap.get(service);
+    const health = key ? this.serviceHealth.get(key) : undefined;
+    if (health && key) {
+      this.serviceHealth.set(key, {
         consecutive_failures: health.consecutive_failures + 1,
         last_success: health.last_success,
         last_failure: new Date(),
@@ -329,21 +396,21 @@ export class RegionalPinningService {
   /**
    * Get service health statistics
    */
-  getHealthStats(): ReadonlyMap<PinningServiceType, {
+  getHealthStats(): ReadonlyMap<string, {
     readonly consecutiveFailures: number;
     readonly lastSuccess: Date | null;
     readonly lastFailure: Date | null;
     readonly healthy: boolean;
   }> {
-    const stats = new Map<PinningServiceType, {
+    const stats = new Map<string, {
       readonly consecutiveFailures: number;
       readonly lastSuccess: Date | null;
       readonly lastFailure: Date | null;
       readonly healthy: boolean;
     }>();
 
-    for (const [type, health] of this.serviceHealth) {
-      stats.set(type, {
+    for (const [key, health] of this.serviceHealth) {
+      stats.set(key, {
         consecutiveFailures: health.consecutive_failures,
         lastSuccess: health.last_success,
         lastFailure: health.last_failure,

@@ -22,8 +22,10 @@ import type {
   DistributionError,
   DistributionErrorType,
 } from './types.js';
+import { isValidCID } from './types.js';
 import type { AvailabilityMonitor } from './availability-monitor.js';
 import type { RegionConfig } from './global-ipfs-strategy.js';
+import { fetchBufferWithSizeLimit, DEFAULT_MAX_BYTES } from '../hydration/fetch-with-size-limit.js';
 
 // ============================================================================
 // Fallback Resolver
@@ -49,7 +51,13 @@ export class FallbackResolver {
   private readonly responseCache = new Map<string, {
     data: Blob;
     cachedAt: Date;
+    size: number; // R71: Track entry byte size for budget eviction
   }>();
+
+  // R71: Byte-budget cache eviction — prevent memory bomb.
+  // 100 MB budget (vs prior 1000-entry × 100 MB = 100 GB theoretical max).
+  private static readonly MAX_CACHE_BYTES = 100 * 1024 * 1024;
+  private cacheBytes = 0;
 
   private readonly cacheTTLMs: number;
 
@@ -89,6 +97,18 @@ export class FallbackResolver {
       minSuccessRate: 0.8,
     }
   ): Promise<FallbackResolutionResult> {
+    // R20-M2: Validate CID format before constructing gateway URLs (now using shared utility)
+    if (!isValidCID(cid)) {
+      return {
+        success: false,
+        gateway: '',
+        region: 'americas-east' as import('./types.js').Region,
+        attemptCount: 0,
+        totalDurationMs: 0,
+        errors: [{ type: 'invalid_cid' as const, message: `Invalid CID format: ${cid.slice(0, 20)}...`, retryable: false, timestamp: new Date() }],
+      };
+    }
+
     const startTime = Date.now();
     const errors: DistributionError[] = [];
     let attemptCount = 0;
@@ -151,8 +171,10 @@ export class FallbackResolver {
 
       // Apply retry delay with exponential backoff
       if (attemptCount > 1 && this.fallbackStrategy.retryDelayMs > 0) {
+        // R24-DIST-M4: Cap exponential backoff at 30 seconds
+        const MAX_BACKOFF_MS = 30_000;
         const delayMs = this.fallbackStrategy.exponentialBackoff
-          ? Math.pow(2, attemptCount - 2) * this.fallbackStrategy.retryDelayMs
+          ? Math.min(Math.pow(2, attemptCount - 2) * this.fallbackStrategy.retryDelayMs, MAX_BACKOFF_MS)
           : this.fallbackStrategy.retryDelayMs;
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
@@ -266,36 +288,20 @@ export class FallbackResolver {
     readonly data?: Blob;
     readonly error?: DistributionError;
   }> {
+    // R50-S4: Defense-in-depth CID validation (resolve() already validates, but guard refactoring)
+    if (!isValidCID(cid)) {
+      return { success: false, error: { type: 'invalid_cid', message: `Invalid CID format: ${cid.slice(0, 20)}...`, retryable: false, timestamp: new Date() } };
+    }
+
     try {
       const url = `${gatewayUrl}${cid}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15_000); // 15s timeout
 
-      const response = await fetch(url, {
-        signal: controller.signal,
+      // R52-S2: Use size-limited fetch to prevent OOM from oversized IPFS responses (100 MB cap)
+      const buffer = await fetchBufferWithSizeLimit(url, DEFAULT_MAX_BYTES, {
+        signal: AbortSignal.timeout(15_000), // 15s timeout
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorType: DistributionErrorType =
-          response.status === 404 ? 'invalid_cid' :
-          response.status === 429 ? 'quota_exceeded' :
-          'gateway_unavailable';
-
-        return {
-          success: false,
-          error: {
-            type: errorType,
-            message: `Gateway returned ${response.status}: ${response.statusText}`,
-            region,
-            retryable: errorType !== 'invalid_cid',
-            timestamp: new Date(),
-          },
-        };
-      }
-
-      const data = await response.blob();
+      const data = new Blob([new Uint8Array(buffer)]);
 
       return {
         success: true,
@@ -303,8 +309,14 @@ export class FallbackResolver {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Map error messages to appropriate distribution error types
       const errorType: DistributionErrorType =
-        errorMessage.includes('aborted') ? 'network_timeout' : 'gateway_unavailable';
+        errorMessage.includes('aborted') || errorMessage.includes('timeout') ? 'network_timeout' :
+        errorMessage.includes('404') ? 'invalid_cid' :
+        errorMessage.includes('429') ? 'quota_exceeded' :
+        errorMessage.includes('exceeds size limit') ? 'gateway_unavailable' :
+        'gateway_unavailable';
 
       return {
         success: false,
@@ -312,7 +324,7 @@ export class FallbackResolver {
           type: errorType,
           message: errorMessage,
           region,
-          retryable: true,
+          retryable: errorType !== 'invalid_cid',
           timestamp: new Date(),
         },
       };
@@ -334,11 +346,39 @@ export class FallbackResolver {
   /**
    * Cache successful response
    */
+  /**
+   * Max cache entries before pruning stale entries.
+   * R53-S4: Reduced from 10K to 1K to limit worst-case heap usage.
+   * Each entry can hold up to 100 MB (DEFAULT_MAX_BYTES), so
+   * 1,000 entries × 100 MB = 100 GB theoretical max (vs 1 TB at 10K).
+   */
+  private readonly maxCacheSize = 1_000;
+
   private cacheResponse(cid: string, data: Blob): void {
+    const entrySize = data.size;
+
+    // R71: Evict oldest entries until byte budget has room
+    while (this.cacheBytes + entrySize > FallbackResolver.MAX_CACHE_BYTES && this.responseCache.size > 0) {
+      const oldestKey = this.responseCache.keys().next().value;
+      if (!oldestKey) break;
+      const oldEntry = this.responseCache.get(oldestKey);
+      if (oldEntry) {
+        this.cacheBytes -= oldEntry.size;
+        this.responseCache.delete(oldestKey);
+      }
+    }
+
+    // R20-M1: Also prune stale entries when entry count limit reached
+    if (this.responseCache.size >= this.maxCacheSize) {
+      this.pruneCache();
+    }
+
     this.responseCache.set(cid, {
       data,
       cachedAt: new Date(),
+      size: entrySize,
     });
+    this.cacheBytes += entrySize;
   }
 
   /**
@@ -351,6 +391,8 @@ export class FallbackResolver {
     // Check if cache is still valid
     const age = Date.now() - cached.cachedAt.getTime();
     if (age > this.cacheTTLMs) {
+      // R71: Decrement byte counter on TTL eviction
+      this.cacheBytes -= cached.size;
       this.responseCache.delete(cid);
       return null;
     }
@@ -363,6 +405,11 @@ export class FallbackResolver {
    */
   private cacheFailure(gateway: string, cid: string, reason: string): void {
     if (!this.fallbackStrategy.cacheFailures) return;
+
+    // R20-M1: Prune stale entries when failure cache grows too large
+    if (this.failureCache.size >= this.maxCacheSize) {
+      this.pruneCache();
+    }
 
     const key = `${gateway}:${cid}`;
     this.failureCache.set(key, {
@@ -391,11 +438,33 @@ export class FallbackResolver {
   }
 
   /**
+   * Prune stale entries from both caches when size limits are reached.
+   */
+  private pruneCache(): void {
+    const now = Date.now();
+    // Prune response cache entries past TTL
+    for (const [key, entry] of this.responseCache) {
+      if (now - entry.cachedAt.getTime() > this.cacheTTLMs) {
+        // R71: Decrement byte counter on eviction
+        this.cacheBytes -= entry.size;
+        this.responseCache.delete(key);
+      }
+    }
+    // Prune failure cache entries past window
+    for (const [key, entry] of this.failureCache) {
+      if (now - entry.failedAt.getTime() > this.fallbackStrategy.failureWindowMs) {
+        this.failureCache.delete(key);
+      }
+    }
+  }
+
+  /**
    * Clear all caches
    */
   clearCaches(): void {
     this.responseCache.clear();
     this.failureCache.clear();
+    this.cacheBytes = 0; // R71: Reset byte counter
   }
 
   /**
@@ -406,6 +475,8 @@ export class FallbackResolver {
     readonly failureCacheSize: number;
     readonly oldestResponseAge: number;
     readonly newestResponseAge: number;
+    readonly cacheBytes: number;
+    readonly maxCacheBytes: number;
   } {
     const now = Date.now();
     const responseAges = Array.from(this.responseCache.values()).map(
@@ -417,6 +488,8 @@ export class FallbackResolver {
       failureCacheSize: this.failureCache.size,
       oldestResponseAge: responseAges.length > 0 ? Math.max(...responseAges) : 0,
       newestResponseAge: responseAges.length > 0 ? Math.min(...responseAges) : 0,
+      cacheBytes: this.cacheBytes,
+      maxCacheBytes: FallbackResolver.MAX_CACHE_BYTES,
     };
   }
 }

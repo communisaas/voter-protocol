@@ -12,3 +12,11 @@ export type {
   SnapshotDiff,
   SnapshotListEntry,
 } from './types.js';
+
+export {
+  SerializedSnapshotSchema,
+  SnapshotMetadataSchema,
+  ProofTemplateSchema,
+  ProofTemplateStoreSchema,
+  IPFSSnapshotSchema,
+} from './snapshot-schema.js';

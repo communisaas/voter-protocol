@@ -13,6 +13,7 @@ import type {
   GlobalPublishResult,
   Region,
 } from './types.js';
+import { isValidCID } from './types.js';
 import { UpdateCoordinator } from './update-coordinator.js';
 import { AvailabilityMonitor } from './availability-monitor.js';
 import { FallbackResolver } from './fallback-resolver.js';
@@ -27,6 +28,7 @@ import {
   DEFAULT_ROLLOUT,
 } from './global-ipfs-strategy.js';
 import { logger } from '../core/utils/logger.js';
+import { IPFSSnapshotSchema } from './snapshots/snapshot-schema.js';
 
 /**
  * Global distribution extension for ShadowAtlasService
@@ -152,6 +154,12 @@ export class ShadowAtlasGlobalExtension {
         ? rootCid.slice(7)
         : rootCid;
 
+      // R20-M2+R47-F3: Validate CID format via shared utility
+      if (!isValidCID(cleanCid)) {
+        logger.error('Invalid CID format', { cid: cleanCid });
+        return null;
+      }
+
       // Try gateways in priority order
       const gateways = [
         'https://w3s.link',
@@ -160,17 +168,8 @@ export class ShadowAtlasGlobalExtension {
         'https://cloudflare-ipfs.com',
       ];
 
-      let snapshotData: {
-        merkleRoot: string;
-        leaves: readonly string[];
-        districts: readonly import('../core/types.js').NormalizedDistrict[];
-        metadata?: {
-          id: string;
-          boundaryCount: number;
-          createdAt: string;
-          regions: readonly string[];
-        };
-      } | null = null;
+      // R31: Raw JSON — validated by IPFSSnapshotSchema after the gateway loop
+      let snapshotData: unknown = null;
 
       for (const gateway of gateways) {
         try {
@@ -178,8 +177,10 @@ export class ShadowAtlasGlobalExtension {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
+          // Block redirects to prevent SSRF via compromised gateway.
           const response = await fetch(url, {
             signal: controller.signal,
+            redirect: 'error',
             headers: { Accept: 'application/json' },
           });
 
@@ -193,7 +194,53 @@ export class ShadowAtlasGlobalExtension {
             continue;
           }
 
-          snapshotData = await response.json();
+          // R20-H4: Stream body with size limit to prevent memory exhaustion
+          // from malicious gateways. 50MB is generous for snapshot JSON.
+          const MAX_SNAPSHOT_BYTES = 50 * 1024 * 1024;
+          const contentLength = response.headers.get('content-length');
+          if (contentLength) {
+            const declared = parseInt(contentLength, 10);
+            if (!isNaN(declared) && declared > MAX_SNAPSHOT_BYTES) {
+              logger.warn('Snapshot too large', { gateway, bytes: declared });
+              continue;
+            }
+          }
+
+          // R59-H3: Removed Content-Length requirement (was R50-S3). IPFS gateways
+          // commonly use Transfer-Encoding: chunked without Content-Length.
+
+          // R76-D1: Stream body with incremental size check to prevent OOM.
+          // Previous code called response.text() which buffers the entire body
+          // before checking length — a chunked response without Content-Length
+          // could exhaust memory before the check fires.
+          const reader = response.body?.getReader();
+          if (!reader) {
+            logger.warn('Gateway response has no readable body', { gateway });
+            continue;
+          }
+          const chunks: Uint8Array[] = [];
+          let totalBytes = 0;
+          let exceededLimit = false;
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            totalBytes += value.byteLength;
+            if (totalBytes > MAX_SNAPSHOT_BYTES) {
+              exceededLimit = true;
+              reader.cancel();
+              break;
+            }
+            chunks.push(value);
+          }
+          if (exceededLimit) {
+            logger.warn('Snapshot body exceeded size limit during streaming', { gateway, bytes: totalBytes });
+            continue;
+          }
+          const body = new TextDecoder().decode(
+            chunks.length === 1 ? chunks[0] : Buffer.concat(chunks)
+          );
+          snapshotData = JSON.parse(body);
           logger.info('Successfully loaded snapshot from gateway', { gateway });
           break;
         } catch (error) {
@@ -213,24 +260,35 @@ export class ShadowAtlasGlobalExtension {
         return null;
       }
 
-      // Reconstruct merkle tree from snapshot data
+      // R31: Zod schema validation replaces manual field-by-field checks (was R63-H1).
+      const parseResult = IPFSSnapshotSchema.safeParse(snapshotData);
+      if (!parseResult.success) {
+        logger.warn('Gateway returned snapshot with invalid structure', {
+          errors: parseResult.error.issues.map(i => i.message),
+        });
+        return null;
+      }
+      const validatedSnapshot = parseResult.data;
+
+      // Reconstruct merkle tree from validated snapshot data
+      // districts may be absent (R18 removed from serializer — only leaves + root needed for verification)
       const merkleTree: import('../core/types.js').MerkleTree = {
-        root: snapshotData.merkleRoot,
-        leaves: [...snapshotData.leaves],
+        root: validatedSnapshot.merkleRoot,
+        leaves: [...validatedSnapshot.leaves],
         tree: [], // Full tree not needed for most operations
-        districts: [...snapshotData.districts],
+        districts: Array.isArray(validatedSnapshot.districts) ? [...(validatedSnapshot.districts as import('../core/types.js').NormalizedDistrict[])] : [],
       };
 
       // Reconstruct metadata
       const metadata: import('../core/types.js').SnapshotMetadata = {
-        id: snapshotData.metadata?.id ?? cleanCid,
-        merkleRoot: snapshotData.merkleRoot,
+        id: validatedSnapshot.metadata?.id ?? cleanCid,
+        merkleRoot: validatedSnapshot.merkleRoot,
         ipfsCID: cleanCid,
-        boundaryCount: snapshotData.metadata?.boundaryCount ?? snapshotData.districts.length,
-        createdAt: snapshotData.metadata?.createdAt
-          ? new Date(snapshotData.metadata.createdAt)
+        boundaryCount: validatedSnapshot.metadata?.boundaryCount ?? (Array.isArray(validatedSnapshot.districts) ? validatedSnapshot.districts.length : validatedSnapshot.leaves.length),
+        createdAt: validatedSnapshot.metadata?.createdAt
+          ? new Date(validatedSnapshot.metadata.createdAt)
           : new Date(),
-        regions: snapshotData.metadata?.regions ?? [],
+        regions: validatedSnapshot.metadata?.regions ?? [],
       };
 
       logger.info('Loaded merkle tree from IPFS', {

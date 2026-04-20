@@ -43,26 +43,26 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'americas-east',
     gateways: [
-      'https://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.ipfs.storacha.link/',
+      'https://w3s.link/ipfs/',
       'https://cloudflare-ipfs.com/ipfs/',
       'https://ipfs.io/ipfs/',
     ],
     pinningServices: ['storacha', 'pinata'],
     priority: 0,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc', // IPFS logo
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc', // IPFS logo
   },
 
   // Americas - West Coast (Primary for US West, APAC overflow)
   {
     region: 'americas-west',
     gateways: [
-      'https://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.ipfs.storacha.link/',
+      'https://w3s.link/ipfs/',
       'https://dweb.link/ipfs/',
       'https://ipfs.io/ipfs/',
     ],
     pinningServices: ['storacha', 'fleek'],
     priority: 0,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
 
   // Europe - Western Europe (Primary for EU, UK, Africa)
@@ -75,7 +75,7 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
     ],
     pinningServices: ['pinata', 'web3storage'],
     priority: 0,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
 
   // Asia-Pacific - East Asia (Primary for China, Japan, Korea)
@@ -88,7 +88,7 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
     ],
     pinningServices: ['fleek', 'web3storage'],
     priority: 0,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
 
   // Asia-Pacific - Southeast Asia (Primary for Singapore, Indonesia, Thailand)
@@ -101,7 +101,7 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
     ],
     pinningServices: ['fleek', 'storacha'],
     priority: 1,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
 
   // Oceania - Australia/New Zealand
@@ -114,7 +114,7 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
     ],
     pinningServices: ['fleek', 'storacha'],
     priority: 1,
-    healthCheckUrl: 'https://ipfs.io/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
+    healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
 ] as const;
 
@@ -172,7 +172,9 @@ export const DEFAULT_PINNING_SERVICES: readonly PinningServiceConfig[] = [
  * Staged rollout strategy:
  * 1. Phase 1 (Americas): Deploy to primary US users first
  * 2. Phase 2 (Europe): Deploy to EU/UK users after validation
- * 3. Phase 3 (Asia-Pacific): Deploy globally after full validation
+ *
+ * Only initialized regions are included. Asia-Pacific/Oceania regions
+ * have no services configured and are excluded until provisioned.
  *
  * Each phase includes verification before proceeding to next phase.
  */
@@ -189,12 +191,6 @@ export const DEFAULT_ROLLOUT: RolloutConfig = {
       phase: 2,
       regions: ['europe-west'],
       delayMs: 300_000, // 5 minutes after Phase 1
-      verifyReplication: true,
-    },
-    {
-      phase: 3,
-      regions: ['asia-east', 'asia-southeast', 'oceania'],
-      delayMs: 600_000, // 10 minutes after Phase 1
       verifyReplication: true,
     },
   ],

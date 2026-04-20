@@ -20,6 +20,7 @@ import type {
   ReplicationStatus,
   DistributionError,
 } from './types.js';
+import { isValidCID } from './types.js';
 import type { RegionConfig } from './global-ipfs-strategy.js';
 import { logger } from '../core/utils/logger.js';
 
@@ -76,7 +77,7 @@ export class AvailabilityMonitor {
           region: region.region,
           available: true,
           latencyMs: 0,
-          successRate: 1.0,
+          successRate: 0.5,
           lastChecked: new Date(),
           consecutiveFailures: 0,
         });
@@ -132,7 +133,7 @@ export class AvailabilityMonitor {
 
     const healthCheckPromises = this.regions.flatMap(region =>
       region.gateways.map((gateway: string) =>
-        this.checkGatewayHealth(gateway, region.region, region.healthCheckUrl)
+        this.checkGatewayHealth(gateway, region.region, region.healthCheckCID)
       )
     );
 
@@ -161,6 +162,12 @@ export class AvailabilityMonitor {
     const startTime = Date.now();
 
     try {
+      // R47-F3: CID format validation before URL construction (SSRF prevention)
+      if (!isValidCID(testCID)) {
+        logger.warn('AvailabilityMonitor: invalid testCID format', { testCID: testCID.slice(0, 20) });
+        return;
+      }
+
       // Construct test URL (use IPFS logo as test content)
       const testUrl = `${gatewayUrl}${testCID}`;
 
@@ -181,17 +188,17 @@ export class AvailabilityMonitor {
       // Update gateway health
       const currentHealth = this.gatewayHealth.get(gatewayUrl);
       if (currentHealth) {
-        const successCount = available
-          ? (currentHealth.successRate * 100 + 1)
-          : currentHealth.successRate * 100;
-        const totalCount = 101; // Simple rolling average over last 100 checks
+        const alpha = 0.05; // 5% weight per new observation
+        const newSuccessRate = available
+          ? alpha + (1 - alpha) * currentHealth.successRate
+          : (1 - alpha) * currentHealth.successRate;
 
         this.gatewayHealth.set(gatewayUrl, {
           url: gatewayUrl,
           region,
           available,
           latencyMs,
-          successRate: successCount / totalCount,
+          successRate: newSuccessRate,
           lastChecked: new Date(),
           consecutiveFailures: available ? 0 : currentHealth.consecutiveFailures + 1,
         });
@@ -212,7 +219,7 @@ export class AvailabilityMonitor {
           region,
           available: false,
           latencyMs,
-          successRate: currentHealth.successRate * 0.99, // Decay success rate
+          successRate: (1 - 0.05) * currentHealth.successRate, // EWMA decay (alpha=0.05)
           lastChecked: new Date(),
           consecutiveFailures: currentHealth.consecutiveFailures + 1,
         });
@@ -305,7 +312,7 @@ export class AvailabilityMonitor {
     // Calculate availability
     const overallAvailability = totalRequests > 0
       ? successfulRequests / totalRequests
-      : 1.0;
+      : NaN;
 
     // Calculate regional availability
     const regionalAvailability = new Map<Region, number>();
@@ -359,6 +366,23 @@ export class AvailabilityMonitor {
     cid: string,
     replicationFactor: number
   ): Promise<ReplicationStatus> {
+    // R47-F3: CID format validation before URL construction (SSRF prevention)
+    if (!isValidCID(cid)) {
+      logger.warn('AvailabilityMonitor: invalid CID format in checkReplicationStatus', { cid: cid.slice(0, 20) });
+      // R49-C2: Return a valid ReplicationStatus (was returning wrong shape)
+      return {
+        cid,
+        totalReplicas: 0,
+        healthyReplicas: 0,
+        degradedReplicas: 0,
+        failedReplicas: 0,
+        replicationFactor,
+        meetsTarget: false,
+        regions: new Map(),
+        checkedAt: new Date(),
+      };
+    }
+
     // Check all gateways for CID availability
     const checkPromises = Array.from(this.gatewayHealth.keys()).map(
       async gateway => {
@@ -415,7 +439,13 @@ export class AvailabilityMonitor {
    */
   private getPercentile(sortedArray: readonly number[], percentile: number): number {
     if (sortedArray.length === 0) return 0;
-    const index = Math.floor(sortedArray.length * percentile);
+    // R76-D2: Use nearest-rank method and clamp index to valid range.
+    // Previous code used Math.floor(length * percentile) which returns OOB index
+    // for percentile=1.0 (e.g., floor(100*1.0)=100, but max valid index is 99).
+    const index = Math.min(
+      Math.floor(sortedArray.length * percentile),
+      sortedArray.length - 1
+    );
     return sortedArray[index] ?? 0;
   }
 
@@ -426,14 +456,19 @@ export class AvailabilityMonitor {
     readonly meetsSLA: boolean;
     readonly currentAvailability: number;
     readonly targetAvailability: number;
+    readonly insufficientData: boolean;
   } {
     const metrics = this.getGlobalMetrics(periodHours);
-    const meetsSLA = metrics.overallAvailability >= targetAvailability;
+    // NaN means zero traffic in the period — can't determine SLA compliance.
+    // Don't report SLA failure when there's simply no data yet (bootstrap).
+    const insufficientData = isNaN(metrics.overallAvailability);
+    const meetsSLA = insufficientData ? true : metrics.overallAvailability >= targetAvailability;
 
     return {
       meetsSLA,
       currentAvailability: metrics.overallAvailability,
       targetAvailability,
+      insufficientData,
     };
   }
 }

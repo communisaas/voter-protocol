@@ -21,6 +21,7 @@ import { randomUUID, createHash } from 'crypto';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicWriteJSON } from '../../core/utils/atomic-write.js';
+import { logger } from '../../core/utils/logger.js';
 import type { SqlitePersistenceAdapter } from '../../persistence/sqlite-adapter.js';
 import type { AtlasBuildResult } from '../../core/types/atlas.js';
 import type {
@@ -31,6 +32,10 @@ import type {
   ProofTemplate,
   ProofTemplateStore,
 } from './types.js';
+import {
+  SerializedSnapshotSchema,
+  ProofTemplateStoreSchema,
+} from './snapshot-schema.js';
 
 /**
  * Snapshot Manager
@@ -446,24 +451,38 @@ export class SnapshotManager {
             ipfsCid: snapshot.ipfsCid,
             totalBoundaries,
           });
-        } catch {
-          // Skip invalid files
+        } catch (err) {
+          // R38-M4: Log corrupted/unreadable snapshot files instead of silent skip
+          logger.warn('snapshot-manager: failed to read snapshot file', { file, err });
           continue;
         }
       }
 
       return entries;
-    } catch {
+    } catch (err) {
+      // R38-M4: Log directory access errors instead of silent empty return
+      logger.warn('snapshot-manager: failed to list snapshots directory', { snapshotsDir, err });
       return [];
     }
   }
 
   private async loadSnapshotFromFileById(id: string): Promise<Snapshot | null> {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) {
+      // Invalid format can't match any snapshot file — return null
+      // (callers like setIpfsCid throw their own "not found" error)
+      return null;
+    }
     const snapshotsDir = join(this.storageDir, 'snapshots');
 
     try {
       const files = await readdir(snapshotsDir);
-      const matchingFile = files.find(f => f.includes(id) && f.endsWith('.json'));
+      // R24-DIST-H1: Exact ID match — prevent substring collisions
+      const matchingFile = files.find(f => {
+        if (!f.endsWith('.json')) return false;
+        // Match exact ID segment: the ID appears after the last dash before .json
+        const withoutExt = f.replace('.json', '');
+        return withoutExt.endsWith(`-${id}`) || withoutExt.includes(`-${id}-`);
+      });
 
       if (!matchingFile) {
         return null;
@@ -506,6 +525,9 @@ export class SnapshotManager {
     merkleRoot: bigint,
     treeDepth: number
   ): Promise<void> {
+    if (!/^[a-f0-9-]{36}$/i.test(snapshotId)) {
+      throw new Error(`Invalid snapshot ID format: ${snapshotId}`);
+    }
     const proofsDir = join(this.storageDir, 'proofs');
     await mkdir(proofsDir, { recursive: true });
 
@@ -554,12 +576,17 @@ export class SnapshotManager {
    * @returns ProofTemplateStore or null if not found
    */
   async getProofTemplateStore(snapshotId: string): Promise<ProofTemplateStore | null> {
+    if (!/^[a-f0-9-]{36}$/i.test(snapshotId)) {
+      throw new Error(`Invalid snapshot ID format: ${snapshotId}`);
+    }
     const proofsDir = join(this.storageDir, 'proofs');
     const filePath = join(proofsDir, `proofs-${snapshotId}.json`);
 
     try {
       const content = await readFile(filePath, 'utf-8');
-      return JSON.parse(content) as ProofTemplateStore;
+      // R31: Zod validation replaces bare `as ProofTemplateStore` cast.
+      // Cast is safe — Zod has validated all fields match ProofTemplateStore.
+      return ProofTemplateStoreSchema.parse(JSON.parse(content)) as ProofTemplateStore;
     } catch {
       return null;
     }
@@ -581,6 +608,13 @@ export class SnapshotManager {
   // ============================================================================
 
   private serializeSnapshot(snapshot: Snapshot): Record<string, unknown> {
+    // R69-ARC-F8: Validate merkleRoot before serialization — symmetric with deserialize check.
+    // Catches out-of-field roots before they propagate to IPFS/Cloudflare.
+    const BN254_FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+    if (snapshot.merkleRoot < 0n || snapshot.merkleRoot >= BN254_FIELD_MODULUS) {
+      throw new Error(`Cannot serialize snapshot: merkleRoot out of BN254 range: ${snapshot.merkleRoot}`);
+    }
+
     return {
       id: snapshot.id,
       version: snapshot.version,
@@ -593,14 +627,21 @@ export class SnapshotManager {
   }
 
   private deserializeSnapshot(data: Record<string, unknown>): Snapshot {
+    // R31: Zod schema validation replaces manual field-by-field checks.
+    // SerializedSnapshotSchema validates id, version, merkleRoot (BN254 range),
+    // timestamp (ISO 8601), layerCounts, and metadata structure in one pass.
+    const parsed = SerializedSnapshotSchema.parse(data);
+
     return {
-      id: data.id as string,
-      version: data.version as number,
-      merkleRoot: BigInt(data.merkleRoot as string),
-      timestamp: new Date(data.timestamp as string),
-      ipfsCid: data.ipfsCid as string | undefined,
-      layerCounts: data.layerCounts as Record<string, number>,
-      metadata: data.metadata as SnapshotMetadata,
+      id: parsed.id as string,
+      version: parsed.version as number,
+      merkleRoot: BigInt(parsed.merkleRoot as string),
+      timestamp: new Date(parsed.timestamp as string),
+      ipfsCid: parsed.ipfsCid as string | undefined,
+      layerCounts: parsed.layerCounts as Record<string, number>,
+      // Cast is safe — SnapshotMetadataSchema has validated all fields.
+      metadata: parsed.metadata as SnapshotMetadata,
     };
   }
+
 }
