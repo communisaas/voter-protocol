@@ -261,7 +261,7 @@ describe('EventSubscriptionService - Webhook Delivery', () => {
     );
   });
 
-  it('should include webhook secret in headers', async () => {
+  it('should include HMAC webhook signature in headers', async () => {
     (global.fetch as any).mockResolvedValueOnce({ ok: true, status: 200 });
 
     const secret = 'my-secret';
@@ -276,11 +276,12 @@ describe('EventSubscriptionService - Webhook Delivery', () => {
 
     await service['emitEvent'](event);
 
+    // R77-P1: Verify HMAC signature header (not plaintext secret)
     expect(global.fetch).toHaveBeenCalledWith(
       mockWebhookServer,
       expect.objectContaining({
         headers: expect.objectContaining({
-          'X-Webhook-Secret': secret,
+          'X-Webhook-Signature': expect.stringMatching(/^[0-9a-f]{64}$/),
         }),
       })
     );

@@ -81,6 +81,8 @@ export class BatchOptimizer {
   private readonly lookupFn: LookupFunction;
 
   // Deduplication cache (coordinate -> result)
+  // Bounded cache with LRU eviction to prevent OOM under varied-coordinate spam.
+  private static readonly MAX_DEDUP_CACHE_SIZE = 100_000;
   private readonly dedupeCache: Map<string, BatchLookupResult>;
 
   // Metrics
@@ -301,6 +303,13 @@ export class BatchOptimizer {
         // Cache for deduplication
         if (this.config.enableDeduplication) {
           const coordKey = this.getCoordKey(request.lat, request.lon);
+          // Evict oldest entry when cache exceeds bound to prevent OOM.
+          if (this.dedupeCache.size >= BatchOptimizer.MAX_DEDUP_CACHE_SIZE) {
+            const oldestKey = this.dedupeCache.keys().next().value;
+            if (oldestKey !== undefined) {
+              this.dedupeCache.delete(oldestKey);
+            }
+          }
           this.dedupeCache.set(coordKey, batchResult);
         }
 

@@ -2,13 +2,13 @@
  * DB Writer for Unified Country Hydration Pipeline
  *
  * Writes OfficialRecord[] to the correct country-specific SQLite table,
- * using the same upsert (INSERT ... ON CONFLICT ... DO UPDATE) pattern
+ * using the same upsert (INSERT... ON CONFLICT... DO UPDATE) pattern
  * as the legacy per-country ingest scripts.
  *
  * Tables: federal_members (US), canada_mps, uk_mps, au_mps, nz_mps.
  *
  * @see hydrate-country.ts — the CLI that calls writeOfficials()
- * @see ../db/officials-schema.sql — canonical DDL
+ * @see../db/officials-schema.sql — canonical DDL
  */
 
 import Database from 'better-sqlite3';
@@ -53,28 +53,62 @@ export function writeOfficials(
   const startTime = Date.now();
 
   const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.exec(OFFICIALS_SCHEMA_DDL);
+  // R55-C2: Wrap in try-finally to ensure db.close() on writer() exceptions
+  try {
+    db.pragma('journal_mode = WAL');
+    // R74-H5: Prevent SQLITE_BUSY crashes when concurrent hydration processes overlap
+    db.pragma('busy_timeout = 5000');
+    db.exec(OFFICIALS_SCHEMA_DDL);
 
-  const writer = getCountryWriter(country);
-  if (!writer) {
+    const writer = getCountryWriter(country);
+    if (!writer) {
+      throw new Error(`No DB writer for country "${country}". Supported: US, CA, GB, AU, NZ`);
+    }
+
+    const { inserted, updated } = writer(db, officials);
+    const durationMs = Date.now() - startTime;
+
+    // Log to ingestion_log (with optional source vintage)
+    const sourceName = COUNTRY_SOURCE_NAME[country] ?? `${country.toLowerCase()}-officials`;
+    db.prepare(`
+      INSERT INTO ingestion_log (source, status, records_upserted, records_deleted, duration_ms, source_vintage)
+      VALUES (?, 'success', ?, 0, ?, ?)
+    `).run(sourceName, inserted + updated, durationMs, options?.sourceVintage ?? null);
+
+    return { inserted, updated, country };
+  } finally {
     db.close();
-    throw new Error(`No DB writer for country "${country}". Supported: US, CA, GB, AU, NZ`);
   }
+}
 
-  const { inserted, updated } = writer(db, officials);
-  const durationMs = Date.now() - startTime;
-
-  // Log to ingestion_log (with optional source vintage)
-  const sourceName = COUNTRY_SOURCE_NAME[country] ?? `${country.toLowerCase()}-officials`;
-  db.prepare(`
-    INSERT INTO ingestion_log (source, status, records_upserted, records_deleted, duration_ms, source_vintage)
-    VALUES (?, 'success', ?, 0, ?, ?)
-  `).run(sourceName, inserted + updated, durationMs, options?.sourceVintage ?? null);
-
-  db.close();
-
-  return { inserted, updated, country };
+/**
+ * R48-F2: Log a failed ingestion run so freshness-monitor can detect consecutive failures.
+ * Called from hydrate-country.ts catch block.
+ */
+export function logIngestionFailure(
+  dbPath: string,
+  country: string,
+  errorMessage: string,
+): void {
+  // R69-M2: Use try-finally to guarantee db.close() even if prepare/run throws.
+  let db: ReturnType<typeof Database> | undefined;
+  try {
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    // R74-H5: Prevent SQLITE_BUSY crashes when concurrent hydration processes overlap
+    db.pragma('busy_timeout = 5000');
+    db.exec(OFFICIALS_SCHEMA_DDL);
+    const sourceName = COUNTRY_SOURCE_NAME[country] ?? `${country.toLowerCase()}-officials`;
+    // Don't store error message in source_vintage — it corrupts freshness monitor Date parsing
+    db.prepare(`
+      INSERT INTO ingestion_log (source, status, records_upserted, records_deleted, duration_ms, source_vintage)
+      VALUES (?, 'failure', 0, 0, 0, NULL)
+    `).run(sourceName);
+  } catch {
+    // Best-effort — don't throw from failure logging
+  } finally {
+    db?.close();
+  }
 }
 
 // ============================================================================
@@ -166,8 +200,9 @@ function writeCanadaMPs(
         parliament_id: o.parliamentId,
         name: o.name,
         name_fr: o.nameFr ?? null,
-        first_name: o.firstName ?? null,
-        last_name: o.lastName ?? null,
+        // Guard NOT NULL constraint — default to empty string if undefined.
+        first_name: o.firstName ?? '',
+        last_name: o.lastName ?? '',
         party: o.party,
         party_fr: null, // Not available in OfficialRecord
         riding_code: o.ridingCode,

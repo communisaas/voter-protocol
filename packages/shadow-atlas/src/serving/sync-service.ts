@@ -25,6 +25,7 @@ import { join, dirname } from 'path';
 import type { IPinningService } from '../distribution/regional-pinning-service.js';
 import type { InsertionLog } from './insertion-log.js';
 import { logger } from '../core/utils/logger.js';
+import { fetchBufferWithSizeLimit } from '../hydration/fetch-with-size-limit.js';
 import { CID } from 'multiformats/cid';
 import * as raw from 'multiformats/codecs/raw';
 import { sha256 } from 'multiformats/hashes/sha2';
@@ -33,9 +34,15 @@ import { sha256 } from 'multiformats/hashes/sha2';
 // Types
 // ============================================================================
 
+/** Per-service CID record for consensus tracking (R52-A1) */
+export interface ServiceCidRecord {
+  readonly service: string;
+  readonly cid: string;
+}
+
 /** Pinned log metadata — stored locally for recovery */
 export interface PinnedLogMetadata {
-  /** IPFS CID of the uploaded log */
+  /** IPFS CID of the uploaded log (majority-vote primary CID — R52-A1) */
   readonly cid: string;
   /** Number of entries at time of upload */
   readonly entryCount: number;
@@ -43,6 +50,8 @@ export interface PinnedLogMetadata {
   readonly uploadedAt: number;
   /** Which service(s) successfully pinned */
   readonly services: readonly string[];
+  /** Per-service CIDs for divergence detection (R52-A1) */
+  readonly serviceCids?: readonly ServiceCidRecord[];
 }
 
 /** SyncService configuration */
@@ -77,6 +86,28 @@ async function computeCidV1(content: Buffer): Promise<string> {
   return cid.toString();
 }
 
+/**
+ * R52-A1: Select the most common CID from per-service results (majority vote).
+ * If there's a tie, the first CID encountered with the highest count wins.
+ * With only 1 service, returns that service's CID (no consensus possible).
+ */
+function selectMajorityCid(serviceCids: readonly ServiceCidRecord[]): string {
+  const counts = new Map<string, number>();
+  for (const { cid } of serviceCids) {
+    counts.set(cid, (counts.get(cid) ?? 0) + 1);
+  }
+
+  let bestCid = serviceCids[0].cid;
+  let bestCount = 0;
+  for (const [cid, count] of counts) {
+    if (count > bestCount) {
+      bestCid = cid;
+      bestCount = count;
+    }
+  }
+  return bestCid;
+}
+
 export class SyncService {
   private readonly dataDir: string;
   private readonly uploadInterval: number;
@@ -84,6 +115,7 @@ export class SyncService {
   private readonly pinningServices: readonly IPinningService[];
   private readonly metadataPath: string;
   private insertionsSinceLastUpload = 0;
+  private uploading = false;
   private latestMetadata: PinnedLogMetadata | null = null;
 
   constructor(config: SyncServiceConfig) {
@@ -120,11 +152,11 @@ export class SyncService {
   notifyInsertion(log: InsertionLog): void {
     this.insertionsSinceLastUpload++;
 
-    if (this.insertionsSinceLastUpload >= this.uploadInterval) {
-      // Don't reset counter until upload succeeds (HIGH-003 fix).
-      // Prevents unbounded data-loss window when uploads fail repeatedly.
+    if (this.insertionsSinceLastUpload >= this.uploadInterval && !this.uploading) {
+      this.uploading = true;
       this.uploadLog(log).then(
         (metadata) => {
+          this.uploading = false;
           if (metadata) {
             this.insertionsSinceLastUpload = 0;
           } else {
@@ -132,6 +164,7 @@ export class SyncService {
           }
         },
         (error) => {
+          this.uploading = false;
           logger.error('SyncService: background upload failed', {
             error: error instanceof Error ? error.message : String(error),
           });
@@ -143,8 +176,10 @@ export class SyncService {
   /**
    * Upload the insertion log to all configured pinning services.
    *
-   * Returns the CID from the first successful upload.
-   * Persists the metadata locally for recovery.
+   * R52-A1: Collects CIDs from ALL successful services, checks for consensus,
+   * logs a WARNING on divergence, and uses the majority-vote CID as primary.
+   *
+   * Persists per-service CIDs in metadata for auditability.
    */
   async uploadLog(log: InsertionLog): Promise<PinnedLogMetadata | null> {
     if (this.pinningServices.length === 0) {
@@ -157,7 +192,8 @@ export class SyncService {
     const name = `insertion-log-${log.count}.ndjson`;
 
     const successfulServices: string[] = [];
-    let cid = '';
+    // R52-A1: Collect ALL per-service CIDs, not just the first
+    const serviceCids: ServiceCidRecord[] = [];
 
     // Upload to all services in parallel
     const results = await Promise.allSettled(
@@ -173,7 +209,7 @@ export class SyncService {
     for (const result of results) {
       if (result.status === 'fulfilled') {
         successfulServices.push(result.value.service);
-        if (!cid) cid = result.value.cid;
+        serviceCids.push({ service: result.value.service, cid: result.value.cid });
       } else {
         logger.warn('SyncService: pin failed on one service', {
           error: result.reason instanceof Error ? result.reason.message : String(result.reason),
@@ -181,9 +217,24 @@ export class SyncService {
       }
     }
 
-    if (!cid) {
+    if (serviceCids.length === 0) {
       logger.error('SyncService: all pinning services failed');
       return null;
+    }
+
+    // R52-A1: Determine primary CID via majority vote (consensus check)
+    const cid = selectMajorityCid(serviceCids);
+
+    // R52-A1: Warn on CID divergence across services
+    if (serviceCids.length > 1) {
+      const uniqueCids = new Set(serviceCids.map(sc => sc.cid));
+      if (uniqueCids.size > 1) {
+        logger.warn('SyncService: CID DIVERGENCE detected across pinning services (R52-A1)', {
+          serviceCids,
+          primaryCid: cid,
+          uniqueCidCount: uniqueCids.size,
+        });
+      }
     }
 
     const metadata: PinnedLogMetadata = {
@@ -191,6 +242,7 @@ export class SyncService {
       entryCount: log.count,
       uploadedAt: Date.now(),
       services: successfulServices,
+      serviceCids, // R52-A1: per-service CIDs for auditability
     };
 
     // Persist metadata locally
@@ -230,15 +282,10 @@ export class SyncService {
     });
 
     try {
-      const response = await fetch(url, {
+      // R52-S1: Use size-limited fetch to prevent OOM from oversized IPFS responses
+      const buffer = await fetchBufferWithSizeLimit(url, undefined, {
         signal: AbortSignal.timeout(30000),
       });
-
-      if (!response.ok) {
-        throw new Error(`IPFS gateway returned ${response.status}`);
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
 
       // BR7-014: Verify content integrity — CID must match expected
       try {
@@ -263,11 +310,12 @@ export class SyncService {
             if (parseError instanceof Error && parseError.message.includes('CID mismatch')) {
               throw parseError;
             }
-            logger.warn('SyncService: CID format comparison failed, proceeding with content', {
-              computedCid,
-              expectedCid,
-              error: parseError instanceof Error ? parseError.message : String(parseError),
-            });
+            // R55-A1: Reject on CID parse failure — don't proceed with unverifiable content
+            throw new Error(
+              `CID verification failed: unable to parse CIDs for comparison. ` +
+              `computed=${computedCid}, expected=${expectedCid}, ` +
+              `parseError=${parseError instanceof Error ? parseError.message : String(parseError)}`
+            );
           }
         }
         
@@ -278,11 +326,12 @@ export class SyncService {
         if (cidError instanceof Error && cidError.message.includes('CID mismatch')) {
           throw cidError;  // Re-throw CID mismatch — don't write tampered content
         }
-        // For other CID computation errors (e.g., missing codec), warn but proceed
-        // The content was fetched from the expected CID URL, so gateway is likely honest
-        logger.warn('SyncService: CID verification skipped (computation error)', {
+        // Fail-closed on CID computation errors — do not trust unverified content.
+        // Previously warned and proceeded; now rejects to maintain zero-trust guarantee.
+        logger.error('SyncService: CID verification failed (computation error), rejecting content', {
           error: cidError instanceof Error ? cidError.message : String(cidError),
         });
+        throw new Error(`CID verification failed: ${cidError instanceof Error ? cidError.message : String(cidError)}`);
       }
 
       // Verify the recovered log has content
@@ -291,9 +340,11 @@ export class SyncService {
         throw new Error('Recovered log is empty');
       }
 
-      // Write to local path
+      // R70-H2: Atomic write — tmp+rename prevents corrupt canonical state on crash.
       await fs.mkdir(dirname(localLogPath), { recursive: true });
-      await fs.writeFile(localLogPath, buffer);
+      const tmpPath = `${localLogPath}.recovery.tmp`;
+      await fs.writeFile(tmpPath, buffer);
+      await fs.rename(tmpPath, localLogPath);
 
       logger.info('SyncService: log recovered from IPFS', {
         cid,
@@ -387,7 +438,7 @@ export class SyncService {
   }
 
   /**
-   * Atomic metadata write: write to .tmp then rename (HIGH-001 fix).
+   * Atomic metadata write: write to.tmp then rename (HIGH-001 fix).
    * Prevents metadata corruption if process crashes mid-write.
    */
   private async saveMetadata(metadata: PinnedLogMetadata): Promise<void> {

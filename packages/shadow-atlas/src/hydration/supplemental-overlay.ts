@@ -18,8 +18,9 @@
  * @packageDocumentation
  */
 
-import * as turf from '@turf/turf';
-import type { Polygon, MultiPolygon } from 'geojson';
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon';
+import { point as turfPoint, polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
+import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import type { BlockRecord } from './baf-parser.js';
 import type { CityWardBoundaries, WardBoundary } from './ward-boundary-loader.js';
 import type { TractCentroidIndex } from './tract-centroid-index.js';
@@ -221,7 +222,7 @@ function findContainingWard(
   city: IndexedCity,
 ): string | null {
   const [lon, lat] = point;
-  const turfPoint = turf.point([lon, lat]);
+  const pt = turfPoint([lon, lat]);
 
   for (const ward of city.wards) {
     // Bounding box pre-filter
@@ -230,10 +231,10 @@ function findContainingWard(
 
     // Full PIP test
     const turfGeom = ward.geometry.type === 'Polygon'
-      ? turf.polygon(ward.geometry.coordinates)
-      : turf.multiPolygon(ward.geometry.coordinates);
+      ? turfPolygon(ward.geometry.coordinates)
+      : turfMultiPolygon(ward.geometry.coordinates);
 
-    if (turf.booleanPointInPolygon(turfPoint, turfGeom)) {
+    if (booleanPointInPolygon(pt, turfGeom as Feature<Polygon>)) {
       return ward.wardGeoid;
     }
   }

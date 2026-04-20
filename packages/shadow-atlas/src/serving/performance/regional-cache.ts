@@ -408,8 +408,11 @@ export class RegionalCache {
     let lowestScore = Infinity;
 
     for (const [key, entry] of this.l1Cache) {
-      // Score = priority * 1000 + lastAccessed (higher is better)
-      const score = entry.priority * 1000 + entry.lastAccessed;
+      // R52-C1: Multiplicative scoring so priority has meaningful weight.
+      // priority is 0-3 (enum), lastAccessed is ms-epoch (~1.7e12).
+      // Adding 1 avoids zero-score for LOW priority. A CRITICAL entry
+      // scores 4x higher than a LOW entry at the same access time.
+      const score = (entry.priority + 1) * entry.lastAccessed;
 
       if (score < lowestScore) {
         lowestScore = score;
@@ -680,6 +683,10 @@ export class RegionalCache {
       const { join } = await import('node:path');
       const { readFile } = await import('node:fs/promises');
 
+      // Validate CID format before path construction (path traversal prevention).
+      if (!/^[a-zA-Z0-9]+$/.test(cid)) {
+        return null;
+      }
       const cachePath = join(cacheDir, 'ipfs', `${cid}.json`);
       const cached = await readFile(cachePath, 'utf-8');
       return JSON.parse(cached) as SnapshotData;
@@ -708,6 +715,14 @@ export class RegionalCache {
     const cid = cidOrUrl.startsWith('ipfs://')
       ? cidOrUrl.slice(7) // Remove 'ipfs://' prefix
       : cidOrUrl;
+
+    // Validate CID format before use in URL/path construction.
+    // CIDv0 (Qm...) is base58btc; CIDv1 (bafy...) is base32. Reject anything
+    // with path separators or non-alphanumeric chars to prevent path traversal.
+    if (!/^[a-zA-Z0-9]+$/.test(cid)) {
+      logger.warn('RegionalCache invalid CID format', { cid: cid.substring(0, 50) });
+      return null;
+    }
 
     // Gateway fallback chain (ordered by reliability)
     const gateways = [
@@ -740,7 +755,18 @@ export class RegionalCache {
           continue; // Try next gateway
         }
 
-        const data = await response.json();
+        // Size-limit the response body before parsing.
+        // Prevents OOM from oversized gateway responses (consistent with
+        // fetchBufferWithSizeLimit used in sync-service.ts).
+        const MAX_SNAPSHOT_SIZE = 100 * 1024 * 1024; // 100MB
+        const text = await response.text();
+        if (text.length > MAX_SNAPSHOT_SIZE) {
+          logger.warn('RegionalCache snapshot exceeds size limit', {
+            gateway, cid, size: text.length, limit: MAX_SNAPSHOT_SIZE,
+          });
+          continue;
+        }
+        const data = JSON.parse(text);
         logger.debug('RegionalCache successfully fetched from gateway', {
           cid,
           gateway,
@@ -776,6 +802,11 @@ export class RegionalCache {
       const { mkdir } = await import('node:fs/promises');
       const { atomicWriteJSON } = await import('../../core/utils/atomic-write.js');
 
+      // Validate CID format before path construction (path traversal prevention).
+      if (!/^[a-zA-Z0-9]+$/.test(cid)) {
+        logger.warn('RegionalCache invalid CID format for cache write', { cid: cid.substring(0, 50) });
+        return;
+      }
       const cachePath = join(cacheDir, 'ipfs', `${cid}.json`);
       await mkdir(dirname(cachePath), { recursive: true });
       // Use atomic write to prevent cache corruption on crash
@@ -825,7 +856,7 @@ export class RegionalCache {
       // In production, this would:
       // 1. Serialize district data
       // 2. Compute IPFS CID (SHA-256 hash)
-      // 3. Write to local cache at .cache/ipfs/{cid}
+      // 3. Write to local cache at.cache/ipfs/{cid}
       // 4. Optionally pin to IPFS network
       //
       // const data = JSON.stringify(district);

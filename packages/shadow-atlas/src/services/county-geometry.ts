@@ -56,6 +56,10 @@ interface CacheEntry {
 export class CountyGeometryService {
   private cache: Map<string, CacheEntry> = new Map();
   private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  // R52-C2: Cap cache size to prevent unbounded memory growth.
+  // 10 000 entries is well beyond typical usage (~3200 US counties)
+  // but guards against pathological access patterns.
+  private readonly MAX_CACHE_ENTRIES = 10_000;
   private countyData: FeatureCollection | null = null;
 
   /**
@@ -125,6 +129,7 @@ export class CountyGeometryService {
         result,
         timestamp: Date.now(),
       });
+      this.evictIfOverLimit(); // R52-C2
 
       return result;
     }
@@ -163,6 +168,7 @@ export class CountyGeometryService {
       result,
       timestamp: Date.now(),
     });
+    this.evictIfOverLimit(); // R52-C2
 
     return result;
   }
@@ -239,6 +245,28 @@ export class CountyGeometryService {
     );
   }
 
+
+  /**
+   * R52-C2: Evict the oldest cache entry (by timestamp) when the cache
+   * exceeds MAX_CACHE_ENTRIES, preventing unbounded memory growth.
+   */
+  private evictIfOverLimit(): void {
+    if (this.cache.size <= this.MAX_CACHE_ENTRIES) return;
+
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+
+    for (const [key, entry] of this.cache) {
+      if (entry.timestamp < oldestTime) {
+        oldestTime = entry.timestamp;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+    }
+  }
 
   /**
    * Clear cache (useful for testing)

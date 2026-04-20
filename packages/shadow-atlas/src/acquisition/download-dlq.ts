@@ -142,11 +142,11 @@ export interface PersistFailureOptions {
  *
  * // Persist a failed download
  * const id = await dlq.persistFailure({
- *   url: 'https://www2.census.gov/geo/tiger/TIGER2024/CD/tl_2024_06_cd119.zip',
- *   layer: 'cd',
- *   stateFips: '06',
- *   year: 2024,
- *   error: 'ETIMEDOUT',
+ * url: 'https://www2.census.gov/geo/tiger/TIGER2024/CD/tl_2024_06_cd119.zip',
+ * layer: 'cd',
+ * stateFips: '06',
+ * year: 2024,
+ * error: 'ETIMEDOUT',
  * });
  *
  * // Get retryable downloads
@@ -154,13 +154,13 @@ export interface PersistFailureOptions {
  *
  * // Process retries
  * for (const download of retryable) {
- *   await dlq.markRetrying(download.id);
- *   try {
- *     await retryDownload(download);
- *     await dlq.markResolved(download.id);
- *   } catch (error) {
- *     await dlq.incrementAttempt(download.id, error.message);
- *   }
+ * await dlq.markRetrying(download.id);
+ * try {
+ * await retryDownload(download);
+ * await dlq.markResolved(download.id);
+ * } catch (error) {
+ * await dlq.incrementAttempt(download.id, error.message);
+ * }
  * }
  * ```
  */
@@ -512,7 +512,9 @@ export class DownloadDLQ {
     baseDelayMs: number,
     backoffMultiplier: number
   ): string {
-    const delayMs = baseDelayMs * Math.pow(backoffMultiplier, attemptCount - 1);
+    // Cap backoff at 24 hours to prevent overflow/unreachable retry times
+    const MAX_BACKOFF_MS = 24 * 60 * 60 * 1000; // 24 hours
+    const delayMs = Math.min(baseDelayMs * Math.pow(backoffMultiplier, attemptCount - 1), MAX_BACKOFF_MS);
     const nextRetry = new Date(Date.now() + delayMs);
     return nextRetry.toISOString();
   }

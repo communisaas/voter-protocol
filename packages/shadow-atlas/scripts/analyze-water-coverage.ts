@@ -22,8 +22,11 @@
  *   --coastal-only  Only analyze cities above water threshold
  */
 
-import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import * as turf from '@turf/turf';
+import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
+import { area } from '@turf/area';
+import { rewind } from '@turf/rewind';
+import { union } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
 import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 import { TessellationProofValidator, type TessellationProof } from '../src/validators/council/tessellation-proof.js';
 import { MunicipalBoundaryResolver, type MunicipalBoundary } from '../src/validators/council/municipal-boundary.js';
@@ -141,7 +144,7 @@ async function fetchDistricts(url: string): Promise<FeatureCollection<Polygon | 
 function computeDistrictUnionArea(districts: FeatureCollection<Polygon | MultiPolygon>): number {
   const features = districts.features
     .filter((f) => f && f.geometry && f.geometry.type && f.geometry.coordinates)
-    .map((f) => turf.rewind(f, { reverse: false }) as turf.Feature<Polygon | MultiPolygon>);
+    .map((f) => rewind(f, { reverse: false }) as Feature<Polygon | MultiPolygon>);
 
   if (features.length === 0) {
     return 0;
@@ -150,16 +153,16 @@ function computeDistrictUnionArea(districts: FeatureCollection<Polygon | MultiPo
   let unionResult = features[0];
   for (let i = 1; i < features.length; i++) {
     try {
-      const union = turf.union(turf.featureCollection([unionResult, features[i]]));
-      if (union) {
-        unionResult = union as turf.Feature<Polygon | MultiPolygon>;
+      const u = union(featureCollection([unionResult, features[i]]));
+      if (u) {
+        unionResult = u as Feature<Polygon | MultiPolygon>;
       }
     } catch {
       // Continue with partial union
     }
   }
 
-  return turf.area(unionResult);
+  return area(unionResult);
 }
 
 // =============================================================================

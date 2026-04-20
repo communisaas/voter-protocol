@@ -9,7 +9,7 @@
  * - Counties: https://www2.census.gov/geo/tiger/TIGER2023/COUNTY/
  * - Congressional Districts: https://www2.census.gov/geo/tiger/TIGER2023/CD/
  * - State Legislative: https://www2.census.gov/geo/tiger/TIGER2023/SLDU/ (upper)
- *                      https://www2.census.gov/geo/tiger/TIGER2023/SLDL/ (lower)
+ * https://www2.census.gov/geo/tiger/TIGER2023/SLDL/ (lower)
  *
  * COVERAGE GUARANTEE:
  * - 19,495 incorporated places (cities, towns, villages)
@@ -20,7 +20,7 @@
  * - ~5,400 state house districts
  *
  * FILE FORMAT:
- * TIGER/Line files are shapefiles (.shp + .dbf + .shx + .prj)
+ * TIGER/Line files are shapefiles (.shp +.dbf +.shx +.prj)
  * We convert to GeoJSON for consistency with existing pipeline.
  */
 
@@ -274,11 +274,13 @@ export class CensusTigerLoader implements BoundaryDataSource {
     const url = this.buildTigerwebQueryUrl(config, point);
 
     try {
+      // R76-F2: Add 30s timeout to prevent indefinite hang on stalled TIGERweb layers
       const response = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': this.userAgent,
         },
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -389,6 +391,11 @@ export class CensusTigerLoader implements BoundaryDataSource {
     const config = TIGERWEB_LAYER_CONFIG.places;
     const baseUrl = `${CENSUS_GEOJSON_API}/${config.tigerwebService}/MapServer/${config.tigerwebLayer}/query`;
 
+    // R79-A3: Sanitize FIPS input — must be 2-digit numeric string.
+    // Prevents ArcGIS WHERE clause injection via crafted stateFips values.
+    if (!/^\d{2}$/.test(stateFips)) {
+      return [];
+    }
     const params = new URLSearchParams({
       where: `STATEFP='${stateFips}'`,
       outFields: '*',
@@ -397,11 +404,13 @@ export class CensusTigerLoader implements BoundaryDataSource {
     });
 
     try {
+      // R76-F2: Add 30s timeout to prevent indefinite hang
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
           'User-Agent': this.userAgent,
         },
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -429,6 +438,11 @@ export class CensusTigerLoader implements BoundaryDataSource {
 
     const baseUrl = `${CENSUS_GEOJSON_API}/${config.tigerwebService}/MapServer/${config.tigerwebLayer}/query`;
 
+    // R79-A3: Sanitize GEOID input — must be numeric string (2-15 digits).
+    // Prevents ArcGIS WHERE clause injection via crafted geoid values.
+    if (!/^\d{2,15}$/.test(geoid)) {
+      return null;
+    }
     const params = new URLSearchParams({
       where: `${config.fipsField}='${geoid}'`,
       outFields: '*',
@@ -437,11 +451,13 @@ export class CensusTigerLoader implements BoundaryDataSource {
     });
 
     try {
+      // R76-F2: Add 30s timeout to prevent indefinite hang
       const response = await fetch(`${baseUrl}?${params.toString()}`, {
         headers: {
           Accept: 'application/json',
           'User-Agent': this.userAgent,
         },
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {

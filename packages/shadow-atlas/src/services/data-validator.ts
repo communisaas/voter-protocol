@@ -20,13 +20,13 @@
  * // Validate extraction against registry
  * const result = await validator.validateAgainstRegistry(extraction);
  * if (!result.passed) {
- *   console.error(`${result.mismatchedStates} states have count mismatches`);
+ * console.error(`${result.mismatchedStates} states have count mismatches`);
  * }
  *
  * // Cross-validate with TIGERweb
  * const crossVal = await validator.crossValidateWithTIGER(extraction, {
- *   state: 'WI',
- *   layer: 'congressional'
+ * state: 'WI',
+ * layer: 'congressional'
  * });
  *
  * // Diagnose mismatches
@@ -39,7 +39,9 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { area, kinks, unkinkPolygon } from '@turf/turf';
+import { area } from '@turf/area';
+import kinks from '@turf/kinks';
+import { unkinkPolygon } from '@turf/unkink-polygon';
 import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
 import type { Position } from 'geojson';
 import type {
@@ -495,7 +497,20 @@ export class DataValidator {
     }
 
     const content = await readFile(filepath, 'utf-8');
-    return JSON.parse(content) as StoredValidationResults;
+    // R79-A6: Validate deserialized shape instead of bare JSON.parse + as cast.
+    // Prevents corrupt or tampered validation artifacts from re-entering the pipeline.
+    const parsed: unknown = JSON.parse(content);
+    // R79-A6: Validate deserialized shape instead of bare JSON.parse + as cast.
+    // Prevents corrupt or tampered validation artifacts from re-entering the pipeline.
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('jobId' in parsed) ||
+      !('metadata' in parsed)
+    ) {
+      throw new Error(`Invalid stored validation results for job ${jobId}: missing required fields`);
+    }
+    return parsed as unknown as StoredValidationResults;
   }
 
   /**
@@ -512,10 +527,10 @@ export class DataValidator {
    * @example
    * ```typescript
    * const states = [
-   *   { state: 'WI', stateName: 'Wisconsin', stateFips: '55',
-   *     layers: { congressional: 8, state_senate: 33, state_house: 99 } },
-   *   { state: 'TX', stateName: 'Texas', stateFips: '48',
-   *     layers: { congressional: 38, state_senate: 31, state_house: 150 } },
+   * { state: 'WI', stateName: 'Wisconsin', stateFips: '55',
+   * layers: { congressional: 8, state_senate: 33, state_house: 99 } },
+   * { state: 'TX', stateName: 'Texas', stateFips: '48',
+   * layers: { congressional: 38, state_senate: 31, state_house: 150 } },
    * ];
    *
    * const result = await validator.validateMultiState(states);

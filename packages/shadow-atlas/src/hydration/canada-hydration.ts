@@ -6,13 +6,13 @@
  * plug Canada into the jurisdiction-agnostic tree building pipeline.
  *
  * Data sources:
- *   - Represent API (Open North) — federal electoral district boundaries (338 ridings)
+ *   - Represent API (Open North) — federal electoral district boundaries (343 ridings)
  *   - StatCan geographic attribute file — DA → riding + province mapping
  *
  * Output: CellDistrictMapping[] ready for buildCellMapTree() — same downstream
  * pipeline as the US BAF/BEF hydration.
  *
- * Cell granularity: Federal Electoral District (riding) — 338 cells.
+ * Cell granularity: Federal Electoral District (riding) — 343 cells.
  * Each riding is one cell in Tree 2. Future phases may use finer-grained DAs (~56K).
  *
  * @packageDocumentation
@@ -62,7 +62,7 @@ export interface CanadaHydrationOptions {
 /**
  * Canada hydration pipeline.
  *
- * Fetches 338 federal electoral districts from Represent API and converts
+ * Fetches 343 federal electoral districts from Represent API and converts
  * each riding into a CellDistrictMapping with:
  *   - cellId = encoded riding code (e.g., BigInt("35001") for an Ontario riding)
  *   - districts[0] = riding code (slot 0: federal electoral district)
@@ -99,8 +99,8 @@ export class CanadaHydrationPipeline implements HydrationPipeline {
       ridings = extraction.boundaries;
       logger.info('Fetched ridings', {
         count: ridings.length,
-        expected: 338,
-        matched: ridings.length === 338,
+        expected: 343,
+        matched: ridings.length === 343,
       });
     }
 

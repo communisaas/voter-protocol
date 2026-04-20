@@ -16,7 +16,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
-import * as turf from '@turf/turf';
+import { bbox as turfBbox } from '@turf/bbox';
 import type { Geometry, Polygon, MultiPolygon, BBox } from 'geojson';
 
 import { TIGERBoundaryProvider } from '../providers/tiger-boundary-provider.js';
@@ -95,8 +95,8 @@ const includeSpecialDistricts = args['special-districts'] as boolean;
  * Compute bounding box from GeoJSON geometry.
  */
 function computeBBox(geometry: Geometry): readonly [number, number, number, number] {
-  const bbox = turf.bbox(geometry) as BBox;
-  // turf.bbox returns [minLon, minLat, maxLon, maxLat]
+  const bbox = turfBbox(geometry) as BBox;
+  // turfBbox returns [minLon, minLat, maxLon, maxLat]
   return [bbox[0], bbox[1], bbox[2], bbox[3]] as const;
 }
 

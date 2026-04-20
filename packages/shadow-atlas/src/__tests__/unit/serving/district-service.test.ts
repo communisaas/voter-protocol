@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DistrictLookupService } from '../../../serving/district-service';
 import type { DistrictBoundary } from '../../../serving/types';
 import * as Database from 'better-sqlite3';
-import * as turf from '@turf/turf';
+import * as turfBooleanPIP from '@turf/boolean-point-in-polygon';
 
 // Mock better-sqlite3 - instances tracked globally for test assertions
 const mockDatabaseInstances: Array<{
@@ -44,9 +44,16 @@ vi.mock('better-sqlite3', () => {
   };
 });
 
-// Mock @turf/turf
-vi.mock('@turf/turf', async () => {
-  const actual = await vi.importActual('@turf/turf');
+// Mock @turf/boolean-point-in-polygon
+vi.mock('@turf/boolean-point-in-polygon', async () => {
+  return {
+    booleanPointInPolygon: vi.fn(),
+  };
+});
+
+// Mock @turf/helpers
+vi.mock('@turf/helpers', async () => {
+  const actual = await vi.importActual('@turf/helpers');
   return {
     ...actual,
     point: vi.fn((coords: number[]) => ({
@@ -64,7 +71,6 @@ vi.mock('@turf/turf', async () => {
       geometry: { type: 'MultiPolygon', coordinates: coords },
       properties: {},
     })),
-    booleanPointInPolygon: vi.fn(),
   };
 });
 
@@ -138,7 +144,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       const result = service.lookup(37.75, -122.35);
@@ -193,7 +199,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       // First lookup (cache miss)
@@ -239,7 +245,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       const result = service.lookup(37.75, -122.35);
@@ -343,7 +349,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(false);
 
       const result = service.lookup(37.75, -122.35);
@@ -385,7 +391,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue(mockRows);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       const result = service.lookup(37.75, -122.35);
@@ -414,7 +420,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       // First lookup (cache miss)
@@ -437,7 +443,7 @@ describe('DistrictLookupService', () => {
       const mockPrepare = mockDb2.prepare as ReturnType<typeof vi.fn>;
       const mockAll = mockDb2._mockPrepareResults[0].all;
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       // Mock database responses
@@ -473,7 +479,7 @@ describe('DistrictLookupService', () => {
       const mockPrepare = mockDb2.prepare as ReturnType<typeof vi.fn>;
       const mockAll = mockDb2._mockPrepareResults[0].all;
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       mockAll.mockReturnValue([
@@ -518,7 +524,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       // First lookup (cache miss)
@@ -572,7 +578,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       // 1 cache miss, 3 cache hits
@@ -645,7 +651,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue(mockRows);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       // First polygon: false, second polygon: true
       mockBooleanPointInPolygon.mockReturnValueOnce(false).mockReturnValueOnce(true);
 
@@ -669,7 +675,7 @@ describe('DistrictLookupService', () => {
       const mockAll = mockDb._mockPrepareResults[0].all;
       mockAll.mockReturnValue([mockRow]);
 
-      const mockBooleanPointInPolygon = vi.mocked(turf.booleanPointInPolygon);
+      const mockBooleanPointInPolygon = vi.mocked(turfBooleanPIP.booleanPointInPolygon);
       mockBooleanPointInPolygon.mockReturnValue(true);
 
       const result = service.lookup(37.75, -122.35);

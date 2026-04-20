@@ -221,53 +221,59 @@ if (!IS_WORKER) {
     const db = new Database(dbPath, { readonly: true });
     db.pragma('journal_mode = WAL');
 
-    const probeStmt = db.prepare(`
-      SELECT 1 FROM rtree_index
-      WHERE min_lon <= ? AND max_lon >= ? AND min_lat <= ? AND max_lat >= ?
-      LIMIT 1
-    `);
-
-    // Group res-7 cells by their res-4 parent
-    const parentToChildren = new Map<string, string[]>();
-    for (const cell of cellArray) {
-      const parent = cellToParent(cell, PARENT_RESOLUTION);
-      let children = parentToChildren.get(parent);
-      if (!children) {
-        children = [];
-        parentToChildren.set(parent, children);
-      }
-      children.push(cell);
-    }
-    console.log(
-      `  Unique res-4 parents: ${parentToChildren.size.toLocaleString()}`
-    );
-
     const filteredCells: string[] = [];
     let oceanParents = 0;
-    const EXPAND_DEG = 0.5;
+    let parentCount = 0;
 
-    for (const [parent, children] of parentToChildren) {
-      const [lat, lng] = cellToLatLng(parent);
-      const hit = probeStmt.get(
-        lng + EXPAND_DEG,
-        lng - EXPAND_DEG,
-        lat + EXPAND_DEG,
-        lat - EXPAND_DEG
-      );
-      if (hit) {
-        for (const child of children) {
-          filteredCells.push(child);
+    try {
+      const probeStmt = db.prepare(`
+        SELECT 1 FROM rtree_index
+        WHERE min_lon <= ? AND max_lon >= ? AND min_lat <= ? AND max_lat >= ?
+        LIMIT 1
+      `);
+
+      // Group res-7 cells by their res-4 parent
+      const parentToChildren = new Map<string, string[]>();
+      for (const cell of cellArray) {
+        const parent = cellToParent(cell, PARENT_RESOLUTION);
+        let children = parentToChildren.get(parent);
+        if (!children) {
+          children = [];
+          parentToChildren.set(parent, children);
         }
-      } else {
-        oceanParents++;
+        children.push(cell);
       }
+      console.log(
+        `  Unique res-4 parents: ${parentToChildren.size.toLocaleString()}`
+      );
+      parentCount = parentToChildren.size;
+
+      const EXPAND_DEG = 0.5;
+
+      for (const [parent, children] of parentToChildren) {
+        const [lat, lng] = cellToLatLng(parent);
+        const hit = probeStmt.get(
+          lng + EXPAND_DEG,
+          lng - EXPAND_DEG,
+          lat + EXPAND_DEG,
+          lat - EXPAND_DEG
+        );
+        if (hit) {
+          for (const child of children) {
+            filteredCells.push(child);
+          }
+        } else {
+          oceanParents++;
+        }
+      }
+    } finally {
+      db.close();
     }
-    db.close();
 
     const removed = cellArray.length - filteredCells.length;
     const filterPct = ((removed / cellArray.length) * 100).toFixed(1);
     console.log(
-      `  Ocean parents: ${oceanParents.toLocaleString()} / ${parentToChildren.size.toLocaleString()} (${((oceanParents / parentToChildren.size) * 100).toFixed(0)}%)`
+      `  Ocean parents: ${oceanParents.toLocaleString()} / ${parentCount.toLocaleString()} (${((oceanParents / parentCount) * 100).toFixed(0)}%)`
     );
     console.log(
       `  Cells after filter: ${filteredCells.length.toLocaleString()} (removed ${removed.toLocaleString()}, ${filterPct}%)`
@@ -499,95 +505,100 @@ if (IS_WORKER) {
     const db = new Database(dbPath, { readonly: true });
     db.pragma('journal_mode = WAL');
 
-    const lookupStmt = db.prepare(`
-      SELECT d.id, d.geometry
-      FROM districts d
-      JOIN rtree_index r ON d.rowid = r.id
-      WHERE r.min_lon <= ? AND r.max_lon >= ?
-        AND r.min_lat <= ? AND r.max_lat >= ?
-    `);
-
     const geoCache = new FIFOGeoCache();
-
-    // Stream results to NDJSON temp file instead of accumulating in memory
-    const fd = openSync(tmpFile, 'w');
     let matched = 0;
     let noCandidate = 0;
 
-    const coord: Position = [0, 0];
+    try {
+      const lookupStmt = db.prepare(`
+        SELECT d.id, d.geometry
+        FROM districts d
+        JOIN rtree_index r ON d.rowid = r.id
+        WHERE r.min_lon <= ? AND r.max_lon >= ?
+          AND r.min_lat <= ? AND r.max_lat >= ?
+      `);
 
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      const [lat, lng] = cellToLatLng(cell);
+      // Stream results to NDJSON temp file instead of accumulating in memory
+      const fd = openSync(tmpFile, 'w');
 
-      const candidates = lookupStmt.all(lng, lng, lat, lat) as Array<{
-        id: string;
-        geometry: string;
-      }>;
+      const coord: Position = [0, 0];
 
-      if (candidates.length === 0) {
-        noCandidate++;
-        if ((i + 1) % 100000 === 0) {
-          process.send!({
-            type: 'progress',
-            workerId,
-            processed: i + 1,
-            total: cells.length,
-            matched,
-          } satisfies WorkerProgress);
-        }
-        continue;
-      }
+      try {
+        for (let i = 0; i < cells.length; i++) {
+          const cell = cells[i];
+          const [lat, lng] = cellToLatLng(cell);
 
-      coord[0] = lng;
-      coord[1] = lat;
-      const districts: DistrictMapping = new Array(
-        PROTOCOL_DISTRICT_SLOTS
-      ).fill(null);
-      let hasAny = false;
+          const candidates = lookupStmt.all(lng, lng, lat, lat) as Array<{
+            id: string;
+            geometry: string;
+          }>;
 
-      for (const candidate of candidates) {
-        const slotIndex = districtIdToSlot(candidate.id);
-        if (slotIndex === -1) continue;
-        // Slot already filled — districts don't overlap within a layer,
-        // so skip redundant geometry parse + PIP test.
-        if (districts[slotIndex] !== null) continue;
-
-        let geo = geoCache.get(candidate.id);
-        if (!geo) {
-          try {
-            geo = JSON.parse(candidate.geometry) as Polygon | MultiPolygon;
-            geoCache.set(candidate.id, geo);
-          } catch {
+          if (candidates.length === 0) {
+            noCandidate++;
+            if ((i + 1) % 100000 === 0) {
+              process.send!({
+                type: 'progress',
+                workerId,
+                processed: i + 1,
+                total: cells.length,
+                matched,
+              } satisfies WorkerProgress);
+            }
             continue;
           }
+
+          coord[0] = lng;
+          coord[1] = lat;
+          const districts: DistrictMapping = new Array(
+            PROTOCOL_DISTRICT_SLOTS
+          ).fill(null);
+          let hasAny = false;
+
+          for (const candidate of candidates) {
+            const slotIndex = districtIdToSlot(candidate.id);
+            if (slotIndex === -1) continue;
+            // Slot already filled — districts don't overlap within a layer,
+            // so skip redundant geometry parse + PIP test.
+            if (districts[slotIndex] !== null) continue;
+
+            let geo = geoCache.get(candidate.id);
+            if (!geo) {
+              try {
+                geo = JSON.parse(candidate.geometry) as Polygon | MultiPolygon;
+                geoCache.set(candidate.id, geo);
+              } catch {
+                continue;
+              }
+            }
+
+            if (booleanPointInPolygon(coord, geo)) {
+              districts[slotIndex] = candidate.id;
+              hasAny = true;
+            }
+          }
+
+          if (hasAny) {
+            // Write as NDJSON line: ["cellId", [slot0, slot1, ...]]
+            writeSync(fd, JSON.stringify([cell, districts]) + '\n');
+            matched++;
+          }
+
+          if ((i + 1) % 100000 === 0) {
+            process.send!({
+              type: 'progress',
+              workerId,
+              processed: i + 1,
+              total: cells.length,
+              matched,
+            } satisfies WorkerProgress);
+          }
         }
-
-        if (booleanPointInPolygon(coord, geo)) {
-          districts[slotIndex] = candidate.id;
-          hasAny = true;
-        }
+      } finally {
+        closeSync(fd);
       }
-
-      if (hasAny) {
-        // Write as NDJSON line: ["cellId", [slot0, slot1, ...]]
-        writeSync(fd, JSON.stringify([cell, districts]) + '\n');
-        matched++;
-      }
-
-      if ((i + 1) % 100000 === 0) {
-        process.send!({
-          type: 'progress',
-          workerId,
-          processed: i + 1,
-          total: cells.length,
-          matched,
-        } satisfies WorkerProgress);
-      }
+    } finally {
+      db.close();
     }
-
-    closeSync(fd);
-    db.close();
 
     process.send!(
       {

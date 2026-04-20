@@ -23,7 +23,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import { area } from '@turf/turf';
+import { area } from '@turf/area';
 import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
 import { isCI, runE2E, delay, API_RATE_LIMIT_MS } from '../setup.js';
 

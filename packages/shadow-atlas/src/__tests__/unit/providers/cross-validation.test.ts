@@ -33,8 +33,9 @@ import { StateBatchExtractor, type ExtractedBoundary } from '../../../providers/
 import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from '../../../providers/tiger-boundary-provider.js';
 import { CrossValidator } from '../../../validators/cross/tiger-vs-state.js';
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson';
-import { area, intersect, featureCollection } from '@turf/turf';
-import { polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
+import { area } from '@turf/area';
+import { intersect } from '@turf/intersect';
+import { featureCollection, polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
 
 // ============================================================================
 // Types

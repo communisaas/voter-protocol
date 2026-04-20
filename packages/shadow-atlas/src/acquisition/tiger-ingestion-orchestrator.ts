@@ -56,7 +56,7 @@ export interface BatchIngestionOptions {
   /** Consecutive failures before circuit breaker trips (default: 5) */
   readonly circuitBreakerThreshold?: number;
 
-  /** Directory for checkpoint files (default: .shadow-atlas/checkpoints) */
+  /** Directory for checkpoint files (default:.shadow-atlas/checkpoints) */
   readonly checkpointDir?: string;
 
   /** Force re-download even if cached (default: false) */
@@ -180,9 +180,9 @@ interface StateIngestionResult {
  *
  * // Full batch ingestion
  * const result = await orchestrator.ingestBatch({
- *   states: ['01', '02', '04', '05', '06'],
- *   layers: ['cd', 'sldu', 'sldl'],
- *   year: 2024,
+ * states: ['01', '02', '04', '05', '06'],
+ * layers: ['cd', 'sldu', 'sldl'],
+ * year: 2024,
  * });
  *
  * // Resume from checkpoint after failure
@@ -581,11 +581,14 @@ export class TIGERIngestionOrchestrator {
         const normalized = await this.provider.transform(rawFiles);
         boundaries.push(...normalized);
       } catch (error) {
-        // If any layer fails, fail the entire state
+        // R77-P5: Preserve boundaries from previously successful layers.
+        // Returning boundaries: [] discards already-fetched data, forcing a
+        // full re-ingest on retry. Returning partial results lets the caller
+        // decide whether to use them and only retry the failed layer.
         return {
           state: stateFips,
           success: false,
-          boundaries: [],
+          boundaries,
           error: {
             state: stateFips,
             layer,
@@ -629,21 +632,26 @@ export class TIGERIngestionOrchestrator {
   /**
    * Save checkpoint to disk
    */
+  // R54-A2: Return boolean so callers can detect checkpoint save failures
   private async saveCheckpoint(
     checkpoint: CheckpointState,
     checkpointDir: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await mkdir(checkpointDir, { recursive: true });
       const filePath = join(checkpointDir, `${checkpoint.id}.json`);
       // Use atomic write to prevent corrupted checkpoint on crash
       await atomicWriteJSON(filePath, checkpoint);
+      return true;
     } catch (error) {
-      logger.error('Failed to save checkpoint', {
+      logger.error('Failed to save checkpoint — progress may be lost on restart', {
         error: (error as Error).message,
         checkpointId: checkpoint.id,
+        checkpointDir,
       });
-      // Don't throw - checkpoint save failure shouldn't abort batch
+      // Don't throw - checkpoint save failure shouldn't abort batch,
+      // but callers are now informed via the return value.
+      return false;
     }
   }
 
@@ -669,13 +677,12 @@ export class TIGERIngestionOrchestrator {
         // Zod parse throws if validation fails, so cast is safe after validation
         return parseCheckpointState(content) as unknown as CheckpointState;
       } catch (validationError) {
-        // Log warning but allow fallback for backwards compatibility
-        logger.warn('Checkpoint validation failed, using unvalidated parse', {
-          checkpointId: id,
-          error: validationError instanceof Error ? validationError.message : 'Unknown error',
-          hint: 'Consider re-running ingestion to generate new checkpoint',
+        // Fail-closed — reject corrupt/tampered checkpoints
+        logger.error('Checkpoint validation failed, rejecting checkpoint', {
+          path: filePath,
+          error: validationError instanceof Error ? validationError.message : String(validationError),
         });
-        return JSON.parse(content) as CheckpointState;
+        return null;
       }
     } catch {
       return null;

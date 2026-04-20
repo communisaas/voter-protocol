@@ -6,19 +6,22 @@
  * export-officials.ts before data is pinned to IPFS. Runs 7 checks that
  * must ALL PASS to proceed.
  *
+ * Single-pass architecture — each chunk file is read exactly once
+ * (N+M+1 total reads instead of 4N+M+1).
+ *
  * Usage:
- *   tsx scripts/validate-build.ts <outputDir> [--country US] [--strict] [--json]
+ * tsx scripts/validate-build.ts <outputDir> [--country US] [--strict] [--json]
  *
  * Options:
- *   outputDir     Path to the build output directory (e.g., ./output)
- *   --country     Which country to validate (default: US, can be repeated)
- *   --strict      Fail on warnings (not just errors)
- *   --json        Output results as JSON instead of human-readable
+ * outputDir Path to the build output directory (e.g.,./output)
+ * --country Which country to validate (default: US, can be repeated)
+ * --strict Fail on warnings (not just errors)
+ * --json Output results as JSON instead of human-readable
  *
  * Exit codes:
- *   0  All checks passed
- *   1  One or more checks failed
- *   2  Usage error (bad arguments, missing directory)
+ * 0 All checks passed
+ * 1 One or more checks failed
+ * 2 Usage error (bad arguments, missing directory)
  */
 
 import { createHash } from 'node:crypto';
@@ -26,11 +29,18 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
-  statSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { cellToParent } from 'h3-js';
-import { US_JURISDICTION, PROTOCOL_DISTRICT_SLOTS } from '../src/jurisdiction.js';
+import {
+  US_JURISDICTION,
+  CA_JURISDICTION,
+  GB_JURISDICTION,
+  AU_JURISDICTION,
+  NZ_JURISDICTION,
+  PROTOCOL_DISTRICT_SLOTS,
+} from '../src/jurisdiction.js';
+import type { JurisdictionConfig } from '../src/jurisdiction.js';
 
 // ============================================================================
 // ANSI Color Codes
@@ -42,6 +52,23 @@ const RED = '\x1b[31m';
 const YELLOW = '\x1b[33m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
+
+// ============================================================================
+// Security Helpers
+// ============================================================================
+
+/** Valid ISO 3166-1 alpha-2 country codes supported by the pipeline. */
+const VALID_COUNTRIES = new Set(['US', 'CA', 'GB', 'AU', 'NZ']);
+
+/** Verify resolved path stays within expectedRoot. Returns null if contained, error message if not. */
+function checkContainment(resolvedPath: string, expectedRoot: string): string | null {
+  const normalizedPath = resolve(resolvedPath);
+  const normalizedRoot = resolve(expectedRoot);
+  if (!normalizedPath.startsWith(normalizedRoot + '/') && normalizedPath !== normalizedRoot) {
+    return `Path escapes build directory: ${resolvedPath}`;
+  }
+  return null;
+}
 
 // ============================================================================
 // Types
@@ -108,6 +135,36 @@ interface ValidationResult {
   passed: boolean;
 }
 
+/**
+ * Accumulates all data from a single pass over every chunk file.
+ * Used to synthesize CheckResult objects for checks 2, 3, 4, 5 (chunk part), and 7.
+ */
+interface ChunkAccumulator {
+  // Check 2: Checksums
+  sha256Verified: number;
+  sha256Mismatches: number;
+  sha256MismatchDetails: string[];
+
+  // Check 3: Coverage
+  allCells: Set<string>;
+  duplicateCells: string[];
+  totalCellsFromChunks: number;
+
+  // Check 4: Format
+  chunksChecked: number;
+  failedChunks: number;
+  formatFailures: string[];
+
+  // Check 5: Primary district codes from slot[0] (all countries)
+  primaryDistricts: Set<string>;
+
+  // Check 7: Cross-chunk
+  cellOwnership: Map<string, string>;
+  crossChunkDuplicates: string[];
+  cellCountMismatches: number;
+  cellCountMismatchDetails: string[];
+}
+
 // ============================================================================
 // Argument Parsing
 // ============================================================================
@@ -131,7 +188,11 @@ function parseArgs(argv: string[]): {
       if (!val) {
         printUsageAndExit('--country requires a value');
       }
-      countries.push(val);
+      const upperVal = val.toUpperCase();
+      if (!VALID_COUNTRIES.has(upperVal)) {
+        printUsageAndExit(`Unknown country code: ${val}. Valid: ${[...VALID_COUNTRIES].join(', ')}`);
+      }
+      countries.push(upperVal);
     } else if (arg === '--strict') {
       strict = true;
     } else if (arg === '--json') {
@@ -166,12 +227,6 @@ function printUsageAndExit(error: string): never {
 // Utility Helpers
 // ============================================================================
 
-/** Compute SHA-256 hex digest of a file's contents. */
-function sha256File(filePath: string): string {
-  const content = readFileSync(filePath);
-  return createHash('sha256').update(content).digest('hex');
-}
-
 /** Safely parse JSON from a file path. Returns null on failure. */
 function safeParseJsonFile<T>(filePath: string): { data: T | null; error: string | null } {
   try {
@@ -190,17 +245,35 @@ function countryDir(country: string): string {
   return country.toUpperCase();
 }
 
-/**
- * Expected US cell count from the last known build.
- * Used for deviation warnings in Check 3.
- */
-const EXPECTED_US_CELLS = 1_883_843;
+/** Per-country expected cell counts. null = skip deviation check (no baseline established). */
+const EXPECTED_CELLS: Record<string, number | null> = {
+  US: 1_883_843,
+  CA: null,  // baseline TBD — first multi-country build
+  GB: null,
+  AU: null,
+  NZ: null,
+};
 
-/** Deviation threshold for cell count warning (5%). */
-const DEVIATION_THRESHOLD = 0.05;
+/** Per-country deviation thresholds. Mature countries get tighter bounds. */
+const DEVIATION_THRESHOLDS: Record<string, number> = {
+  US: 0.05,    // 5% — mature, well-established
+  CA: 0.15,    // 15% — newer
+  GB: 0.15,
+  AU: 0.15,
+  NZ: 0.15,
+};
+
+/** Per-country jurisdiction configs for slot alignment checks. */
+const JURISDICTIONS: Record<string, JurisdictionConfig> = {
+  US: US_JURISDICTION,
+  CA: CA_JURISDICTION,
+  GB: GB_JURISDICTION,
+  AU: AU_JURISDICTION,
+  NZ: NZ_JURISDICTION,
+};
 
 // ============================================================================
-// Check 1: Manifest Integrity
+// Check 1: Manifest Integrity (reads manifest.json only — no chunk reads)
 // ============================================================================
 
 function checkManifestIntegrity(
@@ -261,6 +334,12 @@ function checkManifestIntegrity(
 
     // Check the chunk file actually exists on disk
     const chunkPath = join(outputDir, countryDir(country), entry.path);
+    const containmentErr = checkContainment(chunkPath, join(outputDir, countryDir(country)));
+    if (containmentErr) {
+      // Skip this chunk — don't read outside the build directory
+      missingFields++;
+      continue;
+    }
     if (!existsSync(chunkPath)) {
       missingFiles++;
       if (missingFilePaths.length < 5) {
@@ -298,172 +377,100 @@ function checkManifestIntegrity(
 }
 
 // ============================================================================
-// Check 2: Chunk Checksums
+// Single-Pass Chunk Processing (replaces checks 2, 3, 4, 5-chunk, 7)
 // ============================================================================
 
-function checkChunkChecksums(
+function processAllChunks(
   outputDir: string,
   country: string,
   manifest: ManifestFile,
-): CheckResult {
-  const name = 'Chunk Checksums';
+): ChunkAccumulator {
+  const acc: ChunkAccumulator = {
+    // Check 2
+    sha256Verified: 0,
+    sha256Mismatches: 0,
+    sha256MismatchDetails: [],
+    // Check 3
+    allCells: new Set<string>(),
+    duplicateCells: [],
+    totalCellsFromChunks: 0,
+    // Check 4
+    chunksChecked: 0,
+    failedChunks: 0,
+    formatFailures: [],
+    // Check 5 (cross-ref)
+    primaryDistricts: new Set<string>(),
+    // Check 7
+    cellOwnership: new Map<string, string>(),
+    crossChunkDuplicates: [],
+    cellCountMismatches: 0,
+    cellCountMismatchDetails: [],
+  };
+
+  const isNZ = country.toUpperCase() === 'NZ';
   const chunkEntries = Object.entries(manifest.chunks);
-  let verified = 0;
-  let mismatches = 0;
-  const mismatchDetails: string[] = [];
 
-  for (const [key, entry] of chunkEntries) {
+  for (const [, entry] of chunkEntries) {
     const chunkPath = join(outputDir, countryDir(country), entry.path);
-    if (!existsSync(chunkPath)) {
-      // Already caught by Check 1 — skip silently here
-      continue;
-    }
+    const containmentErr = checkContainment(chunkPath, join(outputDir, countryDir(country)));
+    if (containmentErr) continue;
+    if (!existsSync(chunkPath)) continue;
 
-    const actual = sha256File(chunkPath);
-    if (actual !== entry.sha256) {
-      mismatches++;
-      if (mismatchDetails.length < 5) {
-        mismatchDetails.push(
-          `${entry.path}: expected ${entry.sha256.slice(0, 12)}..., got ${actual.slice(0, 12)}...`,
+    // === SINGLE READ as Buffer ===
+    const rawBuffer = readFileSync(chunkPath);
+
+    // --- Check 2: SHA-256 from raw bytes ---
+    const actualHash = createHash('sha256').update(rawBuffer).digest('hex');
+    if (actualHash !== entry.sha256) {
+      acc.sha256Mismatches++;
+      if (acc.sha256MismatchDetails.length < 5) {
+        acc.sha256MismatchDetails.push(
+          `${entry.path}: expected ${entry.sha256.slice(0, 12)}..., got ${actualHash.slice(0, 12)}...`,
         );
       }
     } else {
-      verified++;
+      acc.sha256Verified++;
     }
-  }
 
-  if (mismatches > 0) {
-    return {
-      name,
-      status: 'fail',
-      message: `${mismatches} checksum mismatch(es) — data corruption or stale manifest`,
-      details: { verified, mismatches, examples: mismatchDetails },
-    };
-  }
-
-  return {
-    name,
-    status: 'pass',
-    message: `All ${verified} chunk checksums verified`,
-    details: { verified },
-  };
-}
-
-// ============================================================================
-// Check 3: Coverage Completeness
-// ============================================================================
-
-function checkCoverageCompleteness(
-  outputDir: string,
-  country: string,
-  manifest: ManifestFile,
-): CheckResult {
-  const name = 'Coverage Completeness';
-  const allCells = new Set<string>();
-  const duplicates: string[] = [];
-  let totalFromChunks = 0;
-
-  const chunkEntries = Object.entries(manifest.chunks);
-
-  for (const [, entry] of chunkEntries) {
-    const chunkPath = join(outputDir, countryDir(country), entry.path);
-    if (!existsSync(chunkPath)) continue;
-
-    const { data: chunk } = safeParseJsonFile<ChunkFile>(chunkPath);
-    if (!chunk || !chunk.cells) continue;
-
-    const cellIds = Object.keys(chunk.cells);
-    totalFromChunks += cellIds.length;
-
-    for (const cellId of cellIds) {
-      if (allCells.has(cellId)) {
-        if (duplicates.length < 10) {
-          duplicates.push(cellId);
-        }
-      } else {
-        allCells.add(cellId);
-      }
-    }
-  }
-
-  const failures: string[] = [];
-  const warnings: string[] = [];
-
-  if (duplicates.length > 0) {
-    failures.push(`${duplicates.length}+ duplicate cell(s) found across chunks (e.g., ${duplicates.slice(0, 3).join(', ')})`);
-  }
-
-  if (allCells.size !== manifest.totalCells) {
-    failures.push(
-      `Cell count mismatch: manifest says ${manifest.totalCells}, actual unique cells = ${allCells.size}`,
-    );
-  }
-
-  // US-specific deviation check
-  if (country.toUpperCase() === 'US') {
-    const deviation = Math.abs(allCells.size - EXPECTED_US_CELLS) / EXPECTED_US_CELLS;
-    if (deviation > DEVIATION_THRESHOLD) {
-      warnings.push(
-        `Cell count ${allCells.size} deviates ${(deviation * 100).toFixed(1)}% from expected ${EXPECTED_US_CELLS}`,
-      );
-    }
-  }
-
-  if (failures.length > 0) {
-    return {
-      name,
-      status: 'fail',
-      message: failures.join('; '),
-      details: { uniqueCells: allCells.size, manifestTotal: manifest.totalCells, duplicateExamples: duplicates.slice(0, 5) },
-    };
-  }
-
-  if (warnings.length > 0) {
-    return {
-      name,
-      status: 'warn',
-      message: warnings.join('; '),
-      details: { uniqueCells: allCells.size, manifestTotal: manifest.totalCells },
-    };
-  }
-
-  return {
-    name,
-    status: 'pass',
-    message: `${allCells.size} unique cells, no duplicates, matches manifest totalCells`,
-    details: { uniqueCells: allCells.size },
-  };
-}
-
-// ============================================================================
-// Check 4: Chunk Format Validation
-// ============================================================================
-
-function checkChunkFormat(
-  outputDir: string,
-  country: string,
-  manifest: ManifestFile,
-): CheckResult {
-  const name = 'Chunk Format Validation';
-  const chunkEntries = Object.entries(manifest.chunks);
-  let chunksChecked = 0;
-  const failures: string[] = [];
-  let failedChunks = 0;
-
-  for (const [, entry] of chunkEntries) {
-    const chunkPath = join(outputDir, countryDir(country), entry.path);
-    if (!existsSync(chunkPath)) continue;
-
-    const { data: chunk, error } = safeParseJsonFile<ChunkFile>(chunkPath);
-    if (error || !chunk) {
-      failedChunks++;
-      if (failures.length < 5) {
-        failures.push(`${entry.path}: invalid JSON — ${error}`);
+    // === SINGLE JSON parse from the same buffer ===
+    let chunk: ChunkFile;
+    try {
+      chunk = JSON.parse(rawBuffer.toString('utf-8'));
+    } catch (parseErr) {
+      acc.failedChunks++;
+      if (acc.formatFailures.length < 5) {
+        acc.formatFailures.push(`${entry.path}: invalid JSON — ${(parseErr as Error).message}`);
       }
       continue;
     }
 
-    chunksChecked++;
+    if (!chunk.cells) {
+      acc.failedChunks++;
+      if (acc.formatFailures.length < 5) {
+        acc.formatFailures.push(`${entry.path}: missing cells`);
+      }
+      continue;
+    }
+
+    acc.chunksChecked++;
+
+    const cellEntries = Object.entries(chunk.cells);
+    const cellIds = Object.keys(chunk.cells);
+    const actualCellCount = cellIds.length;
+
+    // --- Check 3: Coverage ---
+    acc.totalCellsFromChunks += actualCellCount;
+    for (const cellId of cellIds) {
+      if (acc.allCells.has(cellId)) {
+        if (acc.duplicateCells.length < 10) {
+          acc.duplicateCells.push(cellId);
+        }
+      } else {
+        acc.allCells.add(cellId);
+      }
+    }
+
+    // --- Check 4: Format validation ---
     const chunkErrors: string[] = [];
 
     // Structural checks
@@ -483,8 +490,7 @@ function checkChunkFormat(
       chunkErrors.push(`resolution=${chunk.resolution}, expected 7`);
     }
 
-    // Cell-level checks
-    const cellEntries = Object.entries(chunk.cells ?? {});
+    // Cell-level format checks
     let slotViolations = 0;
     let parentMismatches = 0;
     let nullOnlyCells = 0;
@@ -512,6 +518,15 @@ function checkChunkFormat(
       if (!hasNonNull) {
         nullOnlyCells++;
       }
+
+      // --- Check 5: Extract primary district codes from slot[0] for all countries ---
+      if (slots[0] !== null && slots[0] !== undefined) {
+        acc.primaryDistricts.add(slots[0]);
+      }
+      // NZ special case: also extract slot[1] (Māori electorates)
+      if (isNZ && slots[1] !== null && slots[1] !== undefined) {
+        acc.primaryDistricts.add(slots[1]);
+      }
     }
 
     if (slotViolations > 0) {
@@ -525,37 +540,200 @@ function checkChunkFormat(
     }
 
     if (chunkErrors.length > 0) {
-      failedChunks++;
-      if (failures.length < 10) {
-        failures.push(`${entry.path}: ${chunkErrors.join(', ')}`);
+      acc.failedChunks++;
+      if (acc.formatFailures.length < 10) {
+        acc.formatFailures.push(`${entry.path}: ${chunkErrors.join(', ')}`);
+      }
+    }
+
+    // --- Check 7: Cross-chunk consistency ---
+    // Cell count match
+    if (actualCellCount !== entry.cellCount) {
+      acc.cellCountMismatches++;
+      if (acc.cellCountMismatchDetails.length < 5) {
+        acc.cellCountMismatchDetails.push(
+          `${entry.path}: manifest says ${entry.cellCount}, actual ${actualCellCount}`,
+        );
+      }
+    }
+
+    // Cross-chunk duplicates
+    for (const cellId of cellIds) {
+      const existing = acc.cellOwnership.get(cellId);
+      if (existing !== undefined) {
+        if (acc.crossChunkDuplicates.length < 10) {
+          acc.crossChunkDuplicates.push(`${cellId} in both ${existing} and ${entry.path}`);
+        }
+      } else {
+        acc.cellOwnership.set(cellId, entry.path);
       }
     }
   }
 
-  if (failedChunks > 0) {
+  return acc;
+}
+
+// ============================================================================
+// Check Result Synthesizers (from ChunkAccumulator)
+// ============================================================================
+
+/** Synthesize Check 2 result from accumulator. */
+function synthesizeChunkChecksums(acc: ChunkAccumulator): CheckResult {
+  const name = 'Chunk Checksums';
+
+  if (acc.sha256Mismatches > 0) {
     return {
       name,
       status: 'fail',
-      message: `${failedChunks} chunk(s) have format violations`,
-      details: { chunksChecked, failedChunks, examples: failures },
+      message: `${acc.sha256Mismatches} checksum mismatch(es) — data corruption or stale manifest`,
+      details: { verified: acc.sha256Verified, mismatches: acc.sha256Mismatches, examples: acc.sha256MismatchDetails },
     };
   }
 
   return {
     name,
     status: 'pass',
-    message: `All ${chunksChecked} chunks have valid format, correct slot counts, and matching H3 parents`,
-    details: { chunksChecked },
+    message: `All ${acc.sha256Verified} chunk checksums verified`,
+    details: { verified: acc.sha256Verified },
+  };
+}
+
+/** Synthesize Check 3 result from accumulator. */
+function synthesizeCoverageCompleteness(
+  acc: ChunkAccumulator,
+  country: string,
+  manifest: ManifestFile,
+): CheckResult {
+  const name = 'Coverage Completeness';
+  const failures: string[] = [];
+  const warnings: string[] = [];
+
+  if (acc.duplicateCells.length > 0) {
+    failures.push(`${acc.duplicateCells.length}+ duplicate cell(s) found across chunks (e.g., ${acc.duplicateCells.slice(0, 3).join(', ')})`);
+  }
+
+  if (acc.allCells.size !== manifest.totalCells) {
+    failures.push(
+      `Cell count mismatch: manifest says ${manifest.totalCells}, actual unique cells = ${acc.allCells.size}`,
+    );
+  }
+
+  // Per-country deviation check (skips countries with no baseline)
+  const expected = EXPECTED_CELLS[country.toUpperCase()] ?? null;
+  if (expected !== null) {
+    const threshold = DEVIATION_THRESHOLDS[country.toUpperCase()] ?? 0.15;
+    const deviation = Math.abs(acc.allCells.size - expected) / expected;
+    if (deviation > threshold) {
+      warnings.push(
+        `Cell count ${acc.allCells.size} deviates ${(deviation * 100).toFixed(1)}% from expected ${expected}`,
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    return {
+      name,
+      status: 'fail',
+      message: failures.join('; '),
+      details: { uniqueCells: acc.allCells.size, manifestTotal: manifest.totalCells, duplicateExamples: acc.duplicateCells.slice(0, 5) },
+    };
+  }
+
+  if (warnings.length > 0) {
+    return {
+      name,
+      status: 'warn',
+      message: warnings.join('; '),
+      details: { uniqueCells: acc.allCells.size, manifestTotal: manifest.totalCells },
+    };
+  }
+
+  return {
+    name,
+    status: 'pass',
+    message: `${acc.allCells.size} unique cells, no duplicates, matches manifest totalCells`,
+    details: { uniqueCells: acc.allCells.size },
+  };
+}
+
+/** Synthesize Check 4 result from accumulator. */
+function synthesizeChunkFormat(acc: ChunkAccumulator): CheckResult {
+  const name = 'Chunk Format Validation';
+
+  if (acc.failedChunks > 0) {
+    return {
+      name,
+      status: 'fail',
+      message: `${acc.failedChunks} chunk(s) have format violations`,
+      details: { chunksChecked: acc.chunksChecked, failedChunks: acc.failedChunks, examples: acc.formatFailures },
+    };
+  }
+
+  return {
+    name,
+    status: 'pass',
+    message: `All ${acc.chunksChecked} chunks have valid format, correct slot counts, and matching H3 parents`,
+    details: { chunksChecked: acc.chunksChecked },
+  };
+}
+
+/** Synthesize Check 7 result from accumulator. */
+function synthesizeCrossChunkConsistency(
+  acc: ChunkAccumulator,
+  manifest: ManifestFile,
+): CheckResult {
+  const name = 'Cross-Chunk Consistency';
+  const failures: string[] = [];
+
+  if (acc.crossChunkDuplicates.length > 0) {
+    failures.push(
+      `${acc.crossChunkDuplicates.length}+ cell(s) appear in multiple chunks (e.g., ${acc.crossChunkDuplicates[0]})`,
+    );
+  }
+
+  if (acc.cellCountMismatches > 0) {
+    failures.push(
+      `${acc.cellCountMismatches} chunk(s) have cellCount mismatch between manifest and actual data`,
+    );
+  }
+
+  if (acc.totalCellsFromChunks !== manifest.totalCells) {
+    failures.push(
+      `Sum of chunk cellCounts (${acc.totalCellsFromChunks}) != manifest totalCells (${manifest.totalCells})`,
+    );
+  }
+
+  if (failures.length > 0) {
+    return {
+      name,
+      status: 'fail',
+      message: failures.join('; '),
+      details: {
+        chunksChecked: acc.chunksChecked,
+        totalCellsFromChunks: acc.totalCellsFromChunks,
+        manifestTotalCells: manifest.totalCells,
+        crossChunkDuplicates: acc.crossChunkDuplicates.slice(0, 5),
+        cellCountMismatchDetails: acc.cellCountMismatchDetails,
+      },
+    };
+  }
+
+  return {
+    name,
+    status: 'pass',
+    message: `${acc.chunksChecked} chunks, ${acc.totalCellsFromChunks} cells, clean partitioning, totals match`,
+    details: { chunksChecked: acc.chunksChecked, totalCellsFromChunks: acc.totalCellsFromChunks },
   };
 }
 
 // ============================================================================
-// Check 5: Officials Completeness
+// Check 5: Officials Completeness (reads officials files + uses accumulator)
 // ============================================================================
 
 function checkOfficialsCompleteness(
   outputDir: string,
   country: string,
+  acc: ChunkAccumulator,
   manifest: ManifestFile,
 ): CheckResult {
   const name = 'Officials Completeness';
@@ -588,17 +766,53 @@ function checkOfficialsCompleteness(
     };
   }
 
+  // R5-H3: Build a lookup from filename → expected SHA-256 from manifest
+  const expectedHashes = new Map<string, string>();
+  if (manifest.officials?.entries) {
+    for (const entry of manifest.officials.entries) {
+      // entry.file is e.g. "officials/CA-12.json" — extract just the filename
+      const parts = entry.file.split('/');
+      const baseName = parts[parts.length - 1];
+      expectedHashes.set(baseName, entry.sha256);
+    }
+  }
+
   const failures: string[] = [];
   const warnings: string[] = [];
   let validFiles = 0;
+  let hashesVerified = 0;
   const officialDistrictCodes = new Set<string>();
 
   for (const fileName of entries) {
     const filePath = join(officialsDir, fileName);
-    const { data: officials, error } = safeParseJsonFile<OfficialsFile>(filePath);
 
-    if (error || !officials) {
-      failures.push(`${fileName}: invalid JSON — ${error}`);
+    // Read raw content once — used for both SHA-256 verification and JSON parse
+    let rawContent: string;
+    try {
+      rawContent = readFileSync(filePath, 'utf-8');
+    } catch (readErr) {
+      failures.push(`${fileName}: cannot read file — ${(readErr as Error).message}`);
+      continue;
+    }
+
+    // R5-H3: Verify SHA-256 against manifest before parsing
+    const expectedHash = expectedHashes.get(fileName);
+    if (expectedHash) {
+      const actualHash = createHash('sha256').update(rawContent, 'utf-8').digest('hex');
+      if (actualHash !== expectedHash) {
+        failures.push(
+          `${fileName}: SHA-256 mismatch (expected ${expectedHash}, got ${actualHash})`,
+        );
+        continue;
+      }
+      hashesVerified++;
+    }
+
+    let officials: OfficialsFile;
+    try {
+      officials = JSON.parse(rawContent) as OfficialsFile;
+    } catch (parseErr) {
+      failures.push(`${fileName}: invalid JSON — ${(parseErr as Error).message}`);
       continue;
     }
 
@@ -627,27 +841,10 @@ function checkOfficialsCompleteness(
     validFiles++;
   }
 
-  // US-specific: cross-reference congressional districts (slot 0) from chunk data
-  if (country.toUpperCase() === 'US') {
-    const congressionalDistricts = new Set<string>();
-    const chunkEntries = Object.entries(manifest.chunks);
-
-    for (const [, entry] of chunkEntries) {
-      const chunkPath = join(outputDir, countryDir(country), entry.path);
-      if (!existsSync(chunkPath)) continue;
-
-      const { data: chunk } = safeParseJsonFile<ChunkFile>(chunkPath);
-      if (!chunk || !chunk.cells) continue;
-
-      for (const [, slots] of Object.entries(chunk.cells)) {
-        if (Array.isArray(slots) && slots[0] !== null && slots[0] !== undefined) {
-          congressionalDistricts.add(slots[0]);
-        }
-      }
-    }
-
+  // Cross-reference primary districts from chunk slot[0] data against officials files
+  if (acc.primaryDistricts.size > 0) {
     const missingOfficials: string[] = [];
-    for (const cd of congressionalDistricts) {
+    for (const cd of acc.primaryDistricts) {
       if (!officialDistrictCodes.has(cd)) {
         if (missingOfficials.length < 10) {
           missingOfficials.push(cd);
@@ -657,7 +854,7 @@ function checkOfficialsCompleteness(
 
     if (missingOfficials.length > 0) {
       warnings.push(
-        `${missingOfficials.length} congressional district(s) in mapping have no officials file (e.g., ${missingOfficials.slice(0, 5).join(', ')})`,
+        `${missingOfficials.length} district(s) in mapping have no officials file (e.g., ${missingOfficials.slice(0, 5).join(', ')})`,
       );
     }
   }
@@ -667,7 +864,7 @@ function checkOfficialsCompleteness(
       name,
       status: 'fail',
       message: `${failures.length} officials file(s) have errors`,
-      details: { validFiles, totalFiles: entries.length, failures: failures.slice(0, 10), warnings: warnings.slice(0, 10) },
+      details: { validFiles, totalFiles: entries.length, hashesVerified, failures: failures.slice(0, 10), warnings: warnings.slice(0, 10) },
     };
   }
 
@@ -676,20 +873,20 @@ function checkOfficialsCompleteness(
       name,
       status: 'warn',
       message: `${validFiles} officials files valid; ${warnings.length} warning(s)`,
-      details: { validFiles, totalFiles: entries.length, warnings: warnings.slice(0, 10) },
+      details: { validFiles, totalFiles: entries.length, hashesVerified, warnings: warnings.slice(0, 10) },
     };
   }
 
   return {
     name,
     status: 'pass',
-    message: `All ${validFiles} officials files valid`,
-    details: { validFiles, totalFiles: entries.length, districtsCovered: officialDistrictCodes.size },
+    message: `All ${validFiles} officials files valid, ${hashesVerified} SHA-256 hashes verified`,
+    details: { validFiles, totalFiles: entries.length, hashesVerified, districtsCovered: officialDistrictCodes.size },
   };
 }
 
 // ============================================================================
-// Check 6: Slot Alignment
+// Check 6: Slot Alignment (metadata only — no chunk reads)
 // ============================================================================
 
 function checkSlotAlignment(
@@ -697,13 +894,14 @@ function checkSlotAlignment(
   manifest: ManifestFile,
 ): CheckResult {
   const name = 'Slot Alignment';
+  const countryKey = country.toUpperCase();
 
-  // Only US has a jurisdiction config to check against currently
-  if (country.toUpperCase() !== 'US') {
+  const jurisdiction = JURISDICTIONS[countryKey];
+  if (!jurisdiction) {
     return {
       name,
-      status: 'pass',
-      message: `Slot alignment check skipped for country "${country}" (no jurisdiction config)`,
+      status: 'warn',
+      message: `Slot alignment check skipped for country "${country}" — no jurisdiction config found`,
     };
   }
 
@@ -717,7 +915,7 @@ function checkSlotAlignment(
   }
 
   const mismatches: string[] = [];
-  const jurisdictionSlots = US_JURISDICTION.slots;
+  const jurisdictionSlots = jurisdiction.slots;
 
   // Check every slot defined in the jurisdiction config
   for (const [idxStr, slotDef] of Object.entries(jurisdictionSlots)) {
@@ -736,7 +934,7 @@ function checkSlotAlignment(
   for (const idxStr of Object.keys(manifestSlots)) {
     const idx = Number(idxStr);
     if (!(idx in jurisdictionSlots)) {
-      mismatches.push(`Slot ${idx} ("${manifestSlots[idx]}"): present in manifest but not in US_JURISDICTION.slots`);
+      mismatches.push(`Slot ${idx} ("${manifestSlots[idx]}"): present in manifest but not in ${countryKey} jurisdiction slots`);
     }
   }
 
@@ -744,7 +942,7 @@ function checkSlotAlignment(
     return {
       name,
       status: 'warn',
-      message: `${mismatches.length} slot name mismatch(es) between manifest and US_JURISDICTION`,
+      message: `${mismatches.length} slot name mismatch(es) between manifest and ${countryKey} jurisdiction`,
       details: { mismatches },
     };
   }
@@ -752,105 +950,8 @@ function checkSlotAlignment(
   return {
     name,
     status: 'pass',
-    message: `All ${Object.keys(jurisdictionSlots).length} slot names match US_JURISDICTION definition`,
+    message: `All ${Object.keys(jurisdictionSlots).length} slot names match ${countryKey} jurisdiction definition`,
     details: { slotsChecked: Object.keys(jurisdictionSlots).length },
-  };
-}
-
-// ============================================================================
-// Check 7: Cross-Chunk Consistency
-// ============================================================================
-
-function checkCrossChunkConsistency(
-  outputDir: string,
-  country: string,
-  manifest: ManifestFile,
-): CheckResult {
-  const name = 'Cross-Chunk Consistency';
-  const chunkEntries = Object.entries(manifest.chunks);
-  const cellOwnership = new Map<string, string>(); // cellId → chunk path
-  const crossChunkDuplicates: string[] = [];
-  let cellCountMismatches = 0;
-  const cellCountMismatchDetails: string[] = [];
-  let totalCellsFromChunks = 0;
-  let chunksChecked = 0;
-
-  for (const [, entry] of chunkEntries) {
-    const chunkPath = join(outputDir, countryDir(country), entry.path);
-    if (!existsSync(chunkPath)) continue;
-
-    const { data: chunk } = safeParseJsonFile<ChunkFile>(chunkPath);
-    if (!chunk || !chunk.cells) continue;
-
-    chunksChecked++;
-    const cellIds = Object.keys(chunk.cells);
-    const actualCellCount = cellIds.length;
-
-    // Check cellCount matches actual
-    if (actualCellCount !== entry.cellCount) {
-      cellCountMismatches++;
-      if (cellCountMismatchDetails.length < 5) {
-        cellCountMismatchDetails.push(
-          `${entry.path}: manifest says ${entry.cellCount}, actual ${actualCellCount}`,
-        );
-      }
-    }
-
-    totalCellsFromChunks += actualCellCount;
-
-    // Check for cross-chunk duplicates
-    for (const cellId of cellIds) {
-      const existing = cellOwnership.get(cellId);
-      if (existing !== undefined) {
-        if (crossChunkDuplicates.length < 10) {
-          crossChunkDuplicates.push(`${cellId} in both ${existing} and ${entry.path}`);
-        }
-      } else {
-        cellOwnership.set(cellId, entry.path);
-      }
-    }
-  }
-
-  const failures: string[] = [];
-
-  if (crossChunkDuplicates.length > 0) {
-    failures.push(
-      `${crossChunkDuplicates.length}+ cell(s) appear in multiple chunks (e.g., ${crossChunkDuplicates[0]})`,
-    );
-  }
-
-  if (cellCountMismatches > 0) {
-    failures.push(
-      `${cellCountMismatches} chunk(s) have cellCount mismatch between manifest and actual data`,
-    );
-  }
-
-  if (totalCellsFromChunks !== manifest.totalCells) {
-    failures.push(
-      `Sum of chunk cellCounts (${totalCellsFromChunks}) != manifest totalCells (${manifest.totalCells})`,
-    );
-  }
-
-  if (failures.length > 0) {
-    return {
-      name,
-      status: 'fail',
-      message: failures.join('; '),
-      details: {
-        chunksChecked,
-        totalCellsFromChunks,
-        manifestTotalCells: manifest.totalCells,
-        crossChunkDuplicates: crossChunkDuplicates.slice(0, 5),
-        cellCountMismatchDetails,
-      },
-    };
-  }
-
-  return {
-    name,
-    status: 'pass',
-    message: `${chunksChecked} chunks, ${totalCellsFromChunks} cells, clean partitioning, totals match`,
-    details: { chunksChecked, totalCellsFromChunks },
   };
 }
 
@@ -967,33 +1068,36 @@ function main(): void {
       continue;
     }
 
-    // Check 2: Chunk Checksums
-    const check2 = checkChunkChecksums(outputDir, country, manifest);
+    // === SINGLE PASS over all chunk files ===
+    const acc = processAllChunks(outputDir, country, manifest);
+
+    // Check 2: Chunk Checksums (synthesized from accumulator)
+    const check2 = synthesizeChunkChecksums(acc);
     check2.name = `[${country}] ${check2.name}`;
     allChecks.push(check2);
 
-    // Check 3: Coverage Completeness
-    const check3 = checkCoverageCompleteness(outputDir, country, manifest);
+    // Check 3: Coverage Completeness (synthesized from accumulator)
+    const check3 = synthesizeCoverageCompleteness(acc, country, manifest);
     check3.name = `[${country}] ${check3.name}`;
     allChecks.push(check3);
 
-    // Check 4: Chunk Format Validation
-    const check4 = checkChunkFormat(outputDir, country, manifest);
+    // Check 4: Chunk Format Validation (synthesized from accumulator)
+    const check4 = synthesizeChunkFormat(acc);
     check4.name = `[${country}] ${check4.name}`;
     allChecks.push(check4);
 
-    // Check 5: Officials Completeness
-    const check5 = checkOfficialsCompleteness(outputDir, country, manifest);
+    // Check 5: Officials Completeness (reads officials files, uses accumulator for cross-ref)
+    const check5 = checkOfficialsCompleteness(outputDir, country, acc, manifest);
     check5.name = `[${country}] ${check5.name}`;
     allChecks.push(check5);
 
-    // Check 6: Slot Alignment
+    // Check 6: Slot Alignment (metadata only)
     const check6 = checkSlotAlignment(country, manifest);
     check6.name = `[${country}] ${check6.name}`;
     allChecks.push(check6);
 
-    // Check 7: Cross-Chunk Consistency
-    const check7 = checkCrossChunkConsistency(outputDir, country, manifest);
+    // Check 7: Cross-Chunk Consistency (synthesized from accumulator)
+    const check7 = synthesizeCrossChunkConsistency(acc, manifest);
     check7.name = `[${country}] ${check7.name}`;
     allChecks.push(check7);
   }

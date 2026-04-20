@@ -17,6 +17,7 @@
  */
 
 import { promises as fs } from 'fs';
+import { atomicWriteFile } from '../core/utils/atomic-write.js';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { bytesToHex } from '@noble/hashes/utils';
 import { logger } from '../core/utils/logger.js';
@@ -74,6 +75,27 @@ const POSITION_COMMITTED_TOPIC = eventTopic(
 );
 
 // ============================================================================
+// Hex Parsing
+// ============================================================================
+
+/**
+ * R59-F04: Safe hex-to-number conversion via BigInt.
+ *
+ * `parseInt(hexString, 16)` silently loses precision for values above
+ * Number.MAX_SAFE_INTEGER (2^53-1). Solidity uint256 topics/data are 32-byte
+ * hex strings — while counter/index fields will practically never exceed 2^53,
+ * silent truncation is a correctness hazard. This helper throws instead.
+ */
+function safeHexToNumber(hex: string): number {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const n = BigInt('0x' + clean);
+  if (n > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RangeError(`Hex value 0x${clean} exceeds Number.MAX_SAFE_INTEGER`);
+  }
+  return Number(n);
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -92,6 +114,8 @@ export interface ChainScannerConfig {
   readonly pollIntervalMs?: number;
   /** Maximum blocks per eth_getLogs request (default: 2000) */
   readonly maxBlockRange?: number;
+  /** Confirmation depth — blocks behind chain tip to wait before processing (default: 5) */
+  readonly confirmationDepth?: number;
 }
 
 export interface CursorState {
@@ -110,11 +134,38 @@ interface RpcLogEntry {
   readonly removed: boolean;
 }
 
+/** Result of a single poll cycle's fetch phase (no side effects applied yet) */
+interface PollCycleResult {
+  readonly events: NullifierEvent[];
+  readonly debateEvents: AnyDebateEvent[];
+  readonly processedBlock: number;
+  readonly totalNew: number;
+  readonly newEventIds: Set<string>;
+}
+
 /** Callback invoked with new nullifier events each poll cycle */
 export type EventCallback = (events: NullifierEvent[]) => Promise<void>;
 
 /** Callback invoked with new debate market events each poll cycle */
 export type DebateEventCallback = (events: AnyDebateEvent[]) => Promise<void>;
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Mask RPC URL credentials for safe logging.
+ * Handles both user:pass@host and path-based API keys (/v2/sk-live-XXX).
+ */
+function maskRpcUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const masked = `${parsed.protocol}//${parsed.host}/***`;
+    return masked;
+  } catch {
+    return '***invalid-url***';
+  }
+}
 
 // ============================================================================
 // Chain Scanner
@@ -147,6 +198,7 @@ export class ChainScanner {
       startBlock: config.startBlock ?? 0,
       pollIntervalMs: config.pollIntervalMs ?? 30_000,
       maxBlockRange: config.maxBlockRange ?? 2000,
+      confirmationDepth: config.confirmationDepth ?? 5,
     };
 
     let cursor: CursorState;
@@ -194,7 +246,7 @@ export class ChainScanner {
     this.running = true;
 
     logger.info('ChainScanner: starting', {
-      rpcUrl: this.config.rpcUrl.replace(/\/\/.*@/, '//***@'),
+      rpcUrl: maskRpcUrl(this.config.rpcUrl),
       districtGate: this.config.districtGateAddress,
       debateMarket: this.config.debateMarketAddress || '(not configured)',
       pollIntervalMs: this.config.pollIntervalMs,
@@ -248,42 +300,108 @@ export class ChainScanner {
    * Returns nullifier events; debate events are delivered via callback.
    */
   async pollOnce(): Promise<NullifierEvent[]> {
-    const latestBlock = await this.getBlockNumber();
-    const fromBlock = this.cursor.lastProcessedBlock + 1;
+    const result = await this.fetchAll();
 
-    if (fromBlock > latestBlock) return [];
-
-    const allEvents: NullifierEvent[] = [];
-    const allDebateEvents: AnyDebateEvent[] = [];
-    let currentFrom = fromBlock;
-
-    while (currentFrom <= latestBlock) {
-      const currentTo = Math.min(currentFrom + this.config.maxBlockRange - 1, latestBlock);
-      const events = await this.fetchAndMapEvents(currentFrom, currentTo);
-      allEvents.push(...events);
-
-      // Fetch debate market events if configured
-      if (this.config.debateMarketAddress) {
-        const debateEvents = await this.fetchAndMapDebateEvents(currentFrom, currentTo);
-        allDebateEvents.push(...debateEvents);
-      }
-
-      this.cursor = {
-        lastProcessedBlock: currentTo,
-        lastProcessedTimestamp: Date.now(),
-        totalEventsProcessed: this.cursor.totalEventsProcessed + events.length + allDebateEvents.length,
-      };
-
-      currentFrom = currentTo + 1;
+    // R14-L1: Skip commit+save when nothing happened (no new blocks).
+    // Avoids unnecessary disk writes and misleading timestamp updates.
+    if (result.totalNew === 0 && result.processedBlock === this.cursor.lastProcessedBlock) {
+      return result.events;
     }
 
     // Deliver debate events via callback
-    if (allDebateEvents.length > 0 && this.onDebateEvents) {
-      await this.onDebateEvents(allDebateEvents);
+    if (result.debateEvents.length > 0 && this.onDebateEvents) {
+      await this.onDebateEvents(result.debateEvents);
     }
 
+    // R13-C1+C2: Commit AFTER debate callback succeeds.
+    // If callback throws, neither cursor nor seenEvents are advanced,
+    // so the next poll retries the entire range including these events.
+    this.commitPollResult(result);
     await this.saveCursor();
-    return allEvents;
+    return result.events;
+  }
+
+  // ========================================================================
+  // Internal: Fetch-all (pure fetch, no side effects on cursor/seenEvents)
+  // ========================================================================
+
+  /**
+   * Fetch all events from cursor to chain tip. Returns a result bundle
+   * that must be explicitly committed via commitPollResult().
+   *
+   * R13-C1: Uses a local dedup set — does NOT touch this.seenEvents.
+   * If any chunk fails mid-loop, no dedup state is poisoned and the
+   * next poll retries the full range.
+   *
+   * R13-C2: Does NOT advance this.cursor. Cursor is committed only
+   * after all callbacks succeed in poll()/pollOnce().
+   */
+  private async fetchAll(): Promise<PollCycleResult> {
+    // R70-C1: Stay confirmationDepth blocks behind chain tip to handle L2 reorgs.
+    const rawTip = await this.getBlockNumber();
+    const latestBlock = rawTip - this.config.confirmationDepth;
+    const fromBlock = this.cursor.lastProcessedBlock + 1;
+
+    if (fromBlock > latestBlock) {
+      return {
+        events: [],
+        debateEvents: [],
+        processedBlock: this.cursor.lastProcessedBlock,
+        totalNew: 0,
+        newEventIds: new Set(),
+      };
+    }
+
+    const allEvents: NullifierEvent[] = [];
+    const allDebateEvents: AnyDebateEvent[] = [];
+    const newEventIds = new Set<string>();
+    let currentFrom = fromBlock;
+    let processedBlock = this.cursor.lastProcessedBlock;
+    let totalNew = 0;
+
+    while (currentFrom <= latestBlock) {
+      const currentTo = Math.min(currentFrom + this.config.maxBlockRange - 1, latestBlock);
+      const events = await this.fetchAndMapEvents(currentFrom, currentTo, newEventIds);
+      allEvents.push(...events);
+
+      if (this.config.debateMarketAddress) {
+        const debateEvents = await this.fetchAndMapDebateEvents(currentFrom, currentTo, newEventIds);
+        allDebateEvents.push(...debateEvents);
+        totalNew += debateEvents.length;
+      }
+
+      totalNew += events.length;
+      processedBlock = currentTo;
+      currentFrom = currentTo + 1;
+    }
+
+    return { events: allEvents, debateEvents: allDebateEvents, processedBlock, totalNew, newEventIds };
+  }
+
+  /**
+   * Commit a poll cycle result: advance cursor and persist dedup state.
+   * Called only after ALL callbacks have succeeded.
+   */
+  private commitPollResult(result: PollCycleResult): void {
+    // Merge new event IDs into the persistent dedup set
+    for (const id of result.newEventIds) {
+      this.seenEvents.add(id);
+    }
+
+    // Evict oldest entries when dedup set grows too large
+    if (this.seenEvents.size > 100_000) {
+      const entries = Array.from(this.seenEvents);
+      for (let i = 0; i < 50_000; i++) {
+        this.seenEvents.delete(entries[i]);
+      }
+    }
+
+    // Advance in-memory cursor
+    this.cursor = {
+      lastProcessedBlock: result.processedBlock,
+      lastProcessedTimestamp: Date.now(),
+      totalEventsProcessed: this.cursor.totalEventsProcessed + result.totalNew,
+    };
   }
 
   // ========================================================================
@@ -298,10 +416,27 @@ export class ChainScanner {
     this.polling = true;
 
     try {
-      const events = await this.pollOnce();
-      if (events.length > 0 && this.onEvents) {
-        await this.onEvents(events);
+      // R13-C1+C2: fetchAll() is pure — no side effects on cursor or seenEvents.
+      // We commit only after ALL callbacks succeed. If any callback throws,
+      // both cursor and dedup state stay at pre-poll positions, and the
+      // entire range is retried on the next cycle.
+      const result = await this.fetchAll();
+
+      // R14-L1: Skip commit+save when nothing happened (no new blocks).
+      if (result.totalNew === 0 && result.processedBlock === this.cursor.lastProcessedBlock) {
+        return;
       }
+
+      if (result.events.length > 0 && this.onEvents) {
+        await this.onEvents(result.events);
+      }
+      if (result.debateEvents.length > 0 && this.onDebateEvents) {
+        await this.onDebateEvents(result.debateEvents);
+      }
+
+      // COMMIT: cursor + seenEvents + disk persistence
+      this.commitPollResult(result);
+      await this.saveCursor();
     } finally {
       this.polling = false;
     }
@@ -311,16 +446,20 @@ export class ChainScanner {
   // Internal: RPC Calls
   // ========================================================================
 
+  // R11-L1: Monotonic RPC ID counter (was static `id: 1`)
+  private rpcIdCounter = 0;
+
   private async rpcCall<T>(method: string, params: unknown[]): Promise<T> {
     const response = await fetch(this.config.rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
-        id: 1,
+        id: ++this.rpcIdCounter,
         method,
         params,
       }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -331,12 +470,16 @@ export class ChainScanner {
     if (json.error) {
       throw new Error(`RPC error: ${json.error.code} ${json.error.message}`);
     }
+    // R42-FIX: Guard against RPC responses with no result field (returns undefined as T)
+    if (json.result === undefined || json.result === null) {
+      throw new Error(`RPC returned empty result for method ${method}`);
+    }
     return json.result as T;
   }
 
   private async getBlockNumber(): Promise<number> {
     const hex = await this.rpcCall<string>('eth_blockNumber', []);
-    return parseInt(hex, 16);
+    return safeHexToNumber(hex);
   }
 
   private async getBlockTimestamp(blockNumber: number): Promise<number> {
@@ -344,14 +487,18 @@ export class ChainScanner {
       'eth_getBlockByNumber',
       ['0x' + blockNumber.toString(16), false],
     );
-    return parseInt(block.timestamp, 16);
+    return safeHexToNumber(block.timestamp);
   }
 
   // ========================================================================
   // Internal: Event Fetching and Mapping
   // ========================================================================
 
-  private async fetchAndMapEvents(fromBlock: number, toBlock: number): Promise<NullifierEvent[]> {
+  private async fetchAndMapEvents(
+    fromBlock: number,
+    toBlock: number,
+    localDedup: Set<string>,
+  ): Promise<NullifierEvent[]> {
     // Filter by topic[0] = either TwoTree or ThreeTree event signature
     const logs = await this.rpcCall<RpcLogEntry[]>('eth_getLogs', [{
       address: this.config.districtGateAddress,
@@ -366,26 +513,24 @@ export class ChainScanner {
     for (const log of logs) {
       if (log.removed) continue;
 
+      // R20-H5: Defense-in-depth — verify returned log address matches our filter.
+      // RPC filters by address, but a buggy/malicious RPC could return logs from other contracts.
+      if (log.address?.toLowerCase() !== this.config.districtGateAddress.toLowerCase()) continue;
+
       const topic0 = log.topics[0];
       if (!topic0) continue;
 
-      // Dedup by txHash:logIndex
+      // R13-C1: Dedup against both the persistent set (prior cycles) and
+      // the local set (this cycle). Add to localDedup only — seenEvents
+      // is committed in commitPollResult() after callbacks succeed.
       const eventId = `${log.transactionHash}:${log.logIndex}`;
-      if (this.seenEvents.has(eventId)) continue;
-      this.seenEvents.add(eventId);
-
-      // Evict oldest entries when dedup set grows too large
-      if (this.seenEvents.size > 100_000) {
-        const entries = Array.from(this.seenEvents);
-        for (let i = 0; i < 50_000; i++) {
-          this.seenEvents.delete(entries[i]);
-        }
-      }
+      if (this.seenEvents.has(eventId) || localDedup.has(eventId)) continue;
+      localDedup.add(eventId);
 
       const mapped = this.mapLogToEvent(topic0, log);
       if (!mapped) continue;
 
-      const blockNum = parseInt(log.blockNumber, 16);
+      const blockNum = safeHexToNumber(log.blockNumber);
       let timestamp = blockTimestamps.get(blockNum);
       if (timestamp === undefined) {
         timestamp = await this.getBlockTimestamp(blockNum);
@@ -406,21 +551,21 @@ export class ChainScanner {
    * Map a raw RPC log entry to a partial NullifierEvent (without block/timestamp).
    *
    * TwoTreeProofVerified ABI layout:
-   *   topics[0] = event sig
-   *   topics[1] = signer (indexed, address padded to 32 bytes)
-   *   topics[2] = submitter (indexed)
-   *   topics[3] = userRoot (indexed)
-   *   data = abi.encode(cellMapRoot, nullifier, actionDomain, authorityLevel, verifierDepth)
-   *          = 5 words (160 bytes)
+   * topics[0] = event sig
+   * topics[1] = signer (indexed, address padded to 32 bytes)
+   * topics[2] = submitter (indexed)
+   * topics[3] = userRoot (indexed)
+   * data = abi.encode(cellMapRoot, nullifier, actionDomain, authorityLevel, verifierDepth)
+   * = 5 words (160 bytes)
    *
    * ThreeTreeProofVerified ABI layout:
-   *   topics[0] = event sig
-   *   topics[1] = signer (indexed)
-   *   topics[2] = submitter (indexed)
-   *   topics[3] = userRoot (indexed)
-   *   data = abi.encode(cellMapRoot, engagementRoot, nullifier, actionDomain,
-   *                     authorityLevel, engagementTier, verifierDepth)
-   *          = 7 words (224 bytes)
+   * topics[0] = event sig
+   * topics[1] = signer (indexed)
+   * topics[2] = submitter (indexed)
+   * topics[3] = userRoot (indexed)
+   * data = abi.encode(cellMapRoot, engagementRoot, nullifier, actionDomain,
+   * authorityLevel, engagementTier, verifierDepth)
+   * = 7 words (224 bytes)
    */
   private mapLogToEvent(
     topic0: string,
@@ -437,8 +582,8 @@ export class ChainScanner {
 
     if (topic0Lower === THREE_TREE_TOPIC) {
       // ThreeTreeProofVerified data:
-      //   [0] cellMapRoot, [1] engagementRoot, [2] nullifier,
-      //   [3] actionDomain, [4] authorityLevel, [5] engagementTier, [6] verifierDepth
+      // [0] cellMapRoot, [1] engagementRoot, [2] nullifier,
+      // [3] actionDomain, [4] authorityLevel, [5] engagementTier, [6] verifierDepth
       if (data.length < 7 * WORD) return null;
       const nullifier = '0x' + data.slice(2 * WORD, 3 * WORD);
       const actionDomain = '0x' + data.slice(3 * WORD, 4 * WORD);
@@ -447,8 +592,8 @@ export class ChainScanner {
 
     if (topic0Lower === TWO_TREE_TOPIC) {
       // TwoTreeProofVerified data:
-      //   [0] cellMapRoot, [1] nullifier, [2] actionDomain,
-      //   [3] authorityLevel, [4] verifierDepth
+      // [0] cellMapRoot, [1] nullifier, [2] actionDomain,
+      // [3] authorityLevel, [4] verifierDepth
       if (data.length < 5 * WORD) return null;
       const nullifier = '0x' + data.slice(1 * WORD, 2 * WORD);
       const actionDomain = '0x' + data.slice(2 * WORD, 3 * WORD);
@@ -468,44 +613,45 @@ export class ChainScanner {
    * ABI layouts (indexed params go in topics, non-indexed in data):
    *
    * TradeCommitted(bytes32 indexed debateId, uint256 indexed epoch, bytes32 commitHash, uint256 commitIndex)
-   *   topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
-   *   data = abi.encode(commitHash, commitIndex) = 2 words
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
+   * data = abi.encode(commitHash, commitIndex) = 2 words
    *
    * TradeRevealed(bytes32 indexed debateId, uint256 indexed epoch, uint256 argumentIndex, uint8 direction, uint256 weightedAmount)
-   *   topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
-   *   data = abi.encode(argumentIndex, direction, weightedAmount) = 3 words
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
+   * data = abi.encode(argumentIndex, direction, weightedAmount) = 3 words
    *
    * EpochExecuted(bytes32 indexed debateId, uint256 indexed epoch, uint256 tradesApplied)
-   *   topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
-   *   data = abi.encode(tradesApplied) = 1 word
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = epoch
+   * data = abi.encode(tradesApplied) = 1 word
    *
    * DebateResolved(bytes32 indexed debateId, uint256 winningArgumentIndex, uint8 winningStance, uint256 winningScore, uint256 uniqueParticipants, uint256 jurisdictionSizeHint)
-   *   topics[0] = event sig, topics[1] = debateId
-   *   data = abi.encode(winningArgumentIndex, winningStance, winningScore, uniqueParticipants, jurisdictionSizeHint) = 5 words
+   * topics[0] = event sig, topics[1] = debateId
+   * data = abi.encode(winningArgumentIndex, winningStance, winningScore, uniqueParticipants, jurisdictionSizeHint) = 5 words
    *
    * DebateProposed(bytes32 indexed debateId, bytes32 indexed actionDomain, bytes32 propositionHash, uint256 deadline, bytes32 baseDomain)
-   *   topics[0] = event sig, topics[1] = debateId, topics[2] = actionDomain
-   *   data = abi.encode(propositionHash, deadline, baseDomain) = 3 words
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = actionDomain
+   * data = abi.encode(propositionHash, deadline, baseDomain) = 3 words
    *
    * ArgumentSubmitted(bytes32 indexed debateId, uint256 indexed argumentIndex, uint8 stance, bytes32 bodyHash, uint8 engagementTier, uint256 weight, bytes32 nullifier)
-   *   topics[0] = event sig, topics[1] = debateId, topics[2] = argumentIndex
-   *   data = abi.encode(stance, bodyHash, engagementTier, weight, nullifier) = 5 words
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = argumentIndex
+   * data = abi.encode(stance, bodyHash, engagementTier, weight, nullifier) = 5 words
    *
-   * SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout)
-   *   topics[0] = event sig, topics[1] = debateId
-   *   data = abi.encode(nullifier, payout) = 2 words
+   * SettlementClaimed(bytes32 indexed debateId, bytes32 nullifier, uint256 payout, address indexed recipient)
+   * topics[0] = event sig, topics[1] = debateId, topics[2] = recipient (indexed address)
+   * data = abi.encode(nullifier, payout) = 2 words
    *
    * AIEvaluationSubmitted(bytes32 indexed debateId, uint256 signatureCount, uint256 nonce)
-   *   topics[0] = event sig, topics[1] = debateId
-   *   data = abi.encode(signatureCount, nonce) = 2 words
+   * topics[0] = event sig, topics[1] = debateId
+   * data = abi.encode(signatureCount, nonce) = 2 words
    *
    * DebateResolvedWithAI(bytes32 indexed debateId, uint256 winningArgumentIndex, uint256 aiScore, uint256 communityScore, uint256 finalScore, uint8 resolutionMethod)
-   *   topics[0] = event sig, topics[1] = debateId
-   *   data = abi.encode(winningArgumentIndex, aiScore, communityScore, finalScore, resolutionMethod) = 5 words
+   * topics[0] = event sig, topics[1] = debateId
+   * data = abi.encode(winningArgumentIndex, aiScore, communityScore, finalScore, resolutionMethod) = 5 words
    */
   private async fetchAndMapDebateEvents(
     fromBlock: number,
     toBlock: number,
+    localDedup: Set<string>,
   ): Promise<AnyDebateEvent[]> {
     const logs = await this.rpcCall<RpcLogEntry[]>('eth_getLogs', [{
       address: this.config.debateMarketAddress,
@@ -531,32 +677,37 @@ export class ChainScanner {
     for (const log of logs) {
       if (log.removed) continue;
 
+      // R20-H5: Defense-in-depth — verify returned log address matches debate market.
+      if (log.address?.toLowerCase() !== this.config.debateMarketAddress.toLowerCase()) continue;
+
       const topic0 = log.topics[0];
       if (!topic0) continue;
 
-      // Dedup by txHash:logIndex (shared dedup set with nullifier events)
+      // R13-C1: Same deferred-dedup pattern as fetchAndMapEvents.
       const eventId = `${log.transactionHash}:${log.logIndex}`;
-      if (this.seenEvents.has(eventId)) continue;
-      this.seenEvents.add(eventId);
+      if (this.seenEvents.has(eventId) || localDedup.has(eventId)) continue;
+      localDedup.add(eventId);
 
-      // Evict oldest entries when dedup set grows too large
-      if (this.seenEvents.size > 100_000) {
-        const entries = Array.from(this.seenEvents);
-        for (let i = 0; i < 50_000; i++) {
-          this.seenEvents.delete(entries[i]);
-        }
-      }
-
-      const blockNum = parseInt(log.blockNumber, 16);
+      const blockNum = safeHexToNumber(log.blockNumber);
       let timestamp = blockTimestamps.get(blockNum);
       if (timestamp === undefined) {
         timestamp = await this.getBlockTimestamp(blockNum);
         blockTimestamps.set(blockNum, timestamp);
       }
 
-      const mapped = this.mapDebateLog(topic0, log, blockNum, timestamp);
-      if (mapped) {
-        events.push(mapped);
+      // R42-FIX: Wrap mapDebateLog in try/catch — malformed hex in RPC data
+      // causes BigInt SyntaxError that would otherwise crash the entire poll cycle
+      try {
+        const mapped = this.mapDebateLog(topic0, log, blockNum, timestamp);
+        if (mapped) {
+          events.push(mapped);
+        }
+      } catch (err) {
+        logger.warn('ChainScanner: failed to parse debate log, skipping', {
+          txHash: log.transactionHash,
+          logIndex: log.logIndex,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -600,9 +751,9 @@ export class ChainScanner {
       // topics[2] = epoch, data = [commitHash, commitIndex]
       const epochTopic = log.topics[2];
       if (!epochTopic || data.length < 2 * WORD) return null;
-      const epoch = parseInt(epochTopic, 16);
+      const epoch = safeHexToNumber(epochTopic);
       const commitHash = '0x' + data.slice(0, WORD);
-      const commitIndex = parseInt(data.slice(WORD, 2 * WORD), 16);
+      const commitIndex = safeHexToNumber(data.slice(WORD, 2 * WORD));
       return { ...base, type: 'TradeCommitted', epoch, commitHash, commitIndex };
     }
 
@@ -610,9 +761,14 @@ export class ChainScanner {
       // topics[2] = epoch, data = [argumentIndex, direction, weightedAmount]
       const epochTopic = log.topics[2];
       if (!epochTopic || data.length < 3 * WORD) return null;
-      const epoch = parseInt(epochTopic, 16);
-      const argumentIndex = parseInt(data.slice(0, WORD), 16);
-      const directionRaw = parseInt(data.slice(WORD, 2 * WORD), 16);
+      const epoch = safeHexToNumber(epochTopic);
+      const argumentIndex = safeHexToNumber(data.slice(0, WORD));
+      const directionRaw = safeHexToNumber(data.slice(WORD, 2 * WORD));
+      // R22-M2: Reject unknown direction values instead of defaulting to SELL
+      if (directionRaw !== 0 && directionRaw !== 1) {
+        logger.warn('ChainScanner: unknown TradeDirection value, skipping event', { directionRaw, txHash: log.transactionHash });
+        return null;
+      }
       const direction = directionRaw === 0 ? 'BUY' as const : 'SELL' as const;
       const weightedAmount = BigInt('0x' + data.slice(2 * WORD, 3 * WORD)).toString();
       return { ...base, type: 'TradeRevealed', epoch, argumentIndex, direction, weightedAmount };
@@ -622,20 +778,25 @@ export class ChainScanner {
       // topics[2] = epoch, data = [tradesApplied]
       const epochTopic = log.topics[2];
       if (!epochTopic || data.length < 1 * WORD) return null;
-      const epoch = parseInt(epochTopic, 16);
-      const tradesApplied = parseInt(data.slice(0, WORD), 16);
+      const epoch = safeHexToNumber(epochTopic);
+      const tradesApplied = safeHexToNumber(data.slice(0, WORD));
       return { ...base, type: 'EpochExecuted', epoch, tradesApplied };
     }
 
     if (topic0Lower === DEBATE_RESOLVED_TOPIC) {
       // topics[1] = debateId (already extracted), data = [winningArgumentIndex, winningStance, winningScore, uniqueParticipants, jurisdictionSizeHint]
       if (data.length < 5 * WORD) return null;
-      const winningArgumentIndex = parseInt(data.slice(0, WORD), 16);
-      const winningStanceRaw = parseInt(data.slice(WORD, 2 * WORD), 16);
+      const winningArgumentIndex = safeHexToNumber(data.slice(0, WORD));
+      const winningStanceRaw = safeHexToNumber(data.slice(WORD, 2 * WORD));
       const stanceMap = ['SUPPORT', 'OPPOSE', 'AMEND'] as const;
-      const winningStance = stanceMap[winningStanceRaw] ?? 'SUPPORT';
+      // R22-M2: Reject unknown stance values instead of defaulting
+      if (winningStanceRaw > 2) {
+        logger.warn('ChainScanner: unknown Stance value in DebateResolved, skipping', { winningStanceRaw, txHash: log.transactionHash });
+        return null;
+      }
+      const winningStance = stanceMap[winningStanceRaw];
       const winningScore = BigInt('0x' + data.slice(2 * WORD, 3 * WORD)).toString();
-      const uniqueParticipants = parseInt(data.slice(3 * WORD, 4 * WORD), 16);
+      const uniqueParticipants = safeHexToNumber(data.slice(3 * WORD, 4 * WORD));
       // jurisdictionSizeHint is data[4] — not stored in event type
       return { ...base, type: 'DebateResolved', winningArgumentIndex, winningStance, winningScore, uniqueParticipants };
     }
@@ -647,7 +808,7 @@ export class ChainScanner {
       if (!actionDomainTopic || data.length < 3 * WORD) return null;
       const actionDomain = actionDomainTopic;
       const propositionHash = '0x' + data.slice(0, WORD);
-      const deadline = parseInt(data.slice(WORD, 2 * WORD), 16);
+      const deadline = safeHexToNumber(data.slice(WORD, 2 * WORD));
       const baseDomain = '0x' + data.slice(2 * WORD, 3 * WORD);
       return { ...base, type: 'DebateProposed', actionDomain, propositionHash, deadline, baseDomain };
     }
@@ -657,12 +818,17 @@ export class ChainScanner {
       // data = [stance, bodyHash, engagementTier, weight, nullifier] = 5 words
       const argumentIndexTopic = log.topics[2];
       if (!argumentIndexTopic || data.length < 5 * WORD) return null;
-      const argumentIndex = parseInt(argumentIndexTopic, 16);
-      const stanceRaw = parseInt(data.slice(0, WORD), 16);
+      const argumentIndex = safeHexToNumber(argumentIndexTopic);
+      const stanceRaw = safeHexToNumber(data.slice(0, WORD));
       const stanceMap = ['SUPPORT', 'OPPOSE', 'AMEND'] as const;
-      const stance = stanceMap[stanceRaw] ?? 'SUPPORT';
+      // R22-M2: Reject unknown stance values instead of defaulting
+      if (stanceRaw > 2) {
+        logger.warn('ChainScanner: unknown Stance value in ArgumentSubmitted, skipping', { stanceRaw, txHash: log.transactionHash });
+        return null;
+      }
+      const stance = stanceMap[stanceRaw];
       const bodyHash = '0x' + data.slice(WORD, 2 * WORD);
-      const engagementTier = parseInt(data.slice(2 * WORD, 3 * WORD), 16);
+      const engagementTier = safeHexToNumber(data.slice(2 * WORD, 3 * WORD));
       const weight = BigInt('0x' + data.slice(3 * WORD, 4 * WORD)).toString();
       const nullifier = '0x' + data.slice(4 * WORD, 5 * WORD);
       return { ...base, type: 'ArgumentSubmitted', argumentIndex, stance, bodyHash, engagementTier, weight, nullifier };
@@ -683,8 +849,8 @@ export class ChainScanner {
       // topics[1] = debateId (already extracted)
       // data = [signatureCount, nonce] = 2 words
       if (data.length < 2 * WORD) return null;
-      const signatureCount = parseInt(data.slice(0, WORD), 16);
-      const nonce = parseInt(data.slice(WORD, 2 * WORD), 16);
+      const signatureCount = safeHexToNumber(data.slice(0, WORD));
+      const nonce = safeHexToNumber(data.slice(WORD, 2 * WORD));
       return { ...base, type: 'AIEvaluationSubmitted', signatureCount, nonce };
     }
 
@@ -692,11 +858,11 @@ export class ChainScanner {
       // topics[1] = debateId (already extracted)
       // data = [winningArgumentIndex, aiScore, communityScore, finalScore, resolutionMethod] = 5 words
       if (data.length < 5 * WORD) return null;
-      const winningArgumentIndex = parseInt(data.slice(0, WORD), 16);
+      const winningArgumentIndex = safeHexToNumber(data.slice(0, WORD));
       const aiScore = BigInt('0x' + data.slice(WORD, 2 * WORD)).toString();
       const communityScore = BigInt('0x' + data.slice(2 * WORD, 3 * WORD)).toString();
       const finalScore = BigInt('0x' + data.slice(3 * WORD, 4 * WORD)).toString();
-      const resolutionMethod = parseInt(data.slice(4 * WORD, 5 * WORD), 16);
+      const resolutionMethod = safeHexToNumber(data.slice(4 * WORD, 5 * WORD));
       return { ...base, type: 'DebateResolvedWithAI', winningArgumentIndex, aiScore, communityScore, finalScore, resolutionMethod };
     }
 
@@ -705,8 +871,11 @@ export class ChainScanner {
       // topics[2] = epoch (indexed)
       // data = [argumentIndex, weightedAmount, noteCommitment] = 3 words
       if (data.length < 3 * WORD) return null;
-      const epoch = log.topics[2] ? parseInt(log.topics[2], 16) : 0;
-      const argumentIndex = parseInt(data.slice(0, WORD), 16);
+      // R43-FIX: Return null for missing epoch topic instead of defaulting to 0
+      // (epoch 0 is valid in DebateMarket — silent default would corrupt position attribution)
+      if (!log.topics[2]) return null;
+      const epoch = safeHexToNumber(log.topics[2]);
+      const argumentIndex = safeHexToNumber(data.slice(0, WORD));
       const weightedAmount = BigInt('0x' + data.slice(WORD, 2 * WORD)).toString();
       const noteCommitment = '0x' + data.slice(2 * WORD, 3 * WORD);
       return { ...base, type: 'PositionCommitted', epoch, argumentIndex, weightedAmount, noteCommitment };
@@ -719,12 +888,12 @@ export class ChainScanner {
   // Internal: Cursor Persistence
   // ========================================================================
 
+  // R49-M4: Atomic cursor write via shared atomicWriteFile utility
   private async saveCursor(): Promise<void> {
     try {
-      await fs.writeFile(
+      await atomicWriteFile(
         this.config.cursorPath,
         JSON.stringify(this.cursor, null, 2) + '\n',
-        'utf-8',
       );
     } catch (err) {
       logger.error('ChainScanner: failed to save cursor', {

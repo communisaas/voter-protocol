@@ -20,7 +20,9 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as turf from '@turf/turf';
+import { area } from '@turf/area';
+import { intersect } from '@turf/intersect';
+import { featureCollection } from '@turf/helpers';
 import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
 import { KNOWN_PORTALS } from '../src/core/registry/known-portals.generated.js';
 
@@ -151,12 +153,12 @@ function computePairwiseOverlaps(
   for (let i = 0; i < features.length; i++) {
     for (let j = i + 1; j < features.length; j++) {
       try {
-        const intersection = turf.intersect(
-          turf.featureCollection([features[i], features[j]])
+        const intersection = intersect(
+          featureCollection([features[i], features[j]])
         );
 
         if (intersection) {
-          const overlapArea = turf.area(intersection);
+          const overlapArea = area(intersection);
           if (overlapArea > 0.1) { // Ignore floating point noise
             overlaps.push({
               district1: getDistrictId(features[i]),

@@ -442,17 +442,9 @@ export class BulkDistrictDiscovery {
   importResults(json: string): void {
     let results: DiscoveryResult[];
 
-    try {
-      // SA-014: Validate results against schema
-      // parseDiscoveryResults throws if validation fails, so cast is safe after validation
-      results = parseDiscoveryResults(json) as unknown as DiscoveryResult[];
-    } catch (validationError) {
-      // Log warning but allow fallback for backwards compatibility
-      logger.warn('Discovery results validation failed, using unvalidated parse', {
-        error: validationError instanceof Error ? validationError.message : 'Unknown error',
-      });
-      results = JSON.parse(json) as DiscoveryResult[];
-    }
+    // SA-014 + R76-F1: Validate results against schema. No fallback to unvalidated parse —
+    // if schema validation fails, the data is suspect and must not enter discovery state.
+    results = parseDiscoveryResults(json) as unknown as DiscoveryResult[];
 
     for (const result of results) {
       this.results.set(result.geoid, result);
@@ -476,18 +468,10 @@ export class BulkDistrictDiscovery {
 
     let state: { results?: DiscoveryResult[] };
 
-    try {
-      // SA-014: Validate state against schema
-      const parsed = JSON.parse(stateJson) as unknown;
-      // Zod parse throws if validation fails, so cast is safe after validation
-      state = SavedStateSchema.parse(parsed) as unknown as { results?: DiscoveryResult[] };
-    } catch (validationError) {
-      // Log warning but allow fallback for backwards compatibility
-      logger.warn('Discovery state validation failed, using unvalidated parse', {
-        error: validationError instanceof Error ? validationError.message : 'Unknown error',
-      });
-      state = JSON.parse(stateJson) as { results?: DiscoveryResult[] };
-    }
+    // SA-014 + R76-F1: Validate state against schema. No fallback to unvalidated parse —
+    // corrupted state must not silently bypass schema validation.
+    const parsed = JSON.parse(stateJson) as unknown;
+    state = SavedStateSchema.parse(parsed) as unknown as { results?: DiscoveryResult[] };
 
     if (state.results) {
       for (const result of state.results) {

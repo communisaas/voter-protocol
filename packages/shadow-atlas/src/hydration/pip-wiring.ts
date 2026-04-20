@@ -14,6 +14,7 @@
 import { PointInPolygonEngine } from '../services/pip-engine.js';
 import type { InternationalBoundary } from '../providers/international/base-provider.js';
 import type { GeocoderFn, PIPCheckFn } from '../providers/international/country-provider-types.js';
+import { fetchWithSizeLimit } from './fetch-with-size-limit.js';
 
 /**
  * Build a PIPCheckFn from a boundary array.
@@ -67,20 +68,22 @@ export function buildNominatimGeocoder(): GeocoderFn {
         limit: '1',
       });
       const url = `https://nominatim.openstreetmap.org/search?${params}`;
-      const res = await fetch(url, {
+      // Use fetchWithSizeLimit instead of raw fetch — prevents SSRF via redirect
+      // and memory exhaustion from malicious/oversized responses. 1MB limit is generous
+      // for Nominatim JSON responses (typically <1KB).
+      const body = await fetchWithSizeLimit(url, 1_048_576, {
         headers: { 'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0 (validation)' },
         signal: AbortSignal.timeout(10_000),
       });
 
-      if (!res.ok) return null;
-
-      const data = await res.json();
+      const data = JSON.parse(body);
       if (!Array.isArray(data) || data.length === 0) return null;
       const first = data[0];
       if (!first || first.lat == null || first.lon == null) return null;
       const lat = parseFloat(first.lat);
       const lng = parseFloat(first.lon);
       if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
       return { lat, lng };
     } catch {
       // Geocoding failure is non-fatal — official will be skipped

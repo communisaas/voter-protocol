@@ -18,7 +18,9 @@
  *   tsx scripts/centroid-distance-analysis.ts --all     # Full dataset analysis
  */
 
-import * as turf from '@turf/turf';
+import { centroid } from '@turf/centroid';
+import { distance } from '@turf/distance';
+import { point } from '@turf/helpers';
 import type { Feature, FeatureCollection, Polygon, MultiPolygon, Point } from 'geojson';
 import { MunicipalBoundaryResolver } from '../src/validators/council/municipal-boundary.js';
 import finalCouncilDistricts from '../src/agents/data/final-council-districts.json' with { type: 'json' };
@@ -128,7 +130,7 @@ function computeDistrictCentroid(districts: FeatureCollection<Polygon | MultiPol
     // Compute centroid of each district, then average
     // This avoids expensive union operations and topology errors
     const centroids: Point[] = districts.features.map((feature) => {
-      const centroid = turf.centroid(feature);
+      const centroid = centroid(feature);
       return centroid.geometry;
     });
 
@@ -140,7 +142,7 @@ function computeDistrictCentroid(districts: FeatureCollection<Polygon | MultiPol
     const avgLon = centroids.reduce((sum, pt) => sum + pt.coordinates[0], 0) / centroids.length;
     const avgLat = centroids.reduce((sum, pt) => sum + pt.coordinates[1], 0) / centroids.length;
 
-    return turf.point([avgLon, avgLat]).geometry;
+    return point([avgLon, avgLat]).geometry;
   } catch (error) {
     console.error('Error computing district centroid:', error instanceof Error ? error.message : String(error));
     return null;
@@ -216,7 +218,7 @@ async function analyzeSingleCity(
   // Compute centroids
   console.log('  → Computing centroids...');
   const districtCentroid = computeDistrictCentroid(districts);
-  const cityCentroid = turf.centroid(boundaryResult.boundary.geometry).geometry;
+  const cityCentroid = centroid(boundaryResult.boundary.geometry).geometry;
 
   if (!districtCentroid) {
     return {
@@ -234,9 +236,9 @@ async function analyzeSingleCity(
   }
 
   // Compute distance
-  const distanceKm = turf.distance(
-    turf.point(districtCentroid.coordinates),
-    turf.point(cityCentroid.coordinates),
+  const distanceKm = distance(
+    point(districtCentroid.coordinates),
+    point(cityCentroid.coordinates),
     { units: 'kilometers' }
   );
 

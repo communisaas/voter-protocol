@@ -5,8 +5,8 @@
  * and compares the most recent successful run_at timestamp against configurable
  * warn/critical thresholds.
  *
- * @see ../db/officials-schema.sql — ingestion_log DDL
- * @see ./db-writer.ts — writes ingestion_log rows
+ * @see../db/officials-schema.sql — ingestion_log DDL
+ * @see./db-writer.ts — writes ingestion_log rows
  */
 
 import Database from 'better-sqlite3';
@@ -203,11 +203,18 @@ function queryLastSuccessPerSource(db: InstanceType<typeof Database>): Map<strin
     "SELECT COUNT(*) as cnt FROM pragma_table_info('ingestion_log') WHERE name='source_vintage'"
   ).get() as { cnt: number })?.cnt > 0;
 
+  // R55-C1: Use subquery to get source_vintage from the row with MAX(run_at),
+  // not MAX(source_vintage) independently (which could come from a different row).
   const query = hasVintageColumn
-    ? `SELECT source, MAX(run_at) as last_success, source_vintage
-       FROM ingestion_log
-       WHERE status = 'success'
-       GROUP BY source`
+    ? `SELECT il.source, il.run_at as last_success, il.source_vintage
+       FROM ingestion_log il
+       INNER JOIN (
+         SELECT source, MAX(run_at) as max_run_at
+         FROM ingestion_log
+         WHERE status = 'success'
+         GROUP BY source
+       ) latest ON il.source = latest.source AND il.run_at = latest.max_run_at
+       WHERE il.status = 'success'`
     : `SELECT source, MAX(run_at) as last_success, NULL as source_vintage
        FROM ingestion_log
        WHERE status = 'success'
@@ -246,9 +253,26 @@ function buildReport(
   }
 
   const lastDate = new Date(record.lastSuccess);
-  const sourceVintage = record.sourceVintage ? new Date(record.sourceVintage) : null;
+  // Validate sourceVintage is a real date — Invalid Date from corrupted
+  // DB values would crash toISOString() downstream.
+  const sourceVintageRaw = record.sourceVintage ? new Date(record.sourceVintage) : null;
+  const sourceVintage = sourceVintageRaw && !isNaN(sourceVintageRaw.getTime()) ? sourceVintageRaw : null;
   const now = new Date();
   const ageMs = now.getTime() - lastDate.getTime();
+  // R79-S14: Guard against NaN/negative age from invalid or future timestamps.
+  // Without this, NaN propagates through comparisons (NaN >= threshold = false),
+  // causing corrupted/future timestamps to always appear 'fresh'.
+  if (!Number.isFinite(ageMs) || ageMs < 0) {
+    return {
+      country,
+      source,
+      lastIngestion: lastDate,
+      ageInDays: null,
+      sourceVintage,
+      status: 'stale-critical',
+      message: `${country} has invalid ingestion timestamp: ${record.lastSuccess}`,
+    };
+  }
   const ageInDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
 
   let status: FreshnessStatus;

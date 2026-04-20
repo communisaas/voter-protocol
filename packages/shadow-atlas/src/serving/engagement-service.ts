@@ -110,6 +110,10 @@ export class EngagementService {
   private lockChain: Promise<void> = Promise.resolve();
   private root: bigint;
   private insertionLog: InsertionLog | null = null;
+  // R61-H1: Flag tracks whether insertLeafAtIndex() is mid-flight.
+  // hashPair() is truly async (Noir WASM), so event-loop interleaving
+  // CAN produce stale root + inconsistent siblings in getProof().
+  private treeModifying = false;
 
   private constructor(
     hasher: Poseidon2Hasher,
@@ -367,14 +371,24 @@ export class EngagementService {
 
   /**
    * Get Merkle proof for a leaf by index.
-   * Intentionally lock-free: this method is synchronous and Node.js single-threaded
-   * execution prevents interleaving with async mutations in updateMetrics.
-   * Do NOT introduce await statements in updateMetrics between tree mutation
-   * and identityMap update, or this assumption breaks.
+   *
+   * R61-H1: hashPair() is truly async (Noir WASM `execute()`), so the
+   * event loop CAN interleave between setNode() calls in insertLeafAtIndex().
+   * During that window the internal nodes are partially updated while
+   * `this.root` is stale — producing an inconsistent proof.
+   *
+   * Reject proof requests during tree modification instead of
+   * returning potentially stale data. Callers should retry after a brief delay.
    */
   getProof(leafIndex: number): EngagementProofResult {
     if (leafIndex < 0 || leafIndex >= this.nextLeafIndex) {
       throw new Error(`Leaf index ${leafIndex} out of range [0, ${this.nextLeafIndex})`);
+    }
+
+    // Reject proof requests during tree modification instead of returning
+    // potentially stale data. Callers should retry after a brief delay.
+    if (this.treeModifying) {
+      throw new Error('Tree is currently being modified — retry proof request after a brief delay');
     }
 
     // O(1) reverse index lookup
@@ -467,21 +481,28 @@ export class EngagementService {
   // ========================================================================
 
   private async insertLeafAtIndex(index: number, leaf: bigint): Promise<void> {
-    this.setNode(0, index, leaf);
+    // R61-H1: Mark tree as mid-modification. hashPair() is async (Noir WASM),
+    // so the event loop may interleave getProof() calls between levels.
+    this.treeModifying = true;
+    try {
+      this.setNode(0, index, leaf);
 
-    let currentIndex = index;
-    for (let level = 0; level < this.depth; level++) {
-      const parentIndex = currentIndex >> 1;
-      const leftIndex = parentIndex << 1;
-      const rightIndex = leftIndex + 1;
-      const left = this.getNode(level, leftIndex);
-      const right = this.getNode(level, rightIndex);
-      const parentHash = await this.hasher.hashPair(left, right);
-      this.setNode(level + 1, parentIndex, parentHash);
-      currentIndex = parentIndex;
+      let currentIndex = index;
+      for (let level = 0; level < this.depth; level++) {
+        const parentIndex = currentIndex >> 1;
+        const leftIndex = parentIndex << 1;
+        const rightIndex = leftIndex + 1;
+        const left = this.getNode(level, leftIndex);
+        const right = this.getNode(level, rightIndex);
+        const parentHash = await this.hasher.hashPair(left, right);
+        this.setNode(level + 1, parentIndex, parentHash);
+        currentIndex = parentIndex;
+      }
+
+      this.root = this.getNode(this.depth, 0);
+    } finally {
+      this.treeModifying = false;
     }
-
-    this.root = this.getNode(this.depth, 0);
   }
 
   private computeProof(leafIndex: number): { siblings: bigint[]; pathIndices: number[] } {

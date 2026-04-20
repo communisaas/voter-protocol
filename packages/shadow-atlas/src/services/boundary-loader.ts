@@ -173,10 +173,14 @@ export class BoundaryLoader implements BoundaryDataSource {
   ): Promise<BoundaryGeometry[]> {
     const cacheKey = portal.cityFips;
 
-    // Check cache
+    // Check cache (evict expired entries on read)
     const cached = this.cache.get(cacheKey);
-    if (cached && new Date() < cached.expiresAt) {
-      return cached.boundaries;
+    if (cached) {
+      if (new Date() < cached.expiresAt) {
+        return cached.boundaries;
+      }
+      // Expired — remove stale entry
+      this.cache.delete(cacheKey);
     }
 
     // Fetch GeoJSON

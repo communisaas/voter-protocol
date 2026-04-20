@@ -100,19 +100,11 @@ export function saveBaseline(dbPath: string, baseline: ExtractionBaseline): void
  * Load the most recent baseline for a country.
  */
 export function loadBaseline(dbPath: string, country: string): ExtractionBaseline | null {
-  const db = new Database(dbPath);
+  // Open read-only — loadBaseline should never mutate the DB
+  const db = new Database(dbPath, { readonly: true });
   try {
-    ensureSchema(db);
 
-    const row = db.prepare(`
-      SELECT country, timestamp, boundary_counts,
-             official_count, expected_official_count,
-             resolved_count, unmatched_count, overall_confidence
-      FROM extraction_baselines
-      WHERE country = ?
-      ORDER BY id DESC
-      LIMIT 1
-    `).get(country) as {
+    let row: {
       country: string;
       timestamp: string;
       boundary_counts: string;
@@ -122,6 +114,24 @@ export function loadBaseline(dbPath: string, country: string): ExtractionBaselin
       unmatched_count: number;
       overall_confidence: number;
     } | undefined;
+
+    try {
+      row = db.prepare(`
+        SELECT country, timestamp, boundary_counts,
+               official_count, expected_official_count,
+               resolved_count, unmatched_count, overall_confidence
+        FROM extraction_baselines
+        WHERE country = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `).get(country) as typeof row;
+    } catch (err: unknown) {
+      // Gracefully handle missing table — DB may pre-exist from db-writer without baselines schema
+      if (err instanceof Error && err.message.includes('no such table')) {
+        return null;
+      }
+      throw err;
+    }
 
     if (!row) return null;
 
@@ -150,14 +160,14 @@ export function loadBaseline(dbPath: string, country: string): ExtractionBaselin
  * Compare a current extraction to the previous baseline.
  *
  * Thresholds:
- *   - Official count decrease > 5%  → WARNING
- *   - Official count decrease > 20% → CRITICAL
- *   - Boundary count decrease > 5%  → WARNING
- *   - Boundary count decrease > 20% → CRITICAL
- *   - Confidence decrease > 10 pts  → WARNING
- *   - Confidence decrease > 25 pts  → CRITICAL
- *   - New unmatched officials       → WARNING
- *   - Resolution count decreased    → WARNING
+ * - Official count decrease > 5% → WARNING
+ * - Official count decrease > 20% → CRITICAL
+ * - Boundary count decrease > 5% → WARNING
+ * - Boundary count decrease > 20% → CRITICAL
+ * - Confidence decrease > 10 pts → WARNING
+ * - Confidence decrease > 25 pts → CRITICAL
+ * - New unmatched officials → WARNING
+ * - Resolution count decreased → WARNING
  */
 export function compareToBaseline(
   current: ExtractionBaseline,
@@ -182,6 +192,7 @@ export function compareToBaseline(
 
   // --- Boundary counts (per layer) ---
   const prevBoundaryMap = new Map(previous.boundaries.map(b => [b.layer, b.count]));
+  const curBoundarySet = new Set(current.boundaries.map(b => b.layer));
   for (const cur of current.boundaries) {
     const prevCount = prevBoundaryMap.get(cur.layer);
     if (prevCount != null && prevCount > 0) {
@@ -195,6 +206,15 @@ export function compareToBaseline(
           `Boundary "${cur.layer}" dropped ${(pct * 100).toFixed(1)}%: ${prevCount} → ${cur.count}`,
         );
       }
+    }
+  }
+
+  // R34-M2: Detect entirely dropped layers — previous layers absent from current run
+  for (const prev of previous.boundaries) {
+    if (!curBoundarySet.has(prev.layer) && prev.count > 0) {
+      criticals.push(
+        `Boundary layer "${prev.layer}" entirely missing from current run (was ${prev.count})`,
+      );
     }
   }
 

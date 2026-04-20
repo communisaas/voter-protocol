@@ -10,7 +10,10 @@
  */
 
 import Database from 'better-sqlite3';
-import * as turf from '@turf/turf';
+import { circle } from '@turf/circle';
+import { intersect } from '@turf/intersect';
+import { simplify } from '@turf/simplify';
+import { lineString, polygon as turfPolygon, multiPolygon as turfMultiPolygon, featureCollection } from '@turf/helpers';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import type { GeoJSONPolygon } from './types.js';
 import type { GeocodeService } from './geocode-service.js';
@@ -60,6 +63,8 @@ export interface BubbleQueryResponse {
   fences: FenceResult[];
   districts: ClippedDistrict[];
   officials?: Array<{ name: string; title: string; party: string; districtId: string }>;
+  /** R33-M4: Indicates results were truncated to MAX_RESULTS cap */
+  truncated?: boolean;
 }
 
 // ============================================================================
@@ -141,12 +146,28 @@ export class BubbleService {
       bbox.minLng, bbox.maxLng, bbox.minLat, bbox.maxLat,
     ) as DistrictRow[];
 
-    const bubbleCircle = turf.circle([center.lng, center.lat], bufferedRadius / 1000, {
+    // R35-F3: Apply layer filter BEFORE truncation so requested layers aren't silently dropped
+    const layerFiltered = req.layers
+      ? rawDistricts.filter(d => req.layers!.includes(this.extractLayer(d.id)))
+      : rawDistricts;
+
+    // Cap results to prevent unbounded Turf.js intersection work
+    const MAX_RESULTS = 500;
+    let truncated = false;
+    if (layerFiltered.length > MAX_RESULTS) {
+      logger.warn('bubble-query result cap exceeded, truncating', {
+        lat: center.lat, lng: center.lng, radius,
+        rawCount: layerFiltered.length, cap: MAX_RESULTS,
+      });
+      layerFiltered.length = MAX_RESULTS;
+      truncated = true;
+    }
+
+    const bubbleCircle = circle([center.lng, center.lat], bufferedRadius / 1000, {
       steps: 32, units: 'kilometers',
     });
 
-    const districts: ClippedDistrict[] = rawDistricts
-      .filter(d => !req.layers || req.layers.includes(this.extractLayer(d.id)))
+    const districts: ClippedDistrict[] = layerFiltered
       .map(d => this.toClippedDistrict(d, bubbleCircle))
       .filter((d): d is ClippedDistrict => d !== null);
 
@@ -176,6 +197,7 @@ export class BubbleService {
       fences,
       districts,
       officials,
+      ...(truncated ? { truncated } : {}),
     };
   }
 
@@ -189,7 +211,10 @@ export class BubbleService {
     minLat: number; maxLat: number; minLng: number; maxLng: number;
   } {
     const latDelta = radiusM / 111_320; // 1° lat ≈ 111.32 km
-    const lngDelta = radiusM / (111_320 * Math.cos(lat * Math.PI / 180));
+    // R11-M2: Clamp cos(lat) to prevent near-infinite bbox at poles.
+    // Math.cos(90° * π/180) ≈ 6e-17, producing lngDelta ≈ 7e12 degrees.
+    const cosLat = Math.max(Math.cos(lat * Math.PI / 180), 0.01);
+    const lngDelta = radiusM / (111_320 * cosLat);
     return {
       minLat: lat - latDelta,
       maxLat: lat + latDelta,
@@ -209,8 +234,8 @@ export class BubbleService {
     let geometry: { type: 'LineString'; coordinates: number[][] };
     try {
       const parsed = JSON.parse(row.geometry);
-      const line = turf.lineString(parsed.coordinates);
-      const simplified = turf.simplify(line, { tolerance: SIMPLIFY_TOLERANCE, highQuality: false });
+      const line = lineString(parsed.coordinates);
+      const simplified = simplify(line, { tolerance: SIMPLIFY_TOLERANCE, highQuality: false });
 
       // Cap vertex count
       let coords = simplified.geometry.coordinates;
@@ -245,16 +270,16 @@ export class BubbleService {
     try {
       const geom = JSON.parse(row.geometry) as GeoJSONPolygon;
       const districtFeature = geom.type === 'MultiPolygon'
-        ? turf.multiPolygon(geom.coordinates as number[][][][])
-        : turf.polygon(geom.coordinates as number[][][]);
+        ? turfMultiPolygon(geom.coordinates as number[][][][])
+        : turfPolygon(geom.coordinates as number[][][]);
 
-      const clipped = turf.intersect(
-        turf.featureCollection([districtFeature as Feature<Polygon | MultiPolygon>, bubbleCircle]),
+      const clipped = intersect(
+        featureCollection([districtFeature as Feature<Polygon | MultiPolygon>, bubbleCircle]),
       );
       if (!clipped) return null;
 
       // Simplify
-      const simplified = turf.simplify(clipped, { tolerance: SIMPLIFY_TOLERANCE, highQuality: false });
+      const simplified = simplify(clipped, { tolerance: SIMPLIFY_TOLERANCE, highQuality: false });
 
       return {
         id: row.id,

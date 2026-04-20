@@ -60,6 +60,7 @@ export type {
 // Sync service types
 export type {
   PinnedLogMetadata,
+  ServiceCidRecord,
   SyncServiceConfig,
 } from './sync-service.js';
 

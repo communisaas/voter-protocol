@@ -269,15 +269,18 @@ export class RDHVTDExtractor {
    * List VTD datasets from RDH API for a state
    */
   private async listVTDDatasets(stateCode: string): Promise<readonly RDHDataset[]> {
+    const authHeader = 'Basic ' + Buffer.from(`${this.credentials.username}:${this.credentials.password}`).toString('base64');
+
     const params = new URLSearchParams({
-      username: this.credentials.username,
-      password: this.credentials.password,
       format: 'json',
       states: stateCode,
     });
 
     const response = await fetch(`${this.RDH_API_URL}?${params}`, {
       signal: AbortSignal.timeout(this.timeout),
+      headers: {
+        Authorization: authHeader,
+      },
     });
 
     const data = await response.json();
@@ -317,7 +320,11 @@ export class RDHVTDExtractor {
     const stateDir = join(this.cacheDir, stateCode);
     await mkdir(stateDir, { recursive: true });
 
-    const filePath = join(stateDir, dataset.Filename);
+    // R62-C1: Prevent path traversal — dataset.Filename comes from RDH API response.
+    // path.join() does NOT prevent traversal (join('/cache', '../../etc/passwd') resolves).
+    // Extract basename and strip non-safe characters.
+    const safeFilename = basename(dataset.Filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = join(stateDir, safeFilename);
 
     // Check cache
     if (!this.forceRefresh) {
@@ -332,6 +339,9 @@ export class RDHVTDExtractor {
       }
     }
 
+    // R58-C1: RDH download URLs embed credentials as URL parameters (API design).
+    // Never log the full URL — credentials would appear in log output, proxy caches,
+    // and server access logs. Wrap fetch in try/catch to strip URL from error messages.
     const downloadUrl = dataset.URL
       .replace('YOURUSERNAME', this.credentials.username)
       .replace('YOURPASSWORD', encodeURIComponent(this.credentials.password));
@@ -341,15 +351,27 @@ export class RDHVTDExtractor {
       sizeMB: dataset.SizeMB,
     });
 
-    const response = await fetch(downloadUrl, {
-      signal: AbortSignal.timeout(this.timeout),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    let response: Response;
+    try {
+      response = await fetch(downloadUrl, {
+        signal: AbortSignal.timeout(this.timeout),
+      });
+    } catch (fetchErr) {
+      // R58-C1: Strip credential-bearing URL from fetch error messages
+      const safeMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      throw new Error(`RDH download failed for ${dataset.Filename}: ${safeMsg.replace(/https?:\/\/[^\s]+/g, '[redacted-url]')}`);
     }
 
+    if (!response.ok) {
+      throw new Error(`RDH download HTTP ${response.status} for ${dataset.Filename}`);
+    }
+
+    // Cap shapefile download size to prevent OOM from compromised RDH.
+    const MAX_SHAPEFILE_BYTES = 500 * 1024 * 1024; // 500MB cap
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_SHAPEFILE_BYTES) {
+      throw new Error(`RDH download for ${dataset.Filename} exceeds ${MAX_SHAPEFILE_BYTES} byte limit (got ${buffer.byteLength})`);
+    }
     await writeFile(filePath, Buffer.from(buffer));
     return filePath;
   }
@@ -445,7 +467,7 @@ export class RDHVTDExtractor {
         shpPath,
       ]);
 
-      // Parse ogrinfo output: "  FIELD (String) = value"
+      // Parse ogrinfo output: " FIELD (String) = value"
       const lines = output.split('\n');
       const geoids: string[] = [];
       const pattern = new RegExp(`${geoidField}.*= (.+)$`);

@@ -6,18 +6,18 @@
  * cell map construction, and validation for any supported country.
  *
  * Usage:
- *   npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country AU
- *   npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country CA --validate-only
- *   npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country GB --dry-run
- *   npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country NZ --skip-cell-map
+ * npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country AU
+ * npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country CA --validate-only
+ * npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country GB --dry-run
+ * npx tsx packages/shadow-atlas/src/hydration/hydrate-country.ts --country NZ --skip-cell-map
  *
  * Pipeline (per country):
- *   1. Extract boundaries via provider.extractAll()
- *   2. Build boundary index (name → boundary)
- *   3. Extract officials via provider.extractOfficials(boundaryIndex)
- *   4. Build cell map via provider.buildCellMap(boundaries) [optional]
- *   5. Validate via provider.validate(boundaries, officials) [optional]
- *   6. Write to SQLite [unless --dry-run]
+ * 1. Extract boundaries via provider.extractAll()
+ * 2. Build boundary index (name → boundary)
+ * 3. Extract officials via provider.extractOfficials(boundaryIndex)
+ * 4. Build cell map via provider.buildCellMap(boundaries) [optional]
+ * 5. Validate via provider.validate(boundaries, officials) [optional]
+ * 6. Write to SQLite [unless --dry-run]
  *
  * @see country-provider.ts for the abstract CountryProvider class
  * @see memory/country-provider-unification.md for architectural spec
@@ -26,7 +26,7 @@
 import type { CountryProvider } from '../providers/international/country-provider.js';
 import type { InternationalBoundary, AuthorityLevel } from '../providers/international/base-provider.js';
 import type { GeocoderFn, OfficialRecord, PIPCheckFn, ValidationReport } from '../providers/international/country-provider-types.js';
-import { writeOfficials } from './db-writer.js';
+import { writeOfficials, logIngestionFailure } from './db-writer.js';
 
 // ============================================================================
 // CLI Argument Parsing
@@ -81,9 +81,16 @@ function parseArgs(): CLIOptions {
       case '--cache-dir':
         opts.cacheDir = args[++i] ?? opts.cacheDir;
         break;
-      case '--cell-map-threshold':
-        opts.cellMapThreshold = parseFloat(args[++i] ?? String(CELL_MAP_THRESHOLD));
+      case '--cell-map-threshold': {
+        const raw = parseFloat(args[++i] ?? String(CELL_MAP_THRESHOLD));
+        // R34-M1: Bounds validation — reject NaN, Infinity, and values outside [0.5, 1.0]
+        if (!Number.isFinite(raw) || raw < 0.5 || raw > 1.0) {
+          console.error(`Invalid --cell-map-threshold: must be a number between 0.5 and 1.0, got "${args[i]}"`);
+          process.exit(1);
+        }
+        opts.cellMapThreshold = raw;
         break;
+      }
       case '--verbose':
         opts.verbose = true;
         break;
@@ -163,10 +170,15 @@ export function buildBoundaryIndex(
   boundaries: readonly InternationalBoundary[],
 ): BoundaryIndexResult {
   const index = new Map<string, InternationalBoundary>();
+  // R49-F7: Track names that have been promoted to compound keys so the 3rd+
+  // boundary with the same name goes straight to compound key storage, instead
+  // of re-inserting under the simple key (which was deleted on the 2nd hit).
+  const promotedNames = new Set<string>();
   let collisionCount = 0;
 
   for (const boundary of boundaries) {
     if (index.has(boundary.name)) {
+      // First collision for this name — promote existing + store new under compound keys
       collisionCount++;
       const existing = index.get(boundary.name)!;
       const existingKey = `${existing.type}:${existing.name}`;
@@ -174,6 +186,15 @@ export function buildBoundaryIndex(
       if (!index.has(existingKey)) {
         index.set(existingKey, existing);
       }
+      index.set(newKey, boundary);
+      // Delete the stale simple key — callers must use compound keys
+      // when collisions exist, otherwise they get the first (arbitrary) entry.
+      index.delete(boundary.name);
+      promotedNames.add(boundary.name);
+    } else if (promotedNames.has(boundary.name)) {
+      // R49-F7: Name was already promoted — go straight to compound key
+      collisionCount++;
+      const newKey = `${boundary.type}:${boundary.name}`;
       index.set(newKey, boundary);
     } else {
       index.set(boundary.name, boundary);
@@ -329,26 +350,9 @@ async function main(): Promise<void> {
   );
   printValidationReport(report);
 
-  // Write to DB (unless dry run or validate only)
-  if (!opts.dryRun && !opts.validateOnly) {
-    if (report.blocking) {
-      console.log('\nValidation BLOCKING — schema validation failed threshold. Skipping DB write.');
-    } else {
-      console.log('\nWriting officials to DB...');
-      const summary = writeOfficials(
-        opts.dbPath,
-        opts.country,
-        [...officialsResult.officials],
-      );
-      console.log(`  Inserted: ${summary.inserted}`);
-      console.log(`  Updated:  ${summary.updated}`);
-      console.log(`  Total:    ${summary.inserted + summary.updated}`);
-    }
-  } else {
-    console.log(`\n${opts.dryRun ? 'Dry run' : 'Validate only'}: skipping DB write.`);
-  }
-
-  // Regression baseline tracking
+  // Regression check BEFORE DB write — prevents data corruption when upstream
+  // source degrades. Previous pattern wrote officials first, detected regression after,
+  // leaving the DB corrupted even though the regression was caught.
   const { saveBaseline, loadBaseline, compareToBaseline } = await import('./regression-tracker.js');
   const baseline = {
     country: opts.country,
@@ -368,8 +372,10 @@ async function main(): Promise<void> {
   };
 
   const previous = loadBaseline(opts.dbPath, opts.country);
+  let hasCriticalRegression = false;
   if (previous) {
     const regression = compareToBaseline(baseline, previous);
+    hasCriticalRegression = regression.criticals.length > 0;
     console.log('\n  Regression Check');
     console.log(`    Previous: ${regression.previousTimestamp}`);
     console.log(`    Current:  ${regression.currentTimestamp}`);
@@ -388,8 +394,32 @@ async function main(): Promise<void> {
     console.log('\n  Regression Check: first run, no previous baseline.');
   }
 
-  if (!opts.dryRun) {
+  // Write to DB (unless dry run, validate only, blocking, or critical regression)
+  if (!opts.dryRun && !opts.validateOnly) {
+    if (report.blocking) {
+      console.log('\nValidation BLOCKING — schema validation failed threshold. Skipping DB write.');
+    } else if (hasCriticalRegression) {
+      console.log('\nCritical regression detected — skipping DB write to preserve existing data.');
+    } else {
+      console.log('\nWriting officials to DB...');
+      const summary = writeOfficials(
+        opts.dbPath,
+        opts.country,
+        [...officialsResult.officials],
+      );
+      console.log(`  Inserted: ${summary.inserted}`);
+      console.log(`  Updated:  ${summary.updated}`);
+      console.log(`  Total:    ${summary.inserted + summary.updated}`);
+    }
+  } else {
+    console.log(`\n${opts.dryRun ? 'Dry run' : 'Validate only'}: skipping DB write.`);
+  }
+
+  // R35-F4: Don't overwrite good baseline with bad data — skip save on critical regression
+  if (!opts.dryRun && !hasCriticalRegression) {
     saveBaseline(opts.dbPath, baseline);
+  } else if (hasCriticalRegression) {
+    console.log('    Baseline NOT saved — critical regression detected. Previous baseline preserved.');
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -458,6 +488,11 @@ const isDirectRun = process.argv[1] &&
 if (isDirectRun) {
   main().catch(err => {
     console.error('Fatal:', err);
+    // R48-F2: Log failure to ingestion_log so freshness-monitor can detect it
+    try {
+      const failOpts = parseArgs();
+      logIngestionFailure(failOpts.dbPath, failOpts.country, String(err));
+    } catch { /* best-effort */ }
     process.exit(1);
   });
 }

@@ -17,8 +17,13 @@
  * - Samples 10 failures across categories for detailed analysis
  */
 
-import * as turf from '@turf/turf';
-import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson';
+import { area } from '@turf/area';
+import { centroid } from '@turf/centroid';
+import { difference } from '@turf/difference';
+import { rewind } from '@turf/rewind';
+import { union } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
+import type { Feature, Polygon, MultiPolygon, FeatureCollection, Point } from 'geojson';
 import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 import { TessellationProofValidator, type TessellationProof } from '../src/validators/council/tessellation-proof.js';
 import { MunicipalBoundaryResolver, type MunicipalBoundary } from '../src/validators/council/municipal-boundary.js';
@@ -108,14 +113,14 @@ function getDistrictId(feature: Feature<Polygon | MultiPolygon>): string {
 
 function computeOverflowDirection(
   overflow: Feature<Polygon | MultiPolygon> | null,
-  boundaryCenter: Feature<turf.helpers.Point>
+  boundaryCenter: Feature<Point>
 ): OverflowDirection {
   if (!overflow) {
     return { north: false, south: false, east: false, west: false, centroid: null };
   }
 
   try {
-    const overflowCenter = turf.centroid(overflow);
+    const overflowCenter = centroid(overflow);
     const [lngB, latB] = boundaryCenter.geometry.coordinates;
     const [lngO, latO] = overflowCenter.geometry.coordinates;
 
@@ -228,7 +233,7 @@ async function analyzeContainmentFailures(): Promise<void> {
     try {
       const validFeatures = districts.features
         .filter(f => f && f.geometry && f.geometry.coordinates)
-        .map(f => turf.rewind(f, { reverse: false }) as Feature<Polygon | MultiPolygon>);
+        .map(f => rewind(f, { reverse: false }) as Feature<Polygon | MultiPolygon>);
 
       if (validFeatures.length === 0) {
         errors.push({ city: `${portal.cityName}, ${portal.state}`, error: 'no valid geometries' });
@@ -238,13 +243,13 @@ async function analyzeContainmentFailures(): Promise<void> {
       districtUnion = validFeatures[0];
       for (let i = 1; i < validFeatures.length; i++) {
         try {
-          const union = turf.union(turf.featureCollection([districtUnion, validFeatures[i]]));
-          if (union) {
-            districtUnion = union as Feature<Polygon | MultiPolygon>;
+          const u = union(featureCollection([districtUnion, validFeatures[i]]));
+          if (u) {
+            districtUnion = u as Feature<Polygon | MultiPolygon>;
           }
         } catch { /* continue with partial union */ }
       }
-      districtUnionArea = turf.area(districtUnion);
+      districtUnionArea = area(districtUnion);
     } catch (e) {
       errors.push({ city: `${portal.cityName}, ${portal.state}`, error: `geometry: ${e}` });
       continue;
@@ -254,9 +259,9 @@ async function analyzeContainmentFailures(): Promise<void> {
     let overflow: Feature<Polygon | MultiPolygon> | null = null;
     let outsideArea = 0;
     try {
-      overflow = turf.difference(turf.featureCollection([districtUnion, boundary.geometry]));
+      overflow = difference(featureCollection([districtUnion, boundary.geometry]));
       if (overflow) {
-        outsideArea = turf.area(overflow);
+        outsideArea = area(overflow);
       }
     } catch {
       // If difference fails, no overflow detected
@@ -273,7 +278,7 @@ async function analyzeContainmentFailures(): Promise<void> {
     }
 
     // This is a containment failure - analyze in detail
-    const boundaryCenter = turf.centroid(boundary.geometry);
+    const boundaryCenter = centroid(boundary.geometry);
     const overflowDirection = computeOverflowDirection(overflow, boundaryCenter);
 
     // Check if coastal
@@ -285,12 +290,12 @@ async function analyzeContainmentFailures(): Promise<void> {
     const perDistrictOverflow: DistrictOverflow[] = [];
     for (const feature of districts.features) {
       try {
-        const rewound = turf.rewind(feature, { reverse: false }) as Feature<Polygon | MultiPolygon>;
-        const districtArea = turf.area(rewound);
-        const districtOverflow = turf.difference(turf.featureCollection([rewound, boundary.geometry]));
+        const rewound = rewind(feature, { reverse: false }) as Feature<Polygon | MultiPolygon>;
+        const districtArea = area(rewound);
+        const districtOverflow = difference(featureCollection([rewound, boundary.geometry]));
 
         if (districtOverflow) {
-          const districtOutsideArea = turf.area(districtOverflow);
+          const districtOutsideArea = area(districtOverflow);
           const districtOutsidePercent = districtArea > 0 ? (districtOutsideArea / districtArea) * 100 : 0;
           const districtDirection = computeOverflowDirection(districtOverflow, boundaryCenter);
 

@@ -1258,35 +1258,41 @@ export class ArcGISScanner {
    */
   private generateMunicipalGISDomains(city: CityInfo): readonly string[] {
     const citySlug = city.name.toLowerCase().replace(/\s+/g, '');
+    // Sanitize domain slug — strip non-alphanumeric (except hyphens), reject if contains dots
+    const sanitizedSlug = citySlug.replace(/[^a-z0-9-]/g, '');
+    if (!sanitizedSlug || sanitizedSlug.length < 2) {
+      return Object.freeze([]);
+    }
     const cityDash = city.name.toLowerCase().replace(/\s+/g, '-');
+    const sanitizedDash = cityDash.replace(/[^a-z0-9-]/g, '');
     const stateSlug = city.state.toLowerCase();
 
     const domains: string[] = [
       // Pattern 1: City-specific ArcGIS Server subdomains
-      `ags.${citySlug}gov.org`,
-      `ags.${citySlug}.gov`,
-      `arcgis.${citySlug}gov.org`,
-      `arcgis.${citySlug}.gov`,
-      `gis.${citySlug}gov.org`,
-      `gisserver.${citySlug}.gov`,
+      `ags.${sanitizedSlug}gov.org`,
+      `ags.${sanitizedSlug}.gov`,
+      `arcgis.${sanitizedSlug}gov.org`,
+      `arcgis.${sanitizedSlug}.gov`,
+      `gis.${sanitizedSlug}gov.org`,
+      `gisserver.${sanitizedSlug}.gov`,
 
       // Pattern 2: City portal subdomains
-      `gis.${citySlug}.gov`,
-      `maps.${citySlug}.gov`,
-      `data.${citySlug}.gov`,
-      `opendata.${citySlug}.gov`,
-      `${citySlug}gis.gov`,
+      `gis.${sanitizedSlug}.gov`,
+      `maps.${sanitizedSlug}.gov`,
+      `data.${sanitizedSlug}.gov`,
+      `opendata.${sanitizedSlug}.gov`,
+      `${sanitizedSlug}gis.gov`,
 
       // Pattern 3: State + city patterns
-      `gis.${citySlug}.${stateSlug}.us`,
-      `maps.${citySlug}.${stateSlug}.us`,
-      `gis.ci.${citySlug}.${stateSlug}.us`,
+      `gis.${sanitizedSlug}.${stateSlug}.us`,
+      `maps.${sanitizedSlug}.${stateSlug}.us`,
+      `gis.ci.${sanitizedSlug}.${stateSlug}.us`,
 
       // Pattern 4: Alternative formats
-      `gis.${cityDash}.gov`,
-      `maps.${cityDash}.gov`,
-      `gis.city${citySlug}.gov`,
-      `maps.cityof${citySlug}.gov`,
+      `gis.${sanitizedDash}.gov`,
+      `maps.${sanitizedDash}.gov`,
+      `gis.city${sanitizedSlug}.gov`,
+      `maps.cityof${sanitizedSlug}.gov`,
     ];
 
     return Object.freeze(domains);

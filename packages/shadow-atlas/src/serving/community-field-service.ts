@@ -9,11 +9,11 @@
  * civic engagement occurs without revealing WHO is WHERE.
  *
  * Public inputs layout (from bubble_membership circuit):
- *   [0] engagement_root  — Tree 3 root the proof was generated against
- *   [1] epoch_domain     — epoch identifier (keccak-derived, public)
- *   [2] cell_set_root    — Merkle root of user's H3 cell set (returned)
- *   [3] epoch_nullifier  — H2(identity_commitment, epoch_domain) (returned)
- *   [4] cell_count       — number of active cells (returned)
+ * [0] engagement_root — Tree 3 root the proof was generated against
+ * [1] epoch_domain — epoch identifier (keccak-derived, public)
+ * [2] cell_set_root — Merkle root of user's H3 cell set (returned)
+ * [3] epoch_nullifier — H2(identity_commitment, epoch_domain) (returned)
+ * [4] cell_count — number of active cells (returned)
  *
  * SPEC: packages/crypto/noir/bubble_membership/src/main.nr
  */
@@ -68,14 +68,17 @@ export interface EpochSummary {
 // ============================================================================
 
 export class CommunityFieldService {
-  /** epoch_date -> Set of epoch_nullifiers (dedup) */
+  /** epoch_domain_key -> Set of epoch_nullifiers (dedup, proof-bound) */
   private readonly nullifierSets: Map<string, Set<string>> = new Map();
 
-  /** epoch_date -> contributions array */
+  /** epoch_date -> contributions array (query/aggregation) */
   private readonly contributions: Map<string, CommunityFieldContribution[]> = new Map();
 
-  /** Sorted epoch dates for eviction (oldest first) */
+  /** Sorted epoch domain keys for eviction (oldest first) */
   private readonly epochOrder: string[] = [];
+
+  /** R22-H4: epoch_domain_key -> epoch_date reverse mapping for contributions eviction */
+  private readonly domainToDate: Map<string, string> = new Map();
 
   /**
    * Submit a community field contribution.
@@ -83,9 +86,27 @@ export class CommunityFieldService {
    * Throws on validation failure or duplicate nullifier.
    */
   submit(submission: CommunityFieldSubmission): CommunityFieldContribution {
-    // 1. Validate epochDate format (YYYY-MM-DD)
+    // 1. Validate epochDate format (YYYY-MM-DD) and calendar validity
     if (!/^\d{4}-\d{2}-\d{2}$/.test(submission.epochDate)) {
       throw new CommunityFieldError('INVALID_EPOCH_DATE', 'epochDate must be YYYY-MM-DD format');
+    }
+    // R9-M3: Validate it's a real calendar date and not unreasonably far in the future.
+    // Without this, an attacker can fill the 90-slot rolling window with future dates
+    // (e.g., "9999-12-31") and force legitimate current epochs into EPOCH_TOO_OLD rejection.
+    // R10-M1: Date.parse('2026-02-30') rolls to March 2 instead of NaN. Use roundtrip
+    // validation: parse → reconstruct YYYY-MM-DD → reject if it doesn't match input.
+    const epochMs = Date.parse(submission.epochDate);
+    if (isNaN(epochMs)) {
+      throw new CommunityFieldError('INVALID_EPOCH_DATE', 'epochDate is not a valid calendar date');
+    }
+    const d = new Date(epochMs);
+    const reconstructed = d.toISOString().slice(0, 10);
+    if (reconstructed !== submission.epochDate) {
+      throw new CommunityFieldError('INVALID_EPOCH_DATE', `epochDate is not a valid calendar date (resolves to ${reconstructed})`);
+    }
+    const maxFutureMs = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days ahead
+    if (epochMs > maxFutureMs) {
+      throw new CommunityFieldError('INVALID_EPOCH_DATE', 'epochDate is too far in the future');
     }
 
     // 2. Validate public inputs count
@@ -121,12 +142,31 @@ export class CommunityFieldService {
     }
 
     // 6. Epoch nullifier dedup
+    // R22-H4: Key nullifier dedup on proof-bound epochDomain (publicInputs[1]),
+    // NOT caller-supplied epochDate. This prevents replay attacks where the same
+    // proof is submitted with different epochDate values to bypass dedup.
     const nullifierKey = normalizeHex(epochNullifier);
-    let nullifierSet = this.nullifierSets.get(submission.epochDate);
+    const epochDomainKey = normalizeHex(epochDomain);
+    let nullifierSet = this.nullifierSets.get(epochDomainKey);
     if (!nullifierSet) {
+      // R8-M1: Reject epochs that would be immediately evicted.
+      // Without this guard, an ancient epoch gets pushed, sorted to front,
+      // evicted (deleting nullifierSet from Map), but contributions re-created
+      // at step 9 — desync allows nullifier bypass on re-submission.
+      if (this.epochOrder.length >= MAX_EPOCHS_IN_MEMORY) {
+        const oldest = this.epochOrder[0];
+        if (oldest && epochDomainKey < oldest) {
+          throw new CommunityFieldError(
+            'EPOCH_TOO_OLD',
+            `Epoch domain ${epochDomainKey.slice(0, 16)}... is older than the oldest tracked epoch`,
+          );
+        }
+      }
       nullifierSet = new Set();
-      this.nullifierSets.set(submission.epochDate, nullifierSet);
-      this.epochOrder.push(submission.epochDate);
+      this.nullifierSets.set(epochDomainKey, nullifierSet);
+      this.domainToDate.set(epochDomainKey, submission.epochDate);
+      this.epochOrder.push(epochDomainKey);
+      this.epochOrder.sort();
       this.evictOldEpochs();
     }
 
@@ -141,8 +181,10 @@ export class CommunityFieldService {
     }
 
     // 8. Compute proof hash for dedup/reference (first 32 bytes of proof hex)
-    const proofNorm = normalizeHex(submission.proof);
-    const proofHash = '0x' + proofNorm.slice(0, 64);
+    // R14-M1: Extract directly from hex — don't BigInt-parse the entire proof.
+    // normalizeHex on a multi-KB proof does unnecessary O(n) BigInt allocation.
+    const proofHex = (submission.proof.startsWith('0x') ? submission.proof.slice(2) : submission.proof).toLowerCase();
+    const proofHash = '0x' + proofHex.slice(0, 64).padEnd(64, '0');
 
     // 9. Store
     const contribution: CommunityFieldContribution = {
@@ -223,8 +265,13 @@ export class CommunityFieldService {
     while (this.epochOrder.length > MAX_EPOCHS_IN_MEMORY) {
       const oldest = this.epochOrder.shift()!;
       this.nullifierSets.delete(oldest);
-      this.contributions.delete(oldest);
-      logger.debug('community-field: evicted epoch', { epochDate: oldest });
+      // R22-H4: Evict contributions via reverse mapping (domain → date)
+      const dateKey = this.domainToDate.get(oldest);
+      if (dateKey) {
+        this.contributions.delete(dateKey);
+        this.domainToDate.delete(oldest);
+      }
+      logger.debug('community-field: evicted epoch', { epochDomain: oldest.slice(0, 16) });
     }
   }
 }
@@ -247,15 +294,30 @@ export class CommunityFieldError extends Error {
 // Helpers
 // ============================================================================
 
-/** Normalize hex to lowercase without 0x prefix for consistent dedup */
+/**
+ * Normalize hex to canonical lowercase form for consistent dedup.
+ * Converts through BigInt to strip leading zeros — `0x01` and `0x001`
+ * both produce the same 64-char output. This prevents the same field element
+ * from bypassing nullifier dedup via non-canonical encoding (R9-M2).
+ *
+ * Output is zero-padded to 64 chars so that string comparison
+ * (used by epochOrder.sort()) produces correct numeric ordering.
+ *
+ * R13-M1: No fallback — all callers pre-validate via isValidFieldHex().
+ * A catch-to-toLowerCase fallback would silently produce non-canonical
+ * output (preserving leading zeros), violating the dedup invariant.
+ */
 function normalizeHex(hex: string): string {
   const stripped = hex.startsWith('0x') ? hex.slice(2) : hex;
-  return stripped.toLowerCase();
+  return BigInt('0x' + stripped).toString(16).padStart(64, '0');
 }
 
 /** Validate a hex string is a valid BN254 field element */
 function isValidFieldHex(hex: string): boolean {
   if (!hex || !/^(0x)?[0-9a-fA-F]+$/.test(hex)) return false;
+  // R21-H2: Fast-fail on oversized hex before expensive BigInt parse (DoS mitigation).
+  // BN254 field elements are at most 32 bytes = 64 hex chars + optional "0x" prefix = 66 chars.
+  if (hex.length > 66) return false;
   try {
     const value = BigInt(hex.startsWith('0x') ? hex : '0x' + hex);
     return value >= 0n && value < BN254_MODULUS;

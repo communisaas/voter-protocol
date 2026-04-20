@@ -100,7 +100,8 @@ export class CKANScanner {
     const query = `${city.name} ${city.state} council district OR ward`;
     const url = `${portalUrl}/api/3/action/package_search?q=${encodeURIComponent(query)}&rows=10`;
 
-    const response = await fetch(url);
+    // Timeout on CKAN portal search
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
 
     if (!response.ok) {
       throw new Error(`CKAN API returned ${response.status}`);

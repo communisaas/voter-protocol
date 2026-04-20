@@ -38,6 +38,7 @@ import { CensusPlaceListLoader } from '../core/registry/census-place-list.js';
 import { ArcGISHubScanner } from '../acquisition/scanners/arcgis-hub.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { atomicWriteFileSync } from '../core/utils/atomic-write.js';
 
 /**
  * Parse command line arguments
@@ -87,7 +88,7 @@ function getCheckpointPath(region: string): string {
 function saveCheckpoint(state: DiscoveryState): void {
   state.lastCheckpoint = Date.now();
   const checkpointPath = getCheckpointPath(state.region);
-  fs.writeFileSync(checkpointPath, serializeState(state));
+  atomicWriteFileSync(checkpointPath, serializeState(state));
 }
 
 /**

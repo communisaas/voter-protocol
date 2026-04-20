@@ -27,13 +27,13 @@
  *
  * // If candidates found, validate district count:
  * if (candidates.length > 0) {
- *   // Download and parse GeoJSON to get feature count...
- *   const featureCount = geojson.features.length;
+ * // Download and parse GeoJSON to get feature count...
+ * const featureCount = geojson.features.length;
  *
- *   const validation = scanner.validateDiscoveredDistricts(city, featureCount);
- *   if (!validation.valid) {
- *     // Continue with Layer 2 fallback or flag for manual review
- *   }
+ * const validation = scanner.validateDiscoveredDistricts(city, featureCount);
+ * if (!validation.valid) {
+ * // Continue with Layer 2 fallback or flag for manual review
+ * }
  * }
  * ```
  *
@@ -248,7 +248,8 @@ export class AuthoritativeMultiPathScanner {
       // Use official hub.arcgis.com download API
       const downloadUrl = `https://hub.arcgis.com/api/v3/datasets/${known.datasetId}/downloads/data?format=geojson&spatialRefId=4326&where=1%3D1`;
 
-      const response = await fetch(downloadUrl, { method: 'HEAD' });
+      // Timeout on HEAD request (15s — only checking headers)
+      const response = await fetch(downloadUrl, { method: 'HEAD', signal: AbortSignal.timeout(15_000) });
       if (response.ok) {
         logger.info('Path 2: Hub download API success', {
           city: city.name,
@@ -285,9 +286,12 @@ export class AuthoritativeMultiPathScanner {
       const query = `${city.name} council districts`;
       const org = `city-of-${city.name.toLowerCase().replace(/\s+/g, '-')}`;
 
-      const searchUrl = `https://catalog.data.gov/api/3/action/package_search?q=${encodeURIComponent(query)}&fq=organization:${org}+tags:gis`;
+      // R62-M3: encodeURIComponent(org) — city names with apostrophes, #, or &
+      // break URL parsing (e.g., O'Fallon → unescaped ' in query string).
+      const searchUrl = `https://catalog.data.gov/api/3/action/package_search?q=${encodeURIComponent(query)}&fq=organization:${encodeURIComponent(org)}+tags:gis`;
 
-      const response = await fetch(searchUrl);
+      // Timeout on Data.gov CKAN search
+      const response = await fetch(searchUrl, { signal: AbortSignal.timeout(30_000) });
       if (!response.ok) {
         return null;
       }
@@ -347,15 +351,22 @@ export class AuthoritativeMultiPathScanner {
    */
   private async tryCityGISServer(city: CityTarget): Promise<PortalCandidate | null> {
     // Try common GIS server patterns
+    const citySlug = city.name.toLowerCase().replace(/\s+/g, '');
+    // Sanitize domain slug — strip non-alphanumeric (except hyphens), reject if contains dots
+    const sanitizedSlug = citySlug.replace(/[^a-z0-9-]/g, '');
+    if (!sanitizedSlug || sanitizedSlug.length < 2) {
+      return null; // Skip cities with unsanitizable names
+    }
     const patterns = [
-      `https://gisdata.${city.name.toLowerCase()}.gov/server/rest/services`,
-      `https://gis.${city.name.toLowerCase()}.gov/server/rest/services`,
-      `https://maps.${city.name.toLowerCase()}.gov/server/rest/services`,
+      `https://gisdata.${sanitizedSlug}.gov/server/rest/services`,
+      `https://gis.${sanitizedSlug}.gov/server/rest/services`,
+      `https://maps.${sanitizedSlug}.gov/server/rest/services`,
     ];
 
     for (const baseUrl of patterns) {
       try {
-        const response = await fetch(`${baseUrl}?f=json`);
+        // Timeout on city GIS server probe
+        const response = await fetch(`${baseUrl}?f=json`, { signal: AbortSignal.timeout(30_000) });
         if (response.ok) {
           const services = await response.json() as {
             services?: Array<{
@@ -415,7 +426,8 @@ export class AuthoritativeMultiPathScanner {
     // Socrata catalog API
     const catalogUrl = `https://${domain}/api/catalog/v1?q=council districts&only=datasets`;
 
-    const response = await fetch(catalogUrl);
+    // Timeout on Socrata catalog search
+    const response = await fetch(catalogUrl, { signal: AbortSignal.timeout(30_000) });
     if (!response.ok) {
       throw new Error(`Socrata catalog returned ${response.status}`);
     }

@@ -13,7 +13,8 @@
  */
 
 import Database from 'better-sqlite3';
-import * as turf from '@turf/turf';
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon';
+import { point, polygon as turfPolygon, multiPolygon as turfMultiPolygon } from '@turf/helpers';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import type { DistrictBoundary, GeoJSONPolygon, ServingProvenanceMetadata } from './types.js';
 import type { ProvenanceMetadata } from '../core/types.js';
@@ -232,7 +233,7 @@ export class DistrictLookupService {
     }
 
     // Step 2: Precise point-in-polygon test — collect ALL matches
-    const point = turf.point([lon, lat]);
+    const pt = point([lon, lat]);
     const matches: DistrictBoundary[] = [];
 
     for (const candidate of candidates) {
@@ -249,7 +250,7 @@ export class DistrictLookupService {
         const geometry = JSON.parse(row.geometry) as GeoJSONPolygon;
         const polygon = this.turfPolygon(geometry);
 
-        if (turf.booleanPointInPolygon(point, polygon)) {
+        if (booleanPointInPolygon(pt, polygon)) {
           const fullProvenance = JSON.parse(row.provenance) as ProvenanceMetadata;
           const servingProvenance: ServingProvenanceMetadata = {
             source: fullProvenance.source,
@@ -299,9 +300,9 @@ export class DistrictLookupService {
    */
   private turfPolygon(geometry: GeoJSONPolygon): Feature<Polygon | MultiPolygon> {
     if (geometry.type === 'Polygon') {
-      return turf.polygon(geometry.coordinates as number[][][]);
+      return turfPolygon(geometry.coordinates as number[][][]);
     } else if (geometry.type === 'MultiPolygon') {
-      return turf.multiPolygon(geometry.coordinates as number[][][][]);
+      return turfMultiPolygon(geometry.coordinates as number[][][][]);
     } else {
       throw new Error(`Unsupported geometry type: ${(geometry as { type: string }).type}`);
     }

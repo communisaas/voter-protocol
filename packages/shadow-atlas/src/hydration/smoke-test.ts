@@ -24,6 +24,7 @@
 import type { CountryProvider } from '../providers/international/country-provider.js';
 import type { InternationalBoundary } from '../providers/international/base-provider.js';
 import type { OfficialRecord } from '../providers/international/country-provider-types.js';
+import { buildBoundaryIndex } from './hydrate-country.js';
 
 // ============================================================================
 // Types
@@ -276,10 +277,10 @@ async function runCountrySmokeTest(
       warnings.push(`${boundaryResult.failedLayers} layer(s) failed extraction`);
     }
 
-    // Step 2: Build boundary index
-    const boundaryIndex = new Map<string, InternationalBoundary>();
-    for (const boundary of allBoundaries) {
-      boundaryIndex.set(boundary.name, boundary);
+    // Step 2: Build boundary index (with collision detection, matching hydrate-country.ts)
+    const { index: boundaryIndex, collisionCount } = buildBoundaryIndex(allBoundaries);
+    if (collisionCount > 0) {
+      warnings.push(`${collisionCount} boundary name collision(s) resolved with compound keys`);
     }
 
     // Step 3: Extract officials (with timeout)

@@ -32,6 +32,9 @@ const BN254_MODULUS =
 /** Idempotency cache TTL: 1 hour */
 const IDEMPOTENCY_TTL_MS = 60 * 60 * 1000;
 
+/** Max idempotency key length to prevent storage amplification. */
+const MAX_IDEMPOTENCY_KEY_LENGTH = 256;
+
 // ============================================================================
 // Validation Schemas (Zod) — Direct port from api.ts
 // ============================================================================
@@ -209,6 +212,18 @@ export interface RegistrationProofResult {
   pathIndices: number[];
 }
 
+/** Runtime type guard for idempotency cache hit validation. */
+function isRegistrationProofResult(value: unknown): value is RegistrationProofResult {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.leafIndex === 'number' &&
+    typeof v.userRoot === 'string' &&
+    Array.isArray(v.userPath) &&
+    Array.isArray(v.pathIndices)
+  );
+}
+
 export interface TreeInfoResult {
   treeSize: number;
   root: string;
@@ -294,11 +309,17 @@ export async function registerLeaf(
   storage: RelayStorageAdapter,
   treeService: TreeServiceClient,
 ): Promise<{ result: RegistrationProofResult & { alreadyRegistered?: boolean }; cached: boolean }> {
+  // Validate idempotency key length.
+  if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new RelayError('INVALID_PARAMETERS', `Idempotency key exceeds ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`, 400);
+  }
+
   // Step 1: Check idempotency cache
   if (idempotencyKey) {
     const cached = await storage.getIdempotencyResult(idempotencyKey);
-    if (cached !== null) {
-      return { result: cached as RegistrationProofResult, cached: true };
+    // Validate cached result structure before returning.
+    if (cached !== null && isRegistrationProofResult(cached)) {
+      return { result: cached, cached: true };
     }
   }
 
@@ -359,11 +380,17 @@ export async function replaceLeaf(
   storage: RelayStorageAdapter,
   treeService: TreeServiceClient,
 ): Promise<{ result: RegistrationProofResult; cached: boolean }> {
+  // Validate idempotency key length.
+  if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new RelayError('INVALID_PARAMETERS', `Idempotency key exceeds ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`, 400);
+  }
+
   // Step 1: Check idempotency cache
   if (idempotencyKey) {
     const cached = await storage.getIdempotencyResult(idempotencyKey);
-    if (cached !== null) {
-      return { result: cached as RegistrationProofResult, cached: true };
+    // Validate cached result structure before returning.
+    if (cached !== null && isRegistrationProofResult(cached)) {
+      return { result: cached, cached: true };
     }
   }
 

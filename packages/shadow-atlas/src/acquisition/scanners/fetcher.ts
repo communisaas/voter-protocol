@@ -423,9 +423,11 @@ async function fetchHTTPMetadata(
  * CRITICAL: Ensures all artifacts are in standard format for Merkle tree hashing
  */
 function normalizeGeoJSON(geojson: NormalizedGeoJSON): NormalizedGeoJSON {
-  // Filter to polygon features only
+  // Guard against null geometry (valid per RFC 7946 §3.2,
+  // allowed by GeoJSONFeatureSchema.nullable()). Accessing.type on null throws.
   const polygonFeatures = geojson.features.filter(feature =>
-    feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon'
+    feature.geometry != null &&
+    (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
   );
 
   // Sort features by ID (deterministic ordering for hashing)

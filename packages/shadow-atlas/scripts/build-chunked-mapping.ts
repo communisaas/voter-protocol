@@ -52,7 +52,10 @@ import { US_JURISDICTION, PROTOCOL_DISTRICT_SLOTS } from '../src/jurisdiction.js
 const H3_RESOLUTION = 7;
 const PARENT_RESOLUTION = 4;
 const CHUNK_PARENT_RESOLUTION = 3;
-const WORKER_COUNT = parseInt(process.env.BUILD_WORKERS || '', 10) || Math.max(1, cpus().length - 2);
+const WORKER_COUNT = Math.min(
+  parseInt(process.env.BUILD_WORKERS || '', 10) || Math.max(1, cpus().length - 2),
+  32
+);
 
 /**
  * ZK ENCODING CONTRACT (signed off by proof):
@@ -314,6 +317,8 @@ if (!IS_WORKER) {
     );
 
     const workerPromises: Promise<WorkerDone>[] = [];
+    const workerChildren: ChildProcess[] = [];
+    const workerTmpFiles: string[] = [];
 
     // Block-stride partitioning: distribute cells in blocks of BLOCK_SIZE,
     // assigned round-robin across workers. This balances load (like stride)
@@ -330,6 +335,7 @@ if (!IS_WORKER) {
       if (chunk.length === 0) continue;
 
       const tmpFile = join(outputDir, `.worker-${i}-results.json`);
+      workerTmpFiles.push(tmpFile);
 
       const promise = new Promise<WorkerDone>((resolve, reject) => {
         const child: ChildProcess = fork(workerFile, [], {
@@ -337,6 +343,7 @@ if (!IS_WORKER) {
           env: { ...process.env, __H3_WORKER__: '1' },
           stdio: ['pipe', 'inherit', 'inherit', 'ipc'],
         });
+        workerChildren.push(child);
 
         child.on('message', (msg: WorkerProgress | WorkerDone) => {
           if (msg.type === 'progress') {
@@ -370,6 +377,20 @@ if (!IS_WORKER) {
 
       workerPromises.push(promise);
     }
+
+    // Signal handlers — kill orphan workers and clean up temp files on abort
+    const cleanup = () => {
+      console.log('\nReceived termination signal, cleaning up workers...');
+      for (const child of workerChildren) {
+        try { child.kill(); } catch {}
+      }
+      for (const tmp of workerTmpFiles) {
+        try { unlinkSync(tmp); } catch {}
+      }
+      process.exit(1);
+    };
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
 
     const results = await Promise.all(workerPromises);
     console.log(
@@ -558,19 +579,68 @@ if (IS_WORKER) {
     let matched = 0;
     let noCandidate = 0;
 
-    const coord: Position = [0, 0];
+    try {
+      const coord: Position = [0, 0];
 
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      const [lat, lng] = cellToLatLng(cell);
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        const [lat, lng] = cellToLatLng(cell);
 
-      const candidates = lookupStmt.all(lng, lng, lat, lat) as Array<{
-        id: string;
-        geometry: string;
-      }>;
+        const candidates = lookupStmt.all(lng, lng, lat, lat) as Array<{
+          id: string;
+          geometry: string;
+        }>;
 
-      if (candidates.length === 0) {
-        noCandidate++;
+        if (candidates.length === 0) {
+          noCandidate++;
+          if ((i + 1) % 100000 === 0) {
+            process.send!({
+              type: 'progress',
+              workerId,
+              processed: i + 1,
+              total: cells.length,
+              matched,
+            } satisfies WorkerProgress);
+          }
+          continue;
+        }
+
+        coord[0] = lng;
+        coord[1] = lat;
+        const districts: DistrictMapping = new Array(
+          PROTOCOL_DISTRICT_SLOTS
+        ).fill(null);
+        let hasAny = false;
+
+        for (const candidate of candidates) {
+          const slotIndex = districtIdToSlot(candidate.id);
+          if (slotIndex === -1) continue;
+          // Slot already filled — districts don't overlap within a layer,
+          // so skip redundant geometry parse + PIP test.
+          if (districts[slotIndex] !== null) continue;
+
+          let geo = geoCache.get(candidate.id);
+          if (!geo) {
+            try {
+              geo = JSON.parse(candidate.geometry) as Polygon | MultiPolygon;
+              geoCache.set(candidate.id, geo);
+            } catch {
+              continue;
+            }
+          }
+
+          if (booleanPointInPolygon(coord, geo)) {
+            districts[slotIndex] = candidate.id;
+            hasAny = true;
+          }
+        }
+
+        if (hasAny) {
+          // Write as NDJSON line: ["cellId", [slot0, slot1, ...]]
+          writeSync(fd, JSON.stringify([cell, districts]) + '\n');
+          matched++;
+        }
+
         if ((i + 1) % 100000 === 0) {
           process.send!({
             type: 'progress',
@@ -580,58 +650,11 @@ if (IS_WORKER) {
             matched,
           } satisfies WorkerProgress);
         }
-        continue;
       }
-
-      coord[0] = lng;
-      coord[1] = lat;
-      const districts: DistrictMapping = new Array(
-        PROTOCOL_DISTRICT_SLOTS
-      ).fill(null);
-      let hasAny = false;
-
-      for (const candidate of candidates) {
-        const slotIndex = districtIdToSlot(candidate.id);
-        if (slotIndex === -1) continue;
-        // Slot already filled — districts don't overlap within a layer,
-        // so skip redundant geometry parse + PIP test.
-        if (districts[slotIndex] !== null) continue;
-
-        let geo = geoCache.get(candidate.id);
-        if (!geo) {
-          try {
-            geo = JSON.parse(candidate.geometry) as Polygon | MultiPolygon;
-            geoCache.set(candidate.id, geo);
-          } catch {
-            continue;
-          }
-        }
-
-        if (booleanPointInPolygon(coord, geo)) {
-          districts[slotIndex] = candidate.id;
-          hasAny = true;
-        }
-      }
-
-      if (hasAny) {
-        // Write as NDJSON line: ["cellId", [slot0, slot1, ...]]
-        writeSync(fd, JSON.stringify([cell, districts]) + '\n');
-        matched++;
-      }
-
-      if ((i + 1) % 100000 === 0) {
-        process.send!({
-          type: 'progress',
-          workerId,
-          processed: i + 1,
-          total: cells.length,
-          matched,
-        } satisfies WorkerProgress);
-      }
+    } finally {
+      closeSync(fd);
+      db.close();
     }
-
-    closeSync(fd);
-    db.close();
 
     process.send!(
       {

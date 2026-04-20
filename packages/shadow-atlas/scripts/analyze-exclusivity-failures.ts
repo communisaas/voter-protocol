@@ -25,7 +25,12 @@
  */
 
 import type { Feature, FeatureCollection, Polygon, MultiPolygon, Position } from 'geojson';
-import * as turf from '@turf/turf';
+import { area } from '@turf/area';
+import { centroid } from '@turf/centroid';
+import { intersect } from '@turf/intersect';
+import { length } from '@turf/length';
+import { polygonToLine } from '@turf/polygon-to-line';
+import { featureCollection } from '@turf/helpers';
 import { KNOWN_PORTALS, type KnownPortal } from '../src/core/registry/known-portals.generated.js';
 import { MunicipalBoundaryResolver } from '../src/validators/council/municipal-boundary.js';
 import { EXPECTED_DISTRICT_COUNTS } from '../src/core/registry/district-count-registry.js';
@@ -164,7 +169,7 @@ function getDistrictId(feature: Feature<Polygon | MultiPolygon>): string {
  */
 function calculatePerimeter(feature: Feature<Polygon | MultiPolygon>): number {
   try {
-    return turf.length(turf.polygonToLine(feature), { units: 'meters' });
+    return length(polygonToLine(feature), { units: 'meters' });
   } catch {
     return 0;
   }
@@ -194,8 +199,8 @@ function isEdgeOverlap(overlap: Feature<Polygon | MultiPolygon>, area: number): 
  */
 function getCenter(feature: Feature<Polygon | MultiPolygon>): [number, number] {
   try {
-    const centroid = turf.centroid(feature);
-    return centroid.geometry.coordinates as [number, number];
+    const c = centroid(feature);
+    return c.geometry.coordinates as [number, number];
   } catch {
     return [0, 0];
   }
@@ -259,12 +264,12 @@ function analyzeExclusivity(
   for (let i = 0; i < features.length; i++) {
     for (let j = i + 1; j < features.length; j++) {
       try {
-        const intersection = turf.intersect(
-          turf.featureCollection([features[i], features[j]])
+        const intersection = intersect(
+          featureCollection([features[i], features[j]])
         );
 
         if (intersection) {
-          const overlapArea = turf.area(intersection);
+          const overlapArea = area(intersection);
 
           // Only count significant overlaps (> 1 sq m to filter noise)
           if (overlapArea > 1) {

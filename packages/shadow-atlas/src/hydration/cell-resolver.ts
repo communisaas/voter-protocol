@@ -47,8 +47,8 @@ export interface CellResolverStats {
  * 2. For each tract, collect unique district assignment vectors
  * 3. If all blocks agree → single cell with tract GEOID
  * 4. If blocks disagree → create virtual cells, one per unique combination
- *    - Most common combination gets the base tract GEOID (no suffix)
- *    - Others get tract GEOID + "_01", "_02", etc.
+ * - Most common combination gets the base tract GEOID (no suffix)
+ * - Others get tract GEOID + "_01", "_02", etc.
  *
  * @param blocks - Block records from BAF parsing
  * @returns Cell-district mappings and statistics
@@ -97,8 +97,13 @@ export function resolveCells(
       // Split tract — create virtual cells
       splitTracts++;
 
-      // Sort by block count descending — most common gets base GEOID
-      const sorted = [...fingerprints.entries()].sort((a, b) => b[1].count - a[1].count);
+      // Sort by block count descending — most common gets base GEOID.
+      // Tiebreaker on fingerprint key ensures deterministic GEOID suffixes
+      // when two combinations have equal block counts, preventing Merkle root flapping.
+      // R71-C1: Use byte-order comparison, NOT localeCompare (matches fix in multi-layer-builder)
+      const sorted = [...fingerprints.entries()].sort((a, b) =>
+        b[1].count !== a[1].count ? b[1].count - a[1].count : a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+      );
 
       for (let j = 0; j < sorted.length; j++) {
         const [, { districts }] = sorted[j];

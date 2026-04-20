@@ -107,19 +107,18 @@ export class JobStateStore {
       const filePath = this.getJobFilePath(jobId);
       const content = await readFile(filePath, 'utf-8');
 
-      // SA-014: Validate job state against schema
+      // SA-014: Validate job state against schema — fail-closed on invalid data
       let parsed: SerializedJobState;
       try {
         // parseSerializedJobState throws if validation fails, so cast is safe
         parsed = parseSerializedJobState(content) as unknown as SerializedJobState;
       } catch (validationError) {
-        // Log warning but allow fallback for backwards compatibility
-        logger.warn('Job state validation failed, using unvalidated parse', {
+        logger.error('Job state validation failed, rejecting corrupt state', {
           jobId,
           error: validationError instanceof Error ? validationError.message : 'Unknown error',
-          hint: 'Consider deleting and recreating the job',
+          hint: 'Delete and recreate the job',
         });
-        parsed = JSON.parse(content) as SerializedJobState;
+        return null;
       }
 
       return this.deserializeJobState(parsed);
@@ -282,18 +281,17 @@ export class JobStateStore {
       try {
         const content = await readFile(join(this.storageDir, file), 'utf-8');
 
-        // SA-014: Validate job state against schema
+        // SA-014: Validate job state against schema — fail-closed on invalid data
         let parsed: SerializedJobState;
         try {
           // parseSerializedJobState throws if validation fails, so cast is safe
           parsed = parseSerializedJobState(content) as unknown as SerializedJobState;
         } catch (validationError) {
-          // Log warning but allow fallback for backwards compatibility
-          logger.warn('Job state validation failed, using unvalidated parse', {
+          logger.error('Job state validation failed, skipping corrupt file', {
             file,
             error: validationError instanceof Error ? validationError.message : 'Unknown error',
           });
-          parsed = JSON.parse(content) as SerializedJobState;
+          continue;
         }
 
         const jobState = this.deserializeJobState(parsed);

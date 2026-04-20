@@ -3,7 +3,10 @@
  * Debug NYC borough boundaries and council districts
  */
 
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { rewind } from '@turf/rewind';
+import { union as turfUnion } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
 import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import { MunicipalBoundaryResolver } from '../src/validators/council/municipal-boundary.js';
 
@@ -15,7 +18,7 @@ async function debugBoroughs() {
   console.log('=== Individual Borough Areas (raw) ===');
   for (const feature of data.features) {
     const name = feature.properties.BoroName;
-    const area = turf.area(feature);
+    const area = turfArea(feature);
     const areaSqMi = area / 2589988.11;
     console.log(`${name}: ${areaSqMi.toFixed(2)} sq mi (area might be negative if winding wrong)`);
   }
@@ -25,9 +28,9 @@ async function debugBoroughs() {
   for (const feature of data.features) {
     // Clone the feature to avoid mutation issues
     const cloned = JSON.parse(JSON.stringify(feature));
-    const rewound = turf.rewind(cloned, { reverse: false, mutate: true });
+    const rewound = rewind(cloned, { reverse: false, mutate: true });
     const name = feature.properties.BoroName;
-    const area = turf.area(rewound);
+    const area = turfArea(rewound);
     const areaSqMi = area / 2589988.11;
     console.log(`${name}: ${areaSqMi.toFixed(2)} sq mi (${area.toFixed(0)} sq m)`);
     rewoundFeatures.push(rewound);
@@ -37,13 +40,13 @@ async function debugBoroughs() {
   let unionGeom = rewoundFeatures[0];
   for (let i = 1; i < rewoundFeatures.length; i++) {
     try {
-      const union = turf.union(turf.featureCollection([unionGeom, rewoundFeatures[i]]));
-      if (union) unionGeom = union as Feature<Polygon | MultiPolygon>;
+      const u = turfUnion(featureCollection([unionGeom, rewoundFeatures[i]]));
+      if (u) unionGeom = u as Feature<Polygon | MultiPolygon>;
     } catch (e) {
       console.log(`Union failed at ${i}:`, e);
     }
   }
-  const unionArea = turf.area(unionGeom);
+  const unionArea = turfArea(unionGeom);
   console.log(`Union area: ${(unionArea / 2589988.11).toFixed(2)} sq mi (${unionArea.toFixed(0)} sq m)`);
 
   console.log('\n=== Testing MunicipalBoundaryResolver ===');
@@ -52,7 +55,7 @@ async function debugBoroughs() {
   console.log('Source:', result.source);
   console.log('Success:', result.success);
   if (result.boundary) {
-    const geomArea = turf.area(result.boundary.geometry);
+    const geomArea = turfArea(result.boundary.geometry);
     console.log('Geometry area:', (geomArea / 2589988.11).toFixed(2), 'sq mi');
     console.log('Land area (config):', (result.boundary.landAreaSqM / 2589988.11).toFixed(2), 'sq mi');
   }

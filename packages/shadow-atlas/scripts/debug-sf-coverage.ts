@@ -3,7 +3,10 @@
  * Debug San Francisco supervisor district coverage
  */
 
-import * as turf from '@turf/turf';
+import { area as turfArea } from '@turf/area';
+import { rewind } from '@turf/rewind';
+import { union as turfUnion } from '@turf/union';
+import { featureCollection } from '@turf/helpers';
 import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson';
 
 async function debugSFCoverage() {
@@ -30,7 +33,7 @@ async function debugSFCoverage() {
 
   // Rewind and compute union
   const rewoundDistricts = districtData.features.map(f =>
-    turf.rewind(f as Feature<Polygon | MultiPolygon>, { reverse: false, mutate: false })
+    rewind(f as Feature<Polygon | MultiPolygon>, { reverse: false, mutate: false })
   );
 
   // 3. Compute district union
@@ -38,13 +41,13 @@ async function debugSFCoverage() {
   let districtUnion = rewoundDistricts[0] as Feature<Polygon | MultiPolygon>;
   for (let i = 1; i < rewoundDistricts.length; i++) {
     try {
-      const union = turf.union(turf.featureCollection([districtUnion, rewoundDistricts[i] as Feature<Polygon | MultiPolygon>]));
-      if (union) districtUnion = union as Feature<Polygon | MultiPolygon>;
+      const u = turfUnion(featureCollection([districtUnion, rewoundDistricts[i] as Feature<Polygon | MultiPolygon>]));
+      if (u) districtUnion = u as Feature<Polygon | MultiPolygon>;
     } catch (e) {
       console.log(`   Union failed at district ${i}:`, e);
     }
   }
-  const unionArea = turf.area(districtUnion);
+  const unionArea = turfArea(districtUnion);
   console.log(`   District union area: ${(unionArea / 2589988.11).toFixed(2)} sq mi`);
 
   // 4. Coverage ratios
@@ -55,7 +58,7 @@ async function debugSFCoverage() {
   // 5. Individual district areas
   console.log('\n5. Individual district areas:');
   for (const f of districtData.features) {
-    const area = turf.area(turf.rewind(f as Feature<Polygon | MultiPolygon>, { reverse: false }));
+    const area = turfArea(rewind(f as Feature<Polygon | MultiPolygon>, { reverse: false }));
     const props = f.properties || {};
     const name = props.supervisor || props.district || props.name || 'Unknown';
     console.log(`   District ${name}: ${(area / 2589988.11).toFixed(2)} sq mi`);

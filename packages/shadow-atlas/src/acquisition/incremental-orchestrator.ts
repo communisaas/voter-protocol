@@ -505,8 +505,10 @@ export class IncrementalOrchestrator {
     change: ChangeReport,
     runId: string
   ): Promise<DownloadResult> {
-    // Fetch GeoJSON from source
-    const response = await fetch(change.url);
+    // R54-A1: Fetch GeoJSON with timeout to prevent indefinite hangs
+    const response = await fetch(change.url, {
+      signal: AbortSignal.timeout(30_000),
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -568,8 +570,10 @@ export class IncrementalOrchestrator {
         throw new Error(`Selected source ${selection.source_id} not found`);
       }
 
-      // 3. Download source
-      const response = await fetch(selectedSource.url);
+      // R54-A1: Download source with timeout to prevent indefinite hangs
+      const response = await fetch(selectedSource.url, {
+        signal: AbortSignal.timeout(30_000),
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

@@ -7,19 +7,19 @@
  * writes per-district JSON files into the IPFS directory structure.
  *
  * Usage:
- *   tsx scripts/export-officials.ts <dbPath> [outputDir]
+ * tsx scripts/export-officials.ts <dbPath> [outputDir]
  *
  * Examples:
- *   tsx scripts/export-officials.ts ./data/shadow-atlas-full.db ./output
- *   tsx scripts/export-officials.ts ./data/shadow-atlas-full.db
+ * tsx scripts/export-officials.ts./data/shadow-atlas-full.db./output
+ * tsx scripts/export-officials.ts./data/shadow-atlas-full.db
  *
  * Output structure:
- *   {outputDir}/US/officials/CA-12.json
- *   {outputDir}/US/officials/NY-AL.json
- *   {outputDir}/CA/officials/35001.json
- *   {outputDir}/GB/officials/E14001234.json
- *   {outputDir}/AU/officials/{division_code}.json
- *   {outputDir}/NZ/officials/{electorate_code}.json
+ * {outputDir}/US/officials/CA-12.json
+ * {outputDir}/US/officials/NY-AL.json
+ * {outputDir}/CA/officials/35001.json
+ * {outputDir}/GB/officials/E14001234.json
+ * {outputDir}/AU/officials/{division_code}.json
+ * {outputDir}/NZ/officials/{electorate_code}.json
  */
 
 import Database from 'better-sqlite3';
@@ -32,7 +32,6 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { TERRITORIES } from '../src/db/fips-codes.js';
-import { OFFICIALS_SCHEMA_DDL } from '../src/db/officials-schema.js';
 
 // ============================================================================
 // Output Schema Types
@@ -212,14 +211,109 @@ function readManifest(manifestPath: string): CountryManifest | null {
 }
 
 // ============================================================================
-// US Officials Export
+// Generic Per-District Export Helper
 // ============================================================================
 
-interface USExportResult {
+interface CountryExportConfig<TRow> {
+  readonly tableName: string;
+  readonly countryCode: string;
+  readonly groupKey: (row: TRow) => string | null;
+  readonly toOfficial: (row: TRow) => Official;
+}
+
+/** Table name whitelist to prevent SQL injection */
+const ALLOWED_TABLES = new Set([
+  'federal_members',
+  'canada_mps',
+  'uk_mps',
+  'au_mps',
+  'nz_mps',
+]);
+
+interface ExportResult {
   districtCount: number;
   officialCount: number;
   manifestEntries: ManifestEntry[];
 }
+
+function exportByDistrict<TRow>(
+  db: Database.Database,
+  config: CountryExportConfig<TRow>,
+  outputDir: string,
+  generated: string,
+): ExportResult {
+  if (!ALLOWED_TABLES.has(config.tableName)) {
+    throw new Error(`Disallowed table name: ${config.tableName}`);
+  }
+
+  const officialsDir = join(
+    outputDir,
+    config.countryCode,
+    'officials',
+  );
+  ensureDir(officialsDir);
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM ${config.tableName} WHERE is_active = 1`,
+    )
+    .all() as TRow[];
+
+  // Group by district key
+  const byKey = new Map<string, TRow[]>();
+  for (const row of rows) {
+    const code = config.groupKey(row);
+    if (!code) continue;
+    let arr = byKey.get(code);
+    if (!arr) {
+      arr = [];
+      byKey.set(code, arr);
+    }
+    arr.push(row);
+  }
+
+  // Write per-district files
+  const manifestEntries: ManifestEntry[] = [];
+  let totalOfficials = 0;
+
+  for (const [code, groupRows] of byKey) {
+    if (!/^[A-Za-z0-9._-]+$/.test(code)) {
+      console.warn(`Skipping invalid district code: ${code}`);
+      continue;
+    }
+    const officials = groupRows.map(config.toOfficial);
+    const file: OfficialsFile = {
+      version: 1,
+      country: config.countryCode,
+      district_code: code,
+      officials,
+      generated,
+    };
+    const fileName = `${code}.json`;
+    const filePath = join(officialsDir, fileName);
+    const hash = writeJsonFile(filePath, file);
+    manifestEntries.push({
+      file: `officials/${fileName}`,
+      district_code: code,
+      official_count: officials.length,
+      sha256: hash,
+    });
+    totalOfficials += officials.length;
+  }
+
+  return {
+    districtCount: byKey.size,
+    officialCount: totalOfficials,
+    manifestEntries,
+  };
+}
+
+// ============================================================================
+// US Officials Export
+// ============================================================================
+
+/** @deprecated Use ExportResult — kept as alias for backward compat */
+type USExportResult = ExportResult;
 
 function exportUSofficials(
   db: Database.Database,
@@ -268,6 +362,10 @@ function exportUSofficials(
   let totalOfficials = 0;
 
   for (const [districtCode, houseRep] of districtMap) {
+    if (!/^[A-Za-z0-9._-]+$/.test(districtCode)) {
+      console.warn(`Skipping invalid district code: ${districtCode}`);
+      continue;
+    }
     const state = houseRep.state;
     const isTerritory = TERRITORIES.has(state);
 
@@ -344,81 +442,38 @@ function exportUSofficials(
 // Canadian Officials Export
 // ============================================================================
 
-interface IntlExportResult {
-  districtCount: number;
-  officialCount: number;
-  manifestEntries: ManifestEntry[];
-}
+/** @deprecated Use ExportResult — kept as alias for backward compat */
+type IntlExportResult = ExportResult;
 
 function exportCanadianOfficials(
   db: Database.Database,
   outputDir: string,
   generated: string,
 ): IntlExportResult {
-  const officialsDir = join(outputDir, 'CA', 'officials');
-  ensureDir(officialsDir);
-
-  const rows = db
-    .prepare(`SELECT * FROM canada_mps WHERE is_active = 1`)
-    .all() as RawCanadaMPRow[];
-
-  // Group by riding_code
-  const byRiding = new Map<string, RawCanadaMPRow[]>();
-  for (const row of rows) {
-    let arr = byRiding.get(row.riding_code);
-    if (!arr) {
-      arr = [];
-      byRiding.set(row.riding_code, arr);
-    }
-    arr.push(row);
-  }
-
-  const manifestEntries: ManifestEntry[] = [];
-  let totalOfficials = 0;
-
-  for (const [ridingCode, mps] of byRiding) {
-    const officials: Official[] = mps.map((mp) => ({
-      id: mp.parliament_id,
-      name: mp.name,
-      party: mp.party,
-      chamber: 'house',
-      state: mp.province,
-      district: mp.riding_code,
-      phone: mp.phone,
-      office_address: mp.office_address,
-      contact_form_url: null,
-      website_url: mp.website_url,
-      is_voting: true,
-      delegate_type: null,
-    }));
-
-    const file: OfficialsFile = {
-      version: 1,
-      country: 'CA',
-      district_code: ridingCode,
-      officials,
-      generated,
-    };
-
-    const fileName = `${ridingCode}.json`;
-    const filePath = join(officialsDir, fileName);
-    const hash = writeJsonFile(filePath, file);
-
-    manifestEntries.push({
-      file: `officials/${fileName}`,
-      district_code: ridingCode,
-      official_count: officials.length,
-      sha256: hash,
-    });
-
-    totalOfficials += officials.length;
-  }
-
-  return {
-    districtCount: byRiding.size,
-    officialCount: totalOfficials,
-    manifestEntries,
-  };
+  return exportByDistrict<RawCanadaMPRow>(
+    db,
+    {
+      tableName: 'canada_mps',
+      countryCode: 'CA',
+      groupKey: (row) => row.riding_code || null,
+      toOfficial: (mp) => ({
+        id: mp.parliament_id,
+        name: mp.name,
+        party: mp.party,
+        chamber: 'house',
+        state: mp.province,
+        district: mp.riding_code,
+        phone: mp.phone,
+        office_address: mp.office_address,
+        contact_form_url: null,
+        website_url: mp.website_url,
+        is_voting: true,
+        delegate_type: null,
+      }),
+    },
+    outputDir,
+    generated,
+  );
 }
 
 // ============================================================================
@@ -430,72 +485,30 @@ function exportUKOfficials(
   outputDir: string,
   generated: string,
 ): IntlExportResult {
-  const officialsDir = join(outputDir, 'GB', 'officials');
-  ensureDir(officialsDir);
-
-  const rows = db
-    .prepare(`SELECT * FROM uk_mps WHERE is_active = 1`)
-    .all() as RawUKMPRow[];
-
-  // Group by constituency_ons_code
-  const byConstituency = new Map<string, RawUKMPRow[]>();
-  for (const row of rows) {
-    const code = row.constituency_ons_code;
-    if (!code) continue; // Skip MPs without ONS code
-    let arr = byConstituency.get(code);
-    if (!arr) {
-      arr = [];
-      byConstituency.set(code, arr);
-    }
-    arr.push(row);
-  }
-
-  const manifestEntries: ManifestEntry[] = [];
-  let totalOfficials = 0;
-
-  for (const [onsCode, mps] of byConstituency) {
-    const officials: Official[] = mps.map((mp) => ({
-      id: String(mp.parliament_id),
-      name: mp.name,
-      party: mp.party,
-      chamber: 'house',
-      state: '',
-      district: mp.constituency_ons_code,
-      phone: mp.phone,
-      office_address: mp.office_address,
-      contact_form_url: null,
-      website_url: mp.website_url,
-      is_voting: true,
-      delegate_type: null,
-    }));
-
-    const file: OfficialsFile = {
-      version: 1,
-      country: 'GB',
-      district_code: onsCode,
-      officials,
-      generated,
-    };
-
-    const fileName = `${onsCode}.json`;
-    const filePath = join(officialsDir, fileName);
-    const hash = writeJsonFile(filePath, file);
-
-    manifestEntries.push({
-      file: `officials/${fileName}`,
-      district_code: onsCode,
-      official_count: officials.length,
-      sha256: hash,
-    });
-
-    totalOfficials += officials.length;
-  }
-
-  return {
-    districtCount: byConstituency.size,
-    officialCount: totalOfficials,
-    manifestEntries,
-  };
+  return exportByDistrict<RawUKMPRow>(
+    db,
+    {
+      tableName: 'uk_mps',
+      countryCode: 'GB',
+      groupKey: (row) => row.constituency_ons_code || null,
+      toOfficial: (mp) => ({
+        id: String(mp.parliament_id),
+        name: mp.name,
+        party: mp.party,
+        chamber: 'house',
+        state: '',
+        district: mp.constituency_ons_code,
+        phone: mp.phone,
+        office_address: mp.office_address,
+        contact_form_url: null,
+        website_url: mp.website_url,
+        is_voting: true,
+        delegate_type: null,
+      }),
+    },
+    outputDir,
+    generated,
+  );
 }
 
 // ============================================================================
@@ -507,72 +520,30 @@ function exportAUOfficials(
   outputDir: string,
   generated: string,
 ): IntlExportResult {
-  const officialsDir = join(outputDir, 'AU', 'officials');
-  ensureDir(officialsDir);
-
-  const rows = db
-    .prepare(`SELECT * FROM au_mps WHERE is_active = 1`)
-    .all() as RawAUMPRow[];
-
-  // Group by division_code
-  const byDivision = new Map<string, RawAUMPRow[]>();
-  for (const row of rows) {
-    const code = row.division_code;
-    if (!code) continue; // Skip MPs without division code
-    let arr = byDivision.get(code);
-    if (!arr) {
-      arr = [];
-      byDivision.set(code, arr);
-    }
-    arr.push(row);
-  }
-
-  const manifestEntries: ManifestEntry[] = [];
-  let totalOfficials = 0;
-
-  for (const [divisionCode, mps] of byDivision) {
-    const officials: Official[] = mps.map((mp) => ({
-      id: mp.aph_id,
-      name: mp.name,
-      party: mp.party,
-      chamber: 'house',
-      state: mp.state,
-      district: mp.division_code,
-      phone: mp.phone,
-      office_address: mp.office_address,
-      contact_form_url: null,
-      website_url: mp.website_url,
-      is_voting: true,
-      delegate_type: null,
-    }));
-
-    const file: OfficialsFile = {
-      version: 1,
-      country: 'AU',
-      district_code: divisionCode,
-      officials,
-      generated,
-    };
-
-    const fileName = `${divisionCode}.json`;
-    const filePath = join(officialsDir, fileName);
-    const hash = writeJsonFile(filePath, file);
-
-    manifestEntries.push({
-      file: `officials/${fileName}`,
-      district_code: divisionCode,
-      official_count: officials.length,
-      sha256: hash,
-    });
-
-    totalOfficials += officials.length;
-  }
-
-  return {
-    districtCount: byDivision.size,
-    officialCount: totalOfficials,
-    manifestEntries,
-  };
+  return exportByDistrict<RawAUMPRow>(
+    db,
+    {
+      tableName: 'au_mps',
+      countryCode: 'AU',
+      groupKey: (row) => row.division_code || null,
+      toOfficial: (mp) => ({
+        id: mp.aph_id,
+        name: mp.name,
+        party: mp.party,
+        chamber: 'house',
+        state: mp.state,
+        district: mp.division_code,
+        phone: mp.phone,
+        office_address: mp.office_address,
+        contact_form_url: null,
+        website_url: mp.website_url,
+        is_voting: true,
+        delegate_type: null,
+      }),
+    },
+    outputDir,
+    generated,
+  );
 }
 
 // ============================================================================
@@ -584,72 +555,30 @@ function exportNZOfficials(
   outputDir: string,
   generated: string,
 ): IntlExportResult {
-  const officialsDir = join(outputDir, 'NZ', 'officials');
-  ensureDir(officialsDir);
-
-  const rows = db
-    .prepare(`SELECT * FROM nz_mps WHERE is_active = 1`)
-    .all() as RawNZMPRow[];
-
-  // Group by electorate_code (skip list MPs without an electorate)
-  const byElectorate = new Map<string, RawNZMPRow[]>();
-  for (const row of rows) {
-    const code = row.electorate_code;
-    if (!code) continue; // Skip list MPs without electorate code
-    let arr = byElectorate.get(code);
-    if (!arr) {
-      arr = [];
-      byElectorate.set(code, arr);
-    }
-    arr.push(row);
-  }
-
-  const manifestEntries: ManifestEntry[] = [];
-  let totalOfficials = 0;
-
-  for (const [electorateCode, mps] of byElectorate) {
-    const officials: Official[] = mps.map((mp) => ({
-      id: mp.parliament_id,
-      name: mp.name,
-      party: mp.party,
-      chamber: 'house',
-      state: '',
-      district: mp.electorate_code,
-      phone: mp.phone,
-      office_address: mp.office_address,
-      contact_form_url: null,
-      website_url: mp.website_url,
-      is_voting: true,
-      delegate_type: null,
-    }));
-
-    const file: OfficialsFile = {
-      version: 1,
-      country: 'NZ',
-      district_code: electorateCode,
-      officials,
-      generated,
-    };
-
-    const fileName = `${electorateCode}.json`;
-    const filePath = join(officialsDir, fileName);
-    const hash = writeJsonFile(filePath, file);
-
-    manifestEntries.push({
-      file: `officials/${fileName}`,
-      district_code: electorateCode,
-      official_count: officials.length,
-      sha256: hash,
-    });
-
-    totalOfficials += officials.length;
-  }
-
-  return {
-    districtCount: byElectorate.size,
-    officialCount: totalOfficials,
-    manifestEntries,
-  };
+  return exportByDistrict<RawNZMPRow>(
+    db,
+    {
+      tableName: 'nz_mps',
+      countryCode: 'NZ',
+      groupKey: (row) => row.electorate_code || null,
+      toOfficial: (mp) => ({
+        id: mp.parliament_id,
+        name: mp.name,
+        party: mp.party,
+        chamber: 'house',
+        state: '',
+        district: mp.electorate_code,
+        phone: mp.phone,
+        office_address: mp.office_address,
+        contact_form_url: null,
+        website_url: mp.website_url,
+        is_voting: true,
+        delegate_type: null,
+      }),
+    },
+    outputDir,
+    generated,
+  );
 }
 
 // ============================================================================
@@ -713,196 +642,184 @@ function main(): void {
   console.log(`Generated:  ${generated}`);
   console.log();
 
-  // Open database
+  // Open database in read-only mode — export never writes to the source DB.
+  // Schema must already exist (created by the hydration step). If tables are
+  // missing, the per-country hasTable() checks below will skip gracefully.
   const db = new Database(dbPath, { readonly: true });
-  db.pragma('journal_mode = WAL');
-
-  // Initialize schema (ensures tables exist — safe for readonly since
-  // CREATE TABLE IF NOT EXISTS is a no-op when tables already exist,
-  // but if the DB is truly readonly and tables are missing, this will
-  // fail gracefully)
   try {
-    // Schema init requires write access; skip if readonly
-    const writeDb = new Database(dbPath);
-    writeDb.pragma('journal_mode = WAL');
-    writeDb.exec(OFFICIALS_SCHEMA_DDL);
-    writeDb.close();
-  } catch {
-    // DB may already have schema — this is fine
+    ensureDir(outputDir);
+
+    const summary: Array<{
+      country: string;
+      districts: number;
+      officials: number;
+    }> = [];
+
+    // ---- US Officials ----
+    if (hasTable(db, 'federal_members')) {
+      const memberCount = (
+        db
+          .prepare('SELECT COUNT(*) as count FROM federal_members')
+          .get() as { count: number }
+      ).count;
+      console.log(`US: Found ${memberCount} federal members`);
+
+      const result = exportUSofficials(db, outputDir, generated);
+      updateManifest(
+        outputDir,
+        'US',
+        result.manifestEntries,
+        result.districtCount,
+        result.officialCount,
+        generated,
+      );
+
+      summary.push({
+        country: 'US',
+        districts: result.districtCount,
+        officials: result.officialCount,
+      });
+      console.log(
+        `US: Exported ${result.districtCount} districts, ${result.officialCount} officials`,
+      );
+    } else {
+      console.log('US: federal_members table not found, skipping');
+    }
+
+    // ---- Canada Officials ----
+    if (hasTable(db, 'canada_mps')) {
+      const mpCount = (
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM canada_mps WHERE is_active = 1',
+          )
+          .get() as { count: number }
+      ).count;
+      console.log(`CA: Found ${mpCount} active Canadian MPs`);
+
+      const result = exportCanadianOfficials(db, outputDir, generated);
+      updateManifest(
+        outputDir,
+        'CA',
+        result.manifestEntries,
+        result.districtCount,
+        result.officialCount,
+        generated,
+      );
+
+      summary.push({
+        country: 'CA',
+        districts: result.districtCount,
+        officials: result.officialCount,
+      });
+      console.log(
+        `CA: Exported ${result.districtCount} ridings, ${result.officialCount} officials`,
+      );
+    } else {
+      console.log('CA: canada_mps table not found, skipping');
+    }
+
+    // ---- UK Officials ----
+    if (hasTable(db, 'uk_mps')) {
+      const mpCount = (
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM uk_mps WHERE is_active = 1',
+          )
+          .get() as { count: number }
+      ).count;
+      console.log(`GB: Found ${mpCount} active UK MPs`);
+
+      const result = exportUKOfficials(db, outputDir, generated);
+      updateManifest(
+        outputDir,
+        'GB',
+        result.manifestEntries,
+        result.districtCount,
+        result.officialCount,
+        generated,
+      );
+
+      summary.push({
+        country: 'GB',
+        districts: result.districtCount,
+        officials: result.officialCount,
+      });
+      console.log(
+        `GB: Exported ${result.districtCount} constituencies, ${result.officialCount} officials`,
+      );
+    } else {
+      console.log('GB: uk_mps table not found, skipping');
+    }
+
+    // ---- Australia Officials ----
+    if (hasTable(db, 'au_mps')) {
+      const mpCount = (
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM au_mps WHERE is_active = 1',
+          )
+          .get() as { count: number }
+      ).count;
+      console.log(`AU: Found ${mpCount} active Australian MPs`);
+
+      const result = exportAUOfficials(db, outputDir, generated);
+      updateManifest(
+        outputDir,
+        'AU',
+        result.manifestEntries,
+        result.districtCount,
+        result.officialCount,
+        generated,
+      );
+
+      summary.push({
+        country: 'AU',
+        districts: result.districtCount,
+        officials: result.officialCount,
+      });
+      console.log(
+        `AU: Exported ${result.districtCount} divisions, ${result.officialCount} officials`,
+      );
+    } else {
+      console.log('AU: au_mps table not found, skipping');
+    }
+
+    // ---- New Zealand Officials ----
+    if (hasTable(db, 'nz_mps')) {
+      const mpCount = (
+        db
+          .prepare(
+            'SELECT COUNT(*) as count FROM nz_mps WHERE is_active = 1',
+          )
+          .get() as { count: number }
+      ).count;
+      console.log(`NZ: Found ${mpCount} active NZ MPs`);
+
+      const result = exportNZOfficials(db, outputDir, generated);
+      updateManifest(
+        outputDir,
+        'NZ',
+        result.manifestEntries,
+        result.districtCount,
+        result.officialCount,
+        generated,
+      );
+
+      summary.push({
+        country: 'NZ',
+        districts: result.districtCount,
+        officials: result.officialCount,
+      });
+      console.log(
+        `NZ: Exported ${result.districtCount} electorates, ${result.officialCount} officials`,
+      );
+    } else {
+      console.log('NZ: nz_mps table not found, skipping');
+    }
+  } finally {
+    db.close();
   }
-
-  ensureDir(outputDir);
-
-  const summary: Array<{
-    country: string;
-    districts: number;
-    officials: number;
-  }> = [];
-
-  // ---- US Officials ----
-  if (hasTable(db, 'federal_members')) {
-    const memberCount = (
-      db
-        .prepare('SELECT COUNT(*) as count FROM federal_members')
-        .get() as { count: number }
-    ).count;
-    console.log(`US: Found ${memberCount} federal members`);
-
-    const result = exportUSofficials(db, outputDir, generated);
-    updateManifest(
-      outputDir,
-      'US',
-      result.manifestEntries,
-      result.districtCount,
-      result.officialCount,
-      generated,
-    );
-
-    summary.push({
-      country: 'US',
-      districts: result.districtCount,
-      officials: result.officialCount,
-    });
-    console.log(
-      `US: Exported ${result.districtCount} districts, ${result.officialCount} officials`,
-    );
-  } else {
-    console.log('US: federal_members table not found, skipping');
-  }
-
-  // ---- Canada Officials ----
-  if (hasTable(db, 'canada_mps')) {
-    const mpCount = (
-      db
-        .prepare(
-          'SELECT COUNT(*) as count FROM canada_mps WHERE is_active = 1',
-        )
-        .get() as { count: number }
-    ).count;
-    console.log(`CA: Found ${mpCount} active Canadian MPs`);
-
-    const result = exportCanadianOfficials(db, outputDir, generated);
-    updateManifest(
-      outputDir,
-      'CA',
-      result.manifestEntries,
-      result.districtCount,
-      result.officialCount,
-      generated,
-    );
-
-    summary.push({
-      country: 'CA',
-      districts: result.districtCount,
-      officials: result.officialCount,
-    });
-    console.log(
-      `CA: Exported ${result.districtCount} ridings, ${result.officialCount} officials`,
-    );
-  } else {
-    console.log('CA: canada_mps table not found, skipping');
-  }
-
-  // ---- UK Officials ----
-  if (hasTable(db, 'uk_mps')) {
-    const mpCount = (
-      db
-        .prepare(
-          'SELECT COUNT(*) as count FROM uk_mps WHERE is_active = 1',
-        )
-        .get() as { count: number }
-    ).count;
-    console.log(`GB: Found ${mpCount} active UK MPs`);
-
-    const result = exportUKOfficials(db, outputDir, generated);
-    updateManifest(
-      outputDir,
-      'GB',
-      result.manifestEntries,
-      result.districtCount,
-      result.officialCount,
-      generated,
-    );
-
-    summary.push({
-      country: 'GB',
-      districts: result.districtCount,
-      officials: result.officialCount,
-    });
-    console.log(
-      `GB: Exported ${result.districtCount} constituencies, ${result.officialCount} officials`,
-    );
-  } else {
-    console.log('GB: uk_mps table not found, skipping');
-  }
-
-  // ---- Australia Officials ----
-  if (hasTable(db, 'au_mps')) {
-    const mpCount = (
-      db
-        .prepare(
-          'SELECT COUNT(*) as count FROM au_mps WHERE is_active = 1',
-        )
-        .get() as { count: number }
-    ).count;
-    console.log(`AU: Found ${mpCount} active Australian MPs`);
-
-    const result = exportAUOfficials(db, outputDir, generated);
-    updateManifest(
-      outputDir,
-      'AU',
-      result.manifestEntries,
-      result.districtCount,
-      result.officialCount,
-      generated,
-    );
-
-    summary.push({
-      country: 'AU',
-      districts: result.districtCount,
-      officials: result.officialCount,
-    });
-    console.log(
-      `AU: Exported ${result.districtCount} divisions, ${result.officialCount} officials`,
-    );
-  } else {
-    console.log('AU: au_mps table not found, skipping');
-  }
-
-  // ---- New Zealand Officials ----
-  if (hasTable(db, 'nz_mps')) {
-    const mpCount = (
-      db
-        .prepare(
-          'SELECT COUNT(*) as count FROM nz_mps WHERE is_active = 1',
-        )
-        .get() as { count: number }
-    ).count;
-    console.log(`NZ: Found ${mpCount} active NZ MPs`);
-
-    const result = exportNZOfficials(db, outputDir, generated);
-    updateManifest(
-      outputDir,
-      'NZ',
-      result.manifestEntries,
-      result.districtCount,
-      result.officialCount,
-      generated,
-    );
-
-    summary.push({
-      country: 'NZ',
-      districts: result.districtCount,
-      officials: result.officialCount,
-    });
-    console.log(
-      `NZ: Exported ${result.districtCount} electorates, ${result.officialCount} officials`,
-    );
-  } else {
-    console.log('NZ: nz_mps table not found, skipping');
-  }
-
-  db.close();
 
   // ---- Summary ----
   console.log();

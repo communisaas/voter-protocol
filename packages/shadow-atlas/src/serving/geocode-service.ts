@@ -70,8 +70,24 @@ export class GeocodeService {
   private successCount = 0;
   private failCount = 0;
   private latencies: number[] = [];
+  private static readonly MAX_LATENCY_SAMPLES = 10_000;
 
   constructor(nominatimUrl: string, timeoutMs = 5000) {
+    // R51-S1: Validate URL protocol to prevent SSRF via misconfigured NOMINATIM_URL
+    try {
+      const parsed = new URL(nominatimUrl);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(
+          `NOMINATIM_URL must use http or https protocol, got: ${parsed.protocol}`
+        );
+      }
+    } catch (e) {
+      if (e instanceof TypeError) {
+        throw new Error(`Invalid NOMINATIM_URL: ${nominatimUrl.slice(0, 50)}`);
+      }
+      throw e;
+    }
+
     // Strip trailing slash
     this.nominatimUrl = nominatimUrl.replace(/\/+$/, '');
     this.timeoutMs = timeoutMs;
@@ -135,6 +151,10 @@ export class GeocodeService {
 
       const latencyMs = performance.now() - startTime;
       this.latencies.push(latencyMs);
+      // R40-FIX: Cap latency buffer to prevent unbounded memory growth
+      if (this.latencies.length > GeocodeService.MAX_LATENCY_SAMPLES) {
+        this.latencies.shift();
+      }
 
       if (places.length === 0) {
         this.failCount++;
@@ -173,6 +193,10 @@ export class GeocodeService {
       this.failCount++;
       const latencyMs = performance.now() - startTime;
       this.latencies.push(latencyMs);
+      // R40-FIX: Cap latency buffer to prevent unbounded memory growth
+      if (this.latencies.length > GeocodeService.MAX_LATENCY_SAMPLES) {
+        this.latencies.shift();
+      }
 
       if (err instanceof DOMException && err.name === 'AbortError') {
         logger.warn('Nominatim geocode timed out', { timeoutMs: this.timeoutMs });
