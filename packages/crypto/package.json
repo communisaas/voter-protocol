@@ -61,5 +61,10 @@
     "near"
   ],
   "author": "VOTER Protocol",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/communisaas/voter-protocol.git",
+    "directory": "packages/crypto"
+  }
 }
