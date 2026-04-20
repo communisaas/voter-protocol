@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
+
       - name: Run tests
         run: npx vitest run packages/noir-prover/
 
