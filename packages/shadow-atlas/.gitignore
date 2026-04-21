@@ -45,7 +45,10 @@ data/discovery-state.json
 test-discovery-attempts/
 test-*.js
 test-*.ts
+# Allow test-utils helpers and test trees that are part of the module API
 !src/__tests__/**
+!src/**/test-utils.ts
+!src/**/test-utils.js
 .shadow-atlas-test/
 
 # Analysis outputs (regeneratable)
