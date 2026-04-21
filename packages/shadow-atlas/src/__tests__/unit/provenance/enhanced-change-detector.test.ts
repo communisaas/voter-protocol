@@ -79,13 +79,13 @@ class MockPrimarySourceComparator extends PrimarySourceComparator {
  */
 class MockGapDetector extends RedistrictingGapDetector {
   private mockInGap = false;
-  private mockGapStatus: import('./gap-detector.js').GapStatus | null = null;
+  private mockGapStatus: import('../../../provenance/gap-detector.js').GapStatus | null = null;
 
   setMockInGap(inGap: boolean): void {
     this.mockInGap = inGap;
   }
 
-  setMockGapStatus(status: import('./gap-detector.js').GapStatus | null): void {
+  setMockGapStatus(status: import('../../../provenance/gap-detector.js').GapStatus | null): void {
     this.mockGapStatus = status;
   }
 
@@ -93,7 +93,7 @@ class MockGapDetector extends RedistrictingGapDetector {
     return this.mockInGap;
   }
 
-  override checkBoundaryGap(): import('./gap-detector.js').GapStatus {
+  override checkBoundaryGap(): import('../../../provenance/gap-detector.js').GapStatus {
     if (this.mockGapStatus) {
       return this.mockGapStatus;
     }
@@ -626,7 +626,7 @@ describe('EnhancedChangeDetector', () => {
                   headers: {
                     get: () => null,
                   },
-                } as Response),
+                } as unknown as Response),
               10000
             )
           )
