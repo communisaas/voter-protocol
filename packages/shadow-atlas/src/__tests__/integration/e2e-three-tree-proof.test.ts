@@ -205,8 +205,8 @@ describe.skipIf(!RUN)('E2E: Three-Tree Real Census Data → ZK Proof', () => {
       userIndex,
 
       // Tree 2 proof (sparse Merkle)
-      cellMapPath: smtProof.siblings,
-      cellMapPathBits: smtProof.pathBits,
+      cellMapPath: [...smtProof.siblings],
+      cellMapPathBits: [...smtProof.pathBits],
 
       // Tree 3 proof (standard Merkle)
       engagementPath,

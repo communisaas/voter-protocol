@@ -177,8 +177,8 @@ describe.skipIf(!RUN)('E2E: Real Census Data → ZK Proof', () => {
       userIndex,
 
       // Tree 2 proof
-      cellMapPath: smtProof.siblings,
-      cellMapPathBits: smtProof.pathBits,
+      cellMapPath: [...smtProof.siblings],
+      cellMapPathBits: [...smtProof.pathBits],
     };
 
     // Sanity checks before proof generation
