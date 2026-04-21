@@ -114,6 +114,9 @@ jobs:
       - name: Build crypto package
         run: npm run build -w packages/crypto
 
+      - name: Build noir-prover package
+        run: npm run build -w packages/noir-prover
+
       - name: Type check crypto
         run: npx tsc --noEmit -p packages/crypto/tsconfig.json
 
