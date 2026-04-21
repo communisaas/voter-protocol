@@ -120,8 +120,11 @@ describe('EventSubscriptionService - RSS Feed Parsing', () => {
     await service.monitorRSSFeeds();
 
     expect(events).toHaveLength(2);
-    expect(events[0].type).toBe('source-updated');
-    expect(events[0].source).toBe('tiger');
+    const first = events[0];
+    expect(first.type).toBe('source-updated');
+    if (first.type === 'source-updated') {
+      expect(first.source).toBe('tiger');
+    }
   });
 
   it('should handle RSS feed fetch errors gracefully', async () => {
