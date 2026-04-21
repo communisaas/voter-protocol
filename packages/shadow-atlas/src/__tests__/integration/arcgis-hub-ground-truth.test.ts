@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { isCI, runIntegration, delay, API_RATE_LIMIT_MS, retryWithBackoff } from '../setup.js';
-import { ArcGISHubScanner, type CityTarget } from '../../scanners/arcgis-hub.js';
+import { ArcGISHubScanner, type CityTarget } from '../../acquisition/scanners/arcgis-hub.js';
 
 // ============================================================================
 // Skip Control
