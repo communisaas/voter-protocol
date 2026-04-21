@@ -22,9 +22,8 @@ function makeBlock(blockId: string, stateFips: string): BlockRecord {
   return {
     blockId,
     stateFips,
-    countyFips: '001',
-    tractFips: '000100',
-    blockFips: '1000',
+    countyFips: `${stateFips}001`,
+    tractGeoid: `${stateFips}001000100`,
     districts: new Map([[0, `${stateFips}01`]]),
   };
 }
