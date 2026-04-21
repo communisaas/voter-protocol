@@ -9,7 +9,7 @@
  *   createBoundary,
  *   createMockFetch,
  *   assertValidGeoid,
- * } from '../core/utils/index.js';
+ * } from '../utils/index.js';
  * ```
  */
 
