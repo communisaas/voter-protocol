@@ -55,6 +55,7 @@ function createMockBuildResult(options?: {
     duration: options?.duration ?? 1500,
     timestamp: new Date(),
     treeType: 'flat',
+    crossValidationStatus: 'disabled',
   };
 }
 
