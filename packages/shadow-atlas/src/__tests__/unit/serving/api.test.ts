@@ -14,8 +14,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ShadowAtlasAPI } from '../../../serving/api';
-import type { APIResponse, LookupResult, SnapshotMetadata } from '../../../serving/api';
-import type { DistrictBoundary } from '../../../serving/types';
+import type { APIResponse } from '../../../serving/api';
+import type { DistrictBoundary, LookupResult, SnapshotMetadata } from '../../../serving/types';
 import { IncomingMessage, ServerResponse } from 'http';
 
 /**
