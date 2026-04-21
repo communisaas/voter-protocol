@@ -70,12 +70,12 @@ interface CategorizationFile {
   readonly byCountry: Record<string, number>;
   readonly byCityRecoverable: Record<string, number>;
   readonly recoverable: readonly RecoverableLayer[];
-  readonly international: readonly Array<{
+  readonly international: ReadonlyArray<{
     readonly url: string;
     readonly name: string;
     readonly country: string;
   }>;
-  readonly genericTemplate?: readonly Array<{
+  readonly genericTemplate?: ReadonlyArray<{
     readonly layer: unknown;
     readonly details: string;
   }>;
@@ -168,7 +168,7 @@ async function executePromote(
 ): Promise<void> {
   const { config } = getGlobalContext();
   const jsonOutput = config.json;
-  const dryRun = config.dryRun || options.dryRun;
+  const dryRun: boolean = Boolean(config.dryRun || options.dryRun);
 
   const inputPath = resolve(categorizationFile);
   const confidenceThreshold = parseInt(options.confidence, 10);

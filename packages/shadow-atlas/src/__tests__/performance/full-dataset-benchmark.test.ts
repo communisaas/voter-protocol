@@ -231,7 +231,7 @@ describe.skipIf(!RUN_BENCHMARKS)('Performance: Full TIGER Dataset (200K Boundari
         const buildResult = await measureLatency(async () => {
           return await atlas.buildAtlas({
             layers: FULL_DATASET_CONFIG.layers,
-            states: 'all', // All 50 states + DC + territories
+            states: ['all'], // All 50 states + DC + territories
             year: FULL_DATASET_CONFIG.year,
           });
         });
@@ -290,13 +290,13 @@ describe.skipIf(!RUN_BENCHMARKS)('Performance: Full TIGER Dataset (200K Boundari
         // Build twice with same configuration
         const build1 = await atlas.buildAtlas({
           layers: ['cd'], // Use CD only for faster determinism check
-          states: 'all',
+          states: ['all'],
           year: 2024,
         });
 
         const build2 = await atlas.buildAtlas({
           layers: ['cd'],
-          states: 'all',
+          states: ['all'],
           year: 2024,
         });
 
@@ -332,7 +332,7 @@ describe.skipIf(!RUN_BENCHMARKS)('Performance: Full TIGER Dataset (200K Boundari
         const result = await measureMemory(async () => {
           return await atlas.buildAtlas({
             layers: ['cd', 'county'], // Medium-sized dataset
-            states: 'all',
+            states: ['all'],
             year: 2024,
           });
         });
@@ -417,7 +417,7 @@ describe.skipIf(!RUN_BENCHMARKS)('Performance: Full TIGER Dataset (200K Boundari
       // Build a test dataset for lookup benchmarks
       builtAtlas = await atlas.buildAtlas({
         layers: ['cd'],
-        states: 'all',
+        states: ['all'],
         year: 2024,
       });
     }, 300_000);

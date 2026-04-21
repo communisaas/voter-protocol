@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadConfig, type CLIConfig } from '../src/cli/lib/config.js';
-import type { OutputFormat } from '../src/cli/lib/output.js';
+import type { OutputFormat } from '../src/cli/lib/validation-report.js';
 import { createCLILogger, type CLILogger } from '../src/cli/lib/logger.js';
 
 // Command implementations - Registry

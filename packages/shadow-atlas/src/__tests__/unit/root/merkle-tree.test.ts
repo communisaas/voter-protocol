@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { BoundaryType } from '../../../core/types/boundary.js';
 import {
   ShadowAtlasMerkleTree,
   createShadowAtlasMerkleTree,
@@ -202,12 +203,15 @@ describe('ShadowAtlasMerkleTree', () => {
       );
     });
 
-    it('should support custom depth', async () => {
+    it('should support a valid circuit-compatible depth', async () => {
+      // CircuitDepth is locked to 18 | 20 | 22 | 24 to match ZK circuit
+      // sizes; arbitrary shallow trees like depth-4 are intentionally not
+      // a supported configuration.
       const addresses = ['a', 'b'];
-      const tree = await createShadowAtlasMerkleTree(addresses, { depth: 4 });
+      const tree = await createShadowAtlasMerkleTree(addresses, { depth: 18 });
 
-      expect(tree.getDepth()).toBe(4);
-      expect(tree.getCapacity()).toBe(16);
+      expect(tree.getDepth()).toBe(18);
+      expect(tree.getCapacity()).toBe(2 ** 18);
     });
 
     it('should handle empty address list', async () => {
@@ -303,7 +307,7 @@ describe('Multi-Layer Leaf Hashing', () => {
   it('should compute leaf hash with all components', async () => {
     const input: MerkleLeafInput = {
       id: 'CD-01',
-      boundaryType: 'congressional-district',
+      boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
       geometryHash: 12345n,
       authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
     };
@@ -316,14 +320,14 @@ describe('Multi-Layer Leaf Hashing', () => {
   it('should produce different hashes for different boundary types', async () => {
     const cdInput: MerkleLeafInput = {
       id: '01',
-      boundaryType: 'congressional-district',
+      boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
       geometryHash: 100n,
       authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
     };
 
     const slduInput: MerkleLeafInput = {
       id: '01',
-      boundaryType: 'state-legislative-upper',
+      boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
       geometryHash: 100n,
       authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
     };
@@ -338,19 +342,19 @@ describe('Multi-Layer Leaf Hashing', () => {
     const inputs: MerkleLeafInput[] = [
       {
         id: 'CD-01',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 1n,
         authority: 5,
       },
       {
         id: 'CD-02',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 2n,
         authority: 5,
       },
       {
         id: 'SLDU-01',
-        boundaryType: 'state-legislative-upper',
+        boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
         geometryHash: 3n,
         authority: 5,
       },

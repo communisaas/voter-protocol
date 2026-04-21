@@ -50,6 +50,13 @@ export interface OverlapResult {
 export async function runOverlap(options: OverlapOptions): Promise<OverlapResult> {
   const { fips, verbose = false, json = false } = options;
 
+  if (!fips) {
+    return {
+      success: false,
+      error: 'fips is required',
+    };
+  }
+
   if (!json) {
     console.log(`Detecting overlaps for FIPS ${fips}...\n`);
   }
@@ -141,7 +148,7 @@ function formatArea(sqm: number): string {
 /**
  * Print overlap matrix
  */
-function printMatrix(matrix: readonly readonly number[][], districts: number): void {
+function printMatrix(matrix: ReadonlyArray<ReadonlyArray<number>>, districts: number): void {
   if (matrix.length === 0 || districts === 0) return;
 
   // Header row

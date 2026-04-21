@@ -315,7 +315,7 @@ async function runCrossValidation(options: GeoidValidateOptions): Promise<Valida
             id: `cross:${layerReport.layer}:${state.stateFips}`,
             name: `${state.stateAbbr}`,
             status: state.matchRate < 0.90 ? 'fail' : 'warn',
-            message: `${(state.matchRate * 100).toFixed(1)}% match (${state.missingFromCanonical} missing, ${state.extraInCanonical} extra)`,
+            message: `${(state.matchRate * 100).toFixed(1)}% match (${state.missing.length} missing, ${state.extra.length} extra)`,
           });
         }
       }

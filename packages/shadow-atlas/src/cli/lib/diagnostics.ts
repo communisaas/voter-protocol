@@ -90,7 +90,7 @@ export interface OverlapReport {
   readonly analysis: {
     readonly totalDistricts: number;
     readonly overlappingPairs: readonly OverlapPair[];
-    readonly overlapMatrix: readonly readonly number[][];
+    readonly overlapMatrix: ReadonlyArray<ReadonlyArray<number>>;
     readonly maxOverlapArea: number;
     readonly hasProblematicOverlaps: boolean;
   };

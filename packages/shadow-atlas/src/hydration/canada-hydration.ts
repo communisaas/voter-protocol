@@ -21,7 +21,7 @@
 import type { CellDistrictMapping } from '../tree-builder.js';
 import type { HydrationPipeline, HydrationResult } from '../jurisdiction.js';
 import { CA_JURISDICTION, PROTOCOL_DISTRICT_SLOTS } from '../jurisdiction.js';
-import { CanadaBoundaryProvider, type CanadaRiding } from '../providers/international/canada-provider.js';
+import { CanadaBoundaryProvider, CanadaCountryProvider, type CanadaRiding } from '../providers/international/canada-provider.js';
 import { logger } from '../core/utils/logger.js';
 
 // ============================================================================
@@ -71,9 +71,9 @@ export interface CanadaHydrationOptions {
  */
 export class CanadaHydrationPipeline implements HydrationPipeline {
   readonly config = CA_JURISDICTION;
-  private readonly provider: CanadaBoundaryProvider;
+  private readonly provider: CanadaCountryProvider;
 
-  constructor(provider?: CanadaBoundaryProvider) {
+  constructor(provider?: CanadaCountryProvider) {
     this.provider = provider ?? new CanadaBoundaryProvider();
   }
 

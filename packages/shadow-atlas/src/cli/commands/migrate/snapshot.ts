@@ -48,6 +48,13 @@ export interface SnapshotResult {
 export async function runSnapshot(options: SnapshotOptions): Promise<SnapshotResult> {
   const { name, metadata, verbose = false, json = false } = options;
 
+  if (!name) {
+    return {
+      success: false,
+      error: 'name is required',
+    };
+  }
+
   if (!json) {
     console.log(`Creating snapshot "${name}"...\n`);
   }

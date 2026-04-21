@@ -230,10 +230,14 @@ function validateGeoJSONStructure(
     return { valid: false, error: 'FeatureCollection is empty' };
   }
 
-  // Check for valid geometry
+  // Check for valid geometry. Skip GeometryCollection — its `.coordinates`
+  // is located inside each contained geometry, not at the top level. Valid
+  // polygonal sources are all single geometries.
   let validGeomCount = 0;
   for (const feature of fc.features) {
-    if (feature.geometry?.type && feature.geometry?.coordinates) {
+    const geom = feature.geometry;
+    if (!geom) continue;
+    if (geom.type !== 'GeometryCollection' && geom.coordinates) {
       validGeomCount++;
     }
   }

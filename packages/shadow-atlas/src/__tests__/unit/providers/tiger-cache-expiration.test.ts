@@ -55,7 +55,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       vi.setSystemTime(new Date('2025-08-15T00:00:00.000Z'));
 
       // Test: Cache should be fresh (not stale)
-      const isStale = (provider as never)['isCacheStale'](cacheFile);
+      const isStale = (provider as any)['isCacheStale'](cacheFile);
 
       expect(isStale).toBe(false);
     });
@@ -82,7 +82,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       vi.setSystemTime(new Date('2025-11-15T00:00:00.000Z'));
 
       // Test: Cache should be stale
-      const isStale = (provider as never)['isCacheStale'](cacheFile);
+      const isStale = (provider as any)['isCacheStale'](cacheFile);
 
       expect(isStale).toBe(true);
     });
@@ -109,7 +109,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       vi.setSystemTime(new Date('2025-11-15T00:00:00.000Z'));
 
       // Test: Cache should be fresh (created after release date)
-      const isStale = (provider as never)['isCacheStale'](cacheFile);
+      const isStale = (provider as any)['isCacheStale'](cacheFile);
 
       expect(isStale).toBe(false);
     });
@@ -136,7 +136,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       vi.setSystemTime(new Date('2025-12-15T00:00:00.000Z'));
 
       // Test: Cache should NOT be stale (auto-expire disabled)
-      const isStale = (provider as never)['isCacheStale'](cacheFile);
+      const isStale = (provider as any)['isCacheStale'](cacheFile);
 
       expect(isStale).toBe(false);
     });
@@ -163,7 +163,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       vi.setSystemTime(new Date('2025-10-15T00:00:00.000Z'));
 
       // Test: Cache should be fresh with 60-day grace (Sept 1 + 60 = Oct 31)
-      const isStale = (provider as never)['isCacheStale'](cacheFile);
+      const isStale = (provider as any)['isCacheStale'](cacheFile);
 
       expect(isStale).toBe(false);
     });
@@ -178,7 +178,7 @@ describe('TIGERBoundaryProvider - Cache Expiration', () => {
       const nonExistentFile = join(testCacheDir, '2024', 'CD', 'missing.geojson');
 
       // Test: Should return false (not stale) for missing files
-      const isStale = (provider as never)['isCacheStale'](nonExistentFile);
+      const isStale = (provider as any)['isCacheStale'](nonExistentFile);
 
       expect(isStale).toBe(false);
     });

@@ -100,8 +100,8 @@ interface CategorizationOutput {
   readonly byCountry: Record<string, number>;
   readonly byCityRecoverable: Record<string, number>;
   readonly recoverable: readonly RecoverableLayer[];
-  readonly international: readonly Array<UnresolvedLayer & { country: string }>;
-  readonly genericTemplate: readonly Array<{ layer: UnresolvedLayer; details: string }>;
+  readonly international: ReadonlyArray<UnresolvedLayer & { country: string }>;
+  readonly genericTemplate: ReadonlyArray<{ layer: UnresolvedLayer; details: string }>;
   readonly unknown: readonly UnresolvedLayer[];
   readonly metadata: {
     readonly inputFile: string;
