@@ -22,7 +22,7 @@ import type {
   Event,
   StatusView,
   CoverageView,
-} from '../types/index.js';
+} from '../../../types/index.js';
 
 /**
  * Mock DatabaseAdapter for testing
