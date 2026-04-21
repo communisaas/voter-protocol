@@ -296,7 +296,7 @@ describe('Pre-Validation Sanity Checks', () => {
   describe('Edge Cases', () => {
     it('should handle empty district collection', () => {
       const boundary = createMockBoundary('0666000', -117.1611, 32.7157);
-      const emptyDistricts = featureCollection([]);
+      const emptyDistricts = featureCollection<Polygon | MultiPolygon>([]);
 
       const result = runSanityChecks(emptyDistricts, boundary, 9);
 
