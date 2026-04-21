@@ -67,7 +67,7 @@ function validateSchoolDistrictGeoid(
  * Validate required properties for school district
  */
 function validateSchoolDistrictProperties(
-  properties: Record<string, unknown> | null
+  properties: SchoolDistrictProperties | Record<string, unknown> | null
 ): { valid: boolean; missing: string[] } {
   const missing: string[] = [];
 
@@ -75,10 +75,12 @@ function validateSchoolDistrictProperties(
     return { valid: false, missing: ['properties object is null'] };
   }
 
+  const bag = properties as Record<string, unknown>;
+
   // Required fields
   const required = ['GEOID', 'NAME', 'STATEFP'];
   for (const field of required) {
-    if (!(field in properties) || !properties[field]) {
+    if (!(field in bag) || !bag[field]) {
       missing.push(field);
     }
   }
