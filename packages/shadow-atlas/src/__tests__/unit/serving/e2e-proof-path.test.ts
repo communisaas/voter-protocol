@@ -30,7 +30,9 @@ import type { IncomingMessage, ServerResponse } from 'http';
 // ============================================================================
 
 const TEST_AUTH_TOKEN = 'e2e-test-token-2026';
-const TREE_DEPTH = 20;
+// Shallower than prod depth (20) — test validates proof shape & two-tree
+// wiring; Noir-WASM Poseidon2 at depth 20 costs ~90s per beforeAll.
+const TREE_DEPTH = 10;
 
 function createMockRequest(
   url: string,
@@ -157,7 +159,7 @@ describe('End-to-End Proof Path', () => {
       cellMapState,
       TEST_AUTH_TOKEN,
     );
-  });
+  }, 120_000);
 
   it('should complete full register → cell-proof → format pipeline', async () => {
     // Step 1: Register a user leaf (compute a deterministic leaf hash)

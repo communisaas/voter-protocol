@@ -139,21 +139,32 @@ function createMockSyncService() {
 // Tests
 // ============================================================================
 
-describe('GET /v1/cell-proof (real CellMapState)', () => {
-  const TREE_DEPTH = 20;
-  const MAPPING_COUNT = 5;
+// Shallower tree than prod (20) — tests validate proof shape, not tree depth.
+// Depth 20 with Noir-WASM Poseidon2 costs ~90s per beforeAll; 10 halves it.
+const TREE_DEPTH = 10;
+const MAPPING_COUNT = 5;
 
+let sharedCellMapState: CellMapState;
+let sharedMappings: CellDistrictMapping[];
+let sharedRegistrationService: RegistrationService;
+
+beforeAll(async () => {
+  sharedMappings = generateMockMappings(MAPPING_COUNT, '06');
+  const treeResult = await buildCellMapTree(sharedMappings, TREE_DEPTH);
+  sharedCellMapState = toCellMapState(treeResult);
+  sharedRegistrationService = await RegistrationService.create(4);
+}, 120_000);
+
+describe('GET /v1/cell-proof (real CellMapState)', () => {
   let cellMapState: CellMapState;
   let mappings: CellDistrictMapping[];
   let registrationService: RegistrationService;
 
-  beforeAll(async () => {
-    // Build a real CellMapState from mock mappings with real Poseidon2 hashing
-    mappings = generateMockMappings(MAPPING_COUNT, '06');
-    const treeResult = await buildCellMapTree(mappings, TREE_DEPTH);
-    cellMapState = toCellMapState(treeResult);
-    registrationService = await RegistrationService.create(4);
-  }, 120_000); // WASM init can be slow
+  beforeAll(() => {
+    cellMapState = sharedCellMapState;
+    mappings = sharedMappings;
+    registrationService = sharedRegistrationService;
+  });
 
   function createAPI(overrideCellMapState?: CellMapState | null): ShadowAtlasAPI {
     return new ShadowAtlasAPI(
@@ -283,18 +294,13 @@ describe('GET /v1/cell-proof (real CellMapState)', () => {
 });
 
 describe('GET /v1/cell-map-info', () => {
-  const TREE_DEPTH = 20;
-  const MAPPING_COUNT = 5;
-
   let cellMapState: CellMapState;
   let registrationService: RegistrationService;
 
-  beforeAll(async () => {
-    const mappings = generateMockMappings(MAPPING_COUNT, '06');
-    const treeResult = await buildCellMapTree(mappings, TREE_DEPTH);
-    cellMapState = toCellMapState(treeResult);
-    registrationService = await RegistrationService.create(4);
-  }, 120_000);
+  beforeAll(() => {
+    cellMapState = sharedCellMapState;
+    registrationService = sharedRegistrationService;
+  });
 
   it('returns metadata when cellMapState is configured', async () => {
     const api = new ShadowAtlasAPI(
