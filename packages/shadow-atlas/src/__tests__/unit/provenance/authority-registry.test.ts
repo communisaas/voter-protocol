@@ -119,7 +119,7 @@ describe('AuthorityRegistry', () => {
 
       const caSource = sources.find((s) => s.jurisdiction === 'CA');
       expect(caSource).toBeDefined();
-      expect(caSource?.name).toContain('CA' || 'California');
+      expect(caSource?.name).toMatch(/CA|California/);
     });
 
     it('should return Texas primary sources', () => {
