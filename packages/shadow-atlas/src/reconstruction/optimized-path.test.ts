@@ -26,8 +26,8 @@ describe('Optimized Reconstruction Path', () => {
   const streetSegments = createMockStreetGrid({
     centerLat: 39.1,
     centerLon: -94.6,
-    gridSize: 4,
-    spacing: 0.01,
+    gridSize: 0.04,
+    streetCount: 5,
   });
 
   describe('reconstructWardFromParsed', () => {

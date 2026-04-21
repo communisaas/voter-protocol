@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { Feature, Polygon } from 'geojson';
+import type { StreetSegment } from './types';
 
 // Street normalizer
 import {
