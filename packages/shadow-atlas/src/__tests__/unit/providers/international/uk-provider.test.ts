@@ -233,7 +233,7 @@ describe('UKBoundaryProvider', () => {
     });
 
     it('should filter features without valid geometry', async () => {
-      const mockGeoJSON: FeatureCollection = {
+      const mockGeoJSON = {
         type: 'FeatureCollection',
         features: [
           {
@@ -264,9 +264,9 @@ describe('UKBoundaryProvider', () => {
               type: 'Point',
               coordinates: [0, 0],
             },
-          } as unknown as GeoJSON.Feature['geometry'],
+          },
         ],
-      };
+      } as unknown as FeatureCollection;
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
