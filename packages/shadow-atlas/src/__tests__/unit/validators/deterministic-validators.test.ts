@@ -18,8 +18,8 @@ import {
   type ValidationResult,
   type CityTarget,
 } from '../../../validators/pipeline/deterministic.js';
-import type { NormalizedGeoJSON } from '../types/index.js';
-import type { AdministrativeLevel } from '../core/types/provider.js';
+import type { NormalizedGeoJSON } from '../../../types/index.js';
+import type { AdministrativeLevel } from '../../../core/types/provider.js';
 
 /**
  * Test helper: Create mock GeoJSON with specified feature count and names
@@ -52,7 +52,7 @@ function createMockGeoJSON(
   return {
     type: 'FeatureCollection',
     features,
-  };
+  } as unknown as NormalizedGeoJSON;
 }
 
 /**
@@ -62,6 +62,7 @@ function createMockCity(overrides: Partial<CityTarget> = {}): CityTarget {
   return {
     id: 'al-birmingham',
     name: 'Birmingham',
+    state: 'AL',
     region: 'AL',
     country: 'US',
     population: 200733,
@@ -218,10 +219,10 @@ describe('NamePatternValidator', () => {
         },
       }));
 
-      const geojson: NormalizedGeoJSON = {
+      const geojson = {
         type: 'FeatureCollection',
         features,
-      };
+      } as unknown as NormalizedGeoJSON;
 
       const result = validator.validate(geojson, 'council-district');
 
@@ -634,10 +635,10 @@ describe('Edge Cases and Robustness', () => {
       },
     ];
 
-    const geojson: NormalizedGeoJSON = {
+    const geojson = {
       type: 'FeatureCollection',
       features,
-    };
+    } as unknown as NormalizedGeoJSON;
 
     const result = pipeline.validate(geojson, mockCity, 'council-district');
 
@@ -656,10 +657,10 @@ describe('Edge Cases and Robustness', () => {
       },
     }));
 
-    const geojson: NormalizedGeoJSON = {
+    const geojson = {
       type: 'FeatureCollection',
       features,
-    };
+    } as unknown as NormalizedGeoJSON;
 
     const result = pipeline.validate(geojson, mockCity, 'council-district');
 
