@@ -23,6 +23,8 @@ import type {
   OrchestrationOptions,
   ProgressUpdate,
   JobState,
+  JobStatus,
+  JobScope,
   JobSummary,
   CompletedExtraction,
   ExtractionFailure,
@@ -32,7 +34,7 @@ import type {
 import type {
   LayerExtractionResult,
   LegislativeLayerType,
-} from '../providers/state-batch-extractor.js';
+} from '../../../providers/state-batch-extractor.js';
 
 // ============================================================================
 // Test Fixtures
@@ -49,7 +51,7 @@ function createMockJobStateStore(): JobStateStore {
   let jobIdCounter = 0;
 
   return {
-    async createJob(scope, options) {
+    async createJob(scope: JobScope, options: OrchestrationOptions) {
       const jobId = `job-mock-${++jobIdCounter}`;
       const now = new Date();
       const totalTasks = scope.states.length * scope.layers.length;
@@ -75,11 +77,11 @@ function createMockJobStateStore(): JobStateStore {
       return jobId;
     },
 
-    async getJob(jobId) {
+    async getJob(jobId: string) {
       return jobStates.get(jobId) ?? null;
     },
 
-    async updateStatus(jobId, status) {
+    async updateStatus(jobId: string, status: JobStatus) {
       const job = jobStates.get(jobId);
       if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -90,7 +92,7 @@ function createMockJobStateStore(): JobStateStore {
       });
     },
 
-    async updateProgress(jobId, update) {
+    async updateProgress(jobId: string, update: ProgressUpdateData) {
       const job = jobStates.get(jobId);
       if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -101,7 +103,7 @@ function createMockJobStateStore(): JobStateStore {
       });
     },
 
-    async recordCompletion(jobId, extraction) {
+    async recordCompletion(jobId: string, extraction: CompletedExtraction) {
       const job = jobStates.get(jobId);
       if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -116,7 +118,7 @@ function createMockJobStateStore(): JobStateStore {
       });
     },
 
-    async recordFailure(jobId, failure) {
+    async recordFailure(jobId: string, failure: ExtractionFailure) {
       const job = jobStates.get(jobId);
       if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -131,7 +133,7 @@ function createMockJobStateStore(): JobStateStore {
       });
     },
 
-    async recordNotConfigured(jobId, task) {
+    async recordNotConfigured(jobId: string, task: NotConfiguredTask) {
       const job = jobStates.get(jobId);
       if (!job) throw new Error(`Job ${jobId} not found`);
 
@@ -142,7 +144,7 @@ function createMockJobStateStore(): JobStateStore {
       });
     },
 
-    async listJobs(limit = 10) {
+    async listJobs(limit: number = 10) {
       const jobs = Array.from(jobStates.values());
       jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
@@ -165,10 +167,10 @@ function createMockJobStateStore(): JobStateStore {
       return summaries;
     },
 
-    async deleteJob(jobId) {
+    async deleteJob(jobId: string) {
       jobStates.delete(jobId);
     },
-  } as JobStateStore;
+  } as unknown as JobStateStore;
 }
 
 function createTestDir(): string {
@@ -250,6 +252,8 @@ class MockStateBatchExtractor {
         return 99;
       case 'county':
         return 72;
+      case 'council_district':
+        return 10;
     }
   }
 
