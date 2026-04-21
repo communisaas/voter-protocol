@@ -20,7 +20,7 @@ import type {
   StateExtractionResult,
   LayerExtractionResult,
   ExtractedBoundary,
-} from '../providers/state-batch-extractor.js';
+} from '../../../providers/state-batch-extractor.js';
 import type { Polygon } from 'geojson';
 
 // ============================================================================

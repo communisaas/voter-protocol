@@ -17,7 +17,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GISServerDiscovery } from '../../../services/gis-server-discovery.js';
-import type { CityTarget } from '../providers/us-council-district-discovery.js';
+import type { CityTarget } from '../../../validators/pipeline/deterministic.js';
 
 /**
  * Test cities with known GIS servers

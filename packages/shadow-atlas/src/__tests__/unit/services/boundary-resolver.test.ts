@@ -19,7 +19,7 @@ import type {
   BoundaryGeometry,
   BoundaryType,
   ProvenanceRecord,
-} from '../core/types/boundary.js';
+} from '../../../core/types/boundary.js';
 
 /**
  * Helper to create test boundary
