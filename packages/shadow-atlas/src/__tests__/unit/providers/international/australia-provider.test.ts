@@ -95,7 +95,7 @@ const mockServiceMetadata = {
 // ============================================================================
 
 describe('AustraliaBoundaryProvider', () => {
-  let provider: AustraliaBoundaryProvider;
+  let provider: AustraliaCountryProvider;
 
   beforeEach(() => {
     provider = new AustraliaBoundaryProvider();

@@ -20,7 +20,7 @@ import { GB_JURISDICTION } from '../../../../jurisdiction.js';
 import type { FeatureCollection } from 'geojson';
 
 describe('UKBoundaryProvider', () => {
-  let provider: UKBoundaryProvider;
+  let provider: UKCountryProvider;
 
   beforeEach(() => {
     provider = new UKBoundaryProvider({ retryAttempts: 1, retryDelayMs: 10 });
@@ -464,7 +464,7 @@ describe('UKBoundaryProvider', () => {
  * Run locally with: npm test -- uk-provider.test.ts --run
  */
 describe.skip('UKBoundaryProvider Integration', () => {
-  let provider: UKBoundaryProvider;
+  let provider: UKCountryProvider;
 
   beforeEach(() => {
     provider = new UKBoundaryProvider();

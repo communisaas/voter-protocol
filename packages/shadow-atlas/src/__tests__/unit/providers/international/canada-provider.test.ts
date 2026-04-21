@@ -16,11 +16,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CanadaBoundaryProvider } from '../../../../providers/international/canada-provider.js';
+import { CanadaCountryProvider, CanadaBoundaryProvider } from '../../../../providers/international/canada-provider.js';
 import type { CanadaProvince, CanadaRiding } from '../../../../providers/international/canada-provider.js';
 
 describe('CanadaBoundaryProvider', () => {
-  let provider: CanadaBoundaryProvider;
+  let provider: CanadaCountryProvider;
 
   beforeEach(() => {
     provider = new CanadaBoundaryProvider({ retryAttempts: 1, retryDelayMs: 10 });
@@ -526,7 +526,7 @@ describe('CanadaBoundaryProvider', () => {
 // ============================================================================
 
 describe('CanadaCountryProvider buildCellMap', () => {
-  let provider: CanadaBoundaryProvider;
+  let provider: CanadaCountryProvider;
 
   beforeEach(() => {
     provider = new CanadaBoundaryProvider({ retryAttempts: 1, retryDelayMs: 10 });
@@ -777,7 +777,7 @@ describe('CanadaCountryProvider buildCellMap', () => {
  * Run locally with: npm test -- canada-provider.test.ts --run
  */
 describe.skip('CanadaBoundaryProvider Integration', () => {
-  let provider: CanadaBoundaryProvider;
+  let provider: CanadaCountryProvider;
 
   beforeEach(() => {
     provider = new CanadaBoundaryProvider();

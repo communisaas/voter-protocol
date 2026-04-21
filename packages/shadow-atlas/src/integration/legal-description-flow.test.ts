@@ -18,7 +18,7 @@ vi.mock('../providers/legal-description-provider.js');
  * Matches the public interface of StateBatchExtractor class
  */
 interface MockStateBatchExtractor {
-    extractState: Mock<[state: string], Promise<StateExtractionResult>>;
+    extractState: Mock<(state: string) => Promise<StateExtractionResult>>;
 }
 
 /**
@@ -26,10 +26,10 @@ interface MockStateBatchExtractor {
  * Matches the BoundaryProvider interface
  */
 interface MockLegalDescriptionProvider {
-    download: Mock<[params: DownloadParams], Promise<RawBoundaryFile[]>>;
-    transform: Mock<[raw: RawBoundaryFile[]], Promise<NormalizedBoundary[]>>;
-    checkForUpdates: Mock<[], Promise<UpdateMetadata>>;
-    getMetadata: Mock<[], Promise<ProviderSourceMetadata>>;
+    download: Mock<(params: DownloadParams) => Promise<RawBoundaryFile[]>>;
+    transform: Mock<(raw: RawBoundaryFile[]) => Promise<NormalizedBoundary[]>>;
+    checkForUpdates: Mock<() => Promise<UpdateMetadata>>;
+    getMetadata: Mock<() => Promise<ProviderSourceMetadata>>;
 }
 
 describe('Legal Description Flow Integration', () => {
@@ -42,7 +42,7 @@ describe('Legal Description Flow Integration', () => {
         const mockStateExtractionResult: StateExtractionResult = {
             state: 'MO',
             stateName: 'Missouri',
-            authority: 'state-agency',
+            authority: 'state-gis',
             layers: [
                 {
                     state: 'MO',
@@ -67,7 +67,7 @@ describe('Legal Description Flow Integration', () => {
         };
 
         mockExtractor = {
-            extractState: vi.fn<[state: string], Promise<StateExtractionResult>>()
+            extractState: vi.fn<(state: string) => Promise<StateExtractionResult>>()
                 .mockResolvedValue(mockStateExtractionResult)
         };
 
@@ -76,10 +76,10 @@ describe('Legal Description Flow Integration', () => {
 
         // Mock LegalDescriptionProvider with properly typed methods
         mockLegalProvider = {
-            download: vi.fn<[params: DownloadParams], Promise<RawBoundaryFile[]>>(),
-            transform: vi.fn<[raw: RawBoundaryFile[]], Promise<NormalizedBoundary[]>>(),
-            checkForUpdates: vi.fn<[], Promise<UpdateMetadata>>(),
-            getMetadata: vi.fn<[], Promise<ProviderSourceMetadata>>(),
+            download: vi.fn<(params: DownloadParams) => Promise<RawBoundaryFile[]>>(),
+            transform: vi.fn<(raw: RawBoundaryFile[]) => Promise<NormalizedBoundary[]>>(),
+            checkForUpdates: vi.fn<() => Promise<UpdateMetadata>>(),
+            getMetadata: vi.fn<() => Promise<ProviderSourceMetadata>>(),
         };
         vi.mocked(LegalDescriptionProvider).mockImplementation(() => mockLegalProvider as unknown as LegalDescriptionProvider);
 
