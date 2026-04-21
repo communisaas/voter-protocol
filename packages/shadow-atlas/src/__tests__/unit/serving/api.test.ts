@@ -574,7 +574,7 @@ describe('Shadow Atlas API v2 - Error Handling', () => {
 
     expect(response.status).toBe(400);
     const body = response.body as APIResponse<never>;
-    // BR5-014 + CR-007: error details are NOT exposed to client
+    // + CR-007: error details are NOT exposed to client
     expect(body.error?.details).toBeUndefined();
     expect(body.error?.message).toBeTruthy();
     expect(body.error?.code).toBeTruthy();
@@ -699,7 +699,7 @@ describe('Shadow Atlas API v2 - OpenAPI Compliance', () => {
       },
     });
 
-    // BR5-013: Sensitive fields must NOT be exposed in public health endpoint
+    // Sensitive fields must NOT be exposed in public health endpoint
     const data = (body as any).data;
     expect(data.cache).toBeUndefined();
     expect(data.snapshot).toBeUndefined();

@@ -362,7 +362,7 @@ describe('Integrity Checker - Boundary Count Verification', () => {
 
   test('returns invalid for unknown jurisdictions (fail-closed)', () => {
     const result = verifyBoundaryCount('UNKNOWN-jurisdiction', 100);
-    // R23-SEC-M4: Unknown jurisdictions now fail-closed
+    // Unknown jurisdictions now fail-closed
     expect(result.valid).toBe(false);
     expect(result.error).toContain('Unknown jurisdiction');
   });
@@ -504,7 +504,7 @@ describe('Integrity Checker - Snapshot Verification', () => {
       ipfsCID: '',
       boundaries: [
         { id: '1', geometry: createSquarePolygon(0, 0, 1) },
-      ], // ...but only 1
+      ], //...but only 1
     };
 
     const result = verifySnapshotIntegrity(snapshot);

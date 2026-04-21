@@ -51,10 +51,10 @@ export class FallbackResolver {
   private readonly responseCache = new Map<string, {
     data: Blob;
     cachedAt: Date;
-    size: number; // R71: Track entry byte size for budget eviction
+    size: number; // Track entry byte size for budget eviction
   }>();
 
-  // R71: Byte-budget cache eviction — prevent memory bomb.
+  // Byte-budget cache eviction — prevent memory bomb.
   // 100 MB budget (vs prior 1000-entry × 100 MB = 100 GB theoretical max).
   private static readonly MAX_CACHE_BYTES = 100 * 1024 * 1024;
   private cacheBytes = 0;
@@ -171,7 +171,7 @@ export class FallbackResolver {
 
       // Apply retry delay with exponential backoff
       if (attemptCount > 1 && this.fallbackStrategy.retryDelayMs > 0) {
-        // R24-DIST-M4: Cap exponential backoff at 30 seconds
+        // Cap exponential backoff at 30 seconds
         const MAX_BACKOFF_MS = 30_000;
         const delayMs = this.fallbackStrategy.exponentialBackoff
           ? Math.min(Math.pow(2, attemptCount - 2) * this.fallbackStrategy.retryDelayMs, MAX_BACKOFF_MS)
@@ -357,7 +357,7 @@ export class FallbackResolver {
   private cacheResponse(cid: string, data: Blob): void {
     const entrySize = data.size;
 
-    // R71: Evict oldest entries until byte budget has room
+    // Evict oldest entries until byte budget has room
     while (this.cacheBytes + entrySize > FallbackResolver.MAX_CACHE_BYTES && this.responseCache.size > 0) {
       const oldestKey = this.responseCache.keys().next().value;
       if (!oldestKey) break;
@@ -391,7 +391,7 @@ export class FallbackResolver {
     // Check if cache is still valid
     const age = Date.now() - cached.cachedAt.getTime();
     if (age > this.cacheTTLMs) {
-      // R71: Decrement byte counter on TTL eviction
+      // Decrement byte counter on TTL eviction
       this.cacheBytes -= cached.size;
       this.responseCache.delete(cid);
       return null;
@@ -445,7 +445,7 @@ export class FallbackResolver {
     // Prune response cache entries past TTL
     for (const [key, entry] of this.responseCache) {
       if (now - entry.cachedAt.getTime() > this.cacheTTLMs) {
-        // R71: Decrement byte counter on eviction
+        // Decrement byte counter on eviction
         this.cacheBytes -= entry.size;
         this.responseCache.delete(key);
       }
@@ -464,7 +464,7 @@ export class FallbackResolver {
   clearCaches(): void {
     this.responseCache.clear();
     this.failureCache.clear();
-    this.cacheBytes = 0; // R71: Reset byte counter
+    this.cacheBytes = 0; // Reset byte counter
   }
 
   /**

@@ -1,5 +1,5 @@
 /**
- * Manual Test for BR7-004: Fatal Insertion Log Integrity Failure
+ * Manual Test for Fatal Insertion Log Integrity Failure
  *
  * This script demonstrates that:
  * 1. A corrupted insertion log (broken hash chain) causes fatal startup failure

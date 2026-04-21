@@ -72,7 +72,7 @@ export interface RelayerConfig {
   readonly batchIntervalMs?: number;
 }
 
-// BR7-R3-L2: Types extracted to relayer-types.ts to break import cycle with abi-encoder.ts
+// Types extracted to relayer-types.ts to break import cycle with abi-encoder.ts
 export type { CommitTradeParams, RevealTradeParams } from './relayer-types.js';
 
 export interface TxReceipt {

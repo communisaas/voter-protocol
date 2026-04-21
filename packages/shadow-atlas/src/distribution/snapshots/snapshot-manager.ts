@@ -476,10 +476,10 @@ export class SnapshotManager {
 
     try {
       const files = await readdir(snapshotsDir);
-      // R24-DIST-H1: Exact ID match — prevent substring collisions
+      // Exact ID match — prevent substring collisions
       const matchingFile = files.find(f => {
         if (!f.endsWith('.json')) return false;
-        // Match exact ID segment: the ID appears after the last dash before .json
+        // Match exact ID segment: the ID appears after the last dash before.json
         const withoutExt = f.replace('.json', '');
         return withoutExt.endsWith(`-${id}`) || withoutExt.includes(`-${id}-`);
       });
@@ -584,7 +584,7 @@ export class SnapshotManager {
 
     try {
       const content = await readFile(filePath, 'utf-8');
-      // R31: Zod validation replaces bare `as ProofTemplateStore` cast.
+      // Zod validation replaces bare `as ProofTemplateStore` cast.
       // Cast is safe — Zod has validated all fields match ProofTemplateStore.
       return ProofTemplateStoreSchema.parse(JSON.parse(content)) as ProofTemplateStore;
     } catch {
@@ -608,7 +608,7 @@ export class SnapshotManager {
   // ============================================================================
 
   private serializeSnapshot(snapshot: Snapshot): Record<string, unknown> {
-    // R69-ARC-F8: Validate merkleRoot before serialization — symmetric with deserialize check.
+    // Validate merkleRoot before serialization — symmetric with deserialize check.
     // Catches out-of-field roots before they propagate to IPFS/Cloudflare.
     const BN254_FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
     if (snapshot.merkleRoot < 0n || snapshot.merkleRoot >= BN254_FIELD_MODULUS) {
@@ -627,7 +627,7 @@ export class SnapshotManager {
   }
 
   private deserializeSnapshot(data: Record<string, unknown>): Snapshot {
-    // R31: Zod schema validation replaces manual field-by-field checks.
+    // Zod schema validation replaces manual field-by-field checks.
     // SerializedSnapshotSchema validates id, version, merkleRoot (BN254 range),
     // timestamp (ISO 8601), layerCounts, and metadata structure in one pass.
     const parsed = SerializedSnapshotSchema.parse(data);

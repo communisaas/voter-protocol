@@ -49,7 +49,7 @@ export class FilesystemStorageAdapter implements StorageAdapter {
   }
 
   async put(sha256: string, data: Buffer, metadata: Record<string, string>): Promise<void> {
-    // R69-ARC-F4: Verify content matches the SHA-256 key — enforce content-addressing.
+    // Verify content matches the SHA-256 key — enforce content-addressing.
     const actualHash = createHash('sha256').update(data).digest('hex');
     if (actualHash !== sha256.toLowerCase()) {
       throw new Error(`Content hash mismatch: expected ${sha256}, got ${actualHash}`);
@@ -61,7 +61,7 @@ export class FilesystemStorageAdapter implements StorageAdapter {
     // Create directory
     await fs.mkdir(dirname(path), { recursive: true });
 
-    // R68-F4: Atomic writes — write to .tmp then rename to prevent partial
+    // R68-F4: Atomic writes — write to.tmp then rename to prevent partial
     // reads on crash. rename() is atomic on POSIX within the same filesystem.
     const tmpPath = `${path}.tmp`;
     const tmpMetaPath = `${metaPath}.tmp`;

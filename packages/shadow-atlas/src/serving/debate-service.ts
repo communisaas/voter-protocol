@@ -53,11 +53,11 @@ export class DebateService {
   private markets = new Map<string, DebateMarketState>();
   private clients = new Map<string, SSEClient[]>();
   private clientCount = 0;
-  /** R27-SRV-H2: Per-IP SSE connection counter to prevent single-IP slot exhaustion */
+  /** Per-IP SSE connection counter to prevent single-IP slot exhaustion */
   private clientsByIp = new Map<string, number>();
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private readonly maxSSEClients = 1000;
-  /** R27-SRV-H2: Maximum SSE connections per IP address */
+  /** Maximum SSE connections per IP address */
   private readonly maxSSEClientsPerIp = 10;
   /** R33-M2: Max stale markets before forced eviction of oldest unresolved debates */
   private readonly maxMarkets = 500;
@@ -231,7 +231,7 @@ export class DebateService {
         } catch {
           // Client already disconnected
         }
-        // R27-SRV-H2: Decrement per-IP counter
+        // Decrement per-IP counter
         const ipCount = this.clientsByIp.get(client.clientIp) ?? 1;
         if (ipCount <= 1) {
           this.clientsByIp.delete(client.clientIp);
@@ -295,7 +295,7 @@ export class DebateService {
   }
 
   /**
-   * R27-SRV-H2: Atomically check capacity (global + per-IP) and subscribe an
+   * Atomically check capacity (global + per-IP) and subscribe an
    * SSE client to a debate's price stream. Returns false if either limit is
    * exceeded — caller should respond with 503.
    *
@@ -303,7 +303,7 @@ export class DebateService {
    * pattern, which had a TOCTOU race between the check and the mutation.
    *
    * @param debateId - Debate identifier
-   * @param res      - HTTP response to stream SSE events on
+   * @param res - HTTP response to stream SSE events on
    * @param clientIp - Normalized client IP for per-IP limiting
    * @returns true if the client was accepted, false if at capacity
    */
@@ -355,7 +355,7 @@ export class DebateService {
   }
 
   /**
-   * R27-SRV-H2: Remove an SSE client and decrement both global and per-IP counters.
+   * Remove an SSE client and decrement both global and per-IP counters.
    */
   private removeSSEClient(debateId: string, client: SSEClient): void {
     const debateList = this.clients.get(debateId);
@@ -395,7 +395,7 @@ export class DebateService {
    * positionRoot after the latest epoch execution.
    *
    * @param debateId - Debate identifier (hex string with 0x prefix)
-   * @returns        - Current Merkle root as bigint, or null if no tree exists
+   * @returns - Current Merkle root as bigint, or null if no tree exists
    */
   async getPositionRoot(debateId: string): Promise<bigint | null> {
     const tree = this.positionTrees.get(debateId);
@@ -410,8 +410,8 @@ export class DebateService {
    * The returned proof is ready to pass to the position_note Noir prover.
    *
    * @param debateId - Debate identifier (hex string with 0x prefix)
-   * @param index    - Zero-based leaf index of the position to prove
-   * @returns        - PositionMerkleProof, or null if not found
+   * @param index - Zero-based leaf index of the position to prove
+   * @returns - PositionMerkleProof, or null if not found
    */
   async getPositionProof(debateId: string, index: number): Promise<PositionMerkleProof | null> {
     const tree = this.positionTrees.get(debateId);
@@ -432,7 +432,7 @@ export class DebateService {
    * Get the number of positions recorded for a debate.
    *
    * @param debateId - Debate identifier
-   * @returns        - Leaf count, or 0 if no tree exists
+   * @returns - Leaf count, or 0 if no tree exists
    */
   getPositionCount(debateId: string): number {
     return this.positionTrees.get(debateId)?.getLeafCount() ?? 0;
@@ -632,7 +632,7 @@ export class DebateService {
    * without blocking the synchronous processEvent loop.
    *
    * @param event - PositionCommitted event from the chain scanner
-   * @returns     - Promise that resolves when THIS insertion completes
+   * @returns - Promise that resolves when THIS insertion completes
    */
   private _handlePositionCommitted(event: PositionCommittedEvent): Promise<void> {
     const prevLock = this.insertionLocks.get(event.debateId) ?? Promise.resolve();
@@ -690,7 +690,7 @@ export class DebateService {
   private emitToDebate(debateId: string, eventType: string, data: unknown): void {
     const list = this.clients.get(debateId);
     if (!list) return;
-    // R30-SERV-SSE: Strip newlines from eventType to prevent SSE frame injection
+    // Strip newlines from eventType to prevent SSE frame injection
     const safeType = eventType.replace(/[\r\n]/g, '');
     const payload = `event: ${safeType}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of list) {
@@ -728,7 +728,7 @@ export class DebateService {
 
   private sendSSE(res: ServerResponse, eventType: string, data: unknown): void {
     try {
-      // R30-SERV-SSE: Strip newlines from eventType to prevent SSE frame injection
+      // Strip newlines from eventType to prevent SSE frame injection
       const safeType = eventType.replace(/[\r\n]/g, '');
       const payload = `event: ${safeType}\ndata: ${JSON.stringify(data)}\n\n`;
       // R33-SSE: Backpressure — note: sendSSE is used for initial state push to

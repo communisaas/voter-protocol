@@ -6,9 +6,9 @@
  * as a single GeoJSON file.
  *
  * Ward number extraction follows multiple heuristics:
- *   1. Explicit field: DISTRICT, WARD, COUNCIL_DIST, DIST_NUM, DIST_NO
- *   2. Name field: Extract trailing number from NAME (e.g., "Ward 3" → 3)
- *   3. Fallback: Feature index + 1
+ * 1. Explicit field: DISTRICT, WARD, COUNCIL_DIST, DIST_NUM, DIST_NO
+ * 2. Name field: Extract trailing number from NAME (e.g., "Ward 3" → 3)
+ * 3. Fallback: Feature index + 1
  *
  * @packageDocumentation
  */
@@ -209,13 +209,13 @@ async function loadSingleCity(
       fromCache = true;
     } else {
       geojson = await fetchWardGeoJSON(entry.sourceUrl, maxRetries);
-      // R71-HYD-M3: Atomic write via shared atomicWriteFile utility
+      // Atomic write via shared atomicWriteFile utility
       await atomicWriteFile(cachePath, JSON.stringify(geojson));
     }
   } catch {
     // Cache miss or stale — download
     geojson = await fetchWardGeoJSON(entry.sourceUrl, maxRetries);
-    // R71-HYD-M3: Atomic write via shared atomicWriteFile utility
+    // Atomic write via shared atomicWriteFile utility
     await atomicWriteFile(cachePath, JSON.stringify(geojson));
   }
 

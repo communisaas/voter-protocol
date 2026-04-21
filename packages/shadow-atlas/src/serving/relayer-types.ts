@@ -1,7 +1,7 @@
 /**
  * Shared types for the DebateMarket relayer subsystem.
  *
- * Extracted from relayer.ts (BR7-R3-L2) to break the conceptual
+ * Extracted from relayer.ts to break the conceptual
  * dependency cycle between relayer.ts and abi-encoder.ts.
  */
 

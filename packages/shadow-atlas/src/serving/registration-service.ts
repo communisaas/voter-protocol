@@ -104,7 +104,7 @@ export class RegistrationService {
   private lockChain: Promise<void> = Promise.resolve();
   /** Current root hash */
   private root: bigint;
-  /** Optional append-only insertion log for persistence (BR5-007) */
+  /** Optional append-only insertion log for persistence */
   private insertionLog: InsertionLog | null = null;
 
   private constructor(
@@ -125,7 +125,7 @@ export class RegistrationService {
    * Precomputes empty subtree hashes (O(depth) Poseidon2 calls).
    *
    * If `logOptions` is provided, opens (or creates) the insertion log
-   * and replays any existing entries to restore previous state (BR5-007).
+   * and replays any existing entries to restore previous state.
    */
   static async create(
     depth: number = 20,
@@ -143,7 +143,7 @@ export class RegistrationService {
 
     const service = new RegistrationService(hasher, emptyHashes, depth);
 
-    // BR5-007: Open insertion log and replay if entries exist
+    // Open insertion log and replay if entries exist
     if (logOptions) {
       service.insertionLog = await InsertionLog.open(logOptions);
       const { entries, verification } = await service.insertionLog.replay();
@@ -262,7 +262,7 @@ export class RegistrationService {
    * @param newLeafHex - Hex-encoded new leaf hash (with or without 0x prefix)
    * @returns Registration result for the NEW leaf (at nextLeafIndex)
    * @throws Error if oldLeafIndex is invalid, old leaf is already empty,
-   *         new leaf is duplicate/same as old, or tree is full
+   * new leaf is duplicate/same as old, or tree is full
    */
   async replaceLeaf(
     oldLeafIndex: number,
@@ -312,7 +312,7 @@ export class RegistrationService {
       }
 
       const newLeafIndex = this.nextLeafIndex;
-      // BR7-017: Write-ahead logging — persist BEFORE tree mutation
+      // Write-ahead logging — persist BEFORE tree mutation
       if (this.insertionLog) {
         await this.insertionLog.append({
           leaf: '0x' + newLeaf.toString(16),
@@ -625,7 +625,7 @@ export class RegistrationService {
     const leafIndex = this.nextLeafIndex;
 
 
-    // BR7-017: Write-ahead logging — persist BEFORE tree mutation
+    // Write-ahead logging — persist BEFORE tree mutation
     if (this.insertionLog) {
       await this.insertionLog.append({
         leaf: '0x' + leaf.toString(16),

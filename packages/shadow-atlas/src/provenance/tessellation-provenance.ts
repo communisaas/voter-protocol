@@ -391,7 +391,7 @@ class FileLock {
         return;
       } catch {
         if (attempt === this.maxRetries - 1) {
-          // R72-PROV-H1: Try to override stale lock (port of R70-H3)
+          // Try to override stale lock (port of R70-H3)
           const overridden = await this.tryOverrideStaleLock();
           if (overridden) return;
           throw new Error(`Failed to acquire lock after ${this.maxRetries} attempts`);
@@ -660,7 +660,7 @@ export class TessellationProvenanceWriter {
       const newLine = JSON.stringify(entry) + '\n';
       const updatedData = existingData + newLine;
 
-      // R72-PROV-M1: Atomic write — tmp+rename prevents corrupt gzip on crash
+      // Atomic write — tmp+rename prevents corrupt gzip on crash
       const compressed = await gzip(Buffer.from(updatedData, 'utf-8'));
       const tmpPath = `${logPath}.tmp`;
       await fs.writeFile(tmpPath, compressed);

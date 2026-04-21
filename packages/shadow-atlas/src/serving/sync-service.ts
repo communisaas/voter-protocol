@@ -1,5 +1,5 @@
 /**
- * IPFS Sync Service — Log-Based Persistence (BR5-007 / SA-008)
+ * IPFS Sync Service — Log-Based Persistence (/ SA-008)
  *
  * Manages IPFS-based backup and recovery of the Tree 1 insertion log.
  *
@@ -17,7 +17,7 @@
  * - Each upload produces a new CID (content-addressed, immutable)
  * - Latest CID is persisted locally for fast recovery
  *
- * SPEC REFERENCE: IMPLEMENTATION-GAP-ANALYSIS.md BR5-007, SA-008
+ * SPEC REFERENCE: IMPLEMENTATION-GAP-ANALYSIS.md SA-008
  */
 
 import { promises as fs } from 'fs';
@@ -77,7 +77,7 @@ export interface SyncServiceConfig {
  * and recovery from IPFS when local state is lost.
  */
 /**
- * BR7-014: Compute CIDv1 (raw codec + sha2-256) from buffer.
+ * Compute CIDv1 (raw codec + sha2-256) from buffer.
  * This matches the CID format used by Storacha/w3up for small files.
  */
 async function computeCidV1(content: Buffer): Promise<string> {
@@ -287,7 +287,7 @@ export class SyncService {
         signal: AbortSignal.timeout(30000),
       });
 
-      // BR7-014: Verify content integrity — CID must match expected
+      // Verify content integrity — CID must match expected
       try {
         const computedCid = await computeCidV1(buffer);
         const expectedCid = this.latestMetadata!.cid;

@@ -184,7 +184,7 @@ function parseSegmentText(
 
   // Extract direction
   for (const pattern of config.patterns.direction) {
-    pattern.lastIndex = 0; // R86-REC-M1
+    pattern.lastIndex = 0; //
     const match = pattern.exec(trimmed);
     if (match) {
       const dirText = match[1].toLowerCase();
@@ -196,7 +196,7 @@ function parseSegmentText(
 
   // Try to extract street name using patterns
   for (const pattern of config.patterns.streetCenterline) {
-    pattern.lastIndex = 0; // R86-REC-M1
+    pattern.lastIndex = 0; //
     const match = pattern.exec(trimmed);
     if (match) {
       featureName = match[1].trim();

@@ -189,7 +189,7 @@ export class UpdateCoordinator {
       // R59-M5: Calculate actual replica count from regions that succeeded before
       // the error, instead of hardcoding 0 (which discards partial progress).
       const partialReplicaCount = regionalStatuses
-        .filter(s => s.status === 'completed')  // R71-DIST-M5: RegionalPublishStatus has status field, not success
+        .filter(s => s.status === 'completed')  // RegionalPublishStatus has status field, not success
         .reduce((sum, s) => sum + s.pinResults.length, 0);
 
       return {

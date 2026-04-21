@@ -1,5 +1,5 @@
 /**
- * Insertion Log Tests (BR5-007)
+ * Insertion Log Tests
  *
  * Tests the append-only NDJSON insertion log for Tree 1 persistence.
  * Covers: file creation, append, replay, export, crash safety.

@@ -245,7 +245,7 @@ export class StorachaPinningService implements IPinningService {
     const proof = await ProofMod.parse(this.config.proof);
     const space = await client.addSpace(proof);
 
-    // BR7-M5: Verify the space derived from proof matches configured spaceDid
+    // Verify the space derived from proof matches configured spaceDid
     const derivedDid = space.did();
     if (derivedDid !== this.config.spaceDid) {
       throw new Error(
@@ -309,7 +309,7 @@ export class StorachaPinningService implements IPinningService {
 
       const client = await this.getClient();
 
-      // R97-DST-F2: Storacha SDK does not accept AbortSignal — uploadFile has no
+      // Storacha SDK does not accept AbortSignal — uploadFile has no
       // cancellation API. Promise.race is the only timeout mechanism available.
       // Ghost pins may accumulate if the underlying upload succeeds after timeout.
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -380,7 +380,7 @@ export class StorachaPinningService implements IPinningService {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      // BR7-H8: Check directory size before loading into memory
+      // Check directory size before loading into memory
       const dirSize = computeDirectorySize(dirPath);
       if (dirSize > MAX_DIRECTORY_SIZE) {
         return {
@@ -405,7 +405,7 @@ export class StorachaPinningService implements IPinningService {
 
       const client = await this.getClient();
 
-      // R97-DST-F2: Storacha SDK does not accept AbortSignal on uploadDirectory.
+      // Storacha SDK does not accept AbortSignal on uploadDirectory.
       const timeoutPromise = new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new Error(`Storacha directory upload timed out after ${this.timeoutMs}ms`)),
@@ -502,9 +502,9 @@ export class StorachaPinningService implements IPinningService {
  * Create Storacha pinning service from environment variables
  *
  * Required env vars:
- *   STORACHA_SPACE_DID    - Space DID (did:key:...)
- *   STORACHA_AGENT_KEY    - Ed25519 private key (Mg... format)
- *   STORACHA_PROOF        - UCAN delegation proof (base64)
+ * STORACHA_SPACE_DID - Space DID (did:key:...)
+ * STORACHA_AGENT_KEY - Ed25519 private key (Mg... format)
+ * STORACHA_PROOF - UCAN delegation proof (base64)
  */
 export function createStorachaPinningService(
   region: Region,

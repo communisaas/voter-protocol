@@ -169,7 +169,7 @@ export class SecurityAuditLogger {
   }
 
   /**
-   * R54: Load the last event hash from persisted state on startup.
+   * Load the last event hash from persisted state on startup.
    * Call after construction to restore hash chain continuity across restarts.
    * Best-effort — starts a fresh chain if loading fails.
    */
@@ -178,15 +178,15 @@ export class SecurityAuditLogger {
   }
 
   /**
-   * R54: Restore lastEventHash from the most recent .chain anchor file,
-   * falling back to the last line of the most recent .ndjson/.jsonl log.
+   * Restore lastEventHash from the most recent.chain anchor file,
+   * falling back to the last line of the most recent.ndjson/.jsonl log.
    */
   private async loadLastHash(): Promise<void> {
     if (!this.config.enableHashChain) return;
     try {
       const files = await readdir(this.config.logDir);
 
-      // Try .chain files first (written on rotation)
+      // Try.chain files first (written on rotation)
       const chainFiles = files.filter(f => f.endsWith('.chain')).sort();
       if (chainFiles.length > 0) {
         const lastChainFile = join(this.config.logDir, chainFiles[chainFiles.length - 1]);
@@ -213,7 +213,7 @@ export class SecurityAuditLogger {
         }
       }
     } catch {
-      // R54: Best-effort — start fresh chain if load fails
+      // Best-effort — start fresh chain if load fails
       logger.warn('AuditLogger: could not load last event hash, starting fresh chain');
     }
   }

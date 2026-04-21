@@ -592,7 +592,7 @@ describe('registration receipts (BR7-009)', () => {
       stop: vi.fn(),
       getLatestSnapshot: vi.fn().mockResolvedValue(null),
       listSnapshots: vi.fn().mockResolvedValue([]),
-      notifyInsertion: vi.fn(), // BR7-009: required for receipt tests
+      notifyInsertion: vi.fn(), // required for receipt tests
     };
 
     api = new ShadowAtlasAPI(

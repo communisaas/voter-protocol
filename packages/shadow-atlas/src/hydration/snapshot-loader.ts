@@ -119,7 +119,7 @@ export async function loadSnapshotWithVintage(
   }
 
   // Reconstruct CellDistrictMapping[] from serialized data
-  // R67: Validate all BigInt values against BN254 field modulus.
+  // Validate all BigInt values against BN254 field modulus.
   // Out-of-field values would produce tree roots that diverge from Noir circuit expectations.
   const mappings: CellDistrictMapping[] = snapshot.mappings.map((m, i) => {
     const cellId = BigInt(m.cellId);

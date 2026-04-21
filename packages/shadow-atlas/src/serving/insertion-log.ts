@@ -1,27 +1,27 @@
 /**
- * Append-Only Insertion Log for Tree 1 Persistence (BR5-007)
+ * Append-Only Insertion Log for Tree 1 Persistence
  *
  * Records every leaf insertion as a newline-delimited JSON (NDJSON) entry.
  * The log is the canonical source of truth — on restart, the tree is
  * deterministically rebuilt by replaying the log in order.
  *
  * Format (one JSON object per line, v2 with integrity fields):
- *   {"leaf":"0xabc...","index":0,"ts":1707600000000,"prevHash":"0x...","sig":"0x..."}
+ * {"leaf":"0xabc...","index":0,"ts":1707600000000,"prevHash":"0x...","sig":"0x..."}
  *
  * Integrity properties (Wave 39 — Verifiable Solo Operator):
  * - Hash-chained: each entry includes SHA-256 of the previous entry's JSON line.
- *   First entry uses genesis hash SHA-256("genesis"). Tampering with any entry
- *   breaks the chain for all subsequent entries.
+ * First entry uses genesis hash SHA-256("genesis"). Tampering with any entry
+ * breaks the chain for all subsequent entries.
  * - Signed: each entry includes an Ed25519 signature over its canonical JSON
- *   (excluding the `sig` field itself). Anyone with the public key can verify.
+ * (excluding the `sig` field itself). Anyone with the public key can verify.
  * - Attestation-bound: entries may include an `attestationHash` linking
- *   the insertion to a real identity verification event.
+ * the insertion to a real identity verification event.
  *
  * Backward compatibility:
  * - Entries without prevHash/sig are accepted during replay (v1 format)
  * - Hash chain verification starts from the first entry that has prevHash
  *
- * SPEC REFERENCE: IMPLEMENTATION-GAP-ANALYSIS.md BR5-007
+ * SPEC REFERENCE: IMPLEMENTATION-GAP-ANALYSIS.md
  */
 
 import { promises as fs, createReadStream } from 'fs';
@@ -209,7 +209,7 @@ export class InsertionLog {
   /**
    * Replay all entries in order via a streaming line reader.
    *
-   * Returns entries in insertion order (index 0, 1, 2, ...).
+   * Returns entries in insertion order (index 0, 1, 2,...).
    * Validates each line and skips malformed entries with a warning.
    *
    * Also verifies hash chain integrity and signatures if a signer is provided.

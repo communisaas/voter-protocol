@@ -1,5 +1,5 @@
 /**
- * Registration Service Persistence Tests (BR5-007)
+ * Registration Service Persistence Tests
  *
  * Tests that RegistrationService correctly persists state via InsertionLog
  * and can rebuild the tree from the log after restart.

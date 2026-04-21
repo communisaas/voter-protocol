@@ -233,7 +233,7 @@ const bubbleQuerySchema = z.object({
 
 /**
  * POST /v1/community-field/contribute request body
- * { proof: "0x...", publicInputs: ["0x...", ...], epochDate: "2026-03-01" }
+ * { proof: "0x...", publicInputs: ["0x...",...], epochDate: "2026-03-01" }
  */
 const communityFieldContributeSchema = z.object({
   proof: z.string().min(1).max(100_000),
@@ -256,7 +256,7 @@ class RateLimiter {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
 
-    // BR7-012: Sweep stale entries every 5 minutes to prevent memory leak
+    // Sweep stale entries every 5 minutes to prevent memory leak
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       for (const [key, entry] of this.requests) {
@@ -326,7 +326,7 @@ class RateLimiter {
     this.requests.delete(clientId);
   }
 
-  /** BR7-012: Clear cleanup interval to prevent dangling timers */
+  /** Clear cleanup interval to prevent dangling timers */
   destroy(): void {
     clearInterval(this.cleanupInterval);
   }
@@ -371,7 +371,7 @@ export class ShadowAtlasAPI {
    */
   private readonly idempotencyCache: Map<string, { result: unknown; expiresAt: number }> = new Map();
   private readonly idempotencyCacheTTL = 60 * 60 * 1000; // 1 hour
-  /** BR7-R1: Cap cache size to prevent memory DoS from sustained unique-key requests within the TTL window. */
+  /** Cap cache size to prevent memory DoS from sustained unique-key requests within the TTL window. */
   private readonly MAX_IDEMPOTENCY_CACHE_SIZE = 10_000;
   private readonly idempotencyCacheCleanup: ReturnType<typeof setInterval>;
 
@@ -388,7 +388,7 @@ export class ShadowAtlasAPI {
   }
 
   /**
-   * BR7-R1 / BR7-R3-H1: Cache an idempotency result with eviction guard.
+   * / Cache an idempotency result with eviction guard.
    * Evicts the oldest 10% of entries when the cache is at capacity to prevent
    * memory DoS from sustained unique-key requests within the TTL window.
    */
@@ -461,7 +461,7 @@ export class ShadowAtlasAPI {
       );
     }
 
-    // BR5-012: Fail closed — reject registrations in production when auth is unconfigured.
+    // Fail closed — reject registrations in production when auth is unconfigured.
     // Previously this was a warning-only log, leaving the tree open to filling attacks.
     // Applies to BOTH Tree 1 (registration) and Tree 3 (engagement) registration endpoints.
     const hasRegistrationEndpoint = !!(this.registrationService || this.engagementService);
@@ -479,7 +479,7 @@ export class ShadowAtlasAPI {
     }
 
     this.server = createServer((req, res) => this.handleRequest(req, res));
-    // BR7-010: Server-level timeout protection against slowloris
+    // Server-level timeout protection against slowloris
     this.server.requestTimeout = 30_000;   // 30s total request timeout
     this.server.headersTimeout = 10_000;   // 10s for headers
     this.server.keepAliveTimeout = 5_000;  // 5s keep-alive
@@ -625,7 +625,7 @@ export class ShadowAtlasAPI {
 
   /**
    * Stop HTTP server with graceful shutdown.
-   * BR7-013: Closes pending connections, flushes insertion log, uploads final state.
+   * Closes pending connections, flushes insertion log, uploads final state.
    */
   async stop(): Promise<void> {
     // Prevent double-shutdown
@@ -637,7 +637,7 @@ export class ShadowAtlasAPI {
     // 1. Stop accepting new connections
     this.server.close();
 
-    // 2. Clear rate limiter intervals (BR7-012)
+    // 2. Clear rate limiter intervals
     this.rateLimiter.destroy();
     this.registrationRateLimiter.destroy();
 
@@ -790,7 +790,7 @@ export class ShadowAtlasAPI {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
-      // BR5-014: Never leak error.message to client — log internally only
+      // Never leak error.message to client — log internally only
       this.sendErrorResponse(
         res,
         500,
@@ -886,7 +886,7 @@ export class ShadowAtlasAPI {
       const result = this.lookupService.lookupAll(lat, lng);
 
       if (result.districts.length === 0) {
-        // BR5-013: Don't pass lat/lon to error samples (exposed via /v1/health)
+        // Don't pass lat/lon to error samples (exposed via /v1/health)
         this.healthMonitor.recordError('District not found');
         this.sendErrorResponse(
           res,
@@ -922,7 +922,7 @@ export class ShadowAtlasAPI {
       // Group all districts by layer type for structured multi-layer response
       const allDistricts = this.groupByLayerType(result.districts);
 
-      // Build response data (BR5-005: latencyMs removed from response to prevent timing oracle)
+      // Build response data (latencyMs removed from response to prevent timing oracle)
       const responseData = {
         district: primary,
         all_districts: allDistricts,
@@ -943,7 +943,7 @@ export class ShadowAtlasAPI {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.healthMonitor.recordError(errorMsg);
-      // BR5-014: Log details internally, return generic message to client
+      // Log details internally, return generic message to client
       logger.error('Lookup failed', { requestId, error: errorMsg });
       this.sendErrorResponse(
         res,
@@ -1015,7 +1015,7 @@ export class ShadowAtlasAPI {
         false
       );
     } catch (error) {
-      // BR5-014: Don't leak internal error details to client
+      // Don't leak internal error details to client
       logger.error('District lookup failed', {
         requestId,
         districtId,
@@ -1039,7 +1039,7 @@ export class ShadowAtlasAPI {
    * Zero runtime Congress.gov API calls.
    *
    * Query params:
-   *   - district: District code (e.g., "CA-12") — required
+   * - district: District code (e.g., "CA-12") — required
    */
   private handleOfficials(
     url: URL,
@@ -1468,11 +1468,11 @@ export class ShadowAtlasAPI {
    * Parse R-tree district ID into structured format.
    *
    * R-tree IDs are layer-prefixed GEOIDs from build-district-db.ts:
-   *   cd-0611       → US Congressional District (CA-11)
-   *   sldu-06001    → US State Senate District
-   *   sldl-06001    → US State House District
-   *   county-06001  → US County
-   *   can-fed-35001 → Canadian Federal Electoral District
+   * cd-0611 → US Congressional District (CA-11)
+   * sldu-06001 → US State Senate District
+   * sldl-06001 → US State House District
+   * county-06001 → US County
+   * can-fed-35001 → Canadian Federal Electoral District
    */
   private parseRTreeDistrictId(districtId: string):
     | { country: 'US'; state: string; district: string; type: 'congressional' | 'state-upper' | 'state-lower' | 'county' | 'place' | 'cousub' | 'school-unified' | 'school-elementary' | 'school-secondary' | 'vtd' | 'tribal' | 'ward' | 'consolidated-city' | 'subminor-civil-division' | 'alaska-native-regional' | 'fire-district' | 'water-district' | 'transit-district' | 'library-district' | 'hospital-district' | 'utility-district' | 'park-district' }
@@ -1853,7 +1853,7 @@ export class ShadowAtlasAPI {
    * Accepts a BubbleMembershipProof submission with proof, publicInputs, and epochDate.
    * Validates inputs, checks epoch nullifier uniqueness, stores the contribution.
    *
-   * Body: { proof: "0x...", publicInputs: ["0x...", ...], epochDate: "YYYY-MM-DD" }
+   * Body: { proof: "0x...", publicInputs: ["0x...",...], epochDate: "YYYY-MM-DD" }
    * Public inputs: [engagementRoot, epochDomain, cellSetRoot, epochNullifier, cellCount]
    */
   private async handleCommunityFieldContribute(
@@ -2147,7 +2147,7 @@ export class ShadowAtlasAPI {
         { attestationHash: validation.data.attestationHash },
       );
 
-      // BR5-007: Notify sync service for periodic IPFS backup
+      // Notify sync service for periodic IPFS backup
       const log = this.registrationService.getInsertionLog();
       if (log) {
         this.syncService.notifyInsertion(log);
@@ -2337,7 +2337,7 @@ export class ShadowAtlasAPI {
         { attestationHash: validation.data.attestationHash }, // W40-002: forward attestationHash
       );
 
-      // BR5-007: Notify sync service for periodic IPFS backup
+      // Notify sync service for periodic IPFS backup
       const log = this.registrationService.getInsertionLog();
       if (log) {
         this.syncService.notifyInsertion(log);
@@ -3039,11 +3039,11 @@ export class ShadowAtlasAPI {
    * Path format: /debate/0x{64-hex}/position-proof/{N}
    *
    * Response:
-   *   {
-   *     positionPath:  string[],  // sibling hashes as 0x-prefixed hex, leaf→root
-   *     positionIndex: number,    // zero-based leaf index (echoed for confirmation)
-   *     positionRoot:  string     // current Merkle root as 0x-prefixed hex
-   *   }
+   * {
+   * positionPath: string[], // sibling hashes as 0x-prefixed hex, leaf→root
+   * positionIndex: number, // zero-based leaf index (echoed for confirmation)
+   * positionRoot: string // current Merkle root as 0x-prefixed hex
+   * }
    *
    * Returns 404 if the debate has no position tree yet or if the index is out of range.
    * Returns 503 if the debate service is not configured.
@@ -3235,7 +3235,7 @@ export class ShadowAtlasAPI {
       let size = 0;
       let resolved = false;
 
-      // BR7-010: Slowloris protection — abort if body isn't received within 10s
+      // Slowloris protection — abort if body isn't received within 10s
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
@@ -3286,7 +3286,7 @@ export class ShadowAtlasAPI {
   /**
    * Handle /v1/health endpoint
    *
-   * BR5-013: Returns sanitized health data — no coordinates, no error messages.
+   * Returns sanitized health data — no coordinates, no error messages.
    * Full details are only available via /v1/metrics (auth-gated).
    */
   private handleHealth(
@@ -3305,7 +3305,7 @@ export class ShadowAtlasAPI {
 
     const metrics = this.healthMonitor.getMetrics();
 
-    // BR5-013: Strip sensitive data from public health endpoint.
+    // Strip sensitive data from public health endpoint.
     // Only expose status, uptime, aggregate counts — not error samples or coordinates.
     const sanitized = {
       status: metrics.status,
@@ -3344,10 +3344,10 @@ export class ShadowAtlasAPI {
   /**
    * Handle /v1/metrics endpoint (Prometheus format)
    *
-   * BR5-013: Auth-gated — requires METRICS_AUTH_TOKEN or trusted proxy.
+   * Auth-gated — requires METRICS_AUTH_TOKEN or trusted proxy.
    */
   private handleMetrics(res: ServerResponse, req?: IncomingMessage): void {
-    // BR5-013: Only allow metrics from trusted proxies (internal network) or with auth token
+    // Only allow metrics from trusted proxies (internal network) or with auth token
     const metricsToken = process.env.METRICS_AUTH_TOKEN;
     const socketAddr = req?.socket.remoteAddress || '';
 
@@ -3488,7 +3488,7 @@ export class ShadowAtlasAPI {
   private setSecurityHeaders(res: ServerResponse, requestId: string, req?: IncomingMessage): void {
     // CORS headers - only set if origins are configured
     if (this.corsOrigins.length > 0) {
-      // BR7-011: Vary header for correct CDN/proxy cache behavior with dynamic CORS
+      // Vary header for correct CDN/proxy cache behavior with dynamic CORS
       res.setHeader('Vary', 'Origin');
       // CR-012: Validate against actual request origin, not just first in list
       const requestOrigin = req?.headers.origin;
@@ -3540,8 +3540,9 @@ export class ShadowAtlasAPI {
     requestId: string,
     cached: boolean
   ): void {
-    // R36-F3: Guard against double-response (same pattern as sendErrorResponse)
-    if (res.headersSent || !res.socket || res.socket.writableEnded || res.socket.destroyed) return;
+    // Guard against double-response (same pattern as sendErrorResponse).
+    if (res.headersSent) return;
+    if (res.socket && (res.socket.writableEnded || res.socket.destroyed)) return;
 
     const response: APIResponse<T> = {
       success: true,
@@ -3580,8 +3581,9 @@ export class ShadowAtlasAPI {
     requestId: string,
     details?: unknown
   ): void {
-    // R35-F2+R36-F5: Guard against double-response (readBody 413, partial writes, etc.)
-    if (res.headersSent || !res.socket || res.socket.writableEnded || res.socket.destroyed) return;
+    // Guard against double-response (readBody 413, partial writes, etc.)
+    if (res.headersSent) return;
+    if (res.socket && (res.socket.writableEnded || res.socket.destroyed)) return;
 
     const response: APIResponse<never> = {
       success: false,

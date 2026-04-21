@@ -268,7 +268,7 @@ function cacheFilenameFromUrl(url: string): string {
  * Writes atomically via temp file + rename.
  */
 async function downloadToCache(url: string, cachePath: string, expectedSha256?: string): Promise<void> {
-  // R23-HYD-H3: 60s timeout to prevent hanging on slow/stalled downloads
+  // 60s timeout to prevent hanging on slow/stalled downloads
   const text = await fetchWithSizeLimit(url, undefined, { signal: AbortSignal.timeout(60_000) });
 
   if (!text.trim()) {
@@ -325,7 +325,7 @@ export function verifySha256(filePath: string, expectedSha256?: string): string 
  * @throws Error if required columns are missing or download fails
  */
 export interface LoadConcordanceOptions {
-  /** R35: Print computed SHA-256 hashes for each downloaded URL to stdout */
+  /** Print computed SHA-256 hashes for each downloaded URL to stdout */
   recordHashes?: boolean;
 }
 
@@ -364,7 +364,7 @@ export async function loadConcordance(
     }
   }
 
-  // R35: Record SHA-256 hash of the downloaded file for sources-manifest population
+  // Record SHA-256 hash of the downloaded file for sources-manifest population
   if (options?.recordHashes) {
     const fileContent = readFileSync(cachePath);
     const computedHash = createHash('sha256').update(fileContent).digest('hex');
@@ -435,7 +435,7 @@ export async function loadConcordance(
   // M-1: Sort by unitId for deterministic output regardless of CSV row order
   mappings.sort((a, b) => a.unitId < b.unitId ? -1 : a.unitId > b.unitId ? 1 : 0);
 
-  // R28-HYD-C1: Warn when SHA-256 hash is not configured — integrity verification is dead code until populated
+  // Warn when SHA-256 hash is not configured — integrity verification is dead code until populated
   if (!config.sha256) {
     console.warn(
       '[concordance-loader] WARNING: No SHA-256 hash configured for concordance source — integrity verification skipped',

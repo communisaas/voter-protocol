@@ -1,9 +1,9 @@
 /**
- * Tests for BEF overlay delimiter handling (H-5, R102-HYD-F02).
+ * Tests for BEF overlay delimiter handling (H-5,).
  *
  * Verifies that:
  * 1. Explicit comma delimiter parses real Census BEF files correctly (GEOID,CDFP)
- * 2. Missing delimiter throws (auto-detect removed in R102-HYD-F02)
+ * 2. Missing delimiter throws (auto-detect removed in)
  * 3. ZZ district codes are skipped
  */
 

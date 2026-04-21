@@ -90,7 +90,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         'Set STORACHA_SPACE_DID + STORACHA_AGENT_KEY or LIGHTHOUSE_API_KEY to enable.');
     }
 
-    // BR5-007: Initialize sync service and registration with persistent log
+    // Initialize sync service and registration with persistent log
     const syncService = new SyncService({
       dataDir,
       ipfsGateway,
@@ -189,7 +189,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     const districtGateAddr = process.env.DISTRICT_GATE_ADDRESS;
 
     if (chainRpcUrl && districtGateAddr) {
-      // Load action domain → category registry (JSON file: { "0xhash": 1, ... })
+      // Load action domain → category registry (JSON file: { "0xhash": 1,... })
       // Without this, diversityScore will be 0 for all signers because action
       // domains are keccak256 hashes with no structured prefix byte.
       let categoryRegistry: ActionCategoryRegistry = createActionCategoryRegistry();

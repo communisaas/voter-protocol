@@ -9,12 +9,12 @@
  * ARCHITECTURE:
  * ```
  * CountryProvider<TLayer, TBoundary, TOfficial>
- *   extends BaseInternationalProvider<TLayer, TBoundary>
+ * extends BaseInternationalProvider<TLayer, TBoundary>
  *
- * Existing:  extractAll()        → boundaries → R-tree (PIP lookup)
- * New:       extractOfficials()  → officials with resolved boundary codes
- * New:       buildCellMap()      → statistical geography → SMT root (Tree 2)
- * New:       validate()          → 4-layer diagnostic report
+ * Existing: extractAll() → boundaries → R-tree (PIP lookup)
+ * New: extractOfficials() → officials with resolved boundary codes
+ * New: buildCellMap() → statistical geography → SMT root (Tree 2)
+ * New: validate() → 4-layer diagnostic report
  * ```
  *
  * SOURCE CHAIN PATTERN (not feature flags):
@@ -165,8 +165,8 @@ export abstract class CountryProvider<
    * Example (NZ):
    * ```
    * Priority 1: data.govt.nz CSV → success → return
-   * Priority 2: Wikipedia parse  → (not tried)
-   * Priority 3: parliament.nz    → (not tried)
+   * Priority 2: Wikipedia parse → (not tried)
+   * Priority 3: parliament.nz → (not tried)
    * ```
    *
    * @param sources - Data sources in priority order
@@ -512,7 +512,7 @@ export abstract class CountryProvider<
   } {
     const errors: { field: string; message: string; recordId?: string }[] = [];
 
-    // R25-PROV-L1: Track invalid record indices to avoid undefined recordId collapse in Set
+    // Track invalid record indices to avoid undefined recordId collapse in Set
     const invalidIndices = new Set<number>();
 
     for (let i = 0; i < records.length; i++) {

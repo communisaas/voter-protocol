@@ -418,7 +418,7 @@ export function toCellMapState(result: CellMapTreeResult): CellMapState {
  * Compute a user leaf hash for Tree 1.
  *
  * user_leaf = poseidon2_hash4(userSecret, cellId, registrationSalt, authorityLevel)
- * Matches the Noir circuit (BR5-001) which uses H4 with DOMAIN_HASH4 = 0x48344d.
+ * Matches the Noir circuit which uses H4 with DOMAIN_HASH4 = 0x48344d.
  *
  * @param user - User registration data (including authorityLevel)
  * @returns User leaf hash (H4)

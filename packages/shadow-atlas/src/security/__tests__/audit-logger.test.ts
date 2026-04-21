@@ -69,7 +69,7 @@ async function createMockLogFile(
 /**
  * Compute event hash (must match logger implementation)
  */
-/** R36-SEC-03: Deep-sort keys to match updated logger implementation */
+/** Deep-sort keys to match updated logger implementation */
 function sortKeysDeep(obj: unknown): unknown {
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(sortKeysDeep);

@@ -39,8 +39,8 @@ import { IPFSSnapshotSchema } from './snapshots/snapshot-schema.js';
  * const globalExt = new ShadowAtlasGlobalExtension(atlas);
  *
  * const result = await globalExt.publishGlobal({
- *   regions: ['americas-east', 'europe-west', 'asia-east'],
- *   verifyReplication: true,
+ * regions: ['americas-east', 'europe-west', 'asia-east'],
+ * verifyReplication: true,
  * });
  * ```
  */
@@ -168,7 +168,7 @@ export class ShadowAtlasGlobalExtension {
         'https://cloudflare-ipfs.com',
       ];
 
-      // R31: Raw JSON — validated by IPFSSnapshotSchema after the gateway loop
+      // Raw JSON — validated by IPFSSnapshotSchema after the gateway loop
       let snapshotData: unknown = null;
 
       for (const gateway of gateways) {
@@ -260,7 +260,7 @@ export class ShadowAtlasGlobalExtension {
         return null;
       }
 
-      // R31: Zod schema validation replaces manual field-by-field checks (was R63-H1).
+      // Zod schema validation replaces manual field-by-field checks (was R63-H1).
       const parseResult = IPFSSnapshotSchema.safeParse(snapshotData);
       if (!parseResult.success) {
         logger.warn('Gateway returned snapshot with invalid structure', {
@@ -271,7 +271,7 @@ export class ShadowAtlasGlobalExtension {
       const validatedSnapshot = parseResult.data;
 
       // Reconstruct merkle tree from validated snapshot data
-      // districts may be absent (R18 removed from serializer — only leaves + root needed for verification)
+      // districts may be absent (removed from serializer — only leaves + root needed for verification)
       const merkleTree: import('../core/types.js').MerkleTree = {
         root: validatedSnapshot.merkleRoot,
         leaves: [...validatedSnapshot.leaves],
@@ -365,7 +365,7 @@ export class ShadowAtlasGlobalExtension {
       root: '0x' + fullSnapshot.merkleRoot.toString(16).padStart(64, '0'),
       leaves,
       tree: [], // Full tree not needed for IPFS serialization
-      // Create minimal district objects - only .length is used by UpdateCoordinator
+      // Create minimal district objects - only.length is used by UpdateCoordinator
       districts: Array.from({ length: proofTemplates.length }, (_, i) => ({
         id: proofTemplates[i].districtId,
         name: proofTemplates[i].districtId,

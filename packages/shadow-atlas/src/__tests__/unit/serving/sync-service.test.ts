@@ -1,5 +1,5 @@
 /**
- * SyncService Tests (BR5-007 / SA-008)
+ * SyncService Tests (/ SA-008)
  *
  * Tests the IPFS sync service for insertion log persistence.
  * Covers: initialization, metadata persistence, upload notification, recovery.

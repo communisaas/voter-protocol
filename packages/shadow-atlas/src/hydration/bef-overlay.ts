@@ -9,10 +9,10 @@
  * replacing slot 0 (Congressional District) for affected blocks.
  *
  * Redistricted states (119th Congress):
- *   AL (01), GA (13), LA (22), NC (37), NY (36)
+ * AL (01), GA (13), LA (22), NC (37), NY (36)
  *
  * BEF source:
- *   https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2025/119-congressional-district-befs/
+ * https://www2.census.gov/programs-surveys/decennial/rdo/mapping-files/2025/119-congressional-district-befs/
  *
  * @packageDocumentation
  */
@@ -56,7 +56,7 @@ export interface BEFOverlayOptions {
   /**
    * Explicit delimiter for BEF file parsing.
    * 119th Congress Census BEF files use comma (',') with GEOID,CDFP headers.
-   * Required — omitting throws (R102-HYD-F02).
+   * Required — omitting throws.
    */
   delimiter?: string;
   /** Log function. */
@@ -158,7 +158,7 @@ export async function overlayBEFs(
     if (explicitDelimiter) {
       delimiter = explicitDelimiter;
     } else {
-      // R102-HYD-F02: Throw on missing delimiter instead of auto-detecting.
+      // Throw on missing delimiter instead of auto-detecting.
       // Auto-detect was demoted to warned fallback in H-5, now fully removed.
       throw new Error(`[BEF] No explicit delimiter set for state ${fips}. Set delimiter option (pipe '|' or comma ',').`);
     }
@@ -172,7 +172,7 @@ export async function overlayBEFs(
       const blockId = parts[0];
       const district = parts[1]?.trim();
 
-      // R102-HYD-F03: Validate BLOCKID format (15-digit FIPS block code), matching BAF parser.
+      // Validate BLOCKID format (15-digit FIPS block code), matching BAF parser.
       if (!blockId || !/^\d{15}$/.test(blockId) || !district || /^Z+$/.test(district)) continue;
 
       const block = blocks.get(blockId);

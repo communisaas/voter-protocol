@@ -1,5 +1,5 @@
 /**
- * ServerSigner Tests (BR7-007)
+ * ServerSigner Tests
  *
  * Tests Ed25519 signing for verifiable solo operator integrity.
  * Covers: key generation, persistence, sign/verify, fingerprints, production guardrails.
