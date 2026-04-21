@@ -21,7 +21,7 @@ import {
   type StateBatchBoundary,
   type BoundaryWithSource,
 } from '../../../provenance/authority-resolver.js';
-import { AuthorityLevel } from '../../../provenance/tiger-authority-rules.js';
+import { AuthorityLevel, type TIGERBoundaryType } from '../../../provenance/tiger-authority-rules.js';
 
 describe('State Batch Extractor Integration', () => {
   describe('convertStateBatchBoundary', () => {
@@ -535,7 +535,7 @@ describe('State Batch Extractor Integration', () => {
         ],
       };
 
-      const tigerBoundaries = new Map<string, BoundaryWithSource[]>([
+      const tigerBoundaries = new Map<TIGERBoundaryType, ReadonlyArray<BoundaryWithSource>>([
         [
           'congressional',
           [
