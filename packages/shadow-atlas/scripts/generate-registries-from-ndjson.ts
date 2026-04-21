@@ -242,7 +242,7 @@ async function generateAtLargeCities(): Promise<number> {
     cityName: string;
     state: string;
     councilSize: number;
-    electionMethod: 'at-large' | 'proportional';
+    electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
     source: string;
     notes?: string;
   }>('at-large-cities.ndjson');
@@ -268,7 +268,7 @@ export interface AtLargeCity {
   readonly cityName: string;
   readonly state: string;
   readonly councilSize: number;
-  readonly electionMethod: 'at-large' | 'proportional';
+  readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
   readonly source: string;
   readonly notes?: string;
 }
