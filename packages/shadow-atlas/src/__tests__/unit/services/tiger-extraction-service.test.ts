@@ -248,6 +248,7 @@ describe('TIGERExtractionService - Unit Tests', () => {
               topologyValidated: false,
               geometryRepaired: false,
               coordinateSystem: 'EPSG:4326' as const,
+              updateMonitoring: 'manual-check' as const,
             },
           })),
         metadata: {
@@ -315,6 +316,7 @@ describe('TIGERExtractionService - Unit Tests', () => {
               topologyValidated: false,
               geometryRepaired: false,
               coordinateSystem: 'EPSG:4326' as const,
+              updateMonitoring: 'manual-check' as const,
             },
           })),
         metadata: {
