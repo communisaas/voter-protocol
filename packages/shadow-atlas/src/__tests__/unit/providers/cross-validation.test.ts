@@ -233,7 +233,7 @@ function calculateIoU(
     }
 
     // Calculate intersection (Turf v7 requires FeatureCollection)
-    const fc = featureCollection([feature1, feature2]);
+    const fc = featureCollection<Polygon | MultiPolygon>([feature1, feature2]);
     const intersection = intersect(fc);
     const intersectionArea = intersection ? area(intersection) : 0;
 
@@ -549,13 +549,12 @@ describe.skipIf(process.env.CI)('Cross-Validation: TIGER vs State Sources', () =
       const tigerBoundaries = await tigerProvider.transform(tigerFiles);
       const wisconsinTiger = tigerBoundaries.filter(b => b.properties.stateFips === '55');
 
-      // Build TIGER lookup map
-      const tigerMap = new Map(
-        wisconsinTiger.map(b => [
-          normalizeGeoid(b.id, '55'),
-          { geometry: b.geometry, name: b.name },
-        ])
-      );
+      // Build TIGER lookup map (TIGER districts are always Polygon or MultiPolygon)
+      const tigerMap = new Map<string, { geometry: Polygon | MultiPolygon; name: string }>();
+      for (const b of wisconsinTiger) {
+        if (b.geometry.type !== 'Polygon' && b.geometry.type !== 'MultiPolygon') continue;
+        tigerMap.set(normalizeGeoid(b.id, '55'), { geometry: b.geometry, name: b.name });
+      }
 
       // Compare geometries
       const geometryResult = compareGeometries(
@@ -656,13 +655,12 @@ describe.skipIf(process.env.CI)('Cross-Validation: TIGER vs State Sources', () =
         wisconsinTiger.map(b => b.id)
       );
 
-      // 3. Geometry overlap
-      const tigerMap = new Map(
-        wisconsinTiger.map(b => [
-          normalizeGeoid(b.id, '55'),
-          { geometry: b.geometry, name: b.name },
-        ])
-      );
+      // 3. Geometry overlap (TIGER districts are always Polygon or MultiPolygon)
+      const tigerMap = new Map<string, { geometry: Polygon | MultiPolygon; name: string }>();
+      for (const b of wisconsinTiger) {
+        if (b.geometry.type !== 'Polygon' && b.geometry.type !== 'MultiPolygon') continue;
+        tigerMap.set(normalizeGeoid(b.id, '55'), { geometry: b.geometry, name: b.name });
+      }
 
       const geometryResult = compareGeometries(
         'WI',
@@ -746,8 +744,10 @@ describe.skipIf(process.env.CI)('Cross-Validation: TIGER vs State Sources', () =
       console.log('\n=== Wisconsin CrossValidator Test ===\n');
 
       // Create CrossValidator instance
+      // TIGERBoundaryProvider satisfies the validator's duck-typed interface at runtime
+      // (TIGERLayerType in each module resolves to the same string-literal union).
       const validator = new CrossValidator(
-        tigerProvider,
+        tigerProvider as unknown as ConstructorParameters<typeof CrossValidator>[0],
         stateExtractor,
         {
           tolerancePercent: 0.1,
