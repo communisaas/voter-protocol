@@ -19,7 +19,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { FeatureCollection } from 'geojson';
-import { AustraliaBoundaryProvider, type AustraliaDivision } from '../../../../providers/international/australia-provider.js';
+import { AustraliaCountryProvider, AustraliaBoundaryProvider, type AustraliaDivision } from '../../../../providers/international/australia-provider.js';
 
 // ============================================================================
 // Mock Data

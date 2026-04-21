@@ -25,6 +25,9 @@ interface PlaceDataStructure {
     source: string;
     generated: string;
     description: string;
+    format: string;
+    includes?: readonly string[];
+    specialCases: readonly string[];
   };
   expectedCounts: Record<string, number>;
   geoids: Record<string, readonly string[]>;
