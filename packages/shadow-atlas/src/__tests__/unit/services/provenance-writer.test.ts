@@ -15,7 +15,12 @@ import {
   type ProvenanceEntry,
 } from '../../../services/provenance-writer.js';
 
-const TEST_DIR = './test-discovery-attempts';
+// Per-file scoped directory — avoids collisions with any other test file
+// that happens to touch a path named 'test-discovery-attempts'. Cleanup
+// walks the parent so the sibling staging directory
+// (`<parent>/<name>-staging` created by queryProvenance) is swept too.
+const TEST_ROOT = './test-provenance-writer';
+const TEST_DIR = `${TEST_ROOT}/discovery-attempts`;
 
 describe('Provenance Writer', () => {
   beforeEach(async () => {
@@ -24,7 +29,7 @@ describe('Provenance Writer', () => {
 
     // ROBUST CLEANUP: Ensure clean state before EVERY test
     try {
-      await fs.rm(TEST_DIR, { recursive: true, force: true });
+      await fs.rm(TEST_ROOT, { recursive: true, force: true });
     } catch {
       // Ignore if doesn't exist
     }
@@ -58,7 +63,7 @@ describe('Provenance Writer', () => {
 
     // ROBUST CLEANUP: Remove all files first, then directory
     try {
-      await fs.rm(TEST_DIR, { recursive: true, force: true });
+      await fs.rm(TEST_ROOT, { recursive: true, force: true });
     } catch {
       // Ignore if doesn't exist
     }
@@ -545,7 +550,7 @@ describe('Provenance Writer', () => {
     });
 
     it('should handle empty log', async () => {
-      await fs.rm(TEST_DIR, { recursive: true, force: true });
+      await fs.rm(TEST_ROOT, { recursive: true, force: true });
       const stats = await getProvenanceStats(TEST_DIR);
 
       expect(stats.totalEntries).toBe(0);

@@ -146,7 +146,7 @@ describe('ShadowAtlasService', () => {
 
       expect(changes).toBeDefined();
       expect(changes.hasChanges).toBeDefined();
-      expect(changes.checkMethod).toBeOneOf(['etag', 'last-modified', 'count', 'hash']);
+      expect(['etag', 'last-modified', 'count', 'hash']).toContain(changes.checkMethod);
       expect(changes.confidence).toBeGreaterThanOrEqual(0);
       expect(changes.confidence).toBeLessThanOrEqual(1);
     });

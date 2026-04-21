@@ -10,6 +10,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   analyzeCoverage,
+  getStaleProvenance,
+  getStalePortals,
   getStaleData,
   getQualityMetrics,
   getBlockerAnalysis,
@@ -223,7 +225,7 @@ describe('Coverage Analyzer', () => {
     });
   });
 
-  describe('getStaleData', () => {
+  describe('getStaleProvenance', () => {
     it('should detect stale provenance entries', async () => {
       const oldEntry: ProvenanceEntry = {
         f: '1111111',
@@ -243,7 +245,7 @@ describe('Coverage Analyzer', () => {
 
       await appendProvenance(oldEntry, TEST_BASE_DIR);
 
-      const stale = await getStaleData(90, TEST_BASE_DIR);
+      const stale = await getStaleProvenance(90, TEST_BASE_DIR);
 
       expect(stale.length).toBe(1);
       expect(stale[0].fips).toBe('1111111');
@@ -268,7 +270,7 @@ describe('Coverage Analyzer', () => {
 
       await appendProvenance(freshEntry, TEST_BASE_DIR);
 
-      const stale = await getStaleData(90, TEST_BASE_DIR);
+      const stale = await getStaleProvenance(90, TEST_BASE_DIR);
 
       expect(stale.length).toBe(0);
     });
@@ -309,10 +311,68 @@ describe('Coverage Analyzer', () => {
       await appendProvenance(entry1, TEST_BASE_DIR);
       await appendProvenance(entry2, TEST_BASE_DIR);
 
-      const stale = await getStaleData(90, TEST_BASE_DIR);
+      const stale = await getStaleProvenance(90, TEST_BASE_DIR);
 
       expect(stale[0].population).toBe(1000000);
       expect(stale[1].population).toBe(10000);
+    });
+
+    it('is independent of the known-portals registry', async () => {
+      // Deliberately no provenance written. Portals may be stale in the
+      // registry, but getStaleProvenance must only reflect written provenance.
+      const stale = await getStaleProvenance(90, TEST_BASE_DIR);
+      expect(stale).toEqual([]);
+    });
+  });
+
+  describe('getStalePortals', () => {
+    it('returns only known-portal entries, tagged accordingly', () => {
+      // A threshold that treats every entry as fresh: no portal stale.
+      expect(getStalePortals(Number.POSITIVE_INFINITY)).toEqual([]);
+
+      // A threshold that treats every entry as stale: all portals flagged
+      // and every result must carry the known-portal dataSource.
+      const allStale = getStalePortals(0);
+      expect(allStale.length).toBeGreaterThan(0);
+      expect(allStale.every((c) => c.dataSource === 'known-portal')).toBe(true);
+    });
+
+    it('respects the maxAgeDays threshold', () => {
+      // Strictly more portals are stale at a smaller threshold.
+      const oneDay = getStalePortals(1).length;
+      const oneYear = getStalePortals(365).length;
+      expect(oneDay).toBeGreaterThanOrEqual(oneYear);
+    });
+  });
+
+  describe('getStaleData composition', () => {
+    it('unions provenance + portal staleness', async () => {
+      const oldEntry: ProvenanceEntry = {
+        f: '1111111',
+        n: 'Test City',
+        s: 'XX',
+        p: 100000,
+        g: 1,
+        fc: 9,
+        conf: 85,
+        auth: 3,
+        why: ['Old discovery'],
+        tried: [0, 1],
+        blocked: null,
+        ts: '2020-01-01T00:00:00.000Z',
+        aid: 'test-001',
+      };
+      await appendProvenance(oldEntry, TEST_BASE_DIR);
+
+      // Threshold sized to capture the 2020 provenance entry while every
+      // registry portal (all verified within ~5 years) is still fresh.
+      const provenanceOnly = await getStaleData(365 * 5, TEST_BASE_DIR);
+      expect(provenanceOnly).toHaveLength(1);
+      expect(provenanceOnly[0].fips).toBe('1111111');
+
+      // Zero threshold: every source flagged — provenance + every portal.
+      const allStale = await getStaleData(0, TEST_BASE_DIR);
+      expect(allStale.length).toBe(1 + getStalePortals(0).length);
     });
   });
 

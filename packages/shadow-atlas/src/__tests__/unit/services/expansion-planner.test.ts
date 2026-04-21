@@ -19,13 +19,18 @@ import { appendProvenance } from '../../../services/provenance-writer.js';
 import type { ProvenanceEntry } from '../../../services/provenance-writer.js';
 
 // Test data directory
-const TEST_BASE_DIR = './test-discovery-attempts';
+// Per-file scoped directory — avoids collisions with any other test file
+// that happens to touch a path named 'test-discovery-attempts'. Cleanup
+// walks the parent so the sibling staging directory
+// (`<parent>/<name>-staging` created by queryProvenance) is swept too.
+const TEST_ROOT = './test-expansion-planner';
+const TEST_BASE_DIR = `${TEST_ROOT}/discovery-attempts`;
 
 describe('Expansion Planner', () => {
   beforeEach(async () => {
     // Clean up and recreate test directory
     try {
-      await fs.rm(TEST_BASE_DIR, { recursive: true, force: true });
+      await fs.rm(TEST_ROOT, { recursive: true, force: true });
     } catch {
       // Directory doesn't exist, ignore
     }

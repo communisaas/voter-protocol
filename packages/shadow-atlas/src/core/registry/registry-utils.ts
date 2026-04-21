@@ -18,16 +18,17 @@ import { AT_LARGE_CITIES, type AtLargeCity } from './at-large-cities.generated.j
 // ============================================================================
 
 /**
- * Check if a portal entry is stale (not verified in over 90 days)
+ * Check if a portal entry is stale relative to a staleness threshold.
  *
- * Portal URLs can change more frequently than district counts,
- * so we use a shorter staleness threshold (90 days vs 365 for district counts).
+ * Portal URLs can change more frequently than district counts, so the default
+ * threshold is shorter (90 days vs 365 for district counts). Callers that
+ * operate with a different cadence can override via `maxAgeDays`.
  */
-export function isStale(portal: KnownPortal): boolean {
+export function isStale(portal: KnownPortal, maxAgeDays: number = 90): boolean {
   const lastVerified = new Date(portal.lastVerified);
   const now = new Date();
   const daysSinceVerified = (now.getTime() - lastVerified.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSinceVerified > 90;
+  return daysSinceVerified > maxAgeDays;
 }
 
 /**

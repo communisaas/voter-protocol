@@ -47,7 +47,7 @@ describe('AT_LARGE_CITIES registry', () => {
   });
 
   it('should have valid election methods', () => {
-    const validMethods = ['at-large', 'proportional'];
+    const validMethods = ['at-large', 'at-large-with-residency', 'proportional'];
     for (const city of Object.values(AT_LARGE_CITIES)) {
       expect(validMethods).toContain(city.electionMethod);
     }

@@ -17,7 +17,7 @@ export interface AtLargeCity {
   readonly cityName: string;
   readonly state: string;
   readonly councilSize: number;
-  readonly electionMethod: 'at-large' | 'proportional';
+  readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
   readonly source: string;
   readonly notes?: string;
 }

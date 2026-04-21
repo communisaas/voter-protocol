@@ -152,22 +152,19 @@ export async function analyzeCoverage(
 }
 
 /**
- * Get stale data (not updated in X days)
- *
- * @param maxAgeDays - Maximum age in days before data is stale
- * @param baseDir - Provenance log directory
- * @returns Cities with stale data
+ * Stale cities discovered via the provenance log — entries whose most recent
+ * `ts` is older than `maxAgeDays`. Operates strictly on written provenance;
+ * independent of the baked-in KNOWN_PORTALS registry.
  */
-export async function getStaleData(
+export async function getStaleProvenance(
   maxAgeDays: number = 90,
   baseDir: string = './discovery-attempts'
 ): Promise<CityCoverage[]> {
   const allEntries = await queryProvenance({}, baseDir);
-
   const stale: CityCoverage[] = [];
   const cutoffDate = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
 
-  // Group by FIPS
+  // Keep only the latest entry per FIPS code.
   const latestEntries = new Map<string, ProvenanceEntry>();
   for (const entry of allEntries) {
     const existing = latestEntries.get(entry.f);
@@ -176,11 +173,8 @@ export async function getStaleData(
     }
   }
 
-  // Check provenance entries
   for (const [fips, entry] of latestEntries) {
-    const lastUpdated = new Date(entry.ts);
-
-    if (lastUpdated < cutoffDate) {
+    if (new Date(entry.ts) < cutoffDate) {
       stale.push({
         fips,
         cityName: entry.n || fips,
@@ -190,21 +184,29 @@ export async function getStaleData(
         confidence: entry.conf,
         dataSource: 'discovery',
         lastUpdated: entry.ts,
-        needsDiscovery: false, // Already have data, just stale
+        needsDiscovery: false,
         priority: entry.p || 0,
       });
     }
   }
+  return stale.sort((a, b) => b.priority - a.priority);
+}
 
-  // Check known portals for staleness
+/**
+ * Stale cities in the baked-in known-portals registry — verified entries that
+ * haven't been re-checked within `maxAgeDays`. Operates strictly on the
+ * registry snapshot; independent of any per-install provenance state.
+ */
+export function getStalePortals(maxAgeDays: number = 90): CityCoverage[] {
+  const stale: CityCoverage[] = [];
   for (const [fips, portal] of Object.entries(KNOWN_PORTALS)) {
-    if (isStale(portal)) {
+    if (isStale(portal, maxAgeDays)) {
       stale.push({
         fips,
         cityName: portal.cityName,
         state: portal.state,
-        population: 0, // Population not tracked in known portals
-        tier: 1, // Known portals are council districts
+        population: 0,
+        tier: 1,
         confidence: portal.confidence,
         dataSource: 'known-portal',
         lastUpdated: portal.lastVerified,
@@ -213,8 +215,21 @@ export async function getStaleData(
       });
     }
   }
+  return stale;
+}
 
-  return stale.sort((a, b) => b.priority - a.priority);
+/**
+ * Cities with stale data across both sources (provenance + known-portals
+ * registry), sorted by population priority. For source-specific views call
+ * `getStaleProvenance()` or `getStalePortals()` directly.
+ */
+export async function getStaleData(
+  maxAgeDays: number = 90,
+  baseDir: string = './discovery-attempts'
+): Promise<CityCoverage[]> {
+  const fromProvenance = await getStaleProvenance(maxAgeDays, baseDir);
+  const fromPortals = getStalePortals(maxAgeDays);
+  return [...fromProvenance, ...fromPortals].sort((a, b) => b.priority - a.priority);
 }
 
 /**
