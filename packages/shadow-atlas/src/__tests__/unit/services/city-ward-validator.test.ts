@@ -32,7 +32,7 @@ const TEST_DATA_DIR = '.shadow-atlas-test/statewide-wards';
 /**
  * Create mock GeoJSON feature collection
  */
-function createMockGeoJSON(wardCount: number, closed = true): FeatureCollection<Polygon> {
+function createMockGeoJSON(wardCount: number, closed = true): FeatureCollection<Polygon | MultiPolygon> {
   const features: WardFeature[] = [];
 
   for (let i = 1; i <= wardCount; i++) {
@@ -70,7 +70,7 @@ function createMockGeoJSON(wardCount: number, closed = true): FeatureCollection<
 /**
  * Create mock GeoJSON with duplicate ward IDs
  */
-function createMockGeoJSONWithDuplicates(): FeatureCollection<Polygon> {
+function createMockGeoJSONWithDuplicates(): FeatureCollection<Polygon | MultiPolygon> {
   return {
     type: 'FeatureCollection',
     features: [
