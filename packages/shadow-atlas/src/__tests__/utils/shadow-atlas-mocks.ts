@@ -59,6 +59,7 @@ export function createMockExtractor(
           boundaries: createMockBoundaries(boundaryCount).map(b => ({
             ...b,
             layerType: 'congressional' as LegislativeLayerType,
+            properties: {},
             source: {
               state,
               portalName: 'Mock Portal',
@@ -104,6 +105,7 @@ export function createMockExtractor(
         boundaries: createMockBoundaries(boundaryCount).map(b => ({
           ...b,
           layerType: layer,
+          properties: {},
           source: {
             state,
             portalName: 'Mock Portal',
@@ -141,6 +143,7 @@ export function createMockExtractor(
               boundaries: createMockBoundaries(boundaryCount).map(b => ({
                 ...b,
                 layerType: 'congressional' as LegislativeLayerType,
+                properties: {},
                 source: {
                   state: 'WI',
                   portalName: 'Mock Portal',
