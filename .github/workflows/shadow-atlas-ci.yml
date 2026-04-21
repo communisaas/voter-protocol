@@ -73,6 +73,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
+
       - name: TypeScript compilation check
         working-directory: packages/shadow-atlas
         run: npm run build
@@ -94,6 +97,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
 
       - name: Run unit tests
         working-directory: packages/shadow-atlas
@@ -127,6 +133,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
+
       - name: Run integration tests
         working-directory: packages/shadow-atlas
         run: npm run test:integration
@@ -159,6 +168,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
 
       - name: Run all tests with coverage
         working-directory: packages/shadow-atlas
@@ -215,6 +227,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        run: npm run build -w @voter-protocol/crypto
 
       - name: Build TypeScript
         working-directory: packages/shadow-atlas
