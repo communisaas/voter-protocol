@@ -19,6 +19,7 @@ import {
   type NormalizedBoundary,
 } from '../../../core/multi-layer-builder.js';
 import { computeLeafHash, AUTHORITY_LEVELS } from '../../../merkle-tree.js';
+import { BoundaryType } from '../../../core/types/boundary.js';
 
 /**
  * Mock TIGER provider (replace with real provider in production)
@@ -47,7 +48,7 @@ class MockTIGERProvider {
             ],
           ],
         },
-        boundaryType: 'congressional_district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         jurisdiction: 'California, USA',
       });
@@ -78,7 +79,7 @@ class MockTIGERProvider {
             ],
           ],
         },
-        boundaryType: 'state_legislative_upper',
+        boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         jurisdiction: 'California, USA',
       });
@@ -167,7 +168,7 @@ class MockTIGERProvider {
           ],
         ],
       },
-      boundaryType: 'county',
+      boundaryType: BoundaryType.COUNTY,
       authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       jurisdiction: 'California, USA',
     }));
@@ -196,7 +197,7 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       expect(typeof tree.root).toBe('bigint');
       expect(tree.leaves.length).toBe(52);
       expect(tree.boundaryCount).toBe(52);
-      expect(tree.layerCounts['congressional_district']).toBe(52);
+      expect(tree.layerCounts[BoundaryType.CONGRESSIONAL_DISTRICT]).toBe(52);
     }, 30000); // 30 second timeout
 
     it('generates valid Merkle proof for California CD-12', async () => {
@@ -208,11 +209,11 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       const tree = await builder.buildTree({ congressionalDistricts: rawCD });
 
       // Generate proof for CA-12 (San Francisco)
-      const proof = builder.generateProof(tree, '0612', 'congressional_district');
+      const proof = builder.generateProof(tree, '0612', BoundaryType.CONGRESSIONAL_DISTRICT);
 
       expect(proof.root).toBe(tree.root);
       expect(proof.boundaryId).toBe('0612');
-      expect(proof.boundaryType).toBe('congressional_district');
+      expect(proof.boundaryType).toBe(BoundaryType.CONGRESSIONAL_DISTRICT);
       expect(proof.siblings.length).toBeGreaterThan(0);
 
       // Verify proof
@@ -228,7 +229,7 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       const tree = await builder.buildTree({ congressionalDistricts: rawCD });
 
       // Generate proof for CD-12
-      const proof = builder.generateProof(tree, '0612', 'congressional_district');
+      const proof = builder.generateProof(tree, '0612', BoundaryType.CONGRESSIONAL_DISTRICT);
 
       // Tamper with boundary ID (proof should fail)
       const tamperedProof = {
@@ -270,8 +271,8 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       expect(tree.leaves.length).toBe(150);
 
       // Verify layer counts
-      expect(tree.layerCounts['congressional_district']).toBe(52);
-      expect(tree.layerCounts['state_legislative_upper']).toBe(40);
+      expect(tree.layerCounts[BoundaryType.CONGRESSIONAL_DISTRICT]).toBe(52);
+      expect(tree.layerCounts[BoundaryType.STATE_LEGISLATIVE_UPPER]).toBe(40);
       expect(tree.layerCounts['county']).toBe(58);
 
       // Verify deterministic root
@@ -288,14 +289,14 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       // Both have ID "01" but different types
       const cdLeaf = computeLeafHash({
         id: '0101', // Alabama CD-01
-        boundaryType: 'congressional_district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: BigInt(12345),
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       });
 
       const slduLeaf = computeLeafHash({
         id: '0101', // Alabama SLDU-01 (same ID!)
-        boundaryType: 'state_legislative_upper',
+        boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
         geometryHash: BigInt(12345), // Same geometry hash
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       });
@@ -318,7 +319,7 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
 
       // First leaves should be congressional-district (alphabetically before county)
       for (let i = 0; i < 52; i++) {
-        expect(tree.leaves[i].boundaryType).toBe('congressional_district');
+        expect(tree.leaves[i].boundaryType).toBe(BoundaryType.CONGRESSIONAL_DISTRICT);
       }
 
       // Next leaves should be county
@@ -356,8 +357,8 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       const caCD = await provider.downloadCongressionalDistricts();
       const tree = await builder.buildTree({ congressionalDistricts: caCD });
 
-      const proof1 = builder.generateProof(tree, '0601', 'congressional_district');
-      const proof2 = builder.generateProof(tree, '0602', 'congressional_district');
+      const proof1 = builder.generateProof(tree, '0601', BoundaryType.CONGRESSIONAL_DISTRICT);
+      const proof2 = builder.generateProof(tree, '0602', BoundaryType.CONGRESSIONAL_DISTRICT);
 
       // Same root
       expect(proof1.root).toBe(proof2.root);
@@ -472,7 +473,7 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
             ],
           ],
         },
-        boundaryType: 'congressional_district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       };
 
@@ -482,7 +483,7 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
       expect(tree.root).toBeDefined();
 
       // Generate proof for single boundary
-      const proof = builder.generateProof(tree, '0612', 'congressional_district');
+      const proof = builder.generateProof(tree, '0612', BoundaryType.CONGRESSIONAL_DISTRICT);
       expect(await builder.verifyProof(proof)).toBe(true);
     });
 
@@ -494,21 +495,21 @@ describe('TIGER → Shadow Atlas Pipeline', () => {
           id: '0601',
           name: 'Boundary 1',
           geometry: { type: 'Polygon', coordinates: [[[-122, 37], [-122, 38], [-121, 38], [-121, 37], [-122, 37]]] },
-          boundaryType: 'congressional_district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         },
         {
           id: '0602',
           name: 'Boundary 2',
           geometry: { type: 'Polygon', coordinates: [[[-122, 37], [-122, 38], [-121, 38], [-121, 37], [-122, 37]]] },
-          boundaryType: 'congressional_district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         },
         {
           id: '0603',
           name: 'Boundary 3 (unpaired)',
           geometry: { type: 'Polygon', coordinates: [[[-122, 37], [-122, 38], [-121, 38], [-121, 37], [-122, 37]]] },
-          boundaryType: 'congressional_district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         },
       ];

@@ -332,11 +332,11 @@ export interface AtlasBuildOptions {
     /** Enable cross-validation */
     readonly enabled: boolean;
 
-    /** States to cross-validate (FIPS codes) */
-    readonly states: readonly string[];
+    /** States to cross-validate (FIPS codes). Required when `enabled`. */
+    readonly states?: readonly string[];
 
-    /** Fail build if cross-validation fails */
-    readonly failOnMismatch: boolean;
+    /** Fail build if cross-validation fails. Required when `enabled`. */
+    readonly failOnMismatch?: boolean;
 
     /** Cross-validation configuration */
     readonly config?: Partial<CrossValidationConfig>;

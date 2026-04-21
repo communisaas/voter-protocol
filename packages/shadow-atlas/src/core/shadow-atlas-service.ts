@@ -95,7 +95,7 @@ import {
 // The deprecated functions (integrateMultipleStates, incrementalUpdate) are no longer imported
 // Use buildAtlas() with MultiLayerMerkleTreeBuilder instead (uses Poseidon2, ZK-compatible)
 import { DeterministicValidationPipeline } from '../validators/pipeline/deterministic.js';
-import { DEFAULT_CONFIG } from './config.js';
+import { DEFAULT_CONFIG, createConfig, type DeepPartial } from './config.js';
 // Import the underlying provider classes so they can be used as instance
 // types. The *BoundaryProvider re-exports are value-only const aliases, which
 // TS rejects in a type position with TS2749.
@@ -176,8 +176,13 @@ export class ShadowAtlasService {
   }>();
   private readonly snapshots = new Map<string, { tree: MerkleTree; metadata: SnapshotMetadata }>();
 
-  constructor(config: ShadowAtlasConfig = DEFAULT_CONFIG) {
-    this.config = config;
+  constructor(userConfig: DeepPartial<ShadowAtlasConfig> | ShadowAtlasConfig = DEFAULT_CONFIG) {
+    // Accept either a fully-specified ShadowAtlasConfig or a DeepPartial.
+    // Partial configs are merged with DEFAULT_CONFIG via createConfig so
+    // callers don't have to restate every section. Read from the merged
+    // `this.config` (fully specified) below, not from the parameter.
+    this.config = createConfig(userConfig as DeepPartial<ShadowAtlasConfig>);
+    const config = this.config;
     this.extractor = new StateBatchExtractor({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,

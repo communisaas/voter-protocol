@@ -25,6 +25,7 @@ import {
   type ProvenanceSource,
 } from '../../../merkle-tree.js';
 import { Poseidon2Hasher, getHasher } from '@voter-protocol/crypto/poseidon2';
+import { BoundaryType } from '../../../core/types/boundary.js';
 
 describe('Provenance Leaf Hash', () => {
   let hasher: Poseidon2Hasher;
@@ -40,7 +41,7 @@ describe('Provenance Leaf Hash', () => {
   describe('Provenance Commitment', () => {
     const baseInput: MerkleLeafInput = {
       id: 'CD-01',
-      boundaryType: 'congressional-district',
+      boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
       geometryHash: 12345n,
       authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
     };
@@ -189,7 +190,7 @@ describe('Provenance Leaf Hash', () => {
     it('should match original hash when no provenance provided', async () => {
       const input: MerkleLeafInput = {
         id: 'SLDU-42',
-        boundaryType: 'state-legislative-upper',
+        boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
         geometryHash: 67890n,
         authority: AUTHORITY_LEVELS.STATE_OFFICIAL,
       };
@@ -205,7 +206,7 @@ describe('Provenance Leaf Hash', () => {
     it('should not change hash when source is undefined', async () => {
       const inputWithUndefined: MerkleLeafInput = {
         id: 'COUNTY-001',
-        boundaryType: 'county',
+        boundaryType: BoundaryType.COUNTY,
         geometryHash: 11111n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: undefined,
@@ -213,7 +214,7 @@ describe('Provenance Leaf Hash', () => {
 
       const inputWithoutField: MerkleLeafInput = {
         id: 'COUNTY-001',
-        boundaryType: 'county',
+        boundaryType: BoundaryType.COUNTY,
         geometryHash: 11111n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       };
@@ -228,7 +229,7 @@ describe('Provenance Leaf Hash', () => {
       // If checksum is missing, we fall back to non-provenance hash
       const inputWithPartialProvenance: MerkleLeafInput = {
         id: 'CD-02',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 22222n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: {
@@ -240,7 +241,7 @@ describe('Provenance Leaf Hash', () => {
 
       const inputWithoutProvenance: MerkleLeafInput = {
         id: 'CD-02',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 22222n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
       };
@@ -264,21 +265,21 @@ describe('Provenance Leaf Hash', () => {
       const inputs: MerkleLeafInput[] = [
         {
           id: 'CD-01',
-          boundaryType: 'congressional-district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           geometryHash: 1n,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
           source: provenance,
         },
         {
           id: 'CD-02',
-          boundaryType: 'congressional-district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           geometryHash: 2n,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
           // No provenance
         },
         {
           id: 'SLDU-01',
-          boundaryType: 'state-legislative-upper',
+          boundaryType: BoundaryType.STATE_LEGISLATIVE_UPPER,
           geometryHash: 3n,
           authority: AUTHORITY_LEVELS.STATE_OFFICIAL,
           source: {
@@ -313,14 +314,14 @@ describe('Provenance Leaf Hash', () => {
       const inputs: MerkleLeafInput[] = [
         {
           id: 'TEST-01',
-          boundaryType: 'congressional-district',
+          boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
           geometryHash: 100n,
           authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
           source: provenance,
         },
         {
           id: 'TEST-02',
-          boundaryType: 'county',
+          boundaryType: BoundaryType.COUNTY,
           geometryHash: 200n,
           authority: AUTHORITY_LEVELS.STATE_OFFICIAL,
         },
@@ -350,7 +351,7 @@ describe('Provenance Leaf Hash', () => {
 
       const input: MerkleLeafInput = {
         id: 'FORMAT-TEST',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 999n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: provenance,
@@ -376,7 +377,7 @@ describe('Provenance Leaf Hash', () => {
 
       const input: MerkleLeafInput = {
         id: 'SPECIAL-CHARS',
-        boundaryType: 'county',
+        boundaryType: BoundaryType.COUNTY,
         geometryHash: 555n,
         authority: AUTHORITY_LEVELS.MUNICIPAL_OFFICIAL,
         source: provenanceWithSpecialChars,
@@ -398,7 +399,7 @@ describe('Provenance Leaf Hash', () => {
 
       const input: MerkleLeafInput = {
         id: 'LONG-URL',
-        boundaryType: 'state-legislative-lower',
+        boundaryType: BoundaryType.STATE_LEGISLATIVE_LOWER,
         geometryHash: 777n,
         authority: AUTHORITY_LEVELS.STATE_OFFICIAL,
         source: provenanceWithLongUrl,
@@ -421,7 +422,7 @@ describe('Provenance Leaf Hash', () => {
 
       const inputFederal: MerkleLeafInput = {
         id: 'AUTHORITY-TEST',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 888n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: provenance,
@@ -429,7 +430,7 @@ describe('Provenance Leaf Hash', () => {
 
       const inputState: MerkleLeafInput = {
         id: 'AUTHORITY-TEST',
-        boundaryType: 'congressional-district',
+        boundaryType: BoundaryType.CONGRESSIONAL_DISTRICT,
         geometryHash: 888n,
         authority: AUTHORITY_LEVELS.STATE_OFFICIAL,
         source: provenance,
@@ -457,7 +458,7 @@ describe('Provenance Leaf Hash', () => {
 
       const input1: MerkleLeafInput = {
         id: 'PROVENANCE-TEST',
-        boundaryType: 'county',
+        boundaryType: BoundaryType.COUNTY,
         geometryHash: 444n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: provenance1,
@@ -465,7 +466,7 @@ describe('Provenance Leaf Hash', () => {
 
       const input2: MerkleLeafInput = {
         id: 'PROVENANCE-TEST',
-        boundaryType: 'county',
+        boundaryType: BoundaryType.COUNTY,
         geometryHash: 444n,
         authority: AUTHORITY_LEVELS.FEDERAL_MANDATE,
         source: provenance2,
