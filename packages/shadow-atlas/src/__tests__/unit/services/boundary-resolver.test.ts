@@ -577,16 +577,19 @@ describe('BoundaryResolver', () => {
     });
 
     it('should search by jurisdiction', async () => {
-      const seattle = createTestBoundary(
+      const base = createTestBoundary(
         'seattle',
         'city_limits' as BoundaryType,
         'Seattle',
         [-122.5, 47.4, -122.2, 47.8]
       );
 
-      seattle.metadata = {
-        ...seattle.metadata,
-        jurisdiction: 'Seattle, Washington, USA',
+      const seattle: BoundaryGeometry = {
+        ...base,
+        metadata: {
+          ...base.metadata,
+          jurisdiction: 'Seattle, Washington, USA',
+        },
       };
 
       dataSource.addBoundary(seattle);
