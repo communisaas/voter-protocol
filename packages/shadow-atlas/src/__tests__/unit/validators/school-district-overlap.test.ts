@@ -114,7 +114,7 @@ describe('Dual-System State Detection', () => {
 
     it('should be a ReadonlySet (immutable)', () => {
       // TypeScript prevents modification, but verify runtime behavior
-      expect(typeof DUAL_SYSTEM_STATES.add).toBe('function');
+      expect(typeof (DUAL_SYSTEM_STATES as Set<string>).add).toBe('function');
       expect(DUAL_SYSTEM_STATES.size).toBe(14);
     });
   });
