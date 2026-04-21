@@ -29,7 +29,11 @@ import type { RawBoundaryFile, NormalizedBoundary } from '../../../core/types.js
 /**
  * Mock TIGER Boundary Provider for testing
  */
-class MockTIGERBoundaryProvider implements Partial<TIGERBoundaryProvider> {
+// Mock shape is validated at the cast site (`as unknown as TIGERBoundaryProvider`);
+// we deliberately avoid `implements Partial<TIGERBoundaryProvider>` because the
+// concrete class narrows literal fields (e.g. `name`, `source`) in ways a mock
+// can't match without lying about identity.
+class MockTIGERBoundaryProvider {
   readonly countryCode = 'US';
   readonly name = 'Mock TIGER Provider';
   readonly source = 'https://example.com';
