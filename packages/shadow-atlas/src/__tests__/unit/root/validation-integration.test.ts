@@ -14,7 +14,7 @@ import { SemanticValidator as SemanticLayerValidator, GeographicValidator as Enh
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { FeatureCollection } from 'geojson';
-import type { CityTarget } from '../../../providers/us-council-district-discovery.js';
+import type { CityTarget } from '../../../core/city-target.js';
 
 /**
  * Load test fixture from disk
