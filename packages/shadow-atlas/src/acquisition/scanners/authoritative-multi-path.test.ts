@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthoritativeMultiPathScanner } from './authoritative-multi-path.js';
-import type { CityTarget } from '../../validators/geographic-validator.js';
+import type { CityTarget } from '../../core/city-target.js';
 import { GovernanceValidator } from '../../validators/semantic/governance.js';
 
 describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
@@ -58,8 +58,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '5363000',
         name: 'Seattle',
         state: 'WA',
-        lat: 47.6062,
-        lng: -122.3321,
       };
 
       // Access private method via type assertion
@@ -102,8 +100,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '5363000',
         name: 'Seattle',
         state: 'WA',
-        lat: 47.6062,
-        lng: -122.3321,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -135,8 +131,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '3651000',
         name: 'New York',
         state: 'NY',
-        lat: 40.7128,
-        lng: -74.006,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -176,8 +170,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '4865000',
         name: 'Austin',
         state: 'TX',
-        lat: 30.2672,
-        lng: -97.7431,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -223,8 +215,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '1714000',
         name: 'Chicago',
         state: 'IL',
-        lat: 41.8781,
-        lng: -87.6298,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -248,8 +238,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '0644000',
         name: 'Los Angeles',
         state: 'CA',
-        lat: 34.0522,
-        lng: -118.2437,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -268,8 +256,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '4805000',
         name: 'Dallas',
         state: 'TX',
-        lat: 32.7767,
-        lng: -96.797,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -302,8 +288,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '2507000',
         name: 'Boston',
         state: 'MA',
-        lat: 42.3601,
-        lng: -71.0589,
       };
 
       const candidates = await (scanner as any).findGovernanceLayers(
@@ -328,8 +312,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: phoenixFips,
         name: 'Phoenix',
         state: 'AZ',
-        lat: 33.4484,
-        lng: -112.074,
       };
 
       // Check if Phoenix is marked as at-large in registry
@@ -351,8 +333,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '5363000', // Seattle - district-based
         name: 'Seattle',
         state: 'WA',
-        lat: 47.6062,
-        lng: -122.3321,
       };
 
       // Mock successful portal response
@@ -374,8 +354,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '9999999', // Invalid/unknown FIPS
         name: 'Unknown City',
         state: 'XX',
-        lat: 0,
-        lng: 0,
       };
 
       // Mock fetch to fail (no portal data)
@@ -397,8 +375,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '5363000', // Seattle - 7 districts
         name: 'Seattle',
         state: 'WA',
-        lat: 47.6062,
-        lng: -122.3321,
       };
 
       // Validate correct count
@@ -422,8 +398,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '5363000', // Seattle - 7 districts
         name: 'Seattle',
         state: 'WA',
-        lat: 47.6062,
-        lng: -122.3321,
       };
 
       // Mock console.warn to verify warning
@@ -457,8 +431,6 @@ describe('AuthoritativeMultiPathScanner - Layer Detection', () => {
         fips: '1234567', // Hypothetical mixed-governance city
         name: 'Test City',
         state: 'TX',
-        lat: 30,
-        lng: -95,
       };
 
       const govCheck = await govValidator.checkGovernance(city.fips);

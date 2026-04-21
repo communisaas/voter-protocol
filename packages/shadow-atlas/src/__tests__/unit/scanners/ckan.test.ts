@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { CKANScanner } from '../../../acquisition/scanners/ckan.js';
-import type { CityTarget } from '../../../validators/geographic-validator.js';
+import type { CityTarget } from '../../../core/city-target.js';
 
 describe('CKANScanner with SemanticValidator Integration', () => {
   const lexingtonCity: CityTarget = {

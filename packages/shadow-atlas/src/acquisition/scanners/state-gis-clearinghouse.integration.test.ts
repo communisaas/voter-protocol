@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StateGISClearinghouseScanner } from './state-gis-clearinghouse.js';
-import type { CityInfo as CityTarget } from '../../validators/geographic-validator.js';
+import type { CityTarget } from '../../core/city-target.js';
 
 describe('StateGISClearinghouseScanner - Integration Tests', () => {
   let scanner: StateGISClearinghouseScanner;
@@ -33,8 +33,7 @@ describe('StateGISClearinghouseScanner - Integration Tests', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // This is a real-world test pattern
@@ -54,8 +53,7 @@ describe('StateGISClearinghouseScanner - Integration Tests', () => {
       const city: CityTarget = {
         name: 'Sacramento',
         state: 'CA',
-        county: 'Sacramento',
-        population: 525000,
+        fips: '0664000',
       };
 
       expect(scanner).toBeDefined();
@@ -72,8 +70,7 @@ describe('StateGISClearinghouseScanner - Integration Tests', () => {
       const city: CityTarget = {
         name: 'Urban Honolulu',
         state: 'HI',
-        county: 'Honolulu',
-        population: 350000,
+        fips: '1571550',
       };
 
       expect(scanner).toBeDefined();

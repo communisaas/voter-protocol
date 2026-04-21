@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StateGISClearinghouseScanner } from '../../../acquisition/scanners/state-gis-clearinghouse.js';
-import type { CityTarget } from '../../../validators/geographic-validator.js';
+import type { CityTarget } from '../../../core/city-target.js';
 
 /**
  * Network test wrapper - skipped by default unless RUN_NETWORK_TESTS=true
@@ -61,7 +61,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '0000000',
         name: 'Unknown City',
         state: 'XX', // Invalid state code
-        population: 10000,
       };
 
       const candidates = await scanner.scan(unknownStateCity);
@@ -93,7 +92,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '1571550',
         name: 'Urban Honolulu',
         state: 'HI',
-        population: 345510,
       };
 
       const candidates = await scanner.scan(city);
@@ -114,7 +112,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '0816000',
         name: 'Colorado Springs',
         state: 'CO',
-        population: 478221,
       };
 
       // Should not throw, should return empty array
@@ -137,7 +134,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '5363000',
         name: 'Seattle',
         state: 'WA',
-        population: 749256,
       };
 
       // Should not throw
@@ -160,7 +156,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '5613150',
         name: 'Cheyenne',
         state: 'WY',
-        population: 65132,
       };
 
       // Should not throw
@@ -182,7 +177,6 @@ describe('StateGISClearinghouseScanner', () => {
           fips: '1571550',
           name: 'Urban Honolulu',
           state: 'HI',
-          population: 345510,
         };
 
         const candidates = await scanner.scan(honolulu);
@@ -212,7 +206,6 @@ describe('StateGISClearinghouseScanner', () => {
           fips: '0816000',
           name: 'Colorado Springs',
           state: 'CO',
-          population: 478221,
         };
 
         const candidates = await scanner.scan(coloradoSprings);
@@ -234,7 +227,6 @@ describe('StateGISClearinghouseScanner', () => {
           fips: '5363000',
           name: 'Seattle',
           state: 'WA',
-          population: 749256,
         };
 
         const candidates = await scanner.scan(seattle);
@@ -264,7 +256,6 @@ describe('StateGISClearinghouseScanner', () => {
         fips: '1571550',
         name: 'Urban Honolulu',
         state: 'HI',
-        population: 345510,
       };
 
       const startTime = Date.now();

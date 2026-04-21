@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StateGISClearinghouseScanner } from './state-gis-clearinghouse.js';
-import type { CityTarget } from '../../validators/geographic-validator.js';
+import type { CityTarget } from '../../core/city-target.js';
 
 // Mock URL validator to always pass (test URLs aren't in the real allowlist)
 vi.mock('../../security/input-validator.js', () => ({
@@ -57,8 +57,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock 1: REST endpoint discovery (scanRESTAPI tries ${baseUrl}?f=json)
@@ -126,8 +125,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Sacramento',
         state: 'CA',
-        county: 'Sacramento',
-        population: 525000,
+        fips: '0664000',
       };
 
       // Mock root response with nested folders
@@ -200,8 +198,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Create deeply nested folder structure (6 levels)
@@ -230,8 +227,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock root with utilities folder (should be skipped)
@@ -284,8 +280,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock 1: REST endpoint discovery
@@ -354,8 +349,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock root
@@ -400,8 +394,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       const startTime = Date.now();
@@ -453,8 +446,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock root with error
@@ -470,8 +462,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock root with 500 error
@@ -490,8 +481,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock 1: REST endpoint discovery
@@ -558,8 +548,7 @@ describe('StateGISClearinghouseScanner - Recursive Service Exploration', () => {
       const city: CityTarget = {
         name: 'Boston',
         state: 'MA',
-        county: 'Suffolk',
-        population: 675000,
+        fips: '2507000',
       };
 
       // Mock 1: REST endpoint discovery

@@ -7,17 +7,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { ArcGISHubScanner } from '../../../acquisition/scanners/arcgis-hub.js';
-import type { CityTarget } from '../../../validators/geographic-validator.js';
+import type { CityTarget } from '../../../core/city-target.js';
 
 describe('ArcGISHubScanner with SemanticValidator', () => {
   const scanner = new ArcGISHubScanner();
   const mockCity: CityTarget = {
     name: 'Seattle',
     state: 'WA',
-    fipsCode: '5363000',
-    population: 750000,
-    lat: 47.6062,
-    lon: -122.3321,
+    fips: '5363000',
   };
 
   describe('scoreTitle - Negative Keyword Rejection', () => {

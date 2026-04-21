@@ -12,7 +12,7 @@
 
 import { describe, test, expect } from 'vitest';
 import { DirectMapServerScanner } from '../../../acquisition/scanners/direct-mapserver.js';
-import type { CityTarget } from '../../../validators/geographic-validator.js';
+import type { CityTarget } from '../../../core/city-target.js';
 
 /**
  * Soft-fail wrapper for network tests in CI
