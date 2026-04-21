@@ -637,7 +637,7 @@ describe('GISServerDiscovery', () => {
         json: async () => {
           throw new Error('Invalid JSON');
         },
-      } as Response);
+      } as unknown as Response);
 
       const discovery = new GISServerDiscovery();
       const result = await discovery.probeServer('https://example.com/');
