@@ -21,7 +21,7 @@ import type {
   LayerExtractionResult,
   ExtractedBoundary,
 } from '../../../providers/state-batch-extractor.js';
-import type { Polygon } from 'geojson';
+import type { Polygon, MultiPolygon } from 'geojson';
 
 // ============================================================================
 // Test Fixtures
@@ -34,13 +34,14 @@ function createMockBoundary(
   id: string,
   name: string,
   state: string,
-  geoid?: string
+  geoid?: string,
+  geometry?: Polygon | MultiPolygon
 ): ExtractedBoundary {
   return {
     id,
     name,
     layerType: 'congressional',
-    geometry: {
+    geometry: geometry ?? ({
       type: 'Polygon',
       coordinates: [[
         [-90.0, 45.0],
@@ -49,7 +50,7 @@ function createMockBoundary(
         [-90.0, 44.0],
         [-90.0, 45.0],
       ]],
-    } as Polygon,
+    } as Polygon),
     source: {
       state,
       portalName: 'Test Portal',
@@ -448,8 +449,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect invalid coordinates', async () => {
-      const invalidBoundary = createMockBoundary('INVALID', 'Invalid', 'XX');
-      invalidBoundary.geometry = {
+      const invalidBoundary = createMockBoundary('INVALID', 'Invalid', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [-200.0, 45.0], // Invalid longitude
@@ -457,7 +457,7 @@ describe('DataValidator', () => {
           [-89.0, 44.0],
           [-200.0, 45.0],
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([invalidBoundary]);
 
@@ -469,8 +469,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect unclosed polygon rings', async () => {
-      const unclosedBoundary = createMockBoundary('UNCLOSED', 'Unclosed', 'XX');
-      unclosedBoundary.geometry = {
+      const unclosedBoundary = createMockBoundary('UNCLOSED', 'Unclosed', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [-90.0, 45.0],
@@ -478,7 +477,7 @@ describe('DataValidator', () => {
           [-89.0, 44.0],
           // Only 3 coordinates - invalid polygon
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([unclosedBoundary]);
 
@@ -496,8 +495,7 @@ describe('DataValidator', () => {
 
   describe('checkSelfIntersection - Enhanced Detection', () => {
     it('should pass for valid square polygon', async () => {
-      const validSquare = createMockBoundary('VALID-SQUARE', 'Valid Square', 'XX');
-      validSquare.geometry = {
+      const validSquare = createMockBoundary('VALID-SQUARE', 'Valid Square', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
@@ -506,7 +504,7 @@ describe('DataValidator', () => {
           [0, 1],
           [0, 0], // Properly closed
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([validSquare]);
 
@@ -515,8 +513,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect bowtie polygon (figure-8 self-intersection)', async () => {
-      const bowtie = createMockBoundary('BOWTIE', 'Bowtie Polygon', 'XX');
-      bowtie.geometry = {
+      const bowtie = createMockBoundary('BOWTIE', 'Bowtie Polygon', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
@@ -525,7 +522,7 @@ describe('DataValidator', () => {
           [0, 1],
           [0, 0], // Self-intersecting bowtie
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([bowtie]);
 
@@ -540,8 +537,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect unclosed ring with proper type', async () => {
-      const unclosed = createMockBoundary('UNCLOSED-RING', 'Unclosed Ring', 'XX');
-      unclosed.geometry = {
+      const unclosed = createMockBoundary('UNCLOSED-RING', 'Unclosed Ring', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
@@ -550,7 +546,7 @@ describe('DataValidator', () => {
           [0, 1],
           [0.1, 0.1], // Nearly closes but doesn't match first coordinate
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([unclosed]);
 
@@ -564,15 +560,14 @@ describe('DataValidator', () => {
     });
 
     it('should detect polygon with too few coordinates', async () => {
-      const tooFew = createMockBoundary('TOO-FEW', 'Too Few Coords', 'XX');
-      tooFew.geometry = {
+      const tooFew = createMockBoundary('TOO-FEW', 'Too Few Coords', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
           [1, 0],
           [0, 0], // Only 3 points - not a valid polygon
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([tooFew]);
 
@@ -585,8 +580,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect complex self-intersecting polygon', async () => {
-      const complexIntersect = createMockBoundary('COMPLEX-INTERSECT', 'Complex Intersect', 'XX');
-      complexIntersect.geometry = {
+      const complexIntersect = createMockBoundary('COMPLEX-INTERSECT', 'Complex Intersect', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
@@ -596,7 +590,7 @@ describe('DataValidator', () => {
           [1, 1],
           [0, 0], // Multiple self-intersections
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([complexIntersect]);
 
@@ -612,8 +606,7 @@ describe('DataValidator', () => {
     });
 
     it('should handle polygon with holes (inner rings)', async () => {
-      const withHole = createMockBoundary('WITH-HOLE', 'Polygon with Hole', 'XX');
-      withHole.geometry = {
+      const withHole = createMockBoundary('WITH-HOLE', 'Polygon with Hole', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [
           // Outer ring
@@ -633,7 +626,7 @@ describe('DataValidator', () => {
             [1, 1],
           ],
         ],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([withHole]);
 
@@ -643,8 +636,8 @@ describe('DataValidator', () => {
     });
 
     it('should detect hole overlapping outer ring', async () => {
-      const overlappingHole = createMockBoundary('OVERLAP-HOLE', 'Overlapping Hole', 'XX');
-      overlappingHole.geometry = {
+      // Hole shares the corner vertex [0,0] with outer ring, exercising hole-overlap detection
+      const overlappingHole = createMockBoundary('OVERLAP-HOLE', 'Overlapping Hole', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [
           // Outer ring
@@ -655,21 +648,16 @@ describe('DataValidator', () => {
             [0, 4],
             [0, 0],
           ],
-          // Inner ring (hole) - will be modified to share a vertex
+          // Inner ring (hole) - first/last vertex now shares the outer-ring corner [0,0]
           [
-            [1, 1],
+            [0, 0],
             [3, 1],
             [3, 3],
             [1, 3],
-            [1, 1],
+            [0, 0],
           ],
         ],
-      } as Polygon;
-
-      // Modify hole to share the corner vertex [0,0] with outer ring
-      const coords = overlappingHole.geometry.coordinates as Array<Array<[number, number]>>;
-      coords[1][0] = [0, 0]; // First vertex of hole now shares with outer ring corner
-      coords[1][4] = [0, 0]; // Close the hole back to [0,0]
+      });
 
       const result = await validator.validateGeometry([overlappingHole]);
 
@@ -683,8 +671,7 @@ describe('DataValidator', () => {
     });
 
     it('should report intersection point coordinates', async () => {
-      const bowtie = createMockBoundary('BOWTIE-COORDS', 'Bowtie with Coords', 'XX');
-      bowtie.geometry = {
+      const bowtie = createMockBoundary('BOWTIE-COORDS', 'Bowtie with Coords', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[
           [0, 0],
@@ -693,7 +680,7 @@ describe('DataValidator', () => {
           [0, 1],
           [0, 0],
         ]],
-      } as Polygon;
+      });
 
       const result = await validator.validateGeometry([bowtie]);
 
@@ -710,8 +697,7 @@ describe('DataValidator', () => {
     });
 
     it('should handle MultiPolygon geometries', async () => {
-      const multiPoly = createMockBoundary('MULTI-POLY', 'MultiPolygon', 'XX');
-      multiPoly.geometry = {
+      const multiPoly = createMockBoundary('MULTI-POLY', 'MultiPolygon', 'XX', undefined, {
         type: 'MultiPolygon',
         coordinates: [
           [[
@@ -729,7 +715,7 @@ describe('DataValidator', () => {
             [2, 2],
           ]],
         ],
-      };
+      });
 
       const result = await validator.validateGeometry([multiPoly]);
 
@@ -738,8 +724,7 @@ describe('DataValidator', () => {
     });
 
     it('should detect self-intersecting MultiPolygon', async () => {
-      const selfIntersectingMulti = createMockBoundary('SELF-MULTI', 'Self-Intersecting Multi', 'XX');
-      selfIntersectingMulti.geometry = {
+      const selfIntersectingMulti = createMockBoundary('SELF-MULTI', 'Self-Intersecting Multi', 'XX', undefined, {
         type: 'MultiPolygon',
         coordinates: [
           [[
@@ -750,7 +735,7 @@ describe('DataValidator', () => {
             [0, 0], // Bowtie in first polygon
           ]],
         ],
-      };
+      });
 
       const result = await validator.validateGeometry([selfIntersectingMulti]);
 
@@ -1077,8 +1062,7 @@ describe('DataValidator', () => {
     });
 
     it('should handle MultiPolygon geometries', async () => {
-      const boundary = createMockBoundary('HI01', 'District 1', 'HI');
-      boundary.geometry = {
+      const boundary = createMockBoundary('HI01', 'District 1', 'HI', undefined, {
         type: 'MultiPolygon',
         coordinates: [
           [[
@@ -1096,7 +1080,7 @@ describe('DataValidator', () => {
             [-158.0, 22.0],
           ]],
         ],
-      };
+      });
 
       const result = await validator.validateCoverage([boundary]);
 
@@ -1114,11 +1098,10 @@ describe('DataValidator', () => {
     });
 
     it('should handle invalid geometries gracefully', async () => {
-      const invalidBoundary = createMockBoundary('INVALID', 'Invalid', 'XX');
-      invalidBoundary.geometry = {
+      const invalidBoundary = createMockBoundary('INVALID', 'Invalid', 'XX', undefined, {
         type: 'Polygon',
         coordinates: [[]], // Invalid empty coordinates
-      } as any;
+      } as unknown as Polygon);
 
       const result = await validator.validateCoverage([invalidBoundary]);
 
