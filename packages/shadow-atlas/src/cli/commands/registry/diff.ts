@@ -36,6 +36,9 @@ export interface DiffOptions {
   verbose?: boolean;
   dataDir?: string;
   srcDir?: string;
+  /** CLI passthroughs — not yet consumed by the diff handler. */
+  baseline?: string;
+  since?: string;
 }
 
 /**

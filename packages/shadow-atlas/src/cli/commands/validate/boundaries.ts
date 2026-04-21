@@ -39,6 +39,8 @@ interface BoundaryValidateOptions {
   source: 'registry' | 'tiger-cache' | 'golden';
   limit?: number;
   fips?: string;
+  /** Optional test-set sample mode (full | sampled). */
+  sample?: string;
   format: OutputFormat;
   verbose: boolean;
   json: boolean;

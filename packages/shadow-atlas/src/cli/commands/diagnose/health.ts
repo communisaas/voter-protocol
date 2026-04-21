@@ -35,6 +35,8 @@ export interface HealthOptions {
   readonly json?: boolean;
   readonly layers?: boolean;
   readonly sampleSize?: number;
+  /** CLI toggle to include per-metric health in the output. */
+  readonly metrics?: boolean;
 }
 
 export interface HealthResult {

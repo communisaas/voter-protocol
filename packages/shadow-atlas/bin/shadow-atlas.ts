@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadConfig, type CLIConfig } from '../src/cli/lib/config.js';
+import type { OutputFormat } from '../src/cli/lib/output.js';
 import { createCLILogger, type CLILogger } from '../src/cli/lib/logger.js';
 
 // Command implementations - Registry
@@ -331,12 +332,21 @@ function createProgram(): Command {
       const { config } = getGlobalContext();
       if (options.batch) {
         const entries = await loadBatch(options.batch, options.limit);
-        await validateBatch(null as any, entries, { tier: options.tier, tolerance: options.tolerance });
+        await validateBatch(null as any, entries, {
+          tier: options.tier ?? 'full',
+          tolerance: options.tolerance,
+          format: 'table',
+          verbose: !!options.verbose,
+          json: false,
+        });
       } else if (options.fips) {
         await validateSingle(null as any, options.fips, options.url, {
-          tier: options.tier,
-          expectedCount: options.expected,
+          tier: options.tier ?? 'full',
+          expected: options.expected,
           tolerance: options.tolerance,
+          format: 'table',
+          verbose: !!options.verbose,
+          json: false,
         });
       } else {
         console.error('Either --fips or --batch is required');
@@ -353,7 +363,13 @@ function createProgram(): Command {
     .option('--include-counts', 'Validate against expected counts')
     .action(async (options) => {
       if (options.crossValidate) {
-        await runCrossValidation({ verbose: options.verbose });
+        await runCrossValidation({
+          crossValidate: true,
+          includeCounts: !!options.includeCounts,
+          format: 'table',
+          verbose: !!options.verbose,
+          json: false,
+        });
       } else if (options.layer) {
         await validateSingleLayer(options.layer, options.state);
       } else {
@@ -368,10 +384,19 @@ function createProgram(): Command {
     .option('--source <type>', 'Source: all|golden|registry')
     .option('--sample <n>', 'Sample size for validation', parseInt)
     .action(async (options) => {
+      const boundaryOpts = {
+        source: (options.source ?? 'registry') as 'registry' | 'tiger-cache' | 'golden',
+        sample: options.sample,
+        format: 'table' as OutputFormat,
+        verbose: !!options.verbose,
+        json: false,
+        concurrency: 10,
+        timeout: 30_000,
+      };
       if (options.source === 'golden') {
-        await validateGoldenBoundaries({ sample: options.sample, verbose: options.verbose });
+        await validateGoldenBoundaries(boundaryOpts);
       } else {
-        await validateRegistryBoundaries({ sample: options.sample, verbose: options.verbose });
+        await validateRegistryBoundaries(boundaryOpts);
       }
     });
 
@@ -383,23 +408,33 @@ function createProgram(): Command {
     .option('--check-downloads', 'Full download validation')
     .option('--stale-threshold <days>', 'Flag entries older than N days', parseInt)
     .action(async (options) => {
-      const results: string[] = [];
+      // The sub-handlers return ValidationEntry[]; aggregate-level summary
+      // statistics (covered/total/alive) are computed inside them for
+      // human-readable output. Surface the count of entries rather than
+      // reaching into shape properties that don't exist on the return type.
+      const sections: string[] = [];
       if (options.coverage) {
-        const coverage = await checkCoverage(options.coverage);
-        results.push(`Coverage (${options.coverage}): ${coverage.covered}/${coverage.total} cities`);
+        console.error(
+          `--coverage <${options.coverage}> requires a resolved target-city list; ` +
+          `use 'validate council --batch' with an explicit JSON batch for coverage checks.`,
+        );
+        process.exit(2);
       }
       if (options.staleThreshold) {
-        const stale = await checkStaleness(options.staleThreshold);
-        results.push(`Stale entries (>${options.staleThreshold} days): ${stale.count}`);
+        const stale = checkStaleness(options.staleThreshold);
+        sections.push(`Stale entries (>${options.staleThreshold} days): ${stale.length}`);
       }
       if (options.checkUrls) {
-        const urlResults = await checkUrlLiveness(options.concurrency || 10, options.verbose);
-        results.push(`URL checks: ${urlResults.alive}/${urlResults.total} alive`);
+        const urlResults = await checkUrlLiveness(
+          typeof options.concurrency === 'number' ? options.concurrency : 10,
+          !!options.verbose,
+        );
+        sections.push(`URL checks: ${urlResults.length} entries processed`);
       }
-      if (results.length === 0) {
+      if (sections.length === 0) {
         console.log('Specify --coverage, --check-urls, or --stale-threshold');
       } else {
-        results.forEach(r => console.log(r));
+        sections.forEach((r) => console.log(r));
       }
     });
 

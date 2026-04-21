@@ -27,9 +27,11 @@ import {
 // ============================================================================
 
 export interface OverlapOptions {
-  readonly fips: string;
+  readonly fips?: string;
   readonly verbose?: boolean;
   readonly json?: boolean;
+  /** Minimum overlap ratio (0..1) to report. */
+  readonly threshold?: number;
 }
 
 export interface OverlapResult {

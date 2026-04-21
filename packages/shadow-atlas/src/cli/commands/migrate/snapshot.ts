@@ -24,10 +24,12 @@ import { createSnapshot, type Snapshot } from '../../lib/migration.js';
 // ============================================================================
 
 export interface SnapshotOptions {
-  readonly name: string;
+  readonly name?: string;
   readonly metadata?: Record<string, unknown>;
   readonly verbose?: boolean;
   readonly json?: boolean;
+  /** Free-text description attached to the snapshot. */
+  readonly description?: string;
 }
 
 export interface SnapshotResult {

@@ -38,6 +38,8 @@ export interface SyncOptions {
   readonly registry?: RegistryName;
   readonly verbose?: boolean;
   readonly json?: boolean;
+  /** Direction hint from CLI (extract | generate | roundtrip). */
+  readonly direction?: string;
 }
 
 export interface SyncResult {

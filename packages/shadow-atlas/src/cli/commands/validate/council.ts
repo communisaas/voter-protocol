@@ -49,6 +49,8 @@ interface CouncilValidateOptions {
   batch?: string;
   limit?: number;
   expected?: number;
+  /** Alias for `expected`; accepted from older CLI plumbing. */
+  expectedCount?: number;
   tolerance?: number;
   format: OutputFormat;
   verbose: boolean;
