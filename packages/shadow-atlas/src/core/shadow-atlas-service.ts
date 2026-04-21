@@ -96,10 +96,13 @@ import {
 // Use buildAtlas() with MultiLayerMerkleTreeBuilder instead (uses Poseidon2, ZK-compatible)
 import { DeterministicValidationPipeline } from '../validators/pipeline/deterministic.js';
 import { DEFAULT_CONFIG } from './config.js';
-import { UKBoundaryProvider } from '../providers/international/uk-provider.js';
-import { CanadaBoundaryProvider } from '../providers/international/canada-provider.js';
-import { AustraliaBoundaryProvider } from '../providers/international/australia-provider.js';
-import { NewZealandBoundaryProvider } from '../providers/international/nz-provider.js';
+// Import the underlying provider classes so they can be used as instance
+// types. The *BoundaryProvider re-exports are value-only const aliases, which
+// TS rejects in a type position with TS2749.
+import { UKCountryProvider } from '../providers/international/uk-provider.js';
+import { CanadaCountryProvider } from '../providers/international/canada-provider.js';
+import { AustraliaCountryProvider } from '../providers/international/australia-provider.js';
+import { NZCountryProvider } from '../providers/international/nz-provider.js';
 import { LegalDescriptionProvider } from '../providers/legal-description-provider.js';
 import { SqlitePersistenceAdapter } from '../persistence/sqlite-adapter.js';
 import { MetricsStore, StructuredLogger, createMetricsStore, createLogger } from '../observability/metrics.js';
@@ -134,10 +137,10 @@ export class ShadowAtlasService {
   private readonly validator: DeterministicValidationPipeline;
 
   // International providers
-  private readonly ukProvider: UKBoundaryProvider;
-  private readonly canadaProvider: CanadaBoundaryProvider;
-  private readonly australiaProvider: AustraliaBoundaryProvider;
-  private readonly nzProvider: NewZealandBoundaryProvider;
+  private readonly ukProvider: UKCountryProvider;
+  private readonly canadaProvider: CanadaCountryProvider;
+  private readonly australiaProvider: AustraliaCountryProvider;
+  private readonly nzProvider: NZCountryProvider;
   private readonly legalDescriptionProvider: LegalDescriptionProvider;
 
   // Persistence layer (SQLite when enabled, in-memory fallback for tests)
@@ -182,19 +185,19 @@ export class ShadowAtlasService {
     this.validator = new DeterministicValidationPipeline();
 
     // Initialize international providers
-    this.ukProvider = new UKBoundaryProvider({
+    this.ukProvider = new UKCountryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
     });
-    this.canadaProvider = new CanadaBoundaryProvider({
+    this.canadaProvider = new CanadaCountryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
     });
-    this.australiaProvider = new AustraliaBoundaryProvider({
+    this.australiaProvider = new AustraliaCountryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
     });
-    this.nzProvider = new NewZealandBoundaryProvider({
+    this.nzProvider = new NZCountryProvider({
       retryAttempts: config.extraction.retryAttempts,
       retryDelayMs: config.extraction.retryDelayMs,
     });
@@ -278,12 +281,16 @@ export class ShadowAtlasService {
     if (this.metrics) {
       this.metrics.close();
     }
-    // Close all lifecycle-managed resources
+    // Close all lifecycle-managed resources. SnapshotManager + ProvenanceWriter
+    // don't currently expose a typed `close()`; the call is defensive for the
+    // day they do. Cast through unknown to avoid TS2339 on the typed side.
     if (this.snapshotManager) {
-      try { this.snapshotManager.close?.(); } catch { /* best effort */ }
+      const maybe = (this.snapshotManager as unknown as { close?: () => void }).close;
+      try { maybe?.(); } catch { /* best effort */ }
     }
     if (this.provenanceWriter) {
-      try { (this.provenanceWriter as any).close?.(); } catch { /* best effort */ }
+      const maybe = (this.provenanceWriter as unknown as { close?: () => void }).close;
+      try { maybe?.(); } catch { /* best effort */ }
     }
     this.initialized = false;
   }
@@ -2314,9 +2321,21 @@ export class ShadowAtlasService {
     const treeDepth = flatTree.tree.length;
     const totalBoundaries = flatTree.boundaryCount;
     const layerCounts = flatTree.layerCounts;
-    const treeType: 'flat' | 'global' = 'flat';
-    const countryRoots: ReadonlyMap<string, bigint> | undefined = undefined;
-    const continentalRoots: ReadonlyMap<string, bigint> | undefined = undefined;
+    // Global-tree support is a planned branch below. Source the mode from a
+    // runtime flag rather than a literal so TS keeps the union alive and
+    // doesn't flag the 'global' branches as unreachable (TS2367). When the
+    // flag is wired up to configuration, this line becomes the integration
+    // point.
+    const useGlobalTree = false;
+    const treeType: 'flat' | 'global' = useGlobalTree ? 'global' : 'flat';
+    // Keep these typed as the nullable Map so downstream `countryRoots ? …`
+    // branches compile without TS narrowing them to literal `undefined`.
+    const countryRoots: ReadonlyMap<string, bigint> | undefined = useGlobalTree
+      ? new Map<string, bigint>()
+      : undefined;
+    const continentalRoots: ReadonlyMap<string, bigint> | undefined = useGlobalTree
+      ? new Map<string, bigint>()
+      : undefined;
 
     const duration = Date.now() - startTime;
 

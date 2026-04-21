@@ -20,6 +20,9 @@ export interface AtLargeCity {
   readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
   readonly source: string;
   readonly notes?: string;
+  readonly discoveredBy?: string;
+  readonly cityFips?: string;
+  readonly lastVerified?: string;
 }
 
 export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {

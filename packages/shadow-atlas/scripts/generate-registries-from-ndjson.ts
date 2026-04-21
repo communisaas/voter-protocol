@@ -245,6 +245,9 @@ async function generateAtLargeCities(): Promise<number> {
     electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
     source: string;
     notes?: string;
+    discoveredBy?: string;
+    cityFips?: string;
+    lastVerified?: string;
   }>('at-large-cities.ndjson');
 
   const now = 'see git log for generation date';
@@ -271,6 +274,9 @@ export interface AtLargeCity {
   readonly electionMethod: 'at-large' | 'at-large-with-residency' | 'proportional';
   readonly source: string;
   readonly notes?: string;
+  readonly discoveredBy?: string;
+  readonly cityFips?: string;
+  readonly lastVerified?: string;
 }
 
 export const AT_LARGE_CITIES: Record<string, AtLargeCity> = {\n`;
