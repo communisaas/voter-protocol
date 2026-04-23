@@ -56,17 +56,17 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 ### If You're Technical
 
 **Privacy advocate** who knows surveillance capitalism is the enemy: Privacy through architecture, not promises.
-- **On-chain identity (zero AWS dependency)**: Browser-native Noir/Barretenberg ZK proofs with UltraHonk on Scroll L2. Address never leaves your device. Proof verified on-chain by smart contracts (~2.2M gas, ~$0.01 on Scroll). Aztec ceremony (100K+ participants), production-grade since 2024.
+- **On-chain identity (zero AWS dependency)**: Browser-native Noir/Barretenberg ZK proofs with UltraHonk on Scroll L2. Address never leaves your device. Proof verified on-chain by smart contracts (~2.2M gas, ~$0.01 on Scroll). SRS from the Aztec Ignition ceremony (176 participants, BN254, 1-of-N honesty), production-grade since 2024.
 - **Message delivery (AWS Nitro Enclaves)**: Separate system for congressional CWC API delivery. Address verified in enclave then destroyed. Message content plaintext for congressional offices—privacy protects your identity, not your voice. Enclave attestation proves correct code.
 - **Clear separation**: ZK proof verification = 100% on-chain (zero AWS). Message delivery = Nitro Enclaves (congressional SOAP API requirement). Two different systems with different privacy properties.
 - **Privacy limitation**: Proofs are pseudonymous, not anonymous. Each proof reveals district and authority level, creating an anonymity set of `(district_voters × authority_tier_proportion)`. Small districts (<100 voters at your tier) may have trivial anonymity. See [SECURITY.md](SECURITY.md#privacy-guarantees--limitations) for details and mitigations.
 
-**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon2 commitments, three-tree architecture with 31 public inputs). Noir/Barretenberg proofs with UltraHonk for district + engagement verification (8-15s mobile browser WASM, ~2.2M gas on Scroll, KZG ceremony via Ethereum's 141K-participant setup). 10 contracts deployed on Scroll Sepolia with genesis/timelock governance model. Phase 1: Reputation-only. Phase 2: Token economics. See [ARCHITECTURE.md](ARCHITECTURE.md).
+**Blockchain developer**: Open-source multi-agent consensus with deterministic workflows. On-chain audit trails (IPFS-hashed context). ERC-8004 portable reputation. Scroll L2 identity registry (Poseidon2 commitments, three-tree architecture with 31 public inputs). Noir/Barretenberg proofs with UltraHonk for district + engagement verification (8-15s mobile browser WASM, ~2.2M gas on Scroll, Aztec Ignition BN254 SRS). 10 contracts deployed on Scroll Sepolia with genesis/timelock governance model. Phase 1: Reputation-only. Phase 2: Token economics. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 
 ## Why Now
 
-The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Noir/Barretenberg proofs battle-tested in Aztec Protocol since 2024—production-grade zero-knowledge cryptography leveraging Ethereum's 141K-participant KZG ceremony. Every piece we need exists and is battle-tested.
+The President's memecoin cleared $40B proving crypto competes for mass attention. The [CLARITY Act](https://www.congress.gov/bill/119th-congress/house-bill/3633/text) provides regulatory framework classifying utility tokens as digital commodities (enables Phase 2 token launch). [self.xyz passport verification](https://www.self.xyz) removes identity friction—instant NFC scan. [Didit.me](https://www.didit.me) for users without passports. Blockchain infrastructure proven at civic scale. Noir/Barretenberg proofs battle-tested in Aztec Protocol since 2024—production-grade zero-knowledge cryptography over BN254, with SRS from the Aztec Ignition ceremony (176 participants, 1-of-N honesty, publicly verified transcript). Every piece we need exists and is battle-tested.
 
 [Prediction markets on electoral outcomes reached $3.2 billion daily volume on Polymarket](https://www.theblock.co/data/decentralized-finance/prediction-markets/total-trading-volume-on-polymarket-daily) during 2024 elections. That proved people stake massive capital on political predictions. But electoral predictions don't *influence* outcomes—you're just betting. VOTER creates markets for *legislative outcomes* where staking funds the civic infrastructure attempting to influence the result (Phase 2 feature, 12-18 months post-launch). You're not just predicting Medicare drug pricing reform—you're funding the template campaigns, rewarding constituent messaging, financially backing the advocacy that makes it happen.
 
@@ -93,8 +93,10 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - **[CONGRESSIONAL.md](CONGRESSIONAL.md)** — Legislative staff: Solving the constituent signal problem
 - **[SECURITY.md](SECURITY.md)** — Living threat model: Attack vectors, mitigations, incident response
 - **[SOURCES.md](SOURCES.md)** — All academic citations and research backing these claims
-- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement/reputation architecture (canonical)
-- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** — Legacy two-tree ZK architecture (Trees 1 & 2 reference)
+- **[specs/CRYPTOGRAPHY-SPEC.md](specs/CRYPTOGRAPHY-SPEC.md)** — **Canonical cryptographic protocol specification** (circuits, Poseidon2, domain separation, nullifier scheme, trusted setup)
+- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement semantics (tier derivation, Shannon diversity)
+- **[specs/SHADOW-ATLAS-SPEC.md](specs/SHADOW-ATLAS-SPEC.md)** — Geographic data acquisition and district registry
+- **[specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md](specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md)** — Trust stack, operator surface area, walkaway roadmap
 - **[specs/DEBATE-MARKET-SPEC.md](specs/DEBATE-MARKET-SPEC.md)** — Debate market: continuous template contestation (batch LMSR + AI evaluation)
 
 ### How It Works (Phase 1)
@@ -110,7 +112,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - `packages/crypto` — Poseidon2 hasher (domain-separated H1/H2/H3/H4/sponge) via Noir stdlib
 - `packages/noir-prover` — Three-tree (primary) and legacy two-tree Noir circuit provers with UltraHonk backend
 - `packages/shadow-atlas` — Census-based Merkle tree builder, serving API, engagement pipeline, chain scanner
-- `specs/` — Canonical architecture specs (REPUTATION-ARCHITECTURE-SPEC for three-tree, TWO-TREE-ARCHITECTURE-SPEC for legacy)
+- `specs/` — Canonical architecture specs (CRYPTOGRAPHY-SPEC for ZK/crypto, REPUTATION-ARCHITECTURE-SPEC for engagement, SHADOW-ATLAS-SPEC for geographic data)
 
 **Communique Repository** (Frontend — SvelteKit 5):
 - User-facing web application on Cloudflare Pages

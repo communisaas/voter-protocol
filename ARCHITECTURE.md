@@ -330,11 +330,11 @@ The protocol uses Noir/Barretenberg UltraHonk proofs to verify district membersh
 - **Public inputs**: Three-tree circuit: 31 public inputs (production); legacy two-tree circuit: 29 public inputs
 
 **Complete technical specifications:**
-- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** - Three-tree engagement/reputation specification (canonical)
-- **[specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)** - Legacy two-tree reference (Trees 1 & 2 details)
-- **[docs/archive/zk-infrastructure.md](docs/archive/zk-infrastructure.md)** - Pre-two-tree ZK system specification (archived)
-- **[docs/archive/ZK-PRODUCTION-ARCHITECTURE.md](docs/archive/ZK-PRODUCTION-ARCHITECTURE.md)** - Pre-two-tree production details (archived)
-- **[docs/archive/NOIR-PROVING-INFRASTRUCTURE.md](docs/archive/NOIR-PROVING-INFRASTRUCTURE.md)** - Pre-two-tree Noir infrastructure (archived)
+- **[specs/CRYPTOGRAPHY-SPEC.md](specs/CRYPTOGRAPHY-SPEC.md)** — **Canonical cryptographic protocol specification** (circuits, Poseidon2, domain separation, nullifier scheme, trusted setup, threat model)
+- **[specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)** — Three-tree engagement semantics (tier derivation, Shannon diversity)
+- **[specs/SHADOW-ATLAS-SPEC.md](specs/SHADOW-ATLAS-SPEC.md)** — Geographic data acquisition and district registry
+- **[specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md](specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md)** — Operator surface area, walkaway roadmap
+- **Archive**: pre-three-tree docs preserved under `docs/archive/` for historical reference only.
 
 ### High-Level Overview
 
@@ -843,7 +843,7 @@ The ratio `Level3 / Level1` is the **coordination authenticity index** — a met
 - No trusted execution environments required (browser sandbox + on-chain verification)
 - Cypherpunk-aligned (peer-reviewed mathematics, zero cloud proving dependency)
 
-**Complete flow diagram**: See [/docs/architecture/zk-infrastructure.md#complete-civic-action-flow](/docs/architecture/zk-infrastructure.md#complete-civic-action-flow)
+**Complete flow diagram**: See [`specs/CRYPTOGRAPHY-SPEC.md`](specs/CRYPTOGRAPHY-SPEC.md) §5 (circuits) and §8 (on-chain integration).
 
 ---
 
@@ -865,7 +865,7 @@ Communiqué backend servers are deployed with static Elastic IP addresses in us-
 
 ### Browser-Native ZK Proof Generation
 
-> **See also**: [/docs/architecture/zk-infrastructure.md](/docs/architecture/zk-infrastructure.md) for complete ZK system specification, circuit implementation, and security model.
+> **See also**: [`specs/CRYPTOGRAPHY-SPEC.md`](specs/CRYPTOGRAPHY-SPEC.md) for the canonical ZK specification (circuit topology, Poseidon2, domain separation, nullifier scheme, trusted setup, threat model).
 
 **Complete implementation code for:**
 - Shadow Atlas loading from IPFS
@@ -873,7 +873,7 @@ Communiqué backend servers are deployed with static Elastic IP addresses in us-
 - WASM Noir/Barretenberg proving
 - Client-side proof generation flow
 
-See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs/architecture/zk-infrastructure.md#client-side-proof-generation)
+See [`specs/CRYPTOGRAPHY-SPEC.md`](specs/CRYPTOGRAPHY-SPEC.md) §12 (reference implementation, entry points).
 
 > [!WARNING]
 > **Phase 1 Status:** Nitro Enclave infrastructure is NOT yet deployed. Phase 1 uses standard encrypted storage with operational key management. The architecture described below is the Phase 2 target. See SECURITY.md for the current privacy posture.
@@ -989,7 +989,7 @@ See [/docs/architecture/zk-infrastructure.md#client-side-proof-generation](/docs
 
 - [ ] Shadow Atlas compiler (district trees, 12 levels each)
 - [ ] Noir/Barretenberg circuit (depths 18/20/22/24, UltraHonk keccak mode)
-- [ ] KZG parameters via Ethereum ceremony (no custom trusted setup)
+- [ ] KZG parameters via Aztec Ignition ceremony (BN254 SRS, no custom trusted setup)
 - [ ] Browser WASM prover (2-8 seconds mobile proving)
 - [ ] Client-side proof generation library
 

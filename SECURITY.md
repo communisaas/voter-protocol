@@ -162,7 +162,7 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
 
 **Security claim:** Address → district proof reveals only district hash, mathematically impossible to reverse-engineer address. Address never leaves browser, never stored in any database.
 
-**Implementation**: See [ZK-PRODUCTION-ARCHITECTURE.md](/docs/ZK-PRODUCTION-ARCHITECTURE.md) for complete technical details on Noir circuit design, browser proving, and on-chain verification.
+**Implementation**: See [`specs/CRYPTOGRAPHY-SPEC.md`](/specs/CRYPTOGRAPHY-SPEC.md) for the canonical cryptographic specification (circuit topology, Poseidon2 construction, domain separation, nullifier scheme, Aztec trusted-setup provenance, threat model).
 
 **Attack vectors:**
 1. **Noir circuit vulnerability** - Prove membership without valid address
@@ -171,11 +171,11 @@ VOTER is democratic infrastructure designed to be resilient under adversarial co
    - *Circuit constraints*: MockProver adversarial testing ensures invalid witnesses rejected
    - *Audit timeline*: Trail of Bits audit scheduled Q1 2026 for Merkle circuit implementation
 
-2. **Trusted setup compromise** - Malicious Aztec ceremony participant extracts trapdoor
-   - *Mitigation*: Aztec powers-of-tau ceremony (100K+ participants, 1-of-N security)
-   - *Security*: Only ONE honest participant needed; requires ALL 100K+ to collude
-   - *Ceremony verification*: Publicly verifiable transcript, community-audited
-   - *KZG commitments*: Standard polynomial commitment scheme, computational hardness of discrete log
+2. **Trusted setup compromise** - Malicious Aztec Ignition participant extracts trapdoor
+   - *Mitigation*: Aztec Ignition MPC ceremony (Oct 2019 – Jan 2020, 176 participants on BN254, 1-of-N security)
+   - *Security*: Only ONE honest participant needed; requires ALL 176 to collude AND each to have kept their toxic waste
+   - *Ceremony verification*: Publicly verifiable transcript at <https://github.com/AztecProtocol/ignition-verification>; community-audited
+   - *KZG commitments*: Standard polynomial commitment scheme, computational hardness of discrete log on BN254
 
 3. **Shadow Atlas poisoning** - Inject false district boundaries, misdirect proofs
    - *Mitigation*: Multi-source verification (Census Bureau + OpenStreetMap + govinfo.gov), quarterly audits
@@ -1013,7 +1013,7 @@ Users should understand these trade-offs before participating. Privacy is a func
 2. **XChaCha20-Poly1305** (AEAD encryption for congressional messages)
 3. **RSA-OAEP** (Key encapsulation for congressional office public keys)
 4. **Poseidon hash function** (collision resistance, SNARK-friendly)
-5. **KZG commitment scheme** (Polynomial commitments via Aztec's powers-of-tau ceremony, 100K+ participants)
+5. **KZG commitment scheme** (Polynomial commitments on BN254 via the Aztec Ignition MPC ceremony, 176 participants, 1-of-N honesty model)
 6. **Browser sandbox security** (WASM isolation, COOP/COEP headers enforced)
 
 **We do NOT assume:**
