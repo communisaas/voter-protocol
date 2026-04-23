@@ -3,7 +3,7 @@
 **Version:** 1.1.0
 **Date:** 2026-02-16
 **Status:** NORMATIVE
-**Companion Documents:** DATA-INTEGRITY-SPEC, ADVERSARIAL-ATTACK-DOMAINS, TWO-TREE-ARCHITECTURE-SPEC, COORDINATION-INTEGRITY-SPEC
+**Companion Documents:** CRYPTOGRAPHY-SPEC (canonical crypto), DATA-INTEGRITY-SPEC, ADVERSARIAL-ATTACK-DOMAINS, COORDINATION-INTEGRITY-SPEC
 
 ---
 
@@ -39,7 +39,7 @@ The protocol has four trust layers. Each layer has a different security model. T
 
 ### Layer 4: ZK Proof Verification (Trustless)
 
-The UltraHonk proof system running on Scroll provides mathematical guarantees. If a proof verifies against DistrictGate.sol, the prover demonstrably knows a secret that is included in a Merkle tree whose root is registered on-chain, and the district commitment associated with their cell hashes correctly to the public outputs. No trust is required. The soundness guarantee comes from the discrete log assumption on BN254 and the algebraic structure of the PLONKish constraint system. Noir's UltraHonk backend requires no per-circuit trusted setup — it uses a universal SRS (Structured Reference String) from the Aztec ceremony with over 100,000 participants. The 1-of-N security model means that if even one participant was honest, the SRS is secure.
+The UltraHonk proof system running on Scroll provides mathematical guarantees. If a proof verifies against DistrictGate.sol, the prover demonstrably knows a secret that is included in a Merkle tree whose root is registered on-chain, and the district commitment associated with their cell hashes correctly to the public outputs. No trust is required. The soundness guarantee comes from the discrete log assumption on BN254 and the algebraic structure of the PLONKish constraint system. Noir's UltraHonk backend requires no per-circuit trusted setup — it uses a universal SRS (Structured Reference String) from the Aztec Ignition ceremony (176 participants, BN254, completed Jan 2020; see [CRYPTOGRAPHY-SPEC.md §7.2](./CRYPTOGRAPHY-SPEC.md)). The 1-of-N security model means that if even one participant was honest, the SRS is secure.
 
 This layer is the foundation. It does not depend on the operator, the governance key, or any off-chain system. It depends on mathematics.
 
@@ -382,23 +382,27 @@ The tree construction pipeline must be fully deterministic: identical inputs mus
 
 The TIGER source file checksums must be pinned. Census publishes SHA-256 checksums alongside each TIGER distribution. The repository must contain a manifest listing the expected checksum for every TIGER file used in the build. The build script must verify checksums before processing.
 
+**Current implementation status (2026-04-23):** `packages/shadow-atlas/src/providers/us-census-tiger.ts:230,408-411` computes SHA-256 of downloaded files and embeds the digest in build provenance, but does **not** validate against a pinned manifest of Census-published checksums. A downloaded-then-tampered file would still hash to something, just not to the expected value — and nothing currently compares. Remediation: publish a manifest at `packages/shadow-atlas/manifests/tiger-YYYY.json` and add a validation step that fails the build on mismatch.
+
 Tool versions must be pinned exactly. The conversion from shapefile to GeoJSON (ogr2ogr) and the subsequent processing steps must use specific, documented versions. A Docker container (or Nix flake) must encapsulate the entire build environment with exact dependency versions.
 
 Leaf ordering must be deterministic. The dual-tree-builder must sort leaves by a canonical key (cell ID, lexicographic) before constructing the tree. Any nondeterminism in leaf ordering produces different roots from the same input data.
 
-The build must be documented as a procedure, not just as code. A document titled BUILD-VERIFICATION-PROCEDURE must specify: which TIGER files to download, from which URLs, with which expected checksums; which Docker image to use; which command to run; and what the expected output root is. Anyone following this procedure must get the same root, or the build is not reproducible.
+The build must be documented as a procedure, not just as code. A document titled `BUILD-VERIFICATION-PROCEDURE.md` must specify: which TIGER files to download, from which URLs, with which expected checksums; which Docker image to use; which command to run; and what the expected output root is. Anyone following this procedure must get the same root, or the build is not reproducible.
+
+**Current implementation status (2026-04-23):** `BUILD-VERIFICATION-PROCEDURE.md` is **not yet published** in the voter-protocol repo. The build tooling exists in `packages/shadow-atlas/` but the end-to-end "download → hash → build → compare root" procedure has no one-page documentation a third-party verifier can follow without reading source. Remediation tracked under §6.1 alongside the Census checksum manifest.
 
 The build manifest must be published alongside the root. When a new root is registered on-chain, the operator must publish (at minimum on a public git repository and ideally on Arweave) a manifest containing: TIGER file checksums used, tool versions, build timestamp, intermediate cell-district mapping digest, and final root hash.
 
 ### 6.2 Timelocked Root Registration
 
-**Target:** v1.0 launch (contract modification)
+**Status:** Deferred — not in current contracts.
 **Addresses:** Gap 5.2 (Immediate Root Registration)
 **Cost:** Contract redeployment
 
-Root registration must follow the propose/execute pattern already used by VerifierRegistry, adapted to the root registries.
+Root registration currently executes immediately with no timelock — see `contracts/src/UserRootRegistry.sol:84-101` (`registerUserRoot` activates roots in the same transaction). The registries carry 7-day timelocks only for deactivation, expiry, and governance-transfer operations, not for registration. Closing this gap requires a propose/execute pattern modeled on `VerifierRegistry`, adapted to the root registries.
 
-**Proposed flow:**
+**Proposed flow (unimplemented):**
 
 `proposeUserRoot(root, country, depth)` — Governance submits a proposed root. A `UserRootProposed` event is emitted. A 7-day timelock begins. The root is not yet active.
 
@@ -493,7 +497,7 @@ Proving time for a full nationwide tree rebuild would be on the order of minutes
 
 These metrics are published as a public dashboard, not used for access control. Congressional offices can consult the dashboard when evaluating message campaigns. The protocol does not block coordinated campaigns — it makes coordination patterns visible, preserving the right of verified constituents to participate in organized advocacy while giving recipients the information to distinguish organic sentiment from manufactured consensus.
 
-**Proof-message binding:** The current architecture binds proofs to action domains (which encode template + session), not to message content. This is the correct design. Content binding would create the template fingerprinting attack described in Gap 5.6. The action domain binding is sufficient because each `action_domain = keccak256("communique.v1" || jurisdiction || template_id || session_id)` scopes the proof to a specific campaign context. Content integrity at the message level is deferred to Phase 2 TEE-based delivery, where the TEE can verify message content matches the template without exposing content on-chain.
+**Proof-message binding:** The current architecture binds proofs to action domains (which encode template + recipient + session), not to message content. This is the correct design. Content binding would create the template fingerprinting attack described in Gap 5.6. The action domain binding is sufficient because `action_domain = keccak256("commons.v1" || country || jurisdictionType || recipientSubdivision || templateId || sessionId) mod BN254` scopes the proof to a specific (campaign, recipient, session) tuple — see [COORDINATION-INTEGRITY-SPEC.md §5](./COORDINATION-INTEGRITY-SPEC.md). Content integrity at the message level is deferred to Phase 2 TEE-based delivery, where the TEE can verify message content matches the template without exposing content on-chain.
 
 **Delivery path security:** The `mailto:` delivery path (used for state/local officials without CWC integration) currently bypasses blockchain proof submission. This path must be fenced: messages sent via `mailto:` should carry a visible label indicating they are unverified by the on-chain system, preserving the distinction between verified and unverified channels.
 

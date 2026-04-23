@@ -154,7 +154,7 @@ Every hash output carries a domain tag occupying a fixed position in the Poseido
 | `DOMAIN_HASH4` | `0x48344d` | `H4M` | 4 | 2-round sponge (§3.2) | User leaf commitment |
 | `DOMAIN_POS_COMMIT` | `0x50434d` | `PCM` | 3 | `[arg, wt, rand, PCM]` | Debate position commitment |
 | `DOMAIN_POS_NUL` | `0x504e4c` | `PNL` | 3 | `[key, c, dbt, PNL]` | Debate position nullifier |
-| `DOMAIN_SPONGE_24` | `0x534f4e47455f24` | `SONGE_24` | 24 | capacity init | District commitment (24-slot sponge) |
+| `DOMAIN_SPONGE_24` | `0x534f4e47455f24` | `SONGE_$` (mnemonic `SONGE_24`) | 24 | capacity init | District commitment (24-slot sponge) |
 
 **FROZEN post-launch.** Any change requires a protocol-wide re-hash and is a hard fork. These tags are committed in Commons memory (`crypto_primitives_map.md`) and mirrored in the TypeScript `poseidon2.ts` and every circuit `main.nr`.
 

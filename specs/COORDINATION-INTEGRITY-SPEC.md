@@ -53,7 +53,7 @@ Six attack vectors exist against civic communication infrastructure. Each exploi
 **Status (2026-02-08):** Mitigated via Cycle 3 anti-astroturf hardening:
 - Wave 14a: Cross-provider Sybil closed — `identity_commitment` + `encrypted_entropy` bind identity across providers
 - Wave 14b: `user_secret = Poseidon2(identity_commitment, user_entropy)` — deterministic derivation prevents multi-secret attacks
-- Wave 14c/14d: Authority level derived from verification method + document type; on-chain `actionDomainMinAuthority` with bounds validation and 24h timelock for increases
+- Wave 14c/14d: Authority level derived from verification method + document type; on-chain `actionDomainMinAuthority` with bounds validation and a configurable `authorityTimelock` for increases (deployed at 24h, minimum 10 minutes per `DistrictGate.sol:MIN_AUTH_INCREASE_TIMELOCK`)
 - Residual: Users with 5 OAuth accounts from 5 providers can still create 5 accounts, but only one can reach authority level 4+ (passport-verified identity commitment is unique per person). See [Section 8](#8-identity-binding-and-authority-levels).
 
 ### 1.2 Coordinated Single-Voting
@@ -182,10 +182,17 @@ The EIP-712 signature (`DistrictGate.sol:118-120`) covers `proofHash` and `publi
 
 ### 3.2 Why Action Domain Binding Is Sufficient
 
-The `action_domain` is computed from the template ID:
+The `action_domain` is computed from the template ID and recipient addressing tuple. Reference implementation: [`commons/src/lib/core/zkp/action-domain-builder.ts`](https://github.com/communisaas/commons/blob/main/src/lib/core/zkp/action-domain-builder.ts):
 
 ```
-action_domain = keccak256("communique.v1" || country || legislature || template_id || session_id)
+action_domain = keccak256(abi.encodePacked(
+  "commons.v1",            // protocol_version
+  country,                 // ISO 3166-1 alpha-2
+  jurisdictionType,        // "federal" | "state" | "local" | "international"
+  recipientSubdivision,    // ISO 3166-2 or "{state}-{locality}"
+  templateId,              // the user-created campaign / message template
+  sessionId                // e.g., "119th-congress"
+)) mod BN254_MODULUS
 ```
 
 When `DistrictGate` verifies a proof and records a nullifier for this `action_domain`, an immutable on-chain record links this user's proof to this specific template. The template text is public on the platform. Anyone can look up what template corresponds to the action domain.
@@ -194,7 +201,7 @@ When `DistrictGate` verifies a proof and records a nullifier for this `action_do
 
 **What this does NOT bind:** The exact message text delivered. If the user personalizes the template via `[Personal Connection]`, that personalization is not on-chain. If the backend modifies the personalization, the on-chain record doesn't catch it.
 
-**Acceptable tradeoff:** Template identity binding via `action_domain` is sufficient for anti-astroturf purposes. The template defines the civic action; the personalization is supplementary. A compromised backend that changes which template is associated with a proof would need to register a different `action_domain` on-chain (subject to 7-day governance timelock), which is detectable.
+**Acceptable tradeoff:** Template identity binding via `action_domain` is sufficient for anti-astroturf purposes. The template defines the civic action; the personalization is supplementary. A compromised backend that changes which template is associated with a proof would need to register a different `action_domain` on-chain via `DistrictGate.proposeActionDomain()` → 7-day `ACTION_DOMAIN_TIMELOCK` → `executeActionDomain()`, a two-phase flow whose `ActionDomainProposed` event is publicly observable during the timelock.
 
 **Pitfall:** A compromised backend could deliver the correct template but strip or alter the user's personal story. This is a message integrity issue, not an astroturf issue. **Mitigation for Phase 2:** The TEE architecture (AWS Nitro Enclave) constructs the final CWC XML inside the enclave, where the backend cannot tamper with it. The encrypted witness includes both the template and personalization, decryptable only inside the TEE. When the TEE path is deployed, message integrity is cryptographically enforced. Until then, this gap is documented and accepted (see IMPLEMENTATION-GAP-ANALYSIS Round 4, CI-001).
 
@@ -287,44 +294,53 @@ v(t) = d(participantCount) / dt
 
 ---
 
-## 5. Nullifier Scoping Revision
+## 5. Nullifier Scoping
 
 ### 5.1 Current Scoping
 
-```
-action_domain = keccak256("communique.v1" || country || legislature || template_id || session_id)
-```
-
-One nullifier per template per congressional session. Server fans out to all representatives. User cannot re-send the same template within the session.
-
-### 5.2 Problem
-
-Users reasonably expect to send a template to their House representative today and their senators next week. The current scoping blocks this — both actions share the same `action_domain` because `template_id` and `session_id` are identical.
-
-This pushes users to the mailto: path (which has no proof, no nullifier, no on-chain record), undermining the entire coordination integrity architecture.
-
-### 5.3 Revised Scoping
+Implemented derivation (`commons/src/lib/core/zkp/action-domain-builder.ts:151-170`):
 
 ```
-action_domain = keccak256(
-    abi.encodePacked(
-        bytes32("communique.v2"),         // Updated protocol prefix
-        bytes3(country_code),             // "USA", "GBR", etc.
-        bytes8(legislature_id),           // "congress", "parliamt", "council"
-        bytes32(template_id),             // Template identifier
-        bytes16(session_id),              // "119th" (2025-2027)
-        bytes8(recipient_chamber)         // NEW: "senate", "house", "upper", "lower", "council"
-    )
-)
+action_domain = keccak256(abi.encodePacked(
+  "commons.v1",          // protocol_version
+  country,               // ISO 3166-1 alpha-2
+  jurisdictionType,      // "federal" | "state" | "local" | "international"
+  recipientSubdivision,  // ISO 3166-2 or "{state}-{locality}"
+  templateId,            // template registry ID (the "campaign")
+  sessionId              // e.g., "119th-congress"
+)) mod BN254_MODULUS
 ```
 
-**Impact:**
-- User can send a template to House AND Senate (different `recipient_chamber` → different `action_domain` → different nullifiers).
-- User still cannot send the same template to the same chamber twice within the session.
-- On-chain metrics now distinguish House vs Senate participation.
-- Governance must register 2-3 action domains per template instead of 1 (one per chamber the template targets).
+One nullifier per (user, template, session, recipient subdivision). A user can message different recipients (different `recipientSubdivision`) for the same template without nullifier collisions — e.g., their senator (`US-CA`) and their representative (`US-CA-12`) resolve to different action domains and therefore different nullifiers.
 
-**Pitfall:** More action domains means more governance overhead. Each requires a 7-day timelock via `DistrictGate.proposeActionDomain()`. **Mitigation:** Batch registration via a helper contract (`ActionDomainBatchRegistrar`) that proposes multiple domains in a single transaction. The 7-day timelock still applies, but the administrative burden is reduced.
+### 5.2 What the current scoping handles and does not handle
+
+**Handles.** Because `recipientSubdivision` is part of the hash, a user in CA-12 can send the same template to their House representative (`recipientSubdivision = "US-CA-12"`) and their Senators (`recipientSubdivision = "US-CA"`) as separate actions producing distinct nullifiers.
+
+**Does not handle (Phase 2 gap).** The schema does not distinguish upper vs. lower chamber in jurisdictions where both share a subdivision. For federal Senate messages the user's subdivision is the state (`US-CA`); for House messages it's the district (`US-CA-12`). In the current implementation this distinction is load-bearing on the subdivision encoding, not on a dedicated chamber field. If a future requirement demands a per-chamber axis orthogonal to subdivision, a versioned derivation (`commons.v2`) with an explicit chamber field is the planned remediation.
+
+### 5.3 Proposed v2 derivation (not yet implemented)
+
+The following extension is **proposed**, not implemented. It would require a `commons.v2` protocol version and corresponding contract-side whitelist entries:
+
+```
+action_domain = keccak256(abi.encodePacked(
+  "commons.v2",           // bumped protocol prefix
+  country,                // ISO 3166-1 alpha-2
+  jurisdictionType,       // enum as in v1
+  recipientSubdivision,   // as in v1
+  templateId,             // as in v1
+  sessionId,              // as in v1
+  recipientChamber        // NEW: "upper" | "lower" | "council" | "executive"
+))
+```
+
+**Impact if adopted:**
+- Explicit House/Senate axis without overloading `recipientSubdivision`.
+- Governance must whitelist a separate `action_domain` per chamber the template targets (typically 2 — House and Senate).
+- v1 and v2 domains coexist until v1 templates are retired; the whitelist accepts both during the transition.
+
+**Status:** No contract changes or client-side code exist for v2 yet. Tracked for Phase 2 if chamber orthogonality becomes a product requirement.
 
 ### 5.4 Generalization Beyond Legislatures
 
@@ -663,19 +679,18 @@ Each decision-maker context requires a delivery adapter that translates the prot
 
 ### 12.3 Generalized Action Domain Schema
 
-The action domain schema from [Section 5.3](#53-revised-scoping) generalizes cleanly:
+The implemented `commons.v1` schema already generalizes beyond US Congress — `jurisdictionType` covers federal/state/local/international and `sessionId` is any legislative-session-equivalent identifier. The proposed `commons.v2` extension adds an orthogonal chamber axis if needed:
 
 ```
-action_domain = keccak256(
-    abi.encodePacked(
-        bytes32("communique.v2"),
-        bytes3(country_code),
-        bytes8(jurisdiction_type),    // "congress", "state_leg", "council", "school_bd", "regulator", "corp_gov"
-        bytes32(template_id),
-        bytes16(session_id),          // "119th", "2026", "Q1-2026", etc.
-        bytes8(recipient_subdivision) // "senate", "house", "upper", "lower", "board", "comment"
-    )
-)
+action_domain = keccak256(abi.encodePacked(
+  "commons.v2",           // bumped protocol prefix (proposed)
+  country,                // ISO 3166-1 alpha-2
+  jurisdictionType,       // "federal" | "state" | "local" | "international"
+  recipientSubdivision,   // ISO 3166-2 or "{state}-{locality}"
+  templateId,
+  sessionId,              // legislative session or equivalent (see below)
+  recipientChamber        // NEW in v2: "upper" | "lower" | "council" | "executive"
+))
 ```
 
 The `session_id` field generalizes beyond congressional sessions:
