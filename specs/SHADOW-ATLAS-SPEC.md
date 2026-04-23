@@ -6,8 +6,8 @@
 > This specification covers how shadow-atlas acquires, processes, and serves geographic
 > district data (TIGER/Line boundaries, H3 cell mapping, coverage validation).
 >
-> For the **cryptographic proof architecture** (Merkle trees, ZK circuits, smart contracts),
-> see `specs/TWO-TREE-ARCHITECTURE-SPEC.md`.
+> For the **cryptographic proof architecture** (circuits, Merkle trees, domain separation, nullifier scheme, trusted setup),
+> see [`specs/CRYPTOGRAPHY-SPEC.md`](CRYPTOGRAPHY-SPEC.md) (canonical).
 >
 > **Implementation:** SQLite + better-sqlite3, 6 GET endpoints, US-only.
 
@@ -863,7 +863,7 @@ interface GISValidationRules {
 4. Verify attribution completeness
 5. Transform to WGS 84 if necessary
 6. Store in `/packages/crypto/data/city-council-districts/{city}.geojson`
-7. Generate checksum (SHA-256)
+7. Compute SHA-256 digest of the downloaded file and record it in metadata (see `packages/shadow-atlas/src/providers/us-census-tiger.ts:230,408-411`). **Note:** the digest is computed from the downloaded bytes but not yet validated against a source-published manifest; a tampered-in-transit file would still produce *some* digest. Pinned-manifest validation is tracked in [TRUST-MODEL-AND-OPERATOR-INTEGRITY.md §6.1](./TRUST-MODEL-AND-OPERATOR-INTEGRITY.md).
 8. Commit with metadata: source URL, download date, authority
 ```
 
@@ -1518,8 +1518,8 @@ The nullifier provides sybil resistance - ensuring one user cannot act multiple 
 
 ### 9.1 Completed Components (Updated 2025-11-18)
 
-✅ **Multi-Layer Boundary Resolution System (PRODUCTION-READY):**
-- Layer 2 (Foundation): TIGER PLACE provider operational (100% US coverage)
+✅ **Multi-Layer Boundary Resolution System (data-acquisition layer):**
+- Layer 2 (Foundation): TIGER PLACE provider — data **download** path operational for 100% of US states (see `packages/shadow-atlas/src/providers/us-census-tiger.ts`). Note: downloaded data is not yet cell-mapped into a BoundaryMap; see Phase 3 below.
 - Enhanced validation pipeline with geographic bounds checking
 - Multi-layer coordinator with graceful fallback
 - State-level caching (download once, filter many cities)
@@ -1593,12 +1593,13 @@ The nullifier provides sybil resistance - ensuring one user cannot act multiple 
    - Proposed: Epoch-based versioning with grace periods
 
 2. **IPFS Hosting:** Who pins Shadow Atlas data? Decentralized redundancy strategy?
-   - **RESOLVED:** Unified IPFS strategy for Shadow Atlas + Identity Blobs
-   - **Primary Pinning:** Pinata free tier (1 GB = 5M users at 200 bytes/blob)
-   - **Redundancy:** NFT.storage (Filecoin permanence, one-time fee)
-   - **Community:** Incentivize self-pinning with Phase 2 VOTER tokens
-   - **Cost:** Near-zero (Pinata free tier covers millions of users)
+   - **PROPOSED (not yet contractually resolved):** Unified IPFS strategy for Shadow Atlas + Identity Blobs
+   - **Primary Pinning (proposed):** Pinata free tier (1 GB = 5M users at 200 bytes/blob)
+   - **Redundancy (proposed):** NFT.storage (Filecoin permanence, one-time fee)
+   - **Community incentive (Phase 2 token-gated):** Self-pinning rewarded with VOTER tokens when Phase 2 ships
+   - **Cost:** Near-zero (Pinata free tier covers millions of users in the proposal)
    - **Reference:** See `docs/specs/portable-identity.md` (external repo: communique)
+   - **Status (2026-04-23):** No production pinning contract or backend service is wired; current atlas chunks live in whatever pinning the deploy shim provides. Closing this item requires a concrete provider commitment and fallback story for when a provider sunsets (see `commons/memory/storacha_sunset_migration.md`).
 
 3. **Data Freshness:** How do we detect stale municipal GIS data?
    - Proposed: Automated quarterly checks with diff detection
@@ -1756,7 +1757,7 @@ Tree 2 (Cell-District Mapping): Sparse Merkle tree (SMT)
 **3. Data Pipeline Simplicity**
 - **Direct Ingestion:** TIGER/Line district boundaries load directly into district trees.
 - **No Cell Mapping:** Avoids building 242K cell → 14 district mappings.
-- **Incremental Updates:** Congressional redistricting only rebuilds congressional tree, not entire 242K-cell structure.
+- **Incremental Updates:** Redistricting is delivered through the BEF (Block Equivalency File) overlay path in `packages/shadow-atlas/src/hydration/bef-overlay.ts`, which updates slot 0 of the 14-slot per-cell structure. The overlay applies to the unified cell tree and can re-map any district type (congressional, state-legislative, etc.) depending on which BEF is applied, rather than being limited to the congressional tree.
 
 **4. Use Case Alignment**
 - **Communique (Civic Messaging):** Needs congressional + state leg + city council (3 proofs)

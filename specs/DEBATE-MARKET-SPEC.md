@@ -2,10 +2,18 @@
 
 > **Spec ID:** DBM-001
 > **Version:** 0.1.0
-> **Status:** DESIGN
+> **Status:** DESIGN (not live — see Implementation Status below)
 > **Date:** 2026-02-24
 > **Companion Documents:** REPUTATION-ARCHITECTURE-SPEC.md, COMMUNIQUE-INTEGRATION-SPEC.md, CHALLENGE-MARKET-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md
-> **Prerequisite:** Three-tree architecture operational (31 public inputs)
+> **Prerequisite:** Three-tree architecture operational (31 public inputs) — verified in `DebateMarket.sol:1035-1040` (`uint256[31] calldata publicInputs`).
+
+## Implementation Status (as of 2026-04-23)
+
+- **Feature flag:** `FEATURES.DEBATE = false` in `commons/src/lib/config/features.ts:21`. The debate market is **not live** in production.
+- **Infrastructure present:** three-tree proof verification path, `DebateMarket.sol` scaffolding, `debate_weight` + `position_note` Noir circuits, LMSR math library.
+- **Deferred to Phase 2:** private settlement with token payout (currently attestation only per `DebateMarket.sol:1369-1370`), AI evaluation integration (external service, off-chain), unlinkable-relayer pattern.
+
+The rest of this document describes the full design. Where it uses present-tense phrasing for a Phase 2 or external component, a "Status" line flags the delta from implementation.
 
 ---
 
@@ -85,7 +93,7 @@ OPEN → TRADE → RESOLVE → SETTLE
 
 **OPEN** — Any verified member opens a market on an existing template by staking a proposer bond. The template becomes the proposition. The market inherits the template's jurisdiction scope.
 
-**TRADE** — Participants buy and sell positions on arguments. Each argument is an outcome in an LMSR (Logarithmic Market Scoring Rule) automated market maker. New arguments can be submitted during the trade window, creating new outcomes in the LMSR. Existing positions can be increased or exited.
+**TRADE** — Participants buy and sell positions on arguments. Each argument is an outcome in an LMSR (Logarithmic Market Scoring Rule) automated market maker. New arguments can be submitted until `deadline − ARGUMENT_COOLDOWN` (1 hour before the trade window closes per `DebateMarket.sol:187`). New arguments enter with `q_i = 0`; LMSR quantities for existing arguments are not dynamically rebalanced. Existing positions can be increased or exited.
 
 **RESOLVE** — After the trade window closes, a two-stage resolution determines the winning argument:
 - Stage 1: AI evaluation panel scores argument quality (reasoning, evidence, accuracy)
@@ -121,7 +129,7 @@ Prices always sum to 1. A price of 0.62 for AMEND means the market assigns 62% w
 3. All valid reveals in the epoch are applied to the LMSR state simultaneously
 4. New prices are published
 
-All traders within an epoch receive the same **average execution price** for that batch. No intra-epoch ordering, no front-running, no MEV.
+All valid reveals in the epoch are applied to the LMSR state in a single `executeEpoch()` call (`DebateMarket.sol:1191-1204`), producing one market price published after execution. No intra-epoch ordering, no front-running, no MEV.
 
 ### 3.3 Anti-Plutocratic Weighting in the LMSR
 
@@ -296,7 +304,7 @@ AI evaluation happens off-chain inside the enclave. The attestation is submitted
 
 **Source grounding:** Before scoring, the enclave extracts verifiable claims from each argument and retrieves external sources (via Exa neural search). Scores for accuracy and evidence dimensions are grounded in actual source material, not model training data alone. Per-claim verdicts and source citations are included in the evaluation transparency data.
 
-**Cost:** ~$0.12 per debate evaluation (on-demand Graviton instance, not always-on). Source retrieval adds ~$0.06/debate. No standing infrastructure.
+**Cost (projected, external service):** ~$0.12 per debate evaluation on an on-demand Graviton Nitro Enclave, with ~$0.06/debate for source retrieval. These numbers are design targets — the evaluation pipeline is external to this repo and is not invoked by any on-chain code. `IAIEvaluationRegistry` and `submitAIEvaluation()` currently accept pre-computed scores via EIP-712 signatures without invoking a TEE.
 
 **Stage 2: Tier-Weighted Community Signal**
 
@@ -365,6 +373,8 @@ This is the same escalation pattern from the challenge market architecture (§5:
 ---
 
 ## 7. Settlement
+
+> **Implementation status.** `settlePrivatePosition()` in `DebateMarket.sol:1331-1374` currently performs **attestation only** — it verifies the position-note ZK proof, records the nullifier, and stores `claimedWeight`, but does **not** transfer tokens. The comment at `DebateMarket.sol:1369-1370` marks token payout as Phase 4 (Flow Encryption). The math below describes the full design; Phase 2 ships only the attestation half.
 
 ### 7.1 Payout Math
 
@@ -668,9 +678,9 @@ Epoch N                          Epoch N+1
 
 LMSR state updates require exponentiation (`exp(q_i / b)`), which is expensive on-chain. Optimizations:
 
-1. **Fixed-point math:** All LMSR calculations use 18-decimal fixed-point arithmetic. No floating point.
-2. **Incremental updates:** The LMSR cost function is incrementally updated — only the `q_i` values that changed in the epoch are recalculated.
-3. **Off-chain computation with on-chain verification:** The relayer computes the new prices off-chain and submits them with a proof of correctness. The contract verifies the proof rather than recomputing. This reduces on-chain computation to a hash verification.
+1. **Fixed-point math:** All LMSR calculations use 18-decimal fixed-point arithmetic via PRB-Math `SD59x18` (`LMSRMath.sol`). No floating point.
+2. **Incremental updates (current):** `executeEpoch()` updates only the `q_i` values that changed during the epoch and recomputes prices in the same call.
+3. **Off-chain computation with on-chain verification (Phase 2, proposed):** A relayer could compute new prices off-chain and submit them with a proof of correctness, reducing on-chain work to a hash check. Not implemented — current `DebateMarket.executeEpoch()` recomputes prices on-chain every epoch.
 4. **Scroll L2 gas:** SSTORE on Scroll is ~200 gas (vs ~20,000 on L1). Epoch execution with 10 trades and 5 arguments: estimated ~50,000 gas on Scroll (~$0.01 at current gas prices).
 
 ---
@@ -681,7 +691,7 @@ LMSR state updates require exponentiation (`exp(q_i / b)`), which is expensive o
 
 **What ships:**
 - `DebateMarket.sol` with commit-reveal trading and batch LMSR
-- Relayer-submitted trades (wallet address unlinkable)
+- Relayer-submitted trades: traders reach the contract via the protocol relayer, so the `msg.sender` recorded in `commitTrade()`/`revealTrade()` is the relayer, not the trader's wallet. Trader-to-relayer linkability remains a property of the off-chain submission path, not an on-chain guarantee.
 - ZK membership + tier proof for every trade (identity private)
 - Template card debate signal on Communique
 - Debate view with real-time prices
