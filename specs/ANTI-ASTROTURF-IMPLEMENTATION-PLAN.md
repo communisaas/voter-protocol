@@ -2,10 +2,10 @@
 
 > **Version:** 2.0
 > **Date:** 2026-02-08
-> **Status:** COMPLETE — All 11 gaps closed (Waves 13-15 + review waves 13R/14R/15R)
+> **Status:** CODE LANDED, FEATURE-GATED — All 11 gaps have shipping implementations (Waves 13-15 + review waves 13R/14R/15R). Dependent user-facing features remain behind `FEATURES.CONGRESSIONAL = false` and `FEATURES.DEBATE = false` in `commons/src/lib/config/features.ts`; flip is a separate go-live decision, not part of this plan.
 > **Methodology:** Agentic Wave Orchestration (see AGENTIC-WAVE-METHODOLOGY.md)
 > **Companion:** COORDINATION-INTEGRITY-SPEC.md, IMPLEMENTATION-GAP-ANALYSIS.md
-> **Scope:** Both repos — voter-protocol + communique
+> **Scope:** Both repos — voter-protocol + commons (formerly called "communique"; all file paths below refer to the current `commons` layout)
 
 ---
 
@@ -92,7 +92,7 @@ Review waves identified and remediated 12 additional findings including circuit 
 ## Wave 13: Pipeline Hardening & Privacy
 
 **Objective:** Close the 5 application-layer gaps that require no contract changes or external infrastructure.
-**Repo:** communique
+**Repo:** commons
 **Dependencies:** None (all changes are self-contained)
 
 ### 13a: Fail-Closed Moderation with Circuit Breaker
@@ -121,8 +121,8 @@ Review waves identified and remediated 12 additional findings including circuit 
    - Client can check health before attempting moderation
 
 **Files:**
-- `communique/src/lib/components/template-browser/parts/ActionBar.svelte` — circuit breaker logic
-- `communique/src/routes/api/moderation/health/+server.ts` — NEW: health check endpoint
+- `commons/src/lib/components/template-browser/parts/ActionBar.svelte` — circuit breaker logic
+- `commons/src/routes/api/moderation/health/+server.ts` — NEW: health check endpoint
 
 **Pitfalls:**
 - **Pitfall:** Circuit breaker that never resets leaves moderation permanently disabled after an outage.
@@ -154,8 +154,8 @@ Review waves identified and remediated 12 additional findings including circuit 
 2. These limits should use the existing sliding-window rate limiter already implemented at `hooks.server.ts:207-297`.
 
 **Files:**
-- `communique/src/hooks.server.ts` — add rate limit rules
-- `communique/src/lib/core/security/rate-limiter.ts` — if new patterns needed
+- `commons/src/hooks.server.ts` — add rate limit rules
+- `commons/src/lib/core/security/rate-limiter.ts` — if new patterns needed
 
 **Pitfalls:**
 - **Pitfall:** Rate limit too aggressive on templates blocks legitimate power users creating campaign templates.
@@ -200,9 +200,9 @@ Review waves identified and remediated 12 additional findings including circuit 
 4. Migration: backfill existing submissions with pseudonymous_id, then drop user_id column.
 
 **Files:**
-- `communique/prisma/schema.prisma` — modify Submission model
-- `communique/src/lib/core/congressional/submission-handler.ts` — compute pseudonymous_id
-- `communique/prisma/migrations/` — NEW migration
+- `commons/prisma/schema.prisma` — modify Submission model
+- `commons/src/lib/core/congressional/submission-handler.ts` — compute pseudonymous_id
+- `commons/prisma/migrations/` — NEW migration
 - `.env.example` — add SUBMISSION_ANONYMIZATION_SALT
 
 **Pitfalls:**
@@ -241,7 +241,7 @@ Review waves identified and remediated 12 additional findings including circuit 
 2. Allow verified users (identity_commitment set) OR high-trust users (trust_score >= 100, meaning verified email) to create templates.
 
 **Files:**
-- `communique/src/routes/api/templates/+server.ts` — add gate
+- `commons/src/routes/api/templates/+server.ts` — add gate
 
 **Pitfalls:**
 - **Pitfall:** Gate too strict blocks legitimate new users who want to create their first template.
@@ -277,7 +277,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 | `/api/email/*` | 10 req/min | User |
 
 **Files:**
-- `communique/src/hooks.server.ts` — wire rate limiter to handle function
+- `commons/src/hooks.server.ts` — wire rate limiter to handle function
 
 **Pitfalls:**
 - **Pitfall:** Redis not configured in dev environment.
@@ -304,7 +304,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 ## Wave 14: Identity & Contract Hardening
 
 **Objective:** Close the cross-provider Sybil gap and add on-chain authority enforcement.
-**Repos:** communique + voter-protocol
+**Repos:** commons + voter-protocol
 **Dependencies:** Wave 13 complete (privacy model settled before identity changes)
 
 ### 14a: Cross-Provider Sybil Closure
@@ -345,10 +345,10 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
    Orchestrates post-verification flow: bind commitment → generate user_secret → register in Shadow Atlas.
 
 **Files:**
-- `communique/src/lib/core/auth/oauth-callback-handler.ts` — add identity linking
-- `communique/src/routes/api/identity/didit/webhook/+server.ts` — hook bindIdentityCommitment
-- `communique/src/lib/core/identity/verification-complete-handler.ts` — NEW orchestrator
-- `communique/src/lib/core/identity/identity-binding.ts` — verify mergeAccounts works correctly
+- `commons/src/lib/core/auth/oauth-callback-handler.ts` — add identity linking
+- `commons/src/routes/api/identity/didit/webhook/+server.ts` — hook bindIdentityCommitment
+- `commons/src/lib/core/identity/verification-complete-handler.ts` — NEW orchestrator
+- `commons/src/lib/core/identity/identity-binding.ts` — verify mergeAccounts works correctly
 
 **Pitfalls:**
 - **Pitfall:** Account merge loses data (submissions, templates, reputation) from the absorbed account.
@@ -391,13 +391,13 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 3. At proof generation time, derive `user_secret` from stored values.
 
 **Files:**
-- `communique/src/lib/core/identity/user-secret-derivation.ts` — NEW
-- `communique/src/lib/core/identity/verification-complete-handler.ts` — generate entropy
-- `communique/src/lib/core/zkp/witness-builder.ts` — use derived user_secret
-- `communique/prisma/schema.prisma` — add `encrypted_entropy` to User model
+- `commons/src/lib/core/identity/user-secret-derivation.ts` — NEW
+- `commons/src/lib/core/identity/verification-complete-handler.ts` — generate entropy
+- `commons/src/lib/core/zkp/witness-builder.ts` — use derived user_secret
+- `commons/prisma/schema.prisma` — add `encrypted_entropy` to User model
 
 **Pitfalls:**
-- **Pitfall:** Poseidon2 not available in communique's TypeScript.
+- **Pitfall:** Poseidon2 not available in commons's TypeScript.
   **Mitigation:** Import from `@voter-protocol/crypto`. Already a dependency.
 - **Pitfall:** Entropy lost = user_secret lost = user can never prove again.
   **Mitigation:** Store entropy both client-side (IndexedDB) and server-side (encrypted). Recovery possible from either.
@@ -429,10 +429,10 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 3. Update `witness-builder.ts` to fetch and use derived authority level.
 
 **Files:**
-- `communique/src/lib/core/identity/authority-level.ts` — NEW
-- `communique/prisma/schema.prisma` — add authority_level field
-- `communique/src/lib/core/zkp/witness-builder.ts` — use derived value
-- `communique/src/lib/components/template/ProofGenerator.svelte` — remove hardcoded value
+- `commons/src/lib/core/identity/authority-level.ts` — NEW
+- `commons/prisma/schema.prisma` — add authority_level field
+- `commons/src/lib/core/zkp/witness-builder.ts` — use derived value
+- `commons/src/lib/components/template/ProofGenerator.svelte` — remove hardcoded value
 
 **Pitfalls:**
 - **Pitfall:** User's authority level changes after proof generation (e.g., they verify identity after sending a Level 1 proof).
@@ -499,7 +499,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
    ```
    to ensure `recipientSubdivision` is actually populated with chamber-specific values in the submission flow.
 
-2. Update communique's submission flow to compute separate action domains per chamber:
+2. Update commons's submission flow to compute separate action domains per chamber:
    - Template targeting House + Senate generates 2 action domains
    - Each domain registered separately on-chain
    - User generates 2 proofs (one per chamber), each with its own nullifier
@@ -507,9 +507,9 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 3. Update `submission-handler.ts` to accept multiple proof submissions per template.
 
 **Files:**
-- `communique/src/lib/core/zkp/action-domain-builder.ts` — ensure chamber values are correct
-- `communique/src/lib/core/congressional/submission-handler.ts` — multi-proof support
-- `communique/src/routes/api/congressional/submit/+server.ts` — accept array of proofs
+- `commons/src/lib/core/zkp/action-domain-builder.ts` — ensure chamber values are correct
+- `commons/src/lib/core/congressional/submission-handler.ts` — multi-proof support
+- `commons/src/routes/api/congressional/submit/+server.ts` — accept array of proofs
 
 **Pitfalls:**
 - **Pitfall:** More action domains = more governance overhead (7-day timelock each).
@@ -534,7 +534,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 ## Wave 15: On-Chain Infrastructure & Indexing
 
 **Objective:** Make the on-chain submission path operational and build the coordination metrics indexer.
-**Repos:** voter-protocol + communique + NEW: indexer repo or package
+**Repos:** voter-protocol + commons + NEW: indexer repo or package
 **Dependencies:** Wave 14 complete (contract changes deployed before indexing)
 
 ### 15a: Relayer Hardening
@@ -562,10 +562,10 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
    - On nonce collision, reset and retry once.
 
 **Files:**
-- `communique/src/lib/core/blockchain/district-gate-client.ts` — circuit breaker, NonceManager
-- `communique/src/lib/core/blockchain/submission-retry-queue.ts` — NEW retry queue
-- `communique/src/routes/api/admin/relayer-health/+server.ts` — NEW health endpoint
-- `communique/src/lib/core/blockchain/balance-monitor.ts` — NEW balance checker
+- `commons/src/lib/core/blockchain/district-gate-client.ts` — circuit breaker, NonceManager
+- `commons/src/lib/core/blockchain/submission-retry-queue.ts` — NEW retry queue
+- `commons/src/routes/api/admin/relayer-health/+server.ts` — NEW health endpoint
+- `commons/src/lib/core/blockchain/balance-monitor.ts` — NEW balance checker
 
 **Pitfalls:**
 - **Pitfall:** Retry queue processes same submission twice after nonce collision.
@@ -602,7 +602,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
    - Day 20-22: E2E testing, monitoring setup
 
 **Files:**
-- `communique/.env.example` — add missing vars
+- `commons/.env.example` — add missing vars
 - `voter-protocol/contracts/MAINNET-DEPLOYMENT-CHECKLIST.md` — update with full sequence
 
 **Pitfalls:**
@@ -673,10 +673,10 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
    ```
 
 **Files:**
-- `communique/src/routes/api/metrics/campaign/[id]/+server.ts` — NEW
-- `communique/src/routes/api/metrics/action/[domain]/+server.ts` — NEW
-- `communique/src/routes/api/metrics/global/+server.ts` — NEW
-- `communique/src/lib/core/metrics/coordination-metrics.ts` — NEW computation logic
+- `commons/src/routes/api/metrics/campaign/[id]/+server.ts` — NEW
+- `commons/src/routes/api/metrics/action/[domain]/+server.ts` — NEW
+- `commons/src/routes/api/metrics/global/+server.ts` — NEW
+- `commons/src/lib/core/metrics/coordination-metrics.ts` — NEW computation logic
 
 **Pitfalls:**
 - **Pitfall:** Metrics API is slow if subgraph query is slow.
@@ -703,8 +703,8 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 3. This is NOT a delivery guarantee (user could click without sending). It's a UX signal: "I sent this."
 
 **Files:**
-- `communique/src/lib/services/emailService.ts` — append confirmation link to mailto body
-- `communique/src/routes/api/email/confirm/[id]/+server.ts` — NEW confirmation endpoint
+- `commons/src/lib/services/emailService.ts` — append confirmation link to mailto body
+- `commons/src/routes/api/email/confirm/[id]/+server.ts` — NEW confirmation endpoint
 
 **Pitfalls:**
 - **Pitfall:** Confirmation link leaks submission ID in email body → privacy concern.
@@ -847,7 +847,7 @@ Wave 16 (Documentation Sync)
 
 | Wave | Scope | Estimated Implementation | Review |
 |------|-------|-------------------------|--------|
-| 13 | 5 tasks, communique only | 1 session | 1 review wave |
+| 13 | 5 tasks, commons only | 1 session | 1 review wave |
 | 14 | 5 tasks, both repos | 2 sessions | 1 review wave |
 | 15 | 5 tasks, both repos + indexer | 2 sessions | 1 review wave |
 | 16 | Documentation only | 1 session | Final review |

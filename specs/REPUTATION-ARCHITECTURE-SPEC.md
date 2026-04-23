@@ -5,7 +5,7 @@
 > **Status:** IMPLEMENTATION — Cycles 19-20 complete. Circuit, contracts, prover, and shadow-atlas service layers implemented. v0.2.0: composite engagement score, Shannon diversity index, template adoption quality signal, launch parameters. v0.3.0: resolved four deferred decisions (decay, percentile tiers, authority weighting, soulbound credential) — all resolved as "keep current design."
 > **Date:** 2026-03-05
 > **Authors:** Architecture Review
-> **Companion Documents:** TWO-TREE-ARCHITECTURE-SPEC.md, CHALLENGE-MARKET-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md, TRUST-MODEL-AND-OPERATOR-INTEGRITY.md
+> **Companion Documents:** CRYPTOGRAPHY-SPEC.md (canonical crypto), CHALLENGE-MARKET-ARCHITECTURE.md, COORDINATION-INTEGRITY-SPEC.md, TRUST-MODEL-AND-OPERATOR-INTEGRITY.md. Historical: archive/TWO-TREE-ARCHITECTURE-SPEC.md (registration/recovery flow details).
 > **Prerequisite:** Two-tree architecture fully operational (Cycle 17)
 
 ---

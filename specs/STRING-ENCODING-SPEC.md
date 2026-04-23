@@ -1,17 +1,23 @@
 # String-to-Field Encoding Specification
 
-> **Version:** 1.0.0
-> **Status:** NORMATIVE
-> **Date:** 2026-01-26
+> **Version:** 1.1.0
+> **Status:** NORMATIVE (updated for BA-022 length-prefix fix)
+> **Date:** 2026-01-26 (§ Encoding Algorithm revised 2026-04-23)
 > **Author:** Voter Protocol Engineering
 
 ---
 
 ## Overview
 
-This document specifies how strings are encoded as BN254 field elements for Poseidon2 hashing in the voter-protocol. This specification is critical for ensuring cross-implementation compatibility between TypeScript and Noir ZK circuits.
+This document specifies how strings are encoded as BN254 field elements for **Poseidon2** hashing in the voter-protocol. This specification is critical for ensuring cross-implementation compatibility between TypeScript and Noir ZK circuits.
 
-**Why This Matters:** Any divergence in string encoding between implementations will cause Merkle proof verification failures. The encoding algorithm must be implemented identically in all environments where string hashes are computed.
+**Scope — what is covered:**
+- Poseidon2 string hashing (`hashString`) used inside ZK circuits for deterministic field-element derivation of strings (template ids, session ids, etc. when they appear as circuit inputs).
+
+**Scope — what is NOT covered:**
+- `action_domain` derivation, which does *not* use Poseidon2. `action_domain = keccak256(abi.encodePacked(protocol, country, jurisdictionType, recipientSubdivision, templateId, sessionId)) mod BN254`, implemented via Ethers `solidityPackedKeccak256` in `commons/src/lib/core/zkp/action-domain-builder.ts`. That path has its own semantics — see COORDINATION-INTEGRITY-SPEC § action_domain.
+
+**Why This Matters:** Any divergence in Poseidon2 string encoding between implementations will cause Merkle proof verification failures. The encoding algorithm must be implemented identically in all environments where string hashes are computed.
 
 ---
 
@@ -74,16 +80,18 @@ for (const byte of chunk) {
 }
 ```
 
-### Step 4: Hash Field Elements
+### Step 4: Hash Field Elements (BA-022 length-prefix algorithm)
 
-The hashing strategy depends on the number of chunks:
+The hash is seeded with the UTF-8 byte length, then each chunk is folded in left-to-right:
 
-| Chunks | Hashing Strategy |
-|--------|------------------|
-| 0 (empty string) | `hashSingle(0n)` |
-| 1 | `hashSingle(chunks[0])` |
-| 2 | `hashPair(chunks[0], chunks[1])` |
-| 3+ | Iterative: `hashPair(hashPair(chunks[0], chunks[1]), chunks[2])`, etc. |
+```
+hash ← hashSingle(byte_length)
+for chunk in chunks:
+    hash ← hashPair(hash, chunk)
+return hash
+```
+
+**Rationale (BA-022):** Without a length commitment, `""` and `"\x00"` both chunk to `[0n]` and collide under `hashSingle(0n)`; more broadly, any two strings whose 31-byte chunk sequences share a common suffix (trailing zero bytes) could collide. Seeding with the byte length makes every distinct string length a separate domain.
 
 ### Complete Reference Implementation
 
@@ -115,24 +123,19 @@ function stringToFieldElements(str: string): bigint[] {
  * @returns Poseidon2 hash as bigint
  */
 async function hashString(str: string): Promise<bigint> {
+  const bytes = Buffer.from(str, 'utf-8');
   const chunks = stringToFieldElements(str);
 
-  if (chunks.length === 0) {
-    // Empty string: hash zero
-    return hashSingle(0n);
-  } else if (chunks.length === 1) {
-    // Single chunk: hash directly
-    return hashSingle(chunks[0]);
-  } else {
-    // Multiple chunks: iterative hashing
-    let hash = await hashPair(chunks[0], chunks[1]);
-    for (let i = 2; i < chunks.length; i++) {
-      hash = await hashPair(hash, chunks[i]);
-    }
-    return hash;
+  // BA-022: seed with byte length for domain separation
+  let hash = await hashSingle(BigInt(bytes.length));
+  for (const chunk of chunks) {
+    hash = await hashPair(hash, chunk);
   }
+  return hash;
 }
 ```
+
+**Canonical implementation:** `voter-protocol/packages/crypto/poseidon2.ts:553-583` (method `hashString`). Any reference to this spec's algorithm must match that function byte-for-byte, including the length-prefix seed.
 
 ---
 
@@ -193,9 +196,11 @@ Hashing:
 
 ## Test Vectors
 
-The following test vectors are derived from the actual Poseidon2 implementation using `@noir-lang/noir_js`. These values MUST be reproduced by any compatible implementation.
+> **⚠️ STALE — REGENERATION REQUIRED.** The vectors below were computed against the pre-BA-022 algorithm (no length prefix). They do **not** match the current `hashString` implementation in `poseidon2.ts` and will not verify against circuits built with it. Any consumer of this spec must regenerate vectors against the canonical TS implementation before relying on them, using the updated algorithm documented in Step 4 above.
 
-### Basic Test Vectors
+The following test vectors were originally derived from the Poseidon2 implementation using `@noir-lang/noir_js`. **They are retained here for historical reference and must be replaced.**
+
+### Basic Test Vectors (PRE-BA-022 — DO NOT USE)
 
 | Input | UTF-8 Bytes | Chunks | Expected Hash |
 |-------|-------------|--------|---------------|

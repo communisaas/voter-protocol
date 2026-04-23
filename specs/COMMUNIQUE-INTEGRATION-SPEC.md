@@ -28,7 +28,7 @@
 **Version:** 0.4.0
 **Date:** 2026-02-16
 **Status:** ACTIVE — Verifiable Solo Operator complete (Waves 39-41), recovery plumbing complete (Waves 30-31), circuit rework complete (Wave 24). NUL-001 RESOLVED: identity_commitment wired via attestationHash.
-**Depends on:** TWO-TREE-ARCHITECTURE-SPEC.md v0.4.0
+**Depends on:** CRYPTOGRAPHY-SPEC.md (canonical). Historical context: archive/TWO-TREE-ARCHITECTURE-SPEC.md (registration/recovery flow details).
 
 ---
 

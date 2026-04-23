@@ -29,7 +29,7 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - Leaf preimage completeness (does the leaf bind all security-critical fields?)
 
 **Key Files:**
-- `packages/crypto/noir/district_membership/src/main.nr` - Circuit constraints
+- `packages/crypto/noir/three_tree_membership/src/main.nr` - Current circuit constraints (single-tree `district_membership` is dead code — see CRYPTOGRAPHY-SPEC §11.1)
 - `packages/crypto/src/poseidon2.ts` - TypeScript hash implementation
 - `packages/noir-prover/src/fixtures.ts` - Test fixture generation
 
@@ -62,19 +62,19 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - `contracts/src/CampaignRegistry.sol` - Participation tracking
 - `contracts/src/VerifierRegistry.sol` - Depth-to-verifier routing
 
-**Critical Finding:**
-```solidity
-// NullifierRegistry.sol - NO TIMELOCK on governance transfer!
-function transferGovernance(address newGovernance) external onlyGovernance {
-    governance = newGovernance;  // INSTANT - no 7-day delay
-}
+**Historical Finding (RESOLVED 2026-02):**
+```
+# Wave 2 (2026-02-01) claimed NullifierRegistry lacked governance timelock.
+# Status: RESOLVED. NullifierRegistry now inherits TimelockGovernance
+# (NullifierRegistry.sol:33), which serializes transferGovernance through the
+# same propose/execute pattern used by DistrictRegistry / CampaignRegistry.
 ```
 
-**Known Mitigations:**
-- SA-001: actionDomain whitelist with 7-day timelock
-- SA-004: isValidRoot() lifecycle check (just fixed)
-- 14-day timelock on verifier upgrades
-- 7-day timelock on district registration
+**Known Mitigations (verify against deployed timelocks, which are configurable):**
+- SA-001: actionDomain whitelist — configurable timelock on add/remove (MIN 10 min; Scroll mainnet deploys with 7 days per `script/DeployScrollMainnet.s.sol`)
+- SA-004: isValidRoot() lifecycle check (AbstractRootLifecycle)
+- Verifier-depth upgrades — configurable timelock (typically 14 days at deploy)
+- **Root registration is NOT timelocked** — only deactivation / expiry / reactivation carry the 7-day lifecycle timelock. A new root can be registered immediately by authorized operators.
 
 ---
 
@@ -734,12 +734,12 @@ Phase 3: Reporting (15 min per agent)
 
 **New Findings:**
 - CRITICAL: RDH credentials in .env
-- CRITICAL: NullifierRegistry no timelock on governance transfer
+- CRITICAL: NullifierRegistry no timelock on governance transfer — **RESOLVED** (NullifierRegistry now inherits TimelockGovernance; `NullifierRegistry.sol:33`)
 - HIGH: Kubernetes CORS *, imagePullPolicy IfNotPresent
 - HIGH: NPM_TOKEN/DEPLOYER_PRIVATE_KEY in workflows
 - MEDIUM: Facebook OAuth token in URL
 
-**Status:** Documented, pending remediation
+**Status:** Documented; NullifierRegistry timelock resolved, remainder pending remediation
 
 ### Wave 3: Brutalist Round 3 — Two-Tree Architecture (2026-02-04)
 
