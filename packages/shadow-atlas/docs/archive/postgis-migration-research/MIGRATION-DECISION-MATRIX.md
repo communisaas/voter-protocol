@@ -1,15 +1,17 @@
-# Shadow Atlas Migration Decision Matrix
+# Shadow Atlas Migration Decision Matrix (Archive)
 
-**Should you migrate to PostgreSQL + PostGIS now, or continue with TypeScript registry files?**
+**Should you migrate to an indexed spatial database now, or continue with TypeScript registry files?**
 
-This document helps you make an informed decision based on current needs, resources, and timeline.
+This document captures the research notes for making that choice. It is
+durable-store-agnostic — any managed spatial DB with R-tree / GIST-equivalent
+indexing satisfies the requirements below.
 
 ---
 
 ## TL;DR Recommendation
 
-**Migrate to PostgreSQL if**:
-- You plan to offer free public API
+**Migrate to a spatial DB if**:
+- You plan to offer a free public API
 - You need to scale beyond 1000 cities (current: 520)
 - You have concurrent access requirements (multiple users/processes)
 - You want automated staleness detection and update monitoring
@@ -24,20 +26,20 @@ This document helps you make an informed decision based on current needs, resour
 
 ## Feature Comparison
 
-| Feature | TypeScript Registry | PostgreSQL + PostGIS | Winner |
-|---------|---------------------|----------------------|--------|
-| **Point-in-Polygon Query** | 50-100ms (linear scan) | <5ms (GIST index) | PostgreSQL |
-| **Concurrent Access** | Single-threaded (file read) | Multi-user (connection pool) | PostgreSQL |
-| **Update Detection** | Manual (check RSS feeds) | Automated (materialized views) | PostgreSQL |
-| **Provenance Tracking** | Git commits | Append-only audit tables | PostgreSQL |
-| **Spatial Queries** | Requires Turf.js (slow) | Native PostGIS (fast) | PostgreSQL |
-| **API Generation** | Custom Express routes | PostgREST (auto-generated) | PostgreSQL |
-| **Global Scale** | Memory-bound (~10k cities) | Disk-bound (millions of cities) | PostgreSQL |
-| **Data Quality Workflow** | Manual quarantine files | Structured review process | PostgreSQL |
+| Feature | TypeScript Registry | Indexed Spatial DB | Winner |
+|---------|---------------------|---------------------|--------|
+| **Point-in-Polygon Query** | 50-100ms (linear scan) | <5ms (spatial index) | Spatial DB |
+| **Concurrent Access** | Single-threaded (file read) | Multi-user (connection pool) | Spatial DB |
+| **Update Detection** | Manual (check RSS feeds) | Automated (materialized views) | Spatial DB |
+| **Provenance Tracking** | Git commits | Append-only audit tables | Spatial DB |
+| **Spatial Queries** | Requires Turf.js (slow) | Native spatial index (fast) | Spatial DB |
+| **API Generation** | Custom Express routes | Auto-generated from schema | Spatial DB |
+| **Global Scale** | Memory-bound (~10k cities) | Disk-bound (millions of cities) | Spatial DB |
+| **Data Quality Workflow** | Manual quarantine files | Structured review process | Spatial DB |
 | **Setup Time** | 0 (already working) | 2-3 weeks (migration) | TypeScript |
-| **Team Learning Curve** | TypeScript (existing) | SQL + PostGIS (new) | TypeScript |
-| **Deployment Complexity** | Simple (Node.js) | Moderate (Node.js + PostgreSQL) | TypeScript |
-| **Backup Strategy** | Git (automatic) | pg_dump + Git (manual) | TypeScript |
+| **Team Learning Curve** | TypeScript (existing) | SQL + spatial (new) | TypeScript |
+| **Deployment Complexity** | Simple (Node.js) | Moderate (Node.js + DB) | TypeScript |
+| **Backup Strategy** | Git (automatic) | Logical backup + Git (manual) | TypeScript |
 
 ---
 
@@ -70,7 +72,7 @@ export function findDistrictByCoords(lat: number, lng: number): District | null 
 **Worst Case** (cold cache): 7-15 seconds
 **Concurrent Users**: 1 (blocks on file read)
 
-### PostgreSQL Architecture
+### Indexed Spatial DB Architecture
 
 ```sql
 -- Spatial index lookup (O(log n))
@@ -78,8 +80,8 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 -- Query plan:
 -- 1. Partition pruning (country_code = 'US') → scan 1 of 7 partitions
--- 2. GIST index scan → 5-10 candidates (bounding box overlap)
--- 3. ST_Contains refinement → 1 exact match
+-- 2. Spatial index scan → 5-10 candidates (bounding box overlap)
+-- 3. Geometry containment refinement → 1 exact match
 
 -- Performance:
 -- - Index scan: 2-3ms (log₂(7800) ≈ 13 levels)
@@ -93,8 +95,8 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 ### Scaling Projections
 
-| Metric | TypeScript (10k cities) | PostgreSQL (10M cities) |
-|--------|-------------------------|-------------------------|
+| Metric | TypeScript (10k cities) | Spatial DB (10M cities) |
+|--------|-------------------------|--------------------------|
 | Query Time | 30-60 seconds | 5-10ms |
 | Memory Usage | 8-16 GB (all GeoJSON) | 100 MB (query cache) |
 | Concurrent Queries | 1 (blocked) | 100+ (pooled) |
@@ -125,17 +127,17 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 **Total Cost** (first year): $18k-30k (engineering) + $3.6k (infra) + $14k-29k (ops) = **$35k-62k**
 
-### PostgreSQL Architecture Costs
+### Spatial DB Architecture Costs
 
 **Development Time**:
 - Schema deployment: 1 week
 - Data migration: 2-3 weeks
-- API setup (PostgREST): 1 week
+- API setup: 1 week
 - Validation integration: 1 week
 - **Total**: 5-6 weeks of engineering time
 
 **Infrastructure** (at 1M queries/month):
-- PostgreSQL (managed): $100/month (2 cores, 4GB RAM, 100GB SSD)
+- Managed spatial DB: $100/month (2 cores, 4GB RAM, 100GB SSD)
 - Node.js API server: $50/month (2 cores, 2GB RAM)
 - **Total**: ~$150/month
 
@@ -148,7 +150,7 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 ### ROI Analysis
 
-**PostgreSQL saves** $19k-40k in first year
+**Spatial DB saves** $19k-40k in first year
 - Faster time-to-market (5-6 weeks vs 6-10 weeks)
 - Lower infrastructure costs (50% reduction)
 - Minimal operational overhead (83% reduction)
@@ -171,15 +173,15 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 **Overall Risk**: **HIGH** - Multiple critical risks with complex mitigations
 
-### PostgreSQL Risks
+### Spatial DB Risks
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | Migration introduces data errors | Medium | High | Validation queries, dual-mode testing |
-| Team lacks PostGIS expertise | Medium | Medium | Learning curve (1-2 weeks), external consult |
+| Team lacks spatial DB expertise | Medium | Medium | Learning curve (1-2 weeks), external consult |
 | Database downtime during migration | Low | Medium | Zero-downtime migration (dual-mode) |
 | Query performance regression | Low | High | Benchmark before/after, index tuning |
-| Additional infrastructure dependency | Low | Low | Managed PostgreSQL (AWS RDS, Heroku) |
+| Additional infrastructure dependency | Low | Low | Managed DB provider |
 
 **Overall Risk**: **MEDIUM** - Manageable with proper planning
 
@@ -189,24 +191,24 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 
 ### Skills Required for TypeScript
 
-- ✅ TypeScript (already have)
-- ✅ Turf.js spatial operations (already using)
-- ⚠️ Caching strategies (need to learn)
-- ⚠️ File locking (need to learn)
-- ⚠️ Concurrent access patterns (need to learn)
+- TypeScript (already have)
+- Turf.js spatial operations (already using)
+- Caching strategies (need to learn)
+- File locking (need to learn)
+- Concurrent access patterns (need to learn)
 
 **Learning Curve**: Medium (3-4 weeks for robust implementation)
 
-### Skills Required for PostgreSQL
+### Skills Required for Spatial DB
 
-- ⚠️ SQL (basic queries easy, optimization harder)
-- ⚠️ PostGIS spatial queries (1-2 week learning curve)
-- ⚠️ Database administration (backups, replication)
-- ✅ API integration (existing Express.js knowledge transfers)
+- SQL (basic queries easy, optimization harder)
+- Spatial indexing concepts (1-2 week learning curve)
+- Database administration (backups, replication)
+- API integration (existing Express.js knowledge transfers)
 
 **Learning Curve**: Medium-High (2-3 weeks for proficiency)
 
-**Recommendation**: Hire PostGIS consultant for initial setup ($5k-10k), then team maintains.
+**Recommendation**: Hire a spatial-DB consultant for initial setup ($5k-10k), then team maintains.
 
 ---
 
@@ -215,7 +217,7 @@ SELECT * FROM find_district(-118.2437, 34.0522);
 ### Scenario 1: Full Migration (6 weeks)
 
 ```
-Week 1: Schema design + PostgreSQL setup
+Week 1: Schema design + DB setup
 Week 2-3: Data migration (jurisdictions → portals → districts)
 Week 4: Geometry downloads + validation
 Week 5: API deployment + testing
@@ -228,11 +230,11 @@ Week 6: Cutover + monitoring
 ### Scenario 2: Phased Migration (8-10 weeks)
 
 ```
-Week 1-2: PostgreSQL setup + schema deployment
-Week 3-4: Dual-mode operation (TypeScript + PostgreSQL)
+Week 1-2: DB setup + schema deployment
+Week 3-4: Dual-mode operation (TypeScript + spatial DB)
 Week 5-6: Geometry downloads + validation (background)
 Week 7-8: API deployment + A/B testing
-Week 9-10: Deprecate TypeScript, PostgreSQL primary
+Week 9-10: Deprecate TypeScript, spatial DB primary
 ```
 
 **Pros**: Low risk (fallback to TypeScript), continuous delivery
@@ -267,7 +269,7 @@ Do you need to scale beyond 1000 cities in next 12 months?
     │       │   └─ NO
     │       │       │
     │       │       ├─ Do you want to offer free public API?
-    │       │       │   ├─ YES → Migrate now (PostgREST auto-generates API)
+    │       │       │   ├─ YES → Migrate now (auto-generated REST API)
     │       │       │   └─ NO → Stay TypeScript (sufficient for internal use)
 ```
 
@@ -275,9 +277,9 @@ Do you need to scale beyond 1000 cities in next 12 months?
 
 ## Recommended Decision
 
-### Migrate to PostgreSQL if you answer YES to 2+ of these:
+### Migrate to a spatial DB if you answer YES to 2+ of these:
 
-1. You plan to offer free public API within 12 months
+1. You plan to offer a free public API within 12 months
 2. You need to scale beyond 1000 cities
 3. You have >5 concurrent users accessing boundary data
 4. You want automated staleness detection
@@ -299,36 +301,33 @@ Do you need to scale beyond 1000 cities in next 12 months?
 
 If you decide to migrate, complete these before starting:
 
-- [ ] Review `docs/POSTGIS-SCHEMA.sql` with team
-- [ ] Set up PostgreSQL instance (local dev + staging)
-- [ ] Install PostGIS extension and verify version (3.4+)
+- [ ] Review the schema with the team
+- [ ] Set up a spatial DB instance (local dev + staging)
+- [ ] Verify the chosen DB supports R-tree / GIST-equivalent spatial indexing
 - [ ] Create backup of TypeScript registry files (git tag)
-- [ ] Designate PostgreSQL lead (internal or consultant)
-- [ ] Schedule 2-day PostGIS training for team
-- [ ] Plan dual-mode operation strategy (TypeScript + PostgreSQL)
+- [ ] Designate a spatial-DB lead (internal or consultant)
+- [ ] Schedule a short spatial-DB training for team
+- [ ] Plan dual-mode operation strategy (TypeScript + spatial DB)
 - [ ] Define success metrics (query time, coverage, validation pass rate)
-- [ ] Set up monitoring (pg_stat_statements, slow query log)
+- [ ] Set up monitoring (slow query log, index usage)
 - [ ] Create rollback plan (restore from TypeScript if migration fails)
 
 ---
 
 ## External Resources
 
-**Learning PostGIS**:
-- [PostGIS Documentation](https://postgis.net/docs/) - Official reference
-- [Boundless Spatial PostGIS Tutorial](https://workshops.boundlessgeo.com/postgis-intro/) - Excellent workshop
-- [Modern SQL in PostgreSQL](https://modern-sql.com/) - Advanced query patterns
+**Learning spatial indexing**:
+- Vendor documentation for the chosen spatial DB
+- A short "spatial indexing for developers" workshop
+- Modern SQL references (for advanced query patterns)
 
-**Managed PostgreSQL Providers**:
-- [AWS RDS PostgreSQL](https://aws.amazon.com/rds/postgresql/) - $100-200/month for shadow-atlas scale
-- [Heroku Postgres](https://www.heroku.com/postgres) - Simple setup, good for MVP
-- [DigitalOcean Managed Databases](https://www.digitalocean.com/products/managed-databases) - Budget-friendly
-- [Supabase](https://supabase.com/) - PostgreSQL + PostgREST + real-time (best for public API)
+**Managed spatial DB providers**:
+Any provider offering R-tree / GIST-equivalent spatial indexing is a
+candidate. Choose based on operational fit with the rest of the stack.
 
-**Consultants** (if team lacks PostGIS expertise):
-- [Crunchy Data](https://www.crunchydata.com/) - PostgreSQL experts
-- [Boundless Spatial](https://www.boundlessgeo.com/) - PostGIS specialists
-- [Kartoza](https://kartoza.com/) - QGIS/PostGIS consulting
+**Consultants** (if team lacks spatial expertise):
+- Any PostGIS / spatial-DB consulting firm
+- QGIS / spatial-DB consulting firms
 
 ---
 
@@ -337,14 +336,14 @@ If you decide to migrate, complete these before starting:
 **For VOTER Protocol Phase 1 (Pre-Launch)**:
 - **Stay with TypeScript** if launch <6 months (focus on core protocol)
 - Optimize TypeScript architecture (caching, pagination)
-- Plan PostgreSQL migration for Phase 2 (post-launch)
+- Plan spatial-DB migration for Phase 2 (post-launch)
 
 **For VOTER Protocol Phase 2 (Public API Launch)**:
-- **Migrate to PostgreSQL** before offering free API
-- Use Supabase (PostgreSQL + PostgREST) for fastest time-to-API
+- **Migrate to an indexed spatial DB** before offering free API
+- Use whichever managed provider best fits your operational stack
 - Phased migration (8-10 weeks) to minimize risk
 
-**Key Insight**: TypeScript is sufficient for internal use and MVP validation. PostgreSQL becomes essential when you need public API performance and global scale.
+**Key Insight**: TypeScript is sufficient for internal use and MVP validation. A spatial DB becomes essential when you need public API performance and global scale.
 
 ---
 

@@ -324,7 +324,7 @@ forge verify-contract <address> CampaignRegistry --chain scroll --watch
 7. [ ] Set `SCROLL_RPC_URL` to production RPC endpoint
 8. [ ] Set `DISTRICT_GATE_ADDRESS` to deployed contract address
 9. [ ] Verify relayer health: `GET /api/admin/relayer-health`
-10. [ ] Run Prisma migration: `npx prisma migrate deploy`
+10. [ ] Deploy Convex schema: `npx convex deploy --env-file .env.production`
 
 ---
 

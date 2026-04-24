@@ -1208,9 +1208,9 @@ This is the **only authoritative engagement signal**. Congressional offices, cha
 
 ### 16.2 Layer 2: Application-Level `reputation_tier` (Preview/Pending)
 
-- **Source:** Communique Postgres `users.reputation_tier` (string: "novice", "active", etc.)
+- **Source:** Commons Convex `users.reputationTier` (string: "novice", "active", etc.)
 - **Trust model:** Server-side estimate. The application tracks user activity and assigns a preview tier before the next Tree 3 epoch processes it into a ZK-verifiable commitment.
-- **Storage:** Communique Postgres (`prisma/schema.prisma`)
+- **Storage:** Commons Convex (`commons/convex/schema.ts`)
 - **Update cadence:** Real-time (on each user action)
 - **Purpose:** UX feedback. Shows users their estimated tier before it lands in the protocol layer. Displays in profile, dashboard, and tier badges.
 

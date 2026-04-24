@@ -228,11 +228,11 @@ No integration document explains the relationship between:
 | FE-C01 | CRITICAL | 25 communique files reference "Halo2" |
 | FE-C02 | HIGH | TEE provider disagreement (GCP vs AWS Nitro across 4 docs) |
 | FE-C03 | MEDIUM | Embedding provider disagreement (OpenAI vs Gemini vs Voyage AI) |
-| FE-C04 | MEDIUM | Supabase references persist after pgvector migration |
+| FE-C04 | MEDIUM | Stale database-stack references persist after the Convex migration |
 | FE-S01 | CRITICAL | ownership.md catastrophically stale (wrong everything) |
 | FE-S02 | HIGH | ZK-PROOF-TESTING-STRATEGY.md references Halo2/Axiom |
 | FE-S03 | MEDIUM | Fly.io deployment references persist after Cloudflare migration |
-| FE-S04 | MEDIUM | Firecrawl/MongoDB checklist unclear after pgvector migration |
+| FE-S04 | MEDIUM | Firecrawl caching checklist unclear after the Convex migration |
 
 **Integration coherence: PASS.** prover-client.ts, package.json, .env.example, contract addresses, keccak mode, H4 leaf formula, Shadow Atlas API all match across repos.
 

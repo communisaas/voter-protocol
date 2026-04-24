@@ -91,11 +91,12 @@ export const engagementRegisterSchema = z.object({
 // ============================================================================
 
 /**
- * Storage adapter for the relay. Bedrock implements this against D1 or Postgres.
+ * Storage adapter for the relay. Implementations target D1 (Cloudflare)
+ * or other durable stores.
  *
- * All methods are async to support both D1 (Cloudflare) and Postgres (Hyperdrive).
- * The relay never touches the Merkle tree directly — it writes to storage and
- * delegates tree operations to the tree service.
+ * All methods are async so the relay works identically across backends.
+ * The relay never touches the Merkle tree directly — it writes to storage
+ * and delegates tree operations to the tree service.
  */
 export interface RelayStorageAdapter {
   // --- Registration (Tree 1) ---

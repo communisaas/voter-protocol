@@ -14,9 +14,9 @@ events, SSE pushes state transitions to the frontend, and the resolution UI rend
 the final result.
 
 **Current state:** MockAIEvaluationRegistry on Sepolia v5 accepts any signer (no
-real registry needed for testnet). All contract functions, client bindings, Prisma
-schema, and frontend components are in place. What's missing is the plumbing that
-connects them.
+real registry needed for testnet). All contract functions, client bindings, Convex
+schema (`commons/convex/schema.ts`), and frontend components are in place. What's
+missing is the plumbing that connects them.
 
 ---
 
@@ -90,15 +90,17 @@ The current handler is a pure upstream proxy (68 lines). Extend it to also emit
 local events when AI resolution state changes occur. Two approaches — pick one:
 
 **Option A — Poll-and-push (simpler, sufficient for testnet):**
-After connecting the upstream proxy, also start a polling loop that checks
-`prisma.debate.findUnique({ where: { debate_id_onchain: debateId } })` every 5s.
-When `status` or `ai_signature_count` changes from the last seen value, emit:
+After connecting the upstream proxy, also start a polling loop that calls a Convex
+query (e.g. `api.debates.getByOnchainId({ debateIdOnchain: debateId })`) every 5s.
+When `status` or `aiSignatureCount` changes from the last seen value, emit:
 - `evaluating` — status changed to `resolving` (AI scores being submitted)
-- `ai_scores_submitted` — `ai_signature_count` went from null to N
-- `resolved_with_ai` — status changed to `resolved` + `resolution_method = 'ai_community'`
+- `ai_scores_submitted` — `aiSignatureCount` went from null to N
+- `resolved_with_ai` — status changed to `resolved` + `resolutionMethod = 'ai_community'`
 - `governance_override` — status changed to `awaiting_governance`
 - `appeal_started` — status changed to `under_appeal`
 - `appeal_finalized` — status changed to `resolved` from `under_appeal`
+
+(Even better: subscribe to the Convex query via `ctx.subscribe()` instead of polling.)
 
 **Option B — Event bus (production-grade, more complex):**
 Create a lightweight in-process event bus (`$lib/server/debate-events.ts`). The
@@ -136,12 +138,12 @@ if needed for production latency requirements.
 
 ---
 
-### 3.4.4 — Prisma migration
+### 3.4.4 — Convex schema deploy
 
 **Work:**
-1. Run `npx prisma migrate dev --name ai-resolution-fields` against the dev DB.
-2. Verify migration SQL: 6 new columns on `debate`, 4 new columns on `debate_argument`.
-3. Verify `npx prisma generate` succeeds.
+1. Run `npx convex dev` against the dev deployment to apply the schema.
+2. Verify: 6 new fields on the `debates` table, 4 new fields on the `debateArguments` table, with indexes declared for every query path.
+3. Verify `npx convex deploy --env-file .env.production` succeeds when promoting to prod.
 
 **Prerequisite:** Docker running (PostgreSQL).
 
@@ -188,7 +190,7 @@ After implementation, verify each item:
 | R-01 | ai-evaluator tests | `cd packages/ai-evaluator && npx vitest run` | 59/59 passing |
 | R-02 | shadow-atlas tests | `cd packages/shadow-atlas && npx vitest run` | All passing (including new chain-scanner tests) |
 | R-03 | communique typecheck | `cd communique && npx svelte-check` | No new errors (baseline: 50) |
-| R-04 | Prisma generate | `cd communique && npx prisma generate` | Clean output |
+| R-04 | Convex dev deploy | `cd commons && npx convex dev --once` | Clean output, schema applied |
 | R-05 | Contract tests | `cd contracts && forge test` | 889+ passing (unchanged — no contract modifications this cycle) |
 | R-06 | Env var alignment | Diff `.env.example` vars against `ai-evaluator/src/config.ts` env names | Exact match: `OPENAI_API_KEY`, `GOOGLE_AI_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `ANTHROPIC_API_KEY`, `MODEL_SIGNER_KEY_{OPENAI,GOOGLE,DEEPSEEK,MISTRAL,ANTHROPIC}`, `DEBATE_MARKET_ADDRESS`, `CHAIN_ID` |
 | R-07 | ABI alignment | Diff `debate-market-client.ts` ABI strings against `DebateMarket.sol` function signatures | Exact match for all 6 AI resolution functions |
@@ -199,22 +201,21 @@ After implementation, verify each item:
 
 | # | File | What to verify |
 |---|------|----------------|
-| CR-01 | `evaluate/+server.ts` | Auth check is not bypassable; dynamic import fallback is clean; Prisma writes match schema; no secret leakage in JSON response |
+| CR-01 | `evaluate/+server.ts` | Auth check is not bypassable; dynamic import fallback is clean; Convex mutation writes match the schema; no secret leakage in JSON response |
 | CR-02 | `ai-resolution/+server.ts` | No N+1 queries; argument scores are joined correctly; null handling for pre-resolution state |
 | CR-03 | `debate-market-client.ts` | New functions follow existing error handling pattern (circuit breaker, RPC error classification, revert extraction); `SubmitGovernanceResolutionParams` has correct `justification` type (bytes32) |
 | CR-04 | `chain-scanner.ts` | New event topics match Solidity event signatures exactly (parameter types, indexed vs non-indexed); decode logic handles edge cases (zero values, max values) |
 | CR-05 | `stream/+server.ts` | Polling interval is reasonable (5s); cleanup on disconnect; no memory leaks from setInterval |
-| CR-06 | `schema.prisma` | New columns are nullable (existing rows won't break); `@@map` names are correct; no missing indexes on query-hot paths |
+| CR-06 | `commons/convex/schema.ts` | New fields are `v.optional(...)` (existing rows won't break); table/index names match queries; indexes declared for every query-hot path |
 
 ---
 
 ## Manual Review (Demo Walkthrough)
 
 ### Pre-conditions
-- [ ] Docker running (PostgreSQL for Prisma)
-- [ ] `npx prisma migrate dev` applied
-- [ ] `.env` populated with testnet keys (at least 3 model API keys + all 5 signer keys)
-- [ ] communique dev server running (`npm run dev`)
+- [ ] Convex dev deployment reachable (`npx convex dev` running or schema already deployed)
+- [ ] `.env` populated with testnet keys (at least 3 model API keys + all 5 signer keys) and `CONVEX_DEPLOY_KEY`
+- [ ] commons dev server running (`npm run dev`)
 
 ### Happy Path — AI Resolution
 
@@ -263,9 +264,9 @@ After implementation, verify each item:
 
 ```
 3.4.1  Chain scanner event topics        [voter-protocol]  ~2h
-3.4.2  SSE stream local events           [communique]      ~1h
+3.4.2  SSE stream local events           [commons]         ~1h
 3.4.3  Generate testnet signer wallets   [contracts]       ~15min
-3.4.4  Prisma migration                  [communique]      ~10min
+3.4.4  Convex schema deploy              [commons]         ~10min
        ──── Automated Review (R-01 → R-09) ────
 3.4.5  Smoke test script                 [communique]      ~2h
        ──── Manual Review (M-01 → M-16) ────
@@ -284,6 +285,6 @@ Manual review requires all prior steps complete.
 |------|--------|------------|
 | Model API rate limits on testnet | Evaluation fails for some models, quorum not met | MockAIEvaluationRegistry quorum=3 allows 2 failures; use cheapest models (GPT-5 Nano, DeepSeek V3.2) for initial smoke test |
 | SSE polling misses fast state transitions | UI doesn't update until next poll | 5s interval is acceptable for demo; Option B (event bus) for production |
-| Prisma migration conflicts with uncommitted schema changes | Migration fails | Run `prisma db push --force-reset` on dev DB if needed (no production data at risk) |
+| Convex schema push fails due to validator mismatch | Schema deploy blocks | `npx convex dev` reports the conflicting field; make it `v.optional(...)` or backfill via a Convex mutation before tightening. Dev deployment has no production data at risk. |
 | ai-evaluator `process.env` doesn't work in SvelteKit server context | loadModelConfigs throws | SvelteKit server-side code has access to process.env; if issues, adapt to use `$env/dynamic/private` |
 | Chain scanner polls miss events during long gaps | State gets stale | Chain scanner already handles replay from last block; AI events use same mechanism |

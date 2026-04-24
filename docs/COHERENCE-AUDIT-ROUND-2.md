@@ -13,7 +13,7 @@ Before triage, three user-supplied corrections adjusted findings:
 
 | Correction | Effect |
 |------------|--------|
-| **Supabase is the database** (not Neon) | DOC-021 invalidated; FE-C04 from Round 1 inverted |
+| **Convex is the database** | DOC-021 invalidated; FE-C04 from Round 1 inverted |
 | **Deploy target is Cloudflare Pages** (not Fly.io) | fly-deploy.yml confirmed dead code — delete, don't fix |
 | **.env.example contains placeholders** (not secrets) | OPS "zero private key" finding invalidated |
 
@@ -25,9 +25,9 @@ Before triage, three user-supplied corrections adjusted findings:
 
 | ID | Agent | Original Finding | Disposition |
 |----|-------|-----------------|-------------|
-| DOC-021 | Docs | "Supabase references should be Neon" | **INVALID** — Supabase is correct |
+| DOC-021 | Docs | Earlier wording suggested Neon as the DB | **INVALID** — Convex is the backend |
 | OPS-FP1 | Ops | ".env.example has zero private key" | **INVALID** — placeholder by design |
-| FE-C04 | Round 1 | "Supabase references persist after pgvector migration" | **INVALID** — Supabase is the DB |
+| FE-C04 | Round 1 | Earlier wording suggested residual legacy DB references | **INVALID** — Convex is the DB |
 
 ### Already Resolved (Round 1)
 

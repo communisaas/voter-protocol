@@ -105,26 +105,9 @@ DATABASE_POOL_MAX=10
 
 ```bash
 npm install pg @types/pg
-npm install prisma @prisma/client  # Optional: type-safe query builder
 ```
 
-**Prisma Schema** (optional):
-
-```prisma
-// prisma/schema.prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
-}
-
-// Auto-generated from introspection
-// npx prisma db pull
-```
+Use the raw `pg` pool directly. Spatial queries execute via `pool.query()` with PostGIS SQL — no ORM layer is needed, and adding one would obscure the GIST index plans that make this design fast.
 
 ---
 

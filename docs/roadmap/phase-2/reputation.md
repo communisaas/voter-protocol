@@ -241,41 +241,38 @@ function verifyAndReward(bytes32 attestationId) external onlyRole(IMPACT_AGENT_R
 
 **Purpose**: Track domain expertise with **concrete, verifiable signals only**
 
-**Communique Schema** (external repo: `prisma/schema.prisma`):
-```prisma
-model UserExpertise {
-  id                     String   @id @default(cuid())
-  user_id                String
-  domain_id              String   // "healthcare", "climate", "housing"
+**Commons Schema** (external repo: `commons/convex/schema.ts`):
+```typescript
+userExpertise: defineTable({
+  userId: v.id("users"),
+  domainId: v.string(), // "healthcare", "climate", "housing"
 
   // Phase 1: Reputation-only signals
-  templates_contributed  Int      @default(0)  // Templates created
-  templates_adopted      Int      @default(0)  // Templates others used (crowd wisdom)
-  bills_tracked          Int      @default(0)  // Bills followed (informed engagement)
-  peer_endorsements      Int      @default(0)  // On-chain attestations
-  verified_sends         Int      @default(0)  // Messages sent (aggregate)
-  active_months          Int      @default(0)  // Consistency signal
+  templatesContributed: v.number(), // Templates created
+  templatesAdopted: v.number(),     // Templates others used (crowd wisdom)
+  billsTracked: v.number(),         // Bills followed (informed engagement)
+  peerEndorsements: v.number(),     // On-chain attestations
+  verifiedSends: v.number(),        // Messages sent (aggregate)
+  activeMonths: v.number(),         // Consistency signal
 
   // Phase 2: Challenge market signals
-  challenge_wins         Int      @default(0)  // Successful challenges
-  challenge_losses       Int      @default(0)  // Failed challenges
-  reputation_burned      Int      @default(0)  // Reputation lost in failed challenges
+  challengeWins: v.number(),        // Successful challenges
+  challengeLosses: v.number(),      // Failed challenges
+  reputationBurned: v.number(),     // Reputation lost in failed challenges
 
   // Phase 2: Impact verification signals
-  impact_attestations    Int      @default(0)  // Verified legislative impact events
-  impact_confidence_avg  Float?                 // Average confidence of impact attestations
+  impactAttestations: v.number(),           // Verified legislative impact events
+  impactConfidenceAvg: v.optional(v.number()), // Average confidence of impact attestations
 
   // Metadata
-  first_activity         DateTime @default(now())
-  last_activity          DateTime @updatedAt
-
-  // Relations
-  user                   User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, domain_id])
-  @@map("user_expertise")
-}
+  firstActivity: v.number(),
+  lastActivity: v.number(),
+})
+  .index("by_userId_domainId", ["userId", "domainId"]) // enforces uniqueness atomically
+  .index("by_domainId", ["domainId"]),
 ```
+
+The `by_userId_domainId` index is unique — duplicate inserts fail atomically inside the Convex mutation. User deletion cascades via an explicit cleanup mutation.
 
 **VOTER Protocol Contract** (`contracts/ReputationRegistry.sol`):
 ```solidity
@@ -441,66 +438,58 @@ function addImpactAttestation(
 
 **Purpose**: Verifiable legislative engagement
 
-**Communique Schema**:
-```prisma
-model BillTracking {
-  id                     String   @id @default(cuid())
-  user_id                String
-  bill_id                String
+**Commons Schema** (`commons/convex/schema.ts`):
+```typescript
+billTracking: defineTable({
+  userId: v.id("users"),
+  billId: v.id("bills"),
 
   // Concrete engagement signals
-  tracked_since          DateTime @default(now())
-  templates_created      Int      @default(0) // Templates about this bill
-  messages_sent          Int      @default(0) // Messages about this bill (aggregate)
-
-  // Relations
-  user                   User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  bill                   Bill     @relation(fields: [bill_id], references: [id])
-
-  @@unique([user_id, bill_id])
-  @@map("bill_tracking")
-}
+  trackedSince: v.number(),
+  templatesCreated: v.number(), // Templates about this bill
+  messagesSent: v.number(),     // Messages about this bill (aggregate)
+})
+  .index("by_userId_billId", ["userId", "billId"]) // unique (atomic)
+  .index("by_billId", ["billId"]),
 ```
 
 ### 4. User Reputation (Revised - No Quality Scores)
 
-**Communique Schema** (replaces current User model fields):
-```prisma
-model User {
-  id                     String   @id @default(cuid())
-  email                  String   @unique
-  name                   String?
+**Commons Schema** (`commons/convex/schema.ts`, `users` table fields):
+```typescript
+users: defineTable({
+  email: v.string(),
+  name: v.optional(v.string()),
 
-  // Verification (replaces trust_score)
-  verification_method    String?              // 'nfc-passport' | 'government-id'
-  verification_tier      String               @default("verified") // 'verified' | 'endorsed' | 'cited'
-  verified_at            DateTime?
+  // Verification (replaces trustScore)
+  verificationMethod: v.optional(v.string()), // 'nfc-passport' | 'government-id'
+  verificationTier: v.string(),               // 'verified' | 'endorsed' | 'cited'
+  verifiedAt: v.optional(v.number()),
 
   // CONCRETE SIGNALS (no abstract quality scores)
-  templates_contributed  Int                  @default(0)  // Count
-  template_adoption_rate Float                @default(0.0) // % of templates others used
-  peer_endorsements      Int                  @default(0)   // On-chain attestations
-  verified_sends         Int                  @default(0)   // Total (aggregate)
-  active_months          Int                  @default(0)   // Engagement velocity
+  templatesContributed: v.number(),
+  templateAdoptionRate: v.number(),  // % of templates others used
+  peerEndorsements: v.number(),      // On-chain attestations
+  verifiedSends: v.number(),         // Total (aggregate)
+  activeMonths: v.number(),          // Engagement velocity
 
   // Phase 2 fields (token economics)
-  token_stake            Float?               // VOTER tokens staked
-  challenge_wins         Int                  @default(0)
-  challenge_losses       Int                  @default(0)
+  tokenStake: v.optional(v.number()),
+  challengeWins: v.number(),
+  challengeLosses: v.number(),
 
   // Phase 2+ fields (CMS dependency)
-  response_correlation   Float?               // % of messages with office responses
-  citation_count         Int                  @default(0)   // Congressional citations
+  responseCorrelation: v.optional(v.number()), // % of messages with office responses
+  citationCount: v.number(),                   // Congressional citations
 
-  // Relations
-  expertise              UserExpertise[]
-  bills_tracked          BillTracking[]
-  professional_roles     UserProfessionalRole[]
-
-  createdAt              DateTime             @default(now()) @map("created_at")
-  updatedAt              DateTime             @updatedAt @map("updated_at")
-}
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_email", ["email"]) // unique
+  .index("by_verificationTier", ["verificationTier"]),
 ```
+
+Related tables: `userExpertise`, `billTracking`, `userProfessionalRoles` (each indexed by `userId`). No foreign keys — cascade handled explicitly in mutations.
 
 **VOTER Protocol Contract**:
 ```solidity
@@ -542,37 +531,38 @@ event ReputationUpdated(
 
 **Purpose**: Aggregate adoption signals without individual tracking
 
-**Communique Schema** (updated Template model):
-```prisma
-model Template {
-  id                     String   @id @default(cuid())
-  title                  String
+**Commons Schema** (`commons/convex/schema.ts`, `templates` table extensions):
+```typescript
+templates: defineTable({
+  title: v.string(),
 
   // AGGREGATE USAGE (privacy-preserving, NO individual tracking)
-  verified_sends         Int      @default(0) @map("verified_sends")
-  unique_districts       Int      @default(0) @map("unique_districts")
-  avg_reputation         Float?   @map("avg_reputation") // Average adopter reputation
+  verifiedSends: v.number(),
+  uniqueDistricts: v.number(),
+  avgReputation: v.optional(v.number()), // Average adopter reputation
 
   // MODERATION SIGNALS (safety only, not quality)
-  flagged_by_moderation  Boolean  @default(false)   // OpenAI API flagged
-  consensus_approved     Boolean  @default(false)   // Multi-agent approved (binary)
+  flaggedByModeration: v.boolean(),  // Llama Guard flagged
+  consensusApproved: v.boolean(),    // Multi-agent approved (binary)
 
   // CONGRESSIONAL DASHBOARD SIGNALS (what McDonald 2018 says they need)
-  policy_areas           String[] @default([])      // ["healthcare", "climate"]
-  related_bills          String[] @default([])      // ["H.R. 1234", "S. 567"]
+  policyAreas: v.array(v.string()),  // ["healthcare", "climate"]
+  relatedBills: v.array(v.string()), // ["H.R. 1234", "S. 567"]
 
   // Aggregate pools (expertise distribution)
-  expertise_breakdown    Json?    // { professional: 15, industry: 8, community: 12 }
-  verification_breakdown Json?    // { nfc_passport: 10, government_id: 5 }
-  reputation_distribution Json?   // { verified: 8, endorsed: 5, cited: 2 }
+  expertiseBreakdown: v.optional(v.any()),      // { professional: 15, industry: 8, community: 12 }
+  verificationBreakdown: v.optional(v.any()),   // { nfcPassport: 10, governmentId: 5 }
+  reputationDistribution: v.optional(v.any()),  // { verified: 8, endorsed: 5, cited: 2 }
 
   // Phase 2+ fields (CMS dependency)
-  office_response_rate   Float?   // % of offices that responded
-  citation_rate          Float?   // % of offices that cited content
+  officeResponseRate: v.optional(v.number()), // % of offices that responded
+  citationRate: v.optional(v.number()),       // % of offices that cited content
 
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-}
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_consensusApproved", ["consensusApproved"])
+  .searchIndex("search_title", { searchField: "title" }),
 ```
 
 **VOTER Protocol Contract**:
@@ -1608,43 +1598,41 @@ async function getCredentialConsensus(
 
 ## Integration with Communique (external repo)
 
-### Communique Database Schema (UserExpertise)
+### Commons Database Schema (userExpertise)
 
-**Already implemented in Communique** (external repo: `prisma/schema.prisma`):
-```prisma
-model UserExpertise {
-  id                     String   @id @default(cuid())
-  user_id                String   @map("user_id")
+**Already implemented in Commons** (external repo: `commons/convex/schema.ts`):
+```typescript
+userExpertise: defineTable({
+  userId: v.id("users"),
 
   // Domain context (flexible, not rigid enum)
-  domain                 String   // "healthcare" | "hoa_landscaping" | etc.
-  organization_type      String?  @map("organization_type")
+  domain: v.string(), // "healthcare" | "hoa_landscaping" | etc.
+  organizationType: v.optional(v.string()),
 
   // FREE-TEXT CREDENTIALS (agent parses/verifies)
-  professional_role      String?  @map("professional_role")
-  experience_description String?  @map("experience_description")
-  credentials_claim      String?  @map("credentials_claim")
+  professionalRole: v.optional(v.string()),
+  experienceDescription: v.optional(v.string()),
+  credentialsClaim: v.optional(v.string()),
 
   // AGENT VERIFICATION RESULTS (from voter-protocol ReputationAgent)
-  verification_status    String   @default("unverified") @map("verification_status")
-  verification_evidence  Json?    @map("verification_evidence")
-  verified_at            DateTime? @map("verified_at")
-  verified_by_agent      String?  @map("verified_by_agent")
-  credential_multiplier  Float    @default(1.0) @map("credential_multiplier")
+  verificationStatus: v.string(), // default "unverified"
+  verificationEvidence: v.optional(v.any()),
+  verifiedAt: v.optional(v.number()),
+  verifiedByAgent: v.optional(v.string()),
+  credentialMultiplier: v.number(), // default 1.0
 
-  // CONCRETE USAGE SIGNALS (tracked by Communique)
-  issues_tracked         String[] @default([]) @map("issues_tracked")
-  templates_created      Int      @default(0) @map("templates_created")
-  messages_sent          Int      @default(0) @map("messages_sent")
-  peer_endorsements      Int      @default(0) @map("peer_endorsements")
-  active_months          Int      @default(0) @map("active_months")
-
-  @@unique([user_id, domain])
-  @@map("user_expertise")
-}
+  // CONCRETE USAGE SIGNALS (tracked by Commons)
+  issuesTracked: v.array(v.string()),
+  templatesCreated: v.number(),
+  messagesSent: v.number(),
+  peerEndorsements: v.number(),
+  activeMonths: v.number(),
+})
+  .index("by_userId_domain", ["userId", "domain"]) // unique (atomic)
+  .index("by_verificationStatus", ["verificationStatus"]),
 ```
 
-### Communique API Endpoints
+### Commons API Endpoints
 
 **POST /api/expertise/verify** (Communique → voter-protocol proxy):
 ```typescript

@@ -299,21 +299,22 @@ Uses `locals.user.id` instead of client-provided user ID (line 95).
 Strong duplicate identity detection:
 1. **Identity Hash**: SHA-256(salt + passport + nationality + birthYear + docType)
 2. **Identity Commitment**: Double-hashed with domain separation for cross-provider linking
-3. **Duplicate Detection**: Database constraint on `identity_hash` prevents same identity on multiple accounts
-4. **Account Merging**: If same commitment detected, accounts are automatically merged
+3. **Duplicate Detection**: Convex `by_identityHash` index enforces uniqueness; collisions caught atomically inside the verify mutation
+4. **Account Merging**: If the same commitment is detected, accounts are automatically merged
 
 ```typescript
-// verify/+server.ts:108-128 - Transaction-based duplicate check
-const duplicateDetected = await prisma.$transaction(async (tx) => {
-    const existingUser = await tx.user.findUnique({
-        where: { identity_hash: identityHash }
-    });
-    if (existingUser && existingUser.id !== userId) {
-        // Log and return duplicate flag
-        return true;
-    }
-    // Proceed with verification
+// verify/+server.ts:108-128 — duplicate check runs inside a Convex mutation (atomic)
+const duplicateDetected = await ctx.runMutation(internal.identity.verifyIdentity, {
+    userId,
+    identityHash,
 });
+// Inside the mutation:
+//   const existingUser = await ctx.db
+//     .query("users")
+//     .withIndex("by_identityHash", (q) => q.eq("identityHash", identityHash))
+//     .unique();
+//   if (existingUser && existingUser._id !== userId) return { duplicate: true };
+//   // Otherwise proceed with verification in the same mutation (no partial writes).
 ```
 
 ### 5.3 Trust Score Manipulation - MEDIUM RISK

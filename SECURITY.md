@@ -682,7 +682,7 @@ The protocol's trust model is documented in detail in `specs/TRUST-MODEL-AND-OPE
 | Data | Where | Who | Mitigation |
 |------|-------|-----|------------|
 | `cell_id` + `identityCommitment` | Shadow Atlas registration | Operator | Operator knows which geographic cell each identity registered from. Phase 2: DA-layer publication removes operator as sole witness |
-| OAuth email → session → wallet | Communique Supabase DB | Operator with DB access | Login email linked to session, session linked to proof submission. Phase 2: passkey-based auth eliminates email linkage |
+| OAuth email → session → wallet | Communique Convex backend | Operator with DB access | Login email linked to session, session linked to proof submission. Phase 2: passkey-based auth eliminates email linkage |
 | `signerAddress` ↔ `identityCommitment` | On-chain engagement registration events | Public (on-chain) | Links wallet to ZK identity permanently. Phase 2: relayer severs this link |
 | IPFS insertion log timestamps | Public (IPFS) | Anyone | Registration timing reveals when users joined. Mitigated by batch insertions |
 | Full identity chain (email→session→wallet→IC→proofs) | Operator combining DB + chain data | Operator | Complete deanonymization possible for the operator in Phase 1. This is the MACI-equivalent trust assumption (see trust model spec) |
@@ -699,7 +699,7 @@ The protocol's trust model is documented in detail in `specs/TRUST-MODEL-AND-OPE
 
 | Store | Contents | Retention | Access | Phase 2 Change |
 |-------|----------|-----------|--------|----------------|
-| **Supabase (communique)** | User sessions, OAuth tokens, template data, wallet addresses | Session lifetime + 90 days | Operator (DB credentials) | Passkey auth eliminates OAuth email linkage |
+| **Convex (communique)** | User sessions, OAuth tokens, template data, wallet addresses | Session lifetime + 90 days | Operator (DB credentials) | Passkey auth eliminates OAuth email linkage |
 | **Shadow Atlas (voter-protocol)** | Identity commitments, cell IDs, Merkle paths, insertion log | Indefinite (append-only) | Operator (server access), public (IPFS for insertion log) | DA-layer publication, community-run atlas instances |
 | **Scroll L2 (on-chain)** | Nullifiers, roots, signer addresses, district commitments, engagement tiers, participation counts | Permanent (blockchain) | Public | Relayer removes signer linkability |
 | **IPFS** | Shadow Atlas insertion log (Ed25519-signed entries) | Permanent (content-addressed) | Public | No change needed |
@@ -896,7 +896,7 @@ Users should understand these trade-offs before participating. Privacy is a func
 
 **Production infrastructure:**
 - Phase 1: Cloudflare Pages (serverless, no standing server access)
-- Database: Supabase PostgreSQL with connection pooling, no direct DB access
+- Database: Convex (managed), no direct DB access
 - Secrets: Cloudflare Pages environment variables (encrypted at rest)
 
 **Third-party integrations:**

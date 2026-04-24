@@ -340,7 +340,7 @@ Each wave follows this pattern:
 | CVE-REC-001 | 31R-3 | identityCommitment = leaf hash | **KNOWN** | Existing NUL-001 gap (Wave 24). Added TODO warning |
 | BR5-REC-003 | 31R-3 | Missing BN254 on Tree 2 in handler | **MEDIUM** | Proxy layer validates via getCellProof() |
 | BR5-REC-004 | 31R-3 | Cell change not validated | **LOW** | Intended UX gap (Wave 31d out of scope) |
-| TIMESTAMP-001 | 31R-2 | Manual updated_at redundant | **FIXED** | Removed (Prisma @updatedAt handles it) |
+| TIMESTAMP-001 | 31R-2 | Manual updatedAt redundant | **FIXED** | Removed (Convex `_creationTime` + mutation timestamps handle it) |
 | M-004 | 31R-1 | Console error leaks path | **FIXED** | Unified log prefixes |
 | H-001 | 31R-1 | pathIndices 0/1 validation | **MEDIUM** | Accept for now |
 | REC-006 | 31R-3 | Missing authorityLevel | **KNOWN** | Same gap as registerTwoTree — mapper fallback |

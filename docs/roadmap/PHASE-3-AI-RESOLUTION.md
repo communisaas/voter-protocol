@@ -529,19 +529,20 @@ interface DebateData {
 | `appeal_started` | `{ debateId, appealer, bond }` | `ResolutionAppealed` event |
 | `appeal_finalized` | `{ debateId, upheld }` | `AppealFinalized` event |
 
-### 3.3.4 — Prisma Schema
+### 3.3.4 — Convex Schema
 
-```prisma
-model Debate {
+```typescript
+// commons/convex/schema.ts
+debates: defineTable({
   // ... existing fields ...
-  ai_scores           Json?    @map("ai_scores")
-  ai_signature_count  Int?     @map("ai_signature_count")
-  ai_panel_consensus  Float?   @map("ai_panel_consensus")
-  resolution_method   String?  @map("resolution_method")
-  resolution_deadline DateTime? @map("resolution_deadline")
-  appeal_deadline     DateTime? @map("appeal_deadline")
-  governance_justification String? @map("governance_justification")
-}
+  aiScores: v.optional(v.any()),
+  aiSignatureCount: v.optional(v.number()),
+  aiPanelConsensus: v.optional(v.number()),
+  resolutionMethod: v.optional(v.string()),
+  resolutionDeadline: v.optional(v.number()),
+  appealDeadline: v.optional(v.number()),
+  governanceJustification: v.optional(v.string()),
+}).index("by_debateIdOnchain", ["debateIdOnchain"]),
 ```
 
 ### 3.3.5 — API Routes
@@ -590,7 +591,7 @@ Cycle 3.2 (Service)        ✅ COMPLETE (2026-02-25)
 Cycle 3.3 (Frontend)       ✅ COMPLETE (2026-02-25)
   │  6 new components, 4 modified, 2 API routes
   │
-  ├── 3.3.1  Prisma schema (ai_resolution fields)          ✅
+  ├── 3.3.1  Convex schema (aiResolution fields)           ✅
   ├── 3.3.2  Store extensions (debateState.svelte.ts)       ✅
   ├── 3.3.3  ResolutionPanel + AIScoreBreakdown + 4 more   ✅
   ├── 3.3.4  AppealBanner + ModelAgreementDots              ✅
@@ -602,7 +603,7 @@ Cycle 3.4 (E2E Wiring)     ✅ COMPLETE (2026-02-25) — see CYCLE-3.4-E2E-TESTN
   ├── 3.4.1  Chain scanner AI event topics                 ✅ (parallel agent)
   ├── 3.4.2  SSE stream local events (poll-and-push)       ✅
   ├── 3.4.3  Generate testnet signer wallets               ✅ (script + 5 keypairs)
-  ├── 3.4.4  Prisma migration                              ⬜ (requires Docker)
+  ├── 3.4.4  Convex schema deploy                          ⬜ (`npx convex dev`)
   └── 3.4.5  Smoke test script                             ✅ (scripts/smoke-test-ai-resolution.ts)
   │
   Automated review:
@@ -613,7 +614,7 @@ Cycle 3.4 (E2E Wiring)     ✅ COMPLETE (2026-02-25) — see CYCLE-3.4-E2E-TESTN
   │
   Pre-requisites:
   ├── .env.example aligned with ai-evaluator config.ts     ✅
-  ├── Prisma schema fields added                           ✅
+  ├── Convex schema fields added                           ✅
   ├── debate-market-client.ts AI functions                 ✅
   ├── POST /evaluate endpoint                              ✅
   └── GET /ai-resolution endpoint                          ✅
@@ -627,7 +628,7 @@ Cycle 3.5 (Frontend Data Flow)  ✅ COMPLETE (2026-02-25)
   ├── 3.5.5  ResolutionPanel: fallback to score.dimensions               ✅
   │
   Data flow (verified):
-  ├── Server load: Prisma → buildAIResolution() → debate.aiResolution
+  ├── Server load: Convex query → buildAIResolution() → debate.aiResolution
   ├── Page mount: setDebate(debate) seeds store with server data
   ├── SSE events: evaluating/resolved_with_ai/etc → status transitions
   ├── fetchAIResolution: GET /ai-resolution → transform → merge into store

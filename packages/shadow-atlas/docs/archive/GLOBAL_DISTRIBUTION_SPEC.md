@@ -261,7 +261,6 @@ Quarterly updates deployed in three phases to minimize risk:
 |----------|---------------------------|------|------|
 | **Shadow Atlas (IPFS)** | $5-10 | Decentralized, censorship-resistant, browser-native | Requires gateway infrastructure |
 | **AWS S3 + CloudFront** | $80-120 | Enterprise SLA, integrated monitoring | Centralized, AWS lock-in |
-| **MongoDB Atlas** | $60-100 | Managed database, query flexibility | Centralized, not content-addressed |
 | **Self-hosted** | $200-300 | Full control, no vendor lock-in | Infrastructure burden, scaling complexity |
 
 **Conclusion:** IPFS is 10-20× cheaper than centralized alternatives while providing decentralization benefits.

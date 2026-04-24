@@ -232,20 +232,18 @@ services:
 
 ### Caching Strategy
 
-Communique (external repo) can cache Shadow Atlas responses in Prisma:
-```prisma
-model DistrictCache {
-  id          String   @id @default(cuid())
-  lat         Float
-  lng         Float
-  districtId  String
-  merkleRoot  String
-  proof       Json
-  cachedAt    DateTime @default(now())
-  expiresAt   DateTime
-
-  @@index([lat, lng])
-}
+Commons (external repo) caches Shadow Atlas responses in Convex (`commons/convex/schema.ts`):
+```typescript
+districtCache: defineTable({
+  lat: v.number(),
+  lng: v.number(),
+  districtId: v.string(),
+  merkleRoot: v.string(),
+  proof: v.any(),
+  cachedAt: v.number(),
+  expiresAt: v.number(),
+}).index("by_lat_lng", ["lat", "lng"])
+  .index("by_expiresAt", ["expiresAt"]),
 ```
 
 ---
@@ -280,10 +278,10 @@ model DistrictCache {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         COMMUNIQUE (SvelteKit - external repo)               │
+│                           COMMONS (SvelteKit - external repo)                │
 │                                                                             │
 │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │
-│   │  Frontend   │───▶│  Server     │───▶│  Prisma     │                    │
+│   │  Frontend   │───▶│  Server     │───▶│  Convex     │                    │
 │   │  (Browser)  │    │  (+page.ts) │    │  (Cache)    │                    │
 │   └─────────────┘    └──────┬──────┘    └─────────────┘                    │
 │                             │                                               │

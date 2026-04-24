@@ -79,10 +79,10 @@ ContractPaused(caller), ContractUnpaused(caller)
 | API: cosign | `src/routes/api/debates/[debateId]/cosign/+server.ts` | POST |
 | API: resolve | `src/routes/api/debates/[debateId]/resolve/+server.ts` | POST |
 | API: claim | `src/routes/api/debates/[debateId]/claim/+server.ts` | POST |
-| Prisma: Debate | `prisma/schema.prisma` lines 892-935 | Fields: `debate_id_onchain`, `action_domain`, `proposition_hash/text`, `deadline`, `jurisdiction_size`, `status`, `argument_count`, `unique_participants`, `total_stake`, `winning_*`, `proposer_address`, `proposer_bond` |
-| Prisma: DebateArgument | `prisma/schema.prisma` lines 937-966 | Fields: `argument_index`, `stance`, `body`, `body_hash`, `amendment_*`, `stake_amount`, `engagement_tier`, `weighted_score`, `total_stake`, `co_sign_count` |
+| Convex: debates | `commons/convex/schema.ts` | Fields: `debateIdOnchain`, `actionDomain`, `propositionHash`/`propositionText`, `deadline`, `jurisdictionSize`, `status`, `argumentCount`, `uniqueParticipants`, `totalStake`, `winning*`, `proposerAddress`, `proposerBond` |
+| Convex: debateArguments | `commons/convex/schema.ts` | Fields: `argumentIndex`, `stance`, `body`, `bodyHash`, `amendment*`, `stakeAmount`, `engagementTier`, `weightedScore`, `totalStake`, `coSignCount` |
 
-**Missing from Prisma:** `market_liquidity`, `current_prices` (JSON), `current_epoch`, `trade_deadline`, `resolution_deadline`, `market_status` (on Debate). `current_price`, `price_history` (JSON), `position_count` (on DebateArgument).
+**Missing from Convex schema:** `marketLiquidity`, `currentPrices` (JSON), `currentEpoch`, `tradeDeadline`, `resolutionDeadline`, `marketStatus` (on `debates`). `currentPrice`, `priceHistory` (JSON), `positionCount` (on `debateArguments`).
 
 **Missing from store:** LMSR price state, epoch phase tracking, trade flow state (commit/reveal), SSE subscription lifecycle.
 
@@ -180,7 +180,7 @@ mapping(bytes32 => mapping(uint256 => bytes32[])) public epochCommitments;
 - `EpochPhaseIndicator` — commit vs reveal countdown
 - `DebateContestationCard` — for template card (leading stance + price)
 
-**Schema additions to Prisma:** `market_status`, `market_liquidity`, `current_prices`, `current_epoch`, `trade_deadline`, `resolution_deadline`, `ai_scores`
+**Schema additions to Convex (`commons/convex/schema.ts`):** `marketStatus`, `marketLiquidity`, `currentPrices`, `currentEpoch`, `tradeDeadline`, `resolutionDeadline`, `aiScores`
 
 ### Gap 7: Subgraph Event Handlers (Indexer)
 
@@ -471,14 +471,14 @@ Tasks (shadow-atlas):
 
 Tasks (Communique):
 - [ ] Fix `sse-stream.ts` for Cloudflare Pages: replace `ReadableStream` with `TransformStream`, add `X-Accel-Buffering: no` and `cf-no-buffer: 1` headers
-- [ ] Prisma migration: add to Debate model: `market_liquidity BigInt?`, `current_prices Json?`, `current_epoch Int @default(0)`, `trade_deadline DateTime?`, `resolution_deadline DateTime?`, `market_status String @default("pre_market")`
-- [ ] Prisma migration: add to DebateArgument: `current_price String?`, `price_history Json?`, `position_count Int @default(0)`
+- [ ] Convex schema update: add to `debates` table: `marketLiquidity: v.optional(v.int64())`, `currentPrices: v.optional(v.any())`, `currentEpoch: v.number()` (default 0), `tradeDeadline: v.optional(v.number())`, `resolutionDeadline: v.optional(v.number())`, `marketStatus: v.string()` (default `"pre_market"`)
+- [ ] Convex schema update: add to `debateArguments` table: `currentPrice: v.optional(v.string())`, `priceHistory: v.optional(v.any())`, `positionCount: v.number()` (default 0)
 - [ ] Extend `debateState.svelte.ts`: add `lmsrPrices: Record<number, number>`, `epochPhase: 'commit' | 'reveal' | 'executing'`, `epochSecondsRemaining: number`, `sseConnection: EventSource | null`
 - [ ] New API route: `GET /api/debates/[debateId]/stream` → proxy SSE from shadow-atlas (or direct Communique SSE if shadow-atlas unavailable)
 - [ ] New API route: `POST /api/debates/[debateId]/commit` → accept trade commitment, relay to contract
 - [ ] New API route: `POST /api/debates/[debateId]/reveal` → accept trade reveal
 
-**Completion criteria:** SSE connection established in browser, price updates flow on epoch execution. Prisma migration applies cleanly. API routes respond correctly.
+**Completion criteria:** SSE connection established in browser, price updates flow on epoch execution. Convex schema deploys cleanly via `npx convex deploy --env-file .env.production`. API routes respond correctly.
 
 ---
 
@@ -530,7 +530,7 @@ Tasks:
 
 After all Cycle 1.x agents complete, manual review covers:
 - [ ] Cross-cutting: LMSR settlement solvency proof across epoch boundaries (agents test within-epoch only)
-- [ ] Cross-cutting: Prisma schema + store types + API routes align with contract event structure
+- [ ] Cross-cutting: Convex schema + store types + API routes align with contract event structure
 - [ ] Cross-cutting: SSE message format matches frontend expectations
 - [ ] Security: commit hash doesn't leak trade direction via gas patterns (all commits same gas)
 - [ ] Security: epoch execution can't be frontrun (batch execution is atomic, same-price guarantee)
@@ -649,7 +649,7 @@ Tasks:
 - **Dynamic argument rebalancing:** LMSR handles this automatically. New argument gets `q_m = 0`, prices rebalance by formula, sum stays 1. No special logic.
 - **Settlement solvency:** Proven: `Σ payouts = total_stake` for all edge cases.
 - **Anti-plutocratic weighting:** `sqrt()` + `tierMultiplier()` tested. Tier 4 at $2 outweighs Tier 1 at $100.
-- **Frontend architecture:** 5 debate components + 6 routes + Prisma models. Just needs market pricing layer on top.
+- **Frontend architecture:** 5 debate components + 6 routes + Convex tables. Just needs market pricing layer on top.
 - **Gas costs:** Entire market lifecycle under $0.20 on Scroll. Gas is not a constraint.
 - **SSE utility:** Already exists in Communique. Needs TransformStream fix for Cloudflare Pages (documented in §5.3).
 - **PRBMath:** v4.1.0 confirmed compatible. SD59x18 type system prevents sign errors in LMSR math.

@@ -480,17 +480,17 @@ Scales linearly: 1K messages = $6.55/month, 100K messages = $654.90/month
 
 ## Template Storage System
 
-### PostgreSQL (pgvector/Prisma) - Primary Storage
+### Convex - Primary Storage
 
-**Schema**: Templates, template_usage, challenges tables with full-text search, tag filtering, and GIN indexes.
+**Schema**: Templates, templateUsage, challenges tables with full-text search, tag filtering, and Convex indexes. Canonical schema in `commons/convex/schema.ts`.
 
 **Query Performance**:
 - Full-text search: 10-50ms
-- Tag filtering: <10ms (GIN index)
-- District lookup: <10ms (B-tree index)
+- Tag filtering: <10ms (Convex search index)
+- District lookup: <10ms (Convex index)
 - Sorting by popularity/impact: <5ms (indexed)
 
-**Full schema**: See `/Users/noot/Documents/voter-protocol/backend/schema.sql`
+**Full schema**: See `commons/convex/schema.ts`
 
 ---
 
@@ -1082,7 +1082,7 @@ See [Phase 2 Design Document](docs/roadmap/phase-2-design.md#cost-analysis) for:
 **Phase 1 Infrastructure**:
 - AWS Nitro Enclaves: $36,600/year (E2E encryption + moderation)
 - Scroll L2 batch logging: $5,400/year (hourly merkle roots)
-- PostgreSQL (pgvector/Prisma): $300/year
+- Convex: $300/year
 - Shadow Atlas IPFS pinning: $60/year
 - Domain + SSL: $240/year
 - Monitoring: $600/year
@@ -1250,7 +1250,7 @@ consensus_weights = {
   - 99% cost reduction from batch aggregation
 
 **Infrastructure**:
-- PostgreSQL (pgvector/Prisma): $25/month
+- Convex: $25/month
 - Browser-Native ZK Proving: $0/month
 - Shadow Atlas IPFS Pinning: $5/month
 - Domain + SSL: $20/month
@@ -1314,7 +1314,7 @@ consensus_weights = {
 1. **UltraHonk + keccak mode (Browser-Native WASM)** → Zero-knowledge district verification
 2. **mDL via W3C Digital Credentials API** → FREE browser-native identity verification (ISO 18013-5)
 3. **AWS Nitro Enclaves** → E2E encryption with moderation
-4. **PostgreSQL (pgvector/Prisma)** → Template storage, encrypted PII
+4. **Convex** → Template storage, encrypted PII
 5. **Scroll L2** → zkEVM settlement ($0.01-0.03/proof, ~2.2M gas)
 6. **Congressional CWC API** → Federal delivery from Nitro Enclave
 

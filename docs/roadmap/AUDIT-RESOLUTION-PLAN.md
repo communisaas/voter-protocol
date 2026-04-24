@@ -246,7 +246,7 @@ Update `tee-systems.md` and remaining docs from GCP Confidential Space to AWS Ni
 
 ### 5.3 Fix database references (FE-C04)
 
-Remove Supabase references from `maintenance.md`, `quickstart.md`, `seeding.md`. Replace with pgvector/Prisma.
+Normalize legacy database-stack references in `maintenance.md`, `quickstart.md`, and `seeding.md` to point at Convex (`commons/convex/schema.ts`).
 
 ### 5.4 Fix deployment target (FE-S03)
 
@@ -256,9 +256,9 @@ Update Fly.io references to Cloudflare Pages in `index.md`, `quickstart.md`.
 
 Replace Halo2/Axiom references. Update to describe Noir/Barretenberg/UltraHonk, two-tree architecture, depth 20, keccak mode. Fix manual testing checklist stages.
 
-### 5.6 Clarify Firecrawl/MongoDB situation (FE-S04)
+### 5.6 Clarify Firecrawl caching (FE-S04)
 
-Determine whether Firecrawl uses separate MongoDB or was migrated. Update DEPLOYMENT_CHECKLIST.md.
+If Firecrawl caching is re-enabled, cache rows should live in a Convex table with a TTL index. Update DEPLOYMENT_CHECKLIST.md.
 
 ### 5.7 Add missing contract addresses to .env.example (SC-F01)
 

@@ -414,33 +414,32 @@ In Phase 2 (shielded position pool), settlement is fully private — the trader 
 
 ### 8.1 Data Model Extensions
 
-**Prisma schema additions:**
+**Convex schema additions** (`commons/convex/schema.ts`):
 
-```prisma
-model Debate {
+```typescript
+debates: defineTable({
   // ... existing fields ...
 
   // Debate market fields
-  market_status       String   @default("inactive") @map("market_status")
-    // 'inactive' | 'open' | 'trading' | 'resolving' | 'resolved'
-  market_liquidity    BigInt   @default(0) @map("market_liquidity") // LMSR b parameter (in staking token units)
-  trade_deadline      DateTime? @map("trade_deadline")
-  resolution_deadline DateTime? @map("resolution_deadline")
+  marketStatus: v.string(), // 'inactive' | 'open' | 'trading' | 'resolving' | 'resolved'
+  marketLiquidity: v.int64(), // LMSR b parameter (in staking token units)
+  tradeDeadline: v.optional(v.number()),
+  resolutionDeadline: v.optional(v.number()),
 
   // AI evaluation results (populated during resolution)
-  ai_scores           Json?    @map("ai_scores") // { argument_index: { reasoning: 0.8, accuracy: 0.7, ... } }
-  ai_panel_consensus  Float?   @map("ai_panel_consensus") // M-of-N agreement ratio
-  resolution_method   String?  @map("resolution_method") // 'ai_community' | 'governance_override' | 'community_appeal'
-}
+  aiScores: v.optional(v.any()), // { argumentIndex: { reasoning: 0.8, accuracy: 0.7, ... } }
+  aiPanelConsensus: v.optional(v.number()), // M-of-N agreement ratio
+  resolutionMethod: v.optional(v.string()), // 'ai_community' | 'governance_override' | 'community_appeal'
+}).index("by_marketStatus", ["marketStatus"]),
 
-model DebateArgument {
+debateArguments: defineTable({
   // ... existing fields ...
 
   // Market pricing (updated by event indexer each epoch)
-  current_price       Float    @default(0) @map("current_price") // LMSR price [0, 1]
-  price_history       Json?    @map("price_history") // [{ epoch, price, volume }]
-  position_count      Int      @default(0) @map("position_count") // Unique position holders
-}
+  currentPrice: v.number(), // LMSR price [0, 1]
+  priceHistory: v.optional(v.any()), // [{ epoch, price, volume }]
+  positionCount: v.number(), // Unique position holders
+}).index("by_debateId", ["debateId"]),
 ```
 
 ### 8.2 Template Card Integration
@@ -784,7 +783,7 @@ Additionally, the challenge market architecture's Section 6 solutions apply: bli
 | Relayer for on-chain submission | EXISTS | Extend for trade commitment submission |
 | The Graph subgraph | EXISTS | Add `EpochExecuted`, `MarketResolved` event handlers |
 | `Template.hasActiveDebate` | EXISTS | Populate from market state |
-| `Debate` + `DebateArgument` Prisma models | EXISTS | Add market pricing fields (§8.1) |
+| `debates` + `debateArguments` Convex tables | EXISTS | Add market pricing fields (§8.1) |
 | `DebateMarket.sol` | EXISTS → EXTENDED | Add LMSR pricing, commit-reveal epochs, AI resolution |
 | `TEEEvaluationRegistry.sol` | NEW | TEE attestation verification + resolution weight governance |
 | Commit-reveal batch trading | NEW | Epoch-based trade commitment and reveal |

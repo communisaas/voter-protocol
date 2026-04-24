@@ -3,8 +3,8 @@
 >
 > This specification describes a Temporal Knowledge Graph and Four-Swarm verification
 > architecture for maintaining representative data. **No implementation exists.**
-> The proposed stack (PostgreSQL + Apache Age, verification swarms, entity resolution)
-> has not been built.
+> The proposed stack (Convex + bi-temporal fact layer, verification swarms,
+> entity resolution) has not been built.
 >
 > **Estimated ongoing cost:** $3-15K/month
 > **Prerequisites:** US launch, core protocol stabilization
@@ -27,7 +27,7 @@
 - ✅ Governance Ontology model
 - ✅ Cost analysis and admission control design
 - ❌ Temporal Knowledge Graph implementation
-- ❌ PostgreSQL + Apache Age setup
+- ❌ Convex schema + bi-temporal fact layer
 - ❌ Verification swarm (SLM-based)
 - ❌ Discovery swarm (hash-based change detection)
 - ❌ Reconciliation swarm (LLM-powered)
@@ -64,7 +64,7 @@ Current agentic AI patterns are insufficient because:
 
 A **verification-native agentic system** with:
 
-1. **Temporal Knowledge Graph** (PostgreSQL + Apache Age) - Bi-temporal fact storage with validity intervals
+1. **Temporal Knowledge Graph** (Convex with bi-temporal fact layer) - Bi-temporal fact storage with validity intervals
 2. **Four-Swarm Architecture** - Verification (SLM), Discovery (hash-based), Reconciliation (LLM), Portal Health
 3. **Governance Ontology** - Domain-specific model for elected/appointed officials
 4. **Cascade Inference** - Event-driven verification propagation
@@ -103,7 +103,7 @@ A **verification-native agentic system** with:
 │                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                    TEMPORAL KNOWLEDGE GRAPH                            │  │
-│  │              (PostgreSQL + Apache Age + temporal_tables)               │  │
+│  │              (Convex tables + bi-temporal validity fields)             │  │
 │  │                                                                        │  │
 │  │   [Person]──REPRESENTS──>[District]                                   │  │
 │  │      │         ├─ validFrom: 2023-01-03                               │  │
@@ -188,51 +188,47 @@ Portal Health Swarm (HTTP status, schema fingerprint)
 
 ## 3. Temporal Knowledge Graph
 
-### 3.1 Database Selection: PostgreSQL + Apache Age
+### 3.1 Database Selection: Convex with Bi-Temporal Fact Layer
 
-**Decision:** Use PostgreSQL with Apache Age extension over dedicated graph databases.
+**Decision:** Use Convex (the live backend) as the temporal fact store, modeling graph relationships as edge tables rather than adopting a dedicated graph database.
 
 **Rationale:** After adversarial architecture review, the original Memgraph recommendation was revised:
 
 1. **Memgraph's TGN is for ML prediction, not bi-temporal storage** - The "Temporal Graph Networks" feature is designed for predicting future edge formations, not querying "who represented this district on date X?"
 
-2. **We already use PostgreSQL (Supabase)** - Zero new infrastructure, existing operational expertise
+2. **We already run on Convex** - Zero new infrastructure, existing operational expertise.
 
-3. **Native temporal support via `temporal_tables` extension** - SQL:2011 temporal compliance for bi-temporal queries
+3. **Bi-temporal semantics modeled at the document level** - every fact row carries `validFrom`/`validTo` (event-time) and `recordedFrom`/`recordedTo` (transaction-time), indexed via Convex `.index("by_validFrom", ...)`.
 
-4. **OpenCypher compatibility via Apache Age** - Same graph query patterns, no query rewrite
+4. **Graph traversal via edge tables + indexed joins** - relationships such as `REPRESENTS(Person → District)` live in their own Convex table with compound indexes; common traversals are expressed as ergonomic query helpers rather than Cypher.
 
-| Factor | PostgreSQL + Age | Memgraph | Neo4j |
-|--------|------------------|----------|-------|
-| Temporal tables | Native (SQL:2011) | Manual modeling | Manual modeling |
-| Graph queries | OpenCypher (Age) | OpenCypher | Cypher |
-| Infrastructure | Existing Supabase | New service | New service |
-| Bi-temporal | `temporal_tables` ext | Edge properties | Edge properties |
-| ACID clustering | Mature | Limited (MAGE) | Enterprise only |
-| Backups/HA | Mature tooling | Limited | Enterprise only |
+| Factor | Convex (bi-temporal) | Memgraph | Neo4j |
+|--------|----------------------|----------|-------|
+| Temporal modeling | Document fields + indexes | Manual modeling | Manual modeling |
+| Graph queries | Edge tables + query helpers | OpenCypher | Cypher |
+| Infrastructure | Existing Convex backend | New service | New service |
+| Bi-temporal | Native (validFrom/validTo + recordedFrom/recordedTo) | Edge properties | Edge properties |
+| ACID clustering | Managed | Limited (MAGE) | Enterprise only |
+| Backups/HA | Managed | Limited | Enterprise only |
 | Scale (edges) | 100M+ on disk | ~50M in RAM (32GB) | 100M+ |
 | Cost | ~$50/month incremental | ~$150-500/month | ~$1,500+/month |
 
-**Migration Path:** If graph query performance becomes a bottleneck at scale (>50M edges), Apache Age queries can be migrated to dedicated graph DB with minimal rewrite due to OpenCypher compatibility.
+**Migration Path:** If graph query performance becomes a bottleneck at scale (>50M edges), edge-table queries can be mirrored into a dedicated graph DB (OpenCypher-compatible) with a small translation layer.
 
-### 3.1.1 PostgreSQL Extensions Required
+### 3.1.1 Convex Schema Additions Required
 
-```sql
--- Enable Apache Age for graph queries
-CREATE EXTENSION IF NOT EXISTS age;
-LOAD 'age';
-SET search_path = ag_catalog, "$user", public;
-
--- Enable temporal tables for bi-temporal support
-CREATE EXTENSION IF NOT EXISTS temporal_tables;
-
--- Create the governance graph
-SELECT create_graph('governance');
+```typescript
+// Convex schema additions (sketch):
+// - tables: persons, districts, representations, facts
+// - each mutable fact carries validFrom/validTo + recordedFrom/recordedTo
+// - edge tables (e.g., representations) keep compound indexes for traversal
+// - versioned snapshots emit provenance events into a dedicated table
 ```
 
 ### 3.2 Schema Definition
 
-The schema uses a hybrid approach: PostgreSQL tables for temporal tracking and Apache Age for graph traversal.
+The schema uses a hybrid approach: Convex document tables for temporal
+tracking and dedicated edge tables for graph traversal.
 
 #### 3.2.1 Relational Tables (Temporal)
 
@@ -1762,8 +1758,7 @@ const UK_CONFIG: CountryConfig = {
 │                                                                              │
 │  INFRASTRUCTURE                                                              │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  PostgreSQL (Supabase Pro): $25/month (existing)                            │
-│  Apache Age: $0 (extension)                                                 │
+│  Convex (managed): included (existing)                                      │
 │  Compute (workers on Fly.io): $100/month                                    │
 │  Storage (S3 snapshots): $20/month                                          │
 │  SLM hosting (shared GPU): $200/month                                       │
@@ -1799,7 +1794,7 @@ const UK_CONFIG: CountryConfig = {
 │                                                                              │
 │  INFRASTRUCTURE (scaled)                                                     │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  PostgreSQL (Pro + storage): $50/month                                      │
+│  Convex (managed, scaled): included                                         │
 │  Compute (scaled workers): $300/month                                       │
 │  SLM hosting: $400/month                                                    │
 │  Storage: $100/month                                                        │
@@ -2084,9 +2079,9 @@ async function handleElectionEvent(event: ElectionEventConfig): Promise<void> {
 
 **Objective:** Temporal knowledge graph + federal representatives
 
-- [ ] PostgreSQL schema creation (persons, districts, representations)
-- [ ] Apache Age extension setup + governance graph
-- [ ] temporal_tables extension for bi-temporal history
+- [ ] Convex schema creation (persons, districts, representations)
+- [ ] Edge-table traversal helpers + governance graph conventions
+- [ ] Bi-temporal document fields (validFrom/validTo + recordedFrom/recordedTo)
 - [ ] Entity resolution pipeline with Wikidata integration
 - [ ] Congress.gov API integration (535 federal officials)
 - [ ] Basic CRUD operations + temporal queries
@@ -2617,12 +2612,12 @@ const OBSERVABILITY_CONFIG: ObservabilityConfig = {
 **SQL (Temporal):** `docs/queries/temporal-queries.sql`
 **OpenCypher (Graph):** `docs/queries/graph-queries.cypher`
 
-### B. PostgreSQL + Apache Age Deployment Guide
+### B. Convex Deployment Guide
 
-See `docs/deployment/postgresql-age-setup.md`
+See `docs/deployment/convex-setup.md`
 
 **Key steps:**
-1. Enable Apache Age extension
+1. Deploy schema (including edge tables)
 2. Enable temporal_tables extension
 3. Create governance graph
 4. Set up temporal history tables
@@ -2659,7 +2654,7 @@ See `data/countries/` directory
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2026-01-25 | Initial specification |
-| 1.1.0 | 2026-01-25 | Post-adversarial review revision: replaced Memgraph with PostgreSQL+Apache Age, added Portal Health Swarm, Entity Resolution Pipeline, Cold-Start Strategy, revised cost model (10x), added admission control, prompt injection mitigation |
+| 1.1.0 | 2026-01-25 | Post-adversarial review revision: selected Convex + bi-temporal fact layer over a dedicated graph DB, added Portal Health Swarm, Entity Resolution Pipeline, Cold-Start Strategy, revised cost model (10x), added admission control, prompt injection mitigation |
 
 ---
 

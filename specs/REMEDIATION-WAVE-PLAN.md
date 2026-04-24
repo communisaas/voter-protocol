@@ -1253,25 +1253,25 @@ const stateBounds: Record<string, StateBounds> = {
 ### H-7: OAuth Tokens Stored in Plaintext (HIGH)
 
 **Severity:** HIGH
-**File:** `communique/prisma/schema.prisma:371-396`
+**File:** `commons/convex/schema.ts` (`accounts` table)
 
-**Problem:** `access_token` and `refresh_token` stored unencrypted in database.
+**Problem:** `accessToken` and `refreshToken` stored unencrypted in database.
 
 **Evidence:**
-```prisma
-model Account {
-  id                String   @id @default(cuid())
-  userId            String
-  provider          String   // google, facebook, coinbase, etc.
-  providerAccountId String
+```typescript
+accounts: defineTable({
+  userId: v.id("users"),
+  provider: v.string(),                      // google, facebook, coinbase, etc.
+  providerAccountId: v.string(),
 
-  access_token      String?  @db.Text  // PLAINTEXT - database breach exposes all tokens
-  refresh_token     String?  @db.Text  // PLAINTEXT - long-lived credential exposure
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?  @db.Text
-}
+  accessToken: v.optional(v.string()),       // PLAINTEXT - database breach exposes all tokens
+  refreshToken: v.optional(v.string()),      // PLAINTEXT - long-lived credential exposure
+  expiresAt: v.optional(v.number()),
+  tokenType: v.optional(v.string()),
+  scope: v.optional(v.string()),
+  idToken: v.optional(v.string()),
+}).index("by_userId", ["userId"])
+  .index("by_providerAccountId", ["provider", "providerAccountId"]),
 ```
 
 **Security Risk:**
@@ -1287,11 +1287,11 @@ model Account {
 - Migration path for existing plaintext tokens
 
 **Current Mitigation:**
-- Database access restricted to application server only (no public exposure)
-- TLS encryption for all database connections
-- Database credentials stored in environment variables (not in code)
-- PostgreSQL row-level security policies in place
-- Regular security audits of database access logs
+- Convex access gated by authenticated identity (`ctx.auth.getUserIdentity()`)
+- TLS encryption for all Convex connections
+- Convex deploy keys stored in environment variables (not in code)
+- Convex function-level authorization in every mutation/query
+- Regular security audits of Convex function logs
 
 **Phase 2 Requirements:**
 1. Implement envelope encryption (data key per token, master key in KMS)
@@ -2147,7 +2147,7 @@ Same person → same commitment → same nullifier regardless of re-registration
 |----|---------|------|--------|-----|
 | BR6-001 | `encrypted_entropy` stored as plaintext hex | communique | **COMPLETE** | AES-256-GCM `encryptEntropy()`/`decryptEntropy()` in `security.ts`. Both verify + webhook paths encrypt before store, decrypt when reading. Legacy plaintext detected transparently. Env var: `ENTROPY_ENCRYPTION_KEY`. |
 | BR6-002 | Identity commitment unsalted | communique | **COMPLETE** | `IDENTITY_COMMITMENT_SALT` env var added to `computeIdentityCommitment()` in `identity-binding.ts`. Positioned after domain prefix, before data fields. Blocks offline passport enumeration. |
-| BR6-003 | Didit webhook race condition | communique | **COMPLETE** | `didit/webhook/+server.ts` wrapped in `prisma.$transaction()`, matching self.xyz pattern. Duplicate check + user update + audit log atomic. HTTP error thrown outside transaction. |
+| BR6-003 | Didit webhook race condition | commons | **COMPLETE** | `didit/webhook/+server.ts` routes through a Convex mutation (atomic by default); duplicate check + user update + audit log run in a single mutation call. Race conditions prevented by unique indexes on the `accounts` and `verifications` tables. HTTP error thrown outside the mutation boundary. |
 
 ### BR6 — High (3) — ALL COMPLETE (Wave 34)
 

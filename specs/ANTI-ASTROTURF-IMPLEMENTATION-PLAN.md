@@ -173,52 +173,52 @@ Review waves identified and remediated 12 additional findings including circuit 
 
 ### 13c: Anonymize Submission Model
 
-**Gap:** G-07 — `Submission.user_id` creates a direct link between on-chain pseudonymous proofs and authenticated user accounts. A database breach or government subpoena deanonymizes every proof submission. This contradicts the cypherpunk architecture where `Message` model has no `user_id`.
+**Gap:** G-07 — `submissions.userId` creates a direct link between on-chain pseudonymous proofs and authenticated user accounts. A database breach or government subpoena deanonymizes every proof submission. This contradicts the cypherpunk architecture where the `messages` table has no `userId`.
 
 **Implementation:**
 
-1. Add `pseudonymous_id` field to Submission model (Prisma migration):
-   ```prisma
-   model Submission {
-     // REMOVE: user_id String
-     pseudonymous_id String  // SHA-256(user_id + per-deployment-salt)
+1. Add `pseudonymousId` field to the `submissions` table in `commons/convex/schema.ts`:
+   ```typescript
+   submissions: defineTable({
+     // REMOVE: userId: v.id("users")
+     pseudonymousId: v.string(), // SHA-256(userId + per-deployment-salt)
      // ... rest unchanged
-   }
+   }).index("by_pseudonymousId", ["pseudonymousId"]),
    ```
 
-2. Compute `pseudonymous_id` at submission time:
+2. Compute `pseudonymousId` at submission time inside the Convex mutation:
    ```typescript
-   const ANONYMIZATION_SALT = env.SUBMISSION_ANONYMIZATION_SALT; // env var, not in code
+   const ANONYMIZATION_SALT = process.env.SUBMISSION_ANONYMIZATION_SALT!;
    const pseudonymousId = sha256(userId + ANONYMIZATION_SALT);
    ```
 
 3. For reputation updates, use a one-time binding token:
-   - Generate token at submission time, store in separate `ReputationBinding` table
+   - Generate token at submission time, store in a separate `reputationBindings` table
    - Token expires after 24 hours
-   - After reputation update, delete token
+   - After reputation update, delete the token row
 
-4. Migration: backfill existing submissions with pseudonymous_id, then drop user_id column.
+4. Migration: write a Convex mutation to backfill existing submissions with `pseudonymousId`, then drop `userId` from the schema in a follow-up deploy.
 
 **Files:**
-- `commons/prisma/schema.prisma` — modify Submission model
-- `commons/src/lib/core/congressional/submission-handler.ts` — compute pseudonymous_id
-- `commons/prisma/migrations/` — NEW migration
+- `commons/convex/schema.ts` — modify `submissions` table
+- `commons/convex/submissions.ts` — compute `pseudonymousId` inside the submission mutation
+- `commons/convex/migrations/` — NEW backfill mutation
 - `.env.example` — add SUBMISSION_ANONYMIZATION_SALT
 
 **Pitfalls:**
 - **Pitfall:** Salt leaked = all pseudonymous IDs are reversible.
   **Mitigation:** Store salt in secrets manager (Vault, AWS Secrets Manager), not .env. Rotate salt periodically (new submissions get new salt, old ones remain with old salt).
-- **Pitfall:** Debugging/support becomes harder without user_id.
-  **Mitigation:** Maintain audit log in separate, access-controlled table. Require 2-person authorization to query.
-- **Pitfall:** Existing queries that JOIN on user_id break.
-  **Mitigation:** Audit all queries before migration. Replace with pseudonymous_id where possible, add explicit audit-log queries for admin functions.
+- **Pitfall:** Debugging/support becomes harder without `userId`.
+  **Mitigation:** Maintain audit log in a separate, access-controlled Convex table. Require 2-person authorization to query.
+- **Pitfall:** Existing queries that join on `userId` break.
+  **Mitigation:** Audit all queries before migration. Replace with `pseudonymousId` where possible, add explicit audit-log queries for admin functions.
 
 **Test Cases:**
-- [ ] Submission created without user_id field
-- [ ] pseudonymous_id is deterministic (same user + salt = same hash)
-- [ ] Different users produce different pseudonymous_ids
-- [ ] Reputation binding token works for trust_score updates
-- [ ] Migration backfills existing records correctly
+- [ ] Submission created without `userId` field
+- [ ] `pseudonymousId` is deterministic (same user + salt = same hash)
+- [ ] Different users produce different `pseudonymousId` values
+- [ ] Reputation binding token works for `trustScore` updates
+- [ ] Backfill mutation updates existing records correctly
 
 ---
 
@@ -394,7 +394,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 - `commons/src/lib/core/identity/user-secret-derivation.ts` — NEW
 - `commons/src/lib/core/identity/verification-complete-handler.ts` — generate entropy
 - `commons/src/lib/core/zkp/witness-builder.ts` — use derived user_secret
-- `commons/prisma/schema.prisma` — add `encrypted_entropy` to User model
+- `commons/convex/schema.ts` — add `encryptedEntropy` to `users` table
 
 **Pitfalls:**
 - **Pitfall:** Poseidon2 not available in commons's TypeScript.
@@ -430,7 +430,7 @@ Wire the existing rate limiter to all 8 endpoints identified in the BA-014 TODO:
 
 **Files:**
 - `commons/src/lib/core/identity/authority-level.ts` — NEW
-- `commons/prisma/schema.prisma` — add authority_level field
+- `commons/convex/schema.ts` — add `authorityLevel` field to `shadowAtlasRegistrations`
 - `commons/src/lib/core/zkp/witness-builder.ts` — use derived value
 - `commons/src/lib/components/template/ProofGenerator.svelte` — remove hardcoded value
 

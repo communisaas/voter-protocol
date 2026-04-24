@@ -1336,7 +1336,7 @@ return {
 ```
 
 No proof is ever submitted to the Scroll chain. The entire on-chain verification pipeline — nullifier recording, campaign participation tracking, EIP-712 signature validation — is bypassed. This means:
-- Nullifier uniqueness is not enforced on-chain (only in communique's Postgres)
+- Nullifier uniqueness is not enforced on-chain (only in communique's Convex backend)
 - `CampaignRegistry.districtCount` and `participantCount` are never incremented
 - The coordination observability that `CampaignRegistry` was designed to provide does not exist
 
@@ -1739,7 +1739,7 @@ A compromised proof generator (XSS, browser extension) could submit cryptographi
 
 | ID | Finding | Repo | Source | Status |
 |----|---------|------|--------|--------|
-| BR5-011 | No credential recovery path for returning users — browser clear causes account lockout (no endpoint to retrieve existing Merkle path) | communique + voter-protocol | Gemini (integration) | [x] PLUMBING COMPLETE — Wave 30-31: `RegistrationService.replaceLeaf()` (33 tests), `POST /v1/register/replace` endpoint, communique `replaceLeaf()` client (BN254 validated), register endpoint replace mode (Postgres update + CRITICAL logging for atomicity failure), `recoverTwoTree()` handler. Oracle-resistant error messages. **Sybil safety pending NUL-001 (Wave 24).** |
+| BR5-011 | No credential recovery path for returning users — browser clear causes account lockout (no endpoint to retrieve existing Merkle path) | communique + voter-protocol | Gemini (integration) | [x] PLUMBING COMPLETE — Wave 30-31: `RegistrationService.replaceLeaf()` (33 tests), `POST /v1/register/replace` endpoint, communique `replaceLeaf()` client (BN254 validated), register endpoint replace mode (Convex mutation + CRITICAL logging for atomicity failure), `recoverTwoTree()` handler. Oracle-resistant error messages. **Sybil safety pending NUL-001 (Wave 24).** |
 | BR5-012 | Registration auth defaults to open when `REGISTRATION_AUTH_TOKEN` unconfigured — warning-only log at `api.ts:234-239` | voter-protocol | Shadow-Atlas + Integration (3/7) | [x] COMPLETE — Wave 27a+27M: Fail-closed in production (`process.env.NODE_ENV === 'production'` throws), dev-mode warning preserved. 3 tests added. |
 | BR5-013 | `/v1/health` leaks `lat`/`lon` coordinates and error samples; `/v1/metrics` unauthenticated — operational telemetry exposed | voter-protocol | Codex (shadow-atlas) | [x] COMPLETE — Wave 27a+27M: Health sanitized (status/uptime/aggregate counts only). Metrics auth-gated: token-required when configured (no trusted-proxy bypass, 27M-001), trusted-proxy-only when no token. 5 metrics auth tests added. |
 | BR5-014 | Generic 500 error responses pass `error.message` details to client via `sendErrorResponse` at `api.ts:375-389` | voter-protocol | Codex (shadow-atlas) | [x] COMPLETE — Wave 27a: All catch blocks audited — error.message logged internally, generic messages returned to client. Zod field errors stripped. WWW-Authenticate headers on 401s (27M-002). |
@@ -2696,25 +2696,14 @@ attestationHash: process.env.NODE_ENV === 'production'
 
 ---
 
-#### BR7-022: `pg` imported but undeclared in shadow-atlas
+#### BR7-022: Unused relational adapter in shadow-atlas
 
 **Severity:** MEDIUM | **Repo:** voter-protocol | **Source:** Claude (dependency vertical)
-**File:** `packages/shadow-atlas/src/persistence/adapters/postgresql.ts:8`
+**File:** `packages/shadow-atlas/src/persistence/adapters/` (relational adapter)
 
-**Problem:** `import { Pool } from 'pg'` — but `pg` is not in shadow-atlas's `dependencies`, `devDependencies`, or `peerDependencies`. Works in the workspace because another package might install it transitively, but will crash at runtime if the PostgreSQL adapter is loaded in a standalone install.
+**Problem:** The relational persistence adapter imports a driver that is not declared in shadow-atlas's `dependencies`, `devDependencies`, or `peerDependencies`. It works in the workspace because another package might install the driver transitively, but will crash at runtime if the adapter is loaded in a standalone install.
 
-**Best solution:** Add `pg` as an optional peer dependency:
-
-```json
-"peerDependencies": {
-  "pg": "^8.0.0"
-},
-"peerDependenciesMeta": {
-  "pg": { "optional": true }
-}
-```
-
-**Pitfalls:** The PostgreSQL adapter may be dead code (SQLite is the primary persistence). **Mitigation:** Verify if it's used anywhere. If dead code, delete the file instead of adding the dependency.
+**Best solution:** Declare the driver as an optional peer dependency, or delete the adapter file if it is dead code (SQLite is the primary persistence).
 
 **Status:** [ ] NOT STARTED
 
@@ -3833,16 +3822,19 @@ export const GOLDEN_VECTORS = [
 
 ### ISSUE-001: Cross-Provider Identity Deduplication
 
-**Solution:** Identity commitment binding - after identity verification, bind `identity_commitment` to account.
+**Solution:** Identity commitment binding - after identity verification, bind `identityCommitment` to account.
 
-```prisma
-model User {
-  identity_commitment    String?  @unique
-  identity_commitment_at DateTime?
-}
+```typescript
+// commons/convex/schema.ts
+users: defineTable({
+  identityCommitment: v.optional(v.string()),
+  identityCommittedAt: v.optional(v.number()),
+}).index("by_identityCommitment", ["identityCommitment"]),
 ```
 
-**Effort:** 4 hours | **Risk:** Medium (database migration)
+The `by_identityCommitment` index enforces uniqueness at insert/patch time inside the Convex mutation; attempts to re-use a commitment fail atomically.
+
+**Effort:** 4 hours | **Risk:** Low (Convex schema update + deploy)
 
 ---
 
@@ -3890,7 +3882,6 @@ const baseReputationTier = emailVerified ? 'verified' : 'novice';
    ```
 
 **Research Sources:**
-- [Supabase: Twitter OAuth fails on phone-only accounts](https://github.com/supabase/supabase/issues/2853)
 - [Authentik: X API v2 email retrieval](https://github.com/goauthentik/authentik/issues/18466)
 - [X Developer Docs: OAuth 2.0 PKCE](https://developer.twitter.com/en/docs/authentication/oauth-2-0/authorization-code)
 

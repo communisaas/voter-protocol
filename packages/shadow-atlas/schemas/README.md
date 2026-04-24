@@ -221,45 +221,9 @@ npm run typecheck && npm test
 
 ## Future Database Migration
 
-When migrating to PostgreSQL/Supabase:
-
-```sql
--- Portal table matches portal.schema.json
-CREATE TABLE portals (
-  city_fips CHAR(7) PRIMARY KEY,
-  city_name TEXT NOT NULL,
-  state CHAR(2) NOT NULL,
-  portal_type TEXT NOT NULL,
-  download_url TEXT NOT NULL,
-  feature_count INTEGER NOT NULL,
-  last_verified TIMESTAMPTZ NOT NULL,
-  confidence INTEGER CHECK (confidence BETWEEN 0 AND 100),
-  discovered_by TEXT NOT NULL,
-  status TEXT NOT NULL,
-  notes TEXT,
-  metadata JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Provenance events table
-CREATE TABLE provenance_events (
-  event_id UUID PRIMARY KEY,
-  event_type TEXT NOT NULL,
-  timestamp TIMESTAMPTZ NOT NULL,
-  actor JSONB NOT NULL,
-  entity_type TEXT NOT NULL,
-  entity_id TEXT NOT NULL,
-  previous_state JSONB,
-  new_state JSONB,
-  reason TEXT,
-  validation_results JSONB,
-  remediation_details JSONB,
-  references JSONB
-);
-
--- Import from NDJSON
-\COPY portals FROM 'data/portals/current.ndjson' WITH (FORMAT text);
-```
-
-NDJSON structure maps 1:1 to database schema → zero transformation required.
+Shadow Atlas is durable-store-agnostic. If a self-hosted deploy wants to
+move off NDJSON to a relational or document store, the schemas in this
+directory map 1:1 to the target store's table/collection definitions
+(`portal.schema.json` → portals, `provenance-event.schema.json` →
+provenance events). NDJSON structure maps 1:1 → zero transformation
+required.
