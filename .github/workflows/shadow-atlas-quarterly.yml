@@ -99,18 +99,28 @@ jobs:
       officials_url: ${{ steps.resolve.outputs.officials_url }}
       officials_sha: ${{ steps.resolve.outputs.officials_sha }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Resolve manifest + override discipline
         id: resolve
         # Resolution order:
         #   1. If override URLs present, require matching sha256 (or
         #      allow_unverified="I-UNDERSTAND") — silent SHA-skip is a
         #      footgun.
-        #   2. Otherwise, fetch manifest. If expected_manifest_sha256 is
-        #      provided (operator pasted it from publish:source output),
-        #      verify the manifest body before parsing — the manifest is
-        #      the trust root, so an out-of-band-pinned hash is the only
-        #      defense against R2-write compromise until offline signing
-        #      lands (tracked separately).
+        #   2. Otherwise, fetch manifest body and trust it via:
+        #      Ed25519 signature (preferred when public key set) +
+        #      operator-pasted sha256 pin + allow_unverified.
         #   3. Use `jq -er` and require exactly one matching build entry
         #      so duplicate or empty results fail loud rather than
         #      silently producing multi-line GITHUB_OUTPUT (output
@@ -118,6 +128,14 @@ jobs:
         #   4. Constrain resolved URLs to atlas.commons.email so a
         #      poisoned manifest can't redirect downloads to an
         #      attacker-controlled origin.
+        env:
+          # Public key (PEM or RAW:hex) to verify the manifest's Ed25519
+          # signature. Stored as a repo VARIABLE (vars.*), not a secret —
+          # public keys are public. When unset, signature verification is
+          # skipped and the workflow falls back to the sha-pin / allow-
+          # unverified path. Once a public key is published, set this
+          # variable so all future runs require a valid signature.
+          MANIFEST_SIGNING_PUBLIC_KEY: ${{ vars.MANIFEST_SIGNING_PUBLIC_KEY }}
         run: |
           set -euo pipefail
 
@@ -173,41 +191,94 @@ jobs:
 
           if [ -z "${DB_URL:-}" ] || [ -z "${OFF_URL:-}" ]; then
             echo "Fetching $ATLAS_SOURCE_MANIFEST"
-            RAW=$(curl -fsSL --retry 3 --retry-delay 5 "$ATLAS_SOURCE_MANIFEST")
+
+            # Write curl output directly to a tmpfile rather than via
+            # `$(curl ...)` capture. POSIX command substitution strips
+            # ALL trailing newlines, which would (a) make every signed
+            # publish fail Ed25519 verification — publish-source.ts signs
+            # the exact bytes including the trailing `\n`, and (b) make
+            # the operator-pasted sha-pin always mismatch.
+            MANIFEST_TMP=$(mktemp)
+            SIG_TMP=$(mktemp)
+            PUBKEY_TMP=$(mktemp)
+            trap 'rm -f "$MANIFEST_TMP" "$SIG_TMP" "$PUBKEY_TMP"' EXIT
+
+            curl -fsSL --retry 3 --retry-delay 5 \
+              -o "$MANIFEST_TMP" \
+              "$ATLAS_SOURCE_MANIFEST?t=$RANDOM" \
+              -H 'Cache-Control: no-cache'
+
+            # Trust the manifest body via, in priority order:
+            #   1. Ed25519 signature (if MANIFEST_SIGNING_PUBLIC_KEY is
+            #      set) — the deepest defense; an R2-write compromise
+            #      alone can't forge a valid sig.
+            #   2. Operator-pasted sha256 pin (`expected_manifest_sha256`).
+            #   3. allow_unverified="I-UNDERSTAND" (ad-hoc test runs).
+            # Active defenses are additive (multiple may apply), not
+            # alternatives. At least one must succeed.
+            VERIFIED_VIA=""
+            if [ -n "${MANIFEST_SIGNING_PUBLIC_KEY:-}" ]; then
+              echo "Verifying manifest Ed25519 signature..."
+              if ! curl -fsSL --retry 3 --retry-delay 5 \
+                -o "$SIG_TMP" \
+                "${ATLAS_SOURCE_MANIFEST}.sig?t=$RANDOM" \
+                -H 'Cache-Control: no-cache'; then
+                echo "Public key is set but no signature exists at ${ATLAS_SOURCE_MANIFEST}.sig" >&2
+                echo "Either: (a) the publisher didn't sign — run publish:source with MANIFEST_SIGNING_PRIVATE_KEY set," >&2
+                echo "or (b) the .sig was deleted post-publish — re-publish with signing enabled." >&2
+                exit 1
+              fi
+              if ! npx tsx packages/shadow-atlas/scripts/verify-manifest.ts \
+                --manifest "$MANIFEST_TMP" \
+                --signature "$SIG_TMP" \
+                --public-key env:MANIFEST_SIGNING_PUBLIC_KEY; then
+                echo "Manifest signature verification FAILED — aborting." >&2
+                exit 1
+              fi
+              VERIFIED_VIA="ed25519"
+            fi
+
             if [ -n "$MANIFEST_SHA_PIN" ]; then
-              GOT=$(printf '%s' "$RAW" | sha256sum | awk '{print $1}')
+              GOT=$(sha256sum "$MANIFEST_TMP" | awk '{print $1}')
               if [ "$GOT" != "$MANIFEST_SHA_PIN" ]; then
                 echo "Manifest sha mismatch: $GOT vs pin $MANIFEST_SHA_PIN" >&2
                 exit 1
               fi
               echo "Manifest pin verified ($GOT)"
-            elif [ -z "$DB_OVERRIDE" ] && [ "$ALLOW" != "I-UNDERSTAND" ]; then
-              echo "expected_manifest_sha256 is required when db_source is empty." >&2
-              echo "publish:source emits the value at the end of a successful run; paste it here." >&2
-              echo "Or set allow_unverified=I-UNDERSTAND to skip (only for ad-hoc test runs)." >&2
-              exit 1
-            else
-              echo "Manifest pin not provided; trusting CF zone (allow_unverified)."
+              VERIFIED_VIA="${VERIFIED_VIA:+$VERIFIED_VIA+}sha-pin"
             fi
 
-            VERSION=$(printf '%s' "$RAW" | jq -er '.currentVersion')
+            if [ -z "$VERIFIED_VIA" ]; then
+              if [ -z "$DB_OVERRIDE" ] && [ "$ALLOW" != "I-UNDERSTAND" ]; then
+                echo "Manifest body is unverified. Provide one of:" >&2
+                echo "  - MANIFEST_SIGNING_PUBLIC_KEY workflow var (Ed25519 sig)" >&2
+                echo "  - expected_manifest_sha256 input (operator-pasted sha)" >&2
+                echo "  - allow_unverified=I-UNDERSTAND (ad-hoc test runs only)" >&2
+                exit 1
+              fi
+              echo "Manifest unverified (allow_unverified=I-UNDERSTAND)."
+              VERIFIED_VIA="unverified"
+            fi
+            echo "Manifest trust: $VERIFIED_VIA"
+
+            VERSION=$(jq -er '.currentVersion' < "$MANIFEST_TMP")
 
             if [ -z "${DB_URL:-}" ]; then
-              DB_URL=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+              DB_URL=$(jq -er --arg v "$VERSION" '
                 [.builds[] | select(.version==$v)]
-                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].url end')
-              DB_SHA=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].url end' < "$MANIFEST_TMP")
+              DB_SHA=$(jq -er --arg v "$VERSION" '
                 [.builds[] | select(.version==$v)]
-                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].sha256 end')
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].sha256 end' < "$MANIFEST_TMP")
               guard_url "$DB_URL" "db_url (manifest)" "false"
             fi
             if [ -z "${OFF_URL:-}" ]; then
-              OFF_URL=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+              OFF_URL=$(jq -er --arg v "$VERSION" '
                 [.builds[] | select(.version==$v)]
-                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].url end')
-              OFF_SHA=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].url end' < "$MANIFEST_TMP")
+              OFF_SHA=$(jq -er --arg v "$VERSION" '
                 [.builds[] | select(.version==$v)]
-                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].sha256 end')
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].sha256 end' < "$MANIFEST_TMP")
               guard_url "$OFF_URL" "officials_url (manifest)" "false"
             fi
           fi

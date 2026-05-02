@@ -57,6 +57,7 @@ import {
 	wranglerPutFile,
 	type WranglerEnv,
 } from './_wrangler-r2.js';
+import { signManifest } from './_ed25519.js';
 
 const VERSION_PATTERN = /^v\d{8}$/;
 const ARTIFACTS = ['shadow-atlas-full.db', 'officials.db'] as const;
@@ -326,6 +327,11 @@ function runBuild(): void {
 		R2_ACCOUNT_ID: undefined,
 		R2_ACCESS_KEY_ID: undefined,
 		R2_SECRET_ACCESS_KEY: undefined,
+		// The signing key forges trust for every future publish until
+		// rotated — higher-value than the CF token. Scrub from the
+		// build subprocess (and its grandchildren) so a typosquatted
+		// transitive dep can't exfil it.
+		MANIFEST_SIGNING_PRIVATE_KEY: undefined,
 	};
 	console.log('Building shadow-atlas-full.db (this can take 1-3 hours)...');
 	execFileSync('npm', ['run', 'build:districts:full'], { stdio: 'inherit', env: scrubbedEnv });
@@ -665,9 +671,59 @@ async function main(): Promise<void> {
 	// Now safe to flip the moving pointer: every artifact passed integrity.
 	const manifestBody = JSON.stringify(nextManifest, null, 2) + '\n';
 	const manifestSha = createHash('sha256').update(manifestBody).digest('hex');
+
+	// Sign the manifest if a private key is supplied. Signature goes
+	// to source/manifest.json.sig (sidecar; mirrors the .sha256 pattern).
+	// Without a key we publish unsigned and emit a clear warning — fine
+	// for the bootstrap window before the first key is committed, but
+	// the workflow's gate should be flipped to require_signed=true after
+	// the first signed publish so future runs can't silently regress.
+	const signingKey = process.env['MANIFEST_SIGNING_PRIVATE_KEY'];
+	let manifestSignature: string | null = null;
+	if (signingKey) {
+		try {
+			manifestSignature = signManifest(manifestBody, signingKey);
+			console.log('\nManifest signed with Ed25519.');
+		} catch (err) {
+			const m = err instanceof Error ? err.message : String(err);
+			console.error(`\nFatal: signing failed (${m}).`);
+			console.error('Aborting before any pointer flip — leaving the prior manifest live.');
+			for (const key of uploadedKeys) {
+				console.error(`  deleting ${key}`);
+				wranglerDelete(bucket, key, cfEnv);
+			}
+			process.exit(3);
+		}
+	} else {
+		console.log('\nNo MANIFEST_SIGNING_PRIVATE_KEY set — publishing UNSIGNED manifest.');
+		console.log(
+			'  Fine during bootstrap; once a public key is committed and the workflow gate flips, this path will fail downstream.',
+		);
+	}
+
 	console.log(`\n  → source/manifest.json (currentVersion=${nextManifest.currentVersion})`);
 	console.log(`    sha256=${manifestSha}`);
 	wranglerPutBody(bucket, 'source/manifest.json', manifestBody, 'application/json', cfEnv);
+
+	if (manifestSignature) {
+		console.log('  → source/manifest.json.sig');
+		wranglerPutBody(
+			bucket,
+			'source/manifest.json.sig',
+			manifestSignature + '\n',
+			'text/plain; charset=utf-8',
+			cfEnv,
+		);
+	} else {
+		// Defensive: if a previous run left a .sig pointing at an older
+		// manifest body, leaving it live would let consumers verify
+		// against stale bytes — they'd fail closed on a body the publisher
+		// considers good. Throw on failure here (unlike error-path
+		// cleanups) because downstream verification correctness depends
+		// on this delete succeeding.
+		console.log('  → source/manifest.json.sig (deleting stale, if any)');
+		wranglerDelete(bucket, 'source/manifest.json.sig', cfEnv, { throwOnFailure: true });
+	}
 
 	const durationMs = Date.now() - startedAt;
 	const dbSourceUrl = files['shadow-atlas-full.db'].url;

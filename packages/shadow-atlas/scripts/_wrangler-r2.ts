@@ -319,8 +319,25 @@ export async function runWithConcurrency<T>(
 	if (firstError !== undefined) throw firstError;
 }
 
-/** Wrangler R2 DELETE. Best-effort; logs on failure but does not throw. */
-export function wranglerDelete(bucket: string, key: string, env: WranglerEnv): void {
+/**
+ * Wrangler R2 DELETE.
+ *
+ * Default mode is best-effort: logs on failure but does not throw —
+ * suitable for cleanup-on-error paths where the script is already
+ * exiting and we'd rather not mask the original error.
+ *
+ * Pass `{ throwOnFailure: true }` for paths where downstream
+ * verification depends on the delete succeeding (e.g. removing a
+ * stale `.sig` after an unsigned republish, where leaving the old
+ * sig live would make consumers verify new body against old sig
+ * and fail closed).
+ */
+export function wranglerDelete(
+	bucket: string,
+	key: string,
+	env: WranglerEnv,
+	options: { throwOnFailure?: boolean } = {},
+): void {
 	const args = [env.wranglerBin, 'r2', 'object', 'delete', `${bucket}/${key}`, REMOTE_FLAG];
 	assertRemote(args);
 	try {
@@ -331,6 +348,9 @@ export function wranglerDelete(bucket: string, key: string, env: WranglerEnv): v
 			maxBuffer: STDERR_BUFFER,
 		});
 	} catch (err) {
+		if (options.throwOnFailure) {
+			throw new Error(`wrangler delete ${key} failed:\n${describeExecError(err)}`);
+		}
 		console.error(`  could not delete ${key}:\n${describeExecError(err)}`);
 	}
 }
