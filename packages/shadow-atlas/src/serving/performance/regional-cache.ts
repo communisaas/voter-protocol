@@ -701,9 +701,8 @@ export class RegionalCache {
    *
    * Tries multiple gateways in priority order:
    * 1. Primary gateway from config
-   * 2. w3s.link (Storacha gateway)
-   * 3. dweb.link (Protocol Labs)
-   * 4. ipfs.io (Public fallback)
+   * 2. gateway.pinata.cloud (Pinata)
+   * 3. ipfs.io (Public fallback)
    *
    * IPFS URLs (ipfs://CID) are automatically resolved.
    */
@@ -727,8 +726,7 @@ export class RegionalCache {
     // Gateway fallback chain (ordered by reliability)
     const gateways = [
       primaryGateway,
-      'https://w3s.link',
-      'https://dweb.link',
+      'https://gateway.pinata.cloud',
       'https://ipfs.io',
     ].filter((url, index, arr) => arr.indexOf(url) === index); // Deduplicate
 

@@ -5,32 +5,55 @@
  * Uploads the validated build output directory to an R2 bucket,
  * preserving the directory structure for path-based HTTP access.
  *
- * R2 is the primary production read path for the commons content store.
- * IPFS pinning is a separate, optional step for content-addressed verification.
+ * Single-token model (2026-05-02): all R2 PUTs go through `wrangler r2
+ * object put` which authenticates via CLOUDFLARE_API_TOKEN. No
+ * S3-compatible AKID/secret pair is needed. The previous
+ * `@aws-sdk/client-s3` path was retired with the storacha-sunset
+ * migration so CI carries one credential, not three.
  *
  * Usage:
  *   tsx scripts/upload-to-r2.ts --directory <path> [--output <path>]
  *
- * Examples:
- *   tsx scripts/upload-to-r2.ts --directory output/chunked/ --output output/r2-upload-results.json
- *
  * Environment Variables:
- *   R2_ACCOUNT_ID       - Cloudflare account ID (required)
- *   R2_ACCESS_KEY_ID    - R2 S3-compatible API key (required)
- *   R2_SECRET_ACCESS_KEY - R2 S3-compatible secret (required)
- *   R2_BUCKET_NAME      - Bucket name (default: 'shadow-atlas')
- *   R2_PUBLIC_URL       - Public base URL for verification (default: 'https://atlas.commons.email')
+ *   CLOUDFLARE_API_TOKEN  - Token with Account → R2 → Edit (required)
+ *   CLOUDFLARE_ACCOUNT_ID - Cloudflare account ID (required)
+ *   R2_BUCKET_NAME        - Default: 'shadow-atlas'
+ *   R2_PUBLIC_URL         - Default: 'https://atlas.commons.email'
  *
  * Outputs:
  *   r2-upload-results.json - Upload metadata and verification results
  */
 
-import { readdirSync, lstatSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readdirSync, lstatSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import {
+	resolveWranglerBin,
+	runWithConcurrency,
+	wranglerPutFileAsync,
+	type WranglerEnv,
+} from './_wrangler-r2.js';
+
+/**
+ * Concurrent wrangler subprocesses. Each pool slot spawns a wrangler
+ * child; with 16 in flight, ~2,196 small files clear in seconds rather
+ * than the ~36 min of cumulative startup overhead serial mode would
+ * take. Tunable via UPLOAD_CONCURRENCY env var.
+ */
+const DEFAULT_CONCURRENCY = 16;
+const MAX_USER_CONCURRENCY = 64;
+
+function parseConcurrency(envVal: string | undefined, defaultValue: number): number {
+	if (envVal === undefined || envVal === '') return defaultValue;
+	const n = Number(envVal);
+	if (!Number.isInteger(n) || n < 1 || n > MAX_USER_CONCURRENCY) {
+		console.error(
+			`Ignoring invalid UPLOAD_CONCURRENCY=${envVal} (must be integer in [1, ${MAX_USER_CONCURRENCY}]); using ${defaultValue}.`,
+		);
+		return defaultValue;
+	}
+	return n;
+}
 
 interface UploadResults {
 	timestamp: string;
@@ -47,12 +70,11 @@ interface UploadResults {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// File Discovery
-// ---------------------------------------------------------------------------
-
 /** Recursively collect all files in a directory. Returns relative paths. */
-function walkDirectory(dir: string, base?: string): Array<{ relativePath: string; absolutePath: string; sizeBytes: number }> {
+function walkDirectory(
+	dir: string,
+	base?: string,
+): Array<{ relativePath: string; absolutePath: string; sizeBytes: number }> {
 	const root = base ?? dir;
 	const files: Array<{ relativePath: string; absolutePath: string; sizeBytes: number }> = [];
 
@@ -78,73 +100,24 @@ function walkDirectory(dir: string, base?: string): Array<{ relativePath: string
 function contentType(filePath: string): string {
 	const ext = extname(filePath).toLowerCase();
 	switch (ext) {
-		case '.json': return 'application/json';
-		case '.br': return 'application/octet-stream';
-		default: return 'application/octet-stream';
+		case '.json':
+			return 'application/json';
+		case '.br':
+			return 'application/octet-stream';
+		default:
+			return 'application/octet-stream';
 	}
 }
 
-// ---------------------------------------------------------------------------
-// R2 Upload via S3-Compatible API
-// ---------------------------------------------------------------------------
-
-/**
- * Upload a single file to R2 using the S3-compatible PutObject API.
- * Uses raw fetch with AWS Signature V4 — no SDK dependency.
- */
-async function putObject(
-	endpoint: string,
-	bucket: string,
-	key: string,
-	body: Buffer,
-	type: string,
-	accessKeyId: string,
-	secretAccessKey: string,
-): Promise<void> {
-	// Use the S3-compatible endpoint directly via fetch.
-	// For simplicity, we shell out to a lightweight S3 put — the R2 S3 API
-	// is fully compatible. In CI, `aws s3 cp` or `wrangler r2 object put` works.
-	//
-	// Here we use the Cloudflare R2 API directly via fetch for zero-dependency uploads.
-	const url = `${endpoint}/${bucket}/${key}`;
-	const now = new Date();
-	const dateStamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 8);
-	const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-
-	// For R2, we use the simple unsigned payload approach with the S3-compatible auth.
-	// The @aws-sdk/client-s3 handles signing properly; this script is intended
-	// to be called from CI where `aws s3 sync` or `wrangler r2 object put` is available.
-	// When run directly, install @aws-sdk/client-s3 as a dev dependency.
-
-	// Deferred: use dynamic import to keep this script zero-dependency by default.
-	const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
-
-	const client = new S3Client({
-		region: 'auto',
-		endpoint,
-		credentials: {
-			accessKeyId,
-			secretAccessKey,
-		},
-	});
-
-	await client.send(new PutObjectCommand({
-		Bucket: bucket,
-		Key: key,
-		Body: body,
-		ContentType: type,
-	}));
-}
-
-// ---------------------------------------------------------------------------
-// Verification
-// ---------------------------------------------------------------------------
-
 async function verifyUrl(url: string): Promise<boolean> {
 	try {
-		const response = await fetch(url, {
+		// Cache-bust + no-cache so a stale CDN response from a prior
+		// version's same-keyed object can't make a misdirected upload
+		// pass verification.
+		const response = await fetch(`${url}?t=${Date.now()}`, {
 			method: 'HEAD',
 			signal: AbortSignal.timeout(15_000),
+			headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
 		});
 		return response.ok;
 	} catch {
@@ -152,12 +125,7 @@ async function verifyUrl(url: string): Promise<boolean> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 async function main(): Promise<void> {
-	// Parse arguments
 	let directoryPath = '';
 	let outputPath = 'r2-upload-results.json';
 
@@ -181,89 +149,113 @@ async function main(): Promise<void> {
 		console.error('Error: --directory is required.');
 		process.exit(1);
 	}
-
 	if (!existsSync(directoryPath)) {
 		console.error(`Error: Directory not found: ${directoryPath}`);
 		process.exit(1);
 	}
 
-	// Validate environment
-	const accountId = process.env['R2_ACCOUNT_ID'] || process.env['CLOUDFLARE_ACCOUNT_ID'];
-	const accessKeyId = process.env['R2_ACCESS_KEY_ID'];
-	const secretAccessKey = process.env['R2_SECRET_ACCESS_KEY'];
+	const cfToken = process.env['CLOUDFLARE_API_TOKEN'];
+	const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
 	const bucket = process.env['R2_BUCKET_NAME'] || 'shadow-atlas';
-	const publicUrl = (process.env['R2_PUBLIC_URL'] || 'https://atlas.commons.email').replace(/\/$/, '');
+	const publicUrl = (process.env['R2_PUBLIC_URL'] || 'https://atlas.commons.email').replace(
+		/\/$/,
+		'',
+	);
 
-	if (!accountId || !accessKeyId || !secretAccessKey) {
+	if (!cfToken || !accountId) {
 		console.error('Missing required environment variables:');
-		console.error('  R2_ACCOUNT_ID (or CLOUDFLARE_ACCOUNT_ID)');
-		console.error('  R2_ACCESS_KEY_ID');
-		console.error('  R2_SECRET_ACCESS_KEY');
-		console.error('\nCreate R2 API tokens at: Cloudflare Dashboard > R2 > Manage R2 API Tokens');
+		console.error('  CLOUDFLARE_API_TOKEN  (Account → R2 → Edit)');
+		console.error('  CLOUDFLARE_ACCOUNT_ID');
 		process.exit(1);
 	}
 
-	const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+	const cfEnv: WranglerEnv = {
+		wranglerBin: resolveWranglerBin(),
+		token: cfToken,
+		accountId,
+	};
 
 	// Versioned prefix for atomic deploys.
-	// Upload to a dated prefix, then update ATLAS_BASE_URL to point to it.
-	// Old prefixes remain in the bucket (no inconsistency window).
 	const version = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 	const prefix = `v${version}`;
 
-	// Discover files
 	console.log(`Scanning directory: ${directoryPath}`);
 	const files = walkDirectory(directoryPath);
 	const totalSize = files.reduce((sum, f) => sum + f.sizeBytes, 0);
 	console.log(`  Files: ${files.length}, Total size: ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
 	console.log(`  Bucket: ${bucket}`);
 	console.log(`  Prefix: ${prefix}/`);
-	console.log(`  Endpoint: ${endpoint}`);
 	console.log();
 
-	// Upload all files under versioned prefix
+	const concurrency = parseConcurrency(process.env['UPLOAD_CONCURRENCY'], DEFAULT_CONCURRENCY);
+	console.log(`  Concurrency: ${concurrency}`);
+	console.log();
+
+	// Caller-owned AbortController so a SIGINT/SIGTERM (CI cancel,
+	// operator Ctrl-C, runner timeout) propagates into runWithConcurrency
+	// → wranglerPutFileAsync, which kills its child. Without this, dying
+	// before completion orphans wrangler children that hold
+	// CLOUDFLARE_API_TOKEN in env and continue mutating R2.
+	const cancelController = new AbortController();
+	const onSignal = (sig: NodeJS.Signals) => {
+		console.error(`\nReceived ${sig}; aborting in-flight uploads...`);
+		cancelController.abort();
+	};
+	process.once('SIGINT', () => onSignal('SIGINT'));
+	process.once('SIGTERM', () => onSignal('SIGTERM'));
+
 	const startTime = Date.now();
 	let uploaded = 0;
-	let failed = 0;
+	let firstFailureKey: string | undefined;
+	let firstFailureMessage: string | undefined;
 
-	for (const file of files) {
-		const key = `${prefix}/${file.relativePath}`;
-		const type = contentType(file.relativePath);
-
-		try {
-			const body = readFileSync(file.absolutePath);
-			await putObject(endpoint, bucket, key, body, type, accessKeyId, secretAccessKey);
-			uploaded++;
-
-			if (uploaded % 100 === 0 || uploaded === files.length) {
-				const pct = ((uploaded / files.length) * 100).toFixed(0);
-				console.log(`  [${pct}%] ${uploaded}/${files.length} files uploaded`);
-			}
-		} catch (err) {
-			failed++;
-			const msg = err instanceof Error ? err.message : String(err);
-			console.error(`  FAILED: ${key} — ${msg}`);
-			if (failed > 10) {
-				console.error('Too many failures, aborting.');
-				process.exit(1);
-			}
-		}
+	try {
+		await runWithConcurrency(
+			files,
+			concurrency,
+			async (file, _idx, signal) => {
+				const key = `${prefix}/${file.relativePath}`;
+				const type = contentType(file.relativePath);
+				try {
+					await wranglerPutFileAsync(bucket, key, file.absolutePath, type, cfEnv, { signal });
+					uploaded++;
+					if (uploaded % 100 === 0 || uploaded === files.length) {
+						const pct = ((uploaded / files.length) * 100).toFixed(0);
+						console.log(`  [${pct}%] ${uploaded}/${files.length} files uploaded`);
+					}
+				} catch (err) {
+					if (firstFailureKey === undefined) {
+						firstFailureKey = key;
+						firstFailureMessage = err instanceof Error ? err.message : String(err);
+					}
+					throw err;
+				}
+			},
+			{ externalSignal: cancelController.signal },
+		);
+	} catch {
+		console.error(`\nFAILED: ${firstFailureKey ?? '<cancelled>'} — ${firstFailureMessage ?? 'aborted'}`);
+		console.error('Aborting — partial upload is not safe. Re-run after addressing the cause.');
+		process.exit(1);
 	}
 
 	const durationMs = Date.now() - startTime;
 	console.log();
 	console.log(`Upload complete: ${uploaded} files in ${(durationMs / 1000).toFixed(1)}s`);
 
-	// Completeness check: all files must succeed
-	if (failed > 0) {
-		console.error(`${failed} files failed. Aborting — partial upload is not safe.`);
+	// Legacy invariant: in serial mode this branch was reachable when a
+	// few files failed but the loop continued. The runWithConcurrency
+	// helper short-circuits on first failure, so this is now unreachable —
+	// kept as a defensive belt-and-suspenders guard.
+	if (uploaded !== files.length) {
+		console.error(
+			`Upload count mismatch: uploaded=${uploaded} expected=${files.length}. Aborting.`,
+		);
 		process.exit(1);
 	}
 
-	// The public URL for this version includes the prefix
 	const versionedPublicUrl = `${publicUrl}/${prefix}`;
 
-	// Verify via public URL
 	console.log(`\nVerifying via public URL: ${versionedPublicUrl}`);
 	const manifestOk = await verifyUrl(`${versionedPublicUrl}/US/manifest.json`);
 	console.log(`  US/manifest.json: ${manifestOk ? 'OK' : 'FAILED'}`);
@@ -273,7 +265,6 @@ async function main(): Promise<void> {
 
 	const verified = manifestOk && sampleChunkOk;
 
-	// Write results
 	const results: UploadResults = {
 		timestamp: new Date().toISOString(),
 		bucket,
@@ -293,7 +284,9 @@ async function main(): Promise<void> {
 	console.log(`\nResults written to: ${outputPath}`);
 
 	if (!verified) {
-		console.error('\nVerification FAILED. R2 upload may have succeeded but public access is not working.');
+		console.error(
+			'\nVerification FAILED. R2 upload may have succeeded but public access is not working.',
+		);
 		console.error('Check custom domain configuration and retry.');
 		process.exit(1);
 	}

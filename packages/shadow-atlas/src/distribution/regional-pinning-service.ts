@@ -432,11 +432,6 @@ export class RegionalPinningService {
 export interface RegionalServiceConfig {
   readonly maxParallelUploads?: number;
   readonly retryAttempts?: number;
-  readonly storacha?: {
-    readonly spaceDid?: string;
-    readonly agentPrivateKey?: string;
-    readonly proof?: string;
-  };
   readonly pinata?: {
     readonly jwt?: string;
     readonly apiKey?: string;
@@ -445,6 +440,9 @@ export interface RegionalServiceConfig {
   readonly fleek?: {
     readonly apiKey?: string;
     readonly apiSecret?: string;
+  };
+  readonly lighthouse?: {
+    readonly apiKey?: string;
   };
   readonly timeoutMs?: number;
 }
@@ -464,16 +462,16 @@ export async function createRegionalPinningService(
 
   // Create all configured services for this region
   const services = createConfiguredServices(region, {
-    storacha: options.storacha,
     pinata: options.pinata,
     fleek: options.fleek,
+    lighthouse: options.lighthouse,
     timeoutMs: options.timeoutMs,
   });
 
   if (services.length === 0) {
     logger.warn('No pinning services configured for region', {
       region,
-      message: 'Set environment variables: STORACHA_SPACE_DID/STORACHA_AGENT_KEY, PINATA_JWT or PINATA_API_KEY/PINATA_API_SECRET, FLEEK_API_KEY/FLEEK_API_SECRET',
+      message: 'Set environment variables: PINATA_JWT or PINATA_API_KEY/PINATA_API_SECRET, FLEEK_API_KEY/FLEEK_API_SECRET, LIGHTHOUSE_API_KEY',
     });
   }
 

@@ -173,7 +173,7 @@ docker run -d \
   -v /path/to/data:/data \
   -e PORT=3000 \
   -e DB_PATH=/data/shadow-atlas.db \
-  -e IPFS_GATEWAY=https://w3s.link \
+  -e IPFS_GATEWAY=https://ipfs.io \
   --restart unless-stopped \
   shadow-atlas
 ```

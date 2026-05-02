@@ -10,9 +10,13 @@
  * - Graceful degradation on regional failures
  *
  * COST STRUCTURE:
- * - Free tier: Storacha (5GB storage, sufficient for quarterly snapshots)
  * - Paid tier: Pinata ($0.15/GB, for high-traffic scenarios)
+ * - Free tier: Fleek (10GB), Lighthouse (Filecoin-backed retrieval)
  * - Public gateways: Cloudflare, IPFS.io (free retrieval, no SLA)
+ *
+ * NOTE: IPFS pinning paused 2026-05-02 — R2 (atlas.commons.email) is the
+ * production read path. This config remains as a future-reactivation template.
+ * Storacha (and its web3.storage alias) was removed when its hosted service sunset.
  */
 
 import type {
@@ -43,11 +47,11 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'americas-east',
     gateways: [
-      'https://w3s.link/ipfs/',
+      'https://gateway.pinata.cloud/ipfs/',
       'https://cloudflare-ipfs.com/ipfs/',
       'https://ipfs.io/ipfs/',
     ],
-    pinningServices: ['storacha', 'pinata'],
+    pinningServices: ['pinata'],
     priority: 0,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc', // IPFS logo
   },
@@ -56,11 +60,11 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'americas-west',
     gateways: [
-      'https://w3s.link/ipfs/',
-      'https://dweb.link/ipfs/',
+      'https://gateway.pinata.cloud/ipfs/',
       'https://ipfs.io/ipfs/',
+      'https://cloudflare-ipfs.com/ipfs/',
     ],
-    pinningServices: ['storacha', 'fleek'],
+    pinningServices: ['fleek'],
     priority: 0,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
@@ -73,7 +77,7 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
       'https://cloudflare-ipfs.com/ipfs/',
       'https://ipfs.io/ipfs/',
     ],
-    pinningServices: ['pinata', 'web3storage'],
+    pinningServices: ['pinata'],
     priority: 0,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
@@ -82,11 +86,11 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'asia-east',
     gateways: [
-      'https://dweb.link/ipfs/',
       'https://ipfs.io/ipfs/',
       'https://cloudflare-ipfs.com/ipfs/',
+      'https://gateway.pinata.cloud/ipfs/',
     ],
-    pinningServices: ['fleek', 'web3storage'],
+    pinningServices: ['fleek'],
     priority: 0,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
@@ -95,11 +99,11 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'asia-southeast',
     gateways: [
-      'https://dweb.link/ipfs/',
       'https://ipfs.io/ipfs/',
       'https://cloudflare-ipfs.com/ipfs/',
+      'https://gateway.pinata.cloud/ipfs/',
     ],
-    pinningServices: ['fleek', 'storacha'],
+    pinningServices: ['fleek'],
     priority: 1,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
@@ -108,11 +112,11 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
   {
     region: 'oceania',
     gateways: [
-      'https://dweb.link/ipfs/',
       'https://ipfs.io/ipfs/',
       'https://cloudflare-ipfs.com/ipfs/',
+      'https://gateway.pinata.cloud/ipfs/',
     ],
-    pinningServices: ['fleek', 'storacha'],
+    pinningServices: ['fleek'],
     priority: 1,
     healthCheckCID: 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc',
   },
@@ -122,27 +126,17 @@ export const DEFAULT_REGIONS: readonly RegionConfig[] = [
  * Default pinning service configurations
  *
  * Priority order:
- * 1. Storacha (free tier, Filecoin-backed)
- * 2. Pinata (paid, high reliability)
- * 3. Fleek (free/paid, good APAC coverage)
- * 4. web3.storage (free tier, Web3-native)
+ * 1. Pinata (paid, high reliability)
+ * 2. Fleek (free/paid, good APAC coverage)
+ * 3. Lighthouse (Filecoin-backed retrieval)
  */
 export const DEFAULT_PINNING_SERVICES: readonly PinningServiceConfig[] = [
-  {
-    type: 'storacha',
-    name: 'Storacha (Web3.Storage)',
-    apiEndpoint: 'https://api.storacha.network',
-    regions: ['americas-east', 'americas-west', 'europe-west', 'asia-southeast'],
-    priority: 0,
-    costPerGB: 0, // Free tier: 5GB storage, 5GB egress
-    freeTierGB: 5,
-  },
   {
     type: 'pinata',
     name: 'Pinata IPFS',
     apiEndpoint: 'https://api.pinata.cloud',
     regions: ['americas-east', 'europe-west'],
-    priority: 1,
+    priority: 0,
     costPerGB: 0.15, // $0.15/GB storage + egress
     freeTierGB: 1,
   },
@@ -151,18 +145,18 @@ export const DEFAULT_PINNING_SERVICES: readonly PinningServiceConfig[] = [
     name: 'Fleek Storage',
     apiEndpoint: 'https://api.fleek.co',
     regions: ['americas-west', 'asia-east', 'asia-southeast', 'oceania'],
-    priority: 2,
+    priority: 1,
     costPerGB: 0.02, // $0.02/GB storage, competitive APAC pricing
     freeTierGB: 10,
   },
   {
-    type: 'web3storage',
-    name: 'Web3.Storage (Legacy)',
-    apiEndpoint: 'https://api.web3.storage',
+    type: 'lighthouse',
+    name: 'Lighthouse Storage',
+    apiEndpoint: 'https://api.lighthouse.storage',
     regions: ['americas-east', 'europe-west'],
-    priority: 3,
-    costPerGB: 0, // Free tier (transitioning to Storacha)
-    freeTierGB: 5,
+    priority: 2,
+    costPerGB: 0, // Filecoin-backed, free retrieval
+    freeTierGB: 0,
   },
 ] as const;
 

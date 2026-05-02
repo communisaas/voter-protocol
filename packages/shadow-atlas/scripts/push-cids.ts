@@ -51,12 +51,15 @@ interface CloudflareApiResponse {
 // ---------------------------------------------------------------------------
 
 function parseArgs(argv: string[]): {
-  pinResultsPath: string;
+  pinResultsPath: string | null;
   project: string;
   atlasBaseUrl: string;
   dryRun: boolean;
 } {
-  let pinResultsPath = './pin-results.json';
+  // pin-results path is optional. With IPFS pinning paused (2026-05-02),
+  // most invocations push only ATLAS_BASE_URL. The script regains the
+  // IPFS_CID_ROOT push automatically once --pin-results is supplied again.
+  let pinResultsPath: string | null = null;
   let project = process.env['CF_PAGES_PROJECT'] ?? 'commons';
   let atlasBaseUrl = process.env['ATLAS_BASE_URL'] ?? '';
   let dryRun = false;
@@ -99,7 +102,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { pinResultsPath, project, dryRun };
+  return { pinResultsPath, project, atlasBaseUrl, dryRun };
 }
 
 function printUsage(): void {
@@ -226,28 +229,34 @@ async function setEnvVars(
   accountId: string,
   projectName: string,
   apiToken: string,
-  rootCid: string,
+  rootCid: string | null,
   atlasBaseUrl?: string,
 ): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}`;
 
-  const envVars: Record<string, { type: string; value: string }> = {
-    IPFS_CID_ROOT: {
+  const envVars: Record<string, { type: string; value: string }> = {};
+
+  if (rootCid) {
+    envVars['IPFS_CID_ROOT'] = {
       type: 'secret_text',
       value: rootCid,
-    },
-  };
+    };
+  }
 
-  // Set ATLAS_BASE_URL when R2 is the primary content source
   if (atlasBaseUrl) {
     envVars['ATLAS_BASE_URL'] = {
       type: 'plain_text',
       value: atlasBaseUrl,
     };
-    console.log(`\nSetting IPFS_CID_ROOT + ATLAS_BASE_URL on Cloudflare Pages project '${projectName}'...`);
-  } else {
-    console.log(`\nSetting IPFS_CID_ROOT on Cloudflare Pages project '${projectName}'...`);
   }
+
+  if (Object.keys(envVars).length === 0) {
+    console.error('Error: at least one of --pin-results or --atlas-url must be provided.');
+    process.exit(2);
+  }
+
+  const labels = Object.keys(envVars).join(' + ');
+  console.log(`\nSetting ${labels} on Cloudflare Pages project '${projectName}'...`);
   console.log(`  API: PATCH /accounts/${accountId.slice(0, 8)}..../pages/projects/${projectName}`);
 
   const body = {
@@ -363,11 +372,20 @@ async function verifyEnvVar(
 async function main(): Promise<void> {
   const { pinResultsPath, project, atlasBaseUrl, dryRun } = parseArgs(process.argv.slice(2));
 
-  // Step 1: Extract root CID
-  const { rootCid } = extractRootCid(pinResultsPath);
+  // Step 1: Extract root CID iff pin-results is supplied.
+  // IPFS pinning is paused (2026-05-02) so most runs push ATLAS_BASE_URL only.
+  let rootCid: string | null = null;
+  if (pinResultsPath) {
+    const extracted = extractRootCid(pinResultsPath);
+    if (!extracted.rootCid) {
+      console.error('Error: --pin-results path was supplied but Root CID is empty.');
+      process.exit(2);
+    }
+    rootCid = extracted.rootCid;
+  }
 
-  if (!rootCid) {
-    console.error('Error: Root CID is empty.');
+  if (!rootCid && !atlasBaseUrl) {
+    console.error('Error: at least one of --pin-results or --atlas-url must be provided.');
     process.exit(2);
   }
 
@@ -391,44 +409,25 @@ async function main(): Promise<void> {
 
   // Step 3: Dry-run mode
   if (dryRun) {
+    const accountPreview = accountId ? accountId.slice(0, 8) + '...' : '<CLOUDFLARE_ACCOUNT_ID>';
     console.log('\n[DRY RUN] Would execute:');
-    console.log(
-      `  PATCH https://api.cloudflare.com/client/v4/accounts/${accountId ? accountId.slice(0, 8) + '...' : '<CLOUDFLARE_ACCOUNT_ID>'}/pages/projects/${project}`
-    );
-    console.log('  Body: {');
-    console.log('    "deployment_configs": {');
-    console.log('      "production": {');
-    console.log('        "env_vars": {');
-    console.log('          "IPFS_CID_ROOT": {');
-    console.log('            "type": "secret_text",');
-    console.log(`            "value": "${rootCid}"`);
-    console.log('          }');
-    console.log('        }');
-    console.log('      }');
-    console.log('    }');
-    console.log('  }');
+    console.log(`  PATCH https://api.cloudflare.com/client/v4/accounts/${accountPreview}/pages/projects/${project}`);
+    console.log('  Env vars:');
+    if (rootCid) console.log(`    IPFS_CID_ROOT = ${rootCid}`);
+    if (atlasBaseUrl) console.log(`    ATLAS_BASE_URL = ${atlasBaseUrl}`);
     console.log('\n[DRY RUN] No API calls made.');
     return;
   }
 
-  // Step 4: Set the env var (apiToken and accountId guaranteed non-null here)
-  console.log('\nPrevious CID (for rollback): check Cloudflare dashboard — API redacts secret values');
+  // Step 4: Set the env vars
+  if (rootCid) {
+    console.log('\nPrevious CID (for rollback): check Cloudflare dashboard — API redacts secret values');
+  }
   await setEnvVars(accountId!, project, apiToken!, rootCid, atlasBaseUrl || undefined);
 
-  // Step 4b: Gateway verification (non-blocking — propagation takes time)
-  try {
-    const gatewayUrl = `https://storacha.link/ipfs/${rootCid}/US/manifest.json`;
-    console.log(`\nVerifying gateway availability: HEAD ${gatewayUrl}`);
-    const gatewayResp = await fetch(gatewayUrl, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(30_000),
-    });
-    console.log(
-      `  Gateway verification: ${gatewayResp.ok ? 'PASS' : 'PENDING (gateway may need propagation time)'}`
-    );
-  } catch {
-    console.warn('  WARNING: Gateway verification request failed (gateway may need propagation time)');
-  }
+  // Gateway verification removed 2026-05-02 with the Storacha sunset.
+  // When IPFS pinning resumes, re-add a verification step pointing at the
+  // chosen provider's gateway domain.
 
   // Step 5: Verify
   await verifyEnvVar(accountId!, project, apiToken!);

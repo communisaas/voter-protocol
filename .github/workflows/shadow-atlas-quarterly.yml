@@ -1,34 +1,51 @@
 name: Shadow Atlas Quarterly Update
 
 # Chunked pipeline: build H3 chunks (~8 KB each), export per-district officials,
-# validate quality gate, pin UnixFS directory to Storacha (single root CID),
-# push CID to Cloudflare Pages secret, update on-chain registry.
+# validate quality gate, upload to R2 (production read path), push ATLAS_BASE_URL
+# to Cloudflare Pages, update on-chain registry.
 #
-# Replaces the old monolithic 355 MB pipeline. See:
-#   docs/specs/CHUNKED-ATLAS-PIPELINE-SPEC.md (Phase 4)
+# IPFS pinning (publish-ipfs job + Storacha) was removed 2026-05-02 with the
+# Storacha sunset. R2 (atlas.commons.email) is now the production read path.
+# When IPFS pinning resumes, restore a `publish-ipfs` job ahead of `push-cids`
+# and add `--pin-results` back to the push-cids invocation.
+#
+# See: docs/specs/CHUNKED-ATLAS-PIPELINE-SPEC.md (Phase 4)
 
 on:
   workflow_dispatch:
     inputs:
-      db_source:
-        description: 'Shadow Atlas DB source URL (R2/S3/HTTP)'
-        required: true
-        type: string
-      officials_db_source:
-        description: 'Officials DB source URL (defaults to sibling of db_source)'
+      expected_manifest_sha256:
+        description: 'sha256 of source/manifest.json. Required when db_source is empty. Operators paste the value emitted by `npm run publish:source`.'
         required: false
         type: string
         default: ''
-      publish_ipfs:
-        description: 'Pin directory to IPFS via Storacha'
+      db_source:
+        description: 'Override Shadow Atlas DB URL. Leave empty to resolve from manifest. Requires db_source_sha256 unless allow_unverified.'
         required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
+        type: string
+        default: ''
+      db_source_sha256:
+        description: 'sha256 of override db_source. Required when db_source is set unless allow_unverified="I-UNDERSTAND".'
+        required: false
+        type: string
+        default: ''
+      officials_db_source:
+        description: 'Override officials DB URL. Empty resolves from manifest. Requires officials_db_source_sha256 unless allow_unverified.'
+        required: false
+        type: string
+        default: ''
+      officials_db_source_sha256:
+        description: 'sha256 of override officials_db_source. Required when officials_db_source is set unless allow_unverified="I-UNDERSTAND".'
+        required: false
+        type: string
+        default: ''
+      allow_unverified:
+        description: 'Type "I-UNDERSTAND" to skip SHA verification on override URLs. Friction is intentional.'
+        required: false
+        type: string
+        default: ''
       push_cids:
-        description: 'Push root CID to Cloudflare Pages (requires publish_ipfs)'
+        description: 'Push ATLAS_BASE_URL to Cloudflare Pages'
         required: false
         default: 'true'
         type: choice
@@ -36,13 +53,21 @@ on:
           - 'true'
           - 'false'
       update_registry:
-        description: 'Update on-chain registry with new CIDs'
+        description: 'Update on-chain registry with new R2 URL + cellMapRoot'
         required: false
         default: 'false'
         type: choice
         options:
           - 'true'
           - 'false'
+
+# Serialize quarterly publishes — two operators triggering simultaneously
+# would clobber each other's `chunked-build` artifact (download-artifact@v4
+# resolves by name, not run_id). cancel-in-progress=false because killing
+# a running publish mid-broadcast on Scroll would be worse than queueing.
+concurrency:
+  group: shadow-atlas-quarterly
+  cancel-in-progress: false
   # schedule:
   #   # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
   #   - cron: '0 2 1 1,4,7,10 *'
@@ -50,8 +75,165 @@ on:
 env:
   NODE_VERSION: '20'
   CHUNKED_OUTPUT_DIR: packages/shadow-atlas/output/chunked
+  # Source manifest published by `npm run publish:source` in shadow-atlas.
+  # Public-readable through the Atlas Worker. The resolve-source-version
+  # step in jobs that consume the SQLite reads `currentVersion` here and
+  # builds db_url + officials_url + their expected SHA-256 from it.
+  ATLAS_SOURCE_MANIFEST: 'https://atlas.commons.email/source/manifest.json'
 
 jobs:
+  # =========================================================================
+  # Phase 0: Resolve source artifacts ONCE so every consumer job sees the
+  # same version. Two jobs each fetching the manifest independently would
+  # frankenstein-blend versions if `publish:source` lands mid-run.
+  # =========================================================================
+  resolve-source:
+    name: Resolve Source Manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      epoch: ${{ steps.resolve.outputs.epoch }}
+      db_url: ${{ steps.resolve.outputs.db_url }}
+      db_sha: ${{ steps.resolve.outputs.db_sha }}
+      officials_url: ${{ steps.resolve.outputs.officials_url }}
+      officials_sha: ${{ steps.resolve.outputs.officials_sha }}
+    steps:
+      - name: Resolve manifest + override discipline
+        id: resolve
+        # Resolution order:
+        #   1. If override URLs present, require matching sha256 (or
+        #      allow_unverified="I-UNDERSTAND") — silent SHA-skip is a
+        #      footgun.
+        #   2. Otherwise, fetch manifest. If expected_manifest_sha256 is
+        #      provided (operator pasted it from publish:source output),
+        #      verify the manifest body before parsing — the manifest is
+        #      the trust root, so an out-of-band-pinned hash is the only
+        #      defense against R2-write compromise until offline signing
+        #      lands (tracked separately).
+        #   3. Use `jq -er` and require exactly one matching build entry
+        #      so duplicate or empty results fail loud rather than
+        #      silently producing multi-line GITHUB_OUTPUT (output
+        #      injection vector).
+        #   4. Constrain resolved URLs to atlas.commons.email so a
+        #      poisoned manifest can't redirect downloads to an
+        #      attacker-controlled origin.
+        run: |
+          set -euo pipefail
+
+          ALLOW="${{ inputs.allow_unverified }}"
+          DB_OVERRIDE="${{ inputs.db_source }}"
+          DB_OVERRIDE_SHA="${{ inputs.db_source_sha256 }}"
+          OFF_OVERRIDE="${{ inputs.officials_db_source }}"
+          OFF_OVERRIDE_SHA="${{ inputs.officials_db_source_sha256 }}"
+          MANIFEST_SHA_PIN="${{ inputs.expected_manifest_sha256 }}"
+
+          require_sha() {
+            local url="$1" sha="$2" label="$3"
+            if [ -n "$url" ] && [ -z "$sha" ] && [ "$ALLOW" != "I-UNDERSTAND" ]; then
+              echo "Override $label requires its sha256 input, or allow_unverified=I-UNDERSTAND." >&2
+              exit 1
+            fi
+          }
+          require_sha "$DB_OVERRIDE" "$DB_OVERRIDE_SHA" "db_source"
+          require_sha "$OFF_OVERRIDE" "$OFF_OVERRIDE_SHA" "officials_db_source"
+
+          guard_url() {
+            # Origin pinning. Override URLs are operator-typed and may
+            # legitimately point elsewhere; manifest-resolved URLs MUST
+            # be on atlas.commons.email to limit blast radius of a
+            # poisoned manifest.
+            local url="$1" label="$2" allow_external="$3"
+            case "$url" in
+              *$'\n'*)
+                echo "$label contains newline — refusing." >&2; exit 1;;
+            esac
+            if [ "$allow_external" != "true" ]; then
+              case "$url" in
+                https://atlas.commons.email/*) ;;
+                *) echo "$label not on atlas.commons.email: $url" >&2; exit 1;;
+              esac
+            fi
+          }
+
+          if [ -n "$DB_OVERRIDE" ] || [ -n "$OFF_OVERRIDE" ]; then
+            guard_url "$DB_OVERRIDE" "db_source" "true"
+            guard_url "$OFF_OVERRIDE" "officials_db_source" "true"
+          fi
+
+          if [ -n "$DB_OVERRIDE" ]; then
+            DB_URL="$DB_OVERRIDE"
+            DB_SHA="$DB_OVERRIDE_SHA"
+            VERSION="override"
+          fi
+          if [ -n "$OFF_OVERRIDE" ]; then
+            OFF_URL="$OFF_OVERRIDE"
+            OFF_SHA="$OFF_OVERRIDE_SHA"
+          fi
+
+          if [ -z "${DB_URL:-}" ] || [ -z "${OFF_URL:-}" ]; then
+            echo "Fetching $ATLAS_SOURCE_MANIFEST"
+            RAW=$(curl -fsSL --retry 3 --retry-delay 5 "$ATLAS_SOURCE_MANIFEST")
+            if [ -n "$MANIFEST_SHA_PIN" ]; then
+              GOT=$(printf '%s' "$RAW" | sha256sum | awk '{print $1}')
+              if [ "$GOT" != "$MANIFEST_SHA_PIN" ]; then
+                echo "Manifest sha mismatch: $GOT vs pin $MANIFEST_SHA_PIN" >&2
+                exit 1
+              fi
+              echo "Manifest pin verified ($GOT)"
+            elif [ -z "$DB_OVERRIDE" ] && [ "$ALLOW" != "I-UNDERSTAND" ]; then
+              echo "expected_manifest_sha256 is required when db_source is empty." >&2
+              echo "publish:source emits the value at the end of a successful run; paste it here." >&2
+              echo "Or set allow_unverified=I-UNDERSTAND to skip (only for ad-hoc test runs)." >&2
+              exit 1
+            else
+              echo "Manifest pin not provided; trusting CF zone (allow_unverified)."
+            fi
+
+            VERSION=$(printf '%s' "$RAW" | jq -er '.currentVersion')
+
+            if [ -z "${DB_URL:-}" ]; then
+              DB_URL=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                [.builds[] | select(.version==$v)]
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].url end')
+              DB_SHA=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                [.builds[] | select(.version==$v)]
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["shadow-atlas-full.db"].sha256 end')
+              guard_url "$DB_URL" "db_url (manifest)" "false"
+            fi
+            if [ -z "${OFF_URL:-}" ]; then
+              OFF_URL=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                [.builds[] | select(.version==$v)]
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].url end')
+              OFF_SHA=$(printf '%s' "$RAW" | jq -er --arg v "$VERSION" '
+                [.builds[] | select(.version==$v)]
+                | if length != 1 then error("expected exactly one build for \($v), got \(length)") else .[0].files["officials.db"].sha256 end')
+              guard_url "$OFF_URL" "officials_url (manifest)" "false"
+            fi
+          fi
+
+          # Deterministic epoch derived from the version tag, NOT from
+          # github.run_number — failed reruns must not increment the
+          # on-chain epoch beyond what the operator intended.
+          if [[ "$VERSION" =~ ^v([0-9]{8})$ ]]; then
+            EPOCH="${BASH_REMATCH[1]}"
+          else
+            # Override path: fall back to a synthetic epoch from a SHA
+            # prefix to avoid run_number drift on retries.
+            EPOCH=$(printf '%s' "${DB_URL}${DB_SHA}" | sha256sum | awk '{print "0x" substr($1,1,8)}')
+            EPOCH=$((EPOCH))
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "epoch=$EPOCH" >> "$GITHUB_OUTPUT"
+          echo "db_url=$DB_URL" >> "$GITHUB_OUTPUT"
+          echo "db_sha=$DB_SHA" >> "$GITHUB_OUTPUT"
+          echo "officials_url=$OFF_URL" >> "$GITHUB_OUTPUT"
+          echo "officials_sha=$OFF_SHA" >> "$GITHUB_OUTPUT"
+          echo "Resolved version=$VERSION epoch=$EPOCH"
+          echo "  db: $DB_URL"
+          echo "  officials: $OFF_URL"
+
   # =========================================================================
   # Phase 1: Build chunked H3→district mapping
   # =========================================================================
@@ -59,6 +241,7 @@ jobs:
     name: Build Chunked H3 Mapping
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    needs: [resolve-source]
     outputs:
       total_chunks: ${{ steps.build.outputs.total_chunks }}
       total_cells: ${{ steps.build.outputs.total_cells }}
@@ -78,10 +261,19 @@ jobs:
 
       - name: Download Shadow Atlas database
         run: |
-          echo "Downloading shadow-atlas-full.db..."
-          curl -fSL --retry 3 --retry-delay 5 \
-            -o shadow-atlas-full.db "${{ inputs.db_source }}"
+          set -euo pipefail
+          DB_URL="${{ needs.resolve-source.outputs.db_url }}"
+          DB_SHA="${{ needs.resolve-source.outputs.db_sha }}"
+          echo "Downloading $DB_URL"
+          curl -fSL --retry 3 --retry-delay 5 -o shadow-atlas-full.db "$DB_URL"
           ls -lh shadow-atlas-full.db
+
+          if [ -n "$DB_SHA" ]; then
+            echo "Verifying SHA-256 against resolved expected value..."
+            echo "$DB_SHA  shadow-atlas-full.db" | sha256sum -c -
+          else
+            echo "No expected SHA available (override path with allow_unverified); skipping verification."
+          fi
 
       - name: Build chunked mapping
         id: build
@@ -123,7 +315,7 @@ jobs:
     name: Export Officials Data
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-chunked]
+    needs: [resolve-source, build-chunked]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -146,18 +338,19 @@ jobs:
 
       - name: Download officials database
         run: |
-          # Use explicit officials_db_source if provided, otherwise derive from db_source
-          if [ -n "${{ inputs.officials_db_source }}" ]; then
-            OFFICIALS_URL="${{ inputs.officials_db_source }}"
-          else
-            DB_URL="${{ inputs.db_source }}"
-            OFFICIALS_URL="${DB_URL%/*}/officials.db"
-          fi
-
-          echo "Downloading officials DB from: $OFFICIALS_URL"
-          curl -fSL --retry 3 --retry-delay 5 \
-            -o officials.db "$OFFICIALS_URL"
+          set -euo pipefail
+          URL="${{ needs.resolve-source.outputs.officials_url }}"
+          SHA="${{ needs.resolve-source.outputs.officials_sha }}"
+          echo "Downloading officials DB from: $URL"
+          curl -fSL --retry 3 --retry-delay 5 -o officials.db "$URL"
           ls -lh officials.db
+
+          if [ -n "$SHA" ]; then
+            echo "Verifying SHA-256 against resolved expected value..."
+            echo "$SHA  officials.db" | sha256sum -c -
+          else
+            echo "No expected SHA available (override path with allow_unverified); skipping verification."
+          fi
 
       - name: Export officials to chunked directory
         working-directory: packages/shadow-atlas
@@ -361,78 +554,13 @@ jobs:
   # =========================================================================
   # Phase 4: Pin directory to IPFS via Storacha (single root CID)
   # =========================================================================
-  publish-ipfs:
-    name: Pin to IPFS (Directory)
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    needs: [validate-build]
-    if: inputs.publish_ipfs != 'false'
-    outputs:
-      root_cid: ${{ steps.pin.outputs.root_cid }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download validated build
-        uses: actions/download-artifact@v4
-        with:
-          name: chunked-validated
-          path: packages/shadow-atlas/output/chunked/
-
-      - name: Pin directory to Storacha
-        id: pin
-        working-directory: packages/shadow-atlas
-        env:
-          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
-          STORACHA_AGENT_KEY: ${{ secrets.STORACHA_AGENT_KEY }}
-          STORACHA_PROOF: ${{ secrets.STORACHA_PROOF }}
-        run: |
-          npx tsx scripts/pin-to-ipfs.ts \
-            --directory output/chunked/ \
-            --output output/pin-results.json
-
-          # Extract root CID for downstream jobs
-          ROOT_CID=$(jq -r '.rootCid' output/pin-results.json)
-          echo "root_cid=$ROOT_CID" >> $GITHUB_OUTPUT
-          echo "Root CID: $ROOT_CID"
-
-      - name: Write IPFS summary
-        run: |
-          ROOT_CID=$(jq -r '.rootCid' packages/shadow-atlas/output/pin-results.json)
-          TIMESTAMP=$(jq -r '.timestamp' packages/shadow-atlas/output/pin-results.json)
-          VERIFIED=$(jq -r '.verified // "unknown"' packages/shadow-atlas/output/pin-results.json)
-
-          echo "## IPFS Pinning Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Root CID** | \`$ROOT_CID\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Timestamp** | $TIMESTAMP |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Verified** | $VERIFIED |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Total Chunks** | ${{ needs.validate-build.result == 'success' && needs.build-chunked.outputs.total_chunks || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Total Cells** | ${{ needs.validate-build.result == 'success' && needs.build-chunked.outputs.total_cells || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Gateway Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [manifest.json](https://storacha.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
-          echo "- [Root directory](https://storacha.link/ipfs/$ROOT_CID/)" >> $GITHUB_STEP_SUMMARY
-          echo "- [dweb.link mirror](https://storacha.link/ipfs/$ROOT_CID/manifest.json)" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload pin results
-        uses: actions/upload-artifact@v4
-        with:
-          name: pin-results
-          path: packages/shadow-atlas/output/pin-results.json
-          retention-days: 180
+  # publish-ipfs job removed 2026-05-02 with the Storacha sunset.
+  # When IPFS pinning resumes, restore a job at this point that:
+  #   1. Downloads the chunked-validated artifact
+  #   2. Invokes the new pinning script (Pinata/Lighthouse/Fleek)
+  #   3. Outputs root_cid + uploads pin-results.json
+  # Then re-add `--pin-results` to the push-cids invocation below and
+  # rewire push-cids/update-registry/notify to consume the IPFS CID.
 
   # =========================================================================
   # Phase 4b: Upload to Cloudflare R2 (primary production read path)
@@ -467,10 +595,12 @@ jobs:
       - name: Upload to R2
         id: upload
         working-directory: packages/shadow-atlas
+        # Single-token model (2026-05-02): upload-to-r2.ts drives every
+        # PUT through `wrangler r2 object put` using CLOUDFLARE_API_TOKEN.
+        # No S3-compat AKID/secret pair is needed.
         env:
-          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           R2_BUCKET_NAME: shadow-atlas
           R2_PUBLIC_URL: https://atlas.commons.email
         run: |
@@ -512,8 +642,8 @@ jobs:
     name: Push Config to Cloudflare
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [publish-ipfs, upload-r2]
-    if: always() && (needs.publish-ipfs.result == 'success' || needs.upload-r2.result == 'success') && inputs.push_cids != 'false'
+    needs: [upload-r2]
+    if: needs.upload-r2.result == 'success' && inputs.push_cids != 'false'
     environment:
       name: production
     steps:
@@ -530,12 +660,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download pin results
-        uses: actions/download-artifact@v4
-        with:
-          name: pin-results
-          path: packages/shadow-atlas/output/
-
       - name: Push config to Cloudflare Pages
         working-directory: packages/shadow-atlas
         env:
@@ -543,14 +667,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ATLAS_BASE_URL: ${{ needs.upload-r2.outputs.atlas_base_url || 'https://atlas.commons.email' }}
         run: |
+          # IPFS pinning is paused (2026-05-02). When restored, re-add
+          # `--pin-results output/pin-results.json` and download the artifact.
           npx tsx scripts/push-cids.ts \
-            --pin-results output/pin-results.json \
             --atlas-url "$ATLAS_BASE_URL" \
             --project commons
 
-          ROOT_CID=$(jq -r '.rootCid // "N/A"' output/pin-results.json)
           echo "### Config Push" >> $GITHUB_STEP_SUMMARY
-          echo "- **Root CID:** \`$ROOT_CID\`" >> $GITHUB_STEP_SUMMARY
           echo "- **ATLAS_BASE_URL:** $ATLAS_BASE_URL" >> $GITHUB_STEP_SUMMARY
           echo "- **Project:** commons" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** Updated" >> $GITHUB_STEP_SUMMARY
@@ -562,7 +685,7 @@ jobs:
     name: Update On-Chain Registry
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [publish-ipfs]
+    needs: [resolve-source, upload-r2]
     if: inputs.update_registry == 'true'
     environment:
       name: production
@@ -585,27 +708,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download pin results
-        uses: actions/download-artifact@v4
-        with:
-          name: pin-results
-          path: packages/shadow-atlas/output/
-
       - name: Download cell tree snapshot
         uses: actions/download-artifact@v4
         with:
           name: cell-tree-snapshot
           path: packages/shadow-atlas/output/chunked/US/merkle/
 
-      - name: Extract snapshot root and CID
+      - name: Extract snapshot root and content locator
         id: extract-root
+        # The on-chain SnapshotAnchor contract requires a non-empty string in
+        # the `ipfsCid` field (SnapshotAnchor.sol:74 reverts on EmptyCid). With
+        # IPFS pinning paused (2026-05-02), we anchor the versioned R2 URL as
+        # the content-locator instead. The contract docstring still calls it
+        # `ipfsCid` but downstream consumers should treat it as a generic
+        # locator. When IPFS pinning resumes, swap this back to the IPFS CID.
         run: |
           ROOT=$(jq -r '.root' packages/shadow-atlas/output/chunked/US/merkle/cell-tree-snapshot.json)
-          CID=$(jq -r '.rootCid' packages/shadow-atlas/output/pin-results.json)
+          LOCATOR="${{ needs.upload-r2.outputs.atlas_base_url }}"
+          if [ -z "$LOCATOR" ]; then
+            echo "Error: upload-r2 produced no atlas_base_url output" >&2
+            exit 1
+          fi
           echo "cell_map_root=$ROOT" >> "$GITHUB_OUTPUT"
-          echo "ipfs_cid=$CID" >> "$GITHUB_OUTPUT"
+          echo "ipfs_cid=$LOCATOR" >> "$GITHUB_OUTPUT"
           echo "Cell map root: $ROOT"
-          echo "IPFS CID: $CID"
+          echo "Content locator (anchored as ipfsCid): $LOCATOR"
 
       - name: Update on-chain registry
         working-directory: contracts
@@ -614,7 +741,10 @@ jobs:
           RPC_URL: ${{ secrets.SCROLL_RPC_URL }}
           CELL_MAP_ROOT: ${{ steps.extract-root.outputs.cell_map_root }}
           IPFS_CID: ${{ steps.extract-root.outputs.ipfs_cid }}
-          EPOCH: ${{ github.run_number }}
+          # Deterministic epoch derived from the source version tag.
+          # Failed reruns must NOT increment the on-chain epoch beyond
+          # what the operator's published version represents.
+          EPOCH: ${{ needs.resolve-source.outputs.epoch }}
           SNAPSHOT_ANCHOR_ADDRESS: ${{ vars.SNAPSHOT_ANCHOR_ADDRESS }}
         run: |
           forge script script/UpdateSnapshot.s.sol:UpdateSnapshot \
@@ -622,8 +752,10 @@ jobs:
 
           echo "### On-Chain Registry Update" >> $GITHUB_STEP_SUMMARY
           echo "- **Cell Map Root:** \`$CELL_MAP_ROOT\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **IPFS CID:** \`$IPFS_CID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Content Locator (anchored as ipfsCid):** $IPFS_CID" >> $GITHUB_STEP_SUMMARY
           echo "- **Epoch:** $EPOCH" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_IPFS pinning paused 2026-05-02; the R2 URL is anchored in the ipfsCid field as a content-locator. Restore the IPFS CID here once pinning resumes._" >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================
   # Notifications
@@ -638,7 +770,7 @@ jobs:
       - build-cell-tree-snapshot
       - generate-cell-chunks
       - validate-build
-      - publish-ipfs
+      - upload-r2
       - push-cids
       - update-registry
     if: always()
@@ -649,7 +781,7 @@ jobs:
           script: |
             const totalChunks = '${{ needs.build-chunked.outputs.total_chunks }}' || 'N/A';
             const totalCells = '${{ needs.build-chunked.outputs.total_cells }}' || 'N/A';
-            const rootCid = '${{ needs.publish-ipfs.outputs.root_cid }}' || 'N/A';
+            const atlasUrl = '${{ needs.upload-r2.outputs.atlas_base_url }}' || 'N/A';
 
             const title = `Shadow Atlas Quarterly Update - ${new Date().toISOString().split('T')[0]}`;
             const body = [
@@ -665,23 +797,24 @@ jobs:
               `| Build Cell Tree | ${{ needs.build-cell-tree-snapshot.result }} |`,
               `| Generate Cell Chunks | ${{ needs.generate-cell-chunks.result }} |`,
               `| Validate Build | ${{ needs.validate-build.result }} |`,
-              `| Pin to IPFS | ${{ needs.publish-ipfs.result }} |`,
+              `| Upload to R2 | ${{ needs.upload-r2.result }} |`,
               `| Push CIDs | ${{ needs.push-cids.result }} |`,
               `| Update Registry | ${{ needs.update-registry.result }} |`,
               '',
               '### Build Metrics',
               `- **Total chunks:** ${totalChunks}`,
               `- **Total cells:** ${totalCells}`,
-              `- **Root CID:** \`${rootCid}\``,
+              `- **R2 URL:** ${atlasUrl}`,
               `- **Cell chunks:** ${{ needs.generate-cell-chunks.outputs.total_cell_chunks || 'N/A' }}`,
               `- **District slots:** ${{ needs.generate-cell-chunks.outputs.populated_slots || 'N/A' }}/24`,
               `- **Resolution:** 7 (child) / 3 (parent) — ~5.16 km² per cell`,
               '',
-              '### Gateway Links',
-              rootCid !== 'N/A' ? [
-                `- [manifest.json](https://storacha.link/ipfs/${rootCid}/manifest.json)`,
-                `- [Root directory](https://storacha.link/ipfs/${rootCid}/)`,
-              ].join('\n') : '- *IPFS pinning was skipped or failed*',
+              '### Read Path',
+              atlasUrl !== 'N/A'
+                ? `- [manifest.json](${atlasUrl}/US/manifest.json)`
+                : '- *R2 upload failed*',
+              '',
+              '_IPFS pinning paused 2026-05-02. Restore a `Pin to IPFS` row + gateway links above when pinning resumes._',
               '',
               '---',
               '*Automatically created by the quarterly update workflow (chunked pipeline v3).*',
@@ -700,11 +833,11 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          ROOT_CID="${{ needs.publish-ipfs.outputs.root_cid }}"
+          ATLAS_URL="${{ needs.upload-r2.outputs.atlas_base_url }}"
           TOTAL_CHUNKS="${{ needs.build-chunked.outputs.total_chunks }}"
           BUILD_RESULT="${{ needs.build-chunked.result }}"
           VALIDATE_RESULT="${{ needs.validate-build.result }}"
-          PIN_RESULT="${{ needs.publish-ipfs.result }}"
+          R2_RESULT="${{ needs.upload-r2.result }}"
 
           curl -fsSL -X POST -H 'Content-type: application/json' \
             --data "{
@@ -714,7 +847,7 @@ jobs:
                   \"type\": \"section\",
                   \"text\": {
                     \"type\": \"mrkdwn\",
-                    \"text\": \"*Shadow Atlas Quarterly Update*\n• Build: ${BUILD_RESULT}\n• Validation: ${VALIDATE_RESULT}\n• IPFS Pin: ${PIN_RESULT}\n• Chunks: ${TOTAL_CHUNKS}\n• Root CID: \`${ROOT_CID:-N/A}\`\"
+                    \"text\": \"*Shadow Atlas Quarterly Update*\n• Build: ${BUILD_RESULT}\n• Validation: ${VALIDATE_RESULT}\n• R2 Upload: ${R2_RESULT}\n• Chunks: ${TOTAL_CHUNKS}\n• R2 URL: ${ATLAS_URL:-N/A}\"
                   }
                 }
               ]
@@ -741,10 +874,11 @@ jobs:
               'cell-tree-snapshot',
               'chunked-validated',
               'chunked-with-cell-chunks',
-              'pin-results',
-              // Legacy artifact names (from old monolithic pipeline)
+              'r2-upload-results',
+              // Legacy artifact names (from old monolithic pipeline + Storacha-era pinning)
               'h3-mapping',
               'officials',
+              'pin-results',
             ];
 
             const artifactsResponse = await github.rest.actions.listArtifactsForRepo({

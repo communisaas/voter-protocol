@@ -22,7 +22,7 @@ import { randomBytes } from 'crypto';
 // ============================================================================
 
 function createMockPinningService(
-  type: PinningServiceType = 'storacha',
+  type: PinningServiceType = 'lighthouse',
   shouldSucceed = true,
 ): IPinningService {
   return {
@@ -116,7 +116,7 @@ describe('SyncService', () => {
         cid: 'QmTestCID123',
         entryCount: 42,
         uploadedAt: Date.now(),
-        services: ['storacha'],
+        services: ['lighthouse'],
       };
       await fs.writeFile(
         join(dataDir, 'latest-log-cid.json'),
@@ -141,7 +141,7 @@ describe('SyncService', () => {
 
   describe('uploadLog', () => {
     it('uploads to all pinning services', async () => {
-      const mockStoracha = createMockPinningService('storacha');
+      const mockStoracha = createMockPinningService('lighthouse');
       const mockLighthouse = createMockPinningService('lighthouse' as PinningServiceType);
 
       const sync = new SyncService({
@@ -187,7 +187,7 @@ describe('SyncService', () => {
     });
 
     it('succeeds when at least one service works', async () => {
-      const goodService = createMockPinningService('storacha', true);
+      const goodService = createMockPinningService('lighthouse', true);
       const badService = createMockPinningService('pinata', false);
 
       const sync = new SyncService({
@@ -200,14 +200,14 @@ describe('SyncService', () => {
       const result = await sync.uploadLog(log);
 
       expect(result).not.toBeNull();
-      expect(result!.services).toContain('storacha');
+      expect(result!.services).toContain('lighthouse');
       expect(result!.services).not.toContain('pinata');
 
       await log.close();
     });
 
     it('returns null when all services fail', async () => {
-      const badService1 = createMockPinningService('storacha', false);
+      const badService1 = createMockPinningService('lighthouse', false);
       const badService2 = createMockPinningService('pinata', false);
 
       const sync = new SyncService({

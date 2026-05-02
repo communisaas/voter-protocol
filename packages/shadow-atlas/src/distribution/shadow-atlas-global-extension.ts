@@ -162,8 +162,7 @@ export class ShadowAtlasGlobalExtension {
 
       // Try gateways in priority order
       const gateways = [
-        'https://w3s.link',
-        'https://dweb.link',
+        'https://gateway.pinata.cloud',
         'https://ipfs.io',
         'https://cloudflare-ipfs.com',
       ];

@@ -60,7 +60,7 @@ export interface SyncServiceConfig {
   readonly dataDir: string;
   /** Upload after every N insertions (default: 10) */
   readonly uploadInterval?: number;
-  /** IPFS gateway URL for fetching logs (default: https://w3s.link) */
+  /** IPFS gateway URL for fetching logs (default: https://ipfs.io) */
   readonly ipfsGateway?: string;
   /** Pinning services for upload (Storacha, Lighthouse, etc.) */
   readonly pinningServices?: readonly IPinningService[];
@@ -121,7 +121,7 @@ export class SyncService {
   constructor(config: SyncServiceConfig) {
     this.dataDir = config.dataDir;
     this.uploadInterval = config.uploadInterval ?? 10;
-    this.ipfsGateway = config.ipfsGateway ?? 'https://w3s.link';
+    this.ipfsGateway = config.ipfsGateway ?? 'https://ipfs.io';
     this.pinningServices = config.pinningServices ?? [];
     this.metadataPath = join(this.dataDir, 'latest-log-cid.json');
   }

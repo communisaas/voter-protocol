@@ -53,7 +53,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     dbPath = process.env.DB_PATH || '/data/shadow-atlas.db',
     corsOrigins = process.env.CORS_ORIGINS || '',
     rateLimitPerMinute = parseInt(process.env.RATE_LIMIT_PER_MINUTE || '60', 10),
-    ipfsGateway = process.env.IPFS_GATEWAY || 'https://w3s.link',
+    ipfsGateway = process.env.IPFS_GATEWAY || 'https://ipfs.io',
     snapshotsDir = process.env.SNAPSHOTS_DIR || '/data/snapshots',
     dataDir = process.env.DATA_DIR || '/data/shadow-atlas',
   } = options;

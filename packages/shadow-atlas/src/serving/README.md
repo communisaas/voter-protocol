@@ -405,7 +405,7 @@ services:
     environment:
       - PORT=3000
       - DB_PATH=/data/shadow-atlas.db
-      - IPFS_GATEWAY=https://w3s.link
+      - IPFS_GATEWAY=https://ipfs.io
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]

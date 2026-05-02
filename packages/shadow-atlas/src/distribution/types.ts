@@ -52,9 +52,14 @@ export interface RegionConfig {
 // ============================================================================
 
 /**
- * Supported pinning services
+ * Supported pinning services.
+ *
+ * NOTE: IPFS pinning is paused as of 2026-05-02 — R2 carries the production
+ * read path. These provider implementations remain on the shelf for when
+ * IPFS pinning resumes. The 'storacha' / 'web3storage' / 'nftstorage'
+ * variants were removed when the Storacha service sunset.
  */
-export type PinningServiceType = 'storacha' | 'pinata' | 'web3storage' | 'nftstorage' | 'fleek' | 'lighthouse';
+export type PinningServiceType = 'pinata' | 'fleek' | 'lighthouse';
 
 /**
  * Pinning service configuration

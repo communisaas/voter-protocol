@@ -16,12 +16,11 @@
  *
  * Loaded from environment variables at runtime.
  * NEVER hardcode credentials in source code.
+ *
+ * NOTE: IPFS pinning is paused as of 2026-05-02. These credential slots
+ * remain wired so reactivation is a config flip rather than a code change.
  */
 export interface IPFSCredentials {
-  readonly storacha?: {
-    readonly spaceDid?: string;
-    readonly agentPrivateKey?: string;
-  };
   readonly pinata?: {
     readonly jwt?: string;
     readonly apiKey?: string;
@@ -40,7 +39,6 @@ export interface IPFSCredentials {
  * Returns undefined for services without configured credentials.
  *
  * Environment variables:
- * - STORACHA_SPACE_DID, STORACHA_AGENT_KEY
  * - PINATA_JWT or PINATA_API_KEY + PINATA_API_SECRET
  * - FLEEK_API_KEY, FLEEK_API_SECRET
  *
@@ -48,10 +46,6 @@ export interface IPFSCredentials {
  */
 export function getIPFSCredentials(): IPFSCredentials {
   return {
-    storacha: {
-      spaceDid: process.env.STORACHA_SPACE_DID,
-      agentPrivateKey: process.env.STORACHA_AGENT_KEY,
-    },
     pinata: {
       jwt: process.env.PINATA_JWT,
       apiKey: process.env.PINATA_API_KEY,
@@ -177,7 +171,7 @@ export interface ShadowAtlasConfig {
     /** Geographic regions to pin to */
     readonly regions: readonly ('americas-east' | 'americas-west' | 'europe-west' | 'asia-east')[];
     /** Pinning services to use */
-    readonly services: readonly ('storacha' | 'pinata' | 'fleek')[];
+    readonly services: readonly ('pinata' | 'fleek' | 'lighthouse')[];
     /** Publish to IPFS automatically after successful build */
     readonly publishOnBuild: boolean;
     /** Maximum parallel uploads per region */

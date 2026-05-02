@@ -46,19 +46,19 @@ export { FallbackResolver } from './fallback-resolver.js';
 
 // Concrete pinning service implementations
 export {
-  StorachaPinningService,
-  createStorachaPinningService,
   PinataPinningService,
   createPinataPinningService,
   FleekPinningService,
   createFleekPinningService,
+  LighthousePinningService,
+  createLighthousePinningService,
   createPinningService,
   createConfiguredServices,
 } from './services/index.js';
 export type {
-  StorachaConfig,
   PinataConfig,
   FleekConfig,
+  LighthouseConfig,
   ServiceFactoryOptions,
 } from './services/index.js';
 

@@ -2683,7 +2683,6 @@ export class ShadowAtlasService {
         this.log.info('Publishing to IPFS region', { region });
 
         const service = await createRegionalPinningService(region, {
-          storacha: credentials.storacha,
           pinata: credentials.pinata,
           fleek: credentials.fleek,
           maxParallelUploads: ipfsConfig.maxParallelUploads,

@@ -554,20 +554,20 @@ export interface IPFSExportResult {
 }
 
 /**
- * Export Merkle tree to IPFS
+ * Export Merkle tree to IPFS via Pinata.
  *
- * Serializes tree to JSON and uploads to IPFS via Web3.Storage or Pinata.
- * Returns CID for on-chain commitment.
+ * Serializes the tree to JSON and uploads. Returns CID for on-chain
+ * commitment. The Web3.Storage / Storacha branch was removed 2026-05-02
+ * with the Storacha sunset; callers that previously passed
+ * `service: 'web3storage'` need to provide a Pinata JWT instead.
  *
  * @param tree - Shadow Atlas Merkle tree
- * @param apiToken - IPFS service API token (Web3.Storage or Pinata)
- * @param service - IPFS service ('web3storage' | 'pinata')
+ * @param pinataJwt - Pinata API token (JWT)
  * @returns IPFS CID and metadata
  */
 export async function exportToIPFS(
   tree: ShadowAtlasMerkleTree,
-  apiToken: string,
-  service: 'web3storage' | 'pinata' = 'web3storage'
+  pinataJwt: string
 ): Promise<IPFSExportResult> {
   // Serialize tree to JSON
   const treeData = {
@@ -591,49 +591,7 @@ export async function exportToIPFS(
 
   const jsonString = JSON.stringify(treeData, null, 2);
   const jsonBytes = Buffer.from(jsonString, 'utf-8');
-
-  if (service === 'web3storage') {
-    return await uploadToWeb3Storage(jsonBytes, apiToken);
-  } else {
-    return await uploadToPinata(jsonBytes, apiToken);
-  }
-}
-
-/**
- * Upload to Web3.Storage
- */
-async function uploadToWeb3Storage(
-  data: Buffer,
-  apiToken: string
-): Promise<IPFSExportResult> {
-  const formData = new FormData();
-  const blob = new Blob([data as unknown as BlobPart], { type: 'application/json' });
-  formData.append('file', blob, 'shadow-atlas-tree.json');
-
-  const response = await fetch('https://api.web3.storage/upload', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiToken}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Web3.Storage upload failed: ${response.statusText}`);
-  }
-
-  const result = await response.json();
-  const cid = result.cid;
-  if (!cid || typeof cid !== 'string') {
-    throw new Error('Web3.Storage response missing CID');
-  }
-
-  return {
-    cid,
-    size: data.length,
-    url: `https://w3s.link/ipfs/${cid}`,
-    pinned: true,
-  };
+  return await uploadToPinata(jsonBytes, pinataJwt);
 }
 
 /**

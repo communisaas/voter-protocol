@@ -377,11 +377,11 @@ export class UpdateCoordinator {
   }> {
     // Map regions to IPFS public gateways (must match DEFAULT_REGIONS)
     const gateways: Partial<Record<Region, string>> = {
-      'americas-east': 'https://w3s.link',
-      'americas-west': 'https://dweb.link',
+      'americas-east': 'https://gateway.pinata.cloud',
+      'americas-west': 'https://gateway.pinata.cloud',
       'europe-west': 'https://gateway.pinata.cloud',
-      'asia-east': 'https://dweb.link',
-      'asia-southeast': 'https://dweb.link',
+      'asia-east': 'https://ipfs.io',
+      'asia-southeast': 'https://ipfs.io',
       'oceania': 'https://dweb.link',
     };
 

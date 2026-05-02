@@ -2,22 +2,20 @@
  * IPFS Pinning Service Implementations
  *
  * Concrete implementations of IPinningService for major providers:
- * - Storacha (formerly web3.storage) - Filecoin-backed
  * - Pinata - Industry standard CDN
  * - Fleek - IPFS + edge caching
+ * - Lighthouse - Filecoin-backed retrieval
  *
  * Each service provides:
  * - pin() - Upload content to IPFS
  * - verify() - Check if CID is pinned
  * - unpin() - Remove pin
  * - healthCheck() - Verify service availability
+ *
+ * NOTE: IPFS pinning is paused as of 2026-05-02 — R2 carries the production
+ * read path. These implementations are preserved for reactivation when IPFS
+ * matures. Storacha was removed when its hosted service sunset.
  */
-
-export {
-  StorachaPinningService,
-  createStorachaPinningService,
-  type StorachaConfig,
-} from './storacha.js';
 
 export {
   PinataPinningService,
@@ -39,7 +37,6 @@ export {
 
 import type { IPinningService } from '../regional-pinning-service.js';
 import type { Region, PinningServiceType } from '../types.js';
-import { createStorachaPinningService } from './storacha.js';
 import { createPinataPinningService } from './pinata.js';
 import { createFleekPinningService } from './fleek.js';
 import { createLighthousePinningService } from './lighthouse.js';
@@ -48,11 +45,6 @@ import { createLighthousePinningService } from './lighthouse.js';
  * Service factory options
  */
 export interface ServiceFactoryOptions {
-  readonly storacha?: {
-    readonly spaceDid?: string;
-    readonly agentPrivateKey?: string;
-    readonly proof?: string;
-  };
   readonly pinata?: {
     readonly jwt?: string;
     readonly apiKey?: string;
@@ -73,7 +65,7 @@ export interface ServiceFactoryOptions {
  *
  * Factory function to instantiate the appropriate service implementation.
  *
- * @param type - Service type (storacha, pinata, fleek)
+ * @param type - Service type (pinata, fleek, lighthouse)
  * @param region - Geographic region
  * @param options - Service-specific configuration
  * @returns IPinningService instance
@@ -85,16 +77,6 @@ export function createPinningService(
   options: ServiceFactoryOptions = {}
 ): IPinningService {
   switch (type) {
-    case 'storacha':
-    case 'web3storage': // Alias
-    case 'nftstorage': // Same underlying service
-      return createStorachaPinningService(region, {
-        spaceDid: options.storacha?.spaceDid,
-        agentPrivateKey: options.storacha?.agentPrivateKey,
-        proof: options.storacha?.proof,
-        timeoutMs: options.timeoutMs,
-      });
-
     case 'pinata':
       return createPinataPinningService(region, {
         jwt: options.pinata?.jwt,
@@ -140,7 +122,7 @@ export function createConfiguredServices(
   const services: IPinningService[] = [];
 
   // Try to create each service, skip if not configured
-  const serviceTypes: PinningServiceType[] = ['storacha', 'lighthouse', 'pinata', 'fleek'];
+  const serviceTypes: PinningServiceType[] = ['lighthouse', 'pinata', 'fleek'];
 
   for (const type of serviceTypes) {
     try {
