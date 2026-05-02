@@ -57,10 +57,19 @@ import {
 	wranglerPutFile,
 	type WranglerEnv,
 } from './_wrangler-r2.js';
+import { s3MultipartUpload, type S3MultipartEnv } from './_s3-multipart.js';
 import { signManifest } from './_ed25519.js';
 
 const VERSION_PATTERN = /^v\d{8}$/;
 const ARTIFACTS = ['shadow-atlas-full.db', 'officials.db'] as const;
+
+/**
+ * Files at or above this size MUST go through S3-compat multipart.
+ * Wrangler r2 object put has a hard 300 MiB cap; we use 250 MiB as a
+ * safety margin since the PUT body is the file contents plus
+ * subprocess framing overhead.
+ */
+const S3_MULTIPART_THRESHOLD = 250 * 1024 * 1024;
 
 interface ParsedArgs {
 	version: string;
@@ -315,24 +324,58 @@ async function verifyR2Slices(
 }
 
 /**
- * Build the .db files via the existing npm scripts. CF credentials are
- * scrubbed from the child env so a typosquatted transitive dep deep in
- * the build graph can't exfil CLOUDFLARE_API_TOKEN to its inherited stdout.
+ * Build the .db files via the existing npm scripts.
+ *
+ * Allowlist env scrub: the build subprocess receives ONLY the variables
+ * named/prefixed below. Everything else — CF tokens, S3 creds, the
+ * Ed25519 signing key, future credentials we haven't added yet — stays
+ * isolated in the parent process. Adding a new env var that the build
+ * subprocess needs is a deliberate edit here, not the default.
+ *
+ * Why allowlist over denylist: a denylist enumerating known credentials
+ * (CLOUDFLARE_API_TOKEN, R2_*, MANIFEST_SIGNING_PRIVATE_KEY) silently
+ * fails the next time someone adds REGISTRATION_AUTH_TOKEN, LIGHTHOUSE_API_KEY,
+ * or any other secret to .env. The allowlist forces the inverse:
+ * unenumerated vars are dropped by default.
+ *
+ * Build dependencies (verified from src/scripts/build-district-db.ts and
+ * src/acquisition/extractors/rdh-vtd-extractor.ts):
+ *   - System: PATH, HOME, USER, SHELL, TERM, TMPDIR, LANG, LC_*
+ *   - Node: NODE_OPTIONS, NODE_ENV, NODE_PATH, npm_*, NPM_*
+ *   - Shadow Atlas: BAF_CACHE_DIR, DATA_DIR
+ *   - VTD extraction: RDH_USERNAME, RDH_PASSWORD (these ARE credentials
+ *     but they are credentials the build legitimately needs)
  */
 function runBuild(): void {
-	const scrubbedEnv: NodeJS.ProcessEnv = {
-		...process.env,
-		CLOUDFLARE_API_TOKEN: undefined,
-		CLOUDFLARE_ACCOUNT_ID: undefined,
-		R2_ACCOUNT_ID: undefined,
-		R2_ACCESS_KEY_ID: undefined,
-		R2_SECRET_ACCESS_KEY: undefined,
-		// The signing key forges trust for every future publish until
-		// rotated — higher-value than the CF token. Scrub from the
-		// build subprocess (and its grandchildren) so a typosquatted
-		// transitive dep can't exfil it.
-		MANIFEST_SIGNING_PRIVATE_KEY: undefined,
-	};
+	const ALLOW_EXACT = new Set([
+		'PATH',
+		'HOME',
+		'USER',
+		'LOGNAME',
+		'SHELL',
+		'TERM',
+		'LANG',
+		'TMPDIR',
+		'TMP',
+		'TEMP',
+		'PWD',
+		'NODE_OPTIONS',
+		'NODE_ENV',
+		'NODE_PATH',
+		'BAF_CACHE_DIR',
+		'DATA_DIR',
+		'RDH_USERNAME',
+		'RDH_PASSWORD',
+	]);
+	const ALLOW_PREFIX = ['LC_', 'npm_', 'NPM_'];
+
+	const scrubbedEnv: NodeJS.ProcessEnv = {};
+	for (const [k, v] of Object.entries(process.env)) {
+		if (ALLOW_EXACT.has(k) || ALLOW_PREFIX.some((p) => k.startsWith(p))) {
+			scrubbedEnv[k] = v;
+		}
+	}
+
 	console.log('Building shadow-atlas-full.db (this can take 1-3 hours)...');
 	execFileSync('npm', ['run', 'build:districts:full'], { stdio: 'inherit', env: scrubbedEnv });
 	console.log('Building officials.db...');
@@ -429,6 +472,15 @@ async function main(): Promise<void> {
 	const bucket = process.env['R2_BUCKET_NAME'] || 'shadow-atlas';
 	const publicUrl = (process.env['R2_PUBLIC_URL'] || 'https://atlas.commons.email').replace(/\/$/, '');
 
+	// S3-compat creds for multipart uploads of files >250 MiB.
+	// Required if any artifact crosses the threshold (the 3.6 GB
+	// shadow-atlas-full.db always does); optional for officials-only
+	// publishes. Wrangler's 300 MiB cap on `r2 object put` and the
+	// absence of any CF-native R2 multipart endpoint forces this dual
+	// credential model.
+	const s3AccessKeyId = process.env['R2_ACCESS_KEY_ID'];
+	const s3SecretAccessKey = process.env['R2_SECRET_ACCESS_KEY'];
+
 	if (!args.dryRun) {
 		if (!cfToken || !accountId) {
 			console.error('Missing required environment variables:');
@@ -451,6 +503,15 @@ async function main(): Promise<void> {
 		token: cfToken ?? '',
 		accountId: accountId ?? '',
 	};
+
+	const s3Env: S3MultipartEnv | null =
+		s3AccessKeyId && s3SecretAccessKey && accountId
+			? {
+					accountId,
+					accessKeyId: s3AccessKeyId,
+					secretAccessKey: s3SecretAccessKey,
+				}
+			: null;
 
 	// PRE-BUILD COLLISION CHECK: if the version is already in the manifest
 	// and --force was not passed, abort BEFORE the (possibly hours-long)
@@ -545,10 +606,13 @@ async function main(): Promise<void> {
 	};
 
 	if (args.dryRun) {
-		console.log('\n[DRY RUN] Would upload via wrangler:');
+		console.log('\n[DRY RUN] Upload plan:');
 		for (const [name, entry] of Object.entries(files)) {
-			console.log(`  source/${args.version}/${name}  (${entry.sizeBytes} bytes)`);
-			console.log(`  source/${args.version}/${name}.sha256`);
+			const route =
+				entry.sizeBytes >= S3_MULTIPART_THRESHOLD ? 'S3 multipart' : 'wrangler';
+			const mb = (entry.sizeBytes / 1024 / 1024).toFixed(1);
+			console.log(`  source/${args.version}/${name}  (${mb} MB, ${route})`);
+			console.log(`  source/${args.version}/${name}.sha256  (wrangler)`);
 		}
 		console.log('\n[DRY RUN] Would update source/manifest.json with build entry:');
 		console.log(JSON.stringify(buildEntry, null, 2));
@@ -557,7 +621,7 @@ async function main(): Promise<void> {
 
 	const nextManifest = mergeBuild(currentManifest, buildEntry, args.force);
 
-	console.log(`\nUploading to bucket=${bucket} prefix=source/${args.version}/ (via wrangler)`);
+	console.log(`\nUploading to bucket=${bucket} prefix=source/${args.version}/`);
 
 	// Per-version artifacts uploaded BEFORE the manifest pointer flips,
 	// so a partial upload can't leave the manifest pointing at incomplete
@@ -568,21 +632,49 @@ async function main(): Promise<void> {
 			const path = join(sourceDir, name);
 			const dbKey = `source/${args.version}/${name}`;
 			const shaKey = `${dbKey}.sha256`;
+			const sizeBytes = files[name].sizeBytes;
 
-			console.log(`  → ${dbKey}  (${(files[name].sizeBytes / 1024 / 1024).toFixed(1)} MB)`);
-			// Multi-GB SQLite gets the long timeout; wrangler internally
-			// chunks via multipart and we don't want a stuck upload to wedge
-			// the script forever.
-			wranglerPutFile(
-				bucket,
-				dbKey,
-				path,
-				'application/vnd.sqlite3',
-				cfEnv,
-				LONG_UPLOAD_TIMEOUT_MS,
-			);
+			// Route by file size:
+			//   >= 250 MiB → S3 multipart (wrangler caps at 300 MiB)
+			//   <  250 MiB → wrangler subprocess (single-token, simpler)
+			if (sizeBytes >= S3_MULTIPART_THRESHOLD) {
+				if (!s3Env) {
+					const missing: string[] = [];
+					if (!s3AccessKeyId) missing.push('R2_ACCESS_KEY_ID');
+					if (!s3SecretAccessKey) missing.push('R2_SECRET_ACCESS_KEY');
+					if (!accountId) missing.push('CLOUDFLARE_ACCOUNT_ID');
+					throw new Error(
+						`${name} is ${(sizeBytes / 1024 / 1024).toFixed(0)} MiB, exceeds wrangler's ` +
+							`300 MiB cap on \`r2 object put\`. S3-compatible multipart upload required.\n` +
+							`Missing env: ${missing.join(', ')}\n` +
+							`Create an S3-compat token at:\n` +
+							`  Cloudflare Dashboard → R2 → Manage R2 API Tokens\n` +
+							`  Permissions: Object Read & Write, scoped to bucket "${bucket}"\n` +
+							`Then set both R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in .env.\n` +
+							`(Cloudflare's native R2 API exposes no multipart endpoints, so the ` +
+							`S3-compat path is the only option for files >300 MiB.)`,
+					);
+				}
+				console.log(
+					`  → ${dbKey}  (${(sizeBytes / 1024 / 1024).toFixed(1)} MB, S3 multipart)`,
+				);
+				await s3MultipartUpload(bucket, dbKey, path, 'application/vnd.sqlite3', s3Env);
+			} else {
+				console.log(
+					`  → ${dbKey}  (${(sizeBytes / 1024 / 1024).toFixed(1)} MB, wrangler)`,
+				);
+				wranglerPutFile(
+					bucket,
+					dbKey,
+					path,
+					'application/vnd.sqlite3',
+					cfEnv,
+					LONG_UPLOAD_TIMEOUT_MS,
+				);
+			}
 			uploadedKeys.push(dbKey);
 
+			// Sidecars are small (~100 bytes each) — always wrangler.
 			console.log(`  → ${shaKey}`);
 			wranglerPutBody(
 				bucket,

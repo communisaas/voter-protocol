@@ -128,6 +128,8 @@
         "pg": "^8.0.0"
     },
     "devDependencies": {
+        "@aws-sdk/client-s3": "^3.700.0",
+        "@aws-sdk/lib-storage": "^3.700.0",
         "@types/better-sqlite3": "^7.6.11",
         "@types/node": "^24.3.2",
         "@types/pako": "^2.0.4",
