@@ -128,14 +128,24 @@ jobs:
         #   4. Constrain resolved URLs to atlas.commons.email so a
         #      poisoned manifest can't redirect downloads to an
         #      attacker-controlled origin.
+        #
+        # Why aws CLI not curl: Cloudflare's edge security layer (Bot
+        # Fight Mode / Bot Management) flags GitHub Actions runner IPs
+        # as datacenter bots and 403s requests to atlas.commons.email
+        # regardless of User-Agent. The S3-compatible R2 endpoint
+        # (`<account>.r2.cloudflarestorage.com`) does NOT route through
+        # the CDN security layer and accepts SigV4-authenticated reads.
+        # Browser fetches still go through atlas.commons.email; only CI
+        # uses the S3 path.
         env:
-          # Public key (PEM or RAW:hex) to verify the manifest's Ed25519
-          # signature. Stored as a repo VARIABLE (vars.*), not a secret —
-          # public keys are public. When unset, signature verification is
-          # skipped and the workflow falls back to the sha-pin / allow-
-          # unverified path. Once a public key is published, set this
-          # variable so all future runs require a valid signature.
           MANIFEST_SIGNING_PUBLIC_KEY: ${{ vars.MANIFEST_SIGNING_PUBLIC_KEY }}
+          # SigV4 creds for the S3-compat endpoint. Same trust tier as
+          # CLOUDFLARE_API_TOKEN; bucket-scoped Object R/W on shadow-atlas.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: shadow-atlas
         run: |
           set -euo pipefail
 
@@ -190,7 +200,7 @@ jobs:
           fi
 
           if [ -z "${DB_URL:-}" ] || [ -z "${OFF_URL:-}" ]; then
-            echo "Fetching $ATLAS_SOURCE_MANIFEST"
+            echo "Fetching source/manifest.json from s3://${R2_BUCKET} (via R2 S3 endpoint, browsers use ${ATLAS_SOURCE_MANIFEST})"
 
             # Write curl output directly to a tmpfile rather than via
             # `$(curl ...)` capture. POSIX command substitution strips
@@ -203,10 +213,15 @@ jobs:
             PUBKEY_TMP=$(mktemp)
             trap 'rm -f "$MANIFEST_TMP" "$SIG_TMP" "$PUBKEY_TMP"' EXIT
 
-            curl -fsSL --retry 3 --retry-delay 5 \
-              -o "$MANIFEST_TMP" \
-              "$ATLAS_SOURCE_MANIFEST?t=$RANDOM" \
-              -H 'Cache-Control: no-cache'
+            # Fetch via S3-compat (bypasses CF Bot Management). aws CLI
+            # is preinstalled on ubuntu-latest runners. --no-sign-request
+            # is NOT used — R2 buckets are private by default and the
+            # SigV4 auth covers the read.
+            aws s3api get-object \
+              --bucket "$R2_BUCKET" \
+              --key "source/manifest.json" \
+              --endpoint-url "$R2_ENDPOINT" \
+              "$MANIFEST_TMP" >/dev/null
 
             # Trust the manifest body via, in priority order:
             #   1. Ed25519 signature (if MANIFEST_SIGNING_PUBLIC_KEY is
@@ -219,10 +234,11 @@ jobs:
             VERIFIED_VIA=""
             if [ -n "${MANIFEST_SIGNING_PUBLIC_KEY:-}" ]; then
               echo "Verifying manifest Ed25519 signature..."
-              if ! curl -fsSL --retry 3 --retry-delay 5 \
-                -o "$SIG_TMP" \
-                "${ATLAS_SOURCE_MANIFEST}.sig?t=$RANDOM" \
-                -H 'Cache-Control: no-cache'; then
+              if ! aws s3api get-object \
+                --bucket "$R2_BUCKET" \
+                --key "source/manifest.json.sig" \
+                --endpoint-url "$R2_ENDPOINT" \
+                "$SIG_TMP" >/dev/null 2>&1; then
                 echo "Public key is set but no signature exists at ${ATLAS_SOURCE_MANIFEST}.sig" >&2
                 echo "Either: (a) the publisher didn't sign — run publish:source with MANIFEST_SIGNING_PRIVATE_KEY set," >&2
                 echo "or (b) the .sig was deleted post-publish — re-publish with signing enabled." >&2
@@ -331,12 +347,27 @@ jobs:
         run: npm ci
 
       - name: Download Shadow Atlas database
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: shadow-atlas
         run: |
           set -euo pipefail
           DB_URL="${{ needs.resolve-source.outputs.db_url }}"
           DB_SHA="${{ needs.resolve-source.outputs.db_sha }}"
-          echo "Downloading $DB_URL"
-          curl -fSL --retry 3 --retry-delay 5 -o shadow-atlas-full.db "$DB_URL"
+          # The manifest stores public Worker URLs (atlas.commons.email/...).
+          # Translate to the R2 object key by stripping the host. Both
+          # surfaces back the same bucket; the path after the host is the
+          # R2 key verbatim.
+          DB_KEY="${DB_URL#https://atlas.commons.email/}"
+          echo "Downloading via S3-compat: s3://$R2_BUCKET/$DB_KEY"
+          aws s3api get-object \
+            --bucket "$R2_BUCKET" \
+            --key "$DB_KEY" \
+            --endpoint-url "$R2_ENDPOINT" \
+            shadow-atlas-full.db >/dev/null
           ls -lh shadow-atlas-full.db
 
           if [ -n "$DB_SHA" ]; then
@@ -408,12 +439,23 @@ jobs:
           path: packages/shadow-atlas/output/chunked/
 
       - name: Download officials database
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: shadow-atlas
         run: |
           set -euo pipefail
           URL="${{ needs.resolve-source.outputs.officials_url }}"
           SHA="${{ needs.resolve-source.outputs.officials_sha }}"
-          echo "Downloading officials DB from: $URL"
-          curl -fSL --retry 3 --retry-delay 5 -o officials.db "$URL"
+          KEY="${URL#https://atlas.commons.email/}"
+          echo "Downloading officials DB via S3-compat: s3://$R2_BUCKET/$KEY"
+          aws s3api get-object \
+            --bucket "$R2_BUCKET" \
+            --key "$KEY" \
+            --endpoint-url "$R2_ENDPOINT" \
+            officials.db >/dev/null
           ls -lh officials.db
 
           if [ -n "$SHA" ]; then
