@@ -42,9 +42,10 @@
  *   4  manifest collision (use --force to overwrite)
  */
 
-import { createReadStream, existsSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { open as openFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
@@ -58,6 +59,7 @@ import {
 	type WranglerEnv,
 } from './_wrangler-r2.js';
 import { s3MultipartUpload, type S3MultipartEnv } from './_s3-multipart.js';
+import { s3BatchPutDir, s3BatchDelete } from './_s3-batch-put.js';
 import { signManifest } from './_ed25519.js';
 
 const VERSION_PATTERN = /^v\d{8}$/;
@@ -87,12 +89,28 @@ interface FileEntry {
 	url: string;
 }
 
+interface BundleSummary {
+	country: string;
+	layer: string;
+	districtCount: number;
+	indexUrl: string;
+}
+
 interface BuildEntry {
 	version: string;
 	publishedAt: string;
 	gitSha: string | null;
 	tigerVintage: string;
 	files: Record<string, FileEntry>;
+	/**
+	 * Per-layer district bundle summary. Each entry's per-district file paths
+	 * follow {indexUrl-without-/index.json}/{districtId}.geojson — listed in
+	 * the index, not duplicated here. We track only enough to let consumers
+	 * discover what layers are available and at what index URL; full content
+	 * integrity flows through Ed25519 manifest signature + per-version-
+	 * immutable URL pattern.
+	 */
+	bundles?: BundleSummary[];
 }
 
 interface SourceManifest {
@@ -597,12 +615,84 @@ async function main(): Promise<void> {
 		console.log(`  ${name}  ${(size / 1024 / 1024).toFixed(1)} MB  sha256=${sha.slice(0, 16)}…`);
 	}
 
+	// Extract per-district bundles (Phase 2a: cd, sldu, sldl, county for US,
+	// from the existing shadow-atlas-full.db). The per-layer index + per-
+	// district .geojson files are what browsers fetch directly to render
+	// district boundaries, replacing the deprecated /api/shadow-atlas/boundary
+	// proxy that leaked lat/lng + auth identity for a public dataset.
+	const bundleDir = join(sourceDir, 'bundles');
+	const bundles: BundleSummary[] = [];
+	const bundleScriptPath = resolve(
+		dirname(fileURLToPath(import.meta.url)),
+		'extract-district-bundles.ts',
+	);
+	const dbPath = join(sourceDir, 'shadow-atlas-full.db');
+	console.log(`\nExtracting district bundles → ${bundleDir}`);
+	try {
+		// Apply runBuild()'s allowlist scrub: the extractor only needs to
+		// open the SQLite + write files. Inheriting CLOUDFLARE_API_TOKEN /
+		// R2 secrets / signing key would expose them to a typosquatted
+		// transitive dep deep in the tsx graph for no functional benefit.
+		const ALLOW_EXACT = new Set([
+			'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM', 'LANG',
+			'TMPDIR', 'TMP', 'TEMP', 'PWD',
+			'NODE_OPTIONS', 'NODE_ENV', 'NODE_PATH',
+		]);
+		const ALLOW_PREFIX = ['LC_', 'npm_', 'NPM_'];
+		const scrubbedEnv: NodeJS.ProcessEnv = {};
+		for (const [k, v] of Object.entries(process.env)) {
+			if (ALLOW_EXACT.has(k) || ALLOW_PREFIX.some((p) => k.startsWith(p))) {
+				scrubbedEnv[k] = v;
+			}
+		}
+
+		execFileSync(
+			'npx',
+			[
+				'tsx',
+				bundleScriptPath,
+				'--version',
+				args.version,
+				'--db',
+				dbPath,
+				'--output',
+				bundleDir,
+			],
+			{ stdio: 'inherit', env: scrubbedEnv },
+		);
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error(`Bundle extraction failed: ${msg}`);
+		process.exit(2);
+	}
+
+	// Populate bundles[] from the per-layer index files the extractor wrote.
+	// We trust the indexes' own counts rather than re-walking the directory.
+	for (const country of readdirSync(bundleDir)) {
+		const countryDir = join(bundleDir, country);
+		if (!statSync(countryDir).isDirectory()) continue;
+		for (const layer of readdirSync(countryDir)) {
+			const indexPath = join(countryDir, layer, 'index.json');
+			if (!existsSync(indexPath)) continue;
+			const idx = JSON.parse(readFileSync(indexPath, 'utf8')) as {
+				districtCount?: number;
+			};
+			bundles.push({
+				country,
+				layer,
+				districtCount: idx.districtCount ?? 0,
+				indexUrl: `${publicUrl}/source/${args.version}/${country}/${layer}/index.json`,
+			});
+		}
+	}
+
 	const buildEntry: BuildEntry = {
 		version: args.version,
 		publishedAt: new Date().toISOString(),
 		gitSha: readGitSha(),
 		tigerVintage: args.tigerVintage,
 		files,
+		bundles: bundles.length > 0 ? bundles : undefined,
 	};
 
 	if (args.dryRun) {
@@ -613,6 +703,11 @@ async function main(): Promise<void> {
 			const mb = (entry.sizeBytes / 1024 / 1024).toFixed(1);
 			console.log(`  source/${args.version}/${name}  (${mb} MB, ${route})`);
 			console.log(`  source/${args.version}/${name}.sha256  (wrangler)`);
+		}
+		for (const b of bundles) {
+			console.log(
+				`  source/${args.version}/${b.country}/${b.layer}/  (${b.districtCount + 1} files: ${b.districtCount} districts + 1 index, S3 batch)`,
+			);
 		}
 		console.log('\n[DRY RUN] Would update source/manifest.json with build entry:');
 		console.log(JSON.stringify(buildEntry, null, 2));
@@ -627,6 +722,10 @@ async function main(): Promise<void> {
 	// so a partial upload can't leave the manifest pointing at incomplete
 	// data. On a mid-batch failure we best-effort delete what we wrote.
 	const uploadedKeys: string[] = [];
+	// Bundle keys are tracked separately because rollback uses S3 batch delete
+	// (DeleteObjects, 1000 keys per call) — wrangler delete on 10k+ small files
+	// would take longer than the original upload.
+	const uploadedBundleKeys: string[] = [];
 	try {
 		for (const name of ARTIFACTS) {
 			const path = join(sourceDir, name);
@@ -685,11 +784,76 @@ async function main(): Promise<void> {
 			);
 			uploadedKeys.push(shaKey);
 		}
+
+		// District bundles: ~10,500 small files. wrangler subprocess overhead
+		// would burn ~hours; S3-compat PutObject in parallel finishes in
+		// minutes. Reuses the same AKID/secret as the multipart path.
+		if (bundles.length > 0) {
+			if (!s3Env) {
+				throw new Error(
+					'District bundles produced but R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY not set. ' +
+						'Bundle upload requires S3-compat creds (~10k small files via wrangler is impractically slow).',
+				);
+			}
+			const totalFiles = bundles.reduce((s, b) => s + b.districtCount + 1, 0);
+			console.log(
+				`\nUploading district bundles (${totalFiles} files across ${bundles.length} layers, S3 batch)...`,
+			);
+			let lastPct = -1;
+			const written = await s3BatchPutDir({
+				bucket,
+				keyPrefix: `source/${args.version}`,
+				localDir: bundleDir,
+				contentTypeFor: (rel) =>
+					rel.endsWith('.geojson')
+						? 'application/geo+json'
+						: rel.endsWith('.json')
+							? 'application/json'
+							: 'application/octet-stream',
+				env: s3Env,
+				progress: (uploaded, total) => {
+					const pct = Math.floor((uploaded / total) * 100);
+					if (pct >= lastPct + 5 || uploaded === total) {
+						process.stderr.write(`    ${uploaded} / ${total} (${pct}%)\n`);
+						lastPct = pct;
+					}
+				},
+			});
+			uploadedBundleKeys.push(...written);
+		}
 	} catch (err) {
 		console.error('\nUpload failed mid-batch. Best-effort cleanup of partial uploads...');
 		for (const key of uploadedKeys) {
 			console.error(`  deleting ${key}`);
 			wranglerDelete(bucket, key, cfEnv);
+		}
+		if (uploadedBundleKeys.length > 0 && s3Env) {
+			console.error(`  batch deleting ${uploadedBundleKeys.length} bundle keys via S3...`);
+			try {
+				const result = await s3BatchDelete(bucket, uploadedBundleKeys, s3Env);
+				console.error(`    deleted ${result.deleted}, failed ${result.failed}`);
+				if (result.failed > 0) {
+					console.error(
+						`    NOTE: ${result.failed} bundle key(s) failed to delete and need manual cleanup.`,
+					);
+					const sample = result.failedKeys.slice(0, 10);
+					for (const k of sample) console.error(`      ${k}`);
+					if (result.failedKeys.length > sample.length) {
+						console.error(`      … (${result.failedKeys.length - sample.length} more — capped at 100 in logs)`);
+					}
+					console.error(
+						`    Inspect: wrangler r2 object list ${bucket} --prefix source/${args.version}/`,
+					);
+				}
+			} catch (cleanupErr) {
+				const m = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+				console.error(
+					`    s3BatchDelete itself threw (${m}). ${uploadedBundleKeys.length} bundle keys may be orphaned.`,
+				);
+				console.error(
+					`    Manual cleanup: wrangler r2 object list ${bucket} --prefix source/${args.version}/`,
+				);
+			}
 		}
 		const msg = err instanceof Error ? err.message : String(err);
 		console.error(`\nUpload error: ${msg}`);
@@ -750,11 +914,93 @@ async function main(): Promise<void> {
 		}
 	}
 
+	// Spot-check bundle indexes AND a deterministic sample of per-district
+	// files per layer. HEAD-only on the index would miss the case where the
+	// index uploaded but the per-district batch failed mid-flight — manifest
+	// would commit a version pointing at half-empty bundles. We don't HEAD
+	// all 10k district files (5-10x the publish time for marginal gain) but
+	// the first/last/middle sample catches partial-batch failure shapes.
+	for (const b of bundles) {
+		// HEAD the index.
+		const head = await fetch(`${b.indexUrl}?t=${Date.now()}`, {
+			method: 'HEAD',
+			signal: AbortSignal.timeout(30_000),
+			headers: noCacheHeaders,
+		});
+		if (!head.ok) {
+			verifyFailed = true;
+			console.log(`  BAD  ${b.indexUrl}`);
+			console.error(`    bundle index HEAD failed: ${head.status}`);
+			continue;
+		}
+		console.log(`  OK   ${b.indexUrl}`);
+
+		// Fetch the index body and sample 1st / middle / last district files.
+		const indexRes = await fetch(`${b.indexUrl}?t=${Date.now()}`, {
+			signal: AbortSignal.timeout(30_000),
+			headers: noCacheHeaders,
+		});
+		const idx = (await indexRes.json()) as { districts?: Array<{ id: string }> };
+		const ids = idx.districts ?? [];
+		if (ids.length === 0) {
+			verifyFailed = true;
+			console.error(`    bundle index has 0 districts (extraction wrote no rows for ${b.layer})`);
+			continue;
+		}
+		const sample = [
+			ids[0].id,
+			ids[Math.floor(ids.length / 2)].id,
+			ids[ids.length - 1].id,
+		];
+		const indexBase = b.indexUrl.replace(/\/index\.json$/, '');
+		for (const id of sample) {
+			const sampleUrl = `${indexBase}/${id}.geojson`;
+			const sHead = await fetch(`${sampleUrl}?t=${Date.now()}`, {
+				method: 'HEAD',
+				signal: AbortSignal.timeout(30_000),
+				headers: noCacheHeaders,
+			});
+			if (!sHead.ok) {
+				verifyFailed = true;
+				console.log(`  BAD  ${sampleUrl}`);
+				console.error(`    sampled district HEAD failed: ${sHead.status}`);
+			}
+		}
+	}
+
 	if (verifyFailed) {
 		console.error('\nVerification failed before manifest publish. Cleaning up artifacts...');
 		for (const key of uploadedKeys) {
 			console.error(`  deleting ${key}`);
 			wranglerDelete(bucket, key, cfEnv);
+		}
+		if (uploadedBundleKeys.length > 0 && s3Env) {
+			console.error(`  batch deleting ${uploadedBundleKeys.length} bundle keys via S3...`);
+			try {
+				const result = await s3BatchDelete(bucket, uploadedBundleKeys, s3Env);
+				console.error(`    deleted ${result.deleted}, failed ${result.failed}`);
+				if (result.failed > 0) {
+					console.error(
+						`    NOTE: ${result.failed} bundle key(s) failed to delete and need manual cleanup.`,
+					);
+					const sample = result.failedKeys.slice(0, 10);
+					for (const k of sample) console.error(`      ${k}`);
+					if (result.failedKeys.length > sample.length) {
+						console.error(`      … (${result.failedKeys.length - sample.length} more — capped at 100 in logs)`);
+					}
+					console.error(
+						`    Inspect: wrangler r2 object list ${bucket} --prefix source/${args.version}/`,
+					);
+				}
+			} catch (cleanupErr) {
+				const m = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+				console.error(
+					`    s3BatchDelete itself threw (${m}). ${uploadedBundleKeys.length} bundle keys may be orphaned.`,
+				);
+				console.error(
+					`    Manual cleanup: wrangler r2 object list ${bucket} --prefix source/${args.version}/`,
+				);
+			}
 		}
 		console.error('Manifest NOT updated; consumers continue to see the previous currentVersion.');
 		process.exit(3);
@@ -783,6 +1029,23 @@ async function main(): Promise<void> {
 			for (const key of uploadedKeys) {
 				console.error(`  deleting ${key}`);
 				wranglerDelete(bucket, key, cfEnv);
+			}
+			if (uploadedBundleKeys.length > 0 && s3Env) {
+				console.error(`  batch deleting ${uploadedBundleKeys.length} bundle keys via S3...`);
+				try {
+					const result = await s3BatchDelete(bucket, uploadedBundleKeys, s3Env);
+					console.error(`    deleted ${result.deleted}, failed ${result.failed}`);
+					if (result.failed > 0 && result.failedKeys.length > 0) {
+						const sample = result.failedKeys.slice(0, 10);
+						for (const k of sample) console.error(`      ${k}`);
+						console.error(
+							`    Manual cleanup: wrangler r2 object list ${bucket} --prefix source/${args.version}/`,
+						);
+					}
+				} catch (cleanupErr) {
+					const m = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+					console.error(`    s3BatchDelete itself threw (${m}). ${uploadedBundleKeys.length} bundle keys may be orphaned.`);
+				}
 			}
 			process.exit(3);
 		}
