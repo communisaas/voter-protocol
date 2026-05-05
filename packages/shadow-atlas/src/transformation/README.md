@@ -432,5 +432,5 @@ When adding new validators or normalizers:
 
 ## References
 
-- [TWO-TREE-ARCHITECTURE-SPEC.md](../../../../../specs/TWO-TREE-ARCHITECTURE-SPEC.md) - Two-tree Merkle proof architecture
+- [CRYPTOGRAPHY-SPEC.md](../../../../../specs/CRYPTOGRAPHY-SPEC.md) — Canonical cryptographic protocol specification
 - [Shadow Atlas Core Documentation](../core/README.md) - Core architecture and design
