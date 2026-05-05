@@ -69,6 +69,55 @@ global DOMAIN_HASH1: Field = 0x48314d;
 // MUST match district_membership circuit for nullifier compatibility.
 global DOMAIN_HASH2: Field = 0x48324d;
 
+// REVOCATION_DOMAIN (F1 closure -- REVOCATION-NULLIFIER-SPEC-001 Section 2.1)
+//
+// Fixed protocol constant used as the second input of the H2 hash that derives
+// a revocation nullifier from an old district commitment:
+//     revocation_nullifier = H2(district_commitment, REVOCATION_DOMAIN)
+//
+// The value is the BN254-reduced image of Poseidon2("commons-revocation-v1"),
+// committed here as a compile-time constant so the circuit and TypeScript
+// prover can derive it without a runtime Poseidon2 call.
+//
+// Precomputation (matching packages/crypto/poseidon2.ts REVOCATION_DOMAIN):
+//     REVOCATION_DOMAIN = 0x636f6d6d6f6e732d7265766f636174696f6e2d7631  (UTF-8 "commons-revocation-v1")
+//     interpreted big-endian as a field element, then reduced mod p.
+//
+// That value fits in 21 bytes (168 bits) which is well under the 254-bit BN254
+// modulus, so no modular reduction is required. The tag is treated as
+// domain-separation material, not as a secret -- its value is public and frozen.
+//
+// NOTE on "v1": this version tag identifies the Poseidon2 H2 input string
+// only -- it is INDEPENDENT of REVOCATION_SMT_DEPTH (the SMT keyspace
+// truncation width). Domain "v1" means "this hash function and these input
+// bytes"; SMT_DEPTH is a separate, independently-versioned dimension.
+// F-1.4 (2026-04-25) widened SMT_DEPTH from 64 to 128 without bumping
+// REVOCATION_DOMAIN -- the nullifier H2 image is unchanged; only the
+// keyspace truncation downstream changed.
+//
+// FROZEN post-launch. Any change requires a circuit revision AND a re-seed of
+// RevocationRegistry. See REVOCATION-NULLIFIER-SPEC-001 and CRYPTOGRAPHY-SPEC Section 3.1.
+global REVOCATION_DOMAIN: Field = 0x636f6d6d6f6e732d7265766f636174696f6e2d7631;
+
+// SMT depth for the revocation set.
+//
+// F-1.4 (2026-04-25 brutalist audit) — widened from 64 to 128 to close the
+// targeted-lockout preimage attack. At 64-bit slots, an attacker grinds
+// candidate district_commitment values until H2(dc, REVOCATION_DOMAIN)
+// collides on low-64 bits with a target's known nullifier slot. Cost was
+// ~2^64 single-target / ~2^44 multi-target against N=10^6 victims --
+// feasible to a determined adversary. 128-bit slots push to ~2^128 / ~2^108
+// respectively, infeasible at any realistic threat budget.
+//
+// Depth is independent of the TREE_DEPTH used for user/cell-map/engagement
+// trees because the revocation key space is the full BN254 nullifier space,
+// not the bounded-size user/cell-map leaf spaces.
+//
+// Invariant: this constant MUST equal `SMT_DEPTH` in commons
+//   src/lib/server/smt/revocation-smt.ts and convex/revocations.ts, and the
+// genesis EMPTY_TREE_ROOT the RevocationRegistry contract is deployed with.
+global REVOCATION_SMT_DEPTH: u32 = 128;
+
 // Domain separation tag for 3-input hash.
 // Used for engagement data commitment: H3(engagement_tier, action_count, diversity_score)
 // Value: 0x48334d = "H3M" (Hash-3 Marker)
@@ -177,6 +226,55 @@ fn compute_smt_root(
         };
     }
     node
+}
+
+/// Sparse Merkle Tree path verification for the Revocation set.
+///
+/// Depth is fixed at REVOCATION_SMT_DEPTH (128, F-1.4 widening 2026-04-25)
+/// -- the revocation SMT is keyed by full-field revocation nullifiers and
+/// is independent of user/cell-map tree depths. The "leaf" passed in is
+/// the value the circuit claims is stored at the path's slot; for a
+/// non-membership proof that value is the empty-subtree sentinel (0) --
+/// the absence marker in the SMT.
+///
+/// @param leaf - Claimed value at the SMT slot (0 for non-membership)
+/// @param path - Array of sibling hashes along the SMT path
+/// @param path_bits - Direction bits at each level (0 = left, 1 = right)
+/// @returns The computed revocation SMT root
+fn compute_revocation_smt_root(
+    leaf: Field,
+    path: [Field; REVOCATION_SMT_DEPTH],
+    path_bits: [u1; REVOCATION_SMT_DEPTH],
+) -> Field {
+    let mut node = leaf;
+    for i in 0..REVOCATION_SMT_DEPTH {
+        let sibling = path[i];
+        node = if path_bits[i] == 0 {
+            poseidon2_hash2(node, sibling)
+        } else {
+            poseidon2_hash2(sibling, node)
+        };
+    }
+    node
+}
+
+/// Computes the revocation nullifier.
+///
+/// F1 CLOSURE (REVOCATION-NULLIFIER-SPEC Section 2.1):
+/// revocation_nullifier = H2(district_commitment, REVOCATION_DOMAIN)
+///
+/// Derived *inside* the circuit from the already-witnessed district_commitment
+/// (sponge-24 output). Prover does not supply it as a witness -- the circuit
+/// exposes it as a public input so the verifier contract can cross-check
+/// non-membership against the on-chain RevocationRegistry SMT.
+///
+/// Non-collision with action nullifiers is guaranteed structurally: the
+/// identity-commitment subspace (Tree 1 secret-derived commitments) and the
+/// district-commitment subspace (sponge-24 outputs over 24 district IDs) are
+/// disjoint images under Poseidon2 for practical purposes, and REVOCATION_DOMAIN
+/// is a constant disjoint from the whitelisted action-domain image.
+fn compute_revocation_nullifier(district_commitment: Field) -> Field {
+    poseidon2_hash2(district_commitment, REVOCATION_DOMAIN)
 }
 
 // ===============================================================================
@@ -319,6 +417,8 @@ fn validate_engagement_tier(engagement_tier: Field) {
 /// - authority_level: User's voting tier (1-5, bound in leaf hash BR5-001)
 /// - engagement_root: Tree 3 Merkle root (engagement tree)
 /// - engagement_tier: User's engagement tier (0-4, public for on-chain use)
+/// - revocation_nullifier: H2(district_commitment, REVOCATION_DOMAIN) -- F1 closure
+/// - revocation_registry_root: Current SMT root of the RevocationRegistry
 ///
 /// PRIVATE INPUTS (user-provided witnesses):
 /// - user_secret: User's private key material
@@ -333,6 +433,8 @@ fn validate_engagement_tier(engagement_tier: Field) {
 /// - engagement_index: Leaf position in Tree 3
 /// - action_count: Number of verified on-chain actions (private)
 /// - diversity_score: Topic diversity metric (private)
+/// - revocation_path: SMT siblings for non-membership proof (F1)
+/// - revocation_path_bits: SMT direction bits for non-membership proof (F1)
 fn main(
     // =======================================================================
     // PUBLIC INPUTS
@@ -345,6 +447,10 @@ fn main(
     authority_level: pub Field,
     engagement_root: pub Field,
     engagement_tier: pub Field,
+    // Public input index 31 -- F1 revocation nullifier (derived in-circuit).
+    revocation_nullifier: pub Field,
+    // Public input index 32 -- current RevocationRegistry SMT root.
+    revocation_registry_root: pub Field,
 
     // =======================================================================
     // PRIVATE INPUTS (witnesses)
@@ -369,6 +475,13 @@ fn main(
     // Engagement data (private - only tier is public)
     action_count: Field,
     diversity_score: Field,
+
+    // Revocation SMT: non-membership proof.
+    // The path must lead to an empty slot (value = 0) at the position keyed by
+    // revocation_nullifier. A prover holding a revoked credential has no valid
+    // empty-slot witness and therefore cannot satisfy these constraints.
+    revocation_path: [Field; REVOCATION_SMT_DEPTH],
+    revocation_path_bits: [u1; REVOCATION_SMT_DEPTH],
 ) {
     // =======================================================================
     // PRE-CHECKS
@@ -407,6 +520,34 @@ fn main(
     // STEP 3: Verify cell mapping (Tree 2)
     // =======================================================================
     // Prove that cell_id maps to this specific set of districts in the SMT.
+    //
+    // NOTE on Tree 2's path_bits soundness (F-1.6 scope deferral 2026-04-25,
+    // tightened per F-1.6 review R-B):
+    //
+    // `cell_map_path_bits` is an unconstrained private witness, mirroring the
+    // structural bug F-1.6 fixes for the revocation tree. Tree 2's SMT is
+    // keyed by `leafIndex` (operator-assigned cell position), NOT by `cell_id`
+    // directly -- the relationship is "registration assignment." Fixing
+    // requires either (a) adding `leafIndex` as a witness and binding
+    // path_bits to it, or (b) establishing a deterministic `leafIndex =
+    // f(cell_id)` derivation. Both are circuit-signature changes.
+    //
+    // ACTUAL TRUST MODEL (corrected from earlier draft): Tree 2 today relies
+    // on OPERATOR-BUILT SMT INTEGRITY, not just Poseidon2 collision-resistance.
+    // A trusted operator inserts each (cell_id, district_commitment) leaf at
+    // exactly one slot; a prover walking with mismatched path_bits would need
+    // to find a different (cell_id', dc') whose leaf hash sits at the slot
+    // they're routing to -- which the operator did not place there. So:
+    //   - Honest operator + Poseidon2 unbroken => Tree 2 is sound.
+    //   - Compromised operator (places duplicate or malformed leaves) =>
+    //     unconstrained path_bits becomes exploitable.
+    //
+    // The F-1.6 revocation fix exists exactly because relying on operator
+    // discipline was deemed insufficient defense for revocation. The same
+    // logic eventually applies to Tree 2 -- but the economic attack surface
+    // is materially smaller (no equivalent of "lock out a senator's
+    // opponent") and the fix is a circuit-signature change, not just an
+    // assertion. See F-1.7 (deferred) for the proper Tree 2 binding.
     let cell_map_leaf = compute_cell_map_leaf(cell_id, district_commitment);
     let computed_map_root = compute_smt_root(
         cell_map_leaf,
@@ -459,6 +600,61 @@ fn main(
         engagement_index,
     );
     assert(computed_engagement_root == engagement_root, "Tree 3: Merkle proof verification failed");
+
+    // =======================================================================
+    // STEP 8: Verify revocation non-membership (F1 closure -- stale-proof replay)
+    // =======================================================================
+    // The revocation_nullifier is derived in-circuit from the witnessed
+    // district_commitment and exposed as a public input.
+    //
+    // Non-membership check: the prover supplies an SMT path to an empty slot
+    // (value = 0) at the position keyed by revocation_nullifier. The computed
+    // root must match revocation_registry_root (also a public input, freshness
+    // verified by the contract against on-chain state).
+    //
+    // A holder of a revoked credential has no valid empty-slot witness because
+    // the corresponding slot in the SMT is non-zero -- the verifier would need
+    // to construct a Merkle collision to produce the claimed root, which is
+    // computationally infeasible under the Poseidon2 / BN254 security model.
+    let computed_revocation_nullifier = compute_revocation_nullifier(district_commitment);
+    assert(
+        computed_revocation_nullifier == revocation_nullifier,
+        "Revocation nullifier derivation mismatch",
+    );
+
+    // F-1.6 (2026-04-25 brutalist audit) -- Bind `revocation_path_bits` to
+    // the LOW-128-bit decomposition of `revocation_nullifier`. Without this
+    // constraint, a revoked user could supply path_bits for ANY empty slot
+    // in the SMT (not the one their nullifier actually maps to), build a
+    // matching siblings path of mostly empty subtrees, and produce a proof
+    // that "some empty slot exists" -- which the verifier would accept as
+    // "the user's nullifier slot is empty," silently breaking F1 closure.
+    //
+    // The constraint forces path_bits to match the prover's own nullifier's
+    // SMT slot. A revoked user's actual slot is occupied; walking leaf=0
+    // through the constrained path produces a root != revocation_registry_root,
+    // and the assertion below fails. Combined with the depth-128 widening
+    // (F-1.4), the F1 closure is now both deep enough to resist preimage
+    // grinding AND structurally sound.
+    let nullifier_bits: [u1; 254] = revocation_nullifier.to_le_bits();
+    for i in 0..REVOCATION_SMT_DEPTH {
+        assert(
+            revocation_path_bits[i] == nullifier_bits[i],
+            "Revocation: path_bits do not match nullifier bit decomposition",
+        );
+    }
+
+    // Non-membership: prove the SMT slot keyed by revocation_nullifier is EMPTY.
+    // Empty-slot sentinel is the zero field element.
+    let computed_revocation_root = compute_revocation_smt_root(
+        0,
+        revocation_path,
+        revocation_path_bits,
+    );
+    assert(
+        computed_revocation_root == revocation_registry_root,
+        "Revocation non-membership proof failed -- credential may be revoked",
+    );
 }
 
 // ===============================================================================
@@ -785,4 +981,421 @@ fn test_engagement_domain_separation() {
     // Same H2 with same inputs produces same output (by design),
     // but cross-tree collision is safe because each tree has its own
     // independently validated root.
+}
+
+// ===============================================================================
+// REVOCATION NULLIFIER TESTS (F1 closure -- REVOCATION-NULLIFIER-SPEC)
+// ===============================================================================
+
+#[test]
+fn test_revocation_nullifier_deterministic() {
+    // Revocation nullifier is a pure function of district_commitment and
+    // REVOCATION_DOMAIN -- same commitment -> same nullifier, always.
+    let dc: Field = 12345;
+    let r1 = compute_revocation_nullifier(dc);
+    let r2 = compute_revocation_nullifier(dc);
+    assert(r1 == r2, "revocation nullifier must be deterministic");
+    assert(r1 != 0, "revocation nullifier must be non-zero");
+}
+
+#[test]
+fn test_revocation_nullifier_different_commitments() {
+    // Different district commitments must produce different revocation
+    // nullifiers (one-way Poseidon2 under random-oracle assumption).
+    let r1 = compute_revocation_nullifier(1);
+    let r2 = compute_revocation_nullifier(2);
+    assert(r1 != r2, "different commitments must produce different revocation nullifiers");
+}
+
+#[test]
+fn test_revocation_nullifier_disjoint_from_action_nullifier() {
+    // Structural non-collision: revocation nullifier and action nullifier
+    // cannot collide for any (district_commitment, identity_commitment,
+    // action_domain) because their second inputs are disjoint
+    // (REVOCATION_DOMAIN is a compile-time constant, action_domain is drawn
+    // from the keccak-whitelisted preimage image).
+    //
+    // This test asserts the concrete case: even when the first inputs are
+    // numerically identical, differing second inputs produce differing outputs.
+    let x: Field = 42;
+    let action_domain_sample: Field = 999;
+    let rev_null = compute_revocation_nullifier(x);
+    let act_null = compute_nullifier(x, action_domain_sample);
+    assert(
+        rev_null != act_null,
+        "revocation nullifier must not collide with action nullifier",
+    );
+}
+
+#[test]
+fn test_revocation_domain_nonzero() {
+    // REVOCATION_DOMAIN is a fixed BN254 field element; sanity-check it is
+    // non-zero so domain separation is real.
+    assert(REVOCATION_DOMAIN != 0, "REVOCATION_DOMAIN must be non-zero");
+    // And distinct from the other domain tags.
+    assert(REVOCATION_DOMAIN != DOMAIN_HASH2, "REVOCATION_DOMAIN must differ from DOMAIN_HASH2");
+    assert(REVOCATION_DOMAIN != DOMAIN_HASH3, "REVOCATION_DOMAIN must differ from DOMAIN_HASH3");
+    assert(REVOCATION_DOMAIN != DOMAIN_HASH4, "REVOCATION_DOMAIN must differ from DOMAIN_HASH4");
+}
+
+#[test]
+fn test_to_le_bits_pattern_matches_path_bits_binding() {
+    // F-1.6 sanity test (2026-04-25): confirms the `to_le_bits` API used in
+    // main() Step 8 to bind revocation_path_bits to revocation_nullifier
+    // produces the expected LE bit ordering. If this passes, the binding
+    // constraint will correctly reject mismatched path_bits.
+    //
+    // 0x05 = 0b101 (LSB first: bit 0 = 1, bit 1 = 0, bit 2 = 1, rest zero).
+    let v: Field = 5;
+    let bits: [u1; 254] = v.to_le_bits();
+    assert(bits[0] == 1, "bit 0 of 5 should be 1");
+    assert(bits[1] == 0, "bit 1 of 5 should be 0");
+    assert(bits[2] == 1, "bit 2 of 5 should be 1");
+    assert(bits[3] == 0, "bit 3 of 5 should be 0");
+    assert(bits[100] == 0, "high bits of small value should be 0");
+
+    // Confirm a path_bits array derived from the same value matches.
+    let mut derived: [u1; 128] = [0; 128];
+    for i in 0..128 {
+        derived[i] = bits[i];
+    }
+    // Binding pattern: for each i, derived[i] == bits[i]. Always true here.
+    for i in 0..128 {
+        assert(derived[i] == bits[i], "binding mismatch on small nullifier");
+    }
+}
+
+#[test(should_fail_with = "path_bits do not match nullifier")]
+fn test_revocation_path_bits_binding_rejects_mismatch() {
+    // F-1.6 negative case: simulate a malicious prover supplying path_bits
+    // for a DIFFERENT slot than their actual nullifier maps to. The binding
+    // constraint must reject this.
+    let actual_nullifier: Field = 5; // bits: [1,0,1,0,0,...]
+    let claimed_slot: Field = 6;     // bits: [0,1,1,0,0,...] - different at position 0 and 1
+
+    let actual_bits: [u1; 254] = actual_nullifier.to_le_bits();
+    let claimed_bits: [u1; 254] = claimed_slot.to_le_bits();
+
+    let mut path_bits: [u1; 128] = [0; 128];
+    for i in 0..128 {
+        path_bits[i] = claimed_bits[i];
+    }
+
+    // This is the exact binding pattern used in main() Step 8.
+    for i in 0..REVOCATION_SMT_DEPTH {
+        assert(
+            path_bits[i] == actual_bits[i],
+            "path_bits do not match nullifier bit decomposition",
+        );
+    }
+}
+
+#[test]
+fn test_revocation_path_bits_binding_at_128_bit_boundary() {
+    // F-1.6 review R-A (2026-04-25): brutalist's coverage gap -- small-value
+    // tests don't exercise bit positions 4..127, where array-indexing or
+    // truncation bugs would manifest. Use a nullifier with bit 127 set AND
+    // bit 0 set so the binding loop must correctly read the upper boundary.
+    //
+    // 2^127 + 1: bits[0] = 1, bits[1..127] = 0, bits[127] = 1, bits[128..253] = 0.
+    let nullifier: Field = 0x80000000000000000000000000000001;
+    let nullifier_bits: [u1; 254] = nullifier.to_le_bits();
+
+    // Verify the boundary bits explicitly.
+    assert(nullifier_bits[0] == 1, "bit 0 of (2^127 + 1) should be 1");
+    assert(nullifier_bits[1] == 0, "bit 1 of (2^127 + 1) should be 0");
+    assert(nullifier_bits[126] == 0, "bit 126 of (2^127 + 1) should be 0");
+    assert(nullifier_bits[127] == 1, "bit 127 of (2^127 + 1) should be 1");
+    assert(nullifier_bits[128] == 0, "bit 128 of (2^127 + 1) should be 0");
+
+    // Prover-derived path_bits matching the nullifier's low-128 decomposition.
+    let mut path_bits: [u1; 128] = [0; 128];
+    for i in 0..REVOCATION_SMT_DEPTH {
+        path_bits[i] = nullifier_bits[i];
+    }
+
+    // Apply the binding constraint pattern from main() Step 8 -- must pass
+    // all 128 iterations including the boundary positions 0 and 127.
+    for i in 0..REVOCATION_SMT_DEPTH {
+        assert(
+            path_bits[i] == nullifier_bits[i],
+            "path_bits binding mismatch at 128-bit boundary",
+        );
+    }
+}
+
+#[test]
+fn test_revocation_smt_empty_subtree_chain() {
+    // A 128-depth empty-subtree SMT starting from leaf=0 with all-zero siblings
+    // should fold up to a deterministic empty-tree root. This test exercises
+    // the revocation SMT path verifier on the trivial all-empty case.
+    let empty_path: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let empty_bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+
+    let root1 = compute_revocation_smt_root(0, empty_path, empty_bits);
+    let root2 = compute_revocation_smt_root(0, empty_path, empty_bits);
+    assert(root1 == root2, "empty-tree root must be deterministic");
+
+    // Non-zero leaf at the same path should produce a different root -- the
+    // verifier must not collapse to the empty-tree root under a non-empty leaf.
+    let root_nonzero = compute_revocation_smt_root(1, empty_path, empty_bits);
+    assert(root1 != root_nonzero, "empty vs non-empty leaf must produce different roots");
+}
+
+// ===============================================================================
+// Wave 3 / FU-2.4 -- CROSS-IMPL SMT BYTE-EQUALITY
+//
+// The Commons SMT lives in `src/lib/server/smt/revocation-smt.ts` (TypeScript).
+// The CIRCUIT walks the same 128-depth Poseidon2 path here (F-1.4 widening
+// 2026-04-25 -- was 64). If they ever disagree, every V2 proof generated
+// against an off-chain root is silently rejected by the verifier. These tests
+// pin the canonical values produced by the TS helper so any divergence in
+// either implementation breaks one side's test, forcing a coordinated
+// regeneration.
+//
+// Provenance: values produced by the TS print script in commons during the
+// F-1.4 (2026-04-25) widening cutover -- Poseidon2 BN254 with DOMAIN_HASH2.
+//
+// If you change ANY of: Poseidon2 round constants, DOMAIN_HASH2,
+// SMT depth, leaf-occupied marker, sibling-direction convention -- both
+// values below MUST be regenerated and updated on BOTH sides.
+// ===============================================================================
+
+global SMT_CROSS_IMPL_EMPTY_ROOT: Field =
+    0x267431d95e8d4953a753b3043807fd4ce1a65da3c4a76bde86e7e329c8729d79;
+
+global SMT_CROSS_IMPL_SLOT0_ROOT: Field =
+    0x0e5696069485f77036a2bc2322bdc12dd42dc619306d61ac2e813267866879d6;
+
+global SMT_CROSS_IMPL_SLOT1_ROOT: Field =
+    0x1ce446ae75075424cb286e08cefdcb34c81197384cc7c1ca9d6844fb2e8747d3;
+
+// Mid-tree coverage retained from depth-64 era -- bit at position 63.
+global SMT_CROSS_IMPL_SLOT_2POW63_ROOT: Field =
+    0x2e05dc2632d7df52064dc0767e0903f346ce9fab9b3b37225a5016618380b0dd;
+
+// F-1.4 new fixture -- top-of-tree coverage at depth 128.
+global SMT_CROSS_IMPL_SLOT_2POW127_ROOT: Field =
+    0x1729a8e6fae2170f68cb27f9602bcc419c7b0b338d4d2d4730c18a827ddc21a9;
+
+global SMT_CROSS_IMPL_SLOT_MIXED_A5_ROOT: Field =
+    0x085c4d84b90354433f78e35e479043af61dd448d4d449307829d93bac8000150;
+
+global SMT_CROSS_IMPL_TWO_LEAF_SLOT0_THEN_SLOT1_ROOT: Field =
+    0x12cbb2bd70670646d2ea6c8a8ec136131605ced78c3f1a4b90fa64f19bec3426;
+
+// F-1.4.fix R4 (2026-04-25) -- d=64 boundary fixture: slot 0 + slot 2^64.
+// Slot 2^64's sibling at d=64 (pathKey=0) is the slot-0 path-node value,
+// not the empty-subtree zero. Catches bit-decomposition / shift bugs that
+// only manifest at the 64-bit word boundary.
+global SMT_CROSS_IMPL_SLOT_0_AND_2POW64_ROOT: Field =
+    0x253cd6055d0b1f11495ca6be08bdb894cb860f2e275f2c4ffcacfba26290eda1;
+
+#[test]
+fn test_smt_cross_impl_empty_tree_root() {
+    // Empty-tree root via the canonical recurrence:
+    //   ZERO_HASHES[0] = 0
+    //   ZERO_HASHES[d+1] = poseidon2_hash2(ZERO_HASHES[d], ZERO_HASHES[d])
+    //   EMPTY_TREE_ROOT = ZERO_HASHES[128]
+    //
+    // NOTE: this is NOT the same as `compute_revocation_smt_root(0, [0;128], [0;128])`
+    // -- that walks with literal-zero siblings, which is wrong because the
+    // sibling at depth d should be the empty-subtree value at depth d, not 0.
+    // The mismatch is the canary: if a developer naively passes [0;128] as the
+    // path, this test forces them to think about per-depth siblings.
+    let mut zero_at_depth: Field = 0;
+    for _ in 0..REVOCATION_SMT_DEPTH {
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    assert(
+        zero_at_depth == SMT_CROSS_IMPL_EMPTY_ROOT,
+        "empty-tree root diverges from TS helper -- Poseidon2 / depth / domain mismatch",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_single_insert_slot0() {
+    // Single insert at slot 0: leaf = OCCUPIED_LEAF_VALUE (1), all siblings 0,
+    // all bits 0. This exercises the SAME walk the TS helper performs for a
+    // freshly-revoked nullifier whose low-128 bits are zero.
+    //
+    // Walk: node = 1; for d in 0..128: node = poseidon2_hash2(node, ZERO_HASHES[d])
+    // where ZERO_HASHES[d+1] = poseidon2_hash2(ZERO_HASHES[d], ZERO_HASHES[d]).
+    //
+    // The siblings array passed in is NOT all-zero -- it must be the
+    // empty-subtree value at each depth. Build it inline.
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut zero_at_depth: Field = 0;
+    for d in 0..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    let bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT0_ROOT,
+        "single-insert-slot0 root diverges from TS helper",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_single_insert_slot1() {
+    // Single insert at slot 1: leaf = 1, siblings = empty-subtree per depth,
+    // path bits = [1, 0, 0, ..., 0] (slot 1's bit decomposition).
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut zero_at_depth: Field = 0;
+    for d in 0..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    bits[0] = 1;
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT1_ROOT,
+        "single-insert-slot1 root diverges from TS helper",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_single_insert_slot_2pow63() {
+    // Slot 2^63: bit=1 at depth 63 only. At depth 128 this is mid-tree;
+    // retained from the depth-64 era as a regression fixture against
+    // bit-direction bugs at the d=63 walk position.
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut zero_at_depth: Field = 0;
+    for d in 0..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    bits[63] = 1;
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT_2POW63_ROOT,
+        "slot 2^63 root diverges from TS helper -- bit-direction bug at depth 63",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_single_insert_slot_2pow127() {
+    // F-1.4 -- top-of-tree coverage at depth 128. Bit=1 at depth 127 only.
+    // Catches bit-direction bugs at the highest-depth walk position.
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut zero_at_depth: Field = 0;
+    for d in 0..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    bits[127] = 1;
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT_2POW127_ROOT,
+        "slot 2^127 root diverges from TS helper -- bit-direction bug at depth 127",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_single_insert_slot_mixed_a5() {
+    // Mixed-bit slot 0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5: alternating 1/0
+    // across all 128 bits (16 bytes). Forces every depth to alternate
+    // between left/right hashing. Catches systemic bit-direction inversions
+    // that slot 0/1/2^63/2^127 miss.
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut zero_at_depth: Field = 0;
+    for d in 0..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    // Bit decomposition of 0xa5a5...a5 (16 bytes):
+    //   0xa5 = 0b10100101 -- bits[0..8] = [1,0,1,0,0,1,0,1] (LSB first)
+    //   The pattern repeats every 8 bits across all 128 positions.
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let pattern: [u1; 8] = [1, 0, 1, 0, 0, 1, 0, 1];
+    for d in 0..REVOCATION_SMT_DEPTH {
+        bits[d] = pattern[d % 8];
+    }
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT_MIXED_A5_ROOT,
+        "mixed-bit slot root diverges from TS helper",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_two_leaf_slot0_then_slot1() {
+    // Two-leaf coexistence: insert slot 0 first, then prove non-empty-sibling
+    // walk for slot 1 against the resulting state. Slot 1's depth-0 sibling
+    // is the OCCUPIED_LEAF_VALUE (1), not 0. This exercises the production
+    // hot path where Convex returns at least one stored sibling, which all
+    // other fixtures miss.
+    //
+    // Build slot 1's sibling array in-circuit:
+    //   - depth 0: sibling at position 0 = OCCUPIED_LEAF_VALUE (1)
+    //   - depths 1..127: position 1 (since 1 >> d for d >= 1 = 0, sibling = 1).
+    //     None were written by slot 0's walk (slot 0's path is all-zero
+    //     positions), so they default to the empty-subtree value at depth d.
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    siblings[0] = 1;  // OCCUPIED_LEAF_VALUE from slot 0 insert
+    let mut zero_at_depth: Field = poseidon2_hash2(0, 0);
+    for d in 1..REVOCATION_SMT_DEPTH {
+        siblings[d] = zero_at_depth;
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    bits[0] = 1;
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_TWO_LEAF_SLOT0_THEN_SLOT1_ROOT,
+        "two-leaf coexistence root diverges from TS helper",
+    );
+}
+
+#[test]
+fn test_smt_cross_impl_two_leaf_slot0_and_2pow64() {
+    // F-1.4.fix R4 -- d=64 boundary coverage. Insert slot 0 first, then
+    // walk slot 2^64. At d=64, slot 2^64's sibling (pathKey=0) is non-empty
+    // because slot 0's walk wrote a hash there. All other slots remain
+    // empty-subtree defaults.
+    //
+    // Build slot-0 SMT state in-circuit (path-node hashes at pathKey=0,
+    // depths 1..128 derived from leaf=1 walking up with empty siblings).
+    let mut slot0_at_depth: [Field; 129] = [0; 129];
+    slot0_at_depth[0] = 1;  // leaf
+    let mut zero_at_depth: Field = 0;
+    let mut zeros: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    for d in 0..REVOCATION_SMT_DEPTH {
+        zeros[d] = zero_at_depth;
+        slot0_at_depth[d + 1] = poseidon2_hash2(slot0_at_depth[d], zero_at_depth);
+        zero_at_depth = poseidon2_hash2(zero_at_depth, zero_at_depth);
+    }
+
+    // Walk slot 2^64. At each depth d, sibling at (d, (slot>>d)^1) is
+    // either a slot-0 path-node (if (slot>>d)^1 == 0) or empty.
+    let slot: Field = 0x10000000000000000;  // 2^64
+    let mut siblings: [Field; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    let mut bits: [u1; REVOCATION_SMT_DEPTH] = [0; REVOCATION_SMT_DEPTH];
+    // Depths 0..63: my path bit is 0 (lower 64 of slot are zero), so my
+    // path key is large; sibling at sibling-path is empty.
+    for d in 0..64 {
+        siblings[d] = zeros[d];
+        bits[d] = 0;
+    }
+    // Depth 64: my path key is 1, sibling at pathKey=0 is slot0_at_depth[64]
+    // which is the non-empty slot-0 root subtree at d=64.
+    siblings[64] = slot0_at_depth[64];
+    bits[64] = 1;
+    // Depths 65..127: my path key is 0 (since slot >> 65 = 0), sibling at
+    // pathKey=1 is empty.
+    for d in 65..REVOCATION_SMT_DEPTH {
+        siblings[d] = zeros[d];
+        bits[d] = 0;
+    }
+
+    let computed = compute_revocation_smt_root(1, siblings, bits);
+    assert(
+        computed == SMT_CROSS_IMPL_SLOT_0_AND_2POW64_ROOT,
+        "slot 0 + slot 2^64 root diverges from TS helper -- d=64 boundary bug",
+    );
 }

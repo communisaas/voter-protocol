@@ -218,8 +218,7 @@ The `attempt` counter is stored in proofs so verification uses the correct posit
 
 ## Related Specifications
 
-- [Two-Tree Architecture Spec](../../specs/TWO-TREE-ARCHITECTURE-SPEC.md)
-- [Two-Tree Agent Review](../../specs/TWO-TREE-AGENT-REVIEW-SUMMARY.md)
+- [Cryptography Spec](../../specs/CRYPTOGRAPHY-SPEC.md) (canonical — §4.2 Tree 2 SMT)
 - [District Taxonomy](../../specs/DISTRICT-TAXONOMY.md)
 
 ## Testing
