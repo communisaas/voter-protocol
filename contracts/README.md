@@ -152,8 +152,8 @@ Uses bb.js `UltraHonkBackend.getSolidityVerifier()` in keccak mode. Do NOT use `
 
 ## References
 
-- [REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md) — Three-tree engagement architecture (canonical)
-- [TWO-TREE-ARCHITECTURE-SPEC.md](../specs/TWO-TREE-ARCHITECTURE-SPEC.md) — Legacy two-tree circuit and contract reference
+- [CRYPTOGRAPHY-SPEC.md](../specs/CRYPTOGRAPHY-SPEC.md) — Canonical cryptographic specification (circuits, nullifier scheme, trusted setup)
+- [REPUTATION-ARCHITECTURE-SPEC.md](../specs/REPUTATION-ARCHITECTURE-SPEC.md) — Three-tree engagement semantics
 - [Noir Documentation](https://noir-lang.org/)
 - [Foundry Book](https://book.getfoundry.sh/)
 - [Scroll L2 Docs](https://docs.scroll.io/)

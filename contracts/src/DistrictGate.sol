@@ -8,6 +8,7 @@ import "./CampaignRegistry.sol";
 import "./UserRootRegistry.sol";
 import "./CellMapRegistry.sol";
 import "./EngagementRootRegistry.sol";
+import "./RevocationRegistry.sol";
 import "./TimelockGovernance.sol";
 import "./Constants.sol";
 import "openzeppelin/utils/cryptography/ECDSA.sol";
@@ -64,6 +65,12 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
 
     /// @notice Engagement root registry (Tree 3 - engagement data roots)
     EngagementRootRegistry public engagementRootRegistry;
+
+    /// @notice Revocation registry (F1 closure — stale-proof replay).
+    /// @dev Zero address permitted at genesis; set via genesis or governance
+    ///      transfer when the v2 circuit is activated. When unset,
+    ///      verifyThreeTreeProof falls back to the v1 (31-input) path.
+    RevocationRegistry public revocationRegistry;
 
     /// @notice Campaign registry (optional, can be zero)
     CampaignRegistry public campaignRegistry;
@@ -191,12 +198,24 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     error BaseDomainNotAllowed();
     error DerivedDomainAlreadyRegistered();
 
-    /// @notice Number of public inputs for three-tree proofs
+    /// @notice Number of public inputs for three-tree proofs (v1 — pre-revocation).
     uint256 public constant THREE_TREE_PUBLIC_INPUT_COUNT = 31;
+
+    /// @notice Number of public inputs for three-tree proofs (v2 — revocation-enforced).
+    /// @dev v2 adds `revocation_nullifier` (index 31) and
+    ///      `revocation_registry_root` (index 32).
+    uint256 public constant THREE_TREE_V2_PUBLIC_INPUT_COUNT = 33;
 
     /// @notice EIP-712 typehash for three-tree proof submission
     bytes32 public constant SUBMIT_THREE_TREE_PROOF_TYPEHASH = keccak256(
         "SubmitThreeTreeProof(bytes32 proofHash,bytes32 publicInputsHash,uint8 verifierDepth,uint256 nonce,uint256 deadline)"
+    );
+
+    /// @notice EIP-712 typehash for v2 (revocation-enforced) three-tree proof submission.
+    /// @dev Separate typehash so v1/v2 signatures cannot be replayed against
+    ///      the other code path.
+    bytes32 public constant SUBMIT_THREE_TREE_PROOF_V2_TYPEHASH = keccak256(
+        "SubmitThreeTreeProofV2(bytes32 proofHash,bytes32 publicInputsHash,uint8 verifierDepth,uint256 nonce,uint256 deadline)"
     );
 
     // Validation errors
@@ -231,6 +250,25 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     error ThreeTreeVerifierNotFound();
     error EngagementRegistryNotProposed();
     error EngagementRegistryTimelockNotExpired();
+
+    // Revocation errors (F1 closure — Stage 5)
+    error CredentialRevoked();
+    error StaleRevocationRoot();
+    error RevocationRegistryNotConfigured();
+    error RevocationRegistryAlreadyProposed();
+    error RevocationRegistryNotProposed();
+    error RevocationRegistryTimelockNotExpired();
+
+    // Revocation events (F1 closure)
+    event RevocationRegistrySetGenesis(address indexed registry);
+    event RevocationRegistryProposed(address indexed proposed, uint256 executeTime);
+    event RevocationRegistrySet(address indexed previousRegistry, address indexed newRegistry);
+    event RevocationRegistryCancelled(address indexed proposed);
+    event RevocationBlockedSubmission(bytes32 indexed revocationNullifier, address indexed submitter);
+
+    // Revocation registry proposal state
+    address public pendingRevocationRegistry;
+    uint256 public pendingRevocationRegistryExecuteTime;
 
     constructor(
         address _verifierRegistry,
@@ -317,6 +355,19 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
         engagementRootRegistry = EngagementRootRegistry(_engagementRootRegistry);
         emit EngagementRegistrySetGenesis(_engagementRootRegistry);
         emit EngagementRegistrySet(address(0), _engagementRootRegistry);
+    }
+
+    /// @notice Set the RevocationRegistry during genesis.
+    /// @dev F1 closure (Stage 5). Before the v2 cutover, the registry address
+    ///      is zero and `verifyThreeTreeProofV2` is unusable; only the v1
+    ///      (31-input) path verifies. After genesis seal, the registry may be
+    ///      changed only via the timelocked propose/execute flow.
+    function setRevocationRegistryGenesis(address _revocationRegistry) external onlyGovernance {
+        if (genesisSealed) revert GenesisAlreadySealed();
+        if (_revocationRegistry == address(0)) revert ZeroAddress();
+        revocationRegistry = RevocationRegistry(_revocationRegistry);
+        emit RevocationRegistrySetGenesis(_revocationRegistry);
+        emit RevocationRegistrySet(address(0), _revocationRegistry);
     }
 
     function sealGenesis() external onlyGovernance {
@@ -549,6 +600,37 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
     }
 
     // ============================================================================
+    // Revocation Registry Configuration (F1 closure — Stage 5)
+    // ============================================================================
+
+    function proposeRevocationRegistry(address _revocationRegistry) external onlyGovernance {
+        if (_revocationRegistry == address(0)) revert ZeroAddress();
+        if (pendingRevocationRegistryExecuteTime != 0) revert RevocationRegistryAlreadyProposed();
+        pendingRevocationRegistry = _revocationRegistry;
+        pendingRevocationRegistryExecuteTime = block.timestamp + GOVERNANCE_TIMELOCK;
+        emit RevocationRegistryProposed(_revocationRegistry, pendingRevocationRegistryExecuteTime);
+    }
+
+    function executeRevocationRegistry() external {
+        if (pendingRevocationRegistryExecuteTime == 0) revert RevocationRegistryNotProposed();
+        if (block.timestamp < pendingRevocationRegistryExecuteTime) revert RevocationRegistryTimelockNotExpired();
+        address previous = address(revocationRegistry);
+        address newRegistry = pendingRevocationRegistry;
+        revocationRegistry = RevocationRegistry(newRegistry);
+        pendingRevocationRegistry = address(0);
+        pendingRevocationRegistryExecuteTime = 0;
+        emit RevocationRegistrySet(previous, newRegistry);
+    }
+
+    function cancelRevocationRegistry() external onlyGovernance {
+        if (pendingRevocationRegistryExecuteTime == 0) revert RevocationRegistryNotProposed();
+        address proposed = pendingRevocationRegistry;
+        pendingRevocationRegistry = address(0);
+        pendingRevocationRegistryExecuteTime = 0;
+        emit RevocationRegistryCancelled(proposed);
+    }
+
+    // ============================================================================
     // Three-Tree Proof Verification
     // ============================================================================
 
@@ -633,6 +715,157 @@ contract DistrictGate is Pausable, ReentrancyGuard, TimelockGovernance {
 
         bytes32[] memory honkInputs = new bytes32[](31);
         for (uint256 i = 0; i < 31; i++) {
+            honkInputs[i] = bytes32(publicInputs[i]);
+        }
+
+        (bool success, bytes memory result) = verifier.call(
+            abi.encodeWithSignature(
+                "verify(bytes,bytes32[])",
+                proof,
+                honkInputs
+            )
+        );
+
+        if (!success || result.length == 0 || !abi.decode(result, (bool))) {
+            revert ThreeTreeVerificationFailed();
+        }
+
+        nullifierRegistry.recordNullifier(actionDomain, nullifier, userRoot);
+
+        if (address(campaignRegistry) != address(0)) {
+            try campaignRegistry.recordParticipation(actionDomain, userRoot, nullifier) {
+            } catch {
+            }
+        }
+
+        emit ThreeTreeProofVerified(
+            signer,
+            msg.sender,
+            userRoot,
+            cellMapRoot,
+            engagementRoot,
+            nullifier,
+            actionDomain,
+            authorityLevel,
+            uint8(engagementTierRaw),
+            verifierDepth
+        );
+    }
+
+    // ============================================================================
+    // Three-Tree Proof V2 Verification (F1 closure — Stage 5)
+    // ============================================================================
+
+    /// @notice Verify a v2 three-tree ZK proof with revocation non-membership check.
+    /// @dev v2 adds two public inputs:
+    ///        - publicInputs[31] = revocation_nullifier (derived in-circuit from
+    ///          district_commitment)
+    ///        - publicInputs[32] = revocation_registry_root (the SMT root the
+    ///          proof's non-membership witness was built against)
+    ///      The contract cross-checks:
+    ///        1. revocation_nullifier is NOT in the flat `isRevoked` mapping
+    ///           (fast-path dedup; the circuit's non-membership proof is the
+    ///           cryptographic enforcement, this is defense-in-depth).
+    ///        2. revocation_registry_root matches the current root OR a
+    ///           recently-archived root within the TTL window.
+    ///      If either check fails, the proof is rejected.
+    function verifyThreeTreeProofV2(
+        address signer,
+        bytes calldata proof,
+        uint256[33] calldata publicInputs,
+        uint8 verifierDepth,
+        uint256 deadline,
+        bytes calldata signature
+    ) external whenNotPaused nonReentrant {
+        if (signer == address(0)) revert ZeroAddress();
+        if (block.timestamp > deadline) revert SignatureExpired();
+        if (address(revocationRegistry) == address(0)) revert RevocationRegistryNotConfigured();
+
+        bytes32 proofHash = keccak256(proof);
+        bytes32 publicInputsHash = keccak256(abi.encodePacked(publicInputs));
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                SUBMIT_THREE_TREE_PROOF_V2_TYPEHASH,
+                proofHash,
+                publicInputsHash,
+                verifierDepth,
+                nonces[signer],
+                deadline
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+        );
+
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != signer) revert InvalidSignature();
+
+        nonces[signer]++;
+
+        if (address(userRootRegistry) == address(0)) revert InvalidUserRoot();
+        if (address(cellMapRegistry) == address(0)) revert InvalidCellMapRoot();
+        if (address(engagementRootRegistry) == address(0)) revert InvalidEngagementRoot();
+
+        bytes32 userRoot = bytes32(publicInputs[0]);
+        bytes32 cellMapRoot = bytes32(publicInputs[1]);
+        bytes32 nullifier = bytes32(publicInputs[26]);
+        bytes32 actionDomain = bytes32(publicInputs[27]);
+        bytes32 authorityLevel = bytes32(publicInputs[28]);
+        bytes32 engagementRoot = bytes32(publicInputs[29]);
+        uint256 engagementTierRaw = publicInputs[30];
+        bytes32 revocationNullifier = bytes32(publicInputs[31]);
+        bytes32 revocationRoot = bytes32(publicInputs[32]);
+
+        // Revocation checks FIRST — cheap SLOADs, fail fast.
+        // (a) The revocation nullifier must not already be in the flat set.
+        //     The circuit also proves non-membership against the SMT; this is
+        //     a defense-in-depth fast-path using the registry's O(1) mapping.
+        if (revocationRegistry.isRevoked(revocationNullifier)) {
+            emit RevocationBlockedSubmission(revocationNullifier, msg.sender);
+            revert CredentialRevoked();
+        }
+        // (b) The root the circuit witnessed must match the current root or a
+        //     recently-archived root (TTL window for in-flight proofs).
+        if (!revocationRegistry.isRootAcceptable(revocationRoot)) {
+            revert StaleRevocationRoot();
+        }
+
+        if (!userRootRegistry.isValidUserRoot(userRoot)) revert InvalidUserRoot();
+        if (!cellMapRegistry.isValidCellMapRoot(cellMapRoot)) revert InvalidCellMapRoot();
+
+        (bytes3 userCountry, uint8 userDepth) = userRootRegistry.getCountryAndDepth(userRoot);
+        (bytes3 cellMapCountry,) = cellMapRegistry.getCountryAndDepth(cellMapRoot);
+        if (userCountry != cellMapCountry) revert CountryMismatch();
+        if (userDepth != verifierDepth) revert DepthMismatch();
+
+        if (!allowedActionDomains[actionDomain]) revert ActionDomainNotAllowed();
+
+        {
+            uint256 authorityRaw = publicInputs[28];
+            if (authorityRaw < 1 || authorityRaw > 5) revert AuthorityLevelOutOfRange();
+            uint8 submittedAuthority = uint8(authorityRaw);
+            uint8 requiredAuthority = actionDomainMinAuthority[actionDomain];
+            if (requiredAuthority > 0 && submittedAuthority < requiredAuthority) {
+                revert InsufficientAuthority(submittedAuthority, requiredAuthority);
+            }
+        }
+
+        if (!engagementRootRegistry.isValidEngagementRoot(engagementRoot)) revert InvalidEngagementRoot();
+
+        {
+            uint8 engagementDepth = engagementRootRegistry.getDepth(engagementRoot);
+            if (engagementDepth != userDepth) revert DepthMismatch();
+        }
+
+        if (engagementTierRaw > 4) revert InvalidEngagementTier();
+
+        address verifier = verifierRegistry.getThreeTreeVerifier(verifierDepth);
+        if (verifier == address(0)) revert ThreeTreeVerifierNotFound();
+
+        bytes32[] memory honkInputs = new bytes32[](33);
+        for (uint256 i = 0; i < 33; i++) {
             honkInputs[i] = bytes32(publicInputs[i]);
         }
 
