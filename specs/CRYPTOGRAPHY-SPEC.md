@@ -155,8 +155,13 @@ Every hash output carries a domain tag occupying a fixed position in the Poseido
 | `DOMAIN_POS_COMMIT` | `0x50434d` | `PCM` | 3 | `[arg, wt, rand, PCM]` | Debate position commitment |
 | `DOMAIN_POS_NUL` | `0x504e4c` | `PNL` | 3 | `[key, c, dbt, PNL]` | Debate position nullifier |
 | `DOMAIN_SPONGE_24` | `0x534f4e47455f24` | `SONGE_$` (mnemonic `SONGE_24`) | 24 | capacity init | District commitment (24-slot sponge) |
+| `REVOCATION_DOMAIN` | `0x636f6d6d6f6e732d7265766f636174696f6e2d7631` | `"commons-revocation-v1"` (UTF-8) | 2 | `[district_commitment, REVOCATION_DOMAIN, H2M, 0]` | Revocation nullifier derivation for F1 closure |
 
 **FROZEN post-launch.** Any change requires a protocol-wide re-hash and is a hard fork. These tags are committed in Commons memory (`crypto_primitives_map.md`) and mirrored in the TypeScript `poseidon2.ts` and every circuit `main.nr`.
+
+**`REVOCATION_DOMAIN` derivation:** the constant is the big-endian UTF-8 encoding of the ASCII string `"commons-revocation-v1"` (21 bytes = 168 bits, well under the 254-bit BN254 modulus). It is **not** a Poseidon2 image of the string — it is the string bytes themselves treated as a BN254 field element. This choice avoids the need for a runtime Poseidon2 call to derive the tag at circuit build time while still providing a fresh domain-tag value committed in the Noir source.
+
+**Why not DOMAIN_HASH-style short tag:** the revocation nullifier is `H2(district_commitment, REVOCATION_DOMAIN)` using `DOMAIN_HASH2` as the standard H2 domain. `REVOCATION_DOMAIN` occupies the **second input** slot of H2, not the H2 domain tag slot. This is the same pattern `action_domain` uses in the NUL-001 nullifier: input-position domain separation against a fixed-point constant in an H2 call.
 
 ### 3.2 The H4 Construction
 
@@ -381,18 +386,45 @@ Both a PII-free identity commitment and a hidden user secret are now required. T
 
 ```
 action_domain = keccak256(abi.encodePacked(
-  protocol_version,       // "commons.v1"
+  protocol_version,       // "commons.v2"  (v1 deprecated; see §6.4.1)
   country,                // ISO 3166-1 alpha-2 (e.g., "US")
   jurisdictionType,       // "federal" | "state" | "local" | "international"
   recipientSubdivision,   // ISO 3166-2 or "{state}-{locality}"
   templateId,             // the user-created campaign / message template
-  legislativeSessionId    // e.g., "119th-congress"
+  legislativeSessionId,   // e.g., "119th-congress"
+  district_commitment     // bytes32 — sponge-24 output from the issuing credential
 )) mod BN254_MODULUS
 ```
 
 Reference implementation: [`commons/src/lib/core/zkp/action-domain-builder.ts`](https://github.com/communisaas/commons/blob/main/src/lib/core/zkp/action-domain-builder.ts).
 
 Whitelisting is enforced by `DistrictGate.allowedActionDomains` — governance must approve each domain through a 7-day timelock before proofs bound to it can verify. Users cannot manipulate `action_domain` and cannot even submit proofs for novel (non-whitelisted) domains. This fixes `CVE-002`: in an earlier design sketch, epoch/campaign were private inputs the user could rotate, generating multiple valid proofs for the same action.
+
+### 6.4.1 F2 Closure — District-Hopping Amplification
+
+**Attack (pre-v2, now closed).** In the v1 action-domain composition, the `recipientSubdivision` string (e.g., `"US-CA-12"`) was the only district-aware component, and it was **client-selected** rather than cryptographically tied to the witnessed `district_commitment` inside the credential. A user could:
+
+1. Register at address A, issue credential with `district_commitment_A` covering `US-CA-12`.
+2. Submit a proof; nullifier scope = `domain_v1(..., "US-CA-12")`.
+3. Re-verify at address B, issue credential with `district_commitment_B` covering `US-CA-12` again (either legitimately or with fabricated coordinates — the recipient subdivision string is client-reported, not derived from the commitment).
+4. Submit another proof with the same `(template, session, "US-CA-12")` and get the same `action_domain` under v1, but now backed by a fresh credential that has a different witnessed `identity_commitment × action_domain` pairing in the circuit. The nullifier is still unique per person, so NUL-001 catches a second submission by the *same* identity — but F2 targets the observation that rotating the *subdivision string* (or extending the attack to a second identity that legitimately lives at address B) amplifies nullifier scope without ever requiring the commitment to change.
+
+The structural fix is to bind `district_commitment` directly into the preimage. In v2:
+
+- Two credentials with the same issuing person but different `district_commitment` values produce **different** action domains for the same `(template, session, subdivision)`, so post-rotation proofs land in a different nullifier bucket than pre-rotation proofs.
+- A user who fabricates `recipientSubdivision = "US-CA-12"` must also present a `district_commitment` that the circuit's sponge-24 check binds to the Tree 2 cell. Mismatch → circuit rejects (Tree 2 leaf mismatch). The only way to keep `district_commitment` stable is to keep the underlying 24 district slots stable, which means keeping the physical address stable.
+
+**What F2 closure does NOT cover.** Binding `district_commitment` into the domain scopes the nullifier to the credential-witnessed districts, but it does not by itself revoke proofs generated under an old `district_commitment`. A user with a compromised or re-verified credential could in principle replay old proofs whose circuit public inputs reference the old commitment. That is F1 (stale-proof replay), addressed in §6.4.2.
+
+**Server-side re-verification throttle (Stage 1, already shipped).** The Convex `verifyAddress` mutation enforces a 24 h cooldown + 6/180-day hard cap + email-sybil gate before issuing a new district credential. Stage 1 mitigates F2 at the *server* layer. §6.4.1 describes the *cryptographic* layer closure; the two layers are complementary.
+
+### 6.4.2 F1 Closure — Stale-Proof Replay
+
+Server-side revocation (`districtCredentials.revokedAt` in Convex) does not by itself invalidate proofs that were generated while a credential was still valid. A circuit-only soundness check cares about the public input `district_commitment`, Tree 2 membership, and `action_domain`; it does not consult any off-chain flag.
+
+The structural closure is an on-chain **revocation nullifier set**. When a credential is rotated (new districts witnessed), the server emits `revocationNullifier = Poseidon2(old_district_commitment, REVOCATION_DOMAIN)` to a `RevocationRegistry` contract. Future submissions must include this check in a new public input (`revocation_nullifier_check`), and the verifier contract rejects proofs whose revocation nullifier appears in the set.
+
+Full design: [`REVOCATION-NULLIFIER-SPEC.md`](./REVOCATION-NULLIFIER-SPEC.md). Migration plan for circuit revision: [`CIRCUIT-REVISION-MIGRATION.md`](./CIRCUIT-REVISION-MIGRATION.md).
 
 ### 6.5 Cross-Tree Identity Binding (The Clever Part)
 
@@ -652,6 +684,7 @@ pnpm test district-prover     # Includes H_PCM/H_PNL domain separation tests
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0.0 | 2026-04-21 | Consolidation | Initial canonical spec; supersedes ZK-PRODUCTION-ARCHITECTURE, NOIR-PROVING-INFRASTRUCTURE, DISTRICT-MEMBERSHIP-CIRCUIT-SPEC, TWO-TREE-ARCHITECTURE-SPEC |
+| 1.1.0 | 2026-04-23 | Stage 2 re-grounding | §6.4 action_domain v2: bind `district_commitment` into preimage (F2 closure); protocol_version `commons.v1` → `commons.v2`. §6.4.1 F2 rationale. §6.4.2 F1 closure via revocation nullifier set (deferred circuit-revision work; see `REVOCATION-NULLIFIER-SPEC.md`, `CIRCUIT-REVISION-MIGRATION.md`) |
 
 ---
 
