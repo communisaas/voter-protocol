@@ -3,7 +3,7 @@
 **Last Updated**: February 2026
 **Status**: Phase 1 operational on Scroll Sepolia. Mainnet deploy pending.
 **Compiler**: solc 0.8.28 with `via_ir = true` (required for DistrictGate stack depth)
-**Cross-Reference**: [ARCHITECTURE.md](../../ARCHITECTURE.md) | [TWO-TREE-ARCHITECTURE-SPEC.md](../../specs/TWO-TREE-ARCHITECTURE-SPEC.md) | [REPUTATION-ARCHITECTURE-SPEC.md](../../specs/REPUTATION-ARCHITECTURE-SPEC.md)
+**Cross-Reference**: [ARCHITECTURE.md](../../ARCHITECTURE.md) | [CRYPTOGRAPHY-SPEC.md](../../specs/CRYPTOGRAPHY-SPEC.md) | [REPUTATION-ARCHITECTURE-SPEC.md](../../specs/REPUTATION-ARCHITECTURE-SPEC.md)
 
 ---
 

@@ -1,133 +1,101 @@
 # Architecture Documentation Index
 
-**Last Updated:** February 2026
+**Last Updated:** 2026-04-21
 
-This directory serves as the navigation hub for VOTER Protocol architecture documentation. The documentation is organized hierarchically from strategic overview to implementation specifics.
+Navigation hub for VOTER Protocol architecture documentation, organized from strategic overview to implementation specifics.
 
 ---
 
-## Documentation Hierarchy
+## Canonical Documents
 
-### 1. Strategic Overview (Start Here)
+### Strategic Overview
 
-**File:** [`/ARCHITECTURE.md`](../../ARCHITECTURE.md) (root directory)
+**File:** [`/ARCHITECTURE.md`](../../ARCHITECTURE.md)
 **Audience:** Product managers, external contributors, investors, governance participants
-**Scope:**
-- Executive summary and phase architecture (Phase 1: reputation-only; Phase 2: token economics)
-- System architecture overview with visual diagrams
-- Core technology decisions (Scroll settlement, Noir/Barretenberg ZK proofs, self.xyz identity)
-- Budget breakdown and scaling economics
-- Content moderation and compliance strategy
-
-**When to read:** First document for understanding VOTER Protocol's overall architecture, design philosophy, and deployment phases.
+**Scope:** Executive summary, phase architecture, core technology decisions, deployment phases.
 
 ---
 
-### 2. Deep Dives by Subsystem
+### Cryptographic Protocol Specification (Canonical)
 
-#### 2.1 Zero-Knowledge Infrastructure
+**File:** [`/specs/CRYPTOGRAPHY-SPEC.md`](../../specs/CRYPTOGRAPHY-SPEC.md)
+**Audience:** Cryptography engineers, security auditors, independent reviewers
+**Scope:** Full ZK circuit topology (three-tree, position-note, debate-weight, bubble), Poseidon2 construction, domain separation registry, nullifier scheme (NUL-001), Aztec trusted-setup provenance, threat model, known limitations.
 
-**File:** [`/docs/ZK-PRODUCTION-ARCHITECTURE.md`](../ZK-PRODUCTION-ARCHITECTURE.md)
-**Audience:** Cryptography engineers, security auditors, blockchain developers
-**Scope:**
-- Production-grade ZK proof system deployment (nation-state threat model)
-- NullifierRegistry implementation (prevents replay attacks)
-- Timelocked verifier governance and emergency response
-- Formal verification requirements and audit readiness
-
-**When to read:** Implementing or auditing the zero-knowledge proof infrastructure, especially nullifier management and verifier governance.
+**When to read:** Implementing, auditing, or reviewing the cryptographic protocol. This is the single authoritative source.
 
 ---
 
-**File:** [`/docs/NOIR-PROVING-INFRASTRUCTURE.md`](../NOIR-PROVING-INFRASTRUCTURE.md)
-**Audience:** Frontend engineers, cryptography implementers
-**Scope:**
-- Browser-native Noir/Barretenberg proving system
-- Circuit design (UltraHonk on BN254)
-- WASM execution requirements (COOP/COEP headers, SharedArrayBuffer)
-- Migration from legacy prover to bb.js
+### Companion Specifications
 
-**When to read:** Building the browser-based proving interface or optimizing proof generation performance.
+Each companion spec retains authority over its specific domain. Entry points:
+
+| Spec | Authority |
+|---|---|
+| [`/specs/REPUTATION-ARCHITECTURE-SPEC.md`](../../specs/REPUTATION-ARCHITECTURE-SPEC.md) | Engagement tree semantics, tier derivation, Shannon diversity |
+| [`/specs/SHADOW-ATLAS-SPEC.md`](../../specs/SHADOW-ATLAS-SPEC.md) | Geographic data acquisition, district registry, TIGER pipeline |
+| [`/specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md`](../../specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md) | Operator surface area, walkaway roadmap, MACI parallel |
+| [`/specs/DEBATE-MARKET-SPEC.md`](../../specs/DEBATE-MARKET-SPEC.md) | Market mechanics, LMSR pricing, resolution logic |
+| [`/specs/STRING-ENCODING-SPEC.md`](../../specs/STRING-ENCODING-SPEC.md) | UTF-8 → BN254 chunking |
 
 ---
 
-#### 2.2 Verifiable Solo Operator (Phase 1 Trust Model)
+### Verifiable Solo Operator (Phase 1 Trust Model)
 
 **File:** [`/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md`](VERIFIABLE-SOLO-OPERATOR.md)
 **Audience:** Security auditors, operators, integration developers
-**Scope:**
-- Hash-chained insertion log with Ed25519 signatures
-- Registration receipts for anti-censorship
-- Public key auditability and log verification
-- Key management (`SIGNING_KEY_PATH`)
-- Residual trust assumptions vs TEE/MPC (Phase 2+)
-
-**When to read:** Deploying Shadow Atlas in production, auditing operator integrity, or verifying registration receipts.
+**Scope:** Hash-chained insertion log with Ed25519 signatures, registration receipts, public key auditability, residual trust vs. TEE/MPC (Phase 2+).
 
 ---
 
-#### 2.3 Shadow Atlas (Governance Boundary Resolution)
+### Shadow Atlas Implementation
 
 **File:** [`/packages/shadow-atlas/docs/ARCHITECTURE.md`](../../packages/shadow-atlas/docs/ARCHITECTURE.md)
 **Audience:** Shadow Atlas maintainers, data pipeline engineers
-**Scope:**
-- Comprehensive module hierarchy (8 tiers, 41+ modules, 330+ TypeScript files)
-- Service-oriented architecture with core service facade
-- CI/CD infrastructure, observability, and resilience modules
-- Automated deployment and operations
-
-**When to read:** Working on Shadow Atlas internals, adding new modules, or understanding the complete package architecture.
+**Scope:** Module hierarchy, service-oriented architecture, CI/CD, observability, deployment.
 
 ---
+
+### Global Scaling
 
 **File:** [`/specs/GLOBAL-SCALING-ARCHITECTURE.md`](../../specs/GLOBAL-SCALING-ARCHITECTURE.md)
 **Audience:** International expansion team, provider integration engineers
-**Scope:**
-- Scaling to 190+ countries with provider-agnostic architecture
-- Design philosophy (governance structures as CONFIGURATION, not CODE)
-- International boundary resolution patterns (parliamentary systems, proportional representation, federal vs. unitary governments)
-- Provider abstraction interface specification
-
-**When to read:** Implementing support for new countries or designing international boundary resolution providers.
-
----
-
-### 3. Technical Implementation Reference
-
-**File:** [`/ARCHITECTURE.md`](../../ARCHITECTURE.md) (root directory)
-**Audience:** Blockchain developers, protocol designers, cryptography engineers
-**Scope:**
-- Implementation-level details for core cryptographic primitives
-- Three-system privacy architecture (address verification, identity verification, message delivery)
-- Noir/Barretenberg proving flow with performance benchmarks
-- Smart contract interfaces and Scroll deployment specifics
-
-**When to read:** Deep implementation work on cryptographic systems, smart contracts, or privacy infrastructure. Complements ARCHITECTURE.md with technical depth.
+**Scope:** Scaling to 190+ countries, provider-agnostic architecture, international boundary resolution patterns.
 
 ---
 
 ## Quick Reference by Role
 
-**New to the project?** → Start with `/ARCHITECTURE.md`
+| Task | Start with |
+|---|---|
+| New to the project | `/ARCHITECTURE.md` |
+| Reviewing the cryptography | `/specs/CRYPTOGRAPHY-SPEC.md` |
+| Building ZK infrastructure | `/specs/CRYPTOGRAPHY-SPEC.md` + `/specs/REPUTATION-ARCHITECTURE-SPEC.md` |
+| Working on Shadow Atlas | `/packages/shadow-atlas/docs/ARCHITECTURE.md` + `/specs/SHADOW-ATLAS-SPEC.md` |
+| Implementing smart contracts | `/ARCHITECTURE.md` + `/specs/CRYPTOGRAPHY-SPEC.md` §8 |
+| International expansion | `/specs/GLOBAL-SCALING-ARCHITECTURE.md` |
+| Deploying Shadow Atlas | `/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` |
+| Security audit | `/specs/CRYPTOGRAPHY-SPEC.md` + `/specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` |
 
-**Building ZK proof infrastructure?** → `/docs/ZK-PRODUCTION-ARCHITECTURE.md` + `/docs/NOIR-PROVING-INFRASTRUCTURE.md`
+---
 
-**Working on Shadow Atlas?** → `/packages/shadow-atlas/docs/ARCHITECTURE.md` (implementation) + `/specs/GLOBAL-SCALING-ARCHITECTURE.md` (scaling strategy)
+## Archived (Historical)
 
-**Implementing smart contracts?** → `/ARCHITECTURE.md` + `/docs/ZK-PRODUCTION-ARCHITECTURE.md`
+Pre-three-tree documents are preserved in `/docs/archive/` for historical reference only. They describe the single-tree and two-tree architectures, both superseded:
 
-**Planning international expansion?** → `/specs/GLOBAL-SCALING-ARCHITECTURE.md`
+- `/docs/archive/ZK-PRODUCTION-ARCHITECTURE.md` — pre-two-tree production details
+- `/docs/archive/NOIR-PROVING-INFRASTRUCTURE.md` — pre-two-tree Noir infrastructure
+- `/docs/archive/zk-infrastructure.md` — pre-two-tree infrastructure overview
 
-**Deploying Shadow Atlas?** → `/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` (operator integrity) + `/packages/shadow-atlas/docs/ARCHITECTURE.md`
-
-**Conducting security audit?** → `/docs/ZK-PRODUCTION-ARCHITECTURE.md` (threat model and formal verification requirements) + `/docs/architecture/VERIFIABLE-SOLO-OPERATOR.md` (operator trust model)
+Do not rely on archived docs for current implementation guidance.
 
 ---
 
 ## Document Maintenance
 
-This index is maintained manually. When adding new architecture documentation:
-1. Place strategic overviews in the root directory
-2. Place subsystem-specific docs in `/docs/` or package-specific directories
-3. Update this index with clear audience, scope, and "when to read" guidance
-4. Ensure no duplication between documents (link instead of repeating)
+When adding new architecture documentation:
+1. Place strategic overviews in the root directory.
+2. Place subsystem specs under `/specs/`.
+3. Place operational and architecture docs under `/docs/architecture/`.
+4. Update this index with clear audience, scope, and "when to read" guidance.
+5. Avoid duplication — link instead of repeating.

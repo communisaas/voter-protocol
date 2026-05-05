@@ -1,8 +1,8 @@
 # Noir Proving Infrastructure
 
-> **ARCHIVED** — This document describes the pre-two-tree single-circuit architecture and is retained for historical reference.
-> Current architecture: see [specs/REPUTATION-ARCHITECTURE-SPEC.md](../../specs/REPUTATION-ARCHITECTURE-SPEC.md) (three-tree, canonical) and [specs/TWO-TREE-ARCHITECTURE-SPEC.md](../../specs/TWO-TREE-ARCHITECTURE-SPEC.md) (legacy two-tree reference).
-> Proof system: UltraHonk/Noir via @aztec/bb.js (not UltraPlonk/Halo2).
+> **ARCHIVED (historical only)** — Describes the pre-three-tree single-circuit architecture.
+> **Canonical cryptographic specification:** [`specs/CRYPTOGRAPHY-SPEC.md`](../../specs/CRYPTOGRAPHY-SPEC.md).
+> Proof system now documented in CRYPTOGRAPHY-SPEC (UltraHonk/Noir via `@aztec/bb.js`).
 
 **Consolidated documentation for Noir/Barretenberg ZK proving system.**
 

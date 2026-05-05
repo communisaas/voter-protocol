@@ -1,11 +1,11 @@
 # VOTER Protocol Developer Guide
 
-> **SUPERSEDED (2026-02-21):** This guide predates the three-tree architecture and contains outdated contract names, package references, and tooling instructions. **Do not follow the `bb write_solidity_verifier` instructions** — use `scripts/generate-verifier-sol.ts` instead (see contracts/README.md).
+> **SUPERSEDED (2026-04-21):** This guide predates the three-tree architecture and contains outdated contract names, package references, and tooling instructions. **Do not follow the `bb write_solidity_verifier` instructions** — use `scripts/generate-verifier-sol.ts` instead (see contracts/README.md).
 >
 > **Current references:**
-> - Smart contracts: [contracts/README.md](contracts/README.md) (10-contract system, genesis governance)
-> - Three-tree architecture: [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md) (canonical 31-input specification)
-> - Legacy two-tree reference: [specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md) (Trees 1 & 2 details)
+> - **Canonical cryptographic specification:** [specs/CRYPTOGRAPHY-SPEC.md](specs/CRYPTOGRAPHY-SPEC.md)
+> - Engagement semantics: [specs/REPUTATION-ARCHITECTURE-SPEC.md](specs/REPUTATION-ARCHITECTURE-SPEC.md)
+> - Smart contracts: [contracts/README.md](contracts/README.md)
 > - Package overview: [README.md](README.md) (3 packages: crypto, noir-prover, shadow-atlas)
 > - Three-tree prover: `packages/noir-prover/src/three-tree-prover.ts`
 
@@ -719,8 +719,8 @@ Report vulnerabilities: security@voter-protocol.org
 ## Additional Resources
 
 - **Architecture Overview:** [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Noir Circuit Spec:** [docs/specs/NOIR-CIRCUIT-SPEC.md](docs/specs/NOIR-CIRCUIT-SPEC.md)
-- **Shadow Atlas Spec:** [specs/TWO-TREE-ARCHITECTURE-SPEC.md](specs/TWO-TREE-ARCHITECTURE-SPEC.md)
+- **Canonical Cryptographic Specification:** [specs/CRYPTOGRAPHY-SPEC.md](specs/CRYPTOGRAPHY-SPEC.md)
+- **Shadow Atlas Spec:** [specs/SHADOW-ATLAS-SPEC.md](specs/SHADOW-ATLAS-SPEC.md)
 - **API Documentation:** [docs/api/](docs/api/)
 
 **Questions?** Join our [Discord](https://discord.gg/voter-protocol) or email [dev@voter-protocol.org](mailto:dev@voter-protocol.org)

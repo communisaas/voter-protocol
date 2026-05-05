@@ -749,9 +749,9 @@ done
 ## References
 
 - Main Architecture: `/ARCHITECTURE.md`
-- ZK Infrastructure: `/docs/architecture/zk-infrastructure.md`
+- Canonical Cryptography Spec: `/specs/CRYPTOGRAPHY-SPEC.md`
 - Smart Contracts: `/docs/architecture/smart-contracts.md`
-- Noir Circuit: `/packages/crypto/noir/district_membership/src/main.nr`
+- Three-Tree Noir Circuit: `/packages/crypto/noir/three_tree_membership/src/main.nr`
 - DistrictGate: `/contracts/src/DistrictGate.sol`
 
 **Questions?** See [README.md](/README.md) for project overview and contribution guidelines.

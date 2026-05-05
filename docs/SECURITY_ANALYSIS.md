@@ -84,42 +84,53 @@ Without on-chain registry, proofs can be replayed infinitely.
 
 ---
 
-## Noir Circuit Security
+## Circuit Security
 
-The Noir circuit (`main.nr`) is **cryptographically sound** with proper constraints:
-- ✅ Merkle root assertion (`computed_root == merkle_root`)
-- ✅ Nullifier assertion (`computed_nullifier == nullifier`)
-- ✅ Leaf index range check (`leaf_index < (1 << DEPTH)`)
+> Authoritative reference: [`specs/CRYPTOGRAPHY-SPEC.md`](../specs/CRYPTOGRAPHY-SPEC.md). This section summarizes the security posture relevant to threat modeling.
 
-### Noir vs Halo2 Comparison
+Four live Noir circuits (all UltraHonk on BN254):
 
-| Aspect | Halo2 | Noir | Delta |
-|--------|-------|------|-------|
-| Proof System | Halo2 (IPA) | Ultra Honk (KZG) | Different backend |
-| Trusted Setup | None (IPA) | Aztec SRS | ⚠️ New trust assumption |
-| Nullifier Domain | `H(identity, action_id)` | `H(secret, campaign, authority, epoch)` | ✅ Improved |
-| Range Checks | Missing | Present | ✅ Fixed |
-| Code Auditability | ~1200 lines Rust | ~57 lines Noir | ✅ Simpler |
+| Circuit | Public inputs | Purpose |
+|---|---|---|
+| `three_tree_membership` | 31 | **Canonical civic action proof.** Binds user identity (Tree 1), cell→district mapping (Tree 2), engagement tier (Tree 3), and a Sybil-resistant nullifier. |
+| `position_note` | 5 | Debate market settlement (position commitment + per-debate nullifier). |
+| `debate_weight` | 2 | Quadratic stake commitment with in-circuit sqrt verification. |
+| `bubble_membership` | — | Community field aggregation (Phase 2). Per-epoch nullifier. |
 
-### Trust Model Change
+All enforce:
+- Merkle / SMT root assertions (leaf, path, root all bound in-circuit).
+- Leaf index range check (`index < 2^DEPTH`).
+- Poseidon2 domain separation (H1M/H2M/H3M/H4M/PCM/PNL/SONGE_24) preventing cross-arity collisions.
+- Identity / nullifier non-zero assertions (SA-011, NUL-001, I-2).
+- Authority and engagement tier u8-range checks with BA-007 u64 pre-cast to prevent truncation attacks.
 
-**Halo2**: No trusted setup (IPA).
+### UltraHonk Trust Model
 
-**Barretenberg**: KZG commitments with Aztec Universal SRS from MPC ceremony. If ceremony compromised, proofs can be forged.
+**Proving system:** UltraHonk (KZG) via Barretenberg.
+**Trusted setup:** Aztec Universal SRS, MPC ceremony with 100K+ participants, 1-of-N honesty. No per-circuit ceremony.
+**Shared-risk caveat:** Aztec's SRS is shared across all Barretenberg protocols — more eyeballs, but shared compromise would affect every consumer.
 
-> ⚠️ Aztec's SRS is shared across protocols—more eyeballs, but also shared risk.
+### Nullifier Scheme (NUL-001)
+
+Current:
+```
+nullifier = H2(identity_commitment, action_domain)
+```
+
+- `identity_commitment` is deterministic per verified person — stable across re-registrations, so Sybil via key rotation is impossible.
+- `action_domain` is a public, contract-controlled input — users cannot rotate it to double-submit.
+
+The single-tree predecessor used `H2(user_secret, action_domain)`, which allowed Sybil via re-registration. Dead code; see CRYPTOGRAPHY-SPEC §11.1.
 
 ---
 
 ## New Vulnerabilities from Migration
 
-### N-1: Poseidon2 vs Poseidon Mismatch ⚠️ HIGH
+### N-1: Poseidon2 Cross-Language Divergence ⚠️ MITIGATED
 
-Circuit uses `poseidon2_permutation` (T=4); Shadow Atlas may use Axiom Poseidon (T=3).
+The TypeScript `Poseidon2Hasher` wraps the Noir `fixtures` / `sponge_helper` circuits directly — TS and Noir cannot diverge on the permutation. Risk reduced to serialization and domain-tag mismatch, which a CI golden vector check (sponge([1..24]) equality) enforces.
 
-**Impact**: All existing roots incompatible if mismatched.
-
-**Verification Required**: Check Shadow Atlas hash function.
+Original concern: circuit used `poseidon2_permutation` (T=4), Shadow Atlas previously used Axiom Poseidon (T=3). Fixed in Wave 1.1 (hash unification).
 
 ---
 
@@ -214,4 +225,4 @@ Dependencies: `@aztec/bb.js`, `@noir-lang/noir_js`, `pako`
 
 ---
 
-**Conclusion**: The Noir circuit is mathematically sound. Protocol integration (nullifier registry, root validation) is where attacks would succeed—and these have been addressed. Supply chain and audit remain the open gaps before production.
+**Conclusion**: The four Noir circuits are cryptographically sound with comprehensive domain separation and non-zero assertions. Protocol integration (nullifier registry, root validation, timelock governance) is largely addressed. Supply chain pinning, professional audit, formal verification, and reproducible build pipeline remain the open gaps before mainnet launch. See [`specs/CRYPTOGRAPHY-SPEC.md`](../specs/CRYPTOGRAPHY-SPEC.md) §10 for the full known-limitations list.
