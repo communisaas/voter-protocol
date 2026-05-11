@@ -1,0 +1,111 @@
+name: License-grant trailer check
+
+permissions: read-all
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  license-grant-trailer:
+    name: License-grant trailer on spec-affecting commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify License-grant trailer on spec-affecting commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Spec-affecting paths per CONTRIBUTING.md "Inbound license clarification".
+          # Trailing / = directory prefix. No trailing / = exact filename match.
+          # If you change this list, update CONTRIBUTING.md to match.
+          SPEC_PREFIXES=("specs/")
+          SPEC_FILES=(
+            "GOVERNANCE.md"
+            "README.md"
+            "ARCHITECTURE.md"
+            "CONTRIBUTING.md"
+            "LICENSE"
+            "LICENSE-APACHE"
+            "LICENSE-CC-BY-4.0"
+          )
+
+          REQUIRED_VALUE="Apache-2.0 OR CC-BY-4.0"
+          violations=()
+
+          # Iterate commits in PR range.
+          commits=$(git rev-list "${BASE_SHA}..${HEAD_SHA}")
+          if [ -z "$commits" ]; then
+            echo "No commits in PR range — nothing to check."
+            exit 0
+          fi
+
+          for sha in $commits; do
+            # Files changed in this commit.
+            changed=$(git diff-tree --no-commit-id --name-only -r "$sha")
+            spec_touched=0
+            for f in $changed; do
+              for p in "${SPEC_PREFIXES[@]}"; do
+                case "$f" in
+                  ${p}*) spec_touched=1; break ;;
+                esac
+              done
+              [ $spec_touched -eq 1 ] && break
+              for p in "${SPEC_FILES[@]}"; do
+                if [ "$f" = "$p" ]; then
+                  spec_touched=1
+                  break
+                fi
+              done
+              [ $spec_touched -eq 1 ] && break
+            done
+
+            if [ $spec_touched -eq 0 ]; then
+              continue
+            fi
+
+            # Read License-grant trailer using git's interpret-trailers parser.
+            trailer=$(git show -s --format='%(trailers:key=License-grant,valueonly,separator=%x0A)' "$sha")
+            short_sha=$(git rev-parse --short "$sha")
+            subject=$(git log -1 --format='%s' "$sha")
+
+            if [ -z "$trailer" ]; then
+              violations+=("$short_sha — missing License-grant trailer ($subject)")
+              continue
+            fi
+
+            # Trim whitespace and compare. Trailer may have trailing spaces from formatting.
+            normalized=$(printf '%s' "$trailer" | sed 's/[[:space:]]*$//' | head -1)
+            if [ "$normalized" != "$REQUIRED_VALUE" ]; then
+              violations+=("$short_sha — License-grant value is '$normalized', expected '$REQUIRED_VALUE' ($subject)")
+            fi
+          done
+
+          if [ ${#violations[@]} -eq 0 ]; then
+            echo "All spec-affecting commits carry the License-grant trailer."
+            exit 0
+          fi
+
+          echo "::error::Spec-affecting commits are missing or have invalid License-grant trailers."
+          echo ""
+          echo "Per CONTRIBUTING.md, every commit touching specs/, GOVERNANCE.md, README.md,"
+          echo "ARCHITECTURE.md, CONTRIBUTING.md, or LICENSE files must include this trailer:"
+          echo ""
+          echo "    License-grant: Apache-2.0 OR CC-BY-4.0"
+          echo ""
+          echo "Affected commits:"
+          for v in "${violations[@]}"; do
+            echo "  - $v"
+          done
+          echo ""
+          echo "Note: CONTRIBUTING.md establishes the absence of the trailer creates no"
+          echo "presumption against dual-license inbound; the trailer is evidentiary."
+          echo "This check is enforced to keep the evidentiary record clean."
+          exit 1

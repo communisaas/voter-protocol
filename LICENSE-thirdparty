@@ -1,0 +1,126 @@
+VOTER Protocol — Third-Party Software Inventory
+================================================
+
+This file catalogs third-party software bundled in or distributed alongside
+this repository. It exists to satisfy Apache License 2.0 §4(d) attribution
+requirements for downstream consumers (Etherscan-equivalents, SBOM
+scanners, npm consumers) and to provide a single auditable point of
+reference for license obligations.
+
+For copyright statements and a short narrative, see NOTICE.
+For the upstream licenses themselves, follow the links and paths below.
+
+Each entry is structured as:
+  Project  — License  — Copyright holder
+    Bundled at: <path or package name>
+    Why bundled: <reason>
+
+----
+
+1. OpenZeppelin Contracts
+   License: MIT License
+   Copyright: Copyright (c) 2016-2023 zOS Global Limited and contributors
+   Bundled at: contracts/lib/openzeppelin-contracts/ (git submodule;
+     URL: https://github.com/openzeppelin/openzeppelin-contracts)
+   Why bundled: Standard Solidity primitives (Ownable, ReentrancyGuard,
+     ERC-20/721 implementations, AccessControl, math libraries) imported
+     by author-written contracts in contracts/src/. Portions of bytecode
+     deployed to Scroll L2 contain OpenZeppelin code, so the MIT
+     attribution requirement runs to deployed bytecode as well as source.
+   License text: contracts/lib/openzeppelin-contracts/LICENSE
+
+2. Forge Standard Library (forge-std)
+   License: MIT OR Apache-2.0 (dual-licensed)
+   Copyright: Contributors to Forge Standard Library
+   Bundled at: contracts/lib/forge-std/ (git submodule;
+     URL: https://github.com/foundry-rs/forge-std)
+   Why bundled: Foundry test and scripting library used by the test suite
+     under contracts/test/ and deployment scripts under contracts/script/.
+     Not deployed on-chain. We consume under Apache-2.0 to keep the
+     downstream license posture uniform.
+   License texts: contracts/lib/forge-std/LICENSE-MIT
+                  contracts/lib/forge-std/LICENSE-APACHE
+
+3. prb-math
+   License: MIT License
+   Copyright: Copyright (c) 2023-present Paul Razvan Berg
+   Bundled at: contracts/lib/prb-math/ (vendored; not currently registered
+     as a git submodule)
+   Why bundled: Fixed-point and signed-fixed-point math primitives used by
+     contracts/src/LMSRMath.sol and DebateMarket.sol for batch LMSR
+     pricing. Compiled into deployed bytecode on Scroll L2.
+   License text: contracts/lib/prb-math/LICENSE.md
+
+4. Aztec Barretenberg (verifier contracts and proof backend)
+   License: Apache License 2.0
+   Copyright: Copyright 2022 Aztec / Spilsbury Holdings Ltd.
+   Bundled at:
+     - contracts/src/verifiers/HonkVerifier_18.sol
+     - contracts/src/verifiers/HonkVerifier_20.sol
+     - contracts/src/verifiers/HonkVerifier_22.sol
+     - contracts/src/verifiers/HonkVerifier_24.sol
+     - contracts/src/verifiers/DebateWeightVerifier.sol
+     - contracts/src/verifiers/PositionNoteVerifier.sol
+     - packages/crypto/contracts/verifiers/UltraPlonkVerifier_18.sol
+     - packages/crypto/contracts/verifiers/UltraPlonkVerifier_20.sol
+     - packages/crypto/contracts/verifiers/UltraPlonkVerifier_22.sol
+     - packages/crypto/contracts/verifiers/UltraPlonkVerifier_24.sol
+     - npm dependency: `@aztec/bb.js` (referenced from packages/crypto and
+       packages/noir-prover)
+   Why bundled: Auto-generated UltraHonk / UltraPlonk on-chain verifier
+     contracts emitted by the Aztec Barretenberg toolchain (`bb`). These
+     files retain their original "// SPDX-License-Identifier: Apache-2.0"
+     and "// Copyright 2022 Aztec" headers. The runtime `@aztec/bb.js`
+     package generates and verifies UltraHonk proofs over BN254. SRS
+     comes from the Aztec Ignition trusted setup ceremony (176
+     participants, 1-of-N honesty, publicly verified transcript).
+   Upstream: https://github.com/AztecProtocol/aztec-packages
+
+5. Noir compiler and standard library
+   License: Apache License 2.0
+   Copyright: Aztec Protocol / Spilsbury Holdings Ltd.
+   Bundled at: npm dependencies referenced from packages/crypto and
+     packages/noir-prover:
+     - `@noir-lang/noir_js`
+     - `@noir-lang/noirc_abi`
+     - `@noir-lang/types`
+     - `@noir-lang/acvm_js` (transitive)
+   Why bundled: Required to compile Noir circuits under
+     packages/crypto/noir/* (district_membership, three_tree_membership,
+     two_tree_membership, sponge_helper, fixtures) and to generate
+     witnesses for proof generation in browser and Node contexts.
+   Upstream: https://github.com/noir-lang/noir
+
+----
+
+Verification notes
+------------------
+
+This inventory was generated from a direct survey of:
+  - .gitmodules (git submodule registration)
+  - contracts/lib/ (vendored Solidity libraries)
+  - packages/*/package.json (declared npm dependencies)
+  - File-level SPDX headers on .sol files in contracts/src/verifiers/
+    and packages/crypto/contracts/verifiers/
+
+If new third-party code is bundled (e.g., solmate, openzeppelin-contracts-
+upgradeable, additional Aztec circuits), an entry must be added here
+before the change is merged. See CONTRIBUTING.md for the dependency-
+addition checklist.
+
+Upstream NOTICE-file propagation
+--------------------------------
+
+At the time of writing, the installed `@aztec/bb.js` package and the
+`@noir-lang/*` packages do not ship a NOTICE file with their distributed
+artifacts. If a future upstream release introduces a NOTICE file, its
+content must be appended here and to NOTICE per Apache License 2.0 §4(d).
+
+License compatibility summary
+-----------------------------
+
+  Apache-2.0 (this repo's code license)  is compatible with
+    Apache-2.0 (Aztec, Noir)              — direct
+    MIT (OpenZeppelin, prb-math)          — MIT into Apache-2.0 is permitted;
+                                            attribution preserved here and in NOTICE
+    MIT OR Apache-2.0 (forge-std)         — consumed under Apache-2.0

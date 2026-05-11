@@ -1,0 +1,79 @@
+VOTER Protocol
+Copyright 2024-2026 Communiqué PBC and VOTER Protocol contributors
+
+This product includes software developed by Communiqué PBC and contributors
+to the VOTER Protocol project.
+
+The VOTER Protocol is intended as public-good substrate for verified civic
+communication. The cryptographic primitives, contracts, and specs in this
+repository are open for federation, peer implementation, and independent
+audit. Communiqué PBC is the initial primary author and current maintainer
+of the reference implementation; the licenses below do not grant Communiqué
+PBC exclusive control over the protocol or its specifications. Peer
+implementations are welcome under the terms of those licenses.
+
+Source code in this repository (under `contracts/`, `packages/`, `scripts/`,
+and similar source-code paths) is licensed under the Apache License,
+Version 2.0 — see LICENSE.
+
+Specifications, architecture documents, and design records (under `specs/`,
+`ARCHITECTURE.md`, `README.md`, and similar documentation) are dual-licensed
+under your choice of Creative Commons Attribution 4.0 International
+(CC-BY-4.0) OR the Apache License, Version 2.0 — see LICENSE-specs for the
+dual-license notice, LICENSE for Apache-2.0, and LICENSE-CC-BY-4.0 for
+CC-BY-4.0.
+
+For governance — how changes are proposed, ratified, and shipped — see
+GOVERNANCE.md.
+
+For trust-model honesty about what the substrate currently guarantees vs.
+what rests on operator integrity, see specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md.
+
+For an inventory of bundled third-party code (verifier contracts, Solidity
+libraries, build toolchain), see LICENSE-thirdparty.
+
+----
+
+Third-party attributions
+
+This repository bundles or depends on third-party software. The following
+attributions are required by Apache License 2.0 §4(d) and the upstream
+licenses of the bundled components. A complete inventory with copyright
+notices and bundling rationale is maintained in LICENSE-thirdparty.
+
+* Aztec Protocol / Spilsbury Holdings Ltd. — Apache License 2.0
+  Copyright 2022 Aztec
+  - Honk verifier contracts under `contracts/src/verifiers/`
+    (HonkVerifier_18.sol, HonkVerifier_20.sol, HonkVerifier_22.sol,
+    HonkVerifier_24.sol, DebateWeightVerifier.sol, PositionNoteVerifier.sol)
+  - UltraPlonk verifier contracts under
+    `packages/crypto/contracts/verifiers/`
+    (UltraPlonkVerifier_18/20/22/24.sol)
+  - `@aztec/bb.js` (Barretenberg) — runtime dependency for proof generation
+  - Common Subexpression Reference String (CRS) from the Aztec Ignition
+    ceremony
+
+* Noir compiler and standard library — Aztec Protocol — Apache License 2.0
+  - `@noir-lang/noir_js`, `@noir-lang/noirc_abi`, `@noir-lang/types`,
+    `@noir-lang/acvm_js` — runtime dependencies for circuit compilation
+    and proof generation
+
+* OpenZeppelin Contracts — Copyright (c) 2016-2023 zOS Global Limited and
+  contributors — MIT License
+  - Solidity library under `contracts/lib/openzeppelin-contracts/`
+    (git submodule); portions of bytecode deployed to Scroll L2 contain
+    OpenZeppelin code
+
+* Forge Standard Library (forge-std) — Foundry contributors — dual
+  MIT / Apache License 2.0
+  - Test/scripting library under `contracts/lib/forge-std/` (git submodule)
+
+* prb-math — Copyright (c) 2023-present Paul Razvan Berg — MIT License
+  - Fixed-point math library under `contracts/lib/prb-math/`
+    (used in DebateMarket LMSR pricing)
+
+Upstream NOTICE files: at the time of writing, neither `@aztec/bb.js` nor
+the Noir compiler packages installed under `node_modules/@aztec/bb.js`
+or `node_modules/@noir-lang/` ship a top-level NOTICE file with their
+distributed artifacts. If a future upstream release adds NOTICE content,
+that content must be propagated here per Apache-2.0 §4(d).

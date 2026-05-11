@@ -140,4 +140,17 @@ These aren't slogans. They're the challenge markets, zero-knowledge proofs, and 
 
 -----
 
-*Communiqué PBC | Building Cryptographic Governance | 2025*
+## License
+
+VOTER Protocol is open-source public-good substrate. Two licenses cover the repository:
+
+- **Code** (contracts, packages, scripts, tooling) — [Apache License 2.0](LICENSE).
+- **Specifications, architecture documents, and design records** (specs/, ARCHITECTURE.md, README, design docs) — dual-licensed under your choice of [Creative Commons Attribution 4.0 International (CC-BY-4.0)](LICENSE-CC-BY-4.0) OR [Apache License 2.0](LICENSE); see [LICENSE-specs](LICENSE-specs) for the dual-license notice.
+
+See [NOTICE](NOTICE) for attribution, [GOVERNANCE.md](GOVERNANCE.md) for how changes are proposed and ratified, and [specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md](specs/TRUST-MODEL-AND-OPERATOR-INTEGRITY.md) for honest accounting of what the substrate guarantees vs. what rests on operator integrity.
+
+Peer implementations and federations are welcome. The protocol is not bound to any single implementing entity.
+
+-----
+
+*Communiqué PBC | Initial maintainer of the VOTER Protocol reference implementation | 2024-2026*

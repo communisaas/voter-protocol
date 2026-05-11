@@ -1,0 +1,66 @@
+VOTER Protocol — Specifications, Architecture, and Design Documents
+Dual License Notice
+
+The specifications, architecture documents, design records, and other
+non-code documentation in this repository (including but not limited to
+files under `specs/`, top-level documents such as `ARCHITECTURE.md`,
+`README.md`, `GOVERNANCE.md`, `TRADEMARK.md`, `CONTRIBUTING.md`, and
+in-repo design records) are licensed under EITHER of the following, at
+the recipient's election:
+
+  * Creative Commons Attribution 4.0 International (CC-BY-4.0)
+    — see the file LICENSE-CC-BY-4.0
+
+  * Apache License, Version 2.0
+    — see the file LICENSE
+
+You may choose which of the two licenses governs your use, modification,
+or redistribution of this material on a per-use basis. You are not
+required to choose the same license each time, and you are not required
+to apply ShareAlike-style copyleft to derivative works.
+
+
+Why dual?
+
+CC-BY-4.0 is the conventional channel for academic citation, journalism,
+and standards-track publication. Auditors, researchers, and standards
+bodies expect specifications to be available under a Creative Commons
+license they can cite without ambiguity.
+
+Apache-2.0 is the conventional channel for executable artifacts, including
+algorithms, pseudocode, circuit definitions, and protocol message formats
+that downstream implementers will translate into running code. Apache-2.0
+includes an explicit patent grant (§3) that CC-BY-4.0 does not, which
+matters when specifications describe constructions that may be patented
+or that contributors may later patent.
+
+Offering both, at the recipient's election, lets each downstream user pick
+the license that fits their use without forcing them to accept terms
+designed for the other use.
+
+
+Attribution under CC-BY-4.0 election
+
+If the recipient elects CC-BY-4.0, the recipient's Section 3(a)(1)
+attribution obligation is satisfied by retaining the NOTICE file as the
+supplied attribution. The NOTICE file IS the supplied attribution under
+the meaning of CC-BY-4.0 §3(a)(1)(A). A one-line inline credit does not
+satisfy this obligation; the NOTICE file must be retained verbatim
+alongside the licensed material. This requirement preserves the
+third-party attribution chain (Aztec, OpenZeppelin, etc.) that an
+Apache-2.0 §4(d) NOTICE flow-down would have preserved automatically.
+
+
+Inbound contributions
+
+Contributions to specifications, architecture documents, and design records
+are accepted under both licenses simultaneously: by submitting a change to
+this material you are licensing it under BOTH CC-BY-4.0 AND Apache-2.0,
+such that downstream recipients retain the same election. See
+CONTRIBUTING.md and the Developer Certificate of Origin
+(<https://developercertificate.org/>) for the full inbound terms. No
+separate CLA is required.
+
+Code in this repository — anything outside the documentation set described
+above — is licensed solely under the Apache License, Version 2.0. See
+LICENSE for the canonical text and NOTICE for required attribution.
