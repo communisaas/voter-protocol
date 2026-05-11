@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.28;
 
 import { SD59x18, sd, ZERO as SD_ZERO } from "prb-math/SD59x18.sol";
