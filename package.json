@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "packageManager": "npm@10.8.2",
   "private": true,
+  "license": "Apache-2.0",
   "workspaces": [
     "packages/crypto",
     "packages/noir-prover",
