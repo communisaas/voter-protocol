@@ -4,8 +4,8 @@
  * Both publish-source.ts and upload-to-r2.ts drive `wrangler r2 object`
  * subcommands. The hardening (--remote assertion, env allowlist,
  * timeout, stderr capture, no-npx invocation, content-type passthrough)
- * is identical between them. Extracted so the brutalist findings stay
- * fixed on both call sites in lockstep, rather than drifting per file.
+ * is identical between them. Extracted so both call sites stay fixed in
+ * lockstep rather than drifting per file.
  *
  * Single-token model: every call authenticates via CLOUDFLARE_API_TOKEN
  * + CLOUDFLARE_ACCOUNT_ID. No S3-compatible AKID/secret is touched.

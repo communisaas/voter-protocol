@@ -5,12 +5,11 @@
  * tested via the script's own smoke runs (CA, VT). These tests cover the
  * pure helpers: displayCode, pairKey.
  *
- * G3r note: a measurement that lands in audit reports needs at minimum the
- * helper unit tests. Wider coverage (state-level fallback hard-fail behavior,
- * per-district aggregate correctness against synthetic BAF input) is deferred
- * — the brutalist's call for "every state-level edge case tested" is a real
- * concern but would require synthesizing BAF + tract centroid fixtures, which
- * is more scope than G3 ships.
+ * Note: a measurement that lands in audit reports needs the helper unit
+ * tests at minimum. Wider coverage (state-level fallback hard-fail
+ * behavior, per-district aggregate correctness against synthetic BAF
+ * input) is deferred — requires synthesizing BAF + tract centroid
+ * fixtures, which is more scope than the current target ships.
  */
 
 import { describe, expect, it } from 'vitest';

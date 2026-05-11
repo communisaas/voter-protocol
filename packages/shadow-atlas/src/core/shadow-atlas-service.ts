@@ -2316,7 +2316,7 @@ export class ShadowAtlasService {
       );
     }
 
-    // Build Merkle tree (flat — global tree removed in Cycle 13)
+    // Build Merkle tree (flat structure; the global-tree variant is retired)
     this.log.info('Building Merkle tree', {
       layers: Object.keys(boundaryLayers),
     });

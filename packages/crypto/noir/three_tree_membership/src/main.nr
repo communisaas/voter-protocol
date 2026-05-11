@@ -75,17 +75,23 @@ global DOMAIN_HASH2: Field = 0x48324d;
 // a revocation nullifier from an old district commitment:
 //     revocation_nullifier = H2(district_commitment, REVOCATION_DOMAIN)
 //
-// The value is the BN254-reduced image of Poseidon2("commons-revocation-v1"),
+// The value is the BN254-reduced image of "voter-protocol-revocation-v1",
 // committed here as a compile-time constant so the circuit and TypeScript
 // prover can derive it without a runtime Poseidon2 call.
 //
-// Precomputation (matching packages/crypto/poseidon2.ts REVOCATION_DOMAIN):
-//     REVOCATION_DOMAIN = 0x636f6d6d6f6e732d7265766f636174696f6e2d7631  (UTF-8 "commons-revocation-v1")
-//     interpreted big-endian as a field element, then reduced mod p.
+// Pre-launch namespace migration (2026-05-05): renamed from
+// `commons-revocation-v1` to `voter-protocol-revocation-v1` to decouple the
+// FROZEN substrate from the Communique brand before launch makes the bytes
+// immutable. See CRYPTOGRAPHY-SPEC.md Section 0 for the full amendment.
 //
-// That value fits in 21 bytes (168 bits) which is well under the 254-bit BN254
-// modulus, so no modular reduction is required. The tag is treated as
-// domain-separation material, not as a secret -- its value is public and frozen.
+// Precomputation (matching packages/crypto/poseidon2.ts REVOCATION_DOMAIN):
+//     REVOCATION_DOMAIN = 0x766f7465722d70726f746f636f6c2d7265766f636174696f6e2d7631
+//     (UTF-8 "voter-protocol-revocation-v1") interpreted big-endian as a field
+//     element. 28 bytes / 224 bits, well under the 254-bit BN254 modulus, so
+//     no reduction is required.
+//
+// The tag is treated as domain-separation material, not as a secret -- its
+// value is public and frozen.
 //
 // NOTE on "v1": this version tag identifies the Poseidon2 H2 input string
 // only -- it is INDEPENDENT of REVOCATION_SMT_DEPTH (the SMT keyspace
@@ -97,7 +103,7 @@ global DOMAIN_HASH2: Field = 0x48324d;
 //
 // FROZEN post-launch. Any change requires a circuit revision AND a re-seed of
 // RevocationRegistry. See REVOCATION-NULLIFIER-SPEC-001 and CRYPTOGRAPHY-SPEC Section 3.1.
-global REVOCATION_DOMAIN: Field = 0x636f6d6d6f6e732d7265766f636174696f6e2d7631;
+global REVOCATION_DOMAIN: Field = 0x766f7465722d70726f746f636f6c2d7265766f636174696f6e2d7631;
 
 // SMT depth for the revocation set.
 //
