@@ -1,13 +1,13 @@
-# Commons Cryptographic Protocol Specification
+# VOTER Protocol Cryptographic Specification
 
 > **Spec ID:** CRYPTO-SPEC-001
-> **Version:** 1.0.0
+> **Version:** 1.1.0
 > **Status:** CANONICAL
-> **Date:** 2026-04-21
+> **Date:** 2026-05-07
 > **Audience:** Cryptographers, protocol reviewers, independent implementers
 > **Scope:** ZK circuit topology, hash construction, nullifier scheme, trusted setup, threat model
 
-This document is the single authoritative cryptographic specification for the Commons protocol. Prior documents (`ZK-PRODUCTION-ARCHITECTURE.md`, `NOIR-PROVING-INFRASTRUCTURE.md`, `DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md`, `TWO-TREE-ARCHITECTURE-SPEC.md`) are superseded. Companion documents retain authority over their specific domains:
+This document is the single authoritative cryptographic specification for the VOTER Protocol substrate. (Pre-launch the protocol substrate was titled "Commons" inline with the reference operator's brand; the §0 namespace migration on 2026-05-05 decoupled substrate identity from brand.) Prior documents (`ZK-PRODUCTION-ARCHITECTURE.md`, `NOIR-PROVING-INFRASTRUCTURE.md`, `DISTRICT-MEMBERSHIP-CIRCUIT-SPEC.md`, `TWO-TREE-ARCHITECTURE-SPEC.md`) are superseded. Companion documents retain authority over their specific domains:
 
 | Document | Authority |
 |---|---|
@@ -23,6 +23,7 @@ Everything here is falsifiable. Claims dependent on cryptographic assumptions ar
 
 ## Table of Contents
 
+0. [Namespace Amendment (2026-05-05)](#0-namespace-amendment-2026-05-05)
 1. [Threat Model and Trust Stack](#1-threat-model-and-trust-stack)
 2. [Cryptographic Primitives](#2-cryptographic-primitives)
 3. [Domain Separation](#3-domain-separation)
@@ -35,6 +36,45 @@ Everything here is falsifiable. Claims dependent on cryptographic assumptions ar
 10. [Known Limitations](#10-known-limitations)
 11. [Legacy and Deprecated Components](#11-legacy-and-deprecated-components)
 12. [Reference Implementation](#12-reference-implementation)
+
+---
+
+## 0. Namespace Amendment (2026-05-05)
+
+**Migration date:** 2026-05-05 (pre-launch, before FROZEN strings become immutable).
+
+**Rationale:** Decouple the protocol's substrate from a single implementation's brand. The four FROZEN domain strings and the action-domain `protocol_version` originally embedded the `commons` brand (the SvelteKit reference implementation operated by Communiqué PBC). Because these strings are byte-encoded into cryptographic contexts that can never change post-launch, the brand-substrate coupling would otherwise persist for the protocol's full lifetime. Renaming pre-launch lets every peer implementation share the same neutral substrate string and prevents an estoppel where peers must continue to embed `"commons"` in field elements they did not author.
+
+**Scope of strings migrated.** The five immutable substrate identifiers:
+
+| Old (deprecated; never shipped to mainnet) | New (canonical from this spec onward) | Use |
+|---|---|---|
+| `commons-identity-v1` | `voter-protocol-identity-v1` | Identity commitment domain prefix (SHA-256 mod BN254) |
+| `commons-credential-v2` | `voter-protocol-credential-v2` | HKDF salt for AES-256-GCM credential encryption |
+| `commons-witness-encryption-v1` | `voter-protocol-witness-encryption-v1` | BLAKE2b key for X25519 → XChaCha20 witness encryption |
+| `commons-revocation-v1` | `voter-protocol-revocation-v1` | `REVOCATION_DOMAIN` (Poseidon2 H2 input) |
+| `commons.v2` | `voter-protocol.v2` | `protocol_version` in `action_domain` keccak preimage |
+
+**Hex constant regeneration.** The `REVOCATION_DOMAIN` constant in `three_tree_membership/main.nr` and `commons/src/lib/core/crypto/poseidon.ts` is the big-endian UTF-8 encoding of the domain string interpreted as a BN254 field element. The migration changes:
+
+```
+commons-revocation-v1       (21 bytes, 168 bits)
+  → 0x636f6d6d6f6e732d7265766f636174696f6e2d7631   [DEPRECATED]
+
+voter-protocol-revocation-v1 (28 bytes, 224 bits)
+  → 0x766f7465722d70726f746f636f6c2d7265766f636174696f6e2d7631   [CANONICAL]
+```
+
+The new value is `12472700209955444896621341039241956536185985597208058743973359744561` as a BN254 field element. 224 bits is well under the 254-bit modulus, so no reduction is required.
+
+**Downstream regeneration required.** Changing `REVOCATION_DOMAIN` changes every revocation nullifier the circuit produces. Proving keys, verifying keys, and golden test vectors must be regenerated. See `CIRCUIT-REVISION-MIGRATION.md` and the `voter-protocol/specs/proposals/` directory (when established).
+
+**References.**
+- `voter-protocol/GOVERNANCE.md` (spec change process; transition gates).
+- `commons/docs/design/REALIGNMENT-TASK-GRAPH.md` (Phase 0a; decision dated 2026-05-05).
+- `commons/.claude/projects/-Users-noot-Documents-commons/memory/MEMORY.md` ("Crypto Domain Strings (FROZEN post-launch)" entry — updated to canonical values).
+
+After this amendment, FROZEN means FROZEN. The migration window closes at first mainnet proof verification under the new constants.
 
 ---
 
@@ -68,11 +108,11 @@ Census TIGER/Line boundary data is public, free, and published with SHA-256 chec
 
 ### MACI Parallel
 
-The structure is identical to MACI (Minimal Anti-Collusion Infrastructure), the most widely deployed ZK voting system. MACI's coordinator processes encrypted votes and produces a tally proof; Commons' operator processes public Census data and produces tree roots. Both can manipulate inputs but cannot forge downstream proofs.
+The structure is identical to MACI (Minimal Anti-Collusion Infrastructure), the most widely deployed ZK voting system. MACI's coordinator processes encrypted votes and produces a tally proof; the VOTER Protocol operator processes public Census data and produces tree roots. Both can manipulate inputs but cannot forge downstream proofs.
 
-The key difference: MACI's coordinator sees votes in cleartext (privacy violation); Commons' operator never sees user secrets. MACI's inputs are opaque (encrypted votes); Commons' inputs are public (TIGER data). Commons is therefore **strictly less trusted** than MACI at the operator layer, though both share the unresolved problem of operator decentralization.
+The key difference: MACI's coordinator sees votes in cleartext (privacy violation); the VOTER Protocol operator never sees user secrets. MACI's inputs are opaque (encrypted votes); the VOTER Protocol inputs are public (TIGER data). The VOTER Protocol is therefore **strictly less trusted** than MACI at the operator layer, though both share the unresolved problem of operator decentralization.
 
-As of April 2026, MACI has not shipped coordinator decentralization (research in progress via MPC, threshold encryption, and TEEs). Commons is at the state of the art, not behind it. The walkaway roadmap to eliminate operator trust is documented in `TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` §7.
+As of April 2026, MACI has not shipped coordinator decentralization (research in progress via MPC, threshold encryption, and TEEs). The VOTER Protocol is at the state of the art, not behind it. The walkaway roadmap to eliminate operator trust is documented in `TRUST-MODEL-AND-OPERATOR-INTEGRITY.md` §7.
 
 ---
 
@@ -155,11 +195,11 @@ Every hash output carries a domain tag occupying a fixed position in the Poseido
 | `DOMAIN_POS_COMMIT` | `0x50434d` | `PCM` | 3 | `[arg, wt, rand, PCM]` | Debate position commitment |
 | `DOMAIN_POS_NUL` | `0x504e4c` | `PNL` | 3 | `[key, c, dbt, PNL]` | Debate position nullifier |
 | `DOMAIN_SPONGE_24` | `0x534f4e47455f24` | `SONGE_$` (mnemonic `SONGE_24`) | 24 | capacity init | District commitment (24-slot sponge) |
-| `REVOCATION_DOMAIN` | `0x636f6d6d6f6e732d7265766f636174696f6e2d7631` | `"commons-revocation-v1"` (UTF-8) | 2 | `[district_commitment, REVOCATION_DOMAIN, H2M, 0]` | Revocation nullifier derivation for F1 closure |
+| `REVOCATION_DOMAIN` | `0x766f7465722d70726f746f636f6c2d7265766f636174696f6e2d7631` | `"voter-protocol-revocation-v1"` (UTF-8) | 2 | `[district_commitment, REVOCATION_DOMAIN, H2M, 0]` | Revocation nullifier derivation for F1 closure |
 
 **FROZEN post-launch.** Any change requires a protocol-wide re-hash and is a hard fork. These tags are committed in Commons memory (`crypto_primitives_map.md`) and mirrored in the TypeScript `poseidon2.ts` and every circuit `main.nr`.
 
-**`REVOCATION_DOMAIN` derivation:** the constant is the big-endian UTF-8 encoding of the ASCII string `"commons-revocation-v1"` (21 bytes = 168 bits, well under the 254-bit BN254 modulus). It is **not** a Poseidon2 image of the string — it is the string bytes themselves treated as a BN254 field element. This choice avoids the need for a runtime Poseidon2 call to derive the tag at circuit build time while still providing a fresh domain-tag value committed in the Noir source.
+**`REVOCATION_DOMAIN` derivation:** the constant is the big-endian UTF-8 encoding of the ASCII string `"voter-protocol-revocation-v1"` (28 bytes = 224 bits, well under the 254-bit BN254 modulus). It is **not** a Poseidon2 image of the string — it is the string bytes themselves treated as a BN254 field element. This choice avoids the need for a runtime Poseidon2 call to derive the tag at circuit build time while still providing a fresh domain-tag value committed in the Noir source.
 
 **Why not DOMAIN_HASH-style short tag:** the revocation nullifier is `H2(district_commitment, REVOCATION_DOMAIN)` using `DOMAIN_HASH2` as the standard H2 domain. `REVOCATION_DOMAIN` occupies the **second input** slot of H2, not the H2 domain tag slot. This is the same pattern `action_domain` uses in the NUL-001 nullifier: input-position domain separation against a fixed-point constant in an H2 call.
 
@@ -386,7 +426,7 @@ Both a PII-free identity commitment and a hidden user secret are now required. T
 
 ```
 action_domain = keccak256(abi.encodePacked(
-  protocol_version,       // "commons.v2"  (v1 deprecated; see §6.4.1)
+  protocol_version,       // "voter-protocol.v2"  (commons.v2 / commons.v1 deprecated; see §6.4.1 and §0)
   country,                // ISO 3166-1 alpha-2 (e.g., "US")
   jurisdictionType,       // "federal" | "state" | "local" | "international"
   recipientSubdivision,   // ISO 3166-2 or "{state}-{locality}"
@@ -685,6 +725,7 @@ pnpm test district-prover     # Includes H_PCM/H_PNL domain separation tests
 |---|---|---|---|
 | 1.0.0 | 2026-04-21 | Consolidation | Initial canonical spec; supersedes ZK-PRODUCTION-ARCHITECTURE, NOIR-PROVING-INFRASTRUCTURE, DISTRICT-MEMBERSHIP-CIRCUIT-SPEC, TWO-TREE-ARCHITECTURE-SPEC |
 | 1.1.0 | 2026-04-23 | Stage 2 re-grounding | §6.4 action_domain v2: bind `district_commitment` into preimage (F2 closure); protocol_version `commons.v1` → `commons.v2`. §6.4.1 F2 rationale. §6.4.2 F1 closure via revocation nullifier set (deferred circuit-revision work; see `REVOCATION-NULLIFIER-SPEC.md`, `CIRCUIT-REVISION-MIGRATION.md`) |
+| 1.2.0 | 2026-05-05 | §0 namespace amendment | Pre-FROZEN migration of all four crypto domain strings and protocol_version from `commons-*`/`commons.v2` to `voter-protocol-*`/`voter-protocol.v2`. See §0. Decouples brand from substrate before launch makes the strings immutable. |
 
 ---
 

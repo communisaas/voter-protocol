@@ -45,15 +45,19 @@ F2 (district-hopping amplification) is closed in this same Stage 2 wave by bindi
 For each revoked credential, the server computes:
 
 ```
-REVOCATION_DOMAIN = Poseidon2("commons-revocation-v1") mod BN254_MODULUS
-                  // Fixed protocol constant, FROZEN post-launch
+REVOCATION_DOMAIN = big-endian UTF-8 bytes of "voter-protocol-revocation-v1"
+                    interpreted as a BN254 field element
+                    // 28 bytes = 224 bits, well under the 254-bit modulus
+                    // Fixed protocol constant, FROZEN post-launch
+                    // Hex: 0x766f7465722d70726f746f636f6c2d7265766f636174696f6e2d7631
 revocation_nullifier = H2(old_district_commitment, REVOCATION_DOMAIN)
                      // Uses DOMAIN_HASH2 (0x48324d), matching §3.1 of CRYPTOGRAPHY-SPEC.md
 ```
 
 - `old_district_commitment` is the 24-slot sponge output previously issued to the user; read from `districtCredentials.districtCommitment` before patching `revokedAt`.
 - `REVOCATION_DOMAIN` is a single compile-time constant; it is not per-user and not per-credential.
-- The output is a BN254 field element uniquely derived from `old_district_commitment` (under the random-oracle assumption for Poseidon2).
+- The constant is the **raw UTF-8 bytes** of the domain string treated as a field element — **not** a Poseidon2 image of the string. This avoids the need for a runtime Poseidon2 call to derive the tag at circuit build time while still providing a fresh domain-tag value committed in the Noir source. See `CRYPTOGRAPHY-SPEC.md` §3.1 (line 198+) for the canonical derivation of all FROZEN domain constants.
+- The output `revocation_nullifier` is a BN254 field element uniquely derived from `old_district_commitment` (under the random-oracle assumption for Poseidon2 H2).
 
 **Why `H2` with `DOMAIN_HASH2`:** We reuse the existing pairwise hash primitive already embedded in every circuit, rather than introducing a new domain tag, because:
 
@@ -275,7 +279,7 @@ The following work items are required *for the future circuit revision* and are 
 
 ### 5.1 Noir circuit changes (`three_tree_membership/src/main.nr`)
 
-1. Compute `REVOCATION_DOMAIN` as a Noir constant: `global REVOCATION_DOMAIN: Field = <precomputed Poseidon2 hash of "commons-revocation-v1" mod p>;`
+1. Compute `REVOCATION_DOMAIN` as a Noir constant: `global REVOCATION_DOMAIN: Field = <precomputed Poseidon2 hash of "voter-protocol-revocation-v1" mod p>;`
    - Precomputation happens off-circuit; value is committed into the circuit source.
    - Cross-language golden vector: `revocation_domain()` must agree between TS and Noir.
 2. After the existing sponge-24 computation of `district_commitment`, add:

@@ -57,7 +57,7 @@ with the parallel Stage 2.5 wiring).
 
 Stage 2 of the re-grounding / address-change work plan introduces two cryptographic changes that, together, close F1 (stale-proof replay) and F2 (district-hopping amplification):
 
-1. **`action_domain` v2**: the preimage now includes `district_commitment` (see `CRYPTOGRAPHY-SPEC.md` §6.4.1). `protocol_version` changes from `"commons.v1"` to `"commons.v2"`. **Shipped in Stage 2** at the TypeScript layer (`action-domain-builder.ts`).
+1. **`action_domain` v2**: the preimage now includes `district_commitment` (see `CRYPTOGRAPHY-SPEC.md` §6.4.1). `protocol_version` changes from `"commons.v1"` to `"voter-protocol.v2"` (was `"commons.v2"` pre-2026-05-05; see CRYPTOGRAPHY-SPEC.md §0 for the namespace migration). **Shipped in Stage 2** at the TypeScript layer (`action-domain-builder.ts`).
 2. **Revocation nullifier set**: a new public input (`revocation_nullifier`) at index 31 of the `three_tree_membership` circuit, checked against an on-chain `RevocationRegistry` (see `REVOCATION-NULLIFIER-SPEC.md`). **Design-only in Stage 2**; circuit + contract revision is a separate wave.
 
 This migration plan covers the operational path from the current live state (v1 circuit + v1 action domain) to the future state (v2 circuit + v2 action domain + revocation enforcement). It addresses the core tension:

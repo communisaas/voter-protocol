@@ -317,15 +317,15 @@ One nullifier per (user, template, session, recipient subdivision). A user can m
 
 **Handles.** Because `recipientSubdivision` is part of the hash, a user in CA-12 can send the same template to their House representative (`recipientSubdivision = "US-CA-12"`) and their Senators (`recipientSubdivision = "US-CA"`) as separate actions producing distinct nullifiers.
 
-**Does not handle (Phase 2 gap).** The schema does not distinguish upper vs. lower chamber in jurisdictions where both share a subdivision. For federal Senate messages the user's subdivision is the state (`US-CA`); for House messages it's the district (`US-CA-12`). In the current implementation this distinction is load-bearing on the subdivision encoding, not on a dedicated chamber field. If a future requirement demands a per-chamber axis orthogonal to subdivision, a versioned derivation (`commons.v2`) with an explicit chamber field is the planned remediation.
+**Does not handle (Phase 2 gap).** The schema does not distinguish upper vs. lower chamber in jurisdictions where both share a subdivision. For federal Senate messages the user's subdivision is the state (`US-CA`); for House messages it's the district (`US-CA-12`). In the current implementation this distinction is load-bearing on the subdivision encoding, not on a dedicated chamber field. If a future requirement demands a per-chamber axis orthogonal to subdivision, a versioned derivation (`voter-protocol.v2` with chamber, or a future `voter-protocol.v3`) with an explicit chamber field is the planned remediation.
 
 ### 5.3 Proposed v2 derivation (not yet implemented)
 
-The following extension is **proposed**, not implemented. It would require a `commons.v2` protocol version and corresponding contract-side whitelist entries:
+The following extension is **proposed**, not implemented. It would require a `voter-protocol.v2` (with chamber) or future `voter-protocol.v3` protocol version and corresponding contract-side whitelist entries:
 
 ```
 action_domain = keccak256(abi.encodePacked(
-  "commons.v2",           // bumped protocol prefix
+  "voter-protocol.v2",    // bumped protocol prefix (renamed 2026-05-05; see CRYPTOGRAPHY-SPEC.md §0)
   country,                // ISO 3166-1 alpha-2
   jurisdictionType,       // enum as in v1
   recipientSubdivision,   // as in v1
@@ -679,11 +679,11 @@ Each decision-maker context requires a delivery adapter that translates the prot
 
 ### 12.3 Generalized Action Domain Schema
 
-The implemented `commons.v1` schema already generalizes beyond US Congress — `jurisdictionType` covers federal/state/local/international and `sessionId` is any legislative-session-equivalent identifier. The proposed `commons.v2` extension adds an orthogonal chamber axis if needed:
+The implemented `commons.v1` schema (deprecated; `voter-protocol.v2` is the current canonical version per CRYPTOGRAPHY-SPEC.md §0 and action-domain-builder.ts) already generalizes beyond US Congress — `jurisdictionType` covers federal/state/local/international and `sessionId` is any legislative-session-equivalent identifier. The proposed extension below adds an orthogonal chamber axis if needed:
 
 ```
 action_domain = keccak256(abi.encodePacked(
-  "commons.v2",           // bumped protocol prefix (proposed)
+  "voter-protocol.v2",    // bumped protocol prefix (proposed; renamed 2026-05-05)
   country,                // ISO 3166-1 alpha-2
   jurisdictionType,       // "federal" | "state" | "local" | "international"
   recipientSubdivision,   // ISO 3166-2 or "{state}-{locality}"
