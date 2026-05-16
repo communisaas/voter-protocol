@@ -23,6 +23,18 @@
 
 import { createReadStream } from 'node:fs';
 import { statSync } from 'node:fs';
+import https from 'node:https';
+
+// Shared IPv4-only Agent: the AWS SDK's default NodeHttpHandler creates
+// its own https.Agent that ignores https.globalAgent. Without forcing
+// family=4 here, the SDK's Happy Eyeballs hangs on Cloudflare's IPv6
+// addresses when the operator's egress doesn't carry v6 (Tailscale, some
+// hotspots). Reused across calls so connection pooling actually works.
+const IPV4_HTTPS_AGENT = new https.Agent({
+	family: 4,
+	keepAlive: true,
+	maxSockets: 50,
+});
 
 export interface S3MultipartEnv {
 	readonly accountId: string;
@@ -64,11 +76,30 @@ export async function s3MultipartUpload(
 ): Promise<void> {
 	const { S3Client } = await import('@aws-sdk/client-s3');
 	const { Upload } = await import('@aws-sdk/lib-storage');
+	const { NodeHttpHandler } = await import('@smithy/node-http-handler');
 
 	const endpoint = `https://${env.accountId}.r2.cloudflarestorage.com`;
 	const client = new S3Client({
 		region: 'auto',
 		endpoint,
+		requestHandler: new NodeHttpHandler({
+			httpsAgent: IPV4_HTTPS_AGENT,
+			connectionTimeout: 30_000,
+			requestTimeout: 0,
+		}),
+		// Path-style: <account>.r2.cloudflarestorage.com/<bucket>/<key>.
+		// Virtual-hosted (<bucket>.<account>...) depends on a DNS wildcard
+		// that some operator resolvers (notably Alibaba 223.5.5.5) fail to
+		// resolve, surfacing as a mid-upload ENOTFOUND. Path-style targets
+		// the bare account hostname, which resolves reliably everywhere R2
+		// reaches.
+		forcePathStyle: true,
+		// 10 attempts × StandardRetryStrategy's exponential backoff (capped
+		// at 20s) gives each part ~3 minutes of retry headroom. Operator
+		// DNS flaps we've observed mid-upload last 10–60s; the default
+		// maxAttempts=3 burns through retries in <10s and bails. The cost
+		// is irrelevant for happy-path requests (one round trip).
+		maxAttempts: 10,
 		credentials: {
 			accessKeyId: env.accessKeyId,
 			secretAccessKey: env.secretAccessKey,
@@ -127,8 +158,22 @@ export async function s3MultipartUpload(
 		if (interactive) process.stderr.write('\n');
 	} catch (err) {
 		if (interactive) process.stderr.write('\n');
-		const m = err instanceof Error ? err.message : String(err);
-		throw new Error(`S3 multipart upload failed for ${key}: ${m}`);
+		// AWS SDK wraps transport / auth / checksum failures with often-empty
+		// .message — surface name, code, and the underlying cause so the
+		// operator sees what actually went wrong instead of a bare colon.
+		const parts: string[] = [];
+		if (err instanceof Error) {
+			if (err.message) parts.push(err.message);
+			const named = err as Error & { name?: string; code?: string };
+			if (named.name && named.name !== 'Error') parts.push(`name=${named.name}`);
+			if (named.code) parts.push(`code=${named.code}`);
+			if (err.cause instanceof Error) parts.push(`cause: ${err.cause.message || err.cause.name}`);
+			else if (err.cause) parts.push(`cause: ${String(err.cause)}`);
+		} else {
+			parts.push(String(err));
+		}
+		const detail = parts.length > 0 ? parts.join(' | ') : '(no detail surfaced)';
+		throw new Error(`S3 multipart upload failed for ${key}: ${detail}`);
 	} finally {
 		process.off('SIGINT', abortHandler);
 		process.off('SIGTERM', abortHandler);

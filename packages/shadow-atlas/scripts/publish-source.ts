@@ -42,13 +42,37 @@
  *   4  manifest collision (use --force to overwrite)
  */
 
-import { createReadStream, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { open as openFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
+import dns from 'node:dns';
+import https from 'node:https';
+import { Agent as UndiciAgent, setGlobalDispatcher } from 'undici';
+
+// Force IPv4-only resolution + connect for every HTTP client in this
+// process. Happy Eyeballs picks up AAAA records (Cloudflare publishes
+// IPv6 for both atlas.commons.email and r2.cloudflarestorage.com), and
+// when the operator's egress runs through Tailscale or any tunnel that
+// doesn't carry IPv6 cleanly, undici's connect attempts on the v6
+// addresses hang for the full timeout while the v4 attempts wait their
+// turn. Symptoms we hit: `Connect Timeout Error (attempted addresses:
+// <v4>, <v6>, <v4>, <v6>, timeout: 10000ms)` from fetch(), and the same
+// on Node's native https. Pinning family=4 sidesteps the v6 leg
+// entirely and connects in ~1s on the same network where curl works
+// and 4-way Happy Eyeballs times out.
+dns.setDefaultResultOrder('ipv4first');
+https.globalAgent.options.family = 4;
+setGlobalDispatcher(
+	new UndiciAgent({
+		connect: { family: 4, timeout: 30_000 },
+		headersTimeout: 30_000,
+		bodyTimeout: 120_000,
+	}),
+);
 
 import {
 	LONG_UPLOAD_TIMEOUT_MS,
@@ -80,6 +104,7 @@ interface ParsedArgs {
 	rebuild: boolean;
 	force: boolean;
 	dryRun: boolean;
+	reuseBundles: boolean;
 	outputPath: string;
 }
 
@@ -136,6 +161,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 	let rebuild = false;
 	let force = false;
 	let dryRun = false;
+	let reuseBundles = false;
 	let outputPath = './output/publish-source-results.json';
 
 	for (let i = 0; i < argv.length; i++) {
@@ -158,6 +184,9 @@ function parseArgs(argv: string[]): ParsedArgs {
 				break;
 			case '--dry-run':
 				dryRun = true;
+				break;
+			case '--reuse-bundles':
+				reuseBundles = true;
 				break;
 			case '--output':
 				outputPath = argv[++i];
@@ -182,7 +211,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 		process.exit(1);
 	}
 
-	return { version, sourceDir, tigerVintage, rebuild, force, dryRun, outputPath };
+	return { version, sourceDir, tigerVintage, rebuild, force, dryRun, reuseBundles, outputPath };
 }
 
 function printUsage(): void {
@@ -199,6 +228,10 @@ Options:
   --rebuild                Re-run npm build scripts even if .db files exist
   --force                  Overwrite an existing version in the manifest
   --dry-run                Print plan without uploading
+  --reuse-bundles          Skip clean + extract; trust the existing bundleDir
+                           (recovery after a failed publish post-render).
+                           Aborts if the dir's index.json version disagrees
+                           with --version.
   --output <path>          Default: ./output/publish-source-results.json
   -h, --help               Print this message
 
@@ -206,6 +239,30 @@ Required environment variables (single-token model):
   CLOUDFLARE_API_TOKEN     Token with Account → R2 → Edit
   CLOUDFLARE_ACCOUNT_ID    Cloudflare account ID
 `);
+}
+
+/**
+ * Probe the first per-layer index.json found under a bundle directory and
+ * return its `version` field, or null if no index is readable. Used by the
+ * `--reuse-bundles` path to refuse a mismatch.
+ */
+function probeBundleDirVersion(bundleDir: string): string | null {
+	if (!existsSync(bundleDir)) return null;
+	for (const country of readdirSync(bundleDir)) {
+		const countryDir = join(bundleDir, country);
+		if (!statSync(countryDir).isDirectory()) continue;
+		for (const layer of readdirSync(countryDir)) {
+			const indexPath = join(countryDir, layer, 'index.json');
+			if (!existsSync(indexPath)) continue;
+			try {
+				const idx = JSON.parse(readFileSync(indexPath, 'utf8')) as { version?: string };
+				if (typeof idx.version === 'string' && idx.version) return idx.version;
+			} catch {
+				// fall through to next layer
+			}
+		}
+	}
+	return null;
 }
 
 /** Resolve the current git SHA of the shadow-atlas package. */
@@ -427,7 +484,16 @@ async function fetchManifest(publicUrl: string): Promise<FetchedManifest> {
 	try {
 		const response = await fetch(url, {
 			signal: AbortSignal.timeout(30_000),
-			headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+			headers: {
+				// Cloudflare's Bot Fight Mode rejects Node's default UA on some
+				// zones, surfacing as a bare "fetch failed" with no HTTP status.
+				// A browser-like UA reliably gets through, matches what curl
+				// (which works) sends in spirit, and changes nothing about the
+				// content we ask for.
+				'User-Agent': 'Mozilla/5.0 (commons-publish/1.0)',
+				'Cache-Control': 'no-cache',
+				Pragma: 'no-cache',
+			},
 		});
 		if (response.status === 404) return { manifest: null };
 		if (!response.ok) {
@@ -446,8 +512,25 @@ async function fetchManifest(publicUrl: string): Promise<FetchedManifest> {
 		}
 		return { manifest: body };
 	} catch (err) {
+		// Surface the underlying connect/TLS error rather than a bare
+		// "fetch failed" — diagnosis impossible without it.
 		const msg = err instanceof Error ? err.message : String(err);
-		throw new Error(`Failed to read existing manifest: ${msg}`);
+		const cause = err instanceof Error && err.cause ? err.cause : null;
+		const causeMsg = cause instanceof Error ? `: ${cause.message}` : '';
+		const causeErrors =
+			cause && typeof cause === 'object' && 'errors' in cause && Array.isArray(cause.errors)
+				? '\n  ' +
+					cause.errors
+						.map((e: unknown) => {
+							if (e instanceof Error) {
+								const c = e as Error & { code?: string; address?: string; port?: number };
+								return `[${c.code ?? '?'}] ${e.message} (${c.address ?? '?'}:${c.port ?? '?'})`;
+							}
+							return String(e);
+						})
+						.join('\n  ')
+				: '';
+		throw new Error(`Failed to read existing manifest: ${msg}${causeMsg}${causeErrors}`);
 	}
 }
 
@@ -627,43 +710,129 @@ async function main(): Promise<void> {
 		'extract-district-bundles.ts',
 	);
 	const dbPath = join(sourceDir, 'shadow-atlas-full.db');
-	console.log(`\nExtracting district bundles → ${bundleDir}`);
-	try {
-		// Apply runBuild()'s allowlist scrub: the extractor only needs to
-		// open the SQLite + write files. Inheriting CLOUDFLARE_API_TOKEN /
-		// R2 secrets / signing key would expose them to a typosquatted
-		// transitive dep deep in the tsx graph for no functional benefit.
-		const ALLOW_EXACT = new Set([
-			'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM', 'LANG',
-			'TMPDIR', 'TMP', 'TEMP', 'PWD',
-			'NODE_OPTIONS', 'NODE_ENV', 'NODE_PATH',
-		]);
-		const ALLOW_PREFIX = ['LC_', 'npm_', 'NPM_'];
-		const scrubbedEnv: NodeJS.ProcessEnv = {};
-		for (const [k, v] of Object.entries(process.env)) {
-			if (ALLOW_EXACT.has(k) || ALLOW_PREFIX.some((p) => k.startsWith(p))) {
-				scrubbedEnv[k] = v;
-			}
-		}
 
-		execFileSync(
-			'npx',
-			[
-				'tsx',
-				bundleScriptPath,
-				'--version',
-				args.version,
-				'--db',
-				dbPath,
-				'--output',
-				bundleDir,
-			],
-			{ stdio: 'inherit', env: scrubbedEnv },
-		);
+	// Clean any prior per-district artifacts before extract. Without this, a
+	// new atlas version inherits the previous version's basemap PNGs from
+	// disk — the basemap renderer's skip-if-exists logic would then preserve
+	// stale rasters against fresh boundaries, and the completeness gate
+	// downstream would see them as valid.
+	//
+	// `--reuse-bundles` is the operator's escape hatch when a publish failed
+	// after a successful render (e.g., mid-multipart upload). It skips both
+	// the clean and the extract, trusting that the existing bundleDir was
+	// produced by this same version. Refuses to reuse a bundleDir whose
+	// index.json version disagrees with --version.
+	if (args.reuseBundles) {
+		const probedVersion = probeBundleDirVersion(bundleDir);
+		if (!probedVersion) {
+			console.error(
+				`--reuse-bundles requested but ${bundleDir} has no readable index.json. Aborting.`,
+			);
+			process.exit(1);
+		}
+		if (probedVersion !== args.version) {
+			console.error(
+				`--reuse-bundles requested but bundleDir version is ${probedVersion}, not ${args.version}. Aborting.`,
+			);
+			process.exit(1);
+		}
+		console.log(`\nReusing existing bundleDir (${bundleDir}) at version ${probedVersion}.`);
+	} else if (existsSync(bundleDir)) {
+		rmSync(bundleDir, { recursive: true, force: true });
+	}
+
+	// Apply runBuild()'s allowlist scrub: the extract and render subprocesses
+	// only need Node basics. Inheriting CLOUDFLARE_API_TOKEN / R2 secrets /
+	// signing key would expose them to a typosquatted transitive dep deep in
+	// the tsx graph for no functional benefit. Built once, reused below.
+	const ALLOW_EXACT = new Set([
+		'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TERM', 'LANG',
+		'TMPDIR', 'TMP', 'TEMP', 'PWD',
+		'NODE_OPTIONS', 'NODE_ENV', 'NODE_PATH',
+	]);
+	const ALLOW_PREFIX = ['LC_', 'npm_', 'NPM_'];
+	const scrubbedEnv: NodeJS.ProcessEnv = {};
+	for (const [k, v] of Object.entries(process.env)) {
+		if (ALLOW_EXACT.has(k) || ALLOW_PREFIX.some((p) => k.startsWith(p))) {
+			scrubbedEnv[k] = v;
+		}
+	}
+
+	if (args.reuseBundles) {
+		console.log(`Skipping extract (--reuse-bundles).`);
+	} else {
+		console.log(`\nExtracting district bundles → ${bundleDir}`);
+		try {
+			execFileSync(
+				'npx',
+				[
+					'tsx',
+					bundleScriptPath,
+					'--version',
+					args.version,
+					'--db',
+					dbPath,
+					'--output',
+					bundleDir,
+				],
+				{ stdio: 'inherit', env: scrubbedEnv },
+			);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			console.error(`Bundle extraction failed: ${msg}`);
+			process.exit(2);
+		}
+	}
+
+	// Render per-district basemap PNGs alongside the GeoJSON bundles by
+	// fetching + stitching Carto Positron raster tiles. No API key required.
+	// The renderer bounds itself by --max-fetches so a runaway plan can't
+	// hammer the upstream CDN.
+	const renderScriptPath = resolve(
+		dirname(fileURLToPath(import.meta.url)),
+		'render-district-basemaps.ts',
+	);
+	try {
+		const renderArgs = ['tsx', renderScriptPath, '--bundle-dir', bundleDir];
+		// A publish-source --dry-run must not send tile requests. The renderer
+		// has its own --dry-run that plans without fetching.
+		if (args.dryRun) renderArgs.push('--dry-run');
+		execFileSync('npx', renderArgs, { stdio: 'inherit', env: scrubbedEnv });
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
-		console.error(`Bundle extraction failed: ${msg}`);
+		console.error(`Basemap rendering failed: ${msg}`);
 		process.exit(2);
+	}
+
+	// Basemap completeness gate. If any layer has any *-base.png, every district
+	// in that layer's index must have one. Mixed states would let a publish flip
+	// the manifest while some districts' runtime fetches 404 and others succeed
+	// — the feature flag promises "all or none" per layer.
+	for (const country of readdirSync(bundleDir)) {
+		const countryDir = join(bundleDir, country);
+		if (!statSync(countryDir).isDirectory()) continue;
+		for (const layer of readdirSync(countryDir)) {
+			const layerDir = join(countryDir, layer);
+			const indexPath = join(layerDir, 'index.json');
+			if (!existsSync(indexPath)) continue;
+			const idx = JSON.parse(readFileSync(indexPath, 'utf8')) as {
+				districts?: Array<{ id: string }>;
+			};
+			const ids = idx.districts?.map((d) => d.id) ?? [];
+			const hasAny = ids.some((id) => existsSync(join(layerDir, `${id}-base.png`)));
+			if (!hasAny) continue;
+			const missing = ids.filter((id) => !existsSync(join(layerDir, `${id}-base.png`)));
+			if (missing.length > 0) {
+				console.error(
+					`Basemap completeness gate failed for ${country}/${layer}: ` +
+						`${missing.length} of ${ids.length} districts missing -base.png. ` +
+						`Either render the gap (re-run with STADIA_API_KEY) or delete the ` +
+						`partial set so the publish ships without basemaps.`,
+				);
+				console.error(`  First missing: ${missing.slice(0, 5).join(', ')}`);
+				process.exit(2);
+			}
+		}
 	}
 
 	// Populate bundles[] from the per-layer index files the extractor wrote.

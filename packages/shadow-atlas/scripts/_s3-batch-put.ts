@@ -16,8 +16,18 @@
  * to 1,000 keys per DeleteObjects call, which is the S3/R2 max.
  */
 
-import { readdirSync, statSync, createReadStream } from 'node:fs';
+import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, relative, posix as posixPath } from 'node:path';
+import https from 'node:https';
+
+// IPv4-only Agent — same rationale as _s3-multipart.ts. The SDK's
+// default NodeHttpHandler builds its own https.Agent and would ignore
+// our `https.globalAgent.options.family = 4` set at the entry point.
+const IPV4_HTTPS_AGENT = new https.Agent({
+	family: 4,
+	keepAlive: true,
+	maxSockets: 50,
+});
 
 import type { S3MultipartEnv } from './_s3-multipart.js';
 
@@ -60,11 +70,22 @@ interface BatchPutOptions {
  */
 export async function s3BatchPutDir(opts: BatchPutOptions): Promise<string[]> {
 	const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+	const { NodeHttpHandler } = await import('@smithy/node-http-handler');
 
 	const endpoint = `https://${opts.env.accountId}.r2.cloudflarestorage.com`;
 	const client = new S3Client({
 		region: 'auto',
 		endpoint,
+		forcePathStyle: true,
+		// Layered with the per-file backoff retry below: SDK retries handle
+		// fast 5xx/4xx + short network hiccups; our outer wrapper handles
+		// multi-second DNS outages that exhaust the SDK budget.
+		maxAttempts: 6,
+		requestHandler: new NodeHttpHandler({
+			httpsAgent: IPV4_HTTPS_AGENT,
+			connectionTimeout: 30_000,
+			requestTimeout: 0,
+		}),
 		credentials: {
 			accessKeyId: opts.env.accessKeyId,
 			secretAccessKey: opts.env.secretAccessKey,
@@ -87,6 +108,45 @@ export async function s3BatchPutDir(opts: BatchPutOptions): Promise<string[]> {
 
 	const progressFor = opts.progress;
 
+	// Transient codes worth a script-level retry beyond the SDK's own. DNS
+	// flaps (ENOTFOUND/EAI_AGAIN) and socket resets last seconds to minutes
+	// — longer than the SDK's StandardRetryStrategy budget — but the rest
+	// of the batch can succeed once the network heals. Without this layer
+	// a 10-second DNS blip kills 10k files of progress.
+	const TRANSIENT_CODES = new Set([
+		'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'ECONNRESET',
+		'ECONNREFUSED', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH',
+	]);
+	const isTransient = (err: unknown): boolean => {
+		const e = err as { code?: string; name?: string; cause?: { code?: string } } | null;
+		const code = e?.code ?? e?.cause?.code ?? '';
+		return TRANSIENT_CODES.has(code);
+	};
+	const PER_FILE_MAX_ATTEMPTS = 6;
+	const PER_FILE_BACKOFF_MS = [1000, 3000, 7000, 15000, 30000]; // capped by attempts
+
+	const putWithRetry = async (key: string, body: Buffer, contentType: string, size: number): Promise<void> => {
+		let lastErr: unknown;
+		for (let attempt = 0; attempt < PER_FILE_MAX_ATTEMPTS; attempt++) {
+			try {
+				await client.send(new PutObjectCommand({
+					Bucket: opts.bucket,
+					Key: key,
+					Body: body,
+					ContentType: contentType,
+					ContentLength: size,
+				}));
+				return;
+			} catch (err) {
+				lastErr = err;
+				if (!isTransient(err) || attempt === PER_FILE_MAX_ATTEMPTS - 1) throw err;
+				const wait = PER_FILE_BACKOFF_MS[attempt] ?? 30000;
+				await new Promise((r) => setTimeout(r, wait));
+			}
+		}
+		throw lastErr;
+	};
+
 	await new Promise<void>((resolve) => {
 		const launch = () => {
 			while (inFlight < concurrency && cursor < relPaths.length && !firstError) {
@@ -96,16 +156,16 @@ export async function s3BatchPutDir(opts: BatchPutOptions): Promise<string[]> {
 				const size = statSync(localFile).size;
 				inFlight++;
 
-				client
-					.send(
-						new PutObjectCommand({
-							Bucket: opts.bucket,
-							Key: key,
-							Body: createReadStream(localFile),
-							ContentType: opts.contentTypeFor(relPath),
-							ContentLength: size,
-						}),
-					)
+				// Buffer the file body so the SDK's StandardRetryStrategy can
+				// actually retry on transient failures. createReadStream gets
+				// consumed on the first send attempt, which makes any retry
+				// surface as "non-retryable streaming request" — a single
+				// flaky packet ~10% into the batch kills the whole publish.
+				// Bundle files are tiny (geojson chunks, ~10–500 KB each),
+				// so buffering them costs at most a few MB resident at peak
+				// concurrency.
+				const body = readFileSync(localFile);
+				putWithRetry(key, body, opts.contentTypeFor(relPath), size)
 					.then(() => {
 						writtenKeys.push(key);
 						uploaded++;
@@ -113,7 +173,16 @@ export async function s3BatchPutDir(opts: BatchPutOptions): Promise<string[]> {
 					})
 					.catch((err: unknown) => {
 						if (!firstError) {
-							firstError = err instanceof Error ? err : new Error(String(err));
+							const e = err instanceof Error ? err : new Error(String(err));
+							const named = e as Error & { name?: string; code?: string; $metadata?: { httpStatusCode?: number } };
+							const detail = [
+								`key=${key}`,
+								named.name && `name=${named.name}`,
+								named.code && `code=${named.code}`,
+								named.$metadata?.httpStatusCode && `http=${named.$metadata.httpStatusCode}`,
+							].filter(Boolean).join(' ');
+							process.stderr.write(`\n    [s3-batch] first error after ${PER_FILE_MAX_ATTEMPTS} attempts: ${e.message} | ${detail}\n`);
+							firstError = e;
 						}
 					})
 					.finally(() => {
@@ -155,10 +224,17 @@ export async function s3BatchDelete(
 	if (keys.length === 0) return { deleted: 0, failed: 0, failedKeys: [] };
 
 	const { S3Client, DeleteObjectsCommand } = await import('@aws-sdk/client-s3');
+	const { NodeHttpHandler } = await import('@smithy/node-http-handler');
 	const endpoint = `https://${env.accountId}.r2.cloudflarestorage.com`;
 	const client = new S3Client({
 		region: 'auto',
 		endpoint,
+		forcePathStyle: true,
+		requestHandler: new NodeHttpHandler({
+			httpsAgent: IPV4_HTTPS_AGENT,
+			connectionTimeout: 30_000,
+			requestTimeout: 0,
+		}),
 		credentials: {
 			accessKeyId: env.accessKeyId,
 			secretAccessKey: env.secretAccessKey,

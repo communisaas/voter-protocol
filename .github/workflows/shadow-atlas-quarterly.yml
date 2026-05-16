@@ -387,13 +387,18 @@ jobs:
             ../../shadow-atlas-full.db \
             output/chunked/
 
-          # Extract stats from the manifest
-          TOTAL_CHUNKS=$(jq -r '
-            [.countries[].layers[].chunkCount] | add // 0
-          ' output/chunked/manifest.json)
-          TOTAL_CELLS=$(jq -r '
-            [.countries[].layers[].cellCount] | add // 0
-          ' output/chunked/manifest.json)
+          # Extract stats from the per-country manifest. The build script
+          # namespaces by country (output/chunked/<COUNTRY>/manifest.json)
+          # rather than emitting a root aggregate; this loop sums across
+          # whatever countries are present so adding a second country
+          # later (CA/GB/AU) doesn't silently undercount.
+          TOTAL_CHUNKS=0
+          TOTAL_CELLS=0
+          for m in output/chunked/*/manifest.json; do
+            [ -f "$m" ] || continue
+            TOTAL_CHUNKS=$((TOTAL_CHUNKS + $(jq -r '.totalChunks // 0' "$m")))
+            TOTAL_CELLS=$((TOTAL_CELLS + $(jq -r '.totalCells // 0' "$m")))
+          done
 
           echo "total_chunks=$TOTAL_CHUNKS" >> $GITHUB_OUTPUT
           echo "total_cells=$TOTAL_CELLS" >> $GITHUB_OUTPUT
