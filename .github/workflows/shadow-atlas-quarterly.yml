@@ -473,9 +473,13 @@ jobs:
       - name: Export officials to chunked directory
         working-directory: packages/shadow-atlas
         run: |
+          # export-officials.ts takes positional <dbPath> [outputDir].
+          # Flag form (--db / --output) silently parses --db as the
+          # dbPath string and tries to open it as a SQLite file →
+          # SQLITE_CANTOPEN.
           npx tsx scripts/export-officials.ts \
-            --db ../../officials.db \
-            --output output/chunked/
+            ../../officials.db \
+            output/chunked/
 
           # Count exported files
           OFFICIALS_COUNT=$(find output/chunked/ -path '*/officials/*.json' | wc -l | tr -d ' ')
@@ -512,6 +516,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        # build-cell-tree-snapshot.ts imports Poseidon2Hasher from
+        # @voter-protocol/crypto, whose dist/ is gitignored. `npm ci`
+        # alone leaves the module unresolved (ERR_MODULE_NOT_FOUND);
+        # we need to run its tsc first. Mirrors shadow-atlas-ci.yml.
+        run: npm run build -w @voter-protocol/crypto
 
       - name: Download chunked build artifact
         uses: actions/download-artifact@v4
