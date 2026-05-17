@@ -507,6 +507,12 @@ jobs:
     # sequential. Empirically the prior 60-min cap hit timeout deep in
     # the leaf hash loop.
     timeout-minutes: 240
+    env:
+      # Default 4 GB heap OOM'd during the JSON serialization step
+      # (`Serializing wire format...`) after all 1.88M leaves + ~all
+      # internal SMT nodes were materialized in memory. 8 GB fits the
+      # full snapshot with headroom for the JSON.stringify allocation.
+      NODE_OPTIONS: '--max-old-space-size=8192'
     needs: [build-chunked]
     steps:
       - name: Checkout code
