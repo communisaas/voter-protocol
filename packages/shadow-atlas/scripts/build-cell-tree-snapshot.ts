@@ -460,10 +460,61 @@ async function main() {
 
   const snapshot = await buildSnapshot(cells, TREE_DEPTH);
 
+  // Stream the snapshot to disk array-by-array. Holding the entire
+  // pretty-printed JSON in memory OOM'd the GitHub runner at 8 GB heap
+  // with 1.88M leaves + populated internal nodes — the indentation
+  // alone roughly doubles the string size, and JSON.stringify materializes
+  // the full output before write. Array-by-array emission keeps peak
+  // memory bounded by one layer (or chunk of cells) worth of entries,
+  // and compact output (no indent) cuts the on-disk size by ~30-50% with
+  // no information loss.
   const fs = await import('fs');
-  const json = JSON.stringify(snapshot, null, 2);
-  fs.writeFileSync(outputPath, json);
-  console.log(`\nSnapshot written to ${outputPath} (${(json.length / 1024).toFixed(1)} KB)`);
+  console.log(`  Writing snapshot to ${outputPath} (streaming)...`);
+  const fd = fs.openSync(outputPath, 'w');
+  const writeChunk = (s: string) => fs.writeSync(fd, s);
+  try {
+    const snap = snapshot as unknown as {
+      version: number;
+      depth: number;
+      root: string;
+      zeroHashes: string[];
+      layers: Array<Array<[number, string]>>;
+      cells: Array<{ cellId: string; leafIndex: number; districts: string[] }>;
+      [k: string]: unknown;
+    };
+    // Emit small, eager-serializable fields first.
+    writeChunk('{');
+    writeChunk(`"version":${JSON.stringify(snap.version)},`);
+    writeChunk(`"depth":${JSON.stringify(snap.depth)},`);
+    writeChunk(`"root":${JSON.stringify(snap.root)},`);
+    writeChunk(`"zeroHashes":${JSON.stringify(snap.zeroHashes)},`);
+    // Stream layers one at a time.
+    writeChunk('"layers":[');
+    for (let level = 0; level < snap.layers.length; level++) {
+      if (level > 0) writeChunk(',');
+      writeChunk(JSON.stringify(snap.layers[level]));
+    }
+    writeChunk('],');
+    // Stream cells one-by-one so the giant array never materializes as
+    // a single string. JSON.stringify on the full 1.88M-cell array was
+    // the OOM culprit even at 8 GB heap.
+    writeChunk('"cells":[');
+    for (let i = 0; i < snap.cells.length; i++) {
+      if (i > 0) writeChunk(',');
+      writeChunk(JSON.stringify(snap.cells[i]));
+    }
+    writeChunk(']');
+    // Any other top-level fields that buildSnapshot may add in the future.
+    for (const [k, v] of Object.entries(snap)) {
+      if (['version', 'depth', 'root', 'zeroHashes', 'layers', 'cells'].includes(k)) continue;
+      writeChunk(`,${JSON.stringify(k)}:${JSON.stringify(v)}`);
+    }
+    writeChunk('}');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const finalSize = fs.statSync(outputPath).size;
+  console.log(`\nSnapshot written to ${outputPath} (${(finalSize / 1024 / 1024).toFixed(1)} MB)`);
 }
 
 main().catch((err) => {

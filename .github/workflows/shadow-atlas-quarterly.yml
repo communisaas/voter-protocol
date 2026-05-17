@@ -508,11 +508,12 @@ jobs:
     # the leaf hash loop.
     timeout-minutes: 240
     env:
-      # Default 4 GB heap OOM'd during the JSON serialization step
-      # (`Serializing wire format...`) after all 1.88M leaves + ~all
-      # internal SMT nodes were materialized in memory. 8 GB fits the
-      # full snapshot with headroom for the JSON.stringify allocation.
-      NODE_OPTIONS: '--max-old-space-size=8192'
+      # 8 GB OOM'd inside JSON.stringify — even with `null, 2` removed
+      # and array-by-array streaming the wire-cells intermediate array
+      # (1.88M cell objects, each with 24 hex strings) is bulky. 12 GB
+      # fits the residency comfortably on the 16 GB runner. Reduce if
+      # cell count drops or wire format slims.
+      NODE_OPTIONS: '--max-old-space-size=12288'
     needs: [build-chunked]
     steps:
       - name: Checkout code
