@@ -560,7 +560,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cell-tree-snapshot
-          path: packages/shadow-atlas/output/chunked/US/merkle/cell-tree-snapshot.json
+          # The snapshot is split into <name>.json + <name>.cells.ndjson
+          # to keep the JSON file under Node's 512 MB single-string cap;
+          # upload the whole merkle dir so both files reach the consumer.
+          path: packages/shadow-atlas/output/chunked/US/merkle/
           retention-days: 180
 
   # =========================================================================

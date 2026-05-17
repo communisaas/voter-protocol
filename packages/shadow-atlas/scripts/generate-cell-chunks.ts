@@ -18,13 +18,15 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { createReadStream, existsSync } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { buildCellMapTree, type CellDistrictMapping } from '../src/tree-builder.js';
 import { buildCellChunks, buildCellChunksManifestEntry, buildDistrictIndex } from '../src/distribution/build-cell-chunks.js';
 import { latLngToCell, cellToParent } from 'h3-js';
 import { buildTractCentroidIndex } from '../src/hydration/tract-centroid-index.js';
 import { atomicWriteFile } from '../src/core/utils/atomic-write.js';
 import { mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // ============================================================================
 // CLI
@@ -73,6 +75,14 @@ async function main() {
 
 	let mappings: CellDistrictMapping[];
 
+	// cellId in the snapshot may be: "0x..." (hex field element),
+	// "872756711ffffff" (H3 hex), or decimal string.
+	const parseCellId = (id: string): bigint => {
+		if (id.startsWith('0x') || id.startsWith('0X')) return BigInt(id);
+		if (/^[0-9a-f]+$/i.test(id)) return BigInt('0x' + id); // H3 hex index
+		return BigInt(id); // decimal string
+	};
+
 	if (snapshot.mappings) {
 		// Format A: build-tree2.ts v3 output — { mappings: [{ cellId: "6001400100", districts: ["613", ...] }] }
 		mappings = snapshot.mappings.map((m: { cellId: string; districts: string[] }) => ({
@@ -80,22 +90,44 @@ async function main() {
 			districts: m.districts.map((d: string) => BigInt(d)),
 		}));
 		console.log(`  → Format: build-tree2 v${snapshot.version}`);
+	} else if (snapshot.cellsFile) {
+		// Format C: build-cell-tree-snapshot.ts split output. The cells
+		// live in an adjacent NDJSON sidecar so the JSON file stays under
+		// Node's 512 MB string cap; we stream-parse cells line by line.
+		const cellsPath = join(dirname(snapshotPath), snapshot.cellsFile);
+		if (!existsSync(cellsPath)) {
+			throw new Error(`Snapshot references cellsFile=${snapshot.cellsFile} but ${cellsPath} not found`);
+		}
+		console.log(`  → Format: cell-tree-snapshot v${snapshot.version} (NDJSON cells)`);
+		console.log(`  → Streaming cells from ${cellsPath}...`);
+		mappings = [];
+		const stream = createReadStream(cellsPath, { encoding: 'utf-8' });
+		const rl = createInterface({ input: stream, crlfDelay: Infinity });
+		let count = 0;
+		const LOG_INTERVAL = 200_000;
+		for await (const line of rl) {
+			if (!line) continue;
+			const c = JSON.parse(line) as { cellId: string; districts: string[] };
+			mappings.push({
+				cellId: parseCellId(c.cellId),
+				districts: c.districts.map((d) => BigInt(d)),
+			});
+			count++;
+			if (count % LOG_INTERVAL === 0) {
+				console.log(`    loaded ${count.toLocaleString()} cells`);
+			}
+		}
 	} else if (snapshot.cells) {
-		// Format B: build-cell-tree-snapshot.ts output
-		// cellId may be: "0x..." (hex field element), "872756711ffffff" (H3 hex), or decimal string
-		// districts are always "0x..." hex field elements
-		const parseCellId = (id: string): bigint => {
-			if (id.startsWith('0x') || id.startsWith('0X')) return BigInt(id);
-			if (/^[0-9a-f]+$/i.test(id)) return BigInt('0x' + id); // H3 hex index
-			return BigInt(id); // decimal string
-		};
+		// Format B: legacy unified build-cell-tree-snapshot.ts output
+		// (cells inline in the same JSON). Retained for back-compat with
+		// snapshots produced before the NDJSON split.
 		mappings = snapshot.cells.map((c: { cellId: string; districts: string[] }) => ({
 			cellId: parseCellId(c.cellId),
 			districts: c.districts.map((d: string) => BigInt(d)),
 		}));
-		console.log(`  → Format: cell-tree-snapshot v${snapshot.version}`);
+		console.log(`  → Format: cell-tree-snapshot v${snapshot.version} (inline cells)`);
 	} else {
-		throw new Error('Unrecognized snapshot format: expected "mappings" or "cells" array');
+		throw new Error('Unrecognized snapshot format: expected "mappings", "cells", or "cellsFile"');
 	}
 
 	console.log(`  → ${mappings.length.toLocaleString()} cells, depth ${snapshot.depth}`);

@@ -482,62 +482,85 @@ async function main() {
   // and compact output (no indent) cuts the on-disk size by ~30-50% with
   // no information loss.
   const fs = await import('fs');
-  console.log(`  Writing snapshot to ${outputPath} (streaming)...`);
+  const path = await import('path');
+
+  const snap = snapshot as unknown as {
+    version: number;
+    depth: number;
+    root: string;
+    zeroHashes: string[];
+    layers: Array<Array<[number, string]>>;
+    _rawCells?: CellEntry[];
+  };
+
+  // Split-output design.
+  //
+  // The unified single-JSON-file format produces a 3+ GB file at
+  // full-US scale. Downstream `generate-cell-chunks.ts` reads it via
+  // `await readFile(path, 'utf-8'); JSON.parse(...)` — Node's string
+  // representation caps at ~512 MB, so any unified output would crash
+  // the consumer with ERR_STRING_TOO_LONG before it parsed anything.
+  //
+  // We split:
+  //   <outputPath>                  → header + zeroHashes + layers (~<500 MB)
+  //   <outputPath>.cells.ndjson     → one JSON cell per line (~2-3 GB)
+  //
+  // The consumer reads the small JSON in one shot and streams the
+  // NDJSON line by line. Both files are uploaded together by the
+  // workflow.
+  const cellsPath = outputPath + '.cells.ndjson';
+  console.log(`  Writing snapshot header+layers to ${outputPath} (streaming)...`);
   const fd = fs.openSync(outputPath, 'w');
   const writeChunk = (s: string) => fs.writeSync(fd, s);
   try {
-    const snap = snapshot as unknown as {
-      version: number;
-      depth: number;
-      root: string;
-      zeroHashes: string[];
-      layers: Array<Array<[number, string]>>;
-      _rawCells?: CellEntry[];
-    };
-
-    // Header fields (small, JSON-stringify safely).
     writeChunk('{');
     writeChunk(`"version":${JSON.stringify(snap.version)},`);
     writeChunk(`"depth":${JSON.stringify(snap.depth)},`);
     writeChunk(`"root":${JSON.stringify(snap.root)},`);
     writeChunk(`"zeroHashes":${JSON.stringify(snap.zeroHashes)},`);
-
-    // Layers: emit array-by-array.
+    // Pointer so the consumer doesn't have to guess the sidecar path.
+    writeChunk(`"cellsFile":${JSON.stringify(path.basename(cellsPath))},`);
+    writeChunk(`"cellCount":${snap._rawCells?.length ?? 0},`);
     writeChunk('"layers":[');
     for (let level = 0; level < snap.layers.length; level++) {
       if (level > 0) writeChunk(',');
       writeChunk(JSON.stringify(snap.layers[level]));
     }
-    writeChunk('],');
+    writeChunk(']}');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const headerSize = fs.statSync(outputPath).size;
+  console.log(`    header+layers: ${(headerSize / 1024 / 1024).toFixed(1)} MB`);
 
-    // Cells: stream from the original CellEntry[] and hex-encode on
-    // the fly. Building the converted array first allocated ~6 GB of
-    // hex strings for 1.88M × 24 districts before any JSON.stringify
-    // ran. Per-cell conversion + immediate write keeps peak allocation
-    // bounded to one cell's worth of strings.
-    writeChunk('"cells":[');
+  // Stream cells to NDJSON. One cell per line — readable via
+  // readline.createInterface on the consumer side. Per-cell hex
+  // conversion happens here, immediately written, then GC'd.
+  console.log(`  Writing cells to ${cellsPath} (NDJSON, streaming)...`);
+  const cellsFd = fs.openSync(cellsPath, 'w');
+  try {
     const rawCells = snap._rawCells ?? [];
     const CELL_LOG_INTERVAL = 200_000;
     let nextLog = CELL_LOG_INTERVAL;
     for (let i = 0; i < rawCells.length; i++) {
       const c = rawCells[i];
-      if (i > 0) writeChunk(',');
-      writeChunk(JSON.stringify({
+      fs.writeSync(cellsFd, JSON.stringify({
         cellId: c.cellId,
         leafIndex: c.leafIndex,
         districts: c.districts.map(toHex),
-      }));
+      }) + '\n');
       if (i + 1 >= nextLog) {
         console.log(`    wrote ${i + 1}/${rawCells.length} cells`);
         nextLog += CELL_LOG_INTERVAL;
       }
     }
-    writeChunk(']}');
   } finally {
-    fs.closeSync(fd);
+    fs.closeSync(cellsFd);
   }
-  const finalSize = fs.statSync(outputPath).size;
-  console.log(`\nSnapshot written to ${outputPath} (${(finalSize / 1024 / 1024).toFixed(1)} MB)`);
+  const cellsSize = fs.statSync(cellsPath).size;
+  console.log(`\nSnapshot written:`);
+  console.log(`  ${outputPath}        ${(headerSize / 1024 / 1024).toFixed(1)} MB`);
+  console.log(`  ${cellsPath}  ${(cellsSize / 1024 / 1024).toFixed(1)} MB`);
 }
 
 main().catch((err) => {
