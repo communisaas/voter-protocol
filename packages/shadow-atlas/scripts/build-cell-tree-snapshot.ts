@@ -133,9 +133,12 @@ async function buildSnapshot(
     console.log(`  Computing ${cells.length} leaf hashes across ${workerCount} workers...`);
 
     const partitionSize = Math.ceil(cells.length / workerCount);
+    // Plain .mjs worker — sidesteps tsx loader propagation issues into
+    // worker_threads (Node 20 + tsx couldn't see .ts in workers even
+    // with execArgv forwarding, surfacing as ERR_UNKNOWN_FILE_EXTENSION).
     const workerScript = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      '_cell-tree-leaf-worker.ts',
+      '_cell-tree-leaf-worker.mjs',
     );
 
     let totalCompleted = 0;
@@ -159,14 +162,13 @@ async function buildSnapshot(
 
       workerPromises.push(
         new Promise<void>((resolve, reject) => {
-          // Inherit parent execArgv so the worker can resolve .ts files.
-          // tsx sets `--require preflight.cjs --import loader.mjs` here;
-          // node --experimental-strip-types sets that flag. Without this
-          // forwarding the worker process boots a vanilla Node that
-          // can't load TypeScript and dies with ERR_UNKNOWN_FILE_EXTENSION.
+          // Worker is plain .mjs, no loader needed; explicit empty
+          // execArgv avoids passing whatever tsx-specific flags the
+          // parent has (which Node 20 worker_threads doesn't fully
+          // honor anyway).
           const worker = new Worker(workerScript, {
             workerData: { partition, workerId: w },
-            execArgv: process.execArgv,
+            execArgv: [],
           });
           worker.on('message', (msg: {
             type: 'progress' | 'done' | 'error';
