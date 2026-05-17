@@ -276,8 +276,20 @@ async function buildSnapshot(
     root = await hasher.hashPair(leftTop, rightTop);
   }
 
-  // Step 5: Serialize to wire format
-  console.log(`  Serializing wire format...`);
+  // Step 5: Build deferred wire-format representation
+  //
+  // Previously this materialized both `wireLayers` (~3.7M entries of
+  // [index, hex] tuples) and `wireCells` (1.88M objects × 24 hex
+  // strings) before returning the snapshot. The wireCells array alone
+  // was ~6 GB resident — every retry OOM'd at "Serializing wire
+  // format..." even with 12 GB heap.
+  //
+  // The fix: keep wireLayers (small enough — ~700 MB peak), but defer
+  // the per-cell hex conversion to the streaming writer downstream so
+  // we never hold all the converted cells in memory simultaneously. The
+  // writer iterates the original CellEntry array, hex-encodes one cell
+  // at a time, writes the JSON, and lets GC reclaim immediately.
+  console.log(`  Serializing tree layers to wire format...`);
   const wireLayers: Array<Array<[number, string]>> = [];
   for (let level = 0; level < depth; level++) {
     const layer = layers[level];
@@ -285,31 +297,32 @@ async function buildSnapshot(
     for (const [idx, hash] of layer.entries()) {
       entries.push([idx, toHex(hash)]);
     }
-    // Sort by index for deterministic output + efficient binary search on client
     entries.sort((a, b) => a[0] - b[0]);
     wireLayers.push(entries);
   }
 
-  const wireCells = cells.map(cell => ({
-    cellId: cell.cellId,
-    leafIndex: cell.leafIndex,
-    districts: cell.districts.map(toHex),
-  }));
-  wireCells.sort((a, b) => a.leafIndex - b.leafIndex);
+  // Sort cells in-place by leafIndex so the streaming writer can emit
+  // them in deterministic order without a separate sorted copy.
+  cells.sort((a, b) => a.leafIndex - b.leafIndex);
 
-  const snapshot: CellTreeSnapshotWire = {
+  // Stats (logged before return so we can see counts even if the
+  // downstream write fails).
+  let totalNodes = 0;
+  for (const layer of wireLayers) totalNodes += layer.length;
+  console.log(`  Tree stats: ${cells.length} cells, ${totalNodes} non-zero nodes, root=${toHex(root).slice(0, 18)}...`);
+
+  // Note: `cells` here is the original CellEntry[] (with bigint
+  // districts) — downstream writer transforms each cell to wire format
+  // on the fly. We cast for the type but the consumer must handle this.
+  const snapshot: CellTreeSnapshotWire & { _rawCells: CellEntry[] } = {
     version: 1,
     depth,
     root: toHex(root),
     zeroHashes,
     layers: wireLayers,
-    cells: wireCells,
+    cells: [], // intentionally empty; writer reads from _rawCells
+    _rawCells: cells,
   };
-
-  // Stats
-  let totalNodes = 0;
-  for (const layer of wireLayers) totalNodes += layer.length;
-  console.log(`  Tree stats: ${cells.length} cells, ${totalNodes} non-zero nodes, root=${toHex(root).slice(0, 18)}...`);
 
   return snapshot;
 }
@@ -479,37 +492,47 @@ async function main() {
       root: string;
       zeroHashes: string[];
       layers: Array<Array<[number, string]>>;
-      cells: Array<{ cellId: string; leafIndex: number; districts: string[] }>;
-      [k: string]: unknown;
+      _rawCells?: CellEntry[];
     };
-    // Emit small, eager-serializable fields first.
+
+    // Header fields (small, JSON-stringify safely).
     writeChunk('{');
     writeChunk(`"version":${JSON.stringify(snap.version)},`);
     writeChunk(`"depth":${JSON.stringify(snap.depth)},`);
     writeChunk(`"root":${JSON.stringify(snap.root)},`);
     writeChunk(`"zeroHashes":${JSON.stringify(snap.zeroHashes)},`);
-    // Stream layers one at a time.
+
+    // Layers: emit array-by-array.
     writeChunk('"layers":[');
     for (let level = 0; level < snap.layers.length; level++) {
       if (level > 0) writeChunk(',');
       writeChunk(JSON.stringify(snap.layers[level]));
     }
     writeChunk('],');
-    // Stream cells one-by-one so the giant array never materializes as
-    // a single string. JSON.stringify on the full 1.88M-cell array was
-    // the OOM culprit even at 8 GB heap.
+
+    // Cells: stream from the original CellEntry[] and hex-encode on
+    // the fly. Building the converted array first allocated ~6 GB of
+    // hex strings for 1.88M × 24 districts before any JSON.stringify
+    // ran. Per-cell conversion + immediate write keeps peak allocation
+    // bounded to one cell's worth of strings.
     writeChunk('"cells":[');
-    for (let i = 0; i < snap.cells.length; i++) {
+    const rawCells = snap._rawCells ?? [];
+    const CELL_LOG_INTERVAL = 200_000;
+    let nextLog = CELL_LOG_INTERVAL;
+    for (let i = 0; i < rawCells.length; i++) {
+      const c = rawCells[i];
       if (i > 0) writeChunk(',');
-      writeChunk(JSON.stringify(snap.cells[i]));
+      writeChunk(JSON.stringify({
+        cellId: c.cellId,
+        leafIndex: c.leafIndex,
+        districts: c.districts.map(toHex),
+      }));
+      if (i + 1 >= nextLog) {
+        console.log(`    wrote ${i + 1}/${rawCells.length} cells`);
+        nextLog += CELL_LOG_INTERVAL;
+      }
     }
-    writeChunk(']');
-    // Any other top-level fields that buildSnapshot may add in the future.
-    for (const [k, v] of Object.entries(snap)) {
-      if (['version', 'depth', 'root', 'zeroHashes', 'layers', 'cells'].includes(k)) continue;
-      writeChunk(`,${JSON.stringify(k)}:${JSON.stringify(v)}`);
-    }
-    writeChunk('}');
+    writeChunk(']}');
   } finally {
     fs.closeSync(fd);
   }
