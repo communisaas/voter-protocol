@@ -579,6 +579,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build workspace dependency (@voter-protocol/crypto)
+        # generate-cell-chunks.ts imports src/tree-builder.ts, which
+        # imports Poseidon2Hasher from @voter-protocol/crypto. dist/ is
+        # gitignored; npm ci alone leaves the module unresolved.
+        run: npm run build -w @voter-protocol/crypto
+
       - name: Download cell tree snapshot
         uses: actions/download-artifact@v4
         with:

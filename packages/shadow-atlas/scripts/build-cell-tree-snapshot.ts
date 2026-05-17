@@ -261,7 +261,59 @@ async function main() {
     console.log(`Building cell tree snapshot from ${mappingPath}...`);
 
     const fs = await import('fs');
-    const rawMapping = JSON.parse(fs.readFileSync(mappingPath, 'utf-8'));
+    const path = await import('path');
+
+    // Two accepted shapes for --from:
+    //   (a) Legacy single-file mapping: a JSON file with
+    //       { version, mapping: { h3: [...] }, slotNames? }.
+    //   (b) Chunked layout produced by build-chunked-mapping.ts:
+    //       a directory containing <country>/manifest.json that lists
+    //       chunk files under <country>/districts/<parent>.json. Each
+    //       chunk's `cells` map has the same per-cell shape; we
+    //       concatenate them in memory before the existing per-cell
+    //       loop. Without this branch, the script readFileSync's the
+    //       directory and dies with EISDIR.
+    let rawMapping: { version?: number; mapping: Record<string, unknown>; slotNames?: Record<string, string> };
+    const stat = fs.statSync(mappingPath);
+    if (stat.isDirectory()) {
+      const entries = fs.readdirSync(mappingPath, { withFileTypes: true });
+      const countries = entries
+        .filter((e) => e.isDirectory() && fs.existsSync(path.join(mappingPath, e.name, 'manifest.json')))
+        .map((e) => e.name);
+      if (countries.length === 0) {
+        throw new Error(`No <country>/manifest.json under ${mappingPath}`);
+      }
+      const merged: Record<string, unknown> = {};
+      let mergedSlotNames: Record<string, string> | undefined;
+      let mergedVersion = 2;
+      for (const country of countries) {
+        const manifestPath = path.join(mappingPath, country, 'manifest.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as {
+          version?: number;
+          slotNames?: Record<string, string>;
+          chunks?: Record<string, { path: string }>;
+        };
+        if (manifest.slotNames && !mergedSlotNames) mergedSlotNames = manifest.slotNames;
+        if (typeof manifest.version === 'number') mergedVersion = Math.max(mergedVersion, manifest.version);
+        const chunkRecords = manifest.chunks ?? {};
+        const chunkCount = Object.keys(chunkRecords).length;
+        let loaded = 0;
+        for (const [, entry] of Object.entries(chunkRecords)) {
+          const chunkPath = path.join(mappingPath, country, entry.path);
+          const chunk = JSON.parse(fs.readFileSync(chunkPath, 'utf-8')) as {
+            cells?: Record<string, unknown>;
+          };
+          Object.assign(merged, chunk.cells ?? {});
+          loaded++;
+          if (loaded % 100 === 0 || loaded === chunkCount) {
+            console.log(`  ${country}: merged ${loaded}/${chunkCount} chunks`);
+          }
+        }
+      }
+      rawMapping = { version: mergedVersion, mapping: merged, slotNames: mergedSlotNames };
+    } else {
+      rawMapping = JSON.parse(fs.readFileSync(mappingPath, 'utf-8'));
+    }
 
     // H3 mapping v2 format: { mapping: { h3Index: (string|null)[24] }, slotNames: {...} }
     // H3 mapping v1 format: { mapping: { h3Index: { cd, sldu, sldl, county } } }

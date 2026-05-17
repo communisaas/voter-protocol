@@ -642,18 +642,23 @@ function main(): void {
   console.log(`Generated:  ${generated}`);
   console.log();
 
+  // Hoisted so the post-try Summary block can read it. Previously
+  // declared inside the try, which left it out of scope after `}
+  // finally { db.close(); }` and crashed the script with
+  // `ReferenceError: summary is not defined` right after a successful
+  // multi-country export.
+  const summary: Array<{
+    country: string;
+    districts: number;
+    officials: number;
+  }> = [];
+
   // Open database in read-only mode — export never writes to the source DB.
   // Schema must already exist (created by the hydration step). If tables are
   // missing, the per-country hasTable() checks below will skip gracefully.
   const db = new Database(dbPath, { readonly: true });
   try {
     ensureDir(outputDir);
-
-    const summary: Array<{
-      country: string;
-      districts: number;
-      officials: number;
-    }> = [];
 
     // ---- US Officials ----
     if (hasTable(db, 'federal_members')) {
