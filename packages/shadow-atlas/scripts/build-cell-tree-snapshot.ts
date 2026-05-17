@@ -509,6 +509,10 @@ async function main() {
   // NDJSON line by line. Both files are uploaded together by the
   // workflow.
   const cellsPath = outputPath + '.cells.ndjson';
+  // Workflow passes a path like output/chunked/US/merkle/cell-tree-snapshot.json
+  // but no upstream step mkdir's the merkle/ subdirectory — the chunked-build
+  // artifact contains only US/manifest.json + US/districts/.
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   console.log(`  Writing snapshot header+layers to ${outputPath} (streaming)...`);
   const fd = fs.openSync(outputPath, 'w');
   const writeChunk = (s: string) => fs.writeSync(fd, s);
