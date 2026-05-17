@@ -501,7 +501,12 @@ jobs:
   build-cell-tree-snapshot:
     name: Build Cell Tree Snapshot
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Sized for full-US scale (1.88M cells × Poseidon2 sponge + hashPair
+    # leaf computation, then ~1.88M hashPair calls walking up the SMT).
+    # Leaf step is worker-parallelized across cores; tree-build remains
+    # sequential. Empirically the prior 60-min cap hit timeout deep in
+    # the leaf hash loop.
+    timeout-minutes: 240
     needs: [build-chunked]
     steps:
       - name: Checkout code

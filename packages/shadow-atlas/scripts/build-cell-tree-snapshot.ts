@@ -112,16 +112,89 @@ async function buildSnapshot(
   }
   const zeroHashes = zeroHashesBigInt.map(toHex);
 
-  // Step 2: Compute leaf hashes
-  console.log(`  Computing ${cells.length} leaf hashes...`);
+  // Step 2: Compute leaf hashes (worker-parallelized)
+  //
+  // The Noir ACVM `execute()` call is CPU-bound and synchronous under an
+  // async wrapper, so awaiting it on a single thread serializes 3.76M
+  // circuit executions (2 per cell). The job's 60-min timeout was
+  // unreachable at full-US scale. Fanning out across worker_threads gives
+  // us real CPU parallelism. Each worker re-initializes Poseidon2Hasher
+  // (~1-2s setup), so we cap the count to keep startup overhead
+  // negligible relative to the 1.88M-cell workload.
   const leafLayer = new Map<number, bigint>();
+  {
+    const { Worker } = await import('node:worker_threads');
+    const { availableParallelism } = await import('node:os');
+    const { fileURLToPath } = await import('node:url');
+    const path = await import('node:path');
 
-  for (const cell of cells) {
-    // district_commitment = poseidon2Sponge(districts[24])
-    const districtCommitment = await hasher.poseidon2Sponge(cell.districts);
-    // leaf = hashPair(cell_id, district_commitment)
-    const leafHash = await hasher.hashPair(cell.cellIdBigInt, districtCommitment);
-    leafLayer.set(cell.leafIndex, leafHash);
+    const desired = availableParallelism?.() ?? 4;
+    const workerCount = Math.max(1, Math.min(desired, 8, cells.length));
+    console.log(`  Computing ${cells.length} leaf hashes across ${workerCount} workers...`);
+
+    const partitionSize = Math.ceil(cells.length / workerCount);
+    const workerScript = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '_cell-tree-leaf-worker.ts',
+    );
+
+    let totalCompleted = 0;
+    let lastLogged = 0;
+    const LOG_INTERVAL = 50_000;
+
+    const workerPromises: Promise<void>[] = [];
+    for (let w = 0; w < workerCount; w++) {
+      const start = w * partitionSize;
+      const end = Math.min(start + partitionSize, cells.length);
+      if (start >= end) continue;
+
+      // Serialize the worker's slice to a transport-safe shape.
+      // bigints don't survive structuredClone in workerData; we stringify
+      // them and reconstitute inside the worker.
+      const partition = cells.slice(start, end).map((c) => ({
+        cellIdHex: c.cellId,
+        districts: c.districts.map((d) => d.toString()),
+        leafIndex: c.leafIndex,
+      }));
+
+      workerPromises.push(
+        new Promise<void>((resolve, reject) => {
+          const worker = new Worker(workerScript, {
+            workerData: { partition, workerId: w },
+          });
+          worker.on('message', (msg: {
+            type: 'progress' | 'done' | 'error';
+            workerId: number;
+            delta?: number;
+            results?: Array<{ leafIndex: number; leafHashHex: string }>;
+            message?: string;
+          }) => {
+            if (msg.type === 'progress' && typeof msg.delta === 'number') {
+              totalCompleted += msg.delta;
+              if (totalCompleted - lastLogged >= LOG_INTERVAL || totalCompleted === cells.length) {
+                const pct = ((totalCompleted / cells.length) * 100).toFixed(1);
+                console.log(`    leaf-hash ${totalCompleted}/${cells.length} (${pct}%)`);
+                lastLogged = totalCompleted;
+              }
+            } else if (msg.type === 'done' && msg.results) {
+              for (const r of msg.results) {
+                leafLayer.set(r.leafIndex, BigInt('0x' + r.leafHashHex));
+              }
+              resolve();
+            } else if (msg.type === 'error') {
+              reject(new Error(msg.message ?? 'worker error'));
+            }
+          });
+          worker.on('error', reject);
+          worker.on('exit', (code) => {
+            if (code !== 0) reject(new Error(`leaf-hash worker exited ${code}`));
+          });
+        }),
+      );
+    }
+
+    await Promise.all(workerPromises);
+    console.log(`  Leaf hashing complete (${leafLayer.size} non-zero leaves).`);
   }
 
   // Step 3: Build sparse tree layers bottom-up
@@ -139,6 +212,13 @@ async function buildSnapshot(
       parentIndices.add(idx >> 1);
     }
 
+    const parentCount = parentIndices.size;
+    if (parentCount > 0) {
+      console.log(`    level ${level} → ${level + 1}: ${parentCount} parents to hash`);
+    }
+    let hashedAtLevel = 0;
+    const LEVEL_LOG_INTERVAL = 50_000;
+    let lastLevelLog = 0;
     for (const parentIdx of parentIndices) {
       const leftIdx = parentIdx * 2;
       const rightIdx = parentIdx * 2 + 1;
@@ -151,6 +231,12 @@ async function buildSnapshot(
       // (optimization: skip storing nodes that equal the empty subtree)
       if (parentHash !== zeroHashesBigInt[level + 1]) {
         parentLayer.set(parentIdx, parentHash);
+      }
+      hashedAtLevel++;
+      if (hashedAtLevel - lastLevelLog >= LEVEL_LOG_INTERVAL || hashedAtLevel === parentCount) {
+        const pct = ((hashedAtLevel / parentCount) * 100).toFixed(1);
+        console.log(`      ${hashedAtLevel}/${parentCount} (${pct}%) at level ${level}`);
+        lastLevelLog = hashedAtLevel;
       }
     }
 
