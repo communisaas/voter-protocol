@@ -159,8 +159,14 @@ async function buildSnapshot(
 
       workerPromises.push(
         new Promise<void>((resolve, reject) => {
+          // Inherit parent execArgv so the worker can resolve .ts files.
+          // tsx sets `--require preflight.cjs --import loader.mjs` here;
+          // node --experimental-strip-types sets that flag. Without this
+          // forwarding the worker process boots a vanilla Node that
+          // can't load TypeScript and dies with ERR_UNKNOWN_FILE_EXTENSION.
           const worker = new Worker(workerScript, {
             workerData: { partition, workerId: w },
+            execArgv: process.execArgv,
           });
           worker.on('message', (msg: {
             type: 'progress' | 'done' | 'error';
