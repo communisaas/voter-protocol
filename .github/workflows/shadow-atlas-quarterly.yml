@@ -583,7 +583,11 @@ jobs:
       total_cells: ${{ steps.generate.outputs.total_cells }}
       populated_slots: ${{ steps.generate.outputs.populated_slots }}
     env:
-      NODE_OPTIONS: '--max-old-space-size=8192'
+      # 8 GB OOM'd in [4/4] buildCellChunks: 1.88M cells × 22-element
+      # sibling arrays + districts + tree state = several GB working set
+      # at the depth-22 cell-map scale. 12 GB matches what cell-tree-snapshot
+      # already runs with, well under the 16 GB runner cap.
+      NODE_OPTIONS: '--max-old-space-size=12288'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
