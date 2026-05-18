@@ -257,7 +257,16 @@ export async function buildCellMapTree(
   const commitments = new Map<string, bigint>();
   const districtMap = new Map<string, readonly bigint[]>();
 
-  // Insert each cell mapping
+  // Insert each cell mapping. Single-threaded because the SMT is
+  // shared state and `insert` mutates internal layers; safe
+  // parallelization would require partitioning + a later merge step
+  // we don't have. Progress logging every 50k cells so multi-hour
+  // rebuilds at full-US scale (~1.88M cells × Poseidon2 sponge +
+  // hashPair + SMT insert each) aren't silent for hours.
+  const PROGRESS_INTERVAL = 50_000;
+  let processed = 0;
+  let lastLogTs = Date.now();
+  const startTs = lastLogTs;
   for (const mapping of mappings) {
     // Validate district array length
     if (mapping.districts.length !== DISTRICT_SLOT_COUNT) {
@@ -280,6 +289,23 @@ export async function buildCellMapTree(
     const cellIdStr = mapping.cellId.toString();
     commitments.set(cellIdStr, districtCommitment);
     districtMap.set(cellIdStr, [...mapping.districts]);
+
+    processed++;
+    if (processed % PROGRESS_INTERVAL === 0 || processed === mappings.length) {
+      const now = Date.now();
+      const totalSec = (now - startTs) / 1000;
+      const sinceLastSec = (now - lastLogTs) / 1000;
+      const intervalRate = PROGRESS_INTERVAL / Math.max(sinceLastSec, 0.001);
+      const remaining = mappings.length - processed;
+      const etaSec = remaining / Math.max(intervalRate, 0.001);
+      console.log(
+        `    SMT insert ${processed.toLocaleString()}/${mappings.length.toLocaleString()} ` +
+        `(${((processed / mappings.length) * 100).toFixed(1)}%) ` +
+        `rate=${intervalRate.toFixed(0)}/s elapsed=${(totalSec / 60).toFixed(1)}m ` +
+        `eta=${(etaSec / 60).toFixed(1)}m`
+      );
+      lastLogTs = now;
+    }
   }
 
   const root = await smt.getRoot();

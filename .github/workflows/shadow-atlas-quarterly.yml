@@ -572,7 +572,11 @@ jobs:
   generate-cell-chunks:
     name: Generate Cell Chunks + District Index
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Sized to match the cell-tree-snapshot upstream: the SMT rebuild
+    # inside buildCellMapTree does ~5-7M sequential Poseidon2 calls
+    # (1.88M cells × sponge + hashPair + SMT insert path). 90 min hit
+    # the cap mid-rebuild; 240 min matches what cell-tree-snapshot uses.
+    timeout-minutes: 240
     needs: [build-cell-tree-snapshot]
     outputs:
       total_cell_chunks: ${{ steps.generate.outputs.total_cell_chunks }}
