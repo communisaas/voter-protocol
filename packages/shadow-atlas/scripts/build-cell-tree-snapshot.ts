@@ -47,7 +47,17 @@ interface CellEntry {
 // Configuration
 // ============================================================================
 
-const TREE_DEPTH = 20; // Production depth — 2^20 = 1,048,576 leaf capacity
+// Production depth. 2^22 = 4,194,304 leaf capacity — sized for full-US
+// scale (1.88M cells today, ~45% load factor with comfortable headroom
+// for future redistricting cycles + state-legislative-district growth).
+// Bumped from 20 (1.04M cap) after SMT collision overflow on the first
+// at-scale CI run; depth-22 Noir circuits are pre-compiled in the
+// crypto package (district_membership_22, two_tree_membership_22,
+// three_tree_membership_22) so the bump is constant-only, no
+// recompile. The downstream provers select the matching circuit via
+// `CircuitDepth = 18 | 20 | 22 | 24` and read `snapshot.depth` at
+// runtime.
+const TREE_DEPTH = 22;
 
 /**
  * Sample H3 cell IDs (res-7, US locations).
