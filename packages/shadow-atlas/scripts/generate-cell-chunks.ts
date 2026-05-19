@@ -21,7 +21,7 @@ import { readFile } from 'node:fs/promises';
 import { createReadStream, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { buildCellMapTree, type CellDistrictMapping } from '../src/tree-builder.js';
-import { buildCellChunks, buildCellChunksManifestEntry, buildDistrictIndex } from '../src/distribution/build-cell-chunks.js';
+import { buildCellChunks, buildCellChunksManifestEntry } from '../src/distribution/build-cell-chunks.js';
 import { latLngToCell, cellToParent } from 'h3-js';
 import { buildTractCentroidIndex } from '../src/hydration/tract-centroid-index.js';
 import { atomicWriteFile } from '../src/core/utils/atomic-write.js';
@@ -297,10 +297,12 @@ async function main() {
 		console.log(`  → No main manifest found at ${mainManifestPath} (cells-only manifest written)`);
 	}
 
-	// Step 5: Build district index (O(1) lookups by district for all 24 slots)
+	// Step 5: District index — built inline by buildCellChunks (above)
+	// so we don't re-walk the just-emptied chunks.cells. This is a free
+	// lookup; buildDistrictIndex is no longer needed here.
 	console.log();
-	console.log('[5/5] Building district index...');
-	const districtIndex = buildDistrictIndex(result, mappings);
+	console.log('[5/5] District index (built inline during chunk emission)...');
+	const districtIndex = result.districtIndex;
 	const populatedSlots = Object.keys(districtIndex.slots).length;
 	const totalDistricts = Object.values(districtIndex.slots)
 		.reduce((sum, s) => sum + Object.keys(s).length, 0);

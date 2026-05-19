@@ -71,8 +71,23 @@ export interface BuildCellChunksResult {
   totalChunks: number;
   /** Total number of cells across all chunks */
   totalCells: number;
-  /** Map from group key (parent cell) to the CellChunkFile */
+  /**
+   * Map from group key (parent cell) to the CellChunkFile.
+   *
+   * When `outputDir` is set, the `cells` field of each entry is
+   * emptied after the chunk is written to disk to keep peak memory
+   * bounded — the file on disk is the source of truth. Consumers that
+   * need per-cell data should re-read the file, or use the inline
+   * `districtIndex` below which is built during the same pass.
+   */
   chunks: ReadonlyMap<string, CellChunkFile>;
+  /**
+   * District-by-slot reverse index built inline while emitting
+   * chunks, so callers no longer need to walk `chunks[*].cells` to
+   * reconstruct it. Maps slot → districtHex → set-of-chunk-keys, plus
+   * a field-element → raw-GEOID label map.
+   */
+  districtIndex: DistrictIndex;
   /** Duration in milliseconds */
   durationMs: number;
 }
@@ -124,11 +139,50 @@ export async function buildCellChunks(
 
   log(`  → ${groups.size} groups from ${mappings.length} cells`);
 
-  // Build chunk files
+  // Build chunk files.
+  //
+  // Previously this kept every chunk in a `chunks: Map<string, CellChunkFile>`
+  // until the function returned, then walked the map a second time to write.
+  // At full-US scale that's 1.88M cells × ~3 KB (cellId + 24 district hex +
+  // 22 sibling hex + path bits) ≈ 5.6 GB resident before any writes — the
+  // job OOM'd at 12 GB heap a few minutes into this step.
+  //
+  // The streaming form below writes each chunk to disk inside the per-group
+  // loop and drops it from memory immediately. The returned `chunks` map now
+  // holds compact summaries ({cellCount, optional h3Index, optional cells})
+  // — callers that need full per-cell data should re-read from disk.
   const generated = new Date().toISOString();
   const rootHex = toHex(treeResult.root);
   const chunks = new Map<string, CellChunkFile>();
   let proofErrors = 0;
+  let chunkWriteCount = 0;
+  const LOG_INTERVAL = 100;
+
+  // District index built inline so we don't need a second pass over
+  // chunks. Sets are converted to arrays at the end.
+  const indexSlots: Record<string, Record<string, Set<string>>> = {};
+  const indexLabels = new Map<string, string>();
+  // Field-element → raw-GEOID label, derived from the original mappings.
+  // Computed once up front because mappings is the source of bigint values.
+  const fieldToGeoid = new Map<string, string>();
+  for (const m of mappings) {
+    for (const d of m.districts) {
+      if (d !== 0n) {
+        const hex = toHex(d);
+        if (!fieldToGeoid.has(hex)) {
+          fieldToGeoid.set(hex, d.toString());
+        }
+      }
+    }
+  }
+  const ZERO_HEX = '0x' + '0'.repeat(64);
+
+  const cellsDir = options.outputDir
+    ? join(options.outputDir, options.country, 'cells')
+    : null;
+  if (cellsDir) {
+    await mkdir(cellsDir, { recursive: true });
+  }
 
   for (const [groupKey, entries] of groups) {
     const cells: Record<string, CellEntry> = {};
@@ -137,10 +191,11 @@ export async function buildCellChunks(
     for (const entry of entries) {
       try {
         const proof = await treeResult.tree.getProof(entry.cellId);
+        const districtsHex = entry.mapping.districts.map(toHex);
 
         cells[entry.key] = {
           c: toHex(entry.cellId),
-          d: entry.mapping.districts.map(toHex),
+          d: districtsHex,
           p: proof.siblings.map(s => toHex(s as bigint)),
           b: [...proof.pathBits],
           a: proof.attempt ?? 0,
@@ -151,6 +206,20 @@ export async function buildCellChunks(
           const h3Key = options.h3Fn(entry.cellId);
           if (h3Key) {
             h3Index[h3Key] = entry.key;
+          }
+        }
+
+        // Accumulate district index inline (instead of a second pass
+        // over chunks.cells after this loop).
+        for (let slot = 0; slot < districtsHex.length; slot++) {
+          const dHex = districtsHex[slot];
+          if (dHex === ZERO_HEX) continue;
+          const slotKey = String(slot);
+          if (!indexSlots[slotKey]) indexSlots[slotKey] = {};
+          if (!indexSlots[slotKey][dHex]) indexSlots[slotKey][dHex] = new Set();
+          indexSlots[slotKey][dHex].add(groupKey);
+          if (!indexLabels.has(dHex)) {
+            indexLabels.set(dHex, fieldToGeoid.get(dHex) ?? dHex);
           }
         }
       } catch (err) {
@@ -175,25 +244,51 @@ export async function buildCellChunks(
       ...(hasH3Index ? { h3Index } : {}),
     };
 
-    chunks.set(groupKey, chunk);
+    // Write to disk immediately when an output directory is provided,
+    // then store only a summary in `chunks` so the cells are GC-eligible
+    // before we move to the next group. Callers that explicitly want to
+    // hold full chunks in memory can omit outputDir.
+    if (cellsDir) {
+      const filePath = join(cellsDir, `${groupKey}.json`);
+      await writeFile(filePath, JSON.stringify(chunk), 'utf-8');
+      // Replace `cells` with an empty record so consumers iterating
+      // `result.chunks` don't accidentally rely on per-cell data; the
+      // file on disk is the source of truth.
+      chunks.set(groupKey, {
+        ...chunk,
+        cells: {},
+      });
+      chunkWriteCount++;
+      if (chunkWriteCount % LOG_INTERVAL === 0 || chunkWriteCount === groups.size) {
+        log(`  → wrote ${chunkWriteCount}/${groups.size} chunks`);
+      }
+    } else {
+      // No outputDir: keep chunk in memory (back-compat with in-process callers).
+      chunks.set(groupKey, chunk);
+    }
   }
 
   if (proofErrors > 0) {
     log(`  ⚠ ${proofErrors} cells failed proof generation`);
   }
-
-  // Write to disk if outputDir provided
-  if (options.outputDir) {
-    const cellsDir = join(options.outputDir, options.country, 'cells');
-    await mkdir(cellsDir, { recursive: true });
-
-    for (const [groupKey, chunk] of chunks) {
-      const filePath = join(cellsDir, `${groupKey}.json`);
-      await writeFile(filePath, JSON.stringify(chunk), 'utf-8');
-    }
-
+  if (cellsDir) {
     log(`  → Wrote ${chunks.size} chunk files to ${cellsDir}`);
   }
+
+  // Materialize district index from inline-accumulated sets.
+  const indexSlotsOut: Record<string, Record<string, string[]>> = {};
+  for (const [slotKey, ds] of Object.entries(indexSlots)) {
+    indexSlotsOut[slotKey] = {};
+    for (const [hex, keys] of Object.entries(ds)) {
+      indexSlotsOut[slotKey][hex] = [...keys];
+    }
+  }
+  const districtIndex: DistrictIndex = {
+    version: 1,
+    generated,
+    slots: indexSlotsOut,
+    labels: Object.fromEntries(indexLabels),
+  };
 
   const durationMs = Date.now() - startTime;
   const totalCells = [...chunks.values()].reduce((sum, c) => sum + c.cellCount, 0);
@@ -202,6 +297,7 @@ export async function buildCellChunks(
     totalChunks: chunks.size,
     totalCells,
     chunks,
+    districtIndex,
     durationMs,
   };
 }
