@@ -73,7 +73,7 @@ concurrency:
   #   - cron: '0 2 1 1,4,7,10 *'
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   CHUNKED_OUTPUT_DIR: packages/shadow-atlas/output/chunked
   # Source manifest published by `npm run publish:source` in shadow-atlas.
   # Public-readable through the Atlas Worker. The resolve-source-version
