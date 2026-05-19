@@ -22,7 +22,8 @@
  * @packageDocumentation
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
+import { openSync, writeSync, closeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { CellMapTreeResult, CellDistrictMapping } from '../tree-builder.js';
 import type { CellChunkFile, CellEntry } from './types.js';
@@ -248,9 +249,42 @@ export async function buildCellChunks(
     // then store only a summary in `chunks` so the cells are GC-eligible
     // before we move to the next group. Callers that explicitly want to
     // hold full chunks in memory can omit outputDir.
+    //
+    // We stream the chunk JSON cell-by-cell rather than calling
+    // JSON.stringify(chunk) once: outlier urban H3 res-3 groups can
+    // contain 100K+ cells × ~5 KB JSON each, which blows past Node's
+    // ~512 MB single-string cap (RangeError: Invalid string length).
+    // Per-cell stringify keeps peak allocation bounded to one cell.
     if (cellsDir) {
       const filePath = join(cellsDir, `${groupKey}.json`);
-      await writeFile(filePath, JSON.stringify(chunk), 'utf-8');
+      const fd = openSync(filePath, 'w');
+      try {
+        // Header fields (small).
+        writeSync(fd, '{');
+        writeSync(fd, `"version":${JSON.stringify(chunk.version)},`);
+        writeSync(fd, `"country":${JSON.stringify(chunk.country)},`);
+        writeSync(fd, `"parentCell":${JSON.stringify(chunk.parentCell)},`);
+        writeSync(fd, `"cellMapRoot":${JSON.stringify(chunk.cellMapRoot)},`);
+        writeSync(fd, `"depth":${JSON.stringify(chunk.depth)},`);
+        writeSync(fd, `"generated":${JSON.stringify(chunk.generated)},`);
+        writeSync(fd, `"cellCount":${JSON.stringify(chunk.cellCount)},`);
+        if (hasH3Index) {
+          writeSync(fd, `"h3Index":${JSON.stringify(h3Index)},`);
+        }
+        // Cells map: emit one key:value at a time.
+        writeSync(fd, '"cells":{');
+        let firstCell = true;
+        for (const [k, v] of Object.entries(cells)) {
+          if (!firstCell) writeSync(fd, ',');
+          firstCell = false;
+          writeSync(fd, JSON.stringify(k));
+          writeSync(fd, ':');
+          writeSync(fd, JSON.stringify(v));
+        }
+        writeSync(fd, '}}');
+      } finally {
+        closeSync(fd);
+      }
       // Replace `cells` with an empty record so consumers iterating
       // `result.chunks` don't accidentally rely on per-cell data; the
       // file on disk is the source of truth.
