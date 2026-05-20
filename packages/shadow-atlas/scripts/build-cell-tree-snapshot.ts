@@ -17,7 +17,31 @@
  *   empty = zeroHashes[level] (precomputed chain)
  */
 
-import { Poseidon2Hasher } from '@voter-protocol/crypto';
+import * as cryptoPoseidon2 from '@voter-protocol/crypto/poseidon2';
+
+type Poseidon2HasherInstance = {
+  hashPair(left: bigint, right: bigint): Promise<bigint>;
+  poseidon2Sponge(inputs: bigint[]): Promise<bigint>;
+};
+
+type Poseidon2HasherCtor = {
+  getInstance(): Promise<Poseidon2HasherInstance>;
+};
+
+const cryptoPoseidon2Compat = cryptoPoseidon2 as unknown as {
+  Poseidon2Hasher?: Poseidon2HasherCtor;
+  default?: { Poseidon2Hasher?: Poseidon2HasherCtor };
+  'module.exports'?: { Poseidon2Hasher?: Poseidon2HasherCtor };
+};
+
+const Poseidon2Hasher =
+  cryptoPoseidon2Compat.Poseidon2Hasher ??
+  cryptoPoseidon2Compat.default?.Poseidon2Hasher ??
+  cryptoPoseidon2Compat['module.exports']?.Poseidon2Hasher;
+
+if (!Poseidon2Hasher) {
+  throw new Error('Unable to load Poseidon2Hasher from @voter-protocol/crypto/poseidon2');
+}
 
 // ============================================================================
 // Types
