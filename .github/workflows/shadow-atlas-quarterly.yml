@@ -55,7 +55,7 @@ on:
       update_registry:
         description: 'Update on-chain registry with new R2 URL + cellMapRoot'
         required: false
-        default: 'false'
+        default: 'true'
         type: choice
         options:
           - 'true'
@@ -896,8 +896,8 @@ jobs:
     name: Update On-Chain Registry
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [resolve-source, upload-r2]
-    if: inputs.update_registry == 'true'
+    needs: [resolve-source, upload-r2, push-cids]
+    if: inputs.update_registry == 'true' && needs.push-cids.result == 'success'
     environment:
       name: production
     steps:
@@ -975,6 +975,8 @@ jobs:
     name: Send Notifications
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     needs:
       - build-chunked
       - export-officials
@@ -993,6 +995,8 @@ jobs:
             const totalChunks = '${{ needs.build-chunked.outputs.total_chunks }}' || 'N/A';
             const totalCells = '${{ needs.build-chunked.outputs.total_cells }}' || 'N/A';
             const atlasUrl = '${{ needs.upload-r2.outputs.atlas_base_url }}' || 'N/A';
+            const pushRequested = '${{ inputs.push_cids }}';
+            const registryRequested = '${{ inputs.update_registry }}';
 
             const title = `Shadow Atlas Quarterly Update - ${new Date().toISOString().split('T')[0]}`;
             const body = [
@@ -1016,6 +1020,8 @@ jobs:
               `- **Total chunks:** ${totalChunks}`,
               `- **Total cells:** ${totalCells}`,
               `- **R2 URL:** ${atlasUrl}`,
+              `- **Push config requested:** ${pushRequested}`,
+              `- **Registry update requested:** ${registryRequested}`,
               `- **Cell chunks:** ${{ needs.generate-cell-chunks.outputs.total_cell_chunks || 'N/A' }}`,
               `- **District slots:** ${{ needs.generate-cell-chunks.outputs.populated_slots || 'N/A' }}/24`,
               `- **Resolution:** 7 (child) / 3 (parent) — ~5.16 km² per cell`,
@@ -1041,8 +1047,6 @@ jobs:
 
       - name: Notify Slack (optional)
         if: env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           ATLAS_URL="${{ needs.upload-r2.outputs.atlas_base_url }}"
           TOTAL_CHUNKS="${{ needs.build-chunked.outputs.total_chunks }}"
@@ -1050,8 +1054,7 @@ jobs:
           VALIDATE_RESULT="${{ needs.validate-build.result }}"
           R2_RESULT="${{ needs.upload-r2.result }}"
 
-          curl -fsSL -X POST -H 'Content-type: application/json' \
-            --data "{
+          payload="{
               \"text\": \"Shadow Atlas Quarterly Update Complete\",
               \"blocks\": [
                 {
@@ -1062,8 +1065,16 @@ jobs:
                   }
                 }
               ]
-            }" \
-            "$SLACK_WEBHOOK_URL"
+            }"
+
+          for attempt in 1 2 3; do
+            if curl -fsSL -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"; then
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+
+          echo "::warning::Slack notification failed after 3 attempts."
 
   # =========================================================================
   # Cleanup old artifacts (keep last 4 quarters = 1 year)
@@ -1092,14 +1103,38 @@ jobs:
               'pin-results',
             ];
 
-            const artifactsResponse = await github.rest.actions.listArtifactsForRepo({
+            const workflows = await github.paginate(github.rest.actions.listRepoWorkflows, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            const workflow = workflows.find(w => w.name === context.workflow);
+            if (!workflow) {
+              core.warning(`Could not find workflow named ${context.workflow}; skipping artifact cleanup.`);
+              return;
+            }
+
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflow.id,
+              per_page: 100
+            });
+            const successfulRunById = new Map(
+              runs
+                .filter(run => run.conclusion === 'success')
+                .map(run => [run.id, run])
+            );
+
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               per_page: 100
             });
 
-            const relevantArtifacts = artifactsResponse.data.artifacts
+            const relevantArtifacts = artifacts
               .filter(a => ARTIFACT_NAMES.includes(a.name))
+              .filter(a => successfulRunById.has(a.workflow_run?.id))
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             // Group by name, keep last 4 of each (1 year of quarterly runs)
