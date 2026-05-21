@@ -11,7 +11,7 @@
  * Environment:
  *   CLOUDFLARE_API_TOKEN    Required - API token with Pages:Edit
  *   CLOUDFLARE_ACCOUNT_ID   Required - Account ID
- *   CF_PAGES_PROJECT        Optional - Project name (default: 'commons')
+ *   CF_PAGES_PROJECT        Optional - Project name (default: 'communique-site')
  */
 
 import { readFileSync } from 'node:fs';
@@ -60,7 +60,7 @@ function parseArgs(argv: string[]): {
   // most invocations push only ATLAS_BASE_URL. The script regains the
   // IPFS_CID_ROOT push automatically once --pin-results is supplied again.
   let pinResultsPath: string | null = null;
-  let project = process.env['CF_PAGES_PROJECT'] ?? 'commons';
+  let project = process.env['CF_PAGES_PROJECT'] ?? 'communique-site';
   let atlasBaseUrl = process.env['ATLAS_BASE_URL'] ?? '';
   let dryRun = false;
 
@@ -113,13 +113,13 @@ Usage:
 Options:
   --pin-results <path>  Path to pin-results.json (default: ./pin-results.json)
   --project <name>      Cloudflare Pages project name
-                        (default: CF_PAGES_PROJECT env var or 'commons')
+                        (default: CF_PAGES_PROJECT env var or 'communique-site')
   --dry-run             Print what would be done without making API calls
 
 Environment:
   CLOUDFLARE_API_TOKEN    Required - API token with Pages:Edit permission
   CLOUDFLARE_ACCOUNT_ID   Required - Cloudflare account ID
-  CF_PAGES_PROJECT        Optional - Project name (default: 'commons')
+  CF_PAGES_PROJECT        Optional - Project name (default: 'communique-site')
 `);
 }
 
@@ -308,10 +308,18 @@ async function setEnvVars(
   }
 }
 
-async function verifyEnvVar(
+function getEnvVarValue(envVars: Record<string, unknown>, name: string): string | undefined {
+  const entry = envVars[name];
+  if (entry === null || typeof entry !== 'object') return undefined;
+  const value = (entry as Record<string, unknown>)['value'];
+  return typeof value === 'string' ? value : undefined;
+}
+
+async function verifyEnvVars(
   accountId: string,
   projectName: string,
-  apiToken: string
+  apiToken: string,
+  expected: { rootCid: string | null; atlasBaseUrl: string }
 ): Promise<void> {
   console.log('\nVerifying...');
 
@@ -350,15 +358,37 @@ async function verifyEnvVar(
     const production = deployConfigs?.['production'] as Record<string, unknown> | undefined;
     const envVars = production?.['env_vars'] as Record<string, unknown> | undefined;
 
-    if (envVars && 'IPFS_CID_ROOT' in envVars) {
+    if (!envVars) {
+      const message = 'No production env_vars in verification response.';
+      if (expected.atlasBaseUrl) {
+        console.error(`  Error: ${message}`);
+        process.exit(1);
+      }
+      console.warn(`  Warning: ${message}`);
+      return;
+    }
+
+    if (expected.rootCid && 'IPFS_CID_ROOT' in envVars) {
       console.log('  IPFS_CID_ROOT: [set] (value redacted by Cloudflare)');
-    } else {
+    } else if (expected.rootCid) {
       console.warn(
         '  Warning: IPFS_CID_ROOT not found in verification response.'
       );
       console.warn(
         '  The env var may have been set — Cloudflare sometimes omits secret_text values from GET responses.'
       );
+    }
+
+    if (expected.atlasBaseUrl) {
+      const actualAtlasBaseUrl = getEnvVarValue(envVars, 'ATLAS_BASE_URL');
+      if (actualAtlasBaseUrl === expected.atlasBaseUrl) {
+        console.log('  ATLAS_BASE_URL: verified');
+      } else {
+        console.error('  Error: ATLAS_BASE_URL verification failed.');
+        console.error(`    expected: ${expected.atlasBaseUrl}`);
+        console.error(`    actual:   ${actualAtlasBaseUrl ?? '<missing or redacted>'}`);
+        process.exit(1);
+      }
     }
   } catch {
     console.warn('  Warning: Could not parse verification response.');
@@ -430,11 +460,13 @@ async function main(): Promise<void> {
   // chosen provider's gateway domain.
 
   // Step 5: Verify
-  await verifyEnvVar(accountId!, project, apiToken!);
+  await verifyEnvVars(accountId!, project, apiToken!, { rootCid, atlasBaseUrl });
 
   // Step 6: Done
-  const cidPreview = rootCid.length > 20 ? rootCid.slice(0, 20) + '...' : rootCid;
-  console.log(`\nDone. Next deploy will use CID ${cidPreview}`);
+  const targetPreview = rootCid
+    ? `CID ${rootCid.length > 20 ? rootCid.slice(0, 20) + '...' : rootCid}`
+    : `ATLAS_BASE_URL ${atlasBaseUrl}`;
+  console.log(`\nDone. Next deploy will use ${targetPreview}`);
 }
 
 main().catch((err) => {
