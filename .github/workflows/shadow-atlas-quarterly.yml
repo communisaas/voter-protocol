@@ -727,7 +727,7 @@ jobs:
     name: Upload to R2
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [validate-build]
+    needs: [resolve-source, validate-build]
     outputs:
       atlas_base_url: ${{ steps.upload.outputs.atlas_base_url }}
     steps:
@@ -766,7 +766,8 @@ jobs:
         run: |
           npx tsx scripts/upload-to-r2.ts \
             --directory output/chunked/ \
-            --output output/r2-upload-results.json
+            --output output/r2-upload-results.json \
+            --prefix "${{ needs.resolve-source.outputs.version }}"
 
           # Extract versioned public URL for push-cids
           ATLAS_URL=$(jq -r '.publicUrl' output/r2-upload-results.json)

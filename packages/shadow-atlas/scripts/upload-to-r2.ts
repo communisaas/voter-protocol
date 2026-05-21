@@ -12,7 +12,7 @@
  * was not an R2-edit token.
  *
  * Usage:
- *   tsx scripts/upload-to-r2.ts --directory <path> [--output <path>]
+ *   tsx scripts/upload-to-r2.ts --directory <path> [--output <path>] [--prefix <prefix>]
  *
  * Environment Variables:
  *   CLOUDFLARE_ACCOUNT_ID - Cloudflare account ID (required)
@@ -20,6 +20,7 @@
  *   R2_SECRET_ACCESS_KEY  - R2 S3-compatible secret key (required)
  *   R2_BUCKET_NAME        - Default: 'shadow-atlas'
  *   R2_PUBLIC_URL         - Default: 'https://atlas.commons.email'
+ *   R2_PREFIX             - Optional object prefix, otherwise UTC date
  *
  * Outputs:
  *   r2-upload-results.json - Upload metadata and verification results
@@ -65,8 +66,10 @@ interface UploadResults {
 	durationMs: number;
 	verified: boolean;
 	verificationDetails: {
+		s3ObjectsVerified: number;
+		s3BytesVerified: number;
 		manifestAccessible: boolean;
-		sampleChunkAccessible: boolean;
+		districtIndexAccessible: boolean;
 	};
 }
 
@@ -107,6 +110,22 @@ function contentType(filePath: string): string {
 		default:
 			return 'application/octet-stream';
 	}
+}
+
+function defaultDatePrefix(): string {
+	const version = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+	return `v${version}`;
+}
+
+function normalizePrefix(prefix: string): string {
+	const clean = prefix.replace(/^\/+|\/+$/g, '');
+	if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(clean)) {
+		console.error(
+			`Error: invalid R2 prefix "${prefix}". Use a simple version tag such as v20260521.`,
+		);
+		process.exit(1);
+	}
+	return clean;
 }
 
 async function verifyUrl(url: string): Promise<boolean> {
@@ -162,7 +181,6 @@ async function s3UploadFile(
 	key: string,
 	filePath: string,
 	contentType: string,
-	sizeBytes: number,
 	signal: AbortSignal,
 ): Promise<void> {
 	const { Upload } = await import('@aws-sdk/lib-storage');
@@ -174,7 +192,6 @@ async function s3UploadFile(
 			Key: key,
 			Body: createReadStream(filePath),
 			ContentType: contentType,
-			ContentLength: sizeBytes,
 		},
 		partSize: S3_PART_SIZE_BYTES,
 		queueSize: S3_PART_CONCURRENCY,
@@ -191,9 +208,61 @@ async function s3UploadFile(
 	}
 }
 
+async function verifyS3Objects(
+	client: Awaited<ReturnType<typeof createS3Client>>,
+	bucket: string,
+	prefix: string,
+	files: Array<{ relativePath: string; absolutePath: string; sizeBytes: number }>,
+	concurrency: number,
+): Promise<{ verified: number; bytesVerified: number }> {
+	const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
+	let verified = 0;
+	let bytesVerified = 0;
+	let firstFailureKey: string | undefined;
+	let firstFailureMessage: string | undefined;
+
+	try {
+		await runWithConcurrency(
+			files,
+			concurrency,
+			async (file, _idx, signal) => {
+				const key = `${prefix}/${file.relativePath}`;
+				try {
+					const head = await client.send(
+						new HeadObjectCommand({ Bucket: bucket, Key: key }),
+						{ abortSignal: signal },
+					);
+					if (head.ContentLength !== file.sizeBytes) {
+						throw new Error(
+							`size mismatch: expected ${file.sizeBytes}, got ${head.ContentLength ?? '<missing>'}`,
+						);
+					}
+					verified++;
+					bytesVerified += file.sizeBytes;
+					if (verified % 250 === 0 || verified === files.length) {
+						const pct = files.length === 0 ? '100' : ((verified / files.length) * 100).toFixed(0);
+						console.log(`  [${pct}%] ${verified}/${files.length} objects verified`);
+					}
+				} catch (err) {
+					if (firstFailureKey === undefined) {
+						firstFailureKey = key;
+						firstFailureMessage = err instanceof Error ? err.message : String(err);
+					}
+					throw err;
+				}
+			},
+		);
+	} catch {
+		throw new Error(`${firstFailureKey ?? '<unknown>'} — ${firstFailureMessage ?? 'verification failed'}`);
+	}
+
+	return { verified, bytesVerified };
+}
+
 async function main(): Promise<void> {
 	let directoryPath = '';
 	let outputPath = 'r2-upload-results.json';
+	let prefixArg = process.env['R2_PREFIX'] || '';
 
 	const args = process.argv.slice(2);
 	for (let i = 0; i < args.length; i++) {
@@ -204,9 +273,14 @@ async function main(): Promise<void> {
 			case '--output':
 				outputPath = args[++i];
 				break;
+			case '--prefix':
+				prefixArg = args[++i];
+				break;
 			default:
 				console.error(`Unknown argument: ${args[i]}`);
-				console.error('Usage: tsx scripts/upload-to-r2.ts --directory <path> [--output <path>]');
+				console.error(
+					'Usage: tsx scripts/upload-to-r2.ts --directory <path> [--output <path>] [--prefix <prefix>]',
+				);
 				process.exit(1);
 		}
 	}
@@ -243,9 +317,7 @@ async function main(): Promise<void> {
 		secretAccessKey,
 	};
 
-	// Versioned prefix for atomic deploys.
-	const version = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-	const prefix = `v${version}`;
+	const prefix = normalizePrefix(prefixArg || defaultDatePrefix());
 
 	console.log(`Scanning directory: ${directoryPath}`);
 	const files = walkDirectory(directoryPath);
@@ -284,16 +356,15 @@ async function main(): Promise<void> {
 			async (file, _idx, signal) => {
 				const key = `${prefix}/${file.relativePath}`;
 				const type = contentType(file.relativePath);
-				try {
-					await s3UploadFile(
-						s3Client,
-						bucket,
-						key,
-						file.absolutePath,
-						type,
-						file.sizeBytes,
-						signal,
-					);
+					try {
+						await s3UploadFile(
+							s3Client,
+							bucket,
+							key,
+							file.absolutePath,
+							type,
+							signal,
+						);
 					uploaded++;
 					if (uploaded % 100 === 0 || uploaded === files.length) {
 						const pct = ((uploaded / files.length) * 100).toFixed(0);
@@ -314,8 +385,6 @@ async function main(): Promise<void> {
 		console.error('Aborting — partial upload is not safe. Re-run after addressing the cause.');
 		s3Client.destroy();
 		process.exit(1);
-	} finally {
-		s3Client.destroy();
 	}
 
 	const durationMs = Date.now() - startTime;
@@ -335,14 +404,30 @@ async function main(): Promise<void> {
 
 	const versionedPublicUrl = `${publicUrl}/${prefix}`;
 
+	console.log(`\nVerifying uploaded objects through R2 S3 API...`);
+	let s3Verified = 0;
+	let s3BytesVerified = 0;
+	try {
+		const s3Verification = await verifyS3Objects(s3Client, bucket, prefix, files, concurrency);
+		s3Verified = s3Verification.verified;
+		s3BytesVerified = s3Verification.bytesVerified;
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error(`\nS3 verification FAILED: ${msg}`);
+		s3Client.destroy();
+		process.exit(1);
+	} finally {
+		s3Client.destroy();
+	}
+
 	console.log(`\nVerifying via public URL: ${versionedPublicUrl}`);
 	const manifestOk = await verifyUrl(`${versionedPublicUrl}/US/manifest.json`);
 	console.log(`  US/manifest.json: ${manifestOk ? 'OK' : 'FAILED'}`);
 
-	const sampleChunkOk = await verifyUrl(`${versionedPublicUrl}/US/district-index.json`);
-	console.log(`  US/district-index.json: ${sampleChunkOk ? 'OK' : 'FAILED'}`);
+	const districtIndexOk = await verifyUrl(`${versionedPublicUrl}/US/district-index.json`);
+	console.log(`  US/district-index.json: ${districtIndexOk ? 'OK' : 'FAILED'}`);
 
-	const verified = manifestOk && sampleChunkOk;
+	const verified = s3Verified === files.length && manifestOk && districtIndexOk;
 
 	const results: UploadResults = {
 		timestamp: new Date().toISOString(),
@@ -354,8 +439,10 @@ async function main(): Promise<void> {
 		durationMs,
 		verified,
 		verificationDetails: {
+			s3ObjectsVerified: s3Verified,
+			s3BytesVerified,
 			manifestAccessible: manifestOk,
-			sampleChunkAccessible: sampleChunkOk,
+			districtIndexAccessible: districtIndexOk,
 		},
 	};
 
