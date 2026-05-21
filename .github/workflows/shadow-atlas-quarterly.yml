@@ -821,6 +821,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate promotion prerequisites
+        env:
+          COMMONS_DEPLOY_TOKEN: ${{ secrets.COMMONS_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$COMMONS_DEPLOY_TOKEN" ]; then
+            echo "::error::COMMONS_DEPLOY_TOKEN is required before mutating Cloudflare Pages config."
+            echo "::error::Create a fine-grained token with Actions:write on communisaas/commons and store it as a repository secret."
+            exit 1
+          fi
+
       - name: Download cell tree snapshot
         uses: actions/download-artifact@v4
         with:
