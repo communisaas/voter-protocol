@@ -5,18 +5,19 @@
  * Uploads the validated build output directory to an R2 bucket,
  * preserving the directory structure for path-based HTTP access.
  *
- * Single-token model (2026-05-02): all R2 PUTs go through `wrangler r2
- * object put` which authenticates via CLOUDFLARE_API_TOKEN. No
- * S3-compatible AKID/secret pair is needed. The previous
- * `@aws-sdk/client-s3` path was retired with the storacha-sunset
- * migration so CI carries one credential, not three.
+ * Uploads use R2's S3-compatible endpoint with the same access key pair
+ * used by the quarterly workflow's source downloads. The previous
+ * Wrangler bearer-token path was brittle for CI bulk uploads: it spawned
+ * one Wrangler process per object and failed when CLOUDFLARE_API_TOKEN
+ * was not an R2-edit token.
  *
  * Usage:
  *   tsx scripts/upload-to-r2.ts --directory <path> [--output <path>]
  *
  * Environment Variables:
- *   CLOUDFLARE_API_TOKEN  - Token with Account → R2 → Edit (required)
  *   CLOUDFLARE_ACCOUNT_ID - Cloudflare account ID (required)
+ *   R2_ACCESS_KEY_ID      - R2 S3-compatible access key (required)
+ *   R2_SECRET_ACCESS_KEY  - R2 S3-compatible secret key (required)
  *   R2_BUCKET_NAME        - Default: 'shadow-atlas'
  *   R2_PUBLIC_URL         - Default: 'https://atlas.commons.email'
  *
@@ -24,15 +25,12 @@
  *   r2-upload-results.json - Upload metadata and verification results
  */
 
+import { createReadStream } from 'node:fs';
 import { readdirSync, lstatSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
+import https from 'node:https';
 
-import {
-	resolveWranglerBin,
-	runWithConcurrency,
-	wranglerPutFileAsync,
-	type WranglerEnv,
-} from './_wrangler-r2.js';
+import { runWithConcurrency } from './_wrangler-r2.js';
 
 /**
  * Concurrent wrangler subprocesses. Each pool slot spawns a wrangler
@@ -42,6 +40,8 @@ import {
  */
 const DEFAULT_CONCURRENCY = 16;
 const MAX_USER_CONCURRENCY = 64;
+const S3_PART_SIZE_BYTES = 16 * 1024 * 1024;
+const S3_PART_CONCURRENCY = 2;
 
 function parseConcurrency(envVal: string | undefined, defaultValue: number): number {
 	if (envVal === undefined || envVal === '') return defaultValue;
@@ -125,6 +125,72 @@ async function verifyUrl(url: string): Promise<boolean> {
 	}
 }
 
+interface S3UploadEnv {
+	readonly accountId: string;
+	readonly accessKeyId: string;
+	readonly secretAccessKey: string;
+}
+
+async function createS3Client(env: S3UploadEnv) {
+	const { S3Client } = await import('@aws-sdk/client-s3');
+	const { NodeHttpHandler } = await import('@smithy/node-http-handler');
+
+	return new S3Client({
+		region: 'auto',
+		endpoint: `https://${env.accountId}.r2.cloudflarestorage.com`,
+		forcePathStyle: true,
+		maxAttempts: 10,
+		requestHandler: new NodeHttpHandler({
+			httpsAgent: new https.Agent({
+				family: 4,
+				keepAlive: true,
+				maxSockets: Math.max(50, DEFAULT_CONCURRENCY * S3_PART_CONCURRENCY),
+			}),
+			connectionTimeout: 30_000,
+			requestTimeout: 0,
+		}),
+		credentials: {
+			accessKeyId: env.accessKeyId,
+			secretAccessKey: env.secretAccessKey,
+		},
+	});
+}
+
+async function s3UploadFile(
+	client: Awaited<ReturnType<typeof createS3Client>>,
+	bucket: string,
+	key: string,
+	filePath: string,
+	contentType: string,
+	sizeBytes: number,
+	signal: AbortSignal,
+): Promise<void> {
+	const { Upload } = await import('@aws-sdk/lib-storage');
+
+	const upload = new Upload({
+		client,
+		params: {
+			Bucket: bucket,
+			Key: key,
+			Body: createReadStream(filePath),
+			ContentType: contentType,
+			ContentLength: sizeBytes,
+		},
+		partSize: S3_PART_SIZE_BYTES,
+		queueSize: S3_PART_CONCURRENCY,
+	});
+
+	const onAbort = () => {
+		void upload.abort();
+	};
+	signal.addEventListener('abort', onAbort, { once: true });
+	try {
+		await upload.done();
+	} finally {
+		signal.removeEventListener('abort', onAbort);
+	}
+}
+
 async function main(): Promise<void> {
 	let directoryPath = '';
 	let outputPath = 'r2-upload-results.json';
@@ -154,25 +220,27 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	const cfToken = process.env['CLOUDFLARE_API_TOKEN'];
 	const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
+	const accessKeyId = process.env['R2_ACCESS_KEY_ID'] || process.env['AWS_ACCESS_KEY_ID'];
+	const secretAccessKey = process.env['R2_SECRET_ACCESS_KEY'] || process.env['AWS_SECRET_ACCESS_KEY'];
 	const bucket = process.env['R2_BUCKET_NAME'] || 'shadow-atlas';
 	const publicUrl = (process.env['R2_PUBLIC_URL'] || 'https://atlas.commons.email').replace(
 		/\/$/,
 		'',
 	);
 
-	if (!cfToken || !accountId) {
+	if (!accountId || !accessKeyId || !secretAccessKey) {
 		console.error('Missing required environment variables:');
-		console.error('  CLOUDFLARE_API_TOKEN  (Account → R2 → Edit)');
 		console.error('  CLOUDFLARE_ACCOUNT_ID');
+		console.error('  R2_ACCESS_KEY_ID or AWS_ACCESS_KEY_ID');
+		console.error('  R2_SECRET_ACCESS_KEY or AWS_SECRET_ACCESS_KEY');
 		process.exit(1);
 	}
 
-	const cfEnv: WranglerEnv = {
-		wranglerBin: resolveWranglerBin(),
-		token: cfToken,
+	const s3Env: S3UploadEnv = {
 		accountId,
+		accessKeyId,
+		secretAccessKey,
 	};
 
 	// Versioned prefix for atomic deploys.
@@ -193,9 +261,8 @@ async function main(): Promise<void> {
 
 	// Caller-owned AbortController so a SIGINT/SIGTERM (CI cancel,
 	// operator Ctrl-C, runner timeout) propagates into runWithConcurrency
-	// → wranglerPutFileAsync, which kills its child. Without this, dying
-	// before completion orphans wrangler children that hold
-	// CLOUDFLARE_API_TOKEN in env and continue mutating R2.
+	// and aborts in-flight S3 uploads instead of continuing to mutate R2
+	// after the coordinator has already failed.
 	const cancelController = new AbortController();
 	const onSignal = (sig: NodeJS.Signals) => {
 		console.error(`\nReceived ${sig}; aborting in-flight uploads...`);
@@ -208,6 +275,7 @@ async function main(): Promise<void> {
 	let uploaded = 0;
 	let firstFailureKey: string | undefined;
 	let firstFailureMessage: string | undefined;
+	const s3Client = await createS3Client(s3Env);
 
 	try {
 		await runWithConcurrency(
@@ -217,7 +285,15 @@ async function main(): Promise<void> {
 				const key = `${prefix}/${file.relativePath}`;
 				const type = contentType(file.relativePath);
 				try {
-					await wranglerPutFileAsync(bucket, key, file.absolutePath, type, cfEnv, { signal });
+					await s3UploadFile(
+						s3Client,
+						bucket,
+						key,
+						file.absolutePath,
+						type,
+						file.sizeBytes,
+						signal,
+					);
 					uploaded++;
 					if (uploaded % 100 === 0 || uploaded === files.length) {
 						const pct = ((uploaded / files.length) * 100).toFixed(0);
@@ -236,7 +312,10 @@ async function main(): Promise<void> {
 	} catch {
 		console.error(`\nFAILED: ${firstFailureKey ?? '<cancelled>'} — ${firstFailureMessage ?? 'aborted'}`);
 		console.error('Aborting — partial upload is not safe. Re-run after addressing the cause.');
+		s3Client.destroy();
 		process.exit(1);
+	} finally {
+		s3Client.destroy();
 	}
 
 	const durationMs = Date.now() - startTime;
