@@ -802,8 +802,8 @@ jobs:
     name: Push Config to Cloudflare
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [upload-r2]
-    if: needs.upload-r2.result == 'success' && inputs.push_cids != 'false'
+    needs: [upload-r2, build-cell-tree-snapshot]
+    if: needs.upload-r2.result == 'success' && needs.build-cell-tree-snapshot.result == 'success' && inputs.push_cids != 'false'
     environment:
       name: production
     steps:
@@ -820,6 +820,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download cell tree snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: cell-tree-snapshot
+          path: packages/shadow-atlas/output/chunked/US/merkle/
+
       - name: Push config to Cloudflare Pages
         working-directory: packages/shadow-atlas
         env:
@@ -830,14 +836,57 @@ jobs:
         run: |
           # IPFS pinning is paused (2026-05-02). When restored, re-add
           # `--pin-results output/pin-results.json` and download the artifact.
+          CELL_MAP_ROOT=$(jq -r '.root' output/chunked/US/merkle/cell-tree-snapshot.json)
+          CELL_MAP_DEPTH=$(jq -r '.depth' output/chunked/US/merkle/cell-tree-snapshot.json)
+          if [ -z "$CELL_MAP_ROOT" ] || [ "$CELL_MAP_ROOT" = "null" ]; then
+            echo "Error: cell-tree-snapshot.json did not contain .root" >&2
+            exit 1
+          fi
+          if [ -z "$CELL_MAP_DEPTH" ] || [ "$CELL_MAP_DEPTH" = "null" ]; then
+            echo "Error: cell-tree-snapshot.json did not contain .depth" >&2
+            exit 1
+          fi
+
           npx tsx scripts/push-cids.ts \
             --atlas-url "$ATLAS_BASE_URL" \
+            --cell-map-root "$CELL_MAP_ROOT" \
+            --cell-map-depth "$CELL_MAP_DEPTH" \
             --project "$CF_PAGES_PROJECT"
 
           echo "### Config Push" >> $GITHUB_STEP_SUMMARY
           echo "- **ATLAS_BASE_URL:** $ATLAS_BASE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **VITE_ATLAS_BASE_URL:** $ATLAS_BASE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **EXPECTED_CELL_MAP_ROOT:** \`$CELL_MAP_ROOT\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **EXPECTED_CELL_MAP_DEPTH:** $CELL_MAP_DEPTH" >> $GITHUB_STEP_SUMMARY
           echo "- **Project:** $CF_PAGES_PROJECT" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** Updated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Trigger Commons deployment
+        env:
+          GH_TOKEN: ${{ secrets.COMMONS_DEPLOY_TOKEN }}
+          COMMONS_DEPLOY_REPO: ${{ vars.COMMONS_DEPLOY_REPO || 'communisaas/commons' }}
+          COMMONS_DEPLOY_WORKFLOW: ${{ vars.COMMONS_DEPLOY_WORKFLOW || 'deploy.yml' }}
+          COMMONS_DEPLOY_WORKFLOW_REF: ${{ vars.COMMONS_DEPLOY_WORKFLOW_REF || 'main' }}
+          COMMONS_DEPLOY_BRANCH: ${{ vars.COMMONS_DEPLOY_BRANCH || 'production' }}
+          COMMONS_DEPLOY_REF: ${{ vars.COMMONS_DEPLOY_REF || 'production' }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::COMMONS_DEPLOY_TOKEN is required to trigger the Commons deploy workflow."
+            echo "::error::Create a fine-grained token with Actions:write on $COMMONS_DEPLOY_REPO and store it as a repository secret."
+            exit 1
+          fi
+
+          gh workflow run "$COMMONS_DEPLOY_WORKFLOW" \
+            --repo "$COMMONS_DEPLOY_REPO" \
+            --ref "$COMMONS_DEPLOY_WORKFLOW_REF" \
+            -f branch="$COMMONS_DEPLOY_BRANCH" \
+            -f ref="$COMMONS_DEPLOY_REF"
+
+          echo "### Commons Deploy Trigger" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** $COMMONS_DEPLOY_REPO" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow:** $COMMONS_DEPLOY_WORKFLOW@$COMMONS_DEPLOY_WORKFLOW_REF" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy branch:** $COMMONS_DEPLOY_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy ref:** $COMMONS_DEPLOY_REF" >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================
   # Phase 5b: Update on-chain registry (stub — future implementation)

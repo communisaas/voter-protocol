@@ -12,6 +12,9 @@
  *   CLOUDFLARE_API_TOKEN    Required - API token with Pages:Edit
  *   CLOUDFLARE_ACCOUNT_ID   Required - Account ID
  *   CF_PAGES_PROJECT        Optional - Project name (default: 'communique-site')
+ *   ATLAS_BASE_URL          Optional - R2 atlas URL
+ *   EXPECTED_CELL_MAP_ROOT  Optional - Cell-map SMT root
+ *   EXPECTED_CELL_MAP_DEPTH Optional - Cell-map SMT depth
  */
 
 import { readFileSync } from 'node:fs';
@@ -54,6 +57,8 @@ function parseArgs(argv: string[]): {
   pinResultsPath: string | null;
   project: string;
   atlasBaseUrl: string;
+  cellMapRoot: string;
+  cellMapDepth: string;
   dryRun: boolean;
 } {
   // pin-results path is optional. With IPFS pinning paused (2026-05-02),
@@ -62,6 +67,8 @@ function parseArgs(argv: string[]): {
   let pinResultsPath: string | null = null;
   let project = process.env['CF_PAGES_PROJECT'] ?? 'communique-site';
   let atlasBaseUrl = process.env['ATLAS_BASE_URL'] ?? '';
+  let cellMapRoot = process.env['EXPECTED_CELL_MAP_ROOT'] ?? '';
+  let cellMapDepth = process.env['EXPECTED_CELL_MAP_DEPTH'] ?? '';
   let dryRun = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -87,6 +94,20 @@ function parseArgs(argv: string[]): {
           process.exit(2);
         }
         break;
+      case '--cell-map-root':
+        cellMapRoot = argv[++i];
+        if (!cellMapRoot) {
+          console.error('Error: --cell-map-root requires a root argument.');
+          process.exit(2);
+        }
+        break;
+      case '--cell-map-depth':
+        cellMapDepth = argv[++i];
+        if (!cellMapDepth) {
+          console.error('Error: --cell-map-depth requires a depth argument.');
+          process.exit(2);
+        }
+        break;
       case '--dry-run':
         dryRun = true;
         break;
@@ -102,7 +123,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { pinResultsPath, project, atlasBaseUrl, dryRun };
+  return { pinResultsPath, project, atlasBaseUrl, cellMapRoot, cellMapDepth, dryRun };
 }
 
 function printUsage(): void {
@@ -114,12 +135,18 @@ Options:
   --pin-results <path>  Path to pin-results.json (default: ./pin-results.json)
   --project <name>      Cloudflare Pages project name
                         (default: CF_PAGES_PROJECT env var or 'communique-site')
+  --atlas-url <url>     Versioned R2 atlas base URL
+  --cell-map-root <hex> Expected Tree 2 cell-map root
+  --cell-map-depth <n>  Expected Tree 2 cell-map depth
   --dry-run             Print what would be done without making API calls
 
 Environment:
   CLOUDFLARE_API_TOKEN    Required - API token with Pages:Edit permission
   CLOUDFLARE_ACCOUNT_ID   Required - Cloudflare account ID
   CF_PAGES_PROJECT        Optional - Project name (default: 'communique-site')
+  ATLAS_BASE_URL          Optional - R2 atlas URL
+  EXPECTED_CELL_MAP_ROOT  Optional - Cell-map SMT root
+  EXPECTED_CELL_MAP_DEPTH Optional - Cell-map SMT depth
 `);
 }
 
@@ -132,6 +159,21 @@ const CID_PATTERN = /^(bafy[a-zA-Z0-9]{50,}|Qm[a-zA-Z0-9]{44,})$/;
 function validateCidFormat(cid: string, sourcePath: string): void {
   if (!CID_PATTERN.test(cid)) {
     console.error(`Error: CID from ${sourcePath} does not match expected format (CIDv1 bafy... or CIDv0 Qm...): ${cid}`);
+    process.exit(2);
+  }
+}
+
+function validateCellMapRoot(root: string): void {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(root)) {
+    console.error(`Error: --cell-map-root must be a 0x-prefixed 32-byte hex string: ${root}`);
+    process.exit(2);
+  }
+}
+
+function validateCellMapDepth(depth: string): void {
+  const parsed = Number(depth);
+  if (!Number.isInteger(parsed) || parsed < 18 || parsed > 24 || parsed % 2 !== 0) {
+    console.error(`Error: --cell-map-depth must be one of 18, 20, 22, or 24: ${depth}`);
     process.exit(2);
   }
 }
@@ -231,6 +273,8 @@ async function setEnvVars(
   apiToken: string,
   rootCid: string | null,
   atlasBaseUrl?: string,
+  cellMapRoot?: string,
+  cellMapDepth?: string,
 ): Promise<void> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}`;
 
@@ -248,10 +292,30 @@ async function setEnvVars(
       type: 'plain_text',
       value: atlasBaseUrl,
     };
+    envVars['VITE_ATLAS_BASE_URL'] = {
+      type: 'plain_text',
+      value: atlasBaseUrl,
+    };
+  }
+
+  if (cellMapRoot) {
+    envVars['EXPECTED_CELL_MAP_ROOT'] = {
+      type: 'plain_text',
+      value: cellMapRoot,
+    };
+  }
+
+  if (cellMapDepth) {
+    envVars['EXPECTED_CELL_MAP_DEPTH'] = {
+      type: 'plain_text',
+      value: cellMapDepth,
+    };
   }
 
   if (Object.keys(envVars).length === 0) {
-    console.error('Error: at least one of --pin-results or --atlas-url must be provided.');
+    console.error(
+      'Error: at least one of --pin-results, --atlas-url, --cell-map-root, or --cell-map-depth must be provided.'
+    );
     process.exit(2);
   }
 
@@ -319,7 +383,12 @@ async function verifyEnvVars(
   accountId: string,
   projectName: string,
   apiToken: string,
-  expected: { rootCid: string | null; atlasBaseUrl: string }
+  expected: {
+    rootCid: string | null;
+    atlasBaseUrl: string;
+    cellMapRoot: string;
+    cellMapDepth: string;
+  }
 ): Promise<void> {
   console.log('\nVerifying...');
 
@@ -360,7 +429,7 @@ async function verifyEnvVars(
 
     if (!envVars) {
       const message = 'No production env_vars in verification response.';
-      if (expected.atlasBaseUrl) {
+      if (expected.atlasBaseUrl || expected.cellMapRoot || expected.cellMapDepth) {
         console.error(`  Error: ${message}`);
         process.exit(1);
       }
@@ -389,6 +458,40 @@ async function verifyEnvVars(
         console.error(`    actual:   ${actualAtlasBaseUrl ?? '<missing or redacted>'}`);
         process.exit(1);
       }
+
+      const actualViteAtlasBaseUrl = getEnvVarValue(envVars, 'VITE_ATLAS_BASE_URL');
+      if (actualViteAtlasBaseUrl === expected.atlasBaseUrl) {
+        console.log('  VITE_ATLAS_BASE_URL: verified');
+      } else {
+        console.error('  Error: VITE_ATLAS_BASE_URL verification failed.');
+        console.error(`    expected: ${expected.atlasBaseUrl}`);
+        console.error(`    actual:   ${actualViteAtlasBaseUrl ?? '<missing or redacted>'}`);
+        process.exit(1);
+      }
+    }
+
+    if (expected.cellMapRoot) {
+      const actualCellMapRoot = getEnvVarValue(envVars, 'EXPECTED_CELL_MAP_ROOT');
+      if (actualCellMapRoot === expected.cellMapRoot) {
+        console.log('  EXPECTED_CELL_MAP_ROOT: verified');
+      } else {
+        console.error('  Error: EXPECTED_CELL_MAP_ROOT verification failed.');
+        console.error(`    expected: ${expected.cellMapRoot}`);
+        console.error(`    actual:   ${actualCellMapRoot ?? '<missing or redacted>'}`);
+        process.exit(1);
+      }
+    }
+
+    if (expected.cellMapDepth) {
+      const actualCellMapDepth = getEnvVarValue(envVars, 'EXPECTED_CELL_MAP_DEPTH');
+      if (actualCellMapDepth === expected.cellMapDepth) {
+        console.log('  EXPECTED_CELL_MAP_DEPTH: verified');
+      } else {
+        console.error('  Error: EXPECTED_CELL_MAP_DEPTH verification failed.');
+        console.error(`    expected: ${expected.cellMapDepth}`);
+        console.error(`    actual:   ${actualCellMapDepth ?? '<missing or redacted>'}`);
+        process.exit(1);
+      }
     }
   } catch {
     console.warn('  Warning: Could not parse verification response.');
@@ -400,7 +503,9 @@ async function verifyEnvVars(
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const { pinResultsPath, project, atlasBaseUrl, dryRun } = parseArgs(process.argv.slice(2));
+  const { pinResultsPath, project, atlasBaseUrl, cellMapRoot, cellMapDepth, dryRun } = parseArgs(
+    process.argv.slice(2)
+  );
 
   // Step 1: Extract root CID iff pin-results is supplied.
   // IPFS pinning is paused (2026-05-02) so most runs push ATLAS_BASE_URL only.
@@ -414,8 +519,17 @@ async function main(): Promise<void> {
     rootCid = extracted.rootCid;
   }
 
-  if (!rootCid && !atlasBaseUrl) {
-    console.error('Error: at least one of --pin-results or --atlas-url must be provided.');
+  if (cellMapRoot) validateCellMapRoot(cellMapRoot);
+  if (cellMapDepth) validateCellMapDepth(cellMapDepth);
+  if ((cellMapRoot && !cellMapDepth) || (!cellMapRoot && cellMapDepth)) {
+    console.error('Error: --cell-map-root and --cell-map-depth must be supplied together.');
+    process.exit(2);
+  }
+
+  if (!rootCid && !atlasBaseUrl && !cellMapRoot && !cellMapDepth) {
+    console.error(
+      'Error: at least one of --pin-results, --atlas-url, --cell-map-root, or --cell-map-depth must be provided.'
+    );
     process.exit(2);
   }
 
@@ -445,6 +559,9 @@ async function main(): Promise<void> {
     console.log('  Env vars:');
     if (rootCid) console.log(`    IPFS_CID_ROOT = ${rootCid}`);
     if (atlasBaseUrl) console.log(`    ATLAS_BASE_URL = ${atlasBaseUrl}`);
+    if (atlasBaseUrl) console.log(`    VITE_ATLAS_BASE_URL = ${atlasBaseUrl}`);
+    if (cellMapRoot) console.log(`    EXPECTED_CELL_MAP_ROOT = ${cellMapRoot}`);
+    if (cellMapDepth) console.log(`    EXPECTED_CELL_MAP_DEPTH = ${cellMapDepth}`);
     console.log('\n[DRY RUN] No API calls made.');
     return;
   }
@@ -453,14 +570,27 @@ async function main(): Promise<void> {
   if (rootCid) {
     console.log('\nPrevious CID (for rollback): check Cloudflare dashboard — API redacts secret values');
   }
-  await setEnvVars(accountId!, project, apiToken!, rootCid, atlasBaseUrl || undefined);
+  await setEnvVars(
+    accountId!,
+    project,
+    apiToken!,
+    rootCid,
+    atlasBaseUrl || undefined,
+    cellMapRoot || undefined,
+    cellMapDepth || undefined
+  );
 
   // Gateway verification removed 2026-05-02 with the Storacha sunset.
   // When IPFS pinning resumes, re-add a verification step pointing at the
   // chosen provider's gateway domain.
 
   // Step 5: Verify
-  await verifyEnvVars(accountId!, project, apiToken!, { rootCid, atlasBaseUrl });
+  await verifyEnvVars(accountId!, project, apiToken!, {
+    rootCid,
+    atlasBaseUrl,
+    cellMapRoot,
+    cellMapDepth,
+  });
 
   // Step 6: Done
   const targetPreview = rootCid
