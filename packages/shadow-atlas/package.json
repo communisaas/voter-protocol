@@ -134,6 +134,7 @@
         "@types/node": "^24.3.2",
         "@types/pako": "^2.0.4",
         "@types/pg": "^8.0.0",
+        "@vitest/coverage-v8": "^2.1.9",
         "jimp": "^1.6.1",
         "typescript": "^5.7.2",
         "vitest": "^2.1.8",

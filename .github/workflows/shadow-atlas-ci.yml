@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [test-unit, test-integration]
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -185,9 +187,9 @@ jobs:
 
       - name: Upload coverage to Codecov (optional)
         uses: codecov/codecov-action@v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.CODECOV_TOKEN != ''
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           files: packages/shadow-atlas/coverage/coverage-final.json
           flags: shadow-atlas
           fail_ci_if_error: false
