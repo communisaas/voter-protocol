@@ -336,7 +336,7 @@ const latencyAlert: AlertRule = {
     return avgLatency > 5000; // 5s threshold
   },
   severity: 'warning',
-  notificationChannels: ['slack'],
+  notificationChannels: ['github-issues'],
 };
 ```
 

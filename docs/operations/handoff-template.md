@@ -166,7 +166,7 @@ console.table(failed);
 ## Contact Info
 
 **If you need me after handoff**:
-- Slack: @your-name
+- GitHub: @your-name
 - Phone: [If comfortable sharing]
 - Availability: [e.g., "Available until midnight if critical"]
 
@@ -197,7 +197,7 @@ Before ending shift:
 - [ ] Documented any incidents or interventions
 - [ ] No critical alerts firing
 - [ ] Next on-call acknowledged handoff
-- [ ] Posted this handoff in #ops-handoff (Slack)
+- [ ] Posted this handoff as a GitHub issue/comment labeled `ops-handoff`
 
 ---
 
@@ -206,7 +206,7 @@ Before ending shift:
 
 ---
 
-## Quick Copy-Paste for Slack
+## Quick Copy-Paste for Handoff Issue
 
 ```markdown
 ## On-Call Handoff: [Your Name] → [Next Name]

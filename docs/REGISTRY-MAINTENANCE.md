@@ -387,30 +387,7 @@ DEBUG=true npm run atlas:validate-registry
 
 ### Enhancements (Optional)
 
-**1. Slack/Discord Notifications**
-```yaml
-- name: Notify on failure
-  if: failure()
-  uses: slackapi/slack-github-action@v1
-  with:
-    payload: |
-      {
-        "text": "Registry health check failed - broken URLs detected",
-        "blocks": [
-          {
-            "type": "section",
-            "text": {
-              "type": "mrkdwn",
-              "text": "*Shadow Atlas Registry Health Check Failed* \n <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>"
-            }
-          }
-        ]
-      }
-  env:
-    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-```
-
-**2. Auto-Fix Common Issues**
+**1. Auto-Fix Common Issues**
 
 Add workflow step to automatically fix common URL patterns:
 ```yaml

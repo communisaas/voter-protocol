@@ -24,7 +24,7 @@
  * console.log(`Healthy: ${health.healthy}`);
  *
  * // Alerts
- * const alerts = createAlertManager({ webhookUrl: process.env.SLACK_WEBHOOK });
+ * const alerts = createAlertManager({ webhookUrl: process.env.ALERT_WEBHOOK_URL });
  * await alerts.evaluate(health);
  *
  * // Logging

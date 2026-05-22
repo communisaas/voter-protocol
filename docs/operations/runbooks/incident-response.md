@@ -39,13 +39,13 @@ This runbook provides structured incident response procedures for Shadow Atlas p
 - Complete provider outage for TIGER/Census data
 
 **Response Time**: 15 minutes
-**Communication**: Immediate (PagerDuty + Phone + Slack)
+**Communication**: Immediate (PagerDuty + Phone + GitHub issue)
 **Escalation**: On-call → Tech Lead → CTO
 **Update Frequency**: Every 30 minutes until resolved
 
 **Required Actions**:
 1. Acknowledge alert within 5 minutes
-2. Join war room (Slack #incident-response)
+2. Join incident bridge and open the incident GitHub issue
 3. Post initial status update within 15 minutes
 4. Begin mitigation immediately
 5. Loop in Tech Lead if not resolved in 30 minutes
@@ -64,13 +64,13 @@ This runbook provides structured incident response procedures for Shadow Atlas p
 - Partial job failures affecting >20% of tasks
 
 **Response Time**: 1 hour
-**Communication**: Slack + Email
+**Communication**: GitHub issue + Email
 **Escalation**: On-call → Tech Lead
 **Update Frequency**: Every 2 hours until resolved
 
 **Required Actions**:
 1. Acknowledge alert within 30 minutes
-2. Post triage update in Slack within 1 hour
+2. Post triage update in the incident GitHub issue within 1 hour
 3. Begin investigation and mitigation
 4. Escalate if not resolved in 4 hours
 
@@ -88,7 +88,7 @@ This runbook provides structured incident response procedures for Shadow Atlas p
 - Validation discrepancies for single layer
 
 **Response Time**: 4 hours
-**Communication**: Slack
+**Communication**: GitHub issue
 **Escalation**: Team queue
 **Update Frequency**: Daily until resolved
 
@@ -131,7 +131,7 @@ This runbook provides structured incident response procedures for Shadow Atlas p
 # Acknowledge PagerDuty alert
 pd ack <incident_id>
 
-# Post in Slack
+# Post in incident GitHub issue
 # Template:
 🚨 [P0/P1/P2] Incident acknowledged
 **Issue**: [Brief description]
@@ -371,22 +371,22 @@ P3: Backlog → Grooming
 ### Escalation Contacts
 
 **Tech Lead** (Primary escalation):
-- Slack: @tech-lead
+- GitHub: @tech-lead
 - Phone: [REDACTED]
 - Escalation threshold: P0 >30min, P1 >4h
 
 **CTO** (Critical escalation):
-- Slack: @cto
+- GitHub: @cto
 - Phone: [REDACTED]
 - Escalation threshold: P0 >1h, data loss, security
 
 **Database Expert** (Specialist):
-- Slack: @db-expert
+- GitHub: @db-expert
 - Phone: [REDACTED]
 - Escalation threshold: Database corruption, performance issues
 
 **Security Team** (Security incidents):
-- Slack: @security-team
+- GitHub: @security-team
 - Email: security@voter.protocol
 - Escalation threshold: Suspected breach, data leak
 
@@ -435,13 +435,13 @@ Before escalating, prepare:
 
 ### War Room Setup (P0 only)
 
-1. **Create Slack channel** (within 5 minutes):
+1. **Create incident issue** (within 5 minutes):
    ```
-   Channel: #incident-YYYY-MM-DD-short-description
-   Example: #incident-2025-12-18-merkle-failure
+   Title: incident-YYYY-MM-DD-short-description
+   Example: incident-2025-12-18-merkle-failure
    ```
 
-2. **Pin incident doc** (Google Doc or Slack canvas):
+2. **Attach incident doc** (GitHub issue body or linked document):
    ```markdown
    # Incident: Merkle Tree Validation Failure
 
@@ -723,9 +723,9 @@ DOCUMENTATION GAPS → P3
 ### Emergency Contacts
 
 **Shadow Atlas On-Call**: [PagerDuty rotation]
-**Tech Lead**: @tech-lead (Slack), [PHONE REDACTED]
-**CTO**: @cto (Slack), [PHONE REDACTED]
-**Database Expert**: @db-expert (Slack)
+**Tech Lead**: @tech-lead (GitHub), [PHONE REDACTED]
+**CTO**: @cto (GitHub), [PHONE REDACTED]
+**Database Expert**: @db-expert (GitHub)
 **Security Team**: security@voter.protocol
 
 ### Useful Commands Quick Reference

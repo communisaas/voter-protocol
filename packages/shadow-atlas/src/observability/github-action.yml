@@ -8,10 +8,6 @@
 # USAGE:
 # Copy this file to .github/workflows/shadow-atlas-health.yml
 #
-# CONFIGURATION:
-# Set these secrets in your repository:
-# - SLACK_WEBHOOK_URL (optional): Slack webhook for alerts
-#
 name: Shadow Atlas Health Check
 
 on:
@@ -164,12 +160,3 @@ jobs:
 
               console.log(`Closed issue #${issue.number}`);
             }
-
-      - name: Notify Slack (optional)
-        if: steps.health.outputs.healthy == 'false' && env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"🚨 Shadow Atlas health check failed! Check GitHub Issues for details."}' \
-            $SLACK_WEBHOOK_URL

@@ -7,7 +7,7 @@
  * CHANNELS:
  * - stdout (for local dev / container logs)
  * - file (for log aggregation later)
- * - webhook (Slack, Discord, or custom)
+ * - webhook (custom alert receiver)
  *
  * ALERT TYPES:
  * - Extraction failure rate exceeded
@@ -179,7 +179,7 @@ export class FileAlertChannel implements AlertChannel {
 }
 
 /**
- * Webhook alert channel (Slack, Discord, or custom)
+ * Webhook alert channel for custom alert receivers
  */
 export class WebhookAlertChannel implements AlertChannel {
   private readonly webhookUrl: string;
@@ -189,37 +189,18 @@ export class WebhookAlertChannel implements AlertChannel {
   }
 
   async send(alert: Alert): Promise<void> {
-    const emoji = alert.severity === 'critical' ? ':rotating_light:' : ':warning:';
-    const color = alert.severity === 'critical' ? '#dc3545' : '#ffc107';
     const status = alert.status === 'firing' ? 'FIRING' : 'RESOLVED';
 
-    // Slack-compatible payload
     const payload = {
-      text: `${emoji} *[${status}]* ${alert.name}`,
-      attachments: [
-        {
-          color,
-          fields: [
-            {
-              title: 'Message',
-              value: alert.message,
-              short: false,
-            },
-            {
-              title: 'Severity',
-              value: alert.severity,
-              short: true,
-            },
-            {
-              title: 'Status',
-              value: status,
-              short: true,
-            },
-          ],
-          footer: 'Shadow Atlas',
-          ts: Math.floor(alert.firedAt.getTime() / 1000),
-        },
-      ],
+      source: 'shadow-atlas',
+      type: 'alert',
+      name: alert.name,
+      severity: alert.severity,
+      status,
+      message: alert.message,
+      firedAt: alert.firedAt.toISOString(),
+      resolvedAt: alert.resolvedAt?.toISOString(),
+      context: alert.context,
     };
 
     try {
@@ -230,8 +211,8 @@ export class WebhookAlertChannel implements AlertChannel {
       });
 
       if (!response.ok) {
-        // Mask webhook URL — it may contain embedded credentials
-        // (e.g., Slack webhook tokens). Log only the hostname for diagnostics.
+        // Mask webhook URL; it may contain embedded credentials.
+        // Log only the hostname for diagnostics.
         logger.error('Webhook failed', {
           status: response.status,
           statusText: response.statusText,

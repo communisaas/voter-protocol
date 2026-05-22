@@ -117,7 +117,7 @@ gh issue list --label "incident,ops" --state open
 cat ops/maintenance-calendar.md
 ```
 
-**Handoff template** (post in Slack #ops-handoff):
+**Handoff template** (post as a GitHub issue/comment labeled `ops-handoff`):
 
 ```markdown
 ## On-Call Handoff: [Your Name] → [Next Person]
@@ -385,7 +385,7 @@ ops/scripts/metrics-snapshot.sh > /tmp/incident-$(date +%s).txt
 
 - [ ] GitHub repository access (voter-protocol/packages/crypto)
 - [ ] PagerDuty login (rotation: shadow-atlas-primary)
-- [ ] Slack channels: #incident-response, #ops-handoff, #shadow-atlas
+- [ ] GitHub issue labels/notifications: `incident`, `ops-handoff`, `shadow-atlas`
 - [ ] Production server SSH (if self-hosted)
 - [ ] Storacha/IPFS credentials (read from environment)
 - [ ] Grafana/monitoring dashboard (if deployed)
@@ -472,7 +472,7 @@ ORDER BY type;
 Alert Fires
   │
   ├─> ACKNOWLEDGE (within 5 min)
-  │     └─> PagerDuty, Slack
+  │     └─> PagerDuty, GitHub issue
   │
   ├─> ASSESS (within 15 min)
   │     ├─> Severity: P0/P1/P2/P3
@@ -576,7 +576,7 @@ A: Escalate to secondary on-call. They're expecting it.
 
 After resolving an incident:
 
-- [ ] Post resolution message in Slack
+- [ ] Post resolution message in the incident GitHub issue
 - [ ] Resolve PagerDuty incident
 - [ ] Clear any firing alerts
 - [ ] Document timeline in incident doc
@@ -607,20 +607,20 @@ After resolving an incident:
 
 **Shadow Atlas On-Call** (YOU):
 - PagerDuty: shadow-atlas-primary
-- Slack: @your-name
+- GitHub: @your-name
 
 **Tech Lead** (Primary escalation):
-- Slack: @tech-lead
+- GitHub: @tech-lead
 - Phone: [REDACTED]
 - Escalate: P0 >30min, P1 >2h
 
 **CTO** (Critical escalation):
-- Slack: @cto
+- GitHub: @cto
 - Phone: [REDACTED]
 - Escalate: P0 >1h, data loss, security
 
 **Database Expert**:
-- Slack: @db-expert
+- GitHub: @db-expert
 - Escalate: Database corruption, performance
 
 **Security Team**:

@@ -985,8 +985,6 @@ jobs:
     name: Send Notifications
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     needs:
       - build-chunked
       - export-officials
@@ -1054,37 +1052,6 @@ jobs:
               body: body,
               labels: ['quarterly-update', 'shadow-atlas', 'automated']
             });
-
-      - name: Notify Slack (optional)
-        if: env.SLACK_WEBHOOK_URL != ''
-        run: |
-          ATLAS_URL="${{ needs.upload-r2.outputs.atlas_base_url }}"
-          TOTAL_CHUNKS="${{ needs.build-chunked.outputs.total_chunks }}"
-          BUILD_RESULT="${{ needs.build-chunked.result }}"
-          VALIDATE_RESULT="${{ needs.validate-build.result }}"
-          R2_RESULT="${{ needs.upload-r2.result }}"
-
-          payload="{
-              \"text\": \"Shadow Atlas Quarterly Update Complete\",
-              \"blocks\": [
-                {
-                  \"type\": \"section\",
-                  \"text\": {
-                    \"type\": \"mrkdwn\",
-                    \"text\": \"*Shadow Atlas Quarterly Update*\n• Build: ${BUILD_RESULT}\n• Validation: ${VALIDATE_RESULT}\n• R2 Upload: ${R2_RESULT}\n• Chunks: ${TOTAL_CHUNKS}\n• R2 URL: ${ATLAS_URL:-N/A}\"
-                  }
-                }
-              ]
-            }"
-
-          for attempt in 1 2 3; do
-            if curl -fsSL -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"; then
-              exit 0
-            fi
-            sleep $((attempt * 2))
-          done
-
-          echo "::warning::Slack notification failed after 3 attempts."
 
   # =========================================================================
   # Cleanup old artifacts (keep last 4 quarters = 1 year)

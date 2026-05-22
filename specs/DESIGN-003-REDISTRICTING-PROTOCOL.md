@@ -1049,7 +1049,7 @@ To minimize rollback impact, the system is designed with rollback resistance:
    - Map publication detection
 
 3. **Alert System**
-   - Slack/email alerts to admin team
+   - GitHub issue/email alerts to admin team
    - Dashboard for case tracking
    - Auto-flagging of P1-P2 events
 

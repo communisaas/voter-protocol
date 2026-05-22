@@ -300,7 +300,7 @@ npm run test:registry-urls
 
 ### Planned
 - [ ] **Automated PR creation** for broken URL fixes
-- [ ] **Slack/Discord notifications** for health check failures
+- [ ] **GitHub issue notifications** for health check failures
 - [ ] **Historical tracking** of registry health over time
 - [ ] **Parallel testing** for faster execution
 - [ ] **Retry logic** for transient failures

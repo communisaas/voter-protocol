@@ -88,7 +88,7 @@ Rule-based alerting with multiple channels.
 **Channels**:
 - Console (stdout JSON)
 - File (persistent log)
-- Webhook (Slack, Discord, custom)
+- Custom webhook
 
 **Alert Lifecycle**: Firing → Resolved → Acknowledged
 
@@ -344,7 +344,7 @@ spec:
 | `LOG_LEVEL` | `info` | Minimum log level (debug, info, warn, error) |
 | `TRACING_SAMPLE_RATE` | `1.0` | Trace sampling rate (0.0-1.0) |
 | `METRICS_RETENTION_DAYS` | `30` | Metric retention period |
-| `SLACK_WEBHOOK_URL` | - | Slack webhook for alerts |
+| `ALERT_WEBHOOK_URL` | - | Custom webhook for alerts |
 | `ALERT_FILE_PATH` | `/data/alerts.log` | Alert log file path |
 
 ### Runtime Configuration
@@ -357,7 +357,7 @@ const metrics = createMetricsStore('.shadow-atlas', 30); // 30 days retention
 
 // Alert manager with webhook
 const alerts = createAlertManager({
-  webhookUrl: process.env.SLACK_WEBHOOK_URL,
+  webhookUrl: process.env.ALERT_WEBHOOK_URL,
   alertFilePath: '/data/alerts.log'
 });
 

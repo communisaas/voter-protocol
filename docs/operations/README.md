@@ -146,8 +146,8 @@ All green? You're done. Issues? Consult the runbooks below.
 ### Contact Information
 
 - **Primary On-Call**: PagerDuty rotation `shadow-atlas-primary`
-- **Tech Lead**: @tech-lead (Slack)
-- **Team Channel**: #shadow-atlas (Slack)
+- **Tech Lead**: @tech-lead (GitHub)
+- **Team Queue**: GitHub issues labeled `shadow-atlas`
 - **Security**: security@voter.protocol
 
 See [Incident Response Guide](runbooks/incident-response.md) for complete escalation procedures.
@@ -239,9 +239,9 @@ npx tsx -e "import {BatchOrchestrator} from './services/batch-orchestrator.js'; 
 
 ### Communication Channels
 
-- **Alerts**: PagerDuty → #incident-response (Slack)
-- **Daily ops**: #shadow-atlas (Slack)
-- **Incidents**: Create channel `#incident-YYYY-MM-DD-description`
+- **Alerts**: PagerDuty → GitHub issue labeled `incident`
+- **Daily ops**: GitHub issues labeled `shadow-atlas`
+- **Incidents**: Create issue `incident-YYYY-MM-DD-description`
 
 ---
 
@@ -265,6 +265,6 @@ gh issue create \
 
 ---
 
-**Questions?** Ask in #shadow-atlas (Slack)
+**Questions?** Open a GitHub issue labeled `shadow-atlas`
 **Emergency?** Follow [Incident Response](runbooks/incident-response.md)
 **On-call?** Start with [On-Call Guide](on-call-guide.md)

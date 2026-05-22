@@ -2584,19 +2584,19 @@ const OBSERVABILITY_CONFIG: ObservabilityConfig = {
       name: 'high_conflict_rate',
       condition: 'conflict_rate > 0.1',
       severity: 'WARNING',
-      channels: ['slack-oncall']
+      channels: ['github-issues']
     },
     {
       name: 'budget_exceeded',
       condition: 'budget_utilization > 0.9',
       severity: 'CRITICAL',
-      channels: ['pagerduty', 'slack-oncall']
+      channels: ['pagerduty', 'github-issues']
     },
     {
       name: 'portal_death_spike',
       condition: 'portal_health_status == 0 for 5 portals in 1h',
       severity: 'WARNING',
-      channels: ['slack-oncall']
+      channels: ['github-issues']
     }
   ],
   auditRetention: 'P2Y'  // 2 years

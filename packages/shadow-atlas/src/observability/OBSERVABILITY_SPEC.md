@@ -287,19 +287,19 @@ log.error('Extraction failed', { state: 'WI', error: e.message });
 
 ### Warning Alerts
 
-**Target**: Slack notification, investigate during business hours
+**Target**: GitHub issue/comment, investigate during business hours
 
 | Alert | Condition | Duration | Action |
 |-------|-----------|----------|--------|
-| `LatencyIncreasing` | p99 > 75ms | 10 min | Slack warning |
-| `ErrorRateIncreasing` | Error rate > 0.1% | 5 min | Slack warning |
+| `LatencyIncreasing` | p99 > 75ms | 10 min | GitHub issue warning |
+| `ErrorRateIncreasing` | Error rate > 0.1% | 5 min | GitHub issue warning |
 | `CacheHitRateWarning` | Hit rate < 70% | 20 min | Investigate |
 | `ExtractionFailureRateWarning` | Failure rate > 10% | 10 min | Monitor |
 
 ### Alert Channels
 
 1. **PagerDuty** (critical): Immediate on-call escalation
-2. **Slack** (#shadow-atlas-alerts): Warning/info alerts
+2. **GitHub Issues**: Warning/info alerts and audit trail
 3. **Email** (sre@voter-protocol.org): Daily digest
 4. **File** (`/data/alerts.log`): Persistent audit trail
 
