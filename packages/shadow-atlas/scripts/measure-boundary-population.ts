@@ -57,6 +57,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const VERSION_PATTERN = /^v\d{8}$/;
 const H3_RESOLUTION = 7;
@@ -564,9 +565,9 @@ async function main(): Promise<void> {
 }
 
 // Only run when invoked as a script, not when imported for unit tests.
-const isDirectInvocation =
-	import.meta.url === `file://${process.argv[1]}` ||
-	import.meta.url.endsWith('/measure-boundary-population.ts');
+const isDirectInvocation = process.argv[1]
+	? fileURLToPath(import.meta.url) === resolve(process.argv[1])
+	: false;
 if (isDirectInvocation && process.argv.length > 1) {
 	main().catch((err) => {
 		console.error(`Fatal: ${err instanceof Error ? err.message : err}`);
