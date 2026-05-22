@@ -31,8 +31,8 @@ import type { IncomingMessage, ServerResponse } from 'http';
 
 const TEST_AUTH_TOKEN = 'e2e-test-token-2026';
 // Shallower than prod depth (20) — test validates proof shape & two-tree
-// wiring; Noir-WASM Poseidon2 at depth 20 costs ~90s per beforeAll.
-const TREE_DEPTH = 10;
+// wiring, not production tree capacity.
+const TREE_DEPTH = 6;
 
 function createMockRequest(
   url: string,

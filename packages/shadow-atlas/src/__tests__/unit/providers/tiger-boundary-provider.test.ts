@@ -15,7 +15,7 @@
  * - Network resilience (retry with exponential backoff)
  *
  * Integration tests - "Network Operations" tests require network access to Census Bureau
- * Those tests use soft-fail in CI (warnings instead of failures).
+ * and are skipped unless RUN_NETWORK_TESTS=true or RUN_INTEGRATION=true.
  * Run full integration suite with: npx vitest run --config vitest.integration.config.ts
  */
 
@@ -24,16 +24,17 @@ import { TIGERBoundaryProvider, TIGER_LAYERS, type TIGERLayer } from '../../../p
 import { NATIONAL_TOTALS } from '../../../validators/tiger-expected-counts.js';
 import type { FeatureCollection } from 'geojson';
 
-/**
- * Soft-fail wrapper for network tests in CI
- * - CI: Network failures are logged as warnings, test passes
- * - Local: Network failures fail the test normally
- */
 const isCI = process.env.CI === 'true';
+const runNetworkTests =
+  process.env.RUN_NETWORK_TESTS === 'true' || process.env.RUN_INTEGRATION === 'true';
 
 function networkTest(name: string, fn: () => Promise<void>, timeout: number = 30000) {
   // Use a longer Vitest timeout to let our own timeout handling work
   const vitestTimeout = timeout + 5000;
+
+  if (!runNetworkTests) {
+    return test.skip(`${name} (requires RUN_NETWORK_TESTS=true or RUN_INTEGRATION=true)`, async () => {});
+  }
 
   return test(name, async () => {
     const timeoutPromise = new Promise<never>((_, reject) => {

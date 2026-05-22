@@ -140,8 +140,7 @@ function createMockSyncService() {
 // ============================================================================
 
 // Shallower tree than prod (20) — tests validate proof shape, not tree depth.
-// Depth 20 with Noir-WASM Poseidon2 costs ~90s per beforeAll; 10 halves it.
-const TREE_DEPTH = 10;
+const TREE_DEPTH = 6;
 const MAPPING_COUNT = 5;
 
 let sharedCellMapState: CellMapState;

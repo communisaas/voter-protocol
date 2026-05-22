@@ -21,6 +21,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { FeatureCollection } from 'geojson';
 import { AustraliaCountryProvider, AustraliaBoundaryProvider, type AustraliaDivision } from '../../../../providers/international/australia-provider.js';
 
+vi.mock('../../../../tree-builder.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../tree-builder.js')>();
+
+  return {
+    ...actual,
+    buildCellMapTree: vi.fn(async (mappings: any[], depth: number) => ({
+      tree: {},
+      root: 123n,
+      depth,
+      cellCount: mappings.length,
+      commitments: new Map(mappings.map((m) => [m.cellId.toString(), 0n])),
+      districtMap: new Map(mappings.map((m) => [m.cellId.toString(), [...m.districts]])),
+    })),
+  };
+});
+
 // ============================================================================
 // Mock Data
 // ============================================================================
@@ -98,7 +114,7 @@ describe('AustraliaBoundaryProvider', () => {
   let provider: AustraliaCountryProvider;
 
   beforeEach(() => {
-    provider = new AustraliaBoundaryProvider();
+    provider = new AustraliaBoundaryProvider({ retryAttempts: 1, retryDelayMs: 10 });
     vi.restoreAllMocks();
   });
 
@@ -415,6 +431,7 @@ describe('AustraliaBoundaryProvider', () => {
     });
 
     it('should retry on transient failures', async () => {
+      const retryProvider = new AustraliaBoundaryProvider({ retryAttempts: 3, retryDelayMs: 10 });
       let callCount = 0;
       global.fetch = vi.fn().mockImplementation(async () => {
         callCount++;
@@ -427,7 +444,7 @@ describe('AustraliaBoundaryProvider', () => {
         };
       });
 
-      const result = await provider.extractFederalDivisions();
+      const result = await retryProvider.extractFederalDivisions();
 
       expect(result.success).toBe(true);
       expect(callCount).toBe(3); // Should have retried twice

@@ -19,6 +19,22 @@ import { UKBoundaryProvider, UKCountryProvider } from '../../../../providers/int
 import { GB_JURISDICTION } from '../../../../jurisdiction.js';
 import type { FeatureCollection } from 'geojson';
 
+vi.mock('../../../../tree-builder.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../tree-builder.js')>();
+
+  return {
+    ...actual,
+    buildCellMapTree: vi.fn(async (mappings: any[], depth: number) => ({
+      tree: {},
+      root: 123n,
+      depth,
+      cellCount: mappings.length,
+      commitments: new Map(mappings.map((m) => [m.cellId.toString(), 0n])),
+      districtMap: new Map(mappings.map((m) => [m.cellId.toString(), [...m.districts]])),
+    })),
+  };
+});
+
 describe('UKBoundaryProvider', () => {
   let provider: UKCountryProvider;
 

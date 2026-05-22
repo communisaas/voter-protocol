@@ -139,8 +139,8 @@ describe('buildBoundaryIndex', () => {
     const { index, collisionCount } = buildBoundaryIndex(boundaries);
 
     expect(collisionCount).toBe(1);
-    // Original key still points to first entry
-    expect(index.get('Springfield')?.id).toBe('a');
+    // Ambiguous simple key is removed; callers must use compound keys.
+    expect(index.has('Springfield')).toBe(false);
     // Compound keys exist for both
     expect(index.get('state:Springfield')?.id).toBe('a');
     expect(index.get('county:Springfield')?.id).toBe('b');

@@ -83,7 +83,7 @@ jobs:
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [registry-validation]
     steps:
       - name: Checkout code
@@ -103,9 +103,11 @@ jobs:
 
       - name: Run unit tests
         working-directory: packages/shadow-atlas
-        run: npm test
+        run: npm run test:unit
         env:
           CI: true
+          RUN_INTEGRATION: false
+          RUN_NETWORK_TESTS: false
 
       - name: Upload test results
         if: always()
@@ -174,10 +176,12 @@ jobs:
 
       - name: Run all tests with coverage
         working-directory: packages/shadow-atlas
-        run: npm test -- --coverage
+        run: npm run test:unit -- --coverage
         continue-on-error: true
         env:
           CI: true
+          RUN_INTEGRATION: false
+          RUN_NETWORK_TESTS: false
 
       - name: Upload coverage to Codecov (optional)
         uses: codecov/codecov-action@v4

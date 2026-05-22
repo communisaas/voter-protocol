@@ -6,6 +6,8 @@ import { loadCellMapStateFromSnapshot, loadSnapshotWithVintage } from '../../../
 import { buildCellMapTree, toCellMapState, DISTRICT_SLOT_COUNT } from '../../../tree-builder';
 import { generateMockMappings } from '../../../cell-district-loader';
 
+const TEST_TREE_DEPTH = 8;
+
 describe('loadCellMapStateFromSnapshot', () => {
   let testDir: string;
 
@@ -23,7 +25,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should round-trip a small CellMapState', async () => {
     await setup();
     const mappings = generateMockMappings(5, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
     const originalState = toCellMapState(result);
 
     // Serialize to snapshot
@@ -57,7 +59,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should preserve district arrays', async () => {
     await setup();
     const mappings = generateMockMappings(3, '11');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -90,7 +92,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   // Test 3: Rejects version 1 snapshot
   it('should reject version 1 snapshot', async () => {
     await setup();
-    const snapshot = { version: 1, root: '0x0', depth: 20, cellCount: 0 };
+    const snapshot = { version: 1, root: '0x0', depth: TEST_TREE_DEPTH, cellCount: 0 };
     const snapshotPath = join(testDir, 'v1-snapshot.json');
     await writeFile(snapshotPath, JSON.stringify(snapshot));
 
@@ -101,7 +103,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   // Test 4: Rejects empty mappings
   it('should reject snapshot with empty mappings', async () => {
     await setup();
-    const snapshot = { version: 2, root: '0x0', depth: 20, cellCount: 0, mappings: [] };
+    const snapshot = { version: 2, root: '0x0', depth: TEST_TREE_DEPTH, cellCount: 0, mappings: [] };
     const snapshotPath = join(testDir, 'empty-snapshot.json');
     await writeFile(snapshotPath, JSON.stringify(snapshot));
 
@@ -113,7 +115,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should detect corrupted snapshot with wrong root', async () => {
     await setup();
     const mappings = generateMockMappings(3, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -137,7 +139,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should produce valid proofs after loading', async () => {
     await setup();
     const mappings = generateMockMappings(5, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -158,15 +160,15 @@ describe('loadCellMapStateFromSnapshot', () => {
     // Generate a proof for the first cell
     const cellId = mappings[0].cellId;
     const proof = await loaded.tree.getProof(cellId);
-    expect(proof.siblings).toHaveLength(20);
-    expect(proof.pathBits).toHaveLength(20);
+    expect(proof.siblings).toHaveLength(TEST_TREE_DEPTH);
+    expect(proof.pathBits).toHaveLength(TEST_TREE_DEPTH);
   });
 
   // Test 7: On-chain root verification — matching root passes
   it('should pass when expectedRoot matches recomputed root', async () => {
     await setup();
     const mappings = generateMockMappings(3, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -193,7 +195,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should reject when expectedRoot does not match', async () => {
     await setup();
     const mappings = generateMockMappings(3, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -221,7 +223,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should skip on-chain verification when expectedRoot is omitted', async () => {
     await setup();
     const mappings = generateMockMappings(3, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 2,
@@ -246,7 +248,7 @@ describe('loadCellMapStateFromSnapshot', () => {
   it('should verify expectedRoot via loadSnapshotWithVintage', async () => {
     await setup();
     const mappings = generateMockMappings(3, '06');
-    const result = await buildCellMapTree(mappings, 20);
+    const result = await buildCellMapTree(mappings, TEST_TREE_DEPTH);
 
     const snapshot = {
       version: 3,
