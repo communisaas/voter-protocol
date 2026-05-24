@@ -771,6 +771,17 @@ jobs:
 
           # Extract versioned public URL for push-cids
           ATLAS_URL=$(jq -r '.publicUrl' output/r2-upload-results.json)
+          if [ -z "$ATLAS_URL" ] || [ "$ATLAS_URL" = "null" ]; then
+            echo "::error::R2 upload did not emit publicUrl."
+            exit 1
+          fi
+          case "$ATLAS_URL" in
+            https://atlas.commons.email/v*) ;;
+            *)
+              echo "::error::R2 upload emitted an unexpected non-versioned atlas URL: $ATLAS_URL"
+              exit 1
+              ;;
+          esac
           echo "atlas_base_url=$ATLAS_URL" >> $GITHUB_OUTPUT
 
       - name: Write R2 summary
@@ -843,10 +854,22 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME || 'communique-site' }}
-          ATLAS_BASE_URL: ${{ needs.upload-r2.outputs.atlas_base_url || 'https://atlas.commons.email' }}
+          ATLAS_BASE_URL: ${{ needs.upload-r2.outputs.atlas_base_url }}
         run: |
           # IPFS pinning is paused (2026-05-02). When restored, re-add
           # `--pin-results output/pin-results.json` and download the artifact.
+          if [ -z "${ATLAS_BASE_URL:-}" ]; then
+            echo "::error::upload-r2 did not produce ATLAS_BASE_URL; refusing to mutate Cloudflare Pages config."
+            exit 1
+          fi
+          case "$ATLAS_BASE_URL" in
+            https://atlas.commons.email/v*) ;;
+            *)
+              echo "::error::ATLAS_BASE_URL must be a versioned atlas URL, got: $ATLAS_BASE_URL"
+              exit 1
+              ;;
+          esac
+
           CELL_MAP_ROOT=$(jq -r '.root' output/chunked/US/merkle/cell-tree-snapshot.json)
           CELL_MAP_DEPTH=$(jq -r '.depth' output/chunked/US/merkle/cell-tree-snapshot.json)
           if [ -z "$CELL_MAP_ROOT" ] || [ "$CELL_MAP_ROOT" = "null" ]; then
