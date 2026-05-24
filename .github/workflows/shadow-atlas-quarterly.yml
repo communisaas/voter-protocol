@@ -1058,11 +1058,8 @@ jobs:
           EPOCH: ${{ needs.resolve-source.outputs.epoch }}
           SNAPSHOT_ANCHOR_ADDRESS: ${{ vars.SNAPSHOT_ANCHOR_ADDRESS }}
         run: |
-          forge script script/UpdateSnapshot.s.sol:UpdateSnapshot \
-            --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
-
-          registry_verified=false
-          for attempt in {1..12}; do
+          read_registry() {
+            local readback
             readback=$(
               cast call "$SNAPSHOT_ANCHOR_ADDRESS" \
                 "getCurrentRoot()(bytes32,string,uint256)" \
@@ -1075,10 +1072,30 @@ jobs:
             READ_EPOCH="${SNAPSHOT_READBACK[2]:-}"
             READ_LOCATOR="${READ_LOCATOR%\"}"
             READ_LOCATOR="${READ_LOCATOR#\"}"
+          }
 
-            if [ "${READ_ROOT,,}" = "${CELL_MAP_ROOT,,}" ] \
+          registry_matches() {
+            [ "${READ_ROOT,,}" = "${CELL_MAP_ROOT,,}" ] \
               && [ "$READ_LOCATOR" = "$IPFS_CID" ] \
-              && [ "$READ_EPOCH" = "$EPOCH" ]; then
+              && [ "$READ_EPOCH" = "$EPOCH" ]
+          }
+
+          registry_action="broadcast"
+          read_registry
+          if registry_matches; then
+            registry_action="already-current"
+            registry_verified=true
+          else
+            forge script script/UpdateSnapshot.s.sol:UpdateSnapshot \
+              --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
+
+            registry_verified=false
+          fi
+
+          for attempt in {1..12}; do
+            read_registry
+
+            if registry_matches; then
               registry_verified=true
               break
             fi
@@ -1102,6 +1119,7 @@ jobs:
           echo "- **Cell Map Root:** \`$CELL_MAP_ROOT\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Content Locator (anchored as ipfsCid):** $IPFS_CID" >> $GITHUB_STEP_SUMMARY
           echo "- **Epoch:** $EPOCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** $registry_action" >> $GITHUB_STEP_SUMMARY
           echo "- **Readback:** Verified" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "_IPFS pinning paused 2026-05-02; the R2 URL is anchored in the ipfsCid field as a content-locator. Restore the IPFS CID here once pinning resumes._" >> $GITHUB_STEP_SUMMARY
