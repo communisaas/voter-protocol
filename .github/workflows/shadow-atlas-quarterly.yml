@@ -881,23 +881,90 @@ jobs:
           COMMONS_DEPLOY_BRANCH: ${{ vars.COMMONS_DEPLOY_BRANCH || 'production' }}
           COMMONS_DEPLOY_REF: ${{ vars.COMMONS_DEPLOY_REF || 'production' }}
         run: |
+          set -euo pipefail
+
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::COMMONS_DEPLOY_TOKEN is required to trigger the Commons deploy workflow."
             echo "::error::Create a fine-grained token with Actions:write on $COMMONS_DEPLOY_REPO and store it as a repository secret."
             exit 1
           fi
 
+          triggered_after=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           gh workflow run "$COMMONS_DEPLOY_WORKFLOW" \
             --repo "$COMMONS_DEPLOY_REPO" \
             --ref "$COMMONS_DEPLOY_WORKFLOW_REF" \
             -f branch="$COMMONS_DEPLOY_BRANCH" \
             -f ref="$COMMONS_DEPLOY_REF"
 
+          deploy_run_id=""
+          deploy_run_url=""
+          for attempt in {1..24}; do
+            deploy_run=$(
+              gh api \
+                "repos/${COMMONS_DEPLOY_REPO}/actions/workflows/${COMMONS_DEPLOY_WORKFLOW}/runs?event=workflow_dispatch&per_page=20" \
+              | jq -r --arg created "$triggered_after" '
+                  [.workflow_runs[] | select(.created_at >= $created)]
+                  | if length == 0 then
+                      empty
+                    else
+                      sort_by(.created_at)
+                      | reverse
+                      | .[0]
+                      | [.id, .html_url]
+                      | @tsv
+                    end
+                '
+            )
+
+            if [ -n "$deploy_run" ]; then
+              IFS=$'\t' read -r deploy_run_id deploy_run_url <<< "$deploy_run"
+              break
+            fi
+
+            echo "Waiting for Commons deploy workflow run to appear (attempt ${attempt}/24)..."
+            sleep 5
+          done
+
+          if [ -z "$deploy_run_id" ]; then
+            echo "::error::Triggered Commons deploy workflow, but could not find the workflow_dispatch run."
+            exit 1
+          fi
+
+          echo "Commons deploy run: $deploy_run_url"
+          deploy_status=""
+          deploy_conclusion=""
+          for attempt in {1..150}; do
+            deploy_state=$(
+              gh api "repos/${COMMONS_DEPLOY_REPO}/actions/runs/${deploy_run_id}" \
+              | jq -r '[.status, (.conclusion // ""), .html_url] | @tsv'
+            )
+            IFS=$'\t' read -r deploy_status deploy_conclusion deploy_run_url <<< "$deploy_state"
+            echo "Commons deploy status: ${deploy_status}${deploy_conclusion:+/$deploy_conclusion}"
+
+            if [ "$deploy_status" = "completed" ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$deploy_status" != "completed" ]; then
+            echo "::error::Commons deploy did not complete before the promotion wait timeout."
+            echo "::error::Run: $deploy_run_url"
+            exit 1
+          fi
+          if [ "$deploy_conclusion" != "success" ]; then
+            echo "::error::Commons deploy completed with conclusion '${deploy_conclusion:-unknown}'."
+            echo "::error::Run: $deploy_run_url"
+            exit 1
+          fi
+
           echo "### Commons Deploy Trigger" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository:** $COMMONS_DEPLOY_REPO" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow:** $COMMONS_DEPLOY_WORKFLOW@$COMMONS_DEPLOY_WORKFLOW_REF" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy branch:** $COMMONS_DEPLOY_BRANCH" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy ref:** $COMMONS_DEPLOY_REF" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy run:** $deploy_run_url" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy status:** Passed" >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================
   # Phase 5b: Update on-chain registry (stub — future implementation)
@@ -971,10 +1038,48 @@ jobs:
           forge script script/UpdateSnapshot.s.sol:UpdateSnapshot \
             --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
 
+          registry_verified=false
+          for attempt in {1..12}; do
+            readback=$(
+              cast call "$SNAPSHOT_ANCHOR_ADDRESS" \
+                "getCurrentRoot()(bytes32,string,uint256)" \
+                --rpc-url "$RPC_URL"
+            )
+            mapfile -t SNAPSHOT_READBACK <<< "$readback"
+
+            READ_ROOT="${SNAPSHOT_READBACK[0]:-}"
+            READ_LOCATOR="${SNAPSHOT_READBACK[1]:-}"
+            READ_EPOCH="${SNAPSHOT_READBACK[2]:-}"
+            READ_LOCATOR="${READ_LOCATOR%\"}"
+            READ_LOCATOR="${READ_LOCATOR#\"}"
+
+            if [ "${READ_ROOT,,}" = "${CELL_MAP_ROOT,,}" ] \
+              && [ "$READ_LOCATOR" = "$IPFS_CID" ] \
+              && [ "$READ_EPOCH" = "$EPOCH" ]; then
+              registry_verified=true
+              break
+            fi
+
+            echo "Registry readback mismatch on attempt ${attempt}/12; retrying..."
+            sleep 5
+          done
+
+          if [ "$registry_verified" != "true" ]; then
+            echo "::error::Registry readback did not match the intended snapshot."
+            echo "::error::Expected root:    $CELL_MAP_ROOT"
+            echo "::error::Actual root:      ${READ_ROOT:-<empty>}"
+            echo "::error::Expected locator: $IPFS_CID"
+            echo "::error::Actual locator:   ${READ_LOCATOR:-<empty>}"
+            echo "::error::Expected epoch:   $EPOCH"
+            echo "::error::Actual epoch:     ${READ_EPOCH:-<empty>}"
+            exit 1
+          fi
+
           echo "### On-Chain Registry Update" >> $GITHUB_STEP_SUMMARY
           echo "- **Cell Map Root:** \`$CELL_MAP_ROOT\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Content Locator (anchored as ipfsCid):** $IPFS_CID" >> $GITHUB_STEP_SUMMARY
           echo "- **Epoch:** $EPOCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Readback:** Verified" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "_IPFS pinning paused 2026-05-02; the R2 URL is anchored in the ipfsCid field as a content-locator. Restore the IPFS CID here once pinning resumes._" >> $GITHUB_STEP_SUMMARY
 
