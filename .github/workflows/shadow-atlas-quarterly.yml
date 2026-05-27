@@ -1070,6 +1070,12 @@ jobs:
             READ_ROOT="${SNAPSHOT_READBACK[0]:-}"
             READ_LOCATOR="${SNAPSHOT_READBACK[1]:-}"
             READ_EPOCH="${SNAPSHOT_READBACK[2]:-}"
+            # cast annotates uint256 lines with scientific notation, e.g.
+            # `20260512 [2.026e7]`. Strip the bracketed suffix on every field
+            # so idempotency comparisons match the workflow-derived values.
+            READ_ROOT="${READ_ROOT%% \[*}"
+            READ_LOCATOR="${READ_LOCATOR%% \[*}"
+            READ_EPOCH="${READ_EPOCH%% \[*}"
             READ_LOCATOR="${READ_LOCATOR%\"}"
             READ_LOCATOR="${READ_LOCATOR#\"}"
           }
