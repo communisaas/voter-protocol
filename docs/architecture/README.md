@@ -20,7 +20,7 @@ Navigation hub for VOTER Protocol architecture documentation, organized from str
 
 **File:** [`/specs/CRYPTOGRAPHY-SPEC.md`](../../specs/CRYPTOGRAPHY-SPEC.md)
 **Audience:** Cryptography engineers, security auditors, independent reviewers
-**Scope:** Full ZK circuit topology (three-tree, position-note, debate-weight, bubble), Poseidon2 construction, domain separation registry, nullifier scheme (NUL-001), Aztec trusted-setup provenance, threat model, known limitations.
+**Scope:** Full ZK circuit topology (three-tree, position-note, debate-weight), Poseidon2 construction, domain separation registry, nullifier scheme (NUL-001), Aztec trusted-setup provenance, threat model, known limitations.
 
 **When to read:** Implementing, auditing, or reviewing the cryptographic protocol. This is the single authoritative source.
 

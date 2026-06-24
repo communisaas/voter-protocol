@@ -25,24 +25,6 @@ export { HealthMonitor } from './health.js';
 export { ShadowAtlasAPI, createShadowAtlasAPI } from './api.js';
 export { RegistrationService } from './registration-service.js';
 export { InsertionLog } from './insertion-log.js';
-export { BubbleService } from './bubble-service.js';
-export { CommunityFieldService } from './community-field-service.js';
-
-// Community field types
-export type {
-  CommunityFieldContribution,
-  CommunityFieldSubmission,
-  EpochSummary,
-} from './community-field-service.js';
-
-// Bubble types
-export type {
-  BubbleQueryRequest,
-  BubbleQueryResponse,
-  FenceResult,
-  ClippedDistrict,
-  PostalExtent,
-} from './bubble-service.js';
 
 // Registration types
 export type {

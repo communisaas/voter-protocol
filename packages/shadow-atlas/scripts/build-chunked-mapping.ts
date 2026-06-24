@@ -63,7 +63,7 @@ const WORKER_COUNT = Math.min(
  * - For BN254 circuit input: BigInt('0x' + h3CellId) — fits in 254-bit field
  * - Lowercase hex normalization is REQUIRED for deterministic dedup
  * - h3-js v4 already returns lowercase
- * - MAX_CELLS=16 at res-7 holds (typical postal bubble covers 2-5 cells)
+ * - MAX_CELLS=16 at res-7 holds (typical postal area covers 2-5 cells)
  */
 
 const US_REGIONS = [

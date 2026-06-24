@@ -186,7 +186,7 @@ CREATE INDEX IF NOT EXISTS idx_nzmp_active ON nz_mps(is_active);
 
 -- District boundary fences (shared edges between adjacent districts)
 -- Built at DB build time by extracting shared boundaries between adjacent district pairs.
--- Used by bubble-query to show which boundaries the bubble crosses.
+-- Currently unused: the bubble-query service that consumed this table was removed; no consumer remains.
 CREATE TABLE IF NOT EXISTS fences (
   id TEXT PRIMARY KEY,                 -- hash of district_a_id + district_b_id
   layer TEXT NOT NULL,                 -- "cd", "sldu", "sldl", "county", "can-fed"
