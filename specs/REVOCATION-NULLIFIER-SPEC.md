@@ -351,7 +351,7 @@ Each depth variant (18/20/22/24) gets a new HonkVerifier at 32 public inputs. Ol
 - **Not a revocation UI.** Users don't see this layer. Stage 3 (parallel track) handles UX around credential rotation.
 - **Not a Merkle-based compact set.** The revocation set is a dense mapping. A future Merkle-based compact representation is possible but unnecessary at current scale; deferred.
 - **Not a replacement for server-side `revokedAt`.** Server-side revocation stays in place as the Stage 1 gate. The on-chain set is the cryptographic reinforcement, not a substitute.
-- **Not consulted by the `position_note`, `debate_weight`, or `bubble_membership` circuits.** Revocation applies only to three-tree civic-action proofs. Debate positions and community-field contributions use separate trust frames.
+- **Not consulted by the `position_note` or `debate_weight` circuits.** Revocation applies only to three-tree civic-action proofs. Debate positions use a separate trust frame.
 
 ---
 

@@ -88,14 +88,13 @@ Without on-chain registry, proofs can be replayed infinitely.
 
 > Authoritative reference: [`specs/CRYPTOGRAPHY-SPEC.md`](../specs/CRYPTOGRAPHY-SPEC.md). This section summarizes the security posture relevant to threat modeling.
 
-Four live Noir circuits (all UltraHonk on BN254):
+Three live Noir circuits (all UltraHonk on BN254):
 
 | Circuit | Public inputs | Purpose |
 |---|---|---|
 | `three_tree_membership` | 31 | **Canonical civic action proof.** Binds user identity (Tree 1), cell→district mapping (Tree 2), engagement tier (Tree 3), and a Sybil-resistant nullifier. |
 | `position_note` | 5 | Debate market settlement (position commitment + per-debate nullifier). |
 | `debate_weight` | 2 | Quadratic stake commitment with in-circuit sqrt verification. |
-| `bubble_membership` | — | Community field aggregation (Phase 2). Per-epoch nullifier. |
 
 All enforce:
 - Merkle / SMT root assertions (leaf, path, root all bound in-circuit).
@@ -225,4 +224,4 @@ Dependencies: `@aztec/bb.js`, `@noir-lang/noir_js`, `pako`
 
 ---
 
-**Conclusion**: The four Noir circuits are cryptographically sound with comprehensive domain separation and non-zero assertions. Protocol integration (nullifier registry, root validation, timelock governance) is largely addressed. Supply chain pinning, professional audit, formal verification, and reproducible build pipeline remain the open gaps before mainnet launch. See [`specs/CRYPTOGRAPHY-SPEC.md`](../specs/CRYPTOGRAPHY-SPEC.md) §10 for the full known-limitations list.
+**Conclusion**: The three Noir circuits are cryptographically sound with comprehensive domain separation and non-zero assertions. Protocol integration (nullifier registry, root validation, timelock governance) is largely addressed. Supply chain pinning, professional audit, formal verification, and reproducible build pipeline remain the open gaps before mainnet launch. See [`specs/CRYPTOGRAPHY-SPEC.md`](../specs/CRYPTOGRAPHY-SPEC.md) §10 for the full known-limitations list.

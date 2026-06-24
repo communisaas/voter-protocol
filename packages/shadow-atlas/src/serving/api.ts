@@ -39,8 +39,6 @@ import { FIPS_TO_STATE } from '../db/fips-codes.js';
 import { GeocodeService, type GeocodeResult } from './geocode-service.js';
 import type { SnapshotVintage } from '../hydration/snapshot-loader.js';
 import { DebateService } from './debate-service.js';
-import { BubbleService, type BubbleQueryRequest } from './bubble-service.js';
-import { CommunityFieldService, CommunityFieldError, type CommunityFieldSubmission } from './community-field-service.js';
 import { randomBytes, timingSafeEqual, createHmac } from 'crypto';
 import { logger } from '../core/utils/logger.js';
 import type { ServerSigner } from './signing.js';
@@ -221,26 +219,6 @@ const engagementRegisterSchema = z.object({
     }, 'identityCommitment must be a valid BN254 field element (0 < v < p)'),
 });
 
-const bubbleQuerySchema = z.object({
-  center: z.object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
-  }),
-  radius: z.number().min(1).max(50_000), // 1m to 50km
-  postal_code: z.string().max(20).optional(),
-  layers: z.array(z.enum(['cd', 'sldu', 'sldl', 'county', 'can-fed'])).max(10).optional(),
-});
-
-/**
- * POST /v1/community-field/contribute request body
- * { proof: "0x...", publicInputs: ["0x...",...], epochDate: "2026-03-01" }
- */
-const communityFieldContributeSchema = z.object({
-  proof: z.string().min(1).max(100_000),
-  publicInputs: z.array(z.string()).length(5),
-  epochDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
-
 /**
  * Rate limiter with sliding window
  */
@@ -353,8 +331,6 @@ export class ShadowAtlasAPI {
   private readonly officialsService: OfficialsService | null;
   private readonly geocodeService: GeocodeService | null;
   private readonly debateService: DebateService | null;
-  private readonly bubbleService: BubbleService | null;
-  private readonly communityFieldService: CommunityFieldService | null;
   private readonly registrationAuthToken: string | null;
   private readonly signer: ServerSigner | null;
   private readonly port: number;
@@ -427,8 +403,6 @@ export class ShadowAtlasAPI {
     officialsService: OfficialsService | null = null,
     geocodeService: GeocodeService | null = null,
     debateService: DebateService | null = null,
-    bubbleService: BubbleService | null = null,
-    communityFieldService: CommunityFieldService | null = null,
   ) {
     this.lookupService = lookupService;
     this.proofService = proofService;
@@ -444,8 +418,6 @@ export class ShadowAtlasAPI {
     this.officialsService = officialsService;
     this.geocodeService = geocodeService;
     this.debateService = debateService;
-    this.bubbleService = bubbleService;
-    this.communityFieldService = communityFieldService;
     this.registrationAuthToken = registrationAuthToken;
     this.signer = signer;
     this.port = port;
@@ -604,9 +576,6 @@ export class ShadowAtlasAPI {
         endpoints.push(`GET /${v}/debate/:debateId - Debate market state`);
         endpoints.push(`GET /${v}/debate/:debateId/stream - SSE price stream`);
         endpoints.push(`GET /${v}/debate/:debateId/position-proof/:positionIndex - Position Merkle proof for settlement`);
-      }
-      if (this.bubbleService) {
-        endpoints.push(`POST /${v}/bubble-query - Fences + districts within bubble extent`);
       }
       logger.info('API endpoints registered', { endpoints });
 
@@ -767,14 +736,6 @@ export class ShadowAtlasAPI {
         this.handleDebateState(basePath, res, req, requestId);
       } else if (basePath === '/resolve-address' && req.method === 'POST') {
         await this.handleResolveAddress(req, res, requestId);
-      } else if (basePath === '/bubble-query' && req.method === 'POST') {
-        await this.handleBubbleQuery(req, res, requestId);
-      } else if (basePath === '/community-field/contribute' && req.method === 'POST') {
-        await this.handleCommunityFieldContribute(req, res, requestId);
-      } else if (basePath === '/community-field/info' && req.method === 'GET') {
-        this.handleCommunityFieldInfo(res, req, requestId);
-      } else if (basePath.match(/^\/community-field\/epoch\/\d{4}-\d{2}-\d{2}$/) && req.method === 'GET') {
-        this.handleCommunityFieldEpoch(basePath, res, req, requestId);
       } else {
         this.sendErrorResponse(
           res,
@@ -1755,272 +1716,6 @@ export class ShadowAtlasAPI {
     if (districtId.startsWith('nz-gen-')) return 'nz_general_electorate';
     if (districtId.startsWith('nz-maori-')) return 'nz_maori_electorate';
     return null;
-  }
-
-  /**
-   * Handle POST /v1/bubble-query endpoint
-   *
-   * Returns fences + clipped district polygons within a bubble extent.
-   * All processing is local: R-tree spatial queries, no external calls
-   * (except optional Nominatim geocoding for postal codes).
-   */
-  private async handleBubbleQuery(
-    req: IncomingMessage,
-    res: ServerResponse,
-    requestId: string,
-  ): Promise<void> {
-    if (!this.bubbleService) {
-      this.sendErrorResponse(
-        res, 501, 'SERVICE_UNAVAILABLE',
-        'Bubble service not configured. District DB with fences table required.',
-        requestId,
-      );
-      return;
-    }
-
-    // Rate limiting
-    const clientId = this.getClientId(req);
-    const rateResult = this.rateLimiter.check(clientId);
-    res.setHeader('X-RateLimit-Limit', String(this.rateLimiter['maxRequests']));
-    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
-    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
-
-    if (!rateResult.allowed) {
-      this.sendErrorResponse(
-        res, 429, 'RATE_LIMIT_EXCEEDED',
-        'Rate limit exceeded. Please try again later.',
-        requestId,
-      );
-      return;
-    }
-
-    // Content-Type
-    const contentType = req.headers['content-type'];
-    if (!contentType || !contentType.includes('application/json')) {
-      this.sendErrorResponse(
-        res, 415, 'INVALID_BODY',
-        'Content-Type must be application/json',
-        requestId,
-      );
-      return;
-    }
-
-    // Parse body
-    const body = await this.readBody(req);
-    if (!body) {
-      this.sendErrorResponse(
-        res, 400, 'INVALID_BODY', 'Request body is required', requestId,
-      );
-      return;
-    }
-
-    // Validate
-    const validation = bubbleQuerySchema.safeParse(body);
-    if (!validation.success) {
-      this.sendErrorResponse(
-        res, 400, 'INVALID_PARAMETERS',
-        `Invalid bubble query: ${validation.error.errors.map(e => e.message).join(', ')}`,
-        requestId,
-      );
-      return;
-    }
-
-    try {
-      const result = await this.bubbleService.query(validation.data);
-
-      res.setHeader('Cache-Control', 'private, max-age=300'); // 5 min cache
-      this.sendSuccessResponse(res, result, requestId, false);
-    } catch (error) {
-      logger.error('bubble-query failed', {
-        requestId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      this.sendErrorResponse(
-        res, 500, 'INTERNAL_ERROR',
-        'Bubble query failed',
-        requestId,
-      );
-    }
-  }
-
-  // ========================================================================
-  // Community Field Endpoints
-  // ========================================================================
-
-  /**
-   * Handle POST /v1/community-field/contribute endpoint.
-   *
-   * Accepts a BubbleMembershipProof submission with proof, publicInputs, and epochDate.
-   * Validates inputs, checks epoch nullifier uniqueness, stores the contribution.
-   *
-   * Body: { proof: "0x...", publicInputs: ["0x...",...], epochDate: "YYYY-MM-DD" }
-   * Public inputs: [engagementRoot, epochDomain, cellSetRoot, epochNullifier, cellCount]
-   */
-  private async handleCommunityFieldContribute(
-    req: IncomingMessage,
-    res: ServerResponse,
-    requestId: string,
-  ): Promise<void> {
-    if (!this.communityFieldService) {
-      this.sendErrorResponse(
-        res, 501, 'SERVICE_UNAVAILABLE',
-        'Community field service not configured',
-        requestId,
-      );
-      return;
-    }
-
-    // Rate limiting (use registration limiter — 5/min per IP)
-    const clientId = this.getClientId(req);
-    const rateResult = this.registrationRateLimiter.check(clientId);
-    res.setHeader('X-RateLimit-Limit', '5');
-    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
-    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
-    if (!rateResult.allowed) {
-      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
-      return;
-    }
-
-    // Auth check (same as registration endpoints)
-    if (this.registrationAuthToken) {
-      const authHeader = req.headers['authorization'];
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.setHeader('WWW-Authenticate', 'Bearer');
-        this.sendErrorResponse(res, 401, 'UNAUTHORIZED', 'Authorization required', requestId);
-        return;
-      }
-      const token = authHeader.slice(7);
-      if (!this.constantTimeEqual(token, this.registrationAuthToken)) {
-        this.sendErrorResponse(res, 403, 'FORBIDDEN', 'Invalid authorization token', requestId);
-        return;
-      }
-    }
-
-    // Content-Type validation
-    const contentType = req.headers['content-type'];
-    if (!contentType || !contentType.includes('application/json')) {
-      this.sendErrorResponse(res, 415, 'INVALID_BODY', 'Content-Type must be application/json', requestId);
-      return;
-    }
-
-    // Parse body
-    const body = await this.readBody(req, 128 * 1024);
-    if (!body) {
-      this.sendErrorResponse(res, 400, 'INVALID_BODY', 'Request body is required', requestId);
-      return;
-    }
-
-    const validation = communityFieldContributeSchema.safeParse(body);
-    if (!validation.success) {
-      this.sendErrorResponse(res, 400, 'INVALID_PARAMETERS', 'Invalid submission parameters', requestId);
-      return;
-    }
-
-    try {
-      const contribution = this.communityFieldService.submit(validation.data);
-
-      res.setHeader('Cache-Control', 'no-store');
-      this.sendSuccessResponse(res, {
-        epochDate: contribution.epochDate,
-        cellSetRoot: contribution.cellSetRoot,
-        cellCount: contribution.cellCount,
-        epochNullifier: contribution.epochNullifier,
-      }, requestId, false);
-    } catch (error) {
-      if (error instanceof CommunityFieldError) {
-        const status = error.code === 'DUPLICATE_NULLIFIER' ? 409
-          : error.code === 'EPOCH_FULL' ? 503
-          : 400;
-        this.sendErrorResponse(res, status, error.code, error.message, requestId);
-      } else {
-        logger.error('community-field contribution failed', {
-          requestId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        this.sendErrorResponse(res, 500, 'INTERNAL_ERROR', 'Contribution failed', requestId);
-      }
-    }
-  }
-
-  /**
-   * Handle GET /v1/community-field/info endpoint.
-   * Returns summary of all active epochs.
-   */
-  private handleCommunityFieldInfo(
-    res: ServerResponse,
-    req: IncomingMessage,
-    requestId: string,
-  ): void {
-    if (!this.communityFieldService) {
-      this.sendErrorResponse(
-        res, 501, 'SERVICE_UNAVAILABLE',
-        'Community field service not configured',
-        requestId,
-      );
-      return;
-    }
-
-    // R11-H1: Rate limit read endpoints — getInfo() iterates all contributions (O(N))
-    const clientId = this.getClientId(req);
-    const rateResult = this.rateLimiter.check(clientId);
-    // R13-L1: Full rate limit header triplet (was missing X-RateLimit-Limit)
-    res.setHeader('X-RateLimit-Limit', String(this.rateLimiter['maxRequests']));
-    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
-    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
-    if (!rateResult.allowed) {
-      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
-      return;
-    }
-
-    const info = this.communityFieldService.getInfo();
-    res.setHeader('Cache-Control', 'private, max-age=60');
-    this.sendSuccessResponse(res, info, requestId, true);
-  }
-
-  /**
-   * Handle GET /v1/community-field/epoch/:epochDate endpoint.
-   * Returns summary + contributions for a specific epoch.
-   */
-  private handleCommunityFieldEpoch(
-    basePath: string,
-    res: ServerResponse,
-    req: IncomingMessage,
-    requestId: string,
-  ): void {
-    if (!this.communityFieldService) {
-      this.sendErrorResponse(
-        res, 501, 'SERVICE_UNAVAILABLE',
-        'Community field service not configured',
-        requestId,
-      );
-      return;
-    }
-
-    // R11-H1: Rate limit read endpoints — getContributions() can return 100K entries
-    const clientId = this.getClientId(req);
-    const rateResult = this.rateLimiter.check(clientId);
-    // R13-L1: Full rate limit header triplet (was missing X-RateLimit-Limit)
-    res.setHeader('X-RateLimit-Limit', String(this.rateLimiter['maxRequests']));
-    res.setHeader('X-RateLimit-Remaining', String(rateResult.remaining));
-    res.setHeader('X-RateLimit-Reset', String(Math.floor(rateResult.resetAt / 1000)));
-    if (!rateResult.allowed) {
-      this.sendErrorResponse(res, 429, 'RATE_LIMIT_EXCEEDED', 'Rate limit exceeded', requestId);
-      return;
-    }
-
-    const epochDate = basePath.replace('/community-field/epoch/', '');
-    const summary = this.communityFieldService.getEpochSummary(epochDate);
-
-    if (!summary) {
-      this.sendErrorResponse(res, 404, 'NOT_FOUND', `No contributions for epoch ${epochDate}`, requestId);
-      return;
-    }
-
-    // R11-M1: Return summary only — strip per-contribution nullifiers and timestamps
-    // to preserve the privacy model ("WHERE without WHO"). Raw contribution data
-    // (including epochNullifier, submittedAt) enables cross-epoch behavioral fingerprinting.
-    res.setHeader('Cache-Control', 'private, max-age=60');
-    this.sendSuccessResponse(res, summary, requestId, true);
   }
 
   /**
@@ -3743,8 +3438,6 @@ export async function createShadowAtlasAPI(
     officialsService?: OfficialsService;
     geocodeService?: GeocodeService;
     debateService?: DebateService;
-    bubbleService?: BubbleService;
-    communityFieldService?: CommunityFieldService;
   } = {}
 ): Promise<ShadowAtlasAPI> {
   // Initialize services — district DB may not exist in fresh Docker deployments
@@ -3790,8 +3483,6 @@ export async function createShadowAtlasAPI(
     options.officialsService ?? null,
     options.geocodeService ?? null,
     options.debateService ?? null,
-    options.bubbleService ?? null,
-    options.communityFieldService ?? null,
   );
 
   return api;

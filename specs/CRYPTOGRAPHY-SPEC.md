@@ -292,7 +292,7 @@ Position commitments use `DOMAIN_POS_COMMIT` (PCM), not `DOMAIN_HASH3`, to preve
 
 ## 5. Circuits
 
-Four live circuits and one legacy. All compile to UltraHonk via `nargo` + `@aztec/bb.js`.
+Three live circuits and one legacy. All compile to UltraHonk via `nargo` + `@aztec/bb.js`.
 
 ### 5.1 `three_tree_membership` — Canonical Civic Action Proof
 
@@ -357,21 +357,7 @@ weighted_amount = floor(sqrt(stake)) × 2^tier
 
 Source: `packages/crypto/noir/debate_weight/src/main.nr`.
 
-### 5.4 `bubble_membership` — Community Field (Phase 2)
-
-**Phase 2 circuit for geographic bubble aggregation.** Proves a verified user commits to a set of up to 16 H3 hexagonal cells representing their geographic bubble, with Sybil-resistant per-epoch nullifiers.
-
-**Identity binding:** `identity_commitment` must be in Tree 3 (operator-controlled), preventing fabricated commitments from bypassing epoch nullifier Sybil resistance.
-
-**Epoch nullifier:** `H2(identity_commitment, epoch_domain)` where `epoch_domain` encodes field tag + date ordinal.
-
-**Cell count bound:** `MAX_CELLS = 16` limits how many cells one identity can contribute. Cells must be sorted ascending to prevent duplicate claims within a single proof.
-
-Trust model: the client computes H3 cells from bubble geometry (cannot be verified in-circuit without leaking coordinates); the operator acts as trusted aggregator. Statistical aggregation with differential privacy dilutes individual misrepresentation at scale.
-
-Source: `packages/crypto/noir/bubble_membership/src/main.nr`.
-
-### 5.5 Depth Variants
+### 5.4 Depth Variants
 
 Each live circuit compiles to four depth variants (18 / 20 / 22 / 24):
 
@@ -516,7 +502,7 @@ The protocol inherits the Aztec community's SRS security posture. A post-quantum
 
 ### 7.4 Verifier Contract Upgrades
 
-Each depth variant has its own verifier contract (4 verifiers per circuit × 4 live circuits = 16 verifier contracts, with `three_tree_membership` having 4 live and `two_tree_membership`/`district_membership` retired).
+Each depth variant has its own verifier contract (4 verifiers per circuit × 3 live circuits = 12 verifier contracts, with `three_tree_membership` having 4 live and `two_tree_membership`/`district_membership` retired).
 
 Verifier upgrades require a **14-day timelock** — the longest in the system. A malicious verifier that returned `true` unconditionally would forge the entire protocol. The 14-day window allows:
 - Download proposed bytecode from Scroll.
@@ -673,7 +659,6 @@ voter-protocol/
 │   │       ├── three_tree_membership/  # Canonical live circuit
 │   │       ├── position_note/          # Debate settlement
 │   │       ├── debate_weight/          # Quadratic stake
-│   │       ├── bubble_membership/      # Community field (Phase 2)
 │   │       ├── district_membership/    # Legacy single-tree
 │   │       ├── two_tree_membership/    # Legacy pre-engagement
 │   │       ├── fixtures/               # Primitive hash circuit used by TS
@@ -685,7 +670,7 @@ voter-protocol/
 
 commons/                                # SvelteKit app consuming voter-protocol
 ├── src/lib/core/crypto/                # BN254, Poseidon2 imports
-├── src/lib/core/zkp/                   # Prover client, community-field client
+├── src/lib/core/zkp/                   # Prover client
 └── src/lib/core/identity/              # Shadow-atlas-handler, mDL verification
 ```
 

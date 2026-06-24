@@ -7,8 +7,6 @@
  */
 
 import { createShadowAtlasAPI } from '../../../serving/api.js';
-import { BubbleService } from '../../../serving/bubble-service.js';
-import { CommunityFieldService } from '../../../serving/community-field-service.js';
 import { RegistrationService, type CellMapState } from '../../../serving/registration-service.js';
 import { OfficialsService } from '../../../serving/officials-service.js';
 import { GeocodeService } from '../../../serving/geocode-service.js';
@@ -374,25 +372,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         'Run Nominatim via docker-compose to enable self-hosted geocoding.');
     }
 
-    // BubbleService — uses district DB for fence + district spatial queries
-    let bubbleService: BubbleService | null = null;
-    try {
-      bubbleService = new BubbleService(
-        dbPath,
-        geocodeService ?? null,
-        officialsService ?? null,
-      );
-      logger.info('Bubble service initialized (fence + district spatial queries)');
-    } catch (err) {
-      logger.warn('Bubble service not available — POST /v1/bubble-query will return 501.', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    // Community Field Service (Phase 2 — epoch-scoped geographic contributions)
-    const communityFieldService = new CommunityFieldService();
-    logger.info('Community field service initialized (epoch nullifier dedup, contribution storage)');
-
     // Create and start API server
     const api = await createShadowAtlasAPI(dbPath, {
       port,
@@ -409,8 +388,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       officialsService: officialsService ?? undefined,
       geocodeService: geocodeService ?? undefined,
       debateService,
-      bubbleService: bubbleService ?? undefined,
-      communityFieldService,
     });
 
     api.start();
@@ -435,7 +412,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
         if (chainScanner) await chainScanner.stop();
         if (debateRelayer) debateRelayer.stop();
         if (officialsService) officialsService.close();
-        if (bubbleService) bubbleService.close();
       } catch (err) {
         logger.error('Shutdown error', {
           error: err instanceof Error ? err.message : String(err),
