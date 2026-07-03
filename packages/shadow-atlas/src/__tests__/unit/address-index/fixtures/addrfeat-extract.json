@@ -1,0 +1,9559 @@
+{
+ "provenance": {
+  "description": "Deterministic extract from a REAL TIGER ADDRFEAT county file, produced by scripts/extract-addrfeat-fixture.ts. Do not hand-edit — re-run the script.",
+  "sourceUrl": "https://www2.census.gov/geo/tiger/TIGER2025/ADDRFEAT/tl_2025_10001_addrfeat.zip",
+  "sourceSha256": "b2ebc524390c7626d206bbd0e4a60384a0b4d2a1108786929ab2a169f5df0083",
+  "sourceBytes": 1437653,
+  "countyFips": "10001",
+  "vintage": "TIGER2025",
+  "totalFeaturesInSource": 11367,
+  "selectionCounts": {
+   "base": 120,
+   "parityO": 15,
+   "descending": 25,
+   "parityE": 15,
+   "nonNumericHn": 10,
+   "singleHn": 10,
+   "parityB": 4
+  },
+  "extractedFeatures": 199
+ },
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 655495815,
+    "FULLNAME": "Taraila Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "18612",
+    "RTOHN": "18676",
+    "ZIPL": null,
+    "ZIPR": "19964",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.745787,
+      39.118655
+     ],
+     [
+      -75.745861,
+      39.119588
+     ],
+     [
+      -75.745898,
+      39.120048
+     ],
+     [
+      -75.745937,
+      39.120537
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 655495815,
+    "FULLNAME": "Taraila Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "18600",
+    "RTOHN": "18608",
+    "ZIPL": null,
+    "ZIPR": "19964",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.745787,
+      39.118655
+     ],
+     [
+      -75.745861,
+      39.119588
+     ],
+     [
+      -75.745898,
+      39.120048
+     ],
+     [
+      -75.745937,
+      39.120537
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 655495815,
+    "FULLNAME": "Taraila Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "18682",
+    "RTOHN": "18698",
+    "ZIPL": null,
+    "ZIPR": "19964",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.745787,
+      39.118655
+     ],
+     [
+      -75.745861,
+      39.119588
+     ],
+     [
+      -75.745898,
+      39.120048
+     ],
+     [
+      -75.745937,
+      39.120537
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 655495815,
+    "FULLNAME": "Taraila Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "200",
+    "RTOHN": "298",
+    "ZIPL": null,
+    "ZIPR": "19964",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.745787,
+      39.118655
+     ],
+     [
+      -75.745861,
+      39.119588
+     ],
+     [
+      -75.745898,
+      39.120048
+     ],
+     [
+      -75.745937,
+      39.120537
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 629494787,
+    "FULLNAME": "Hog Range Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2",
+    "RTOHN": "50",
+    "ZIPL": null,
+    "ZIPR": "19950",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.723053,
+      38.833098
+     ],
+     [
+      -75.723162,
+      38.83448
+     ],
+     [
+      -75.723175,
+      38.834647
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 629494787,
+    "FULLNAME": "Hog Range Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "52",
+    "RTOHN": "98",
+    "ZIPL": null,
+    "ZIPR": "19950",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.723053,
+      38.833098
+     ],
+     [
+      -75.723162,
+      38.83448
+     ],
+     [
+      -75.723175,
+      38.834647
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 629494787,
+    "FULLNAME": "Hickman Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2",
+    "RTOHN": "50",
+    "ZIPL": null,
+    "ZIPR": "19950",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.723053,
+      38.833098
+     ],
+     [
+      -75.723162,
+      38.83448
+     ],
+     [
+      -75.723175,
+      38.834647
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 645644100,
+    "FULLNAME": "Hog Range Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "100",
+    "RTOHN": "268",
+    "ZIPL": null,
+    "ZIPR": "19950",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.723175,
+      38.834647
+     ],
+     [
+      -75.723361,
+      38.837008
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 646445795,
+    "FULLNAME": "Clayton Greenspring Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "1498",
+    "RTOHN": "1494",
+    "ZIPL": null,
+    "ZIPR": "19938",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.640875,
+      39.301224
+     ],
+     [
+      -75.640959,
+      39.301318
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68101346,
+    "FULLNAME": "Copley Ct",
+    "LFROMHN": "2",
+    "LTOHN": "98",
+    "RFROMHN": "1",
+    "RTOHN": "99",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582293,
+      39.189479
+     ],
+     [
+      -75.582145,
+      39.189415
+     ],
+     [
+      -75.581701,
+      39.189223
+     ],
+     [
+      -75.581554,
+      39.18916
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102478,
+    "FULLNAME": "S Dupont Hwy",
+    "LFROMHN": "8698",
+    "LTOHN": "8618",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19943",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.557676,
+      39.045473
+     ],
+     [
+      -75.557619,
+      39.045738
+     ],
+     [
+      -75.557586,
+      39.045906
+     ],
+     [
+      -75.557552,
+      39.046087
+     ],
+     [
+      -75.557378,
+      39.047219
+     ],
+     [
+      -75.557312,
+      39.047657
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087569,
+    "FULLNAME": "N Dupont Hwy",
+    "LFROMHN": "1426",
+    "LTOHN": "1448",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.545324,
+      39.192471
+     ],
+     [
+      -75.54557,
+      39.192647
+     ],
+     [
+      -75.54631,
+      39.193177
+     ],
+     [
+      -75.546557,
+      39.193354
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102398,
+    "FULLNAME": "Kenton Rd",
+    "LFROMHN": "3601",
+    "LTOHN": "3899",
+    "RFROMHN": "3600",
+    "RTOHN": "3898",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.595184,
+      39.1921
+     ],
+     [
+      -75.595568,
+      39.19251
+     ],
+     [
+      -75.595786,
+      39.192783
+     ],
+     [
+      -75.595943,
+      39.19299
+     ],
+     [
+      -75.596068,
+      39.19321
+     ],
+     [
+      -75.596199,
+      39.193438
+     ],
+     [
+      -75.596283,
+      39.193628
+     ],
+     [
+      -75.596353,
+      39.193812
+     ],
+     [
+      -75.596409,
+      39.194008
+     ],
+     [
+      -75.596471,
+      39.194204
+     ],
+     [
+      -75.596554,
+      39.194676
+     ],
+     [
+      -75.596589,
+      39.195358
+     ],
+     [
+      -75.596637,
+      39.196273
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 629967438,
+    "FULLNAME": "Central Church Rd",
+    "LFROMHN": "1601",
+    "LTOHN": "1835",
+    "RFROMHN": "1618",
+    "RTOHN": "1898",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.595184,
+      39.1921
+     ],
+     [
+      -75.593644,
+      39.192744
+     ],
+     [
+      -75.591836,
+      39.193466
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087580,
+    "FULLNAME": "N Dupont Hwy",
+    "LFROMHN": "1380",
+    "LTOHN": "1424",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.543882,
+      39.191445
+     ],
+     [
+      -75.54417,
+      39.19165
+     ],
+     [
+      -75.545036,
+      39.192265
+     ],
+     [
+      -75.545164,
+      39.192356
+     ],
+     [
+      -75.545324,
+      39.192471
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68106380,
+    "FULLNAME": "Quaker Hill Rd",
+    "LFROMHN": "459",
+    "LTOHN": "699",
+    "RFROMHN": "450",
+    "RTOHN": "702",
+    "ZIPL": "19962",
+    "ZIPR": "19962",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.478434,
+      39.080627
+     ],
+     [
+      -75.478584,
+      39.080696
+     ],
+     [
+      -75.478706,
+      39.080759
+     ],
+     [
+      -75.478832,
+      39.08079
+     ],
+     [
+      -75.478928,
+      39.080821
+     ],
+     [
+      -75.479224,
+      39.080879
+     ],
+     [
+      -75.479279,
+      39.080885
+     ],
+     [
+      -75.479329,
+      39.080892
+     ],
+     [
+      -75.479405,
+      39.080882
+     ],
+     [
+      -75.479473,
+      39.080857
+     ],
+     [
+      -75.479559,
+      39.080814
+     ],
+     [
+      -75.479759,
+      39.080686
+     ],
+     [
+      -75.480259,
+      39.080354
+     ],
+     [
+      -75.48044,
+      39.080207
+     ],
+     [
+      -75.480573,
+      39.08008
+     ],
+     [
+      -75.480734,
+      39.079902
+     ],
+     [
+      -75.481083,
+      39.079551
+     ],
+     [
+      -75.481144,
+      39.079452
+     ],
+     [
+      -75.481179,
+      39.079356
+     ],
+     [
+      -75.481173,
+      39.079259
+     ],
+     [
+      -75.481155,
+      39.079187
+     ],
+     [
+      -75.481149,
+      39.079161
+     ],
+     [
+      -75.481114,
+      39.079097
+     ],
+     [
+      -75.481052,
+      39.079033
+     ],
+     [
+      -75.480467,
+      39.078646
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 617126279,
+    "FULLNAME": "Kenton Rd",
+    "LFROMHN": "3101",
+    "LTOHN": "3201",
+    "RFROMHN": "3100",
+    "RTOHN": "3258",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.589243,
+      39.186251
+     ],
+     [
+      -75.589542,
+      39.186515
+     ],
+     [
+      -75.590159,
+      39.187081
+     ],
+     [
+      -75.590399,
+      39.187293
+     ],
+     [
+      -75.590481,
+      39.187368
+     ],
+     [
+      -75.590559,
+      39.18744
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68105460,
+    "FULLNAME": "Pearsons Corner Rd",
+    "LFROMHN": "5801",
+    "LTOHN": "5899",
+    "RFROMHN": "5800",
+    "RTOHN": "5898",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.623804,
+      39.188105
+     ],
+     [
+      -75.623791,
+      39.188137
+     ],
+     [
+      -75.623691,
+      39.18848
+     ],
+     [
+      -75.623549,
+      39.188976
+     ],
+     [
+      -75.62334,
+      39.189603
+     ],
+     [
+      -75.623217,
+      39.189976
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68101008,
+    "FULLNAME": "Carlisle Dr",
+    "LFROMHN": "26",
+    "LTOHN": "98",
+    "RFROMHN": "25",
+    "RTOHN": "99",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.57928,
+      39.187535
+     ],
+     [
+      -75.579341,
+      39.187551
+     ],
+     [
+      -75.579492,
+      39.187582
+     ],
+     [
+      -75.579687,
+      39.187623
+     ],
+     [
+      -75.579877,
+      39.187668
+     ],
+     [
+      -75.580006,
+      39.187714
+     ],
+     [
+      -75.580093,
+      39.187761
+     ],
+     [
+      -75.58011,
+      39.187777
+     ],
+     [
+      -75.580161,
+      39.187825
+     ],
+     [
+      -75.580256,
+      39.187939
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 629944955,
+    "FULLNAME": "Central Church Rd",
+    "LFROMHN": "1616",
+    "LTOHN": "1300",
+    "RFROMHN": "1599",
+    "RTOHN": "1201",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.595184,
+      39.1921
+     ],
+     [
+      -75.596174,
+      39.191711
+     ],
+     [
+      -75.600518,
+      39.189979
+     ],
+     [
+      -75.600843,
+      39.18985
+     ],
+     [
+      -75.601349,
+      39.189642
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 641078146,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "4201",
+    "LTOHN": "4257",
+    "RFROMHN": "4200",
+    "RTOHN": "4298",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.57859,
+      39.186978
+     ],
+     [
+      -75.578143,
+      39.187162
+     ],
+     [
+      -75.577737,
+      39.187332
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 639569133,
+    "FULLNAME": "Birdsong Ln",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "100",
+    "RTOHN": "198",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.584008,
+      39.182815
+     ],
+     [
+      -75.584156,
+      39.182901
+     ],
+     [
+      -75.584581,
+      39.183148
+     ],
+     [
+      -75.584593,
+      39.183154
+     ],
+     [
+      -75.585281,
+      39.183503
+     ],
+     [
+      -75.585917,
+      39.18389
+     ],
+     [
+      -75.585938,
+      39.183903
+     ],
+     [
+      -75.586105,
+      39.183999
+     ],
+     [
+      -75.586334,
+      39.184175
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 656131501,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "4001",
+    "LTOHN": "4099",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19904",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580083,
+      39.185243
+     ],
+     [
+      -75.580029,
+      39.185282
+     ],
+     [
+      -75.579878,
+      39.185414
+     ],
+     [
+      -75.579797,
+      39.185505
+     ],
+     [
+      -75.579754,
+      39.185579
+     ],
+     [
+      -75.579711,
+      39.185655
+     ],
+     [
+      -75.579624,
+      39.18585
+     ],
+     [
+      -75.579545,
+      39.186043
+     ],
+     [
+      -75.579519,
+      39.186136
+     ],
+     [
+      -75.579499,
+      39.186196
+     ],
+     [
+      -75.579461,
+      39.186272
+     ],
+     [
+      -75.579347,
+      39.186436
+     ],
+     [
+      -75.579235,
+      39.186571
+     ],
+     [
+      -75.579012,
+      39.186762
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68113338,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "4401",
+    "LTOHN": "4499",
+    "RFROMHN": "4300",
+    "RTOHN": "4498",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.575881,
+      39.188066
+     ],
+     [
+      -75.575697,
+      39.188143
+     ],
+     [
+      -75.57549,
+      39.188245
+     ],
+     [
+      -75.574987,
+      39.188538
+     ],
+     [
+      -75.574904,
+      39.188587
+     ],
+     [
+      -75.574596,
+      39.18878
+     ],
+     [
+      -75.573623,
+      39.189429
+     ],
+     [
+      -75.572211,
+      39.190378
+     ],
+     [
+      -75.571597,
+      39.190792
+     ],
+     [
+      -75.571546,
+      39.190825
+     ],
+     [
+      -75.571288,
+      39.190995
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 636203731,
+    "FULLNAME": "N State St",
+    "LFROMHN": "1000",
+    "LTOHN": "1098",
+    "RFROMHN": "1001",
+    "RTOHN": "1025",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.529753,
+      39.17797
+     ],
+     [
+      -75.529752,
+      39.178002
+     ],
+     [
+      -75.529749,
+      39.178098
+     ],
+     [
+      -75.529748,
+      39.17813
+     ],
+     [
+      -75.529731,
+      39.178705
+     ],
+     [
+      -75.529727,
+      39.178869
+     ],
+     [
+      -75.529686,
+      39.179201
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 656131503,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "3801",
+    "LTOHN": "3999",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19904",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.584008,
+      39.182815
+     ],
+     [
+      -75.583876,
+      39.182895
+     ],
+     [
+      -75.581393,
+      39.184405
+     ],
+     [
+      -75.580561,
+      39.184917
+     ],
+     [
+      -75.580316,
+      39.185083
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 639570111,
+    "FULLNAME": "Kenton Rd",
+    "LFROMHN": "2801",
+    "LTOHN": "2965",
+    "RFROMHN": "2700",
+    "RTOHN": "2998",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.586236,
+      39.181462
+     ],
+     [
+      -75.586282,
+      39.181602
+     ],
+     [
+      -75.586314,
+      39.181773
+     ],
+     [
+      -75.586394,
+      39.18209
+     ],
+     [
+      -75.586489,
+      39.182592
+     ],
+     [
+      -75.586497,
+      39.182632
+     ],
+     [
+      -75.586629,
+      39.183119
+     ],
+     [
+      -75.586699,
+      39.183319
+     ],
+     [
+      -75.586876,
+      39.183707
+     ],
+     [
+      -75.58695,
+      39.183849
+     ],
+     [
+      -75.587071,
+      39.184019
+     ],
+     [
+      -75.587284,
+      39.18434
+     ],
+     [
+      -75.587422,
+      39.184512
+     ],
+     [
+      -75.587724,
+      39.184832
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087655,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "3621",
+    "LTOHN": "3799",
+    "RFROMHN": "3620",
+    "RTOHN": "3798",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.586236,
+      39.181462
+     ],
+     [
+      -75.584008,
+      39.182815
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 637314047,
+    "FULLNAME": "Hiawatha Ln",
+    "LFROMHN": "2",
+    "LTOHN": "24",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19904",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.529753,
+      39.17797
+     ],
+     [
+      -75.530054,
+      39.178004
+     ],
+     [
+      -75.530281,
+      39.17803
+     ],
+     [
+      -75.530488,
+      39.178069
+     ],
+     [
+      -75.530699,
+      39.178128
+     ],
+     [
+      -75.530792,
+      39.178151
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102379,
+    "FULLNAME": "Mishoe St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "1",
+    "RTOHN": "99",
+    "ZIPL": null,
+    "ZIPR": "19904",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.547771,
+      39.180725
+     ],
+     [
+      -75.548373,
+      39.181224
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087663,
+    "FULLNAME": "Bacon Ave",
+    "LFROMHN": "801",
+    "LTOHN": "899",
+    "RFROMHN": "800",
+    "RTOHN": "898",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.519616,
+      39.180287
+     ],
+     [
+      -75.519393,
+      39.180513
+     ],
+     [
+      -75.519306,
+      39.180602
+     ],
+     [
+      -75.518867,
+      39.181097
+     ],
+     [
+      -75.518759,
+      39.181179
+     ],
+     [
+      -75.51873,
+      39.18119
+     ],
+     [
+      -75.518607,
+      39.181242
+     ],
+     [
+      -75.518435,
+      39.181305
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087664,
+    "FULLNAME": "Whitemarsh Ct",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.569797,
+      39.180413
+     ],
+     [
+      -75.569507,
+      39.180341
+     ],
+     [
+      -75.569374,
+      39.180308
+     ],
+     [
+      -75.569197,
+      39.180282
+     ],
+     [
+      -75.569025,
+      39.180289
+     ],
+     [
+      -75.568927,
+      39.180322
+     ],
+     [
+      -75.568756,
+      39.180412
+     ],
+     [
+      -75.568675,
+      39.180484
+     ],
+     [
+      -75.568648,
+      39.180509
+     ],
+     [
+      -75.568586,
+      39.180612
+     ],
+     [
+      -75.568538,
+      39.180745
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087665,
+    "FULLNAME": "Pine Valley Rd",
+    "LFROMHN": "319",
+    "LTOHN": "399",
+    "RFROMHN": "300",
+    "RTOHN": "398",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.569797,
+      39.180413
+     ],
+     [
+      -75.569738,
+      39.180607
+     ],
+     [
+      -75.569591,
+      39.181101
+     ],
+     [
+      -75.569537,
+      39.18118
+     ],
+     [
+      -75.569512,
+      39.181218
+     ],
+     [
+      -75.569381,
+      39.181306
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 638022638,
+    "FULLNAME": "N Waters St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "899",
+    "RTOHN": "885",
+    "ZIPL": null,
+    "ZIPR": "19904",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.544451,
+      39.180321
+     ],
+     [
+      -75.544594,
+      39.180452
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087669,
+    "FULLNAME": "Bacon Ave",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "700",
+    "RTOHN": "798",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.520485,
+      39.179892
+     ],
+     [
+      -75.520295,
+      39.179935
+     ],
+     [
+      -75.520271,
+      39.179941
+     ],
+     [
+      -75.520064,
+      39.179999
+     ],
+     [
+      -75.519902,
+      39.180066
+     ],
+     [
+      -75.519763,
+      39.180161
+     ],
+     [
+      -75.519721,
+      39.180191
+     ],
+     [
+      -75.519616,
+      39.180287
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087670,
+    "FULLNAME": "Nimitz Rd",
+    "LFROMHN": "618",
+    "LTOHN": "698",
+    "RFROMHN": "627",
+    "RTOHN": "699",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.516492,
+      39.179857
+     ],
+     [
+      -75.516599,
+      39.179915
+     ],
+     [
+      -75.516733,
+      39.179966
+     ],
+     [
+      -75.516909,
+      39.180008
+     ],
+     [
+      -75.51711,
+      39.180034
+     ],
+     [
+      -75.517157,
+      39.18004
+     ],
+     [
+      -75.517399,
+      39.180048
+     ],
+     [
+      -75.518065,
+      39.179993
+     ],
+     [
+      -75.518306,
+      39.179958
+     ],
+     [
+      -75.518595,
+      39.179931
+     ],
+     [
+      -75.518808,
+      39.179929
+     ],
+     [
+      -75.518989,
+      39.179955
+     ],
+     [
+      -75.519045,
+      39.179978
+     ],
+     [
+      -75.51915,
+      39.180023
+     ],
+     [
+      -75.519616,
+      39.180287
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68087677,
+    "FULLNAME": "Bacon Ct",
+    "LFROMHN": "98",
+    "LTOHN": "2",
+    "RFROMHN": "99",
+    "RTOHN": "1",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.519746,
+      39.179353
+     ],
+     [
+      -75.519914,
+      39.179436
+     ],
+     [
+      -75.520165,
+      39.17956
+     ],
+     [
+      -75.520313,
+      39.179653
+     ],
+     [
+      -75.520386,
+      39.179726
+     ],
+     [
+      -75.520485,
+      39.179892
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102266,
+    "FULLNAME": "Co Rd 100",
+    "LFROMHN": "1998",
+    "LTOHN": "1902",
+    "RFROMHN": "2043",
+    "RTOHN": "1801",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.613929,
+      39.178567
+     ],
+     [
+      -75.614004,
+      39.178563
+     ],
+     [
+      -75.614668,
+      39.178438
+     ],
+     [
+      -75.615018,
+      39.17838
+     ],
+     [
+      -75.615395,
+      39.17836
+     ],
+     [
+      -75.615879,
+      39.178381
+     ],
+     [
+      -75.616911,
+      39.17848
+     ],
+     [
+      -75.617993,
+      39.178575
+     ],
+     [
+      -75.618337,
+      39.178598
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102266,
+    "FULLNAME": "W Denneys Rd",
+    "LFROMHN": "1998",
+    "LTOHN": "1902",
+    "RFROMHN": "2043",
+    "RTOHN": "1801",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.613929,
+      39.178567
+     ],
+     [
+      -75.614004,
+      39.178563
+     ],
+     [
+      -75.614668,
+      39.178438
+     ],
+     [
+      -75.615018,
+      39.17838
+     ],
+     [
+      -75.615395,
+      39.17836
+     ],
+     [
+      -75.615879,
+      39.178381
+     ],
+     [
+      -75.616911,
+      39.17848
+     ],
+     [
+      -75.617993,
+      39.178575
+     ],
+     [
+      -75.618337,
+      39.178598
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 641108183,
+    "FULLNAME": "Whiteleysburg Rd",
+    "LFROMHN": "6898",
+    "LTOHN": "6600",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.617904,
+      38.924007
+     ],
+     [
+      -75.617991,
+      38.924013
+     ],
+     [
+      -75.618217,
+      38.924055
+     ],
+     [
+      -75.61834,
+      38.924078
+     ],
+     [
+      -75.618676,
+      38.924173
+     ],
+     [
+      -75.619015,
+      38.924279
+     ],
+     [
+      -75.61913,
+      38.924319
+     ],
+     [
+      -75.619297,
+      38.924379
+     ],
+     [
+      -75.619426,
+      38.924434
+     ],
+     [
+      -75.619596,
+      38.924506
+     ],
+     [
+      -75.619637,
+      38.924524
+     ],
+     [
+      -75.619971,
+      38.924697
+     ],
+     [
+      -75.620086,
+      38.924765
+     ],
+     [
+      -75.620246,
+      38.924859
+     ],
+     [
+      -75.620401,
+      38.92495
+     ],
+     [
+      -75.620868,
+      38.925224
+     ],
+     [
+      -75.621024,
+      38.925316
+     ],
+     [
+      -75.621579,
+      38.925642
+     ],
+     [
+      -75.623247,
+      38.926623
+     ],
+     [
+      -75.623803,
+      38.92695
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082183,
+    "FULLNAME": "Clark St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "101",
+    "RTOHN": "199",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.56853,
+      38.92371
+     ],
+     [
+      -75.567857,
+      38.923797
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108733,
+    "FULLNAME": "Fleming St",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578199,
+      38.92361
+     ],
+     [
+      -75.578233,
+      38.923674
+     ],
+     [
+      -75.578286,
+      38.923706
+     ],
+     [
+      -75.578458,
+      38.923811
+     ],
+     [
+      -75.578482,
+      38.924005
+     ],
+     [
+      -75.578481,
+      38.924014
+     ],
+     [
+      -75.578476,
+      38.92415
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082188,
+    "FULLNAME": "Dixon St",
+    "LFROMHN": "1",
+    "LTOHN": "5",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.570329,
+      38.92349
+     ],
+     [
+      -75.570356,
+      38.923652
+     ],
+     [
+      -75.570409,
+      38.923963
+     ],
+     [
+      -75.57046,
+      38.924135
+     ],
+     [
+      -75.570491,
+      38.924237
+     ],
+     [
+      -75.570502,
+      38.924295
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082189,
+    "FULLNAME": "Clark St",
+    "LFROMHN": "70",
+    "LTOHN": "98",
+    "RFROMHN": "85",
+    "RTOHN": "99",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.570148,
+      38.923507
+     ],
+     [
+      -75.569269,
+      38.923615
+     ],
+     [
+      -75.568579,
+      38.923704
+     ],
+     [
+      -75.56853,
+      38.92371
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082194,
+    "FULLNAME": "Clark St",
+    "LFROMHN": "58",
+    "LTOHN": "66",
+    "RFROMHN": "73",
+    "RTOHN": "81",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.571388,
+      38.923357
+     ],
+     [
+      -75.571175,
+      38.923381
+     ],
+     [
+      -75.571005,
+      38.923402
+     ],
+     [
+      -75.570961,
+      38.923408
+     ],
+     [
+      -75.57054,
+      38.923462
+     ],
+     [
+      -75.570329,
+      38.92349
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102789,
+    "FULLNAME": "Hutchison Dr",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19938",
+    "ZIPR": "19938",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.669718,
+      39.2794
+     ],
+     [
+      -75.669477,
+      39.279411
+     ],
+     [
+      -75.669419,
+      39.279421
+     ],
+     [
+      -75.669236,
+      39.279473
+     ],
+     [
+      -75.669114,
+      39.279513
+     ],
+     [
+      -75.667354,
+      39.280101
+     ],
+     [
+      -75.667086,
+      39.280191
+     ],
+     [
+      -75.666766,
+      39.280292
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082200,
+    "FULLNAME": "Clark St",
+    "LFROMHN": "30",
+    "LTOHN": "32",
+    "RFROMHN": "37",
+    "RTOHN": "49",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574587,
+      38.923027
+     ],
+     [
+      -75.574439,
+      38.923023
+     ],
+     [
+      -75.574366,
+      38.923022
+     ],
+     [
+      -75.574056,
+      38.923029
+     ],
+     [
+      -75.573998,
+      38.923034
+     ],
+     [
+      -75.573852,
+      38.923049
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 651716451,
+    "FULLNAME": "Clark St",
+    "LFROMHN": "35",
+    "LTOHN": "27",
+    "RFROMHN": "28",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574587,
+      38.923027
+     ],
+     [
+      -75.574763,
+      38.923035
+     ],
+     [
+      -75.574873,
+      38.923043
+     ],
+     [
+      -75.574957,
+      38.92305
+     ],
+     [
+      -75.575172,
+      38.923078
+     ],
+     [
+      -75.575724,
+      38.923171
+     ],
+     [
+      -75.576007,
+      38.92322
+     ],
+     [
+      -75.576116,
+      38.923238
+     ],
+     [
+      -75.576443,
+      38.923294
+     ],
+     [
+      -75.576552,
+      38.923313
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082202,
+    "FULLNAME": "Milford Harrington Hwy",
+    "LFROMHN": "6467",
+    "LTOHN": "6699",
+    "RFROMHN": "6500",
+    "RTOHN": "6698",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.552955,
+      38.922905
+     ],
+     [
+      -75.55324,
+      38.922913
+     ],
+     [
+      -75.553587,
+      38.922933
+     ],
+     [
+      -75.554095,
+      38.922981
+     ],
+     [
+      -75.55416,
+      38.922987
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082207,
+    "FULLNAME": "Dorman St",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.579066,
+      38.922578
+     ],
+     [
+      -75.579071,
+      38.92262
+     ],
+     [
+      -75.57909,
+      38.922775
+     ],
+     [
+      -75.579108,
+      38.922882
+     ],
+     [
+      -75.579151,
+      38.92312
+     ],
+     [
+      -75.579288,
+      38.923786
+     ],
+     [
+      -75.579351,
+      38.924088
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68110055,
+    "FULLNAME": "Commerce St",
+    "LFROMHN": "39",
+    "LTOHN": "27",
+    "RFROMHN": "42",
+    "RTOHN": "24",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.579066,
+      38.922578
+     ],
+     [
+      -75.579031,
+      38.92262
+     ],
+     [
+      -75.578961,
+      38.922702
+     ],
+     [
+      -75.578649,
+      38.923074
+     ],
+     [
+      -75.578545,
+      38.923199
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082211,
+    "FULLNAME": "Short St",
+    "LFROMHN": "1",
+    "LTOHN": "11",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580259,
+      38.922317
+     ],
+     [
+      -75.580261,
+      38.922377
+     ],
+     [
+      -75.580268,
+      38.922557
+     ],
+     [
+      -75.580271,
+      38.922618
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082212,
+    "FULLNAME": "West St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "6",
+    "RTOHN": "98",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582358,
+      38.922323
+     ],
+     [
+      -75.582367,
+      38.922487
+     ],
+     [
+      -75.58237,
+      38.922542
+     ],
+     [
+      -75.582373,
+      38.922615
+     ],
+     [
+      -75.58239,
+      38.922982
+     ],
+     [
+      -75.582399,
+      38.923147
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082213,
+    "FULLNAME": "W Mispillion St",
+    "LFROMHN": "98",
+    "LTOHN": "2",
+    "RFROMHN": "99",
+    "RTOHN": "1",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582358,
+      38.922323
+     ],
+     [
+      -75.581934,
+      38.922338
+     ],
+     [
+      -75.580664,
+      38.922386
+     ],
+     [
+      -75.580421,
+      38.922396
+     ],
+     [
+      -75.580259,
+      38.922317
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082214,
+    "FULLNAME": "Ward St",
+    "LFROMHN": "9",
+    "LTOHN": "1",
+    "RFROMHN": "4",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.576537,
+      38.922479
+     ],
+     [
+      -75.576539,
+      38.922504
+     ],
+     [
+      -75.576541,
+      38.922623
+     ],
+     [
+      -75.576541,
+      38.922645
+     ],
+     [
+      -75.576549,
+      38.923146
+     ],
+     [
+      -75.576552,
+      38.923313
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082216,
+    "FULLNAME": "Porter St",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.5681,
+      38.922315
+     ],
+     [
+      -75.568546,
+      38.922369
+     ],
+     [
+      -75.568615,
+      38.922382
+     ],
+     [
+      -75.568647,
+      38.922401
+     ],
+     [
+      -75.568673,
+      38.922421
+     ],
+     [
+      -75.568683,
+      38.92243
+     ],
+     [
+      -75.568699,
+      38.922456
+     ],
+     [
+      -75.568682,
+      38.923053
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082220,
+    "FULLNAME": "Mill St",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574707,
+      38.922179
+     ],
+     [
+      -75.575073,
+      38.922239
+     ],
+     [
+      -75.576171,
+      38.922419
+     ],
+     [
+      -75.576537,
+      38.922479
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082221,
+    "FULLNAME": "East St",
+    "LFROMHN": "11",
+    "LTOHN": "1",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574692,
+      38.922304
+     ],
+     [
+      -75.574674,
+      38.922449
+     ],
+     [
+      -75.574668,
+      38.922501
+     ],
+     [
+      -75.574649,
+      38.922626
+     ],
+     [
+      -75.574609,
+      38.922882
+     ],
+     [
+      -75.574587,
+      38.923027
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68107472,
+    "FULLNAME": "W Mispillion St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "199",
+    "RTOHN": "145",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.587449,
+      38.92221
+     ],
+     [
+      -75.587429,
+      38.922227
+     ],
+     [
+      -75.587402,
+      38.922237
+     ],
+     [
+      -75.587329,
+      38.922238
+     ],
+     [
+      -75.586945,
+      38.922249
+     ],
+     [
+      -75.586818,
+      38.922253
+     ],
+     [
+      -75.586768,
+      38.922254
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 636747072,
+    "FULLNAME": "S Dupont Hwy",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "17299",
+    "RTOHN": "17201",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.567169,
+      38.922192
+     ],
+     [
+      -75.567161,
+      38.922211
+     ],
+     [
+      -75.567137,
+      38.922272
+     ],
+     [
+      -75.567088,
+      38.922417
+     ],
+     [
+      -75.567025,
+      38.922607
+     ],
+     [
+      -75.567011,
+      38.922636
+     ],
+     [
+      -75.566923,
+      38.922823
+     ],
+     [
+      -75.566816,
+      38.923116
+     ],
+     [
+      -75.566803,
+      38.923164
+     ],
+     [
+      -75.566734,
+      38.923422
+     ],
+     [
+      -75.566705,
+      38.923529
+     ],
+     [
+      -75.566695,
+      38.923568
+     ],
+     [
+      -75.566673,
+      38.923656
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082227,
+    "FULLNAME": "Commerce St",
+    "LFROMHN": "99",
+    "LTOHN": "49",
+    "RFROMHN": "98",
+    "RTOHN": "46",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.57956,
+      38.921956
+     ],
+     [
+      -75.579495,
+      38.922037
+     ],
+     [
+      -75.5793,
+      38.922282
+     ],
+     [
+      -75.579236,
+      38.922364
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082228,
+    "FULLNAME": "Pine Pitch Rd",
+    "LFROMHN": "101",
+    "LTOHN": "199",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.602755,
+      38.921742
+     ],
+     [
+      -75.602741,
+      38.921819
+     ],
+     [
+      -75.602732,
+      38.921942
+     ],
+     [
+      -75.602785,
+      38.922569
+     ],
+     [
+      -75.602786,
+      38.922584
+     ],
+     [
+      -75.602864,
+      38.923309
+     ],
+     [
+      -75.602944,
+      38.92404
+     ],
+     [
+      -75.603092,
+      38.925799
+     ],
+     [
+      -75.603339,
+      38.92801
+     ],
+     [
+      -75.603353,
+      38.928136
+     ],
+     [
+      -75.603361,
+      38.928316
+     ],
+     [
+      -75.60346,
+      38.928666
+     ],
+     [
+      -75.60359,
+      38.929
+     ],
+     [
+      -75.60388,
+      38.929464
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68103099,
+    "FULLNAME": "Whiteleysburg Rd",
+    "LFROMHN": "7598",
+    "LTOHN": "6900",
+    "RFROMHN": "7599",
+    "RTOHN": "6901",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.602755,
+      38.921742
+     ],
+     [
+      -75.603423,
+      38.921972
+     ],
+     [
+      -75.603878,
+      38.922096
+     ],
+     [
+      -75.605735,
+      38.92252
+     ],
+     [
+      -75.605993,
+      38.922579
+     ],
+     [
+      -75.606081,
+      38.9226
+     ],
+     [
+      -75.607965,
+      38.923044
+     ],
+     [
+      -75.608907,
+      38.923251
+     ],
+     [
+      -75.609826,
+      38.923473
+     ],
+     [
+      -75.610262,
+      38.923584
+     ],
+     [
+      -75.610678,
+      38.923681
+     ],
+     [
+      -75.611066,
+      38.923756
+     ],
+     [
+      -75.611724,
+      38.923855
+     ],
+     [
+      -75.612319,
+      38.923939
+     ],
+     [
+      -75.612752,
+      38.923994
+     ],
+     [
+      -75.612964,
+      38.924001
+     ],
+     [
+      -75.61314,
+      38.924007
+     ],
+     [
+      -75.613948,
+      38.924029
+     ],
+     [
+      -75.614825,
+      38.924005
+     ],
+     [
+      -75.616774,
+      38.923953
+     ],
+     [
+      -75.617253,
+      38.923936
+     ],
+     [
+      -75.617656,
+      38.923986
+     ],
+     [
+      -75.617904,
+      38.924007
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082231,
+    "FULLNAME": "Dickerson St",
+    "LFROMHN": "99",
+    "LTOHN": "3",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.571025,
+      38.921541
+     ],
+     [
+      -75.57124,
+      38.922507
+     ],
+     [
+      -75.571262,
+      38.92263
+     ],
+     [
+      -75.571278,
+      38.922725
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082232,
+    "FULLNAME": "Hanley St",
+    "LFROMHN": "99",
+    "LTOHN": "25",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578426,
+      38.921387
+     ],
+     [
+      -75.578373,
+      38.921451
+     ],
+     [
+      -75.578216,
+      38.921646
+     ],
+     [
+      -75.578164,
+      38.921711
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082233,
+    "FULLNAME": "Mispillion St",
+    "LFROMHN": "199",
+    "LTOHN": "3",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578426,
+      38.921387
+     ],
+     [
+      -75.578993,
+      38.921671
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082234,
+    "FULLNAME": "Butler Rd",
+    "LFROMHN": "1501",
+    "LTOHN": "1699",
+    "RFROMHN": "1500",
+    "RTOHN": "1598",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.541688,
+      38.92146
+     ],
+     [
+      -75.541504,
+      38.921667
+     ],
+     [
+      -75.541354,
+      38.921855
+     ],
+     [
+      -75.541299,
+      38.921955
+     ],
+     [
+      -75.540967,
+      38.922563
+     ],
+     [
+      -75.540899,
+      38.922667
+     ],
+     [
+      -75.540804,
+      38.92281
+     ],
+     [
+      -75.540697,
+      38.92301
+     ],
+     [
+      -75.540608,
+      38.923154
+     ],
+     [
+      -75.540532,
+      38.923307
+     ],
+     [
+      -75.540442,
+      38.923542
+     ],
+     [
+      -75.540415,
+      38.923625
+     ],
+     [
+      -75.5404,
+      38.923676
+     ],
+     [
+      -75.540357,
+      38.923783
+     ],
+     [
+      -75.540279,
+      38.924046
+     ],
+     [
+      -75.540249,
+      38.924218
+     ],
+     [
+      -75.540245,
+      38.924232
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082236,
+    "FULLNAME": "East St",
+    "LFROMHN": "99",
+    "LTOHN": "13",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574817,
+      38.921316
+     ],
+     [
+      -75.574795,
+      38.921488
+     ],
+     [
+      -75.574728,
+      38.922006
+     ],
+     [
+      -75.574707,
+      38.922179
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108752,
+    "FULLNAME": "Thorpe St",
+    "LFROMHN": "2",
+    "LTOHN": "98",
+    "RFROMHN": "1",
+    "RTOHN": "99",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574817,
+      38.921316
+     ],
+     [
+      -75.575041,
+      38.921314
+     ],
+     [
+      -75.575715,
+      38.921307
+     ],
+     [
+      -75.57594,
+      38.921306
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082239,
+    "FULLNAME": "Reed St",
+    "LFROMHN": "99",
+    "LTOHN": "21",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.573513,
+      38.921236
+     ],
+     [
+      -75.573557,
+      38.921453
+     ],
+     [
+      -75.573689,
+      38.922106
+     ],
+     [
+      -75.573733,
+      38.922324
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082240,
+    "FULLNAME": "Peck Ave",
+    "LFROMHN": "2",
+    "LTOHN": "98",
+    "RFROMHN": "1",
+    "RTOHN": "99",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.574838,
+      38.921133
+     ],
+     [
+      -75.574571,
+      38.921137
+     ],
+     [
+      -75.574383,
+      38.92114
+     ],
+     [
+      -75.574172,
+      38.921151
+     ],
+     [
+      -75.573776,
+      38.921201
+     ],
+     [
+      -75.573513,
+      38.921236
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68111936,
+    "FULLNAME": "S West St",
+    "LFROMHN": "199",
+    "LTOHN": "101",
+    "RFROMHN": "198",
+    "RTOHN": "100",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582306,
+      38.921097
+     ],
+     [
+      -75.582316,
+      38.921342
+     ],
+     [
+      -75.582347,
+      38.922077
+     ],
+     [
+      -75.582358,
+      38.922323
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68111936,
+    "FULLNAME": "West St",
+    "LFROMHN": "199",
+    "LTOHN": "101",
+    "RFROMHN": "198",
+    "RTOHN": "100",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582306,
+      38.921097
+     ],
+     [
+      -75.582316,
+      38.921342
+     ],
+     [
+      -75.582347,
+      38.922077
+     ],
+     [
+      -75.582358,
+      38.922323
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082243,
+    "FULLNAME": "Commerce St",
+    "LFROMHN": "199",
+    "LTOHN": "101",
+    "RFROMHN": "198",
+    "RTOHN": "100",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580229,
+      38.921151
+     ],
+     [
+      -75.580095,
+      38.921312
+     ],
+     [
+      -75.579693,
+      38.921794
+     ],
+     [
+      -75.57956,
+      38.921956
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 646479747,
+    "FULLNAME": "W Milby St",
+    "LFROMHN": "101",
+    "LTOHN": "143",
+    "RFROMHN": "100",
+    "RTOHN": "140",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582306,
+      38.921097
+     ],
+     [
+      -75.583282,
+      38.921078
+     ],
+     [
+      -75.585294,
+      38.921055
+     ],
+     [
+      -75.586417,
+      38.921022
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082246,
+    "FULLNAME": "E Milby St",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.579084,
+      38.920599
+     ],
+     [
+      -75.579638,
+      38.920884
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082247,
+    "FULLNAME": "Hanley St",
+    "LFROMHN": "199",
+    "LTOHN": "101",
+    "RFROMHN": "198",
+    "RTOHN": "100",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.579084,
+      38.920599
+     ],
+     [
+      -75.578952,
+      38.920756
+     ],
+     [
+      -75.578557,
+      38.921229
+     ],
+     [
+      -75.578426,
+      38.921387
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082248,
+    "FULLNAME": "Commerce St",
+    "LFROMHN": "207",
+    "LTOHN": "201",
+    "RFROMHN": "210",
+    "RTOHN": "200",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580865,
+      38.920386
+     ],
+     [
+      -75.580737,
+      38.920539
+     ],
+     [
+      -75.580356,
+      38.920997
+     ],
+     [
+      -75.580229,
+      38.921151
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082249,
+    "FULLNAME": "E Milby St",
+    "LFROMHN": "299",
+    "LTOHN": "105",
+    "RFROMHN": "298",
+    "RTOHN": "100",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578178,
+      38.920133
+     ],
+     [
+      -75.578267,
+      38.920179
+     ],
+     [
+      -75.578535,
+      38.920317
+     ],
+     [
+      -75.578625,
+      38.920363
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082250,
+    "FULLNAME": "Franklin St",
+    "LFROMHN": "199",
+    "LTOHN": "101",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578178,
+      38.920133
+     ],
+     [
+      -75.578038,
+      38.920286
+     ],
+     [
+      -75.577618,
+      38.920748
+     ],
+     [
+      -75.577479,
+      38.920903
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082252,
+    "FULLNAME": "Brown St",
+    "LFROMHN": "99",
+    "LTOHN": "5",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.579732,
+      38.919818
+     ],
+     [
+      -75.579845,
+      38.919871
+     ],
+     [
+      -75.580186,
+      38.920033
+     ],
+     [
+      -75.5803,
+      38.920087
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102652,
+    "FULLNAME": "Broad St",
+    "LFROMHN": "301",
+    "LTOHN": "385",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.505114,
+      38.919642
+     ],
+     [
+      -75.505128,
+      38.919884
+     ],
+     [
+      -75.505173,
+      38.920612
+     ],
+     [
+      -75.505188,
+      38.920855
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082256,
+    "FULLNAME": "School St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "600",
+    "RTOHN": "698",
+    "ZIPL": null,
+    "ZIPR": "19954",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.505114,
+      38.919642
+     ],
+     [
+      -75.504794,
+      38.919656
+     ],
+     [
+      -75.503835,
+      38.919698
+     ],
+     [
+      -75.503516,
+      38.919713
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108734,
+    "FULLNAME": "Franklin St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "202",
+    "RTOHN": "200",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.578741,
+      38.919444
+     ],
+     [
+      -75.578178,
+      38.920133
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082259,
+    "FULLNAME": "School St",
+    "LFROMHN": "340",
+    "LTOHN": "300",
+    "RFROMHN": "339",
+    "RTOHN": "301",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.50891,
+      38.919516
+     ],
+     [
+      -75.508975,
+      38.919513
+     ],
+     [
+      -75.509173,
+      38.919506
+     ],
+     [
+      -75.509239,
+      38.919504
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082260,
+    "FULLNAME": "School St",
+    "LFROMHN": "341",
+    "LTOHN": "351",
+    "RFROMHN": "342",
+    "RTOHN": "598",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.50891,
+      38.919516
+     ],
+     [
+      -75.50815,
+      38.919541
+     ],
+     [
+      -75.505873,
+      38.919616
+     ],
+     [
+      -75.505114,
+      38.919642
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082260,
+    "FULLNAME": "School St",
+    "LFROMHN": "355",
+    "LTOHN": "499",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.50891,
+      38.919516
+     ],
+     [
+      -75.50815,
+      38.919541
+     ],
+     [
+      -75.505873,
+      38.919616
+     ],
+     [
+      -75.505114,
+      38.919642
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108753,
+    "FULLNAME": "School St",
+    "LFROMHN": "283",
+    "LTOHN": "299",
+    "RFROMHN": "250",
+    "RTOHN": "298",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.510416,
+      38.919447
+     ],
+     [
+      -75.51018,
+      38.919458
+     ],
+     [
+      -75.509474,
+      38.919492
+     ],
+     [
+      -75.509239,
+      38.919504
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082262,
+    "FULLNAME": "Deep Grass Ln",
+    "LFROMHN": "4321",
+    "LTOHN": "4899",
+    "RFROMHN": "4322",
+    "RTOHN": "4898",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.515282,
+      38.919238
+     ],
+     [
+      -75.515254,
+      38.920132
+     ],
+     [
+      -75.515218,
+      38.920991
+     ],
+     [
+      -75.515197,
+      38.921521
+     ],
+     [
+      -75.515199,
+      38.922239
+     ],
+     [
+      -75.515231,
+      38.922691
+     ],
+     [
+      -75.515233,
+      38.922705
+     ],
+     [
+      -75.515268,
+      38.923047
+     ],
+     [
+      -75.515309,
+      38.923229
+     ],
+     [
+      -75.515363,
+      38.923423
+     ],
+     [
+      -75.515417,
+      38.923583
+     ],
+     [
+      -75.5159,
+      38.924663
+     ],
+     [
+      -75.516149,
+      38.925149
+     ],
+     [
+      -75.516289,
+      38.925461
+     ],
+     [
+      -75.516422,
+      38.925875
+     ],
+     [
+      -75.516468,
+      38.926009
+     ],
+     [
+      -75.516573,
+      38.926308
+     ],
+     [
+      -75.51673,
+      38.926829
+     ],
+     [
+      -75.51698,
+      38.927529
+     ],
+     [
+      -75.517037,
+      38.927669
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68102656,
+    "FULLNAME": "School St",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.515282,
+      38.919238
+     ],
+     [
+      -75.514915,
+      38.919253
+     ],
+     [
+      -75.513816,
+      38.919301
+     ],
+     [
+      -75.51345,
+      38.919318
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68107417,
+    "FULLNAME": "West St",
+    "LFROMHN": "399",
+    "LTOHN": "217",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582195,
+      38.918856
+     ],
+     [
+      -75.582203,
+      38.919025
+     ],
+     [
+      -75.582228,
+      38.919536
+     ],
+     [
+      -75.582237,
+      38.919706
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082265,
+    "FULLNAME": "Commerce St",
+    "LFROMHN": "299",
+    "LTOHN": "227",
+    "RFROMHN": "298",
+    "RTOHN": "228",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.582195,
+      38.918856
+     ],
+     [
+      -75.58215,
+      38.918872
+     ],
+     [
+      -75.582089,
+      38.918913
+     ],
+     [
+      -75.582066,
+      38.918939
+     ],
+     [
+      -75.581767,
+      38.919299
+     ],
+     [
+      -75.581668,
+      38.91942
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082266,
+    "FULLNAME": "Reese Ave",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580061,
+      38.918886
+     ],
+     [
+      -75.580487,
+      38.918876
+     ],
+     [
+      -75.58119,
+      38.91886
+     ],
+     [
+      -75.581768,
+      38.918857
+     ],
+     [
+      -75.582195,
+      38.918856
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082267,
+    "FULLNAME": "Hanley St",
+    "LFROMHN": "299",
+    "LTOHN": "223",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19952",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.580061,
+      38.918886
+     ],
+     [
+      -75.580084,
+      38.91938
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 639022672,
+    "FULLNAME": "Vernon Rd",
+    "LFROMHN": "8301",
+    "LTOHN": "8499",
+    "RFROMHN": "7900",
+    "RTOHN": "8490",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.597928,
+      38.918596
+     ],
+     [
+      -75.597575,
+      38.918625
+     ],
+     [
+      -75.597434,
+      38.918637
+     ],
+     [
+      -75.597219,
+      38.918644
+     ],
+     [
+      -75.596985,
+      38.918643
+     ],
+     [
+      -75.59653,
+      38.918657
+     ],
+     [
+      -75.596513,
+      38.918657
+     ],
+     [
+      -75.59616,
+      38.91866
+     ],
+     [
+      -75.59472,
+      38.918673
+     ],
+     [
+      -75.589138,
+      38.91877
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082270,
+    "FULLNAME": "Whiteleysburg Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "8199",
+    "RTOHN": "7901",
+    "ZIPL": null,
+    "ZIPR": "19952",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.597928,
+      38.918596
+     ],
+     [
+      -75.598514,
+      38.919017
+     ],
+     [
+      -75.598868,
+      38.919267
+     ],
+     [
+      -75.60097,
+      38.920751
+     ],
+     [
+      -75.601606,
+      38.921173
+     ],
+     [
+      -75.60172,
+      38.921237
+     ],
+     [
+      -75.602046,
+      38.92142
+     ],
+     [
+      -75.602247,
+      38.92154
+     ],
+     [
+      -75.602433,
+      38.921621
+     ],
+     [
+      -75.60257,
+      38.921686
+     ],
+     [
+      -75.602755,
+      38.921742
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68106367,
+    "FULLNAME": "Handy Dr",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.4248,
+      38.951088
+     ],
+     [
+      -75.42424,
+      38.950955
+     ],
+     [
+      -75.424025,
+      38.950904
+     ],
+     [
+      -75.423895,
+      38.950878
+     ],
+     [
+      -75.423799,
+      38.95087
+     ],
+     [
+      -75.422522,
+      38.950883
+     ],
+     [
+      -75.421947,
+      38.95089
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082273,
+    "FULLNAME": "Railroad Ave",
+    "LFROMHN": "423",
+    "LTOHN": "499",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.502365,
+      38.917515
+     ],
+     [
+      -75.502099,
+      38.917525
+     ],
+     [
+      -75.5013,
+      38.917555
+     ],
+     [
+      -75.501035,
+      38.917566
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082274,
+    "FULLNAME": "Armour St",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.502365,
+      38.917515
+     ],
+     [
+      -75.502404,
+      38.917961
+     ],
+     [
+      -75.502457,
+      38.918551
+     ],
+     [
+      -75.502507,
+      38.919302
+     ],
+     [
+      -75.502537,
+      38.91975
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082275,
+    "FULLNAME": "Wharton St",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.503362,
+      38.917487
+     ],
+     [
+      -75.503392,
+      38.917932
+     ],
+     [
+      -75.503485,
+      38.919267
+     ],
+     [
+      -75.503516,
+      38.919713
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082277,
+    "FULLNAME": "Railroad Ave",
+    "LFROMHN": "301",
+    "LTOHN": "399",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.504981,
+      38.91737
+     ],
+     [
+      -75.504813,
+      38.917391
+     ],
+     [
+      -75.504657,
+      38.917402
+     ],
+     [
+      -75.504492,
+      38.917416
+     ],
+     [
+      -75.503685,
+      38.917467
+     ],
+     [
+      -75.503362,
+      38.917487
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082278,
+    "FULLNAME": "Broad St",
+    "LFROMHN": "101",
+    "LTOHN": "299",
+    "RFROMHN": "100",
+    "RTOHN": "298",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.504981,
+      38.91737
+     ],
+     [
+      -75.504988,
+      38.917445
+     ],
+     [
+      -75.505007,
+      38.917823
+     ],
+     [
+      -75.505044,
+      38.918551
+     ],
+     [
+      -75.505085,
+      38.919188
+     ],
+     [
+      -75.505114,
+      38.919642
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082280,
+    "FULLNAME": "Pine St",
+    "LFROMHN": "1101",
+    "LTOHN": "1399",
+    "RFROMHN": "1200",
+    "RTOHN": "1298",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.508743,
+      38.917171
+     ],
+     [
+      -75.508776,
+      38.917639
+     ],
+     [
+      -75.508877,
+      38.919047
+     ],
+     [
+      -75.50891,
+      38.919516
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082281,
+    "FULLNAME": "Railroad Ave",
+    "LFROMHN": "101",
+    "LTOHN": "299",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.508743,
+      38.917171
+     ],
+     [
+      -75.504981,
+      38.91737
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082282,
+    "FULLNAME": "Maple St",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.510268,
+      38.917083
+     ],
+     [
+      -75.510416,
+      38.919447
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082288,
+    "FULLNAME": "Mill St",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.50871,
+      38.916801
+     ],
+     [
+      -75.508191,
+      38.916821
+     ],
+     [
+      -75.50734,
+      38.916855
+     ],
+     [
+      -75.506636,
+      38.916879
+     ],
+     [
+      -75.506503,
+      38.916884
+     ],
+     [
+      -75.506118,
+      38.916905
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082289,
+    "FULLNAME": "Deep Grass Ln",
+    "LFROMHN": "4101",
+    "LTOHN": "4199",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.515404,
+      38.915691
+     ],
+     [
+      -75.515392,
+      38.91592
+     ],
+     [
+      -75.51538,
+      38.916182
+     ],
+     [
+      -75.515368,
+      38.916609
+     ],
+     [
+      -75.515362,
+      38.916839
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082291,
+    "FULLNAME": "Richardson St",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.506035,
+      38.915383
+     ],
+     [
+      -75.506051,
+      38.915687
+     ],
+     [
+      -75.506101,
+      38.9166
+     ],
+     [
+      -75.506118,
+      38.916905
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68096499,
+    "FULLNAME": "Front St",
+    "LFROMHN": "501",
+    "LTOHN": "711",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.504856,
+      38.915436
+     ],
+     [
+      -75.504266,
+      38.91544
+     ],
+     [
+      -75.503997,
+      38.915443
+     ],
+     [
+      -75.502501,
+      38.915514
+     ],
+     [
+      -75.501913,
+      38.915542
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68096500,
+    "FULLNAME": "Broad St",
+    "LFROMHN": "1",
+    "LTOHN": "83",
+    "RFROMHN": "2",
+    "RTOHN": "76",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.504856,
+      38.915436
+     ],
+     [
+      -75.504864,
+      38.915652
+     ],
+     [
+      -75.504869,
+      38.915735
+     ],
+     [
+      -75.504915,
+      38.916301
+     ],
+     [
+      -75.504932,
+      38.916504
+     ],
+     [
+      -75.504935,
+      38.916517
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082294,
+    "FULLNAME": "Front St",
+    "LFROMHN": "598",
+    "LTOHN": "500",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19954",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.504856,
+      38.915436
+     ],
+     [
+      -75.505092,
+      38.91544
+     ],
+     [
+      -75.505118,
+      38.915441
+     ],
+     [
+      -75.505386,
+      38.915427
+     ],
+     [
+      -75.505799,
+      38.915393
+     ],
+     [
+      -75.505894,
+      38.915386
+     ],
+     [
+      -75.506035,
+      38.915383
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082296,
+    "FULLNAME": "Front St",
+    "LFROMHN": "401",
+    "LTOHN": "499",
+    "RFROMHN": "400",
+    "RTOHN": "498",
+    "ZIPL": "19954",
+    "ZIPR": "19954",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.508582,
+      38.915265
+     ],
+     [
+      -75.508072,
+      38.915288
+     ],
+     [
+      -75.506544,
+      38.915359
+     ],
+     [
+      -75.506035,
+      38.915383
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082297,
+    "FULLNAME": "Pine St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "1000",
+    "RTOHN": "1198",
+    "ZIPL": null,
+    "ZIPR": "19954",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.508582,
+      38.915265
+     ],
+     [
+      -75.508607,
+      38.915572
+     ],
+     [
+      -75.508684,
+      38.916493
+     ],
+     [
+      -75.50871,
+      38.916801
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68082299,
+    "FULLNAME": "Fairground Rd",
+    "LFROMHN": "698",
+    "LTOHN": "600",
+    "RFROMHN": "699",
+    "RTOHN": "401",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.570498,
+      38.914828
+     ],
+     [
+      -75.570942,
+      38.914883
+     ],
+     [
+      -75.571121,
+      38.914904
+     ],
+     [
+      -75.571504,
+      38.91493
+     ],
+     [
+      -75.574532,
+      38.915138
+     ],
+     [
+      -75.575401,
+      38.915198
+     ],
+     [
+      -75.575539,
+      38.91517
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 647375112,
+    "FULLNAME": "NE Front St",
+    "LFROMHN": "819",
+    "LTOHN": "999",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19963",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.415422,
+      38.923053
+     ],
+     [
+      -75.414824,
+      38.923743
+     ],
+     [
+      -75.414626,
+      38.923973
+     ],
+     [
+      -75.414616,
+      38.923984
+     ],
+     [
+      -75.414586,
+      38.924017
+     ],
+     [
+      -75.414577,
+      38.924029
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 647375888,
+    "FULLNAME": "Warner Rd",
+    "LFROMHN": "1004",
+    "LTOHN": "812",
+    "RFROMHN": "999",
+    "RTOHN": "875",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.432907,
+      38.933733
+     ],
+     [
+      -75.433056,
+      38.93374
+     ],
+     [
+      -75.433204,
+      38.93375
+     ],
+     [
+      -75.434097,
+      38.933815
+     ],
+     [
+      -75.434395,
+      38.933837
+     ],
+     [
+      -75.43463,
+      38.933854
+     ],
+     [
+      -75.434651,
+      38.933856
+     ],
+     [
+      -75.434895,
+      38.933861
+     ],
+     [
+      -75.435053,
+      38.933865
+     ],
+     [
+      -75.435272,
+      38.933874
+     ],
+     [
+      -75.435338,
+      38.933886
+     ],
+     [
+      -75.435434,
+      38.933905
+     ],
+     [
+      -75.43553,
+      38.933942
+     ],
+     [
+      -75.435562,
+      38.933959
+     ],
+     [
+      -75.435589,
+      38.933974
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68113000,
+    "FULLNAME": "Archers Way",
+    "LFROMHN": "4",
+    "LTOHN": "98",
+    "RFROMHN": "1",
+    "RTOHN": "99",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.446268,
+      38.935618
+     ],
+     [
+      -75.446496,
+      38.935591
+     ],
+     [
+      -75.446699,
+      38.935591
+     ],
+     [
+      -75.446787,
+      38.935587
+     ],
+     [
+      -75.447024,
+      38.935631
+     ],
+     [
+      -75.447555,
+      38.935748
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68083985,
+    "FULLNAME": "Airport Rd",
+    "LFROMHN": "1298",
+    "LTOHN": "1266",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19963",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.435147,
+      38.927761
+     ],
+     [
+      -75.435343,
+      38.927765
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 637436283,
+    "FULLNAME": "Roosa Rd",
+    "LFROMHN": "925",
+    "LTOHN": "999",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19963",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.435355,
+      38.927462
+     ],
+     [
+      -75.435352,
+      38.927493
+     ],
+     [
+      -75.435344,
+      38.927579
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68083989,
+    "FULLNAME": "Rogers Dr",
+    "LFROMHN": "9",
+    "LTOHN": "99",
+    "RFROMHN": "10",
+    "RTOHN": "98",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.437965,
+      38.923694
+     ],
+     [
+      -75.437999,
+      38.923712
+     ],
+     [
+      -75.438101,
+      38.923766
+     ],
+     [
+      -75.438136,
+      38.923784
+     ]
+    ]
+   },
+   "selectedBecause": "base"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 642371479,
+    "FULLNAME": "Milford Harrington Hwy",
+    "LFROMHN": "301",
+    "LTOHN": "499",
+    "RFROMHN": "200",
+    "RTOHN": "584",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.448205,
+      38.918904
+     ],
+     [
+      -75.448339,
+      38.919001
+     ],
+     [
+      -75.449116,
+      38.919586
+     ],
+     [
+      -75.451636,
+      38.921485
+     ],
+     [
+      -75.451842,
+      38.921642
+     ],
+     [
+      -75.45241,
+      38.922077
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100653,
+    "FULLNAME": "Micynde Dr",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.542744,
+      38.923203
+     ],
+     [
+      -75.542677,
+      38.923076
+     ],
+     [
+      -75.542479,
+      38.922697
+     ],
+     [
+      -75.542463,
+      38.922665
+     ],
+     [
+      -75.542414,
+      38.922571
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100653,
+    "FULLNAME": "Micynde Ln",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.542744,
+      38.923203
+     ],
+     [
+      -75.542677,
+      38.923076
+     ],
+     [
+      -75.542479,
+      38.922697
+     ],
+     [
+      -75.542463,
+      38.922665
+     ],
+     [
+      -75.542414,
+      38.922571
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 601697682,
+    "FULLNAME": "Jackson Ditch Rd",
+    "LFROMHN": "1401",
+    "LTOHN": "1499",
+    "RFROMHN": "1400",
+    "RTOHN": "1498",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.541023,
+      38.932747
+     ],
+     [
+      -75.540557,
+      38.932918
+     ],
+     [
+      -75.539253,
+      38.933399
+     ],
+     [
+      -75.539156,
+      38.933441
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100660,
+    "FULLNAME": "Lane View Dr",
+    "LFROMHN": "1",
+    "LTOHN": "105",
+    "RFROMHN": "2",
+    "RTOHN": "104",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.541023,
+      38.932747
+     ],
+     [
+      -75.540902,
+      38.932545
+     ],
+     [
+      -75.540541,
+      38.93194
+     ],
+     [
+      -75.540421,
+      38.931739
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100663,
+    "FULLNAME": "Lane View Dr",
+    "LFROMHN": "107",
+    "LTOHN": "111",
+    "RFROMHN": "106",
+    "RTOHN": "112",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.540421,
+      38.931739
+     ],
+     [
+      -75.540301,
+      38.931533
+     ],
+     [
+      -75.539943,
+      38.930915
+     ],
+     [
+      -75.539824,
+      38.93071
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100662,
+    "FULLNAME": "Kings Ct",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.540421,
+      38.931739
+     ],
+     [
+      -75.5401,
+      38.931849
+     ],
+     [
+      -75.539137,
+      38.93218
+     ],
+     [
+      -75.539056,
+      38.932209
+     ],
+     [
+      -75.538956,
+      38.932236
+     ],
+     [
+      -75.538876,
+      38.932239
+     ],
+     [
+      -75.538808,
+      38.932228
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100664,
+    "FULLNAME": "Lane View Dr",
+    "LFROMHN": "115",
+    "LTOHN": "199",
+    "RFROMHN": "114",
+    "RTOHN": "198",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.539824,
+      38.93071
+     ],
+     [
+      -75.539744,
+      38.930586
+     ],
+     [
+      -75.539545,
+      38.930274
+     ],
+     [
+      -75.539496,
+      38.930222
+     ],
+     [
+      -75.539478,
+      38.930203
+     ],
+     [
+      -75.539391,
+      38.930121
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108473,
+    "FULLNAME": "Fieldcrest Dr",
+    "LFROMHN": "201",
+    "LTOHN": "499",
+    "RFROMHN": "218",
+    "RTOHN": "510",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.628373,
+      39.222193
+     ],
+     [
+      -75.628035,
+      39.222781
+     ],
+     [
+      -75.628061,
+      39.223127
+     ],
+     [
+      -75.628182,
+      39.223292
+     ],
+     [
+      -75.628373,
+      39.223413
+     ],
+     [
+      -75.628589,
+      39.223491
+     ],
+     [
+      -75.628762,
+      39.223491
+     ],
+     [
+      -75.629021,
+      39.223473
+     ],
+     [
+      -75.63005,
+      39.223421
+     ],
+     [
+      -75.630898,
+      39.223387
+     ],
+     [
+      -75.631599,
+      39.223343
+     ],
+     [
+      -75.632109,
+      39.223292
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68111951,
+    "FULLNAME": "Scotts Corner Rd",
+    "LFROMHN": "1114",
+    "LTOHN": "2",
+    "RFROMHN": "1115",
+    "RTOHN": "1",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.371257,
+      38.991104
+     ],
+     [
+      -75.371847,
+      38.991252
+     ],
+     [
+      -75.372309,
+      38.991411
+     ],
+     [
+      -75.372684,
+      38.991532
+     ],
+     [
+      -75.372988,
+      38.991659
+     ],
+     [
+      -75.373339,
+      38.9918
+     ],
+     [
+      -75.373672,
+      38.991942
+     ],
+     [
+      -75.373958,
+      38.992118
+     ],
+     [
+      -75.37424,
+      38.992278
+     ],
+     [
+      -75.3749,
+      38.992741
+     ],
+     [
+      -75.375136,
+      38.992907
+     ],
+     [
+      -75.378262,
+      38.995027
+     ],
+     [
+      -75.37851,
+      38.995159
+     ],
+     [
+      -75.378944,
+      38.995359
+     ],
+     [
+      -75.379133,
+      38.995412
+     ],
+     [
+      -75.379782,
+      38.995571
+     ],
+     [
+      -75.38108,
+      38.995817
+     ],
+     [
+      -75.382098,
+      38.995979
+     ],
+     [
+      -75.382442,
+      38.996049
+     ],
+     [
+      -75.383181,
+      38.996126
+     ],
+     [
+      -75.383981,
+      38.996233
+     ],
+     [
+      -75.386106,
+      38.996491
+     ],
+     [
+      -75.387084,
+      38.99661
+     ],
+     [
+      -75.388469,
+      38.996802
+     ],
+     [
+      -75.389466,
+      38.996906
+     ],
+     [
+      -75.389997,
+      38.996975
+     ],
+     [
+      -75.390103,
+      38.99698
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68084016,
+    "FULLNAME": "Big Stone Beach Rd",
+    "LFROMHN": "2598",
+    "LTOHN": "2500",
+    "RFROMHN": "2699",
+    "RTOHN": "2401",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.371257,
+      38.991104
+     ],
+     [
+      -75.37092,
+      38.991246
+     ],
+     [
+      -75.370637,
+      38.991379
+     ],
+     [
+      -75.369616,
+      38.991863
+     ],
+     [
+      -75.369214,
+      38.992049
+     ],
+     [
+      -75.368924,
+      38.992203
+     ],
+     [
+      -75.368811,
+      38.992271
+     ],
+     [
+      -75.368494,
+      38.992464
+     ],
+     [
+      -75.368283,
+      38.992611
+     ],
+     [
+      -75.368244,
+      38.992641
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108592,
+    "FULLNAME": "Duck Creek Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "202",
+    "RTOHN": "298",
+    "ZIPL": null,
+    "ZIPR": "19938",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.639377,
+      39.289533
+     ],
+     [
+      -75.639168,
+      39.289947
+     ],
+     [
+      -75.639066,
+      39.290151
+     ],
+     [
+      -75.639032,
+      39.290216
+     ],
+     [
+      -75.638932,
+      39.290414
+     ],
+     [
+      -75.6389,
+      39.29048
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 654931578,
+    "FULLNAME": "Scotts Corner Rd",
+    "LFROMHN": "2298",
+    "LTOHN": "1116",
+    "RFROMHN": "2199",
+    "RTOHN": "1117",
+    "ZIPL": "19963",
+    "ZIPR": "19963",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.351048,
+      38.975982
+     ],
+     [
+      -75.351095,
+      38.976059
+     ],
+     [
+      -75.351206,
+      38.976205
+     ],
+     [
+      -75.351595,
+      38.976649
+     ],
+     [
+      -75.351744,
+      38.976818
+     ],
+     [
+      -75.352196,
+      38.977345
+     ],
+     [
+      -75.352868,
+      38.978
+     ],
+     [
+      -75.353092,
+      38.978234
+     ],
+     [
+      -75.353232,
+      38.978412
+     ],
+     [
+      -75.353324,
+      38.978572
+     ],
+     [
+      -75.353329,
+      38.978581
+     ],
+     [
+      -75.353427,
+      38.978738
+     ],
+     [
+      -75.353492,
+      38.97891
+     ],
+     [
+      -75.353533,
+      38.979135
+     ],
+     [
+      -75.353552,
+      38.979313
+     ],
+     [
+      -75.353552,
+      38.979391
+     ],
+     [
+      -75.353552,
+      38.979495
+     ],
+     [
+      -75.353587,
+      38.979799
+     ],
+     [
+      -75.353619,
+      38.979962
+     ],
+     [
+      -75.353695,
+      38.980194
+     ],
+     [
+      -75.353755,
+      38.980395
+     ],
+     [
+      -75.353844,
+      38.980595
+     ],
+     [
+      -75.353943,
+      38.980806
+     ],
+     [
+      -75.354513,
+      38.982013
+     ],
+     [
+      -75.354696,
+      38.982337
+     ],
+     [
+      -75.354846,
+      38.982557
+     ],
+     [
+      -75.354941,
+      38.982673
+     ],
+     [
+      -75.355024,
+      38.982747
+     ],
+     [
+      -75.355153,
+      38.982843
+     ],
+     [
+      -75.355336,
+      38.982967
+     ],
+     [
+      -75.355614,
+      38.983136
+     ],
+     [
+      -75.359963,
+      38.985784
+     ],
+     [
+      -75.36002,
+      38.985818
+     ],
+     [
+      -75.362378,
+      38.987221
+     ],
+     [
+      -75.362774,
+      38.98745
+     ],
+     [
+      -75.363235,
+      38.987683
+     ],
+     [
+      -75.363514,
+      38.987817
+     ],
+     [
+      -75.363759,
+      38.987952
+     ],
+     [
+      -75.364025,
+      38.98811
+     ],
+     [
+      -75.364253,
+      38.98828
+     ],
+     [
+      -75.364576,
+      38.988555
+     ],
+     [
+      -75.364655,
+      38.988617
+     ],
+     [
+      -75.365248,
+      38.989079
+     ],
+     [
+      -75.365408,
+      38.989174
+     ],
+     [
+      -75.365542,
+      38.989263
+     ],
+     [
+      -75.365753,
+      38.989372
+     ],
+     [
+      -75.366052,
+      38.98951
+     ],
+     [
+      -75.367012,
+      38.989865
+     ],
+     [
+      -75.367129,
+      38.989909
+     ],
+     [
+      -75.368211,
+      38.990294
+     ],
+     [
+      -75.368855,
+      38.990467
+     ],
+     [
+      -75.36971,
+      38.990707
+     ],
+     [
+      -75.371257,
+      38.991104
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 654931578,
+    "FULLNAME": "Scotts Corner Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2499",
+    "RTOHN": "2301",
+    "ZIPL": null,
+    "ZIPR": "19963",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.351048,
+      38.975982
+     ],
+     [
+      -75.351095,
+      38.976059
+     ],
+     [
+      -75.351206,
+      38.976205
+     ],
+     [
+      -75.351595,
+      38.976649
+     ],
+     [
+      -75.351744,
+      38.976818
+     ],
+     [
+      -75.352196,
+      38.977345
+     ],
+     [
+      -75.352868,
+      38.978
+     ],
+     [
+      -75.353092,
+      38.978234
+     ],
+     [
+      -75.353232,
+      38.978412
+     ],
+     [
+      -75.353324,
+      38.978572
+     ],
+     [
+      -75.353329,
+      38.978581
+     ],
+     [
+      -75.353427,
+      38.978738
+     ],
+     [
+      -75.353492,
+      38.97891
+     ],
+     [
+      -75.353533,
+      38.979135
+     ],
+     [
+      -75.353552,
+      38.979313
+     ],
+     [
+      -75.353552,
+      38.979391
+     ],
+     [
+      -75.353552,
+      38.979495
+     ],
+     [
+      -75.353587,
+      38.979799
+     ],
+     [
+      -75.353619,
+      38.979962
+     ],
+     [
+      -75.353695,
+      38.980194
+     ],
+     [
+      -75.353755,
+      38.980395
+     ],
+     [
+      -75.353844,
+      38.980595
+     ],
+     [
+      -75.353943,
+      38.980806
+     ],
+     [
+      -75.354513,
+      38.982013
+     ],
+     [
+      -75.354696,
+      38.982337
+     ],
+     [
+      -75.354846,
+      38.982557
+     ],
+     [
+      -75.354941,
+      38.982673
+     ],
+     [
+      -75.355024,
+      38.982747
+     ],
+     [
+      -75.355153,
+      38.982843
+     ],
+     [
+      -75.355336,
+      38.982967
+     ],
+     [
+      -75.355614,
+      38.983136
+     ],
+     [
+      -75.359963,
+      38.985784
+     ],
+     [
+      -75.36002,
+      38.985818
+     ],
+     [
+      -75.362378,
+      38.987221
+     ],
+     [
+      -75.362774,
+      38.98745
+     ],
+     [
+      -75.363235,
+      38.987683
+     ],
+     [
+      -75.363514,
+      38.987817
+     ],
+     [
+      -75.363759,
+      38.987952
+     ],
+     [
+      -75.364025,
+      38.98811
+     ],
+     [
+      -75.364253,
+      38.98828
+     ],
+     [
+      -75.364576,
+      38.988555
+     ],
+     [
+      -75.364655,
+      38.988617
+     ],
+     [
+      -75.365248,
+      38.989079
+     ],
+     [
+      -75.365408,
+      38.989174
+     ],
+     [
+      -75.365542,
+      38.989263
+     ],
+     [
+      -75.365753,
+      38.989372
+     ],
+     [
+      -75.366052,
+      38.98951
+     ],
+     [
+      -75.367012,
+      38.989865
+     ],
+     [
+      -75.367129,
+      38.989909
+     ],
+     [
+      -75.368211,
+      38.990294
+     ],
+     [
+      -75.368855,
+      38.990467
+     ],
+     [
+      -75.36971,
+      38.990707
+     ],
+     [
+      -75.371257,
+      38.991104
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 639022691,
+    "FULLNAME": "Mulberry Dr",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19946",
+    "ZIPR": "19946",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.396511,
+      39.059702
+     ],
+     [
+      -75.396485,
+      39.059714
+     ],
+     [
+      -75.396406,
+      39.059751
+     ],
+     [
+      -75.396381,
+      39.059764
+     ],
+     [
+      -75.397072,
+      39.06062
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 645470322,
+    "FULLNAME": "Lucky Ln",
+    "LFROMHN": "1",
+    "LTOHN": "199",
+    "RFROMHN": "2",
+    "RTOHN": "198",
+    "ZIPL": "19952",
+    "ZIPR": "19952",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.539824,
+      38.93071
+     ],
+     [
+      -75.539459,
+      38.930836
+     ],
+     [
+      -75.538365,
+      38.931215
+     ],
+     [
+      -75.538001,
+      38.931342
+     ],
+     [
+      -75.537371,
+      38.93156
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108488,
+    "FULLNAME": "Grey Fox Ln",
+    "LFROMHN": "381",
+    "LTOHN": "499",
+    "RFROMHN": "314",
+    "RTOHN": "498",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.632332,
+      39.224775
+     ],
+     [
+      -75.632301,
+      39.22464
+     ],
+     [
+      -75.632208,
+      39.224237
+     ],
+     [
+      -75.632178,
+      39.224103
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085754,
+    "FULLNAME": "School Ln",
+    "LFROMHN": "349",
+    "LTOHN": "369",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.615585,
+      39.301954
+     ],
+     [
+      -75.61565,
+      39.301974
+     ],
+     [
+      -75.615731,
+      39.301994
+     ],
+     [
+      -75.616172,
+      39.302105
+     ],
+     [
+      -75.61632,
+      39.302142
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085755,
+    "FULLNAME": "Norman Cir",
+    "LFROMHN": "398",
+    "LTOHN": "300",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.615585,
+      39.301954
+     ],
+     [
+      -75.615574,
+      39.302035
+     ],
+     [
+      -75.615568,
+      39.30205
+     ],
+     [
+      -75.615549,
+      39.3021
+     ],
+     [
+      -75.615497,
+      39.30221
+     ],
+     [
+      -75.615463,
+      39.30225
+     ],
+     [
+      -75.615406,
+      39.302285
+     ],
+     [
+      -75.615318,
+      39.302326
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100391,
+    "FULLNAME": "Poe Dr",
+    "LFROMHN": "101",
+    "LTOHN": "107",
+    "RFROMHN": "100",
+    "RTOHN": "106",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.558836,
+      39.291339
+     ],
+     [
+      -75.558473,
+      39.291136
+     ],
+     [
+      -75.557948,
+      39.290844
+     ],
+     [
+      -75.557836,
+      39.290759
+     ],
+     [
+      -75.557749,
+      39.29068
+     ],
+     [
+      -75.55761,
+      39.290509
+     ],
+     [
+      -75.55753,
+      39.290363
+     ],
+     [
+      -75.5574,
+      39.290124
+     ],
+     [
+      -75.557338,
+      39.289996
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085758,
+    "FULLNAME": "Big Oak Rd",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "3400",
+    "RTOHN": "3498",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.548382,
+      39.306074
+     ],
+     [
+      -75.548353,
+      39.3063
+     ],
+     [
+      -75.548282,
+      39.306877
+     ],
+     [
+      -75.54827,
+      39.306978
+     ],
+     [
+      -75.548246,
+      39.307205
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108477,
+    "FULLNAME": "Joan Ct",
+    "LFROMHN": "1",
+    "LTOHN": "99",
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.630403,
+      39.221148
+     ],
+     [
+      -75.630341,
+      39.22095
+     ],
+     [
+      -75.630154,
+      39.22036
+     ],
+     [
+      -75.630092,
+      39.220163
+     ]
+    ]
+   },
+   "selectedBecause": "parityO"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 651572699,
+    "FULLNAME": "Mount Friendship Rd",
+    "LFROMHN": "101",
+    "LTOHN": "299",
+    "RFROMHN": "100",
+    "RTOHN": "298",
+    "ZIPL": "19904",
+    "ZIPR": "19904",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.626864,
+      39.226278
+     ],
+     [
+      -75.62729,
+      39.227229
+     ],
+     [
+      -75.627561,
+      39.227834
+     ],
+     [
+      -75.627934,
+      39.228611
+     ],
+     [
+      -75.628042,
+      39.228787
+     ],
+     [
+      -75.628209,
+      39.229007
+     ],
+     [
+      -75.628266,
+      39.229077
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085767,
+    "FULLNAME": "Village Dr",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "99",
+    "RTOHN": "25",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.589424,
+      39.258592
+     ],
+     [
+      -75.589417,
+      39.258601
+     ],
+     [
+      -75.589362,
+      39.258641
+     ],
+     [
+      -75.589283,
+      39.2587
+     ],
+     [
+      -75.589155,
+      39.258756
+     ],
+     [
+      -75.589111,
+      39.258776
+     ],
+     [
+      -75.589082,
+      39.258784
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100361,
+    "FULLNAME": "Juniper Ct",
+    "LFROMHN": "2",
+    "LTOHN": "46",
+    "RFROMHN": "75",
+    "RTOHN": "99",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.594419,
+      39.273606
+     ],
+     [
+      -75.594464,
+      39.273563
+     ],
+     [
+      -75.594565,
+      39.273476
+     ],
+     [
+      -75.594658,
+      39.273399
+     ],
+     [
+      -75.594825,
+      39.273289
+     ],
+     [
+      -75.595034,
+      39.273163
+     ],
+     [
+      -75.595053,
+      39.273152
+     ],
+     [
+      -75.595225,
+      39.273058
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085777,
+    "FULLNAME": "Beadle St",
+    "LFROMHN": "198",
+    "LTOHN": "100",
+    "RFROMHN": "199",
+    "RTOHN": "101",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.609586,
+      39.301992
+     ],
+     [
+      -75.609424,
+      39.301879
+     ],
+     [
+      -75.608939,
+      39.301545
+     ],
+     [
+      -75.608778,
+      39.301433
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085778,
+    "FULLNAME": "E Mount Vernon St",
+    "LFROMHN": "212",
+    "LTOHN": "220",
+    "RFROMHN": "201",
+    "RTOHN": "225",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.604049,
+      39.303869
+     ],
+     [
+      -75.603952,
+      39.303919
+     ],
+     [
+      -75.603664,
+      39.304069
+     ],
+     [
+      -75.603568,
+      39.30412
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085781,
+    "FULLNAME": "Georges Aly",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "298",
+    "RTOHN": "200",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.605107,
+      39.30506
+     ],
+     [
+      -75.605393,
+      39.305353
+     ],
+     [
+      -75.60561,
+      39.305575
+     ],
+     [
+      -75.606241,
+      39.306246
+     ],
+     [
+      -75.606523,
+      39.306546
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085782,
+    "FULLNAME": "Greens Branch Ln",
+    "LFROMHN": "201",
+    "LTOHN": "299",
+    "RFROMHN": "230",
+    "RTOHN": "298",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.619592,
+      39.303807
+     ],
+     [
+      -75.619918,
+      39.303088
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085783,
+    "FULLNAME": "Greens Branch Ln",
+    "LFROMHN": "228",
+    "LTOHN": "194",
+    "RFROMHN": "199",
+    "RTOHN": "181",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.619592,
+      39.303807
+     ],
+     [
+      -75.619348,
+      39.304408
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108926,
+    "FULLNAME": "Pennwood Dr",
+    "LFROMHN": "26",
+    "LTOHN": "8",
+    "RFROMHN": "19",
+    "RTOHN": "1",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.51486,
+      39.121499
+     ],
+     [
+      -75.514887,
+      39.121598
+     ],
+     [
+      -75.514912,
+      39.121926
+     ],
+     [
+      -75.514964,
+      39.122608
+     ],
+     [
+      -75.514986,
+      39.122892
+     ],
+     [
+      -75.515003,
+      39.123061
+     ],
+     [
+      -75.515027,
+      39.123215
+     ],
+     [
+      -75.51503,
+      39.123229
+     ],
+     [
+      -75.515066,
+      39.123397
+     ],
+     [
+      -75.515134,
+      39.123634
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085788,
+    "FULLNAME": "N Union St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2",
+    "RTOHN": "98",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.609777,
+      39.298947
+     ],
+     [
+      -75.609869,
+      39.299026
+     ],
+     [
+      -75.610145,
+      39.299265
+     ],
+     [
+      -75.610237,
+      39.299345
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085793,
+    "FULLNAME": "N Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "100",
+    "RTOHN": "198",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.610152,
+      39.300191
+     ],
+     [
+      -75.610328,
+      39.300316
+     ],
+     [
+      -75.610859,
+      39.300691
+     ],
+     [
+      -75.611036,
+      39.300817
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085794,
+    "FULLNAME": "N Union St",
+    "LFROMHN": "101",
+    "LTOHN": "199",
+    "RFROMHN": "106",
+    "RTOHN": "198",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.610723,
+      39.29972
+     ],
+     [
+      -75.610803,
+      39.299782
+     ],
+     [
+      -75.610901,
+      39.299854
+     ],
+     [
+      -75.611441,
+      39.300251
+     ],
+     [
+      -75.611622,
+      39.300384
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085798,
+    "FULLNAME": "E North St",
+    "LFROMHN": "299",
+    "LTOHN": "201",
+    "RFROMHN": "298",
+    "RTOHN": "232",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.602368,
+      39.306509
+     ],
+     [
+      -75.60282,
+      39.306266
+     ],
+     [
+      -75.604179,
+      39.305539
+     ],
+     [
+      -75.604632,
+      39.305298
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085799,
+    "FULLNAME": "Elm St",
+    "LFROMHN": "300",
+    "LTOHN": "398",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.602368,
+      39.306509
+     ],
+     [
+      -75.602427,
+      39.306577
+     ],
+     [
+      -75.602604,
+      39.306783
+     ],
+     [
+      -75.602664,
+      39.306852
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085800,
+    "FULLNAME": "Fairfield Dr",
+    "LFROMHN": "63",
+    "LTOHN": "141",
+    "RFROMHN": "60",
+    "RTOHN": "198",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.599398,
+      39.306633
+     ],
+     [
+      -75.599412,
+      39.306763
+     ],
+     [
+      -75.599442,
+      39.306934
+     ],
+     [
+      -75.599467,
+      39.307122
+     ],
+     [
+      -75.599461,
+      39.307239
+     ],
+     [
+      -75.599447,
+      39.307289
+     ],
+     [
+      -75.599431,
+      39.30735
+     ],
+     [
+      -75.599393,
+      39.307442
+     ],
+     [
+      -75.599329,
+      39.307534
+     ],
+     [
+      -75.599236,
+      39.307643
+     ],
+     [
+      -75.599144,
+      39.307712
+     ],
+     [
+      -75.599009,
+      39.307782
+     ],
+     [
+      -75.598828,
+      39.307865
+     ],
+     [
+      -75.598575,
+      39.30797
+     ],
+     [
+      -75.597972,
+      39.308248
+     ],
+     [
+      -75.597814,
+      39.308307
+     ],
+     [
+      -75.597508,
+      39.308383
+     ],
+     [
+      -75.597362,
+      39.308397
+     ],
+     [
+      -75.597179,
+      39.308392
+     ],
+     [
+      -75.597164,
+      39.308382
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085801,
+    "FULLNAME": "Laredo Dr",
+    "LFROMHN": "400",
+    "LTOHN": "410",
+    "RFROMHN": "401",
+    "RTOHN": "425",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.599398,
+      39.306633
+     ],
+     [
+      -75.5992,
+      39.306658
+     ],
+     [
+      -75.598608,
+      39.306736
+     ],
+     [
+      -75.598594,
+      39.306738
+     ],
+     [
+      -75.598545,
+      39.306738
+     ],
+     [
+      -75.59848,
+      39.306735
+     ],
+     [
+      -75.59841,
+      39.306734
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085805,
+    "FULLNAME": "Locust St",
+    "LFROMHN": "99",
+    "LTOHN": "1",
+    "RFROMHN": "98",
+    "RTOHN": "2",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.599487,
+      39.301254
+     ],
+     [
+      -75.599559,
+      39.301872
+     ],
+     [
+      -75.599776,
+      39.303726
+     ],
+     [
+      -75.599849,
+      39.304345
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68108812,
+    "FULLNAME": "E Frazier St",
+    "LFROMHN": "300",
+    "LTOHN": "330",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.599487,
+      39.301254
+     ],
+     [
+      -75.599318,
+      39.30127
+     ],
+     [
+      -75.598812,
+      39.301317
+     ],
+     [
+      -75.598644,
+      39.301334
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68109819,
+    "FULLNAME": "Chadwick Dr",
+    "LFROMHN": "98",
+    "LTOHN": "24",
+    "RFROMHN": "99",
+    "RTOHN": "35",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.51486,
+      39.121499
+     ],
+     [
+      -75.514161,
+      39.121817
+     ],
+     [
+      -75.512066,
+      39.122773
+     ],
+     [
+      -75.51185,
+      39.122872
+     ],
+     [
+      -75.511679,
+      39.122978
+     ],
+     [
+      -75.511553,
+      39.123116
+     ],
+     [
+      -75.511498,
+      39.123247
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 636203544,
+    "FULLNAME": "E North St",
+    "LFROMHN": "2",
+    "LTOHN": "38",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.608859,
+      39.302578
+     ],
+     [
+      -75.608707,
+      39.302697
+     ],
+     [
+      -75.60825,
+      39.303055
+     ],
+     [
+      -75.608099,
+      39.303175
+     ],
+     [
+      -75.608038,
+      39.303222
+     ],
+     [
+      -75.607856,
+      39.303365
+     ],
+     [
+      -75.607796,
+      39.303413
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085821,
+    "FULLNAME": "S High St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "30",
+    "RTOHN": "2",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.610816,
+      39.296015
+     ],
+     [
+      -75.610886,
+      39.296067
+     ],
+     [
+      -75.611098,
+      39.296223
+     ],
+     [
+      -75.611169,
+      39.296275
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085822,
+    "FULLNAME": "Mulberry St",
+    "LFROMHN": "401",
+    "LTOHN": "499",
+    "RFROMHN": "400",
+    "RTOHN": "498",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.610816,
+      39.296015
+     ],
+     [
+      -75.610963,
+      39.295905
+     ],
+     [
+      -75.611407,
+      39.295576
+     ],
+     [
+      -75.611555,
+      39.295467
+     ]
+    ]
+   },
+   "selectedBecause": "parityE"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 636203044,
+    "FULLNAME": "Ransom Ln",
+    "LFROMHN": "199",
+    "LTOHN": "1",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.608753,
+      39.293915
+     ],
+     [
+      -75.608893,
+      39.29402
+     ],
+     [
+      -75.609316,
+      39.294335
+     ],
+     [
+      -75.609458,
+      39.294441
+     ],
+     [
+      -75.609636,
+      39.294574
+     ],
+     [
+      -75.609852,
+      39.294735
+     ],
+     [
+      -75.610173,
+      39.294974
+     ],
+     [
+      -75.610353,
+      39.295108
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085830,
+    "FULLNAME": "S Union St",
+    "LFROMHN": "13",
+    "LTOHN": "1",
+    "RFROMHN": "4",
+    "RTOHN": "2",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.608827,
+      39.298172
+     ],
+     [
+      -75.608927,
+      39.298245
+     ],
+     [
+      -75.608989,
+      39.29829
+     ],
+     [
+      -75.609223,
+      39.298475
+     ],
+     [
+      -75.609322,
+      39.298553
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085831,
+    "FULLNAME": "Cummins St",
+    "LFROMHN": "128",
+    "LTOHN": "118",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.607761,
+      39.297958
+     ],
+     [
+      -75.607703,
+      39.298005
+     ],
+     [
+      -75.607529,
+      39.298148
+     ],
+     [
+      -75.607472,
+      39.298196
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 636203541,
+    "FULLNAME": "W Frazier St",
+    "LFROMHN": "98",
+    "LTOHN": "2",
+    "RFROMHN": "99",
+    "RTOHN": "1",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.605278,
+      39.297456
+     ],
+     [
+      -75.605189,
+      39.297535
+     ],
+     [
+      -75.604922,
+      39.297775
+     ],
+     [
+      -75.604834,
+      39.297855
+     ],
+     [
+      -75.604641,
+      39.298021
+     ],
+     [
+      -75.604588,
+      39.298067
+     ],
+     [
+      -75.604141,
+      39.298467
+     ],
+     [
+      -75.603863,
+      39.298719
+     ],
+     [
+      -75.603624,
+      39.298939
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085837,
+    "FULLNAME": "S Main St",
+    "LFROMHN": "29",
+    "LTOHN": "1",
+    "RFROMHN": "30",
+    "RTOHN": "2",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.60532,
+      39.300126
+     ],
+     [
+      -75.605535,
+      39.30027
+     ],
+     [
+      -75.606182,
+      39.300702
+     ],
+     [
+      -75.606398,
+      39.300847
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085838,
+    "FULLNAME": "S Main St",
+    "LFROMHN": "41",
+    "LTOHN": "31",
+    "RFROMHN": "40",
+    "RTOHN": "32",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.60507,
+      39.299959
+     ],
+     [
+      -75.60512,
+      39.299992
+     ],
+     [
+      -75.60527,
+      39.300092
+     ],
+     [
+      -75.60532,
+      39.300126
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085841,
+    "FULLNAME": "S School Ln",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "224",
+    "RTOHN": "220",
+    "ZIPL": null,
+    "ZIPR": "19977",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.606364,
+      39.295192
+     ],
+     [
+      -75.606451,
+      39.295254
+     ],
+     [
+      -75.606715,
+      39.295441
+     ],
+     [
+      -75.606803,
+      39.295504
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085850,
+    "FULLNAME": "S School Ln",
+    "LFROMHN": "339",
+    "LTOHN": "327",
+    "RFROMHN": "336",
+    "RTOHN": "300",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.604478,
+      39.294147
+     ],
+     [
+      -75.60457,
+      39.294213
+     ],
+     [
+      -75.604725,
+      39.294324
+     ],
+     [
+      -75.604852,
+      39.294409
+     ],
+     [
+      -75.604881,
+      39.294429
+     ],
+     [
+      -75.60495,
+      39.294469
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085851,
+    "FULLNAME": "Tyler Ln",
+    "LFROMHN": "341",
+    "LTOHN": "329",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19977",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.605663,
+      39.293187
+     ],
+     [
+      -75.605758,
+      39.293257
+     ],
+     [
+      -75.606046,
+      39.293467
+     ],
+     [
+      -75.606142,
+      39.293538
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085870,
+    "FULLNAME": "E North St",
+    "LFROMHN": "399",
+    "LTOHN": "301",
+    "RFROMHN": "398",
+    "RTOHN": "300",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.601539,
+      39.30688
+     ],
+     [
+      -75.601576,
+      39.306889
+     ],
+     [
+      -75.601622,
+      39.306892
+     ],
+     [
+      -75.601668,
+      39.306884
+     ],
+     [
+      -75.601715,
+      39.306858
+     ],
+     [
+      -75.602204,
+      39.306596
+     ],
+     [
+      -75.602368,
+      39.306509
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68085874,
+    "FULLNAME": "E Cook Ave",
+    "LFROMHN": "199",
+    "LTOHN": "87",
+    "RFROMHN": "198",
+    "RTOHN": "86",
+    "ZIPL": "19977",
+    "ZIPR": "19977",
+    "PARITYL": "O",
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.596428,
+      39.287705
+     ],
+     [
+      -75.596419,
+      39.287731
+     ],
+     [
+      -75.596425,
+      39.287789
+     ],
+     [
+      -75.59651,
+      39.287968
+     ],
+     [
+      -75.596876,
+      39.288739
+     ],
+     [
+      -75.596999,
+      39.288996
+     ]
+    ]
+   },
+   "selectedBecause": "descending"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 647370039,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": "A12",
+    "LTOHN": "A98",
+    "RFROMHN": "A1",
+    "RTOHN": "A3",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "E",
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.514671,
+      39.131226
+     ],
+     [
+      -75.514617,
+      39.131239
+     ],
+     [
+      -75.514456,
+      39.13128
+     ],
+     [
+      -75.514403,
+      39.131295
+     ],
+     [
+      -75.514339,
+      39.131311
+     ],
+     [
+      -75.514142,
+      39.131351
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 647370039,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": "A4",
+    "LTOHN": "A6",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "E",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.514671,
+      39.131226
+     ],
+     [
+      -75.514617,
+      39.131239
+     ],
+     [
+      -75.514456,
+      39.13128
+     ],
+     [
+      -75.514403,
+      39.131295
+     ],
+     [
+      -75.514339,
+      39.131311
+     ],
+     [
+      -75.514142,
+      39.131351
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 647370039,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": "A5",
+    "LTOHN": "A7",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.514671,
+      39.131226
+     ],
+     [
+      -75.514617,
+      39.131239
+     ],
+     [
+      -75.514456,
+      39.13128
+     ],
+     [
+      -75.514403,
+      39.131295
+     ],
+     [
+      -75.514339,
+      39.131311
+     ],
+     [
+      -75.514142,
+      39.131351
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 625750141,
+    "FULLNAME": "Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2034-98",
+    "RTOHN": "2034-0",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.487766,
+      39.118474
+     ],
+     [
+      -75.487935,
+      39.1186
+     ],
+     [
+      -75.488009,
+      39.118664
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 625750141,
+    "FULLNAME": "Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2037-98",
+    "RTOHN": "2037-0",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.487766,
+      39.118474
+     ],
+     [
+      -75.487935,
+      39.1186
+     ],
+     [
+      -75.488009,
+      39.118664
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 625750141,
+    "FULLNAME": "Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2036-98",
+    "RTOHN": "2036-0",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.487766,
+      39.118474
+     ],
+     [
+      -75.487935,
+      39.1186
+     ],
+     [
+      -75.488009,
+      39.118664
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 625750141,
+    "FULLNAME": "Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2038-98",
+    "RTOHN": "2038-0",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.487766,
+      39.118474
+     ],
+     [
+      -75.487935,
+      39.1186
+     ],
+     [
+      -75.488009,
+      39.118664
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 625750141,
+    "FULLNAME": "Walnut St",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2035-98",
+    "RTOHN": "2035-0",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.487766,
+      39.118474
+     ],
+     [
+      -75.487935,
+      39.1186
+     ],
+     [
+      -75.488009,
+      39.118664
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2048-99",
+    "LTOHN": "2048-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2049-99",
+    "LTOHN": "2049-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2050-99",
+    "LTOHN": "2050-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2051-99",
+    "LTOHN": "2051-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2052-99",
+    "LTOHN": "2052-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "singleHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 635420330,
+    "FULLNAME": "Myrtle St",
+    "LFROMHN": "2053-99",
+    "LTOHN": "2053-01",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "O",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486493,
+      39.11734
+     ],
+     [
+      -75.486267,
+      39.117401
+     ],
+     [
+      -75.486167,
+      39.117443
+     ],
+     [
+      -75.486053,
+      39.117519
+     ],
+     [
+      -75.485983,
+      39.117578
+     ],
+     [
+      -75.48584,
+      39.117703
+     ],
+     [
+      -75.485807,
+      39.117731
+     ],
+     [
+      -75.485754,
+      39.117779
+     ],
+     [
+      -75.485709,
+      39.117817
+     ],
+     [
+      -75.485676,
+      39.117846
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68093532,
+    "FULLNAME": "Hawthorne Dr",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2032-01",
+    "RTOHN": "2032-99",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486798,
+      39.117449
+     ],
+     [
+      -75.486875,
+      39.117546
+     ],
+     [
+      -75.487241,
+      39.118003
+     ],
+     [
+      -75.487422,
+      39.118199
+     ],
+     [
+      -75.487513,
+      39.118272
+     ],
+     [
+      -75.487766,
+      39.118474
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68093532,
+    "FULLNAME": "Hawthorne Dr",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2033-01",
+    "RTOHN": "2033-99",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486798,
+      39.117449
+     ],
+     [
+      -75.486875,
+      39.117546
+     ],
+     [
+      -75.487241,
+      39.118003
+     ],
+     [
+      -75.487422,
+      39.118199
+     ],
+     [
+      -75.487513,
+      39.118272
+     ],
+     [
+      -75.487766,
+      39.118474
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68093532,
+    "FULLNAME": "Hawthorne Dr",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "2031-01",
+    "RTOHN": "2031-99",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.486677,
+      39.117292
+     ],
+     [
+      -75.486798,
+      39.117449
+     ],
+     [
+      -75.486875,
+      39.117546
+     ],
+     [
+      -75.487241,
+      39.118003
+     ],
+     [
+      -75.487422,
+      39.118199
+     ],
+     [
+      -75.487513,
+      39.118272
+     ],
+     [
+      -75.487766,
+      39.118474
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68095588,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "A53",
+    "RTOHN": "A29",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.51343,
+      39.131513
+     ],
+     [
+      -75.513509,
+      39.131487
+     ],
+     [
+      -75.513557,
+      39.131476
+     ],
+     [
+      -75.513947,
+      39.131392
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68095588,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "A10",
+    "RTOHN": "A8",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "E"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.51343,
+      39.131513
+     ],
+     [
+      -75.513509,
+      39.131487
+     ],
+     [
+      -75.513557,
+      39.131476
+     ],
+     [
+      -75.513947,
+      39.131392
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68095588,
+    "FULLNAME": "Ontario Ave",
+    "LFROMHN": null,
+    "LTOHN": null,
+    "RFROMHN": "A25",
+    "RTOHN": "A9",
+    "ZIPL": null,
+    "ZIPR": "19901",
+    "PARITYL": null,
+    "PARITYR": "O"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.51343,
+      39.131513
+     ],
+     [
+      -75.513509,
+      39.131487
+     ],
+     [
+      -75.513557,
+      39.131476
+     ],
+     [
+      -75.513947,
+      39.131392
+     ],
+     [
+      -75.514077,
+      39.131365
+     ]
+    ]
+   },
+   "selectedBecause": "nonNumericHn"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 648763106,
+    "FULLNAME": "Weeping Willow Ct",
+    "LFROMHN": "22",
+    "LTOHN": "15",
+    "RFROMHN": "7",
+    "RTOHN": "14",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "B",
+    "PARITYR": "B"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.431473,
+      39.100143
+     ],
+     [
+      -75.430947,
+      39.101161
+     ]
+    ]
+   },
+   "selectedBecause": "parityB"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 68100775,
+    "FULLNAME": "Weeping Willow Ct",
+    "LFROMHN": "99",
+    "LTOHN": "23",
+    "RFROMHN": "01",
+    "RTOHN": "6",
+    "ZIPL": "19901",
+    "ZIPR": "19901",
+    "PARITYL": "B",
+    "PARITYR": "B"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.431773,
+      39.09953
+     ],
+     [
+      -75.431473,
+      39.100143
+     ]
+    ]
+   },
+   "selectedBecause": "parityB"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 648763108,
+    "FULLNAME": "Cactus Bnd",
+    "LFROMHN": "01",
+    "LTOHN": "98",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19901",
+    "ZIPR": null,
+    "PARITYL": "B",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.431929,
+      39.100295
+     ],
+     [
+      -75.431803,
+      39.100723
+     ],
+     [
+      -75.431702,
+      39.100925
+     ],
+     [
+      -75.431569,
+      39.101155
+     ],
+     [
+      -75.431454,
+      39.101315
+     ],
+     [
+      -75.431371,
+      39.101361
+     ],
+     [
+      -75.431255,
+      39.101379
+     ],
+     [
+      -75.431141,
+      39.101367
+     ],
+     [
+      -75.431052,
+      39.101315
+     ],
+     [
+      -75.431006,
+      39.101232
+     ],
+     [
+      -75.430947,
+      39.101161
+     ]
+    ]
+   },
+   "selectedBecause": "parityB"
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "TLID": 648810027,
+    "FULLNAME": "Doveview Dr",
+    "LFROMHN": "499",
+    "LTOHN": "100",
+    "RFROMHN": null,
+    "RTOHN": null,
+    "ZIPL": "19904",
+    "ZIPR": null,
+    "PARITYL": "B",
+    "PARITYR": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -75.545158,
+      39.15974
+     ],
+     [
+      -75.544291,
+      39.159826
+     ],
+     [
+      -75.544742,
+      39.161183
+     ],
+     [
+      -75.546076,
+      39.160954
+     ],
+     [
+      -75.545791,
+      39.159763
+     ],
+     [
+      -75.545791,
+      39.159717
+     ],
+     [
+      -75.545158,
+      39.15974
+     ]
+    ]
+   },
+   "selectedBecause": "parityB"
+  }
+ ]
+}

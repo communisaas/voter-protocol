@@ -12,6 +12,7 @@ import type {
   UpdateTrigger,
   ChangeReport,
 } from '../../../acquisition/change-detector.js';
+import { sha256 } from '../../../acquisition/utils.js';
 import type {
   DatabaseAdapter,
   Municipality,
@@ -134,7 +135,9 @@ class MockDatabaseAdapter implements DatabaseAdapter {
   }
 
   async getEventsByRun(run_id: string): Promise<Event[]> {
-    return this.events.filter(e => e.run_id === run_id);
+    // Mirror the real adapter: newest-first (ORDER BY ts DESC), so the
+    // change-detector read-back's first-match is the latest checksum.
+    return this.events.filter(e => e.run_id === run_id).reverse();
   }
 
   async getStatus(muni_id: string): Promise<StatusView | null> {
@@ -172,6 +175,22 @@ function mockFetch(
       ...(etag ? { etag } : {}),
       ...(lastModified ? { 'last-modified': lastModified } : {}),
     }),
+  });
+}
+
+/**
+ * Mock fetch for the content-hash fallback path.
+ *
+ * Serves NO ETag and NO Last-Modified, but provides a readable body so the
+ * detector can hash it. Used to exercise validator-less sources.
+ */
+function mockFetchWithBody(body: string, status = 200): void {
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    headers: new Headers({}),
+    text: async () => body,
   });
 }
 
@@ -337,6 +356,357 @@ describe('ChangeDetector', () => {
       expect(result).not.toBeNull();
       expect(result!.newChecksum).toBe('"success"');
       expect(attemptCount).toBe(3);
+    });
+
+    it('detects change via body hash when source serves no validators', async () => {
+      const body = 'fresh boundary geojson';
+      mockFetchWithBody(body);
+
+      const source: CanonicalSource = {
+        id: '1',
+        url: 'https://example.com/data',
+        boundaryType: 'municipal',
+        // Stored checksum is a hash of the OLD body; new body differs.
+        lastChecksum: sha256('stale boundary geojson'),
+        lastChecked: '2024-01-01T00:00:00Z',
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      };
+
+      const result = await detector.checkForChange(source);
+
+      // Previously this returned null unconditionally (no ETag/Last-Modified).
+      // The content-hash fallback must now surface the upstream change.
+      expect(result).not.toBeNull();
+      expect(result!.changeType).toBe('modified');
+      expect(result!.newChecksum).toBe(sha256(body));
+    });
+
+    it('returns null when validator-less body hashes to stored checksum', async () => {
+      const body = 'unchanged boundary geojson';
+      mockFetchWithBody(body);
+
+      const source: CanonicalSource = {
+        id: '1',
+        url: 'https://example.com/data',
+        boundaryType: 'municipal',
+        // Stored checksum already equals the hash of the current body.
+        lastChecksum: sha256(body),
+        lastChecked: '2024-01-01T00:00:00Z',
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      };
+
+      const result = await detector.checkForChange(source);
+
+      // Honest no-op: no spurious download when the body is unchanged.
+      expect(result).toBeNull();
+    });
+
+    it('surfaces an off-cycle change regardless of the current year', async () => {
+      // The redistricting year list is a scheduling hint only; the checksum
+      // compare drives firing. A changed ETag must surface in ANY year, not
+      // just decennial redistricting years.
+      mockFetch('"new-etag"', null);
+
+      const source: CanonicalSource = {
+        id: '1',
+        url: 'https://example.com/data',
+        boundaryType: 'municipal',
+        lastChecksum: '"old-etag"',
+        lastChecked: '2024-01-01T00:00:00Z',
+        nextScheduledCheck: new Date().toISOString(),
+        updateTriggers: [{ type: 'annual', month: 7 }],
+      };
+
+      const result = await detector.checkForChange(source);
+
+      expect(result).not.toBeNull();
+      expect(result!.changeType).toBe('modified');
+      expect(result!.newChecksum).toBe('"new-etag"');
+    });
+  });
+
+  describe('updateChecksum', () => {
+    /**
+     * Seed a muni + source + selection so the source->muni walk resolves.
+     * Returns the selected source's id (as the string the detector emits).
+     */
+    async function seedSelectedSource(muniId = 'ca-test'): Promise<string> {
+      await db.insertMunicipality({
+        id: muniId,
+        name: 'Test City',
+        state: 'CA',
+        fips_place: '12345',
+        population: 100000,
+        county_fips: '06',
+      });
+
+      const sourceId = await db.insertSource({
+        muni_id: muniId,
+        kind: 'arcgis',
+        url: 'https://example.com/data',
+        layer_hint: null,
+        title: 'Test Source',
+        description: null,
+        discovered_at: new Date().toISOString(),
+        score: 1.0,
+      });
+
+      await db.insertSelection({
+        muni_id: muniId,
+        source_id: sourceId,
+        district_field: 'DISTRICT',
+        member_field: null,
+        at_large: false,
+        confidence: 1.0,
+        decided_by: 'heuristic',
+        decided_at: new Date().toISOString(),
+        model: null,
+      });
+
+      return sourceId.toString();
+    }
+
+    it('persists the new checksum (round-trip through head -> artifact) and appends an UPDATE event', async () => {
+      const muniId = 'ca-test';
+      const sourceId = await seedSelectedSource(muniId);
+
+      // Seed an initial head/artifact so content fields carry over.
+      const priorId = await db.insertArtifact({
+        muni_id: muniId,
+        content_sha256: 'deadbeef',
+        record_count: 42,
+        bbox: [-1, -1, 1, 1],
+        etag: '"old-etag"',
+        last_modified: null,
+        last_edit_date: 1700000000000,
+      });
+      await db.upsertHead({ muni_id: muniId, artifact_id: priorId });
+
+      await detector.updateChecksum(sourceId, '"new-etag"');
+
+      // Round-trip: read back via getHead -> getArtifact, assert NEW value.
+      const head = await db.getHead(muniId);
+      expect(head).not.toBeNull();
+      const artifact = await db.getArtifact(head!.artifact_id);
+      expect(artifact).not.toBeNull();
+      expect(artifact!.etag).toBe('"new-etag"');
+      expect(artifact!.last_modified).toBeNull();
+      // Content fields carry over verbatim from the prior artifact.
+      expect(artifact!.content_sha256).toBe('deadbeef');
+      expect(artifact!.record_count).toBe(42);
+      expect(artifact!.bbox).toEqual([-1, -1, 1, 1]);
+      expect(artifact!.last_edit_date).toBe(1700000000000);
+
+      // An UPDATE audit event was appended.
+      const updates = db.events.filter(e => e.kind === 'UPDATE');
+      expect(updates.length).toBe(1);
+      expect(updates[0].muni_id).toBe(muniId);
+      expect(updates[0].payload.sourceId).toBe(sourceId);
+      expect(updates[0].payload.checksum).toBe('"new-etag"');
+      expect(updates[0].payload.artifact_id).toBe(head!.artifact_id);
+    });
+
+    it('persists last_modified (not etag) when the checksum is not a validator quote', async () => {
+      const muniId = 'ca-test';
+      const sourceId = await seedSelectedSource(muniId);
+
+      await detector.updateChecksum(sourceId, 'Wed, 21 Oct 2015 07:28:00 GMT');
+
+      const head = await db.getHead(muniId);
+      expect(head).not.toBeNull();
+      const artifact = await db.getArtifact(head!.artifact_id);
+      expect(artifact!.last_modified).toBe('Wed, 21 Oct 2015 07:28:00 GMT');
+      expect(artifact!.etag).toBeNull();
+    });
+
+    it('persists null validator fields and borrows NO date as a vintage when no prior artifact exists', async () => {
+      const muniId = 'ca-test';
+      const sourceId = await seedSelectedSource(muniId);
+      // No prior head/artifact seeded.
+
+      await detector.updateChecksum(sourceId, 'Wed, 21 Oct 2015 07:28:00 GMT');
+
+      const head = await db.getHead(muniId);
+      expect(head).not.toBeNull();
+      const artifact = await db.getArtifact(head!.artifact_id);
+      expect(artifact).not.toBeNull();
+
+      // Non-validator branch: last_modified set, etag null.
+      expect(artifact!.last_modified).toBe('Wed, 21 Oct 2015 07:28:00 GMT');
+      expect(artifact!.etag).toBeNull();
+
+      // Absent prior artifact => the date-bearing vintage field is null.
+      // No date was borrowed or synthesized as a vintage.
+      expect(artifact!.last_edit_date).toBeNull();
+      expect(artifact!.bbox).toBeNull();
+    });
+
+    it('does not fabricate artifact/head state when no selected source matches; appends a SKIP event', async () => {
+      // No muni/source/selection seeded at all.
+      await detector.updateChecksum('does-not-exist', '"whatever"');
+
+      // No head was written.
+      expect(db.heads.size).toBe(0);
+      expect(db.artifacts.size).toBe(0);
+
+      // A SKIP audit event records the no-op.
+      const skips = db.events.filter(e => e.kind === 'SKIP');
+      expect(skips.length).toBe(1);
+      expect(skips[0].muni_id).toBeNull();
+      expect(skips[0].payload.sourceId).toBe('does-not-exist');
+    });
+  });
+
+  describe('boundary type classification', () => {
+    /**
+     * Observe boundaryType directly via the private canonical-source walk.
+     * getSourcesDueForCheck is trigger-gated (year/month dependent), so it is
+     * not a reliable surface for asserting classification.
+     */
+    async function canonicalSourceFor(sourceId: string) {
+      const all = await (detector as unknown as {
+        getAllCanonicalSources(): Promise<readonly CanonicalSource[]>;
+      }).getAllCanonicalSources();
+      return all.find(s => s.id === sourceId);
+    }
+
+    async function seedSource(muniId: string, url: string): Promise<string> {
+      await db.insertMunicipality({
+        id: muniId,
+        name: 'Test',
+        state: 'CA',
+        fips_place: null,
+        population: null,
+        county_fips: null,
+      });
+
+      const sourceId = await db.insertSource({
+        muni_id: muniId,
+        kind: 'geojson',
+        url,
+        layer_hint: null,
+        title: 'Source',
+        description: null,
+        discovered_at: new Date().toISOString(),
+        score: 1.0,
+      });
+
+      await db.insertSelection({
+        muni_id: muniId,
+        source_id: sourceId,
+        district_field: 'DISTRICT',
+        member_field: null,
+        at_large: false,
+        confidence: 1.0,
+        decided_by: 'heuristic',
+        decided_at: new Date().toISOString(),
+        model: null,
+      });
+
+      return sourceId.toString();
+    }
+
+    it('classifies TIGER congressional sources as congressional', async () => {
+      const sourceId = await seedSource(
+        'us-congress',
+        'https://www2.census.gov/geo/tiger/TIGER2024/CD/tl_2024_us_cd119.zip'
+      );
+
+      const source = await canonicalSourceFor(sourceId);
+      expect(source?.boundaryType).toBe('congressional');
+    });
+
+    it('classifies municipal portal sources as municipal', async () => {
+      const sourceId = await seedSource(
+        'ca-test',
+        'https://gis.example.gov/arcgis/rest/services/Council/FeatureServer/0'
+      );
+
+      const source = await canonicalSourceFor(sourceId);
+      expect(source?.boundaryType).toBe('municipal');
+    });
+
+    it('emits standalone congressional canonical sources with zero municipalities seeded', async () => {
+      // No municipality/source/selection seeded at all.
+      const legislators = await canonicalSourceFor('congress-legislators-current');
+      const tiger = await canonicalSourceFor('tiger-cd119');
+
+      // Both standalone congressional sources are present.
+      expect(legislators).toBeDefined();
+      expect(tiger).toBeDefined();
+
+      // tiger-cd119 routes through the reused classifyBoundaryType (TIGER /CD/
+      // URL => 'congressional'); legislators sets it explicitly.
+      expect(tiger?.boundaryType).toBe('congressional');
+      expect(legislators?.boundaryType).toBe('congressional');
+
+      // Their triggers differ from the municipal default
+      // [{annual,7},{redistricting,[2021,2022,2031,2032]}].
+      expect(legislators?.updateTriggers).toEqual([{ type: 'annual', month: 1 }]);
+      expect(tiger?.updateTriggers).toContainEqual({ type: 'census', year: 2030 });
+    });
+
+    it('detects the standalone tiger-cd119 source as new via the reused HEAD path', async () => {
+      // No muni seeded; tiger-cd119 is appended by getAllCanonicalSources.
+      const source = await canonicalSourceFor('tiger-cd119');
+      expect(source).toBeDefined();
+
+      mockFetch('"new-cd-etag"', null);
+
+      const result = await detector.checkForChange(source!);
+
+      // lastChecksum is null (no by-URL artifact lookup) => changeType 'new'.
+      expect(result).not.toBeNull();
+      expect(result!.changeType).toBe('new');
+      expect(result!.sourceId).toBe('tiger-cd119');
+      expect(result!.newChecksum).toBe('"new-cd-etag"');
+    });
+
+    it('persists a congressional checksum so it reports unchanged on the second pass (new only on first sight)', async () => {
+      // No municipalities seeded — tiger-cd119 is a standalone congressional
+      // source appended by getAllCanonicalSources.
+      const first = await canonicalSourceFor('tiger-cd119');
+      expect(first).toBeDefined();
+      // First sight: no persisted checksum yet => null => changeType 'new'.
+      expect(first?.lastChecksum).toBeNull();
+
+      mockFetch('"cd-v1"', null);
+      const firstResult = await detector.checkForChange(first!);
+      expect(firstResult).not.toBeNull();
+      expect(firstResult!.changeType).toBe('new');
+
+      // Persist the validator. The no-muni congressional branch records this as
+      // a durable UPDATE event keyed by sourceId (no artifact/head fabricated).
+      await detector.updateChecksum('tiger-cd119', '"cd-v1"');
+
+      // Re-derive the canonical source: lastChecksum now reads back from the
+      // event log instead of defaulting to null.
+      const second = await canonicalSourceFor('tiger-cd119');
+      expect(second?.lastChecksum).toBe('"cd-v1"');
+
+      // Second pass against the SAME upstream checksum => unchanged (null),
+      // not a perpetual 'new'.
+      mockFetch('"cd-v1"', null);
+      const secondResult = await detector.checkForChange(second!);
+      expect(secondResult).toBeNull();
+    });
+
+    it('reads back the LATEST congressional checksum after multiple updates (newest-first; never a stale earlier one)', async () => {
+      // Two successive validators persisted for the same source. The read-back
+      // must surface the LATEST ('cd-v2'), not the first — locking the
+      // getEventsByRun(newest-first) + first-match-wins contract together (a
+      // revert to oldest-first OR last-match would resurface 'cd-v1' here).
+      await detector.updateChecksum('tiger-cd119', '"cd-v1"');
+      await detector.updateChecksum('tiger-cd119', '"cd-v2"');
+
+      const source = await canonicalSourceFor('tiger-cd119');
+      expect(source?.lastChecksum).toBe('"cd-v2"');
+
+      // Second pass against the latest upstream => unchanged, not spurious 'new'.
+      mockFetch('"cd-v2"', null);
+      expect(await detector.checkForChange(source!)).toBeNull();
     });
   });
 

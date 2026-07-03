@@ -270,3 +270,19 @@ packages/crypto/noir/*/Prover.toml
 
 # Ed25519 manifest signing keys (public is committed separately under packages/)
 .keys/
+
+# Published address-index sample artifact. Chunks/manifest/sources are
+# regenerable via scripts/build-address-index.ts; the §6 assertions corpus is
+# NOT a build product — its canonical copy is COMMITTED at
+# packages/shadow-atlas/src/__tests__/fixtures/address-index-assertions.json
+# and copied into the sample before upload (drift + 27/27 re-derivation
+# checked by scripts/verify-address-assertions.ts). Consumers fetch the
+# sample over HTTP — nothing imports it from the tree. Only the README (the
+# rebuild + operator-upload runbook) is tracked, via the negations below.
+packages/shadow-atlas/sample/*
+!packages/shadow-atlas/sample/address-index/
+packages/shadow-atlas/sample/address-index/*
+!packages/shadow-atlas/sample/address-index/README.md
+
+# Expansion-planner scratch outputs
+test-expansion-planner/

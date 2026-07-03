@@ -43,9 +43,11 @@ import {
   openSync,
   writeSync,
   closeSync,
+  existsSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { US_JURISDICTION, PROTOCOL_DISTRICT_SLOTS } from '../src/jurisdiction.js';
+import { resolveTigerVintage } from '../src/distribution/snapshots/tiger-vintage.js';
 
 // ---- Configuration ----
 
@@ -148,6 +150,8 @@ interface ChunkManifestEntry {
 interface ManifestFile {
   version: 1;
   generated: string;
+  tigerVintage: string;
+  officialsGenerated: string | null;
   country: string;
   totalCells: number;
   totalChunks: number;
@@ -194,6 +198,52 @@ const IS_WORKER = process.env.__H3_WORKER__ === '1';
 // MAIN PROCESS
 // ================================================================
 
+export function resolveOutputDir(argv: string[]): string {
+  const candidate = argv[3];
+  return candidate && !candidate.startsWith('--') ? candidate : './output';
+}
+
+/**
+ * Officials clock: last successful congress-legislators ingest, read from the
+ * OFFICIALS database (officials.db, ingestion_log table) — NOT the atlas
+ * boundary DB, which never carries ingestion_log.
+ *
+ * Honestly-unknown ⇒ null: null path, missing file, missing ingestion_log
+ * table, no success row, or any read error all return null. Never Date.now(),
+ * never borrowed from the boundary clocks (generated, tigerVintage) — a daily
+ * officials sync must never make a quarter-stale boundary look fresh.
+ */
+export function readOfficialsGenerated(
+  officialsDbPath: string | null
+): string | null {
+  if (!officialsDbPath || !existsSync(officialsDbPath)) return null;
+  let db: ReturnType<typeof Database> | undefined;
+  try {
+    db = new Database(officialsDbPath, { readonly: true });
+    const logExists = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='ingestion_log'"
+      )
+      .get();
+    if (!logExists) return null;
+    const row = db
+      .prepare(
+        "SELECT run_at FROM ingestion_log WHERE source='congress-legislators' AND status='success' ORDER BY run_at DESC LIMIT 1"
+      )
+      .get() as { run_at?: string } | undefined;
+    return row?.run_at ?? null;
+  } catch {
+    // Unreadable/older DB or unexpected shape ⇒ honestly-unknown (null).
+    return null;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      /* close best-effort */
+    }
+  }
+}
+
 if (!IS_WORKER) {
   async function main() {
     const dbPath = process.argv[2];
@@ -205,11 +255,39 @@ if (!IS_WORKER) {
       process.exit(1);
     }
 
-    const outputDir = process.argv[3] || './output';
+    const outputDir = resolveOutputDir(process.argv);
     mkdirSync(outputDir, { recursive: true });
+
+    // Parse the optional `--tiger-vintage <label>` flag without disturbing the
+    // positional contract (argv[2]=dbPath, argv[3]=outputDir). Default raw to
+    // 'unknown' (mirroring publish-source.ts). This script has no --dry-run, so
+    // a real build resolves with { dryRun: false }: an absent/'unknown'/malformed
+    // vintage THROWS via resolveTigerVintage (fail-loud), so 'unknown' can never
+    // land in a produced manifest.
+    let tigerVintageRaw = 'unknown';
+    const vintageFlagIdx = process.argv.indexOf('--tiger-vintage');
+    if (vintageFlagIdx !== -1 && process.argv[vintageFlagIdx + 1] !== undefined) {
+      tigerVintageRaw = process.argv[vintageFlagIdx + 1];
+    }
+    const tigerVintage = resolveTigerVintage(tigerVintageRaw, { dryRun: false });
+
+    // Parse the optional `--officials-db <path>` flag (same positional-safe
+    // pattern as --tiger-vintage). The officials clock lives in officials.db
+    // (ingestion_log), not the atlas boundary DB; absent flag/file/row ⇒ null.
+    let officialsDbPath: string | null = null;
+    const officialsFlagIdx = process.argv.indexOf('--officials-db');
+    if (
+      officialsFlagIdx !== -1 &&
+      process.argv[officialsFlagIdx + 1] !== undefined
+    ) {
+      officialsDbPath = process.argv[officialsFlagIdx + 1];
+    }
+    const officialsGenerated = readOfficialsGenerated(officialsDbPath);
 
     console.log(`Database:    ${dbPath}`);
     console.log(`Output:      ${outputDir}`);
+    console.log(`TIGER:       ${tigerVintage}`);
+    console.log(`Officials:   ${officialsDbPath ?? '(none — officialsGenerated=null)'}`);
     console.log(`H3 res:      ${H3_RESOLUTION}`);
     console.log(`Chunk res:   ${CHUNK_PARENT_RESOLUTION}`);
     console.log(`Workers:     ${WORKER_COUNT}`);
@@ -487,7 +565,7 @@ if (!IS_WORKER) {
       slotNames[Number(idx)] = def.name;
     }
 
-    writeChunkedOutputs(outputDir, mapping, chunkGroups, slotNames, {
+    writeChunkedOutputs(outputDir, mapping, chunkGroups, slotNames, tigerVintage, officialsGenerated, {
       totalEnumerated: cellArray.length,
       oceanFiltered: removed,
       totalProcessed: filteredCells.length,
@@ -508,10 +586,18 @@ if (!IS_WORKER) {
     );
   }
 
-  main().catch((err) => {
-    console.error('Fatal error:', err);
-    process.exit(1);
-  });
+  // Only auto-run the build when invoked as the CLI entrypoint. When imported
+  // (e.g. by the manifest-vintage test exercising writeChunkedOutputs directly),
+  // module load must not kick off a real build/argv parse/worker fork.
+  const isEntrypoint = process.argv[1]
+    ? fileURLToPath(import.meta.url) === resolve(process.argv[1])
+    : false;
+  if (isEntrypoint) {
+    main().catch((err) => {
+      console.error('Fatal error:', err);
+      process.exit(1);
+    });
+  }
 }
 
 // ================================================================
@@ -682,11 +768,13 @@ if (IS_WORKER) {
 // OUTPUT WRITING — CHUNKED
 // ================================================================
 
-function writeChunkedOutputs(
+export function writeChunkedOutputs(
   outputDir: string,
   mapping: Record<string, DistrictMapping>,
   chunkGroups: Map<string, Record<string, DistrictMapping>>,
   slotNames: Record<number, string>,
+  tigerVintage: string,
+  officialsGenerated: string | null,
   stats: {
     totalEnumerated: number;
     oceanFiltered: number;
@@ -753,6 +841,8 @@ function writeChunkedOutputs(
   const manifest: ManifestFile = {
     version: 1,
     generated,
+    tigerVintage,
+    officialsGenerated,
     country: 'US',
     totalCells: totalCellsWritten,
     totalChunks: chunkGroups.size,

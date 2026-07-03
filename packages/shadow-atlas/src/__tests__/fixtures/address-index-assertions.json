@@ -1,0 +1,530 @@
+{
+  "version": 1,
+  "schema": "atlas-address-index-assertions",
+  "contract": "SEAM-CONTRACT v1 §6",
+  "normVersion": 1,
+  "states": [
+    "DE",
+    "RI",
+    "DC"
+  ],
+  "verification": "Every non-miss entry is a real address whose expected coordinates were computed by an independent re-implementation of the §2 match ladder over the published sample chunks; picks were additionally spot-checked against known landmark locations (White House, US Supreme Court, RI State House, The Breakers, Corporation Trust Center, Legislative Hall). MUST-MISS entries must return no result — a miss is never converted to a fabricated coordinate.",
+  "assertions": [
+    {
+      "label": "White House — exact NAD point (src:0)",
+      "covers": [
+        "point"
+      ],
+      "input": {
+        "street": "1600 Pennsylvania Ave NW",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20500"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.89768,
+        "lng": -77.03655,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "White House — long-form directional + suffix normalize to the same point",
+      "covers": [
+        "point",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "1600 Pennsylvania Avenue Northwest",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20500"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.89768,
+        "lng": -77.03655,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "US DOJ — punctuated \"Ave. N.W.\" normalizes to the same street key",
+      "covers": [
+        "point",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "950 Pennsylvania Ave. N.W.",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20530"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.89365,
+        "lng": -77.02505,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "Old Post Office — trailing \"Suite 200\" stripped, never enters the street key",
+      "covers": [
+        "point",
+        "unit-strip"
+      ],
+      "input": {
+        "street": "1100 Pennsylvania Avenue NW Suite 200",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20004"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.89413,
+        "lng": -77.02757,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "US Supreme Court — ordinal street + long-form trailing directional",
+      "covers": [
+        "point",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "1 1st Street Northeast",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20543"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.89062,
+        "lng": -77.00442,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "Library of Congress — AVENUE→AVE suffix ahead of a kept directional",
+      "covers": [
+        "point",
+        "suffix"
+      ],
+      "input": {
+        "street": "101 Independence Avenue SE",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20540"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.88675,
+        "lng": -77.00469,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "1400 K St NW — trailing \"Apt 5B\" designator+value stripped",
+      "covers": [
+        "point",
+        "unit-strip"
+      ],
+      "input": {
+        "street": "1400 K Street NW Apt 5B",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20005"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.90217,
+        "lng": -77.03241,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "Penn Ave SE — SOUTHEAST→SE trailing directional",
+      "covers": [
+        "point",
+        "directional"
+      ],
+      "input": {
+        "street": "801 Pennsylvania Avenue Southeast",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20003"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.88365,
+        "lng": -76.99454,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "Maine Ave SW (Municipal Fish Market block) — plain point hit",
+      "covers": [
+        "point"
+      ],
+      "input": {
+        "street": "1100 Maine Avenue SW",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20024"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.88122,
+        "lng": -77.02805,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "Fractional house number kept literally as a point key (§2)",
+      "covers": [
+        "point",
+        "fractional-hn"
+      ],
+      "input": {
+        "street": "1702 1/2 10th Street NW",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20001"
+      },
+      "expect": {
+        "matchClass": "point",
+        "lat": 38.91284,
+        "lng": -77.02622,
+        "tolDeg": 0.0001
+      }
+    },
+    {
+      "label": "N Orange St Wilmington — even-parity range, hn at fromHn end (t=0)",
+      "covers": [
+        "range",
+        "parity-E"
+      ],
+      "input": {
+        "street": "1200 N Orange St",
+        "city": "Wilmington",
+        "state": "DE",
+        "postalcode": "19801"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 39.74785,
+        "lng": -75.54788,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "S State St Dover — even-parity mid-range interpolation (t=0.5)",
+      "covers": [
+        "range",
+        "parity-E",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "810 South State Street",
+        "city": "Dover",
+        "state": "DE",
+        "postalcode": "19901"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 39.14719,
+        "lng": -75.52247,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "E Main St Newark DE — EAST→E leading directional onto an even range",
+      "covers": [
+        "range",
+        "parity-E",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "100 East Main Street",
+        "city": "Newark",
+        "state": "DE",
+        "postalcode": "19711"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 39.68334,
+        "lng": -75.74927,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "RI State House frontage — even-parity range on Smith St",
+      "covers": [
+        "range",
+        "parity-E",
+        "suffix"
+      ],
+      "input": {
+        "street": "82 Smith Street",
+        "city": "Providence",
+        "state": "RI",
+        "postalcode": "02903"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.8314,
+        "lng": -71.41164,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "The Breakers, Newport — even-parity range on Ochre Point Ave",
+      "covers": [
+        "range",
+        "parity-E",
+        "suffix"
+      ],
+      "input": {
+        "street": "44 Ochre Point Avenue",
+        "city": "Newport",
+        "state": "RI",
+        "postalcode": "02840"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.47026,
+        "lng": -71.29973,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Bellevue Ave mansions stretch — even-parity interpolation",
+      "covers": [
+        "range",
+        "parity-E",
+        "suffix"
+      ],
+      "input": {
+        "street": "580 Bellevue Avenue",
+        "city": "Newport",
+        "state": "RI",
+        "postalcode": "02840"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.46292,
+        "lng": -71.30664,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Hope St Providence — \"# 4\" unit stripped before an even range hit",
+      "covers": [
+        "range",
+        "parity-E",
+        "unit-strip"
+      ],
+      "input": {
+        "street": "700 Hope Street # 4",
+        "city": "Providence",
+        "state": "RI",
+        "postalcode": "02906"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.84571,
+        "lng": -71.39668,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Corporation Trust Center — odd-parity range, NORTH→N + STREET→ST",
+      "covers": [
+        "range",
+        "parity-O",
+        "directional",
+        "suffix"
+      ],
+      "input": {
+        "street": "1209 North Orange Street",
+        "city": "Wilmington",
+        "state": "DE",
+        "postalcode": "19801"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 39.74792,
+        "lng": -75.54783,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Delaware General Assembly (Legislative Hall) — odd-parity interpolation",
+      "covers": [
+        "range",
+        "parity-O",
+        "suffix"
+      ],
+      "input": {
+        "street": "411 Legislative Avenue",
+        "city": "Dover",
+        "state": "DE",
+        "postalcode": "19901"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 39.15757,
+        "lng": -75.52059,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Prospect St by Brown University — odd-parity range, hn at toHn end (t=1)",
+      "covers": [
+        "range",
+        "parity-O",
+        "suffix"
+      ],
+      "input": {
+        "street": "45 Prospect Street",
+        "city": "Providence",
+        "state": "RI",
+        "postalcode": "02912"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.82772,
+        "lng": -71.40481,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Post Rd Warwick — B (both-parity) range accepts an even house number",
+      "covers": [
+        "range",
+        "parity-B"
+      ],
+      "input": {
+        "street": "1784 Post Road",
+        "city": "Warwick",
+        "state": "RI",
+        "postalcode": "02888"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.73365,
+        "lng": -71.43605,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Post Rd Warwick — the same B range accepts an odd house number",
+      "covers": [
+        "range",
+        "parity-B"
+      ],
+      "input": {
+        "street": "1783 Post Road",
+        "city": "Warwick",
+        "state": "RI",
+        "postalcode": "02888"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 41.73371,
+        "lng": -71.43602,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Waters Edge, Bethany Beach — B range on a suffixless street name",
+      "covers": [
+        "range",
+        "parity-B"
+      ],
+      "input": {
+        "street": "7 Waters Edge",
+        "city": "Bethany Beach",
+        "state": "DE",
+        "postalcode": "19930"
+      },
+      "expect": {
+        "matchClass": "range",
+        "lat": 38.59008,
+        "lng": -75.06298,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "Air & Space Museum — real address, street indexed but number uncovered → ZIP centroid",
+      "covers": [
+        "zip-centroid"
+      ],
+      "input": {
+        "street": "600 Independence Avenue SW",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20560"
+      },
+      "expect": {
+        "matchClass": "zip",
+        "lat": 38.88852,
+        "lng": -77.02695,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "1300 Massachusetts Ave NW — no covering point/range in 20036 → ZIP centroid",
+      "covers": [
+        "zip-centroid"
+      ],
+      "input": {
+        "street": "1300 Massachusetts Avenue NW",
+        "city": "Washington",
+        "state": "DC",
+        "postalcode": "20036"
+      },
+      "expect": {
+        "matchClass": "zip",
+        "lat": 38.90728,
+        "lng": -77.04202,
+        "tolDeg": 0.0005
+      }
+    },
+    {
+      "label": "MUST-MISS — ZIP outside the published sample (no chunk → no result, never 0.6)",
+      "covers": [
+        "must-miss"
+      ],
+      "input": {
+        "street": "1 Market St",
+        "city": "San Francisco",
+        "state": "CA",
+        "postalcode": "94105"
+      },
+      "expect": {
+        "matchClass": "miss"
+      }
+    },
+    {
+      "label": "MUST-MISS — no ZIP5 derivable from the postal code (fail, never fabricate)",
+      "covers": [
+        "must-miss"
+      ],
+      "input": {
+        "street": "82 Smith Street",
+        "city": "Providence",
+        "state": "RI",
+        "postalcode": "0290"
+      },
+      "expect": {
+        "matchClass": "miss"
+      }
+    }
+  ]
+}

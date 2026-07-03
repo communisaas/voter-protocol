@@ -2,9 +2,10 @@
 /**
  * Build Output Validator — Chunked Atlas Pipeline Quality Gate
  *
- * Validates the output directory produced by build-chunked-mapping.ts and
- * export-officials.ts before data is pinned to IPFS. Runs 7 checks that
- * must ALL PASS to proceed.
+ * Validates the output directory produced by build-chunked-mapping.ts,
+ * export-officials.ts, and build-address-index.ts before data is pinned to
+ * IPFS. Runs 8 checks that must ALL PASS to proceed (the Address Index check
+ * warns — not fails — when the build carries no addressIndex section).
  *
  * Single-pass architecture — each chunk file is read exactly once
  * (N+M+1 total reads instead of 4N+M+1).
@@ -29,6 +30,7 @@ import {
   existsSync,
   readFileSync,
   readdirSync,
+  statSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { cellToParent } from 'h3-js';
@@ -97,7 +99,32 @@ interface ManifestFile {
     total_officials: number;
     entries: OfficialManifestEntry[];
   };
+  /** Third clock — merged by build-address-index.ts (§4). */
+  addressIndexGenerated?: string;
+  addressIndexVersion?: number;
+  addressIndex?: AddressIndexSection;
 }
+
+/** manifest.addressIndex — SEAM-CONTRACT v1 (atlas-address-index) §4. */
+interface AddressIndexSection {
+  schemaVersion: number;
+  normVersion: number;
+  normTable: { path: string; sha256: string; bytes: number };
+  nadVintage: string | null;
+  addrfeatVintage: string | null;
+  totalChunks: number;
+  totalStreets: number;
+  totalPoints: number;
+  totalRanges: number;
+  chunkIndex: { path: string; sha256: string; bytes: number };
+  sourceMix?: Record<string, { nadPoints: number; tigerRanges: number }>;
+}
+
+/** addresses/chunk-index.json — one entry per ZIP5 chunk (§4). */
+type AddressChunkIndex = Record<
+  string,
+  { streetCount: number; bytes: number; sha256: string }
+>;
 
 interface ChunkManifestEntry {
   path: string;
@@ -956,6 +983,235 @@ function checkSlotAlignment(
 }
 
 // ============================================================================
+// Check 8: Address Index (SEAM-CONTRACT v1 atlas-address-index §1/§3/§4)
+// ============================================================================
+
+/** §1 size gates over chunk-index bytes: p95 raw ≤ 256 KB, max ≤ 1 MB. */
+const ADDRESS_CHUNK_P95_LIMIT_BYTES = 256 * 1024;
+const ADDRESS_CHUNK_MAX_LIMIT_BYTES = 1024 * 1024;
+
+/** Spot-verify every chunk's sha256 up to this count; sample evenly beyond it. */
+const ADDRESS_HASH_SPOT_LIMIT = 500;
+
+/**
+ * Validate the address-index artifacts against their manifest pins so a
+ * quarterly "ALL CHECKS PASSED" is a real statement about addresses too:
+ *   - addressIndex section present with schemaVersion 1 + normVersion 1;
+ *   - addressIndexGenerated (third clock) parses as a real timestamp;
+ *   - normalization.json byte length + sha256 match the manifest pin;
+ *   - chunk-index.json byte length + sha256 match the manifest pin;
+ *   - chunk-index entries are spot-verifiable: every listed chunk exists with
+ *     the exact pinned byte length; sha256 re-hashed for all chunks (≤500) or
+ *     an even deterministic sample;
+ *   - §1 size gates hold over the pinned byte sizes (p95 ≤ 256 KB, max ≤ 1 MB).
+ *
+ * A manifest WITHOUT an addressIndex section is a boundary-only build — the
+ * check warns (and fails under --strict) instead of failing outright.
+ */
+function checkAddressIndex(
+  outputDir: string,
+  country: string,
+  manifest: ManifestFile,
+): CheckResult {
+  const name = 'Address Index';
+  const countryRoot = join(outputDir, countryDir(country));
+  const ai = manifest.addressIndex;
+
+  if (!ai) {
+    return {
+      name,
+      status: 'warn',
+      message: 'No addressIndex section in manifest — boundary-only build, address checks skipped',
+    };
+  }
+
+  const failures: string[] = [];
+
+  // --- Section fields ---
+  if (ai.schemaVersion !== 1) {
+    failures.push(`addressIndex.schemaVersion=${ai.schemaVersion}, expected 1`);
+  }
+  if (ai.normVersion !== 1) {
+    failures.push(`addressIndex.normVersion=${ai.normVersion}, expected 1`);
+  }
+  if (
+    typeof manifest.addressIndexGenerated !== 'string' ||
+    Number.isNaN(Date.parse(manifest.addressIndexGenerated))
+  ) {
+    failures.push(
+      `addressIndexGenerated is not a parseable timestamp: ${JSON.stringify(manifest.addressIndexGenerated)}`,
+    );
+  }
+  if (typeof ai.totalChunks !== 'number' || ai.totalChunks <= 0) {
+    failures.push(`addressIndex.totalChunks must be > 0, got ${ai.totalChunks}`);
+  }
+
+  // --- Pinned artifact verifier (normalization.json, chunk-index.json) ---
+  function verifyPinnedArtifact(
+    label: string,
+    pin: { path: string; sha256: string; bytes: number } | undefined,
+  ): Buffer | null {
+    if (!pin || typeof pin.path !== 'string' || typeof pin.sha256 !== 'string') {
+      failures.push(`${label}: manifest pin missing path/sha256`);
+      return null;
+    }
+    const artifactPath = join(countryRoot, pin.path);
+    const containmentErr = checkContainment(artifactPath, countryRoot);
+    if (containmentErr) {
+      failures.push(`${label}: ${containmentErr}`);
+      return null;
+    }
+    if (!existsSync(artifactPath)) {
+      failures.push(`${label}: file missing at ${pin.path}`);
+      return null;
+    }
+    const buf = readFileSync(artifactPath);
+    if (buf.length !== pin.bytes) {
+      failures.push(`${label}: ${buf.length} bytes on disk, manifest pins ${pin.bytes}`);
+    }
+    const actualHash = createHash('sha256').update(buf).digest('hex');
+    if (actualHash !== pin.sha256) {
+      failures.push(
+        `${label}: sha256 mismatch (expected ${pin.sha256.slice(0, 12)}..., got ${actualHash.slice(0, 12)}...)`,
+      );
+      return null;
+    }
+    return buf;
+  }
+
+  const normBuf = verifyPinnedArtifact('normalization.json', ai.normTable);
+  if (normBuf) {
+    try {
+      const normJson = JSON.parse(normBuf.toString('utf-8')) as { normVersion?: number };
+      if (normJson.normVersion !== ai.normVersion) {
+        failures.push(
+          `normalization.json normVersion=${normJson.normVersion} != manifest addressIndex.normVersion=${ai.normVersion}`,
+        );
+      }
+    } catch (err) {
+      failures.push(`normalization.json: invalid JSON — ${(err as Error).message}`);
+    }
+  }
+
+  let chunksListed = 0;
+  let bytesVerified = 0;
+  let hashesVerified = 0;
+  let p95Bytes = 0;
+  let maxBytes = 0;
+  const chunkIndexBuf = verifyPinnedArtifact('chunk-index.json', ai.chunkIndex);
+  if (chunkIndexBuf) {
+    let chunkIndex: AddressChunkIndex | null = null;
+    try {
+      chunkIndex = JSON.parse(chunkIndexBuf.toString('utf-8')) as AddressChunkIndex;
+    } catch (err) {
+      failures.push(`chunk-index.json: invalid JSON — ${(err as Error).message}`);
+    }
+
+    if (chunkIndex) {
+      const entries = Object.entries(chunkIndex);
+      chunksListed = entries.length;
+
+      if (entries.length !== ai.totalChunks) {
+        failures.push(
+          `chunk-index has ${entries.length} entries, manifest addressIndex.totalChunks=${ai.totalChunks}`,
+        );
+      }
+
+      // Deterministic spot sample for sha256 re-hashing: all entries when the
+      // index is small; otherwise an even stride including first and last.
+      const hashStride =
+        entries.length <= ADDRESS_HASH_SPOT_LIMIT
+          ? 1
+          : Math.ceil(entries.length / ADDRESS_HASH_SPOT_LIMIT);
+
+      const byteSizes: number[] = [];
+      for (let i = 0; i < entries.length; i++) {
+        const [zip, entry] = entries[i];
+        if (!/^\d{5}$/.test(zip)) {
+          failures.push(`chunk-index key "${zip}" is not a ZIP5`);
+          continue;
+        }
+        if (typeof entry.bytes !== 'number' || typeof entry.sha256 !== 'string') {
+          failures.push(`chunk-index[${zip}]: missing bytes/sha256`);
+          continue;
+        }
+        byteSizes.push(entry.bytes);
+
+        const chunkPath = join(countryRoot, 'addresses', `${zip}.json`);
+        if (!existsSync(chunkPath)) {
+          failures.push(`chunk missing on disk: addresses/${zip}.json`);
+          continue;
+        }
+        const stat = statSync(chunkPath);
+        if (stat.size !== entry.bytes) {
+          failures.push(
+            `addresses/${zip}.json: ${stat.size} bytes on disk, chunk-index pins ${entry.bytes}`,
+          );
+          continue;
+        }
+        bytesVerified++;
+
+        const spotCheck = i % hashStride === 0 || i === entries.length - 1;
+        if (spotCheck) {
+          const actualHash = createHash('sha256').update(readFileSync(chunkPath)).digest('hex');
+          if (actualHash !== entry.sha256) {
+            failures.push(
+              `addresses/${zip}.json: sha256 mismatch (expected ${entry.sha256.slice(0, 12)}..., got ${actualHash.slice(0, 12)}...)`,
+            );
+          } else {
+            hashesVerified++;
+          }
+        }
+
+        if (failures.length >= 50) break; // enough evidence — don't flood
+      }
+
+      // §1 size gates over the (now byte-verified) pinned sizes — same p95
+      // definition as the producer's chunkSizeGuard.
+      if (byteSizes.length > 0) {
+        const sorted = [...byteSizes].sort((a, b) => a - b);
+        const p95Idx = Math.min(sorted.length - 1, Math.ceil(0.95 * sorted.length) - 1);
+        p95Bytes = sorted[Math.max(0, p95Idx)];
+        maxBytes = sorted[sorted.length - 1];
+        if (p95Bytes > ADDRESS_CHUNK_P95_LIMIT_BYTES) {
+          failures.push(
+            `§1 size gate breach: p95=${p95Bytes} B > ${ADDRESS_CHUNK_P95_LIMIT_BYTES} B`,
+          );
+        }
+        if (maxBytes > ADDRESS_CHUNK_MAX_LIMIT_BYTES) {
+          failures.push(
+            `§1 size gate breach: max=${maxBytes} B > ${ADDRESS_CHUNK_MAX_LIMIT_BYTES} B`,
+          );
+        }
+      }
+    }
+  }
+
+  if (failures.length > 0) {
+    return {
+      name,
+      status: 'fail',
+      message: `${failures.length} address-index violation(s)`,
+      details: {
+        chunksListed,
+        bytesVerified,
+        hashesVerified,
+        p95Bytes,
+        maxBytes,
+        failures: failures.slice(0, 15),
+      },
+    };
+  }
+
+  return {
+    name,
+    status: 'pass',
+    message: `addressIndex valid: ${chunksListed} chunks, ${bytesVerified} byte-verified, ${hashesVerified} sha256 spot-verified, p95=${p95Bytes} B, max=${maxBytes} B`,
+    details: { chunksListed, bytesVerified, hashesVerified, p95Bytes, maxBytes },
+  };
+}
+
+// ============================================================================
 // Output Formatting
 // ============================================================================
 
@@ -1048,7 +1304,10 @@ function main(): void {
     check1.name = `[${country}] ${check1.name}`;
     allChecks.push(check1);
 
-    // If manifest failed to load, we can't run the remaining checks
+    // If manifest failed to load, we can't run the remaining boundary checks.
+    // The Address Index check is orthogonal to boundary chunk integrity: it
+    // still runs whenever the manifest itself parsed (e.g. an address-only
+    // sample tree whose manifest has no boundary sections).
     if (!manifest || check1.status === 'fail') {
       const skippedNames = [
         'Chunk Checksums',
@@ -1061,6 +1320,17 @@ function main(): void {
       for (const skipName of skippedNames) {
         allChecks.push({
           name: `[${country}] ${skipName}`,
+          status: 'fail',
+          message: 'Skipped — manifest is invalid or missing',
+        });
+      }
+      if (manifest) {
+        const checkAddr = checkAddressIndex(outputDir, country, manifest);
+        checkAddr.name = `[${country}] ${checkAddr.name}`;
+        allChecks.push(checkAddr);
+      } else {
+        allChecks.push({
+          name: `[${country}] Address Index`,
           status: 'fail',
           message: 'Skipped — manifest is invalid or missing',
         });
@@ -1100,6 +1370,11 @@ function main(): void {
     const check7 = synthesizeCrossChunkConsistency(acc, manifest);
     check7.name = `[${country}] ${check7.name}`;
     allChecks.push(check7);
+
+    // Check 8: Address Index (§1/§3/§4 pins — warns when the build has none)
+    const check8 = checkAddressIndex(outputDir, country, manifest);
+    check8.name = `[${country}] ${check8.name}`;
+    allChecks.push(check8);
   }
 
   // Determine overall pass/fail

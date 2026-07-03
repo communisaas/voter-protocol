@@ -314,10 +314,12 @@ export class SQLiteAdapter implements DatabaseAdapter {
   }
 
   async getEventsByRun(run_id: string, limit: number = 10000): Promise<Event[]> {
-    // Add LIMIT to prevent OOM on large run event sets.
-    // Other similar methods (getEventsByMuni, getErrors) already have LIMIT.
+    // Newest-first + LIMIT: the only caller (change-detector) wants the LATEST
+    // event per source. Oldest-first would truncate the most-recent checksum out
+    // of the window once the shared run_id accrues >LIMIT events, resurrecting a
+    // spurious `new`. Other LIMIT methods (getEventsByMuni, getErrors) order DESC.
     const stmt = this.db.prepare(`
-      SELECT * FROM events WHERE run_id = ? ORDER BY ts ASC LIMIT ?
+      SELECT * FROM events WHERE run_id = ? ORDER BY ts DESC LIMIT ?
     `);
     const rows = stmt.all(run_id, limit) as (Omit<Event, 'payload'> & { payload: string })[];
 

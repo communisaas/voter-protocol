@@ -85,6 +85,7 @@ import {
 import { s3MultipartUpload, type S3MultipartEnv } from './_s3-multipart.js';
 import { s3BatchPutDir, s3BatchDelete } from './_s3-batch-put.js';
 import { signManifest } from './_ed25519.js';
+import { resolveTigerVintage } from '../src/distribution/snapshots/tiger-vintage.js';
 
 const VERSION_PATTERN = /^v\d{8}$/;
 const ARTIFACTS = ['shadow-atlas-full.db', 'officials.db'] as const;
@@ -567,6 +568,7 @@ class ManifestCollisionError extends Error {}
 
 async function main(): Promise<void> {
 	const args = parseArgs(process.argv.slice(2));
+	args.tigerVintage = resolveTigerVintage(args.tigerVintage, { dryRun: args.dryRun });
 
 	const cfToken = process.env['CLOUDFLARE_API_TOKEN'];
 	const accountId = process.env['CLOUDFLARE_ACCOUNT_ID'];
