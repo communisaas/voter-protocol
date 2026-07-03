@@ -13,6 +13,7 @@
 
 import type { DatabaseAdapter, Source, Artifact } from '../core/types.js';
 import { logger } from '../core/utils/logger.js';
+import { sha256 } from './utils.js';
 
 /**
  * Update trigger types
@@ -125,6 +126,54 @@ interface SafeCheckResult {
 }
 
 /**
+ * Seed descriptor for a standalone (non-municipality-owned) canonical source.
+ *
+ * Holds only the inputs that are constant across instances; the
+ * instance-dependent fields (lastChecksum, lastChecked, nextScheduledCheck and
+ * the classified boundaryType) are filled in by getAllCanonicalSources using
+ * this.* context. boundaryType is optional: when omitted it is computed via
+ * classifyBoundaryType(url); when present it is an explicit override (used for
+ * sources whose URL would otherwise misclassify — e.g. a githubusercontent feed
+ * that is congressional in nature but not a TIGER URL).
+ */
+interface CanonicalSourceSeed {
+  readonly id: string;
+  readonly url: string;
+  readonly boundaryType?: string;
+  readonly updateTriggers: readonly UpdateTrigger[];
+}
+
+/**
+ * Standalone congressional canonical sources.
+ *
+ * These are nationwide feeds with no owning municipality, so they are appended
+ * to the muni-derived canonical sources rather than discovered via the
+ * source -> selection -> muni walk. URLs are byte-identical to the live ingest
+ * paths (us-provider / ingest-legislators / tiger-manifest).
+ */
+const CONGRESSIONAL_CANONICAL_SOURCES: readonly CanonicalSourceSeed[] = [
+  {
+    // congress-legislators current roster (YAML). Not a TIGER URL, so
+    // classifyBoundaryType would mislabel it 'municipal' — set explicitly.
+    id: 'congress-legislators-current',
+    url: 'https://raw.githubusercontent.com/unitedstates/congress-legislators/main/legislators-current.yaml',
+    boundaryType: 'congressional',
+    updateTriggers: [{ type: 'annual', month: 1 }],
+  },
+  {
+    // TIGER 119th Congress district shapefile. boundaryType omitted so it routes
+    // through classifyBoundaryType (which returns 'congressional' for this URL).
+    id: 'tiger-cd119',
+    url: 'https://www2.census.gov/geo/tiger/TIGER2024/CD/tl_2024_us_cd119.zip',
+    updateTriggers: [
+      { type: 'redistricting', years: [2021, 2022, 2031, 2032] },
+      { type: 'census', year: 2030 },
+      { type: 'annual', month: 7 },
+    ],
+  },
+];
+
+/**
  * Change Detector
  *
  * Event-driven change detection using HTTP headers.
@@ -156,13 +205,14 @@ export class ChangeDetector {
       // Fetch current headers with retry logic
       const headers = await this.fetchHeadersWithRetry(source.url);
 
-      // No headers available (404, network error, etc.)
-      if (!headers.etag && !headers.lastModified) {
-        return null;
-      }
-
-      // Determine new checksum (prefer ETag over Last-Modified)
-      const newChecksum = headers.etag || headers.lastModified;
+      // Determine new checksum (prefer ETag over Last-Modified).
+      // When the source serves neither validator, fall back to hashing the
+      // body so a real upstream change still surfaces instead of silently
+      // returning null.
+      const newChecksum =
+        headers.etag ||
+        headers.lastModified ||
+        (await this.fetchContentHash(source.url));
 
       if (!newChecksum) {
         return null;
@@ -338,21 +388,110 @@ export class ChangeDetector {
   }
 
   /**
-   * Update checksum after successful download
+   * Update checksum after a detected change.
+   *
+   * Persists the new validator into the artifacts table and advances the
+   * municipality's head to the new artifact, then appends an UPDATE audit
+   * event. The validator's STORAGE COLUMN mirrors the sibling TIGER path in
+   * change-detection-adapter.ts (leading double-quote => etag, else
+   * last_modified).
+   *
+   * The new checksum is NOT a content vintage: content_sha256 / record_count /
+   * bbox / last_edit_date carry over verbatim from the prior artifact when one
+   * exists, else null. A date is NEVER borrowed or synthesized (no Date.now()
+   * as a vintage) — an absent prior artifact yields null content fields.
+   *
+   * If no municipality has this sourceId selected, no state is fabricated: a
+   * SKIP event is appended and the call returns without mutating artifacts/head.
    */
   async updateChecksum(sourceId: string, checksum: string): Promise<void> {
-    // In the current schema, checksums are stored in the artifacts table
-    // We need to update the most recent artifact for this source's municipality
+    // Resolve the muni owning this selected source by reusing the exact
+    // source -> selection -> muni walk that getAllCanonicalSources uses.
+    const municipalities = await this.db.listMunicipalities(10000, 0);
 
-    // This is a simplified implementation - in production, you'd want to:
-    // 1. Find the source by ID
-    // 2. Find or create artifact with new checksum
-    // 3. Update heads table to point to new artifact
+    for (const muni of municipalities) {
+      const sources = await this.db.getSourcesByMuni(muni.id);
+      const selection = await this.db.getSelection(muni.id);
+      const selectedSource = selection
+        ? sources.find(s => s.id === selection.source_id)
+        : null;
 
-    // For now, we'll add a note that this needs integration with artifact management
-    logger.warn('updateChecksum requires integration with artifact management', {
-      sourceId,
-      checksum,
+      if (!selectedSource || selectedSource.id.toString() !== sourceId) {
+        continue;
+      }
+
+      // Read the current head/artifact (may be absent on first acquisition).
+      const head = await this.db.getHead(muni.id);
+      const priorArtifact = head ? await this.db.getArtifact(head.artifact_id) : null;
+
+      // Derive validator storage column from the checksum shape, mirroring
+      // change-detection-adapter.ts:251-253. Leading double-quote => ETag.
+      const isEtag = checksum.startsWith('"');
+
+      // Carry content fields over from the prior artifact verbatim, else null.
+      // NEVER borrow a date or use Date.now() as a vintage.
+      const newArtifact: Omit<Artifact, 'id' | 'created_at'> = {
+        muni_id: muni.id,
+        content_sha256: priorArtifact?.content_sha256 ?? '',
+        record_count: priorArtifact?.record_count ?? 0,
+        bbox: priorArtifact?.bbox ?? null,
+        etag: isEtag ? checksum : null,
+        last_modified: isEtag ? null : checksum,
+        last_edit_date: priorArtifact?.last_edit_date ?? null,
+      };
+
+      const newId = await this.db.insertArtifact(newArtifact);
+      await this.db.upsertHead({ muni_id: muni.id, artifact_id: newId });
+
+      await this.db.insertEvent({
+        run_id: 'change-detector',
+        muni_id: muni.id,
+        kind: 'UPDATE',
+        payload: { sourceId, checksum, artifact_id: newId },
+        model: null,
+        duration_ms: null,
+        error: null,
+      });
+
+      return;
+    }
+
+    // No muni/selected source matched this sourceId.
+    //
+    // A recognized standalone congressional source has no owning muni (and thus
+    // no artifact/head/selection), but its validator is still real upstream
+    // state worth persisting. Record it as a durable UPDATE event keyed by
+    // sourceId so getAllCanonicalSources can read the latest checksum back on
+    // the next pass — no perpetual `new`. No artifact/head/selection is
+    // fabricated (foreign_keys=ON, stable string ids preserved).
+    const isCongressionalSeed = CONGRESSIONAL_CANONICAL_SOURCES.some(
+      seed => seed.id === sourceId
+    );
+
+    if (isCongressionalSeed) {
+      await this.db.insertEvent({
+        run_id: 'change-detector',
+        muni_id: null,
+        kind: 'UPDATE',
+        payload: { sourceId, checksum },
+        model: null,
+        duration_ms: null,
+        error: null,
+      });
+      return;
+    }
+
+    // Truly-unknown sourceId — do not fabricate state. Append a SKIP audit row
+    // (distinct from the congressional UPDATE above so the read-back semantics
+    // stay unambiguous) and return without writing artifact/head.
+    await this.db.insertEvent({
+      run_id: 'change-detector',
+      muni_id: null,
+      kind: 'SKIP',
+      payload: { sourceId, checksum, reason: 'no selected source matched sourceId' },
+      model: null,
+      duration_ms: null,
+      error: null,
     });
   }
 
@@ -456,6 +595,38 @@ export class ChangeDetector {
   }
 
   /**
+   * Fetch body and return its SHA-256.
+   *
+   * Fallback for sources that serve neither ETag nor Last-Modified.
+   * Single-shot GET (no retry) — the caller's try/catch turns any failure
+   * into a null (no-change) result, preserving the no-spurious-download
+   * contract.
+   */
+  private async fetchContentHash(url: string): Promise<string> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'VOTER-Protocol-ShadowAtlas/1.0 (Change Detection)',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const body = await response.text();
+      return sha256(body);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /**
    * Sleep for specified milliseconds
    */
   private sleep(ms: number): Promise<void> {
@@ -496,10 +667,16 @@ export class ChangeDetector {
       const head = await this.db.getHead(muni.id);
       const artifact = head ? await this.db.getArtifact(head.artifact_id) : null;
 
-      // Determine boundary type from municipality metadata
-      const boundaryType = 'municipal'; // Simplified - in production, classify by source
+      // Classify boundary type from the selected source URL.
+      // TIGER congressional shapefiles live under www2.census.gov/geo/tiger
+      // in a /CD/ directory (or a cd layer); everything else defaults to
+      // municipal.
+      const boundaryType = this.classifyBoundaryType(selectedSource.url);
 
-      // Default update triggers for municipal boundaries
+      // Default update triggers for municipal boundaries.
+      // These years are a scheduling HINT (when to proactively re-check) and are
+      // non-authoritative: the checksum compare, not the year, decides whether a
+      // change actually fired, so an off-cycle change still surfaces.
       const updateTriggers: UpdateTrigger[] = [
         { type: 'annual', month: 7 },                           // Check in July
         { type: 'redistricting', years: [2021, 2022, 2031, 2032] }, // Redistricting cycles
@@ -519,7 +696,59 @@ export class ChangeDetector {
       });
     }
 
+    // Append standalone congressional canonical sources (no owning muni).
+    //
+    // lastChecksum is read back from the durable event log instead of being
+    // hardcoded null: updateChecksum persists a recognized congressional
+    // source's validator as an UPDATE event keyed by sourceId. Reading the
+    // latest such event back here lets the source report 'unchanged' on the
+    // second pass after a checksum was persisted — `new` only on first sight,
+    // not perpetually. getEventsByRun returns NEWEST-first, so the FIRST matching
+    // event is the latest checksum — robust to >LIMIT churn from the shared
+    // run_id; default to null when none is found.
+    const detectorEvents = await this.db.getEventsByRun('change-detector');
+
+    for (const seed of CONGRESSIONAL_CANONICAL_SOURCES) {
+      let lastChecksum: string | null = null;
+      for (const event of detectorEvents) {
+        const payload = event.payload;
+        if (payload.sourceId === seed.id && typeof payload.checksum === 'string') {
+          lastChecksum = payload.checksum;
+          break;
+        }
+      }
+
+      canonicalSources.push({
+        id: seed.id,
+        url: seed.url,
+        boundaryType: seed.boundaryType ?? this.classifyBoundaryType(seed.url),
+        lastChecksum,
+        lastChecked: null,
+        nextScheduledCheck: this.calculateNextScheduledCheck(seed.updateTriggers),
+        updateTriggers: seed.updateTriggers,
+      });
+    }
+
     return canonicalSources;
+  }
+
+  /**
+   * Classify a source's boundary type from its URL.
+   *
+   * Congressional sources are TIGER shapefiles served from
+   * www2.census.gov/geo/tiger in a CD (congressional district) layer/dir.
+   * Anything else falls back to 'municipal'.
+   */
+  private classifyBoundaryType(url: string): string {
+    const lower = url.toLowerCase();
+    const isTiger = lower.includes('www2.census.gov/geo/tiger');
+    const isCongressional = /\/cd\//.test(lower) || /[_/]cd[._/]/.test(lower);
+
+    if (isTiger && isCongressional) {
+      return 'congressional';
+    }
+
+    return 'municipal';
   }
 
   /**
