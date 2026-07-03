@@ -1,0 +1,153 @@
+name: Shadow Atlas Change Check
+
+# Boundary-source change-detection runner. Wraps the existing
+# `npm run changes:check` script (packages/shadow-atlas, package.json:38),
+# which checks scheduled boundary sources for upstream changes via free HEAD
+# requests and records the validator each source actually served. This
+# workflow re-implements NO detection logic — it only schedules + persists.
+#
+# (a) DURABILITY — check-changes.ts writes a local SQLite DB (default
+#     ./shadow-atlas.db, src/scripts/check-changes.ts:25). On an ephemeral
+#     GitHub runner that file is created fresh and discarded when the job
+#     ends, so every run would start with no prior checksums and re-report
+#     every source as "changed". To make change detection meaningful across
+#     runs we ROUND-TRIP a dedicated change-detection DB through Cloudflare
+#     R2 — the same store that already holds the production atlas DBs —
+#     reusing `aws s3api` against the S3-compat endpoint and the same R2
+#     SigV4 secrets the quarterly workflow uses. get-object before the check,
+#     put-object after.
+#
+# (b) REJECTED ALTERNATIVE — committing the binary .db back into git after
+#     each run. That churns the repo with opaque binary diffs on every poll
+#     and bloats history; R2 round-trip keeps state out of version control.
+#
+# (c) LIVE ENABLEMENT IS OPERATOR-GATED. Mirrors the quarterly workflow's
+#     framing: the `schedule` here is a REMINDER, not a production guarantee.
+#     This workflow is NOT claimed to run in prod — an operator owns turning
+#     it on (and provisioning the R2 secrets). When the R2 secrets are
+#     absent the round-trip steps no-op cleanly and the check runs against a
+#     fresh local DB. The schedule is the nudge; the dispatch is the run.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  changes-check:
+    name: Check Boundary Sources for Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # An explicit permissions block DROPS the default token grants, so
+    # `contents: read` must be restated for actions/checkout to work.
+    # `issues: write` covers both label creation and issue create/comment
+    # in the alert step below.
+    permissions:
+      issues: write
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/shadow-atlas
+    env:
+      # R2 SigV4 env block — copied verbatim from shadow-atlas-quarterly.yml.
+      # Same trust tier as CLOUDFLARE_API_TOKEN; bucket-scoped Object R/W on
+      # shadow-atlas.
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      R2_BUCKET: shadow-atlas
+      # Mapped into a plain env var so the round-trip steps can gate on it in
+      # `if:` — the GitHub `secrets` context is NOT usable in `if:`, the `env`
+      # context is. Absent secret => empty string => steps skip cleanly.
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      # Dedicated change-detection key, DISTINCT from the production atlas /
+      # shadow-atlas-full.db read-path keys, so put-back here can never
+      # clobber the production DB.
+      CHANGE_DB_KEY: change-detection/shadow-atlas.db
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore change-detection DB from R2
+        # Pull the prior-run DB so checksum comparisons are meaningful across
+        # runs. `|| true` tolerates the first run, when the object does not
+        # yet exist. Skips cleanly when the R2 secret is absent.
+        if: env.R2_ACCESS_KEY_ID != ''
+        run: |
+          aws s3api get-object \
+            --bucket "$R2_BUCKET" \
+            --key "$CHANGE_DB_KEY" \
+            --endpoint-url "$R2_ENDPOINT" \
+            ./shadow-atlas.db || true
+
+      - name: Check boundary sources for changes
+        # Reuse the existing script + its --db flag. Runs unconditionally;
+        # with no restored DB it simply starts from an empty local DB.
+        # --summary emits a machine-readable detection count + change list
+        # for the alert step; detections never turn this step red.
+        run: npm run changes:check -- --db ./shadow-atlas.db --summary ./change-summary.json
+
+      - name: Persist change-detection DB back to R2
+        # Round-trip the updated DB back to the dedicated key so the next run
+        # sees this run's checksums. Skips cleanly when the R2 secret is absent.
+        # Kept immediately after the check step — BEFORE the alert steps — so
+        # DB durability survives an alert-step failure.
+        if: env.R2_ACCESS_KEY_ID != ''
+        run: |
+          aws s3api put-object \
+            --bucket "$R2_BUCKET" \
+            --key "$CHANGE_DB_KEY" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --body ./shadow-atlas.db
+
+      - name: Extract detection count
+        # jq is preinstalled on ubuntu-latest — no new dependency.
+        id: summary
+        run: echo "detections=$(jq .detections ./change-summary.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Raise change alert issue
+        # The labeled GitHub issue is the alarm — the Actions run stays green
+        # on detections. Gated on the R2 secret so alerts NEVER fire on
+        # secretless fresh-DB runs, where every source reads "new" and the
+        # alert would be perpetual noise.
+        #
+        # E2 caveat: the FIRST R2-seeded run also reports every source as
+        # "new" and will raise one noisy issue by design — the R2-secret gate
+        # only suppresses the perpetual fresh-DB noise of secretless runs.
+        if: env.R2_ACCESS_KEY_ID != '' && steps.summary.outputs.detections > 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Idempotent label creation — exists-already is fine.
+          gh label create atlas-change-alert \
+            --description "Upstream boundary source change detected" || true
+
+          {
+            echo "Scheduled change check detected upstream boundary source change(s)."
+            echo
+            echo '```json'
+            cat ./change-summary.json
+            echo
+            echo '```'
+          } > ./alert-body.md
+
+          # Dedupe: comment on the open labeled issue if one exists,
+          # otherwise create it.
+          n=$(gh issue list --label atlas-change-alert --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body-file ./alert-body.md
+          else
+            gh issue create \
+              --title "Shadow Atlas: upstream boundary source change detected" \
+              --label atlas-change-alert \
+              --body-file ./alert-body.md
+          fi
