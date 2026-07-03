@@ -60,6 +60,41 @@ on:
         options:
           - 'true'
           - 'false'
+      tiger_vintage:
+        description: 'TIGER20YY e.g. TIGER2024; default unknown FAILS by design — operator sets the real value'
+        required: false
+        type: string
+        default: 'unknown'
+      nad_vintage:
+        description: 'NAD release compile date YYYY-MM-DD e.g. 2026-06-30; default unknown FAILS by design — operator sets the real value'
+        required: false
+        type: string
+        default: 'unknown'
+      addrfeat_vintage:
+        description: 'TIGER20YY ADDRFEAT vintage e.g. TIGER2025; default unknown FAILS by design — operator sets the real value'
+        required: false
+        type: string
+        default: 'unknown'
+      nad_url:
+        description: 'NAD text-release zip URL (streamed through funzip, never stored on disk). Empty skips NAD (src:0) and builds a ranges-only index.'
+        required: false
+        type: string
+        default: 'https://data.transportation.gov/download/fc2s-wawr/application/x-zip-compressed'
+      address_states:
+        description: 'CSV of states for the address index (e.g. DE,RI,DC). Empty = all states.'
+        required: false
+        type: string
+        default: ''
+  # QUARTERLY STALENESS ALARM — not an auto-publish. On a `schedule` event the
+  # `inputs` context is empty, so tiger_vintage resolves to 'unknown' and
+  # resolveTigerVintage(dryRun:false) THROWS before any manifest is written — the
+  # build-chunked job fails fast and nothing is published. This is intentional and
+  # fail-closed: a silent stale publish is impossible. A RED quarterly run means
+  # "time to republish" — the operator runs this workflow via workflow_dispatch
+  # with a real TIGER20YY tiger_vintage (+ manifest SHA / trust pins) to actually
+  # publish. The schedule is the reminder; the dispatch is the publish.
+  schedule:
+    - cron: '0 2 1 1,4,7,10 *'
 
 # Serialize quarterly publishes — two operators triggering simultaneously
 # would clobber each other's `chunked-build` artifact (download-artifact@v4
@@ -68,9 +103,6 @@ on:
 concurrency:
   group: shadow-atlas-quarterly
   cancel-in-progress: false
-  # schedule:
-  #   # Quarterly: 1st day of Jan, Apr, Jul, Oct at 2 AM UTC
-  #   - cron: '0 2 1 1,4,7,10 *'
 
 env:
   NODE_VERSION: '22'
@@ -377,6 +409,33 @@ jobs:
             echo "No expected SHA available (override path with allow_unverified); skipping verification."
           fi
 
+      - name: Download officials database
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: shadow-atlas
+        run: |
+          set -euo pipefail
+          URL="${{ needs.resolve-source.outputs.officials_url }}"
+          SHA="${{ needs.resolve-source.outputs.officials_sha }}"
+          KEY="${URL#https://atlas.commons.email/}"
+          echo "Downloading officials DB via S3-compat: s3://$R2_BUCKET/$KEY"
+          aws s3api get-object \
+            --bucket "$R2_BUCKET" \
+            --key "$KEY" \
+            --endpoint-url "$R2_ENDPOINT" \
+            officials.db >/dev/null
+          ls -lh officials.db
+
+          if [ -n "$SHA" ]; then
+            echo "Verifying SHA-256 against resolved expected value..."
+            echo "$SHA  officials.db" | sha256sum -c -
+          else
+            echo "No expected SHA available (override path with allow_unverified); skipping verification."
+          fi
+
       - name: Build chunked mapping
         id: build
         working-directory: packages/shadow-atlas
@@ -385,7 +444,9 @@ jobs:
 
           npx tsx scripts/build-chunked-mapping.ts \
             ../../shadow-atlas-full.db \
-            output/chunked/
+            output/chunked/ \
+            --tiger-vintage "${{ inputs.tiger_vintage || 'unknown' }}" \
+            --officials-db ../../officials.db
 
           # Extract stats from the per-country manifest. The build script
           # namespaces by country (output/chunked/<COUNTRY>/manifest.json)
@@ -665,13 +726,24 @@ jobs:
           retention-days: 180
 
   # =========================================================================
-  # Phase 3: Validate build (quality gate — blocks IPFS pin on failure)
+  # Phase 2d: Build address index (NAD + TIGER ADDRFEAT → ZIP5 chunks)
   # =========================================================================
-  validate-build:
-    name: Validate Build
+  # SEAM-CONTRACT v1 (atlas-address-index): emits US/addresses/{zip5}.json +
+  # normalization.json + chunk-index.json and MERGES addressIndex* fields
+  # (third manifest clock) into US/manifest.json, leaving the boundary and
+  # officials clocks byte-unchanged. Runs AFTER generate-cell-chunks so the
+  # artifact chain is boundary build → address build → validate → upload-r2;
+  # a boundary republish can never drop addresses/ because the address job's
+  # artifact is the superset the rest of the chain consumes.
+  #
+  # Fail-closed on schedule events: nad_vintage/addrfeat_vintage resolve to
+  # 'unknown' and the build script THROWS before writing anything (same
+  # discipline as tiger_vintage above).
+  build-address-index:
+    name: Build Address Index
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [export-officials, build-cell-tree-snapshot, generate-cell-chunks]
+    timeout-minutes: 300
+    needs: [generate-cell-chunks]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -686,10 +758,83 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download complete build (with cell chunks)
+      - name: Download chunked build (with cell chunks)
         uses: actions/download-artifact@v4
         with:
           name: chunked-with-cell-chunks
+          path: packages/shadow-atlas/output/chunked/
+
+      - name: Build address index (NAD src:0 + ADDRFEAT src:1)
+        working-directory: packages/shadow-atlas
+        run: |
+          set -euo pipefail
+
+          NAD_URL="${{ inputs.nad_url }}"
+          STATES="${{ inputs.address_states }}"
+
+          ARGS=( --addrfeat-dir data/addrfeat-cache
+                 --addrfeat-vintage "${{ inputs.addrfeat_vintage || 'unknown' }}"
+                 --output output/chunked )
+          if [ -n "$STATES" ]; then
+            ARGS+=( --states "$STATES" )
+          fi
+          mkdir -p data/addrfeat-cache
+
+          if [ -n "$NAD_URL" ]; then
+            # Stream the NAD text release: the ~7.6 GB zip (and its ~30 GB
+            # uncompressed text) never touches the runner disk. The sha256 of
+            # the transferred zip bytes is computed on the same stream and
+            # stamped below — DOT publishes no pins, so we record what we
+            # compute (same posture as the census ADDRFEAT downloads, whose
+            # computed sha256s land in address-index-sources.json).
+            curl -sSL --retry 3 "$NAD_URL" \
+              | tee >(sha256sum | awk '{print $1}' > nad-download.sha256) \
+              | funzip \
+              | npx tsx scripts/build-address-index.ts --nad - \
+                  --nad-vintage "${{ inputs.nad_vintage || 'unknown' }}" \
+                  "${ARGS[@]}"
+            echo "- **NAD zip sha256 (computed):** $(cat nad-download.sha256)" >> $GITHUB_STEP_SUMMARY
+          else
+            npx tsx scripts/build-address-index.ts "${ARGS[@]}"
+          fi
+
+          echo "### Address Index" >> $GITHUB_STEP_SUMMARY
+          jq -r '"- **Chunks:** \(.addressIndex.totalChunks)\n- **Streets:** \(.addressIndex.totalStreets)\n- **Points:** \(.addressIndex.totalPoints)\n- **Ranges:** \(.addressIndex.totalRanges)\n- **NAD vintage:** \(.addressIndex.nadVintage)\n- **ADDRFEAT vintage:** \(.addressIndex.addrfeatVintage)"' \
+            output/chunked/US/manifest.json >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload chunked output with addresses
+        uses: actions/upload-artifact@v4
+        with:
+          name: chunked-with-addresses
+          path: packages/shadow-atlas/output/chunked/
+          retention-days: 180
+
+  # =========================================================================
+  # Phase 3: Validate build (quality gate — blocks IPFS pin on failure)
+  # =========================================================================
+  validate-build:
+    name: Validate Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [export-officials, build-cell-tree-snapshot, generate-cell-chunks, build-address-index]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download complete build (with addresses)
+        uses: actions/download-artifact@v4
+        with:
+          name: chunked-with-addresses
           path: packages/shadow-atlas/output/chunked/
 
       - name: Run validation checks
@@ -1142,6 +1287,7 @@ jobs:
       - export-officials
       - build-cell-tree-snapshot
       - generate-cell-chunks
+      - build-address-index
       - validate-build
       - upload-r2
       - push-cids
@@ -1171,6 +1317,7 @@ jobs:
               `| Export Officials | ${{ needs.export-officials.result }} |`,
               `| Build Cell Tree | ${{ needs.build-cell-tree-snapshot.result }} |`,
               `| Generate Cell Chunks | ${{ needs.generate-cell-chunks.result }} |`,
+              `| Build Address Index | ${{ needs.build-address-index.result }} |`,
               `| Validate Build | ${{ needs.validate-build.result }} |`,
               `| Upload to R2 | ${{ needs.upload-r2.result }} |`,
               `| Push CIDs | ${{ needs.push-cids.result }} |`,
@@ -1225,6 +1372,7 @@ jobs:
               'cell-tree-snapshot',
               'chunked-validated',
               'chunked-with-cell-chunks',
+              'chunked-with-addresses',
               'r2-upload-results',
               // Legacy artifact names (from old monolithic pipeline + Storacha-era pinning)
               'h3-mapping',
