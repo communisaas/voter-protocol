@@ -270,3 +270,10 @@ packages/crypto/noir/*/Prover.toml
 
 # Ed25519 manifest signing keys (public is committed separately under packages/)
 .keys/
+
+# Published address-index sample artifact (regenerable via scripts/build-address-index.ts;
+# consumers fetch it over HTTP — nothing imports it from the tree)
+packages/shadow-atlas/sample/
+
+# Expansion-planner scratch outputs
+test-expansion-planner/
