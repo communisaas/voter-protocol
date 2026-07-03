@@ -82,6 +82,7 @@
         "build:addresses": "tsx scripts/build-address-index.ts",
         "export:officials": "tsx scripts/export-officials.ts",
         "validate:build": "tsx scripts/validate-build.ts",
+        "verify:addresses": "tsx scripts/verify-address-assertions.ts",
         "upload:r2": "tsx scripts/upload-to-r2.ts",
         "push:cids": "tsx scripts/push-cids.ts",
         "publish:source": "NODE_OPTIONS='--max-old-space-size=8192' tsx scripts/publish-source.ts"

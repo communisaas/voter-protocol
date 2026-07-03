@@ -842,10 +842,13 @@ jobs:
         run: |
           # validate-build.ts exits non-zero on any failure.
           # This gates the entire downstream pipeline.
-          npx tsx scripts/validate-build.ts output/chunked/
+          # --strict: warnings fail too — this job runs AFTER build-address-index,
+          # so a manifest missing the addressIndex section (a silently-dropped
+          # merge) must be a hard failure here, never a WARN + "PASSED".
+          npx tsx scripts/validate-build.ts output/chunked/ --strict
 
           echo "### Validation" >> $GITHUB_STEP_SUMMARY
-          echo "- **Result:** PASSED (all 7 checks)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result:** PASSED (all checks, strict)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload validated output
         uses: actions/upload-artifact@v4
