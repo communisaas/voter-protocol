@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Build the atlas-native address index — SEAM-CONTRACT v1 (atlas-address-index).
+ * Build the atlas-native address index — SEAM-CONTRACT v2 (atlas-address-index).
  *
  * Ingests two public sources into ZIP5-keyed chunk files:
  *   src:0 — NAD quarterly text release (stream-parsed; NEVER whole-file in
@@ -28,10 +28,18 @@
  *     must never become a silent geographic hole in the index.
  *
  * Outputs (under <outputDir>, default ./output/chunked):
- *   US/addresses/{zip5}.json        — §2 chunk files
+ *   US/addresses/{zip5}.json        — §2 chunk file, OR (§1 v2) a tiny stub
+ *                                     `{v:2, shards:N, ...}` when the chunk
+ *                                     would breach the byte guard
+ *   US/addresses/{zip5}.{n}.json    — §1 v2 shard files (only for oversized
+ *                                     ZIPs; n in [0, shards))
  *   US/addresses/normalization.json — §3 Pub 28 tables (normVersion pinned)
- *   US/addresses/chunk-index.json   — per-chunk sha256/bytes (§4; NOT inline)
- *   US/manifest.json                — MERGED addressIndex* fields (§4). All
+ *   US/addresses/chunk-index.json   — per-chunk sha256/bytes (§4; NOT inline).
+ *                                     For a split ZIP this indexes the STUB
+ *                                     only — shard bytes are guard-checked at
+ *                                     build time, not separately indexed.
+ *   US/manifest.json                — MERGED addressIndex* fields (§4),
+ *                                     schemaVersion 2 (§1 split scheme). All
  *                                     pre-existing fields — `generated`,
  *                                     `tigerVintage`, `officialsGenerated` —
  *                                     are left byte-unchanged (third clock).
@@ -86,7 +94,7 @@ import {
   emitSideRange,
   mergeAddressIndexIntoManifest,
   newZipAccumulator,
-  writeChunkFile,
+  writeChunkFileAutoSplit,
   writeJsonArtifact,
   ZIP5_PATTERN,
   type AddressIndexManifestFields,
@@ -759,6 +767,10 @@ async function main(): Promise<void> {
   // ---- Phase 3: aggregate per ZIP5 → chunk files ----
   console.log('\nPhase 3: assembling ZIP5 chunks…');
   const chunkIndex: Record<string, ChunkIndexEntry> = {};
+  // §1 guard v2 runs over EVERY emitted file (stubs + shards + unsplit), not
+  // one number per ZIP — a split ZIP's chunk-index entry only names its stub.
+  const emittedFileBytes: number[] = [];
+  let splitZipCount = 0;
   let totalStreets = 0;
   let totalPoints = 0;
   let totalRanges = 0;
@@ -784,16 +796,19 @@ async function main(): Promise<void> {
       }
     }
     const chunk = buildChunk(zip, acc);
-    chunkIndex[zip] = writeChunkFile(addressesDir, chunk);
+    const written = writeChunkFileAutoSplit(addressesDir, chunk);
+    chunkIndex[zip] = written.entry;
+    emittedFileBytes.push(...written.emittedFileBytes);
+    if (written.emittedFileBytes.length > 1) splitZipCount++;
     totalStreets += chunkIndex[zip].streetCount;
   }
   spill.cleanup();
   console.log(
-    `  Chunks: ${zips.length.toLocaleString()} | streets: ${totalStreets.toLocaleString()} | points: ${totalPoints.toLocaleString()} | ranges: ${totalRanges.toLocaleString()}`
+    `  Chunks: ${zips.length.toLocaleString()} (${splitZipCount.toLocaleString()} split) | streets: ${totalStreets.toLocaleString()} | points: ${totalPoints.toLocaleString()} | ranges: ${totalRanges.toLocaleString()}`
   );
 
-  // §1 size guard — a breach is a producer bug (split scheme revisited at v2).
-  const guard = chunkSizeGuard(Object.values(chunkIndex).map((e) => e.bytes));
+  // §1 size guard — over every emitted file; a breach is a producer bug.
+  const guard = chunkSizeGuard(emittedFileBytes);
   console.log(
     `  Size guard: p95=${guard.p95Bytes.toLocaleString()} B (≤262144), max=${guard.maxBytes.toLocaleString()} B (≤1048576) → ${guard.ok ? 'OK' : 'BREACH'}`
   );
@@ -818,7 +833,9 @@ async function main(): Promise<void> {
     addressIndexGenerated: new Date().toISOString(),
     addressIndexVersion: 1,
     addressIndex: {
-      schemaVersion: 1,
+      // §1 split scheme (SEAM-CONTRACT v2): oversized ZIP5 chunks are now
+      // stub+shard; the consumer accepts both 1 (all-unsplit) and 2.
+      schemaVersion: 2,
       normVersion: NORM_VERSION,
       normTable: {
         path: 'addresses/normalization.json',

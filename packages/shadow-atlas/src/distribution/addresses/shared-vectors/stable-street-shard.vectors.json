@@ -1,0 +1,380 @@
+{
+  "hashAlgorithm": "fnv1a32",
+  "vectors": [
+    {
+      "streetKey": "MAIN ST",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "MAIN ST",
+      "shards": 4,
+      "shard": 3
+    },
+    {
+      "streetKey": "MAIN ST",
+      "shards": 8,
+      "shard": 7
+    },
+    {
+      "streetKey": "MAIN ST",
+      "shards": 16,
+      "shard": 15
+    },
+    {
+      "streetKey": "MAIN ST",
+      "shards": 32,
+      "shard": 31
+    },
+    {
+      "streetKey": "MISSION ST",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "MISSION ST",
+      "shards": 4,
+      "shard": 0
+    },
+    {
+      "streetKey": "MISSION ST",
+      "shards": 8,
+      "shard": 4
+    },
+    {
+      "streetKey": "MISSION ST",
+      "shards": 16,
+      "shard": 4
+    },
+    {
+      "streetKey": "MISSION ST",
+      "shards": 32,
+      "shard": 4
+    },
+    {
+      "streetKey": "VALENCIA ST",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "VALENCIA ST",
+      "shards": 4,
+      "shard": 1
+    },
+    {
+      "streetKey": "VALENCIA ST",
+      "shards": 8,
+      "shard": 1
+    },
+    {
+      "streetKey": "VALENCIA ST",
+      "shards": 16,
+      "shard": 1
+    },
+    {
+      "streetKey": "VALENCIA ST",
+      "shards": 32,
+      "shard": 1
+    },
+    {
+      "streetKey": "PRECITA AVE",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "PRECITA AVE",
+      "shards": 4,
+      "shard": 3
+    },
+    {
+      "streetKey": "PRECITA AVE",
+      "shards": 8,
+      "shard": 7
+    },
+    {
+      "streetKey": "PRECITA AVE",
+      "shards": 16,
+      "shard": 7
+    },
+    {
+      "streetKey": "PRECITA AVE",
+      "shards": 32,
+      "shard": 23
+    },
+    {
+      "streetKey": "PENNSYLVANIA AVE NW",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "PENNSYLVANIA AVE NW",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "PENNSYLVANIA AVE NW",
+      "shards": 8,
+      "shard": 2
+    },
+    {
+      "streetKey": "PENNSYLVANIA AVE NW",
+      "shards": 16,
+      "shard": 2
+    },
+    {
+      "streetKey": "PENNSYLVANIA AVE NW",
+      "shards": 32,
+      "shard": 2
+    },
+    {
+      "streetKey": "",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "",
+      "shards": 4,
+      "shard": 1
+    },
+    {
+      "streetKey": "",
+      "shards": 8,
+      "shard": 5
+    },
+    {
+      "streetKey": "",
+      "shards": 16,
+      "shard": 5
+    },
+    {
+      "streetKey": "",
+      "shards": 32,
+      "shard": 5
+    },
+    {
+      "streetKey": "A",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "A",
+      "shards": 4,
+      "shard": 0
+    },
+    {
+      "streetKey": "A",
+      "shards": 8,
+      "shard": 4
+    },
+    {
+      "streetKey": "A",
+      "shards": 16,
+      "shard": 12
+    },
+    {
+      "streetKey": "A",
+      "shards": 32,
+      "shard": 12
+    },
+    {
+      "streetKey": "BROADWAY",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "BROADWAY",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "BROADWAY",
+      "shards": 8,
+      "shard": 2
+    },
+    {
+      "streetKey": "BROADWAY",
+      "shards": 16,
+      "shard": 2
+    },
+    {
+      "streetKey": "BROADWAY",
+      "shards": 32,
+      "shard": 18
+    },
+    {
+      "streetKey": "MARKET ST",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "MARKET ST",
+      "shards": 4,
+      "shard": 0
+    },
+    {
+      "streetKey": "MARKET ST",
+      "shards": 8,
+      "shard": 4
+    },
+    {
+      "streetKey": "MARKET ST",
+      "shards": 16,
+      "shard": 12
+    },
+    {
+      "streetKey": "MARKET ST",
+      "shards": 32,
+      "shard": 12
+    },
+    {
+      "streetKey": "5TH AVE",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "5TH AVE",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "5TH AVE",
+      "shards": 8,
+      "shard": 2
+    },
+    {
+      "streetKey": "5TH AVE",
+      "shards": 16,
+      "shard": 10
+    },
+    {
+      "streetKey": "5TH AVE",
+      "shards": 32,
+      "shard": 10
+    },
+    {
+      "streetKey": "MLK BLVD",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "MLK BLVD",
+      "shards": 4,
+      "shard": 3
+    },
+    {
+      "streetKey": "MLK BLVD",
+      "shards": 8,
+      "shard": 3
+    },
+    {
+      "streetKey": "MLK BLVD",
+      "shards": 16,
+      "shard": 3
+    },
+    {
+      "streetKey": "MLK BLVD",
+      "shards": 32,
+      "shard": 3
+    },
+    {
+      "streetKey": "OAK ST",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "OAK ST",
+      "shards": 4,
+      "shard": 1
+    },
+    {
+      "streetKey": "OAK ST",
+      "shards": 8,
+      "shard": 1
+    },
+    {
+      "streetKey": "OAK ST",
+      "shards": 16,
+      "shard": 1
+    },
+    {
+      "streetKey": "OAK ST",
+      "shards": 32,
+      "shard": 17
+    },
+    {
+      "streetKey": "ELM ST",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "ELM ST",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "ELM ST",
+      "shards": 8,
+      "shard": 6
+    },
+    {
+      "streetKey": "ELM ST",
+      "shards": 16,
+      "shard": 6
+    },
+    {
+      "streetKey": "ELM ST",
+      "shards": 32,
+      "shard": 22
+    },
+    {
+      "streetKey": "PARK PL",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "PARK PL",
+      "shards": 4,
+      "shard": 3
+    },
+    {
+      "streetKey": "PARK PL",
+      "shards": 8,
+      "shard": 7
+    },
+    {
+      "streetKey": "PARK PL",
+      "shards": 16,
+      "shard": 7
+    },
+    {
+      "streetKey": "PARK PL",
+      "shards": 32,
+      "shard": 7
+    },
+    {
+      "streetKey": "WASHINGTON ST",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "WASHINGTON ST",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "WASHINGTON ST",
+      "shards": 8,
+      "shard": 6
+    },
+    {
+      "streetKey": "WASHINGTON ST",
+      "shards": 16,
+      "shard": 6
+    },
+    {
+      "streetKey": "WASHINGTON ST",
+      "shards": 32,
+      "shard": 6
+    }
+  ]
+}

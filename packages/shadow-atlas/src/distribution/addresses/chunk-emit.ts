@@ -1,5 +1,5 @@
 /**
- * Address-index chunk emission — SEAM-CONTRACT v1 (atlas-address-index) §1/§2/§4.
+ * Address-index chunk emission — SEAM-CONTRACT v2 (atlas-address-index) §1/§2/§4.
  *
  * Pure record/chunk construction plus the manifest MERGE. The producer CLI
  * (scripts/build-address-index.ts) streams source rows through these
@@ -10,16 +10,32 @@
  * `addresses/chunk-index.json` — NOT inline in the manifest (40K entries
  * would bloat the hot-path manifest by ~5 MB; 977-entry district precedent).
  *
+ * §1 oversized-ZIP split (v2): a national build produced ZIP5s whose single
+ * chunk file breached the byte guard (p95=519,071B / max=1,911,593B against
+ * 262,144B / 1,048,576B limits — see chunkSizeGuard below). Rather than
+ * inflate the limits (a serving-budget fact, not a target to move), an
+ * oversized chunk is SPLIT: `addresses/{zip5}.json` becomes a tiny stub
+ * `{v:2, zip, state, zipCentroid, shards:N}` plus N shard files
+ * `addresses/{zip5}.{shard}.json`, each holding the subset of streets that
+ * hash to that shard (see street-shard.ts for the deterministic
+ * `stableStreetShard` assignment shared byte-identical with the consumer).
+ * An UNSPLIT chunk keeps the exact v1 byte shape (`version:1`, no `v`/`shards`
+ * fields) — the consumer accepts both, and the overwhelming majority of ZIP5s
+ * (everything under the p95 limit) never gain the extra `v2` shape or the
+ * second fetch.
+ *
  * Manifest clock discipline (§4): `addressIndexGenerated` is a THIRD clock,
  * distinct from `generated` (boundary) and `officialsGenerated` (officials) —
  * never collapsed, never borrowed. The merge below leaves every pre-existing
  * manifest field byte-unchanged; a fresh address ingest must not make a
- * quarter-stale boundary look fresh, and vice versa.
+ * quarter-stale boundary look fresh, and vice versa. `addressIndex.schemaVersion`
+ * is bumped 1→2 for the split scheme; the consumer accepts both 1 and 2.
  */
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stableStreetShard } from './street-shard.js';
 
 // ---------------------------------------------------------------------------
 // Record shapes (§2)
@@ -339,6 +355,204 @@ export function writeChunkFile(
   };
 }
 
+// ---------------------------------------------------------------------------
+// §1 oversized-ZIP split (v2) — stub + deterministic shard files
+// ---------------------------------------------------------------------------
+
+/** Tiny stub written at `addresses/{zip5}.json` in place of an oversized v1 chunk. */
+export interface AddressChunkStubV2 {
+  v: 2;
+  schema: 'atlas-address-index';
+  country: 'US';
+  zip: string;
+  state: string;
+  zipCentroid: [number, number];
+  shards: number;
+}
+
+/** One shard file at `addresses/{zip5}.{shard}.json` — the streets subset only. */
+export interface AddressChunkShardV2 {
+  v: 2;
+  zip: string;
+  shard: number;
+  shards: number;
+  streets: Record<string, StreetRecords>;
+}
+
+/** Headroom multiplier: worst post-split shard must clear the target with ≥30% margin. */
+const SPLIT_HEADROOM = 1.3;
+
+/** Hard ceiling on shard doubling — a real chunk can never need this many. */
+const MAX_SHARDS = 128;
+
+/**
+ * Partition a chunk's streets deterministically into `shards` buckets via
+ * `stableStreetShard` (byte-identical hash on the consumer side). Bucket
+ * iteration order follows the chunk's already-sorted street keys, so output
+ * bytes are deterministic for a given (chunk, shards) pair regardless of
+ * source ordering upstream.
+ */
+function partitionStreets(
+  chunk: AddressChunk,
+  shards: number
+): Record<string, StreetRecords>[] {
+  const buckets: Record<string, StreetRecords>[] = Array.from({ length: shards }, () => ({}));
+  for (const [street, rec] of Object.entries(chunk.streets)) {
+    const idx = stableStreetShard(street, shards);
+    buckets[idx][street] = rec;
+  }
+  return buckets;
+}
+
+/** Serialize one shard file's bytes without writing (used by the guard's dry-run doubling loop). */
+function serializeShard(zip: string, shard: number, shards: number, streets: Record<string, StreetRecords>): Buffer {
+  const body: AddressChunkShardV2 = { v: 2, zip, shard, shards, streets };
+  return Buffer.from(JSON.stringify(body), 'utf-8');
+}
+
+/** Smallest power of 2 ≥ n (n ≥ 1). */
+function nextPow2(n: number): number {
+  let p = 1;
+  while (p < n) p *= 2;
+  return p;
+}
+
+/**
+ * Minimal power-of-2 starting estimate for the shard count, derived from the
+ * chunk's actual serialized size against the p95 byte target with the §1
+ * headroom multiplier. This is a STARTING point only — `splitOversizedChunk`
+ * re-checks the real emitted bytes and doubles N until every shard actually
+ * clears the target, so the estimate does not need to be exact, only a
+ * reasonable first guess (streets are not uniformly distributed across hash
+ * buckets, so the true worst shard can exceed the naive mean/N).
+ */
+export function estimateInitialShardCount(chunkBytes: number, targetBytes = CHUNK_P95_LIMIT_BYTES): number {
+  const raw = chunkBytes / (targetBytes / SPLIT_HEADROOM);
+  return Math.max(2, nextPow2(Math.ceil(raw)));
+}
+
+export interface SplitOversizedChunkResult {
+  stub: AddressChunkStubV2;
+  shards: number;
+  /** Per-shard written artifacts, index-aligned with shard number. */
+  shardArtifacts: WrittenArtifact[];
+}
+
+/**
+ * Split an oversized chunk into a stub + N deterministic shard files, writing
+ * both to `addressesDir`. Starts from `estimateInitialShardCount` and DOUBLES
+ * N (re-partitioning and re-serializing from scratch each time — no
+ * incremental merge) until every shard's serialized bytes clear the p95
+ * target with the §1 headroom.
+ *
+ * Doubling N helps only because a real ZIP5's bytes are spread over ~190
+ * streets on average (7.5M streets / 38K chunks, the national build this
+ * scheme was built for) — pushing a hot street into ever-smaller company as
+ * N grows. It CANNOT help a single street whose own serialized ranges alone
+ * exceed the target: that street's entire byte weight lands in one shard
+ * bucket no matter how large N gets (a street's ranges are never split
+ * across shards). Hitting `MAX_SHARDS` without converging is exactly that
+ * case — a single oversized street, not a shardable skew — so this throws
+ * rather than silently publishing a shard that still breaches the guard.
+ * Nothing is written to `addressesDir` on this path (the failure is detected
+ * before any file touches disk).
+ *
+ * Deterministic by contract: same input chunk → same N → same bytes on every
+ * re-run (no randomness, no wall-clock, no Map/Set iteration-order
+ * dependence — `partitionStreets` walks the chunk's already-sorted street
+ * keys).
+ */
+export function splitOversizedChunk(
+  addressesDir: string,
+  chunk: AddressChunk,
+  targetBytes = CHUNK_P95_LIMIT_BYTES
+): SplitOversizedChunkResult {
+  const originalBytes = Buffer.byteLength(JSON.stringify(chunk), 'utf-8');
+  let shards = estimateInitialShardCount(originalBytes, targetBytes);
+
+  let buckets: Record<string, StreetRecords>[];
+  let serialized: Buffer[];
+  let worst: number;
+  for (;;) {
+    buckets = partitionStreets(chunk, shards);
+    serialized = buckets.map((streets, i) => serializeShard(chunk.zip, i, shards, streets));
+    worst = Math.max(...serialized.map((b) => b.length));
+    if (worst <= targetBytes / SPLIT_HEADROOM || shards >= MAX_SHARDS) break;
+    shards *= 2;
+  }
+
+  if (worst > targetBytes / SPLIT_HEADROOM) {
+    throw new Error(
+      `chunk split guard: ZIP ${chunk.zip} still has a ${worst.toLocaleString()}B shard at ` +
+        `${shards.toLocaleString()} shards (target ${Math.round(targetBytes / SPLIT_HEADROOM).toLocaleString()}B) — ` +
+        `a single street's own bytes exceed the target; doubling cannot help. Producer bug, do not publish.`
+    );
+  }
+
+  const shardArtifacts: WrittenArtifact[] = serialized.map((buf, i) => {
+    const path = join(addressesDir, `${chunk.zip}.${i}.json`);
+    writeFileSync(path, buf);
+    return { path, sha256: createHash('sha256').update(buf).digest('hex'), bytes: buf.length };
+  });
+
+  const stub: AddressChunkStubV2 = {
+    v: 2,
+    schema: 'atlas-address-index',
+    country: 'US',
+    zip: chunk.zip,
+    state: chunk.state,
+    zipCentroid: chunk.zipCentroid,
+    shards,
+  };
+  const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
+  writeFileSync(join(addressesDir, `${chunk.zip}.json`), stubBuf);
+
+  return { stub, shards, shardArtifacts };
+}
+
+export interface WriteChunkAutoSplitResult {
+  /** chunk-index entry for `addresses/{zip5}.json` — the stub's entry when split. */
+  entry: ChunkIndexEntry;
+  /**
+   * Byte size of EVERY file this call wrote (the guard runs over every
+   * emitted file — §1 v2 — not just the chunk-index entry, which for a split
+   * ZIP names only the stub). Length 1 for an unsplit chunk (itself); length
+   * 1 + shards for a split chunk (stub + every shard).
+   */
+  emittedFileBytes: number[];
+}
+
+/**
+ * Write a chunk, splitting it into stub + shards when oversized (serialized
+ * bytes > `targetBytes`, default the §1 p95 limit) and writing the plain v1
+ * shape otherwise. The returned chunk-index entry for `addresses/{zip5}.json`
+ * is the STUB's entry for a split chunk (shard bytes are not separately
+ * indexed in chunk-index.json — see `emittedFileBytes` for the guard's real
+ * per-file view).
+ */
+export function writeChunkFileAutoSplit(
+  addressesDir: string,
+  chunk: AddressChunk,
+  targetBytes = CHUNK_P95_LIMIT_BYTES
+): WriteChunkAutoSplitResult {
+  const originalBytes = Buffer.byteLength(JSON.stringify(chunk), 'utf-8');
+  if (originalBytes <= targetBytes) {
+    const entry = writeChunkFile(addressesDir, chunk);
+    return { entry, emittedFileBytes: [entry.bytes] };
+  }
+  const { stub, shardArtifacts } = splitOversizedChunk(addressesDir, chunk, targetBytes);
+  const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
+  const entry: ChunkIndexEntry = {
+    streetCount: Object.keys(chunk.streets).length,
+    bytes: Math.max(stubBuf.length, ...shardArtifacts.map((a) => a.bytes)),
+    sha256: createHash('sha256').update(stubBuf).digest('hex'),
+  };
+  return {
+    entry,
+    emittedFileBytes: [stubBuf.length, ...shardArtifacts.map((a) => a.bytes)],
+  };
+}
+
 export function writeJsonArtifact(
   filePath: string,
   value: unknown
@@ -389,7 +603,8 @@ export interface AddressIndexManifestFields {
   addressIndexGenerated: string;
   addressIndexVersion: 1;
   addressIndex: {
-    schemaVersion: 1;
+    /** 1 = every chunk unsplit (pre-v2 builds); 2 = split scheme active (§1). Consumer accepts both. */
+    schemaVersion: 1 | 2;
     normVersion: number;
     normTable: { path: string; sha256: string; bytes: number };
     nadVintage: string | null;
