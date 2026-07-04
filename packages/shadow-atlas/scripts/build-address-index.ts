@@ -5,8 +5,27 @@
  * Ingests two public sources into ZIP5-keyed chunk files:
  *   src:0 — NAD quarterly text release (stream-parsed; NEVER whole-file in
  *           memory — the national file is ~30 GB uncompressed)
- *   src:1 — TIGER ADDRFEAT county files (county-batched download with
- *           retry/resume; each county zip is a few MB)
+ *   src:1 — TIGER ADDRFEAT county files (bounded-parallel download pool +
+ *           forked transform workers; each county zip is a few MB, ~3,200
+ *           counties nationally)
+ *
+ * ADDRFEAT orchestration (national scale — output bytes UNCHANGED):
+ *   - Downloads run through a bounded pool (default 6 concurrent, Census-
+ *     friendly) with exponential backoff + jitter and Retry-After honoring —
+ *     census.gov 'terminate's long sequential bulk fetchers, and one county
+ *     at a time cannot finish 3,200+ counties inside a CI job ceiling.
+ *   - Shapefile→GeoJSON→range transforms run in forked workers (same
+ *     child_process.fork pattern as build-chunked-mapping.ts) so CPU and
+ *     network overlap.
+ *   - Ingestion into the ZIP5 spill store happens IN COUNTY-FIPS ORDER on
+ *     the main process regardless of completion order, so spill contents —
+ *     and therefore every emitted chunk byte — are identical to the old
+ *     sequential loop. This is orchestration only, not a format change.
+ *   - County zips persist in --addrfeat-dir keyed by filename and verified
+ *     complete (zip magic + EOCD) before reuse; a restarted run skips
+ *     verified downloads instead of re-fetching hours of them.
+ *   - Fail-loud: a county that exhausts retries THROWS — a missing county
+ *     must never become a silent geographic hole in the index.
  *
  * Outputs (under <outputDir>, default ./output/chunked):
  *   US/addresses/{zip5}.json        — §2 chunk files
@@ -35,20 +54,20 @@
  * manifest. (Mirrors --tiger-vintage in build-chunked-mapping.ts.)
  */
 
-import { createHash } from 'node:crypto';
+import { fork, type ChildProcess } from 'node:child_process';
 import {
   appendFileSync,
   createReadStream,
-  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
+import { cpus } from 'node:os';
 import { join } from 'node:path';
 import type { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 
 import { STATE_ABBR_TO_FIPS } from '../src/core/types/fips.js';
 import {
@@ -74,6 +93,11 @@ import {
   type ChunkIndexEntry,
   type ZipAccumulator,
 } from '../src/distribution/addresses/chunk-emit.js';
+import {
+  downloadWithRetry,
+  downloadZipToCache,
+  Semaphore,
+} from '../src/distribution/addresses/download-pool.js';
 import { resolveNadVintage } from '../src/distribution/addresses/nad-vintage.js';
 import { streamNadRows } from '../src/distribution/addresses/nad-stream.js';
 import { resolveTigerVintage } from '../src/distribution/snapshots/tiger-vintage.js';
@@ -91,6 +115,27 @@ interface ParsedArgs {
   states: string[];
   outputDir: string;
   dryRun: boolean;
+  downloadConcurrency: number;
+  transformWorkers: number;
+}
+
+/** Census-friendly ceiling — never point more than this at www2.census.gov. */
+const MAX_DOWNLOAD_CONCURRENCY = 12;
+const MAX_TRANSFORM_WORKERS = 8;
+
+export const DEFAULT_DOWNLOAD_CONCURRENCY = 6;
+export const DEFAULT_TRANSFORM_WORKERS = Math.min(
+  Math.max(1, cpus().length - 1),
+  MAX_TRANSFORM_WORKERS
+);
+
+function parseBoundedInt(raw: string, flag: string, max: number): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isInteger(n) || n < 1 || n > max) {
+    console.error(`Error: ${flag} must be an integer in [1, ${max}], got '${raw}'`);
+    process.exit(1);
+  }
+  return n;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -101,6 +146,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let states: string[] = [];
   let outputDir = './output/chunked';
   let dryRun = false;
+  let downloadConcurrency = DEFAULT_DOWNLOAD_CONCURRENCY;
+  let transformWorkers = DEFAULT_TRANSFORM_WORKERS;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -129,6 +176,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--dry-run':
         dryRun = true;
         break;
+      case '--download-concurrency':
+        downloadConcurrency = parseBoundedInt(
+          argv[++i] ?? '',
+          '--download-concurrency',
+          MAX_DOWNLOAD_CONCURRENCY
+        );
+        break;
+      case '--transform-workers':
+        transformWorkers = parseBoundedInt(
+          argv[++i] ?? '',
+          '--transform-workers',
+          MAX_TRANSFORM_WORKERS
+        );
+        break;
       case '--help':
       case '-h':
         printUsage();
@@ -147,7 +208,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { nadPath, addrfeatDir, nadVintage, addrfeatVintage, states, outputDir, dryRun };
+  return {
+    nadPath,
+    addrfeatDir,
+    nadVintage,
+    addrfeatVintage,
+    states,
+    outputDir,
+    dryRun,
+    downloadConcurrency,
+    transformWorkers,
+  };
 }
 
 function printUsage(): void {
@@ -169,6 +240,10 @@ Vintages (fail-loud; 'unknown' can never land in a produced manifest):
 Options:
   --states <csv>             Limit to these states (e.g. DE,RI,DC). Default: all.
   --output <path>            Output dir. Default: ./output/chunked
+  --download-concurrency <n> Bounded ADDRFEAT download pool size (1-${MAX_DOWNLOAD_CONCURRENCY}).
+                             Default: ${DEFAULT_DOWNLOAD_CONCURRENCY} (Census-friendly).
+  --transform-workers <n>    Forked shapefile-transform workers (1-${MAX_TRANSFORM_WORKERS}).
+                             Default: min(cpus-1, ${MAX_TRANSFORM_WORKERS}).
   --dry-run                  Print the plan without downloading or writing.
   -h, --help                 Print this message
 `);
@@ -238,7 +313,7 @@ class ZipSpillStore {
 }
 
 // ---------------------------------------------------------------------------
-// Source download helpers (county-batched ADDRFEAT)
+// Source download helpers (pooled ADDRFEAT)
 // ---------------------------------------------------------------------------
 
 interface SourceLogEntry {
@@ -247,28 +322,6 @@ interface SourceLogEntry {
   sha256: string;
   bytes: number;
   reused: boolean;
-}
-
-async function downloadWithRetry(
-  url: string,
-  maxRetries = 4,
-  retryDelayMs = 3_000
-): Promise<Buffer> {
-  let lastError: Error | null = null;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      return Buffer.from(await response.arrayBuffer());
-    } catch (error) {
-      lastError = error as Error;
-      console.warn(`  download attempt ${attempt}/${maxRetries} failed: ${lastError.message}`);
-      if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, retryDelayMs * attempt));
-      }
-    }
-  }
-  throw new Error(`Download failed after ${maxRetries} attempts: ${url}: ${lastError?.message}`);
 }
 
 /**
@@ -293,44 +346,128 @@ async function listAddrfeatCounties(
   return [...counties].sort();
 }
 
-/**
- * Download one county ADDRFEAT zip with retry/resume: an existing non-empty
- * cached file with a valid zip magic is reused instead of re-fetched.
- */
-async function fetchCountyZip(
-  tigerYear: string,
-  fips5: string,
-  cacheDir: string,
-  sourcesLog: SourceLogEntry[]
-): Promise<Buffer> {
-  const name = `tl_${tigerYear}_${fips5}_addrfeat.zip`;
-  const url = `https://www2.census.gov/geo/tiger/TIGER${tigerYear}/ADDRFEAT/${name}`;
-  const cached = join(cacheDir, name);
+// ---------------------------------------------------------------------------
+// ADDRFEAT transform workers (child_process.fork — same pattern as
+// build-chunked-mapping.ts). A worker receives a cached county zip path,
+// runs shapefile→GeoJSON→range emission, and writes the spill records as
+// NDJSON [zip5, record] lines for the main process to ingest IN COUNTY ORDER.
+// ---------------------------------------------------------------------------
 
-  let buf: Buffer | null = null;
-  let reused = false;
-  if (existsSync(cached) && statSync(cached).size > 4) {
-    const candidate = readFileSync(cached);
-    // Zip local-file-header magic: PK\x03\x04 — guards truncated downloads.
-    if (candidate[0] === 0x50 && candidate[1] === 0x4b) {
-      buf = candidate;
-      reused = true;
+const IS_ADDRFEAT_WORKER = process.env.__ADDRFEAT_WORKER__ === '1';
+
+interface WorkerCountyTask {
+  type: 'county';
+  fips5: string;
+  stateAbbr: string;
+  zipPath: string;
+  outPath: string;
+}
+
+interface WorkerExit {
+  type: 'exit';
+}
+
+interface WorkerCountyDone {
+  type: 'done';
+  fips5: string;
+  outPath: string;
+  edges: number;
+  ranges: number;
+  skipped: number;
+}
+
+interface WorkerCountyError {
+  type: 'error';
+  fips5: string;
+  message: string;
+}
+
+class AddrfeatWorkerPool {
+  private readonly children: ChildProcess[] = [];
+  private readonly idle: ChildProcess[] = [];
+  private readonly waiters: Array<(w: ChildProcess) => void> = [];
+
+  constructor(count: number, workerFile: string) {
+    for (let i = 0; i < count; i++) {
+      const child = fork(workerFile, [], {
+        env: { ...process.env, __ADDRFEAT_WORKER__: '1' },
+      });
+      this.children.push(child);
+      this.idle.push(child);
     }
   }
-  if (!buf) {
-    buf = await downloadWithRetry(url);
-    mkdirSync(cacheDir, { recursive: true });
-    writeFileSync(cached, buf);
+
+  private acquire(): Promise<ChildProcess> {
+    const w = this.idle.pop();
+    if (w) return Promise.resolve(w);
+    return new Promise((resolve) => this.waiters.push(resolve));
   }
 
-  sourcesLog.push({
-    url,
-    file: name,
-    sha256: createHash('sha256').update(buf).digest('hex'),
-    bytes: buf.length,
-    reused,
-  });
-  return buf;
+  private release(w: ChildProcess): void {
+    const waiter = this.waiters.shift();
+    if (waiter) waiter(w);
+    else this.idle.push(w);
+  }
+
+  /** Run one county on the next free worker. Fail-loud: transform errors and
+   *  worker deaths reject — they surface at the ordered-ingest await. */
+  async run(task: Omit<WorkerCountyTask, 'type'>): Promise<WorkerCountyDone> {
+    const child = await this.acquire();
+    try {
+      return await new Promise<WorkerCountyDone>((resolve, reject) => {
+        const onMessage = (msg: WorkerCountyDone | WorkerCountyError): void => {
+          if (msg.fips5 !== task.fips5) return;
+          cleanup();
+          if (msg.type === 'done') resolve(msg);
+          else reject(new Error(`county ${task.fips5} transform failed: ${msg.message}`));
+        };
+        const onExit = (code: number | null): void => {
+          cleanup();
+          reject(
+            new Error(`ADDRFEAT worker exited (code ${code}) while processing county ${task.fips5}`)
+          );
+        };
+        const cleanup = (): void => {
+          child.off('message', onMessage);
+          child.off('exit', onExit);
+        };
+        child.on('message', onMessage);
+        child.on('exit', onExit);
+        if (!child.connected) {
+          cleanup();
+          reject(new Error(`ADDRFEAT worker not connected for county ${task.fips5}`));
+          return;
+        }
+        try {
+          child.send({ type: 'county', ...task } satisfies WorkerCountyTask);
+        } catch (error) {
+          cleanup();
+          reject(error as Error);
+        }
+      });
+    } finally {
+      this.release(child);
+    }
+  }
+
+  shutdown(): void {
+    for (const child of this.children) {
+      try {
+        child.send({ type: 'exit' } satisfies WorkerExit);
+      } catch {
+        /* already gone */
+      }
+      const killer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, 5_000);
+      killer.unref();
+      child.once('exit', () => clearTimeout(killer));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -349,10 +486,16 @@ interface AddrfeatProps {
   PARITYR?: string | null;
 }
 
+/** Minimal spill-write seam — satisfied by ZipSpillStore (main process) and
+ *  by the worker's NDJSON line collector. Same records either way. */
+interface SpillSink {
+  push(zip: string, record: unknown[]): void;
+}
+
 function ingestAddrfeatFeature(
   feature: { properties?: unknown; geometry?: unknown },
   stateAbbr: string,
-  spill: ZipSpillStore,
+  spill: SpillSink,
   counters: { ranges: number; skipped: number }
 ): void {
   const props = (feature.properties ?? {}) as AddrfeatProps;
@@ -439,7 +582,9 @@ async function main(): Promise<void> {
   if (args.dryRun) {
     console.log('\nPlan:');
     console.log('  1. Stream-parse NAD rows (src:0) → ZIP5 spill files');
-    console.log(`  2. County-batched TIGER${tigerYear} ADDRFEAT download (src:1) → range records`);
+    console.log(
+      `  2. Pooled TIGER${tigerYear} ADDRFEAT downloads (src:1, ${args.downloadConcurrency} concurrent) → ${args.transformWorkers} transform workers → range records (ordered ingest)`
+    );
     console.log('  3. Aggregate per ZIP5 → US/addresses/{zip5}.json (5-dp coords, E/O/B parity)');
     console.log('  4. Emit normalization.json (Pub 28 B/C1/C2) + chunk-index.json (sha256/bytes)');
     console.log('  5. MERGE addressIndex*/third clock into US/manifest.json (boundary/officials clocks untouched)');
@@ -490,21 +635,121 @@ async function main(): Promise<void> {
     console.log(`  NAD rows ingested: ${nadRows.toLocaleString()} (skipped ${nadSkipped.toLocaleString()})`);
   }
 
-  // ---- Phase 2: TIGER ADDRFEAT (src:1) — county-batched, always runs ----
+  // ---- Phase 2: TIGER ADDRFEAT (src:1) — pooled downloads + forked
+  //      transform workers, ordered ingest (spill bytes identical to the
+  //      old sequential loop) ----
   const addrfeatCounters = { ranges: 0, skipped: 0 };
   console.log(`\nPhase 2: TIGER${tigerYear} ADDRFEAT county batches…`);
   const counties = await listAddrfeatCounties(tigerYear, stateFipsSet);
-  console.log(`  Counties to ingest: ${counties.length}`);
-  for (const fips5 of counties) {
-    const stateAbbr = FIPS_TO_ABBR[fips5.slice(0, 2)] ?? '??';
-    const zip = await fetchCountyZip(tigerYear, fips5, args.addrfeatDir, sourcesLog);
-    const fc = await transformShapefileToGeoJSON(zip);
-    const before = addrfeatCounters.ranges;
-    for (const feature of fc.features) {
-      ingestAddrfeatFeature(feature, stateAbbr, spill, addrfeatCounters);
+  const totalStates = new Set(counties.map((f) => f.slice(0, 2))).size;
+  console.log(
+    `  Counties to ingest: ${counties.length} across ${totalStates} states | downloads: ${args.downloadConcurrency} | workers: ${args.transformWorkers}`
+  );
+
+  if (counties.length > 0) {
+    const downloadSem = new Semaphore(args.downloadConcurrency);
+    // Lookahead window: bounds downloaded-but-uningested counties so tmp
+    // NDJSON backlog stays small while keeping both pools saturated.
+    const windowSem = new Semaphore(
+      Math.max(args.downloadConcurrency + args.transformWorkers, 32)
+    );
+    const pool = new AddrfeatWorkerPool(args.transformWorkers, fileURLToPath(import.meta.url));
+    const tmpDir = join(args.outputDir, 'US', 'addrfeat.tmp');
+    mkdirSync(tmpDir, { recursive: true });
+    mkdirSync(args.addrfeatDir, { recursive: true });
+    const sourceEntries = new Map<string, SourceLogEntry>();
+
+    const phase2Start = Date.now();
+    try {
+      const countyPromises = counties.map((fips5) => {
+        const p = (async (): Promise<WorkerCountyDone> => {
+          await windowSem.acquire(); // released after this county is ingested
+          const name = `tl_${tigerYear}_${fips5}_addrfeat.zip`;
+          const url = `https://www2.census.gov/geo/tiger/TIGER${tigerYear}/ADDRFEAT/${name}`;
+          const cached = join(args.addrfeatDir, name);
+          const dl = await downloadSem.run(() => downloadZipToCache(url, cached));
+          sourceEntries.set(fips5, {
+            url,
+            file: name,
+            sha256: dl.sha256,
+            bytes: dl.bytes,
+            reused: dl.reused,
+          });
+          return pool.run({
+            fips5,
+            stateAbbr: FIPS_TO_ABBR[fips5.slice(0, 2)] ?? '??',
+            zipPath: cached,
+            outPath: join(tmpDir, `${fips5}.ndjson`),
+          });
+        })();
+        // Mark handled — the ordered-ingest loop below rethrows in county
+        // order, so a failure can never be silently skipped.
+        p.catch(() => {});
+        return p;
+      });
+
+      // Ordered ingest: county-FIPS order regardless of completion order.
+      let stateIdx = 0;
+      let currentStateFips = '';
+      let stateStartMs = 0;
+      let stateCounties = 0;
+      const finishState = (): void => {
+        if (currentStateFips === '') return;
+        const mins = (Date.now() - stateStartMs) / 60_000;
+        const rate = mins > 0 ? (stateCounties / mins).toFixed(1) : '∞';
+        console.log(
+          `  [state ${stateIdx}/${totalStates}] ${FIPS_TO_ABBR[currentStateFips] ?? currentStateFips} done: ${stateCounties} counties in ${mins.toFixed(1)} min (${rate} counties/min)`
+        );
+      };
+
+      for (let i = 0; i < counties.length; i++) {
+        const fips5 = counties[i];
+        const stateFips = fips5.slice(0, 2);
+        const stateAbbr = FIPS_TO_ABBR[stateFips] ?? '??';
+        if (stateFips !== currentStateFips) {
+          finishState();
+          currentStateFips = stateFips;
+          stateIdx++;
+          stateStartMs = Date.now();
+          stateCounties = 0;
+          console.log(
+            `  [state ${stateIdx}/${totalStates}] ${stateAbbr} starting (county ${i + 1}/${counties.length})`
+          );
+        }
+        const done = await countyPromises[i]; // fail-loud: rejection aborts here
+        const raw = readFileSync(done.outPath, 'utf-8');
+        for (const line of raw.split('\n')) {
+          if (line.length === 0) continue;
+          const [zip5, record] = JSON.parse(line) as [string, unknown[]];
+          spill.push(zip5, record);
+        }
+        rmSync(done.outPath, { force: true });
+        addrfeatCounters.ranges += done.ranges;
+        addrfeatCounters.skipped += done.skipped;
+        stateCounties++;
+        windowSem.release();
+        console.log(
+          `  ${fips5} (${stateAbbr}): ${done.edges.toLocaleString()} edges → ${done.ranges.toLocaleString()} ranges`
+        );
+      }
+      finishState();
+    } finally {
+      pool.shutdown();
+      rmSync(tmpDir, { recursive: true, force: true });
     }
+
+    // Sources log in county order — deterministic regardless of download
+    // completion order.
+    for (const fips5 of counties) {
+      const entry = sourceEntries.get(fips5);
+      if (!entry) throw new Error(`missing sources-log entry for county ${fips5}`); // unreachable
+      sourcesLog.push(entry);
+    }
+
+    const phase2Mins = (Date.now() - phase2Start) / 60_000;
+    const overallRate = phase2Mins > 0 ? (counties.length / phase2Mins).toFixed(1) : '∞';
     console.log(
-      `  ${fips5} (${stateAbbr}): ${fc.features.length.toLocaleString()} edges → ${(addrfeatCounters.ranges - before).toLocaleString()} ranges`
+      `  ADDRFEAT throughput: ${counties.length} counties in ${phase2Mins.toFixed(1)} min → ${overallRate} counties/min`
     );
   }
   console.log(
@@ -623,14 +868,59 @@ async function main(): Promise<void> {
   console.log('\nDone.');
 }
 
+// ---------------------------------------------------------------------------
+// Worker process — transforms one county at a time on request
+// ---------------------------------------------------------------------------
+
+function runAddrfeatWorker(): void {
+  process.on('message', (msg: WorkerCountyTask | WorkerExit) => {
+    if (msg.type === 'exit') process.exit(0);
+    if (msg.type !== 'county') return;
+    void (async () => {
+      try {
+        const zip = readFileSync(msg.zipPath);
+        const fc = await transformShapefileToGeoJSON(zip);
+        const counters = { ranges: 0, skipped: 0 };
+        const lines: string[] = [];
+        const sink: SpillSink = {
+          push: (zip5, record) => {
+            lines.push(JSON.stringify([zip5, record]));
+          },
+        };
+        for (const feature of fc.features) {
+          ingestAddrfeatFeature(feature, msg.stateAbbr, sink, counters);
+        }
+        writeFileSync(msg.outPath, lines.length > 0 ? lines.join('\n') + '\n' : '');
+        process.send!({
+          type: 'done',
+          fips5: msg.fips5,
+          outPath: msg.outPath,
+          edges: fc.features.length,
+          ranges: counters.ranges,
+          skipped: counters.skipped,
+        } satisfies WorkerCountyDone);
+      } catch (error) {
+        process.send!({
+          type: 'error',
+          fips5: msg.fips5,
+          message: error instanceof Error ? error.message : String(error),
+        } satisfies WorkerCountyError);
+      }
+    })();
+  });
+}
+
 // Only run main() when invoked as a CLI (mirrors the IS_WORKER guard pattern);
 // unit tests import parseArgs and the emission modules without side effects.
+// A forked child shares argv[1], so the worker check MUST come first.
 const invokedDirectly =
   process.argv[1] !== undefined &&
   (process.argv[1].endsWith('build-address-index.ts') ||
     process.argv[1].endsWith('build-address-index.js'));
 
-if (invokedDirectly) {
+if (IS_ADDRFEAT_WORKER) {
+  runAddrfeatWorker();
+} else if (invokedDirectly) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);
