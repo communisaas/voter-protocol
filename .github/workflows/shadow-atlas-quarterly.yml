@@ -742,7 +742,7 @@ jobs:
   build-address-index:
     name: Build Address Index
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 360
     needs: [generate-cell-chunks]
     steps:
       - name: Checkout code
@@ -764,7 +764,23 @@ jobs:
           name: chunked-with-cell-chunks
           path: packages/shadow-atlas/output/chunked/
 
+      # ADDRFEAT download cache — resume, not restart. County zips are
+      # verified-complete (zip magic + EOCD) before reuse, so a re-run after
+      # a transient census.gov failure skips every finished download instead
+      # of repeating hours of them. The exact key is unique per attempt
+      # (immutable caches can't be updated in place); restore always falls
+      # through to the newest same-vintage prefix. Size fits comfortably:
+      # national ADDRFEAT ≈ 680 MB zipped vs the 10 GB repo cache budget.
+      - name: Restore ADDRFEAT download cache
+        uses: actions/cache/restore@v4
+        with:
+          path: packages/shadow-atlas/data/addrfeat-cache
+          key: addrfeat-${{ inputs.addrfeat_vintage || 'unknown' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            addrfeat-${{ inputs.addrfeat_vintage || 'unknown' }}-
+
       - name: Build address index (NAD src:0 + ADDRFEAT src:1)
+        id: build-address-index
         working-directory: packages/shadow-atlas
         run: |
           set -euo pipefail
@@ -801,6 +817,16 @@ jobs:
           echo "### Address Index" >> $GITHUB_STEP_SUMMARY
           jq -r '"- **Chunks:** \(.addressIndex.totalChunks)\n- **Streets:** \(.addressIndex.totalStreets)\n- **Points:** \(.addressIndex.totalPoints)\n- **Ranges:** \(.addressIndex.totalRanges)\n- **NAD vintage:** \(.addressIndex.nadVintage)\n- **ADDRFEAT vintage:** \(.addressIndex.addrfeatVintage)"' \
             output/chunked/US/manifest.json >> $GITHUB_STEP_SUMMARY
+
+      # Save even when the build FAILS — that is the whole point: the next
+      # attempt resumes from the completed downloads. (actions/cache's
+      # built-in post-save skips on failure, hence the explicit save step.)
+      - name: Save ADDRFEAT download cache
+        if: always() && steps.build-address-index.outcome != 'skipped'
+        uses: actions/cache/save@v4
+        with:
+          path: packages/shadow-atlas/data/addrfeat-cache
+          key: addrfeat-${{ inputs.addrfeat_vintage || 'unknown' }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload chunked output with addresses
         uses: actions/upload-artifact@v4
