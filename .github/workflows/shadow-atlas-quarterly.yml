@@ -797,19 +797,105 @@ jobs:
           mkdir -p data/addrfeat-cache
 
           if [ -n "$NAD_URL" ]; then
-            # Stream the NAD text release: the ~7.6 GB zip (and its ~30 GB
-            # uncompressed text) never touches the runner disk. The sha256 of
-            # the transferred zip bytes is computed on the same stream and
-            # stamped below — DOT publishes no pins, so we record what we
-            # compute (same posture as the census ADDRFEAT downloads, whose
-            # computed sha256s land in address-index-sources.json).
-            curl -sSL --retry 3 "$NAD_URL" \
-              | tee >(sha256sum | awk '{print $1}' > nad-download.sha256) \
-              | funzip \
+            # The NAD release is downloaded to disk first (not streamed)
+            # so its content can be validated as a complete zip before the
+            # multi-hour build consumes it. The upstream endpoint has been
+            # observed serving an HTTP-200 JSON error body in place of the
+            # archive during an outage — a streaming pipe (or a HEAD probe)
+            # cannot catch that until the downstream parser dies partway
+            # through the build, by which point real work is already lost.
+            #
+            # Disk math: the ~7.6 GB zip plus the ~2.8 GB ADDRFEAT cache
+            # fit comfortably within ubuntu-latest's free disk. The ~30 GB
+            # uncompressed NAD text still never touches disk — funzip
+            # streams it straight into the build below, exactly as before.
+            NAD_ZIP="data/nad-release.zip"
+            rm -f "$NAD_ZIP"
+
+            # Exit codes from validate_nad_zip: 0 = valid complete zip.
+            # 2 = body doesn't start with the zip local-file-header magic
+            # (e.g. a JSON error body) — not worth resuming, so the file is
+            # discarded and the next attempt starts a clean download.
+            # 3 = starts like a zip but has no end-of-central-directory
+            # record in the tail — a genuinely truncated transfer, safe to
+            # resume in place with -C -.
+            validate_nad_zip() {
+              node -e '
+                const fs = require("fs");
+                const p = process.argv[1];
+                let size;
+                try { size = fs.statSync(p).size; } catch { console.error("no file on disk"); process.exit(2); }
+                if (size === 0) { console.error("empty file"); process.exit(2); }
+                const fd = fs.openSync(p, "r");
+                const head = Buffer.alloc(Math.min(4, size));
+                fs.readSync(fd, head, 0, head.length, 0);
+                if (!head.equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) {
+                  console.error("missing zip local-file-header magic (PK\\x03\\x04) at offset 0");
+                  fs.closeSync(fd);
+                  process.exit(2);
+                }
+                const tailLen = Math.min(65536, size);
+                const tail = Buffer.alloc(tailLen);
+                fs.readSync(fd, tail, 0, tailLen, size - tailLen);
+                fs.closeSync(fd);
+                if (tail.indexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06])) === -1) {
+                  console.error("no end-of-central-directory signature (PK\\x05\\x06) in last " + tailLen + " bytes -- truncated transfer");
+                  process.exit(3);
+                }
+              ' "$1"
+            }
+
+            NAD_OK=0
+            for attempt in 1 2 3; do
+              echo "NAD download attempt $attempt/3..."
+              curl -sSL --retry 3 --retry-all-errors -C - -o "$NAD_ZIP" "$NAD_URL" \
+                || echo "curl exited non-zero on attempt $attempt (retries exhausted)"
+
+              set +e
+              VALIDATION_ERROR="$(validate_nad_zip "$NAD_ZIP" 2>&1 1>/dev/null)"
+              RC=$?
+              set -e
+
+              if [ "$RC" -eq 0 ]; then
+                NAD_OK=1
+                break
+              fi
+
+              echo "::warning::NAD download attempt $attempt/3 failed validation: $VALIDATION_ERROR"
+              SIZE=$(stat -c%s "$NAD_ZIP" 2>/dev/null || echo 0)
+              if [ "$SIZE" -gt 0 ] && [ "$SIZE" -lt 1048576 ]; then
+                echo "--- response body (first 300 bytes -- likely the upstream error, verbatim) ---"
+                head -c 300 "$NAD_ZIP" || true
+                echo
+                echo "--- end response body ---"
+              fi
+
+              # A non-zip body (RC=2) isn't worth resuming -- discard it so
+              # the next attempt starts a clean download instead of ranging
+              # on top of garbage. A truncated-but-real zip (RC=3) is kept
+              # so -C - can resume it.
+              if [ "$RC" -eq 2 ]; then
+                rm -f "$NAD_ZIP"
+              fi
+
+              if [ "$attempt" -lt 3 ]; then
+                sleep 90
+              fi
+            done
+
+            if [ "$NAD_OK" -ne 1 ]; then
+              echo "::error::NAD upstream served a non-zip body after 3 attempts — upstream outage; re-dispatch with nad_url= for a ranges-only publish, or retry later"
+              exit 1
+            fi
+
+            echo "- **NAD zip sha256 (computed):** $(sha256sum "$NAD_ZIP" | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
+
+            funzip < "$NAD_ZIP" \
               | npx tsx scripts/build-address-index.ts --nad - \
                   --nad-vintage "${{ inputs.nad_vintage || 'unknown' }}" \
                   "${ARGS[@]}"
-            echo "- **NAD zip sha256 (computed):** $(cat nad-download.sha256)" >> $GITHUB_STEP_SUMMARY
+
+            rm -f "$NAD_ZIP"
           else
             npx tsx scripts/build-address-index.ts "${ARGS[@]}"
           fi
