@@ -132,11 +132,11 @@ describe('oversized ZIP5 split (§1 v2)', () => {
     expect(Number.isInteger(Math.log2(shards))).toBe(true);
   });
 
-  it('throws rather than silently publishing when a single street alone exceeds the target (doubling cannot help)', () => {
-    // A single street whose own ranges alone breach the target: no shard
-    // count isolates it below the limit, because a street's ranges are
-    // never split across shards. This must fail loudly, not publish a shard
-    // that still breaches the guard.
+  it('throws rather than silently publishing when a single street alone exceeds the hard per-file max (sharding cannot help)', () => {
+    // A single street whose own ranges alone breach CHUNK_MAX_LIMIT_BYTES:
+    // no shard count isolates it below the contract's per-file line, because
+    // a street's ranges are never split across shards. This must fail
+    // loudly, not publish a file that breaches the guard's hard max.
     const acc = newZipAccumulator();
     for (let r = 0; r < 23000; r++) {
       const from = r * 10 + 1;
@@ -147,6 +147,64 @@ describe('oversized ZIP5 split (§1 v2)', () => {
     expect(bytes).toBeGreaterThan(CHUNK_MAX_LIMIT_BYTES);
 
     expect(() => splitOversizedChunk(outDir, chunk)).toThrow(/producer bug/i);
+  });
+
+  it('accepts an irreducible single-street shard between the headroom target and the hard max (the ZIP-23451 case)', () => {
+    // The national build surfaced exactly this: one street whose serialized
+    // ranges alone sit above target/headroom (~201KB) but well under the
+    // 1MB hard max. Doubling can never shrink it; refusing to publish would
+    // block a corpus that the real §1 guard (p95 + max over all files)
+    // accepts. The splitter must accept, flag via floorAccepted, and stop
+    // doubling early (irreducibility detection) instead of grinding to
+    // MAX_SHARDS.
+    const acc = newZipAccumulator();
+    // One hot street ~ mid-200KB serialized, plus enough small streets to
+    // push the whole chunk over the split threshold.
+    for (let r = 0; r < 5200; r++) {
+      const from = r * 10 + 1;
+      addRange(acc, 'ATLANTIC AVE', [from, from + 8, 'O', 36.85, -75.97, 36.851, -75.971], 'VA');
+    }
+    for (let s = 0; s < 120; s++) {
+      for (let r = 0; r < 12; r++) {
+        const from = r * 10 + 1;
+        addRange(acc, `SIDE ST ${s}`, [from, from + 8, 'E', 36.86, -75.98, 36.861, -75.981], 'VA');
+      }
+    }
+    const chunk = buildChunk('23451', acc);
+
+    const hotBytes = Buffer.byteLength(
+      JSON.stringify({ ['ATLANTIC AVE']: chunk.streets['ATLANTIC AVE'] }),
+      'utf-8'
+    );
+    const target = CHUNK_P95_LIMIT_BYTES / 1.3;
+    expect(hotBytes).toBeGreaterThan(target);
+    expect(hotBytes).toBeLessThanOrEqual(CHUNK_MAX_LIMIT_BYTES);
+
+    const result = splitOversizedChunk(outDir, chunk);
+    expect(result.floorAccepted).toBeDefined();
+    expect(result.floorAccepted!.worstShardBytes).toBeGreaterThan(target);
+    expect(result.floorAccepted!.worstShardBytes).toBeLessThanOrEqual(CHUNK_MAX_LIMIT_BYTES);
+    // Irreducibility detection stops the doubling early — never rides to
+    // MAX_SHARDS on a shard that cannot shrink.
+    expect(result.shards).toBeLessThan(128);
+    // Every emitted file exists and respects the hard max; every NON-worst
+    // shard cleared the headroom target (the skew is confined to the
+    // irreducible street's bucket).
+    const sizes = result.shardArtifacts.map((a) => a.bytes).sort((a, b) => b - a);
+    expect(sizes[0]).toBe(result.floorAccepted!.worstShardBytes);
+    for (const b of sizes) expect(b).toBeLessThanOrEqual(CHUNK_MAX_LIMIT_BYTES);
+    // Determinism holds on the floor-accept path too.
+    const dirB = mkdtempSync(join(tmpdir(), 'address-chunk-floor-b-'));
+    try {
+      const again = splitOversizedChunk(dirB, chunk);
+      expect(again.shards).toBe(result.shards);
+      expect(again.shardArtifacts.map((x) => x.sha256)).toEqual(
+        result.shardArtifacts.map((x) => x.sha256)
+      );
+      expect(again.floorAccepted).toEqual(result.floorAccepted);
+    } finally {
+      rmSync(dirB, { recursive: true, force: true });
+    }
   });
 
   it('re-run is byte-identical (deterministic emission)', () => {

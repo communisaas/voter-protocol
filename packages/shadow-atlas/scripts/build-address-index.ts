@@ -800,6 +800,13 @@ async function main(): Promise<void> {
     chunkIndex[zip] = written.entry;
     emittedFileBytes.push(...written.emittedFileBytes);
     if (written.emittedFileBytes.length > 1) splitZipCount++;
+    if (written.floorAccepted) {
+      console.log(
+        `  ZIP ${zip}: irreducible single-street shard ${written.floorAccepted.worstShardBytes.toLocaleString()}B ` +
+          `at ${written.floorAccepted.shards} shards — over the headroom target, within the hard per-file max; ` +
+          `accepted (the §1 guard below stays the arbiter)`
+      );
+    }
     totalStreets += chunkIndex[zip].streetCount;
   }
   spill.cleanup();
