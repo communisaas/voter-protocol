@@ -26,6 +26,7 @@ import {
   isWardArcgisFamilyUrl,
   PINNED_TIGER_VINTAGE,
   type SourceHealthConfig,
+  type ProbeExpectShape,
 } from './source-health.js';
 import { STATE_FIPS, buildBafUrl } from '../hydration/baf-downloader.js';
 import { buildTigerStateUrl } from './change-detection-adapter.js';
@@ -229,6 +230,34 @@ async function withTimeout<T>(fn: (signal: AbortSignal) => Promise<T>): Promise<
 interface RawProbeResult {
   readonly status: number;
   readonly ok: boolean;
+  /** Raw `Content-Type` response header, or null when absent/unavailable
+   *  (e.g. a thrown network error never reaches a response at all). Read
+   *  regardless of probe method — HEAD responses carry headers same as
+   *  GET, just no body. */
+  readonly contentType: string | null;
+}
+
+/**
+ * Whether a Content-Type header is consistent with an `expectShape`
+ * declaration. Substring match against the shape's registered MIME
+ * fragment (e.g. "zip" matches "application/zip",
+ * "application/x-zip-compressed"; "json" matches
+ * "application/json;charset=UTF-8"). A missing/unparseable Content-Type is
+ * treated as "no contradiction" — this is a shape MISMATCH detector, not a
+ * shape-presence requirement, so silence is never itself a failure.
+ *
+ * Byte-level sniffing (the "first bytes when available" half of the
+ * design's check) is deliberately not implemented here: FetchLike is a
+ * reachability-only surface (see this module's header doc) that never
+ * exposes a response body, and every currently-wired expectShape row is
+ * fully decided by Content-Type alone (the incident this exists to catch
+ * — an HTTP-200 JSON error body in place of a zip — already changes
+ * Content-Type, not just body bytes).
+ */
+function contentTypeMatchesShape(contentType: string | null, shape: ProbeExpectShape): boolean {
+  if (!contentType) return true;
+  const lower = contentType.toLowerCase();
+  return lower.includes(shape);
 }
 
 /**
@@ -255,7 +284,7 @@ async function issueProbe(
       if (res.status === 405 || res.status === 501) {
         return rangeGetFallback(fetchImpl, url);
       }
-      return { status: res.status, ok: res.ok };
+      return { status: res.status, ok: res.ok, contentType: res.headers.get('content-type') };
     } catch {
       // Hang/abort/network error on HEAD — automatic range-GET fallback,
       // per the design ("on 405/501/hang").
@@ -269,14 +298,18 @@ async function issueProbe(
     const res = await withTimeout(signal =>
       fetchImpl(url, { method: 'GET', headers, signal: signal as AbortSignal })
     );
-    return { status: res.status, ok: res.ok || res.status === 304 };
+    return {
+      status: res.status,
+      ok: res.ok || res.status === 304,
+      contentType: res.headers.get('content-type'),
+    };
   }
 
   // 'get' — plain GET first-bytes for HEAD-hostile targets.
   const res = await withTimeout(signal =>
     fetchImpl(url, { method: 'GET', signal: signal as AbortSignal })
   );
-  return { status: res.status, ok: res.ok };
+  return { status: res.status, ok: res.ok, contentType: res.headers.get('content-type') };
 }
 
 async function rangeGetFallback(fetchImpl: FetchLike, url: string): Promise<RawProbeResult> {
@@ -284,7 +317,7 @@ async function rangeGetFallback(fetchImpl: FetchLike, url: string): Promise<RawP
     fetchImpl(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, signal: signal as AbortSignal })
   );
   const ok = res.status === 206 || res.status === 200;
-  return { status: res.status, ok };
+  return { status: res.status, ok, contentType: res.headers.get('content-type') };
 }
 
 function isSuccessStatus(status: number): boolean {
@@ -294,7 +327,8 @@ function isSuccessStatus(status: number): boolean {
 async function probeWithBackoff(
   fetchImpl: FetchLike,
   url: string,
-  method: NonNullable<SourceHealthConfig['probe']>['method']
+  method: NonNullable<SourceHealthConfig['probe']>['method'],
+  expectShape?: ProbeExpectShape
 ): Promise<{ success: boolean; status?: number; error?: string }> {
   let delayMs = PROBE_BACKOFF_INITIAL_MS;
   let lastError: string | undefined;
@@ -303,9 +337,19 @@ async function probeWithBackoff(
     try {
       const result = await issueProbe(fetchImpl, url, method);
       if (isSuccessStatus(result.status)) {
-        return { success: true, status: result.status };
+        if (!expectShape || contentTypeMatchesShape(result.contentType, expectShape)) {
+          return { success: true, status: result.status };
+        }
+        // A 2xx/304 status is not "healthy" when the body isn't shaped
+        // like what this source is supposed to serve — the motivating
+        // case being an upstream error page/API returning HTTP 200 with a
+        // JSON body in place of the real zip artifact. Recorded exactly
+        // like any other probe failure (retried within budget, then
+        // advances consecutive_failures).
+        lastError = `shape mismatch: expected ${expectShape}, got ${result.contentType ?? 'unknown content-type'}`;
+      } else {
+        lastError = `HTTP ${result.status}`;
       }
-      lastError = `HTTP ${result.status}`;
       // 4xx/5xx are not retried further within one probe cycle if the
       // status is a definitive client/server error — but per the design's
       // "x3 backoff" posture we retry transient-looking failures uniformly,
@@ -414,7 +458,7 @@ export async function runProbeLane(
 
       const url = resolveNextVintageUrl(config, nowDate);
       const method = config.probe!.method;
-      const result = await probeWithBackoff(fetchImpl, url, method);
+      const result = await probeWithBackoff(fetchImpl, url, method, config.probe?.expectShape);
       const at = nowDate.toISOString();
 
       if (result.success) {
@@ -432,7 +476,7 @@ export async function runProbeLane(
 
     const url = resolveProbeUrl(config, nowDate);
     const method = config.probe!.method;
-    const result = await probeWithBackoff(fetchImpl, url, method);
+    const result = await probeWithBackoff(fetchImpl, url, method, config.probe?.expectShape);
     const at = nowDate.toISOString();
 
     if (result.success) {

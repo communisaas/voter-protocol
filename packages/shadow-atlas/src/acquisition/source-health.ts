@@ -52,6 +52,13 @@ export interface NextVintageProbeConfig {
   readonly windowMonths: readonly number[];
 }
 
+/** Expected content-shape of a healthy probe response. Lets the prober catch
+ *  a 2xx/304 response whose body isn't actually what it claims to be (the
+ *  motivating failure class: an upstream error page/API serving an HTTP-200
+ *  JSON body in place of the real zip/binary artifact — a status-only check
+ *  calls that "healthy"). */
+export type ProbeExpectShape = 'zip' | 'json' | 'xml';
+
 export interface SourceProbeConfig {
   /** First-choice probe method. The prober auto-falls-back HEAD -> range-GET
    *  (`Range: bytes=0-0`) on 405/501/hang regardless of this setting. */
@@ -65,6 +72,11 @@ export interface SourceProbeConfig {
   /** Vintage sources only: window-gated probe of the NEXT vintage URL,
    *  recorded on the derived `<id>@next-vintage` ledger row. */
   readonly nextVintage?: NextVintageProbeConfig;
+  /** When set, a 2xx/304 probe response whose Content-Type contradicts this
+   *  shape is recorded as a FAILURE (`shape mismatch: expected <shape>, got
+   *  <content-type>`) instead of a success — see source-prober.ts's shape
+   *  check. Optional: rows that omit it keep pure status-code semantics. */
+  readonly expectShape?: ProbeExpectShape;
 }
 
 export interface SourceHealthConfig {
@@ -260,7 +272,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'cd per BAF map',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-state-sldu',
@@ -275,7 +287,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'sldu per BAF map',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-state-sldl',
@@ -290,7 +302,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'sldl per BAF map',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-state-county',
@@ -305,7 +317,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'county per BAF map',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-place',
@@ -317,7 +329,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'place',
     lane: 'probe',
-    probe: { method: 'head' },
+    probe: { method: 'head', expectShape: 'zip' },
   },
   {
     id: 'tiger-tract-centroids',
@@ -329,6 +341,11 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'PIP substrate (all slots)',
     lane: 'probe',
+    // No expectShape here (unlike its zip-artifact siblings): the probe
+    // target is the TRACT/ directory-listing page itself (see
+    // resolveProbeUrl's directory-listing branch below), not an individual
+    // zip file — it genuinely serves text/html on a healthy day. Applying a
+    // zip shape check would flag every successful probe as a mismatch.
     probe: { method: 'head', sample: 'rotate-daily' },
   },
   {
@@ -341,7 +358,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-cbsa',
@@ -353,7 +370,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-state',
@@ -365,7 +382,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-county',
@@ -377,7 +394,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-zcta520',
@@ -389,7 +406,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-uac',
@@ -401,7 +418,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'tiger-national-mil',
@@ -413,7 +430,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'context + aiannh',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     id: 'bef-cd119',
@@ -425,7 +442,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'cd overlay',
     lane: 'probe',
-    probe: { method: 'head' },
+    probe: { method: 'head', expectShape: 'zip' },
   },
   {
     id: 'baf-2020',
@@ -443,7 +460,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'frozen',
     ownerSlots: 'slots 0-5, 7-9, 20-21 (jurisdiction.ts:262)',
     lane: 'probe',
-    probe: { method: 'head', sample: 'rotate-daily' },
+    probe: { method: 'head', sample: 'rotate-daily', expectShape: 'zip' },
   },
   {
     // Aggregate template row for the ward-arcgis family — NOT a real
@@ -485,6 +502,11 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'address src:1',
     lane: 'probe',
+    // No expectShape: like tiger-tract-centroids above, this row's probe
+    // target is the ADDRFEAT/ directory-listing page (resolveProbeUrl's
+    // directory-listing branch), which genuinely serves text/html on a
+    // healthy day — not the per-county zip files the family actually
+    // distributes. A zip shape check here would misfire on every success.
     probe: { method: 'get', sample: 'rotate-daily' },
   },
   {
@@ -501,7 +523,12 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: 'address src:0',
     lane: 'probe',
-    probe: { method: 'head' },
+    // expectShape: 'zip' catches the exact live failure class this source
+    // has produced — a 2xx response whose body is an upstream error
+    // page/API JSON blob, not the NAD zip. A HEAD probe checks Content-Type
+    // only (no body to inspect); the range-GET fallback path (405/501/hang)
+    // gets the same check on whatever bytes/headers it receives.
+    probe: { method: 'head', expectShape: 'zip' },
   },
   {
     id: 'congress-legislators-current',
@@ -532,7 +559,11 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'rolling',
     ownerSlots: 'CD geometry service',
     lane: 'probe',
-    probe: { method: 'get', url: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/54?f=json' },
+    probe: {
+      method: 'get',
+      url: 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/54?f=json',
+      expectShape: 'json',
+    },
   },
   {
     id: 'uk-mps',
@@ -809,7 +840,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-in',
@@ -828,6 +859,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     probe: {
       method: 'get',
       nextVintage: { template: 'Voting_District_Boundaries_{yyyy}', windowMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+      expectShape: 'json',
     },
   },
   {
@@ -842,7 +874,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-md',
@@ -869,7 +901,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'rolling',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-mi',
@@ -887,7 +919,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     lane: 'probe',
     // AGOL search JSON (owner:michigan_admin title:"Voting Precincts") --
     // picks up new cycle items rather than a pinned year (§4, verbatim).
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-mt',
@@ -937,7 +969,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'rolling',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-nc',
@@ -986,7 +1018,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'vintage',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
   {
     id: 'precinct-sc',
@@ -1059,6 +1091,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     probe: {
       method: 'get',
       nextVintage: { template: 'Statewide_Precincts_{yyyy}General.zip', windowMonths: [11, 12, 1] },
+      expectShape: 'json',
     },
   },
   {
@@ -1074,6 +1107,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     probe: {
       method: 'get',
       nextVintage: { template: 'LTSB hub new-cycle items', windowMonths: [2, 3, 8, 9] },
+      expectShape: 'json',
     },
   },
   {
@@ -1086,7 +1120,7 @@ export const SOURCE_REGISTRY: readonly SourceHealthConfig[] = [
     freshness: 'rolling',
     ownerSlots: '21',
     lane: 'probe',
-    probe: { method: 'get' },
+    probe: { method: 'get', expectShape: 'json' },
   },
 ];
 

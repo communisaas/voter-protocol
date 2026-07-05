@@ -226,6 +226,66 @@ describe('source-prober', () => {
     expect(row?.last_error).toBeNull();
   });
 
+  it('200 with application/json content-type on an expectShape:"zip" row records a shape-mismatch failure', async () => {
+    const fetchImpl: FetchLike = vi.fn(async () => fakeResponse(200, { 'content-type': 'application/json' }));
+    const zipConfig = SOURCE_REGISTRY.find(r => r.id === 'nad')!;
+    expect(zipConfig.probe?.expectShape).toBe('zip');
+
+    await runProbeLane({ fetchImpl, store, now: fixedNow, fetchLaneSources: [] }, [zipConfig]);
+
+    const row = store.getRow('nad');
+    expect(row?.consecutive_failures).toBe(1);
+    expect(row?.last_error).toContain('shape mismatch');
+    expect(row?.last_error).toContain('expected zip');
+    expect(row?.last_error).toContain('application/json');
+  });
+
+  it('200 with a matching zip content-type counts as success on an expectShape:"zip" row', async () => {
+    const fetchImpl: FetchLike = vi.fn(async () => fakeResponse(200, { 'content-type': 'application/zip' }));
+    const zipConfig = SOURCE_REGISTRY.find(r => r.id === 'nad')!;
+
+    await runProbeLane({ fetchImpl, store, now: fixedNow, fetchLaneSources: [] }, [zipConfig]);
+
+    const row = store.getRow('nad');
+    expect(row?.consecutive_failures).toBe(0);
+    expect(row?.last_error).toBeNull();
+  });
+
+  it('a HEAD-only row (no range-GET fallback triggered) still honors Content-Type for its shape check', async () => {
+    const calls: Array<{ method?: string }> = [];
+    const fetchImpl: FetchLike = vi.fn(async (_url, init) => {
+      calls.push({ method: init?.method });
+      // 200 on the HEAD itself — no 405/501, so no range-GET fallback fires.
+      return fakeResponse(200, { 'content-type': 'application/json' });
+    });
+    const zipConfig = SOURCE_REGISTRY.find(r => r.id === 'bef-cd119')!;
+    expect(zipConfig.probe?.method).toBe('head');
+    expect(zipConfig.probe?.expectShape).toBe('zip');
+
+    await runProbeLane({ fetchImpl, store, now: fixedNow, fetchLaneSources: [] }, [zipConfig]);
+
+    // A shape mismatch is retried within the same backoff budget as any
+    // other failure (it's a 200, not a 405/501, so every retry is a HEAD —
+    // the range-GET fallback path never fires).
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every(c => c.method === 'HEAD')).toBe(true);
+    const row = store.getRow('bef-cd119');
+    expect(row?.consecutive_failures).toBe(1);
+    expect(row?.last_error).toContain('shape mismatch');
+  });
+
+  it('a row with no expectShape configured ignores Content-Type entirely (behavior unchanged)', async () => {
+    const fetchImpl: FetchLike = vi.fn(async () => fakeResponse(200, { 'content-type': 'text/html' }));
+    const noShapeConfig = SOURCE_REGISTRY.find(r => r.id === 'addrfeat')!;
+    expect(noShapeConfig.probe?.expectShape).toBeUndefined();
+
+    await runProbeLane({ fetchImpl, store, now: fixedNow, fetchLaneSources: [] }, [noShapeConfig]);
+
+    const row = store.getRow('addrfeat');
+    expect(row?.consecutive_failures).toBe(0);
+    expect(row?.last_error).toBeNull();
+  });
+
   it('vintage-row probe success does NOT stamp last_success_at', async () => {
     const fetchImpl: FetchLike = vi.fn(async () => fakeResponse(200));
     const vintageConfig = SOURCE_REGISTRY.find(r => r.id === 'nad')!; // freshness: 'vintage'
