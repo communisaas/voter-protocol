@@ -151,7 +151,9 @@ const REDISTRICTING_BOUNDARY_TYPES = new Set<GapBoundaryType>([
  * VTDs have different gap patterns than legislative districts:
  * - Post-election precinct consolidation (Q1 each year)
  * - State-specific redistricting cycles
- * - No TIGER source (VTDs not in TIGER)
+ * - TIGER 2020 PL VTD is 2020-vintage and frozen until the 2030 cycle
+ *   (the annual TIGER/Line release omits VTDs, but the 2020 PL 94-171
+ *   redistricting product carries them nationally, MT/OR partial)
  */
 const VTD_BOUNDARY_TYPES = new Set<GapBoundaryType>(['voting_precinct']);
 
@@ -609,8 +611,8 @@ export class RedistrictingGapDetector {
    *   - New VTD data typically available by March
    * - Post-redistricting: Years following redistricting (2022, 2032, 2042)
    *   - VTD boundaries may change to align with new legislative districts
-   * - No TIGER source: VTDs not included in Census TIGER
-   *   - Must use RDH (Redistricting Data Hub) or state sources
+   * - Frozen source: TIGER 2020 PL VTD is 2020-vintage, frozen until the 2030 cycle
+   *   - Use TIGER 2020 PL VTD (national, MT/OR partial) or state sources
    *
    * @param jurisdiction - State code (e.g., "CA", "TX")
    * @param asOf - Date to check
@@ -626,7 +628,7 @@ export class RedistrictingGapDetector {
         inGap: true,
         gapType: 'post-finalization-pre-tiger',
         recommendation: 'use-primary',
-        reasoning: `Post-election precinct consolidation period (Q1). VTD data for ${jurisdiction} may be stale. Check Redistricting Data Hub (https://redistrictingdatahub.org/) or ${jurisdiction} state election office for latest VTD boundaries.`,
+        reasoning: `Post-election precinct consolidation period (Q1). VTD data for ${jurisdiction} may be stale. Use TIGER 2020 PL VTD (2020-vintage, frozen until 2030 cycle) or ${jurisdiction} state election office for latest VTD boundaries.`,
       };
     }
 
@@ -637,7 +639,7 @@ export class RedistrictingGapDetector {
         inGap: true,
         gapType: 'post-finalization-pre-tiger',
         recommendation: 'use-primary',
-        reasoning: `Post-redistricting year ${year}. VTD boundaries for ${jurisdiction} may have changed to align with new legislative districts. Use Redistricting Data Hub or ${jurisdiction} state source for current VTD data.`,
+        reasoning: `Post-redistricting year ${year}. VTD boundaries for ${jurisdiction} may have changed to align with new legislative districts. Use TIGER 2020 PL VTD (2020-vintage, frozen until 2030 cycle) or ${jurisdiction} state source for current VTD data.`,
       };
     }
 
@@ -646,7 +648,7 @@ export class RedistrictingGapDetector {
       inGap: false,
       gapType: 'none',
       recommendation: 'use-primary',
-      reasoning: `VTD data for ${jurisdiction} is current. Use Redistricting Data Hub (primary source) or cached VTD data. Note: VTDs are not available in Census TIGER.`,
+      reasoning: `VTD data for ${jurisdiction} is current. Use TIGER 2020 PL VTD (primary source, 2020-vintage, frozen until 2030 cycle) or cached VTD data.`,
     };
   }
 

@@ -310,12 +310,12 @@ describe('TIGERValidator', () => {
 
       const result = validator.validateCompleteness('vtd', boundaries, '06');
 
-      // VTD now has expected counts (California has 25,594 VTDs)
+      // VTD now has expected counts (California has 20,419 VTDs per EXPECTED_VTD_BY_STATE)
       // With only 1 boundary provided, completeness will fail due to count mismatch
       expect(result.valid).toBe(false);
       expect(result.expected).toBeGreaterThan(1);
       expect(result.actual).toBe(1);
-      expect(result.percentage).toBeLessThan(1); // 1/25594 is ~0.004%
+      expect(result.percentage).toBeLessThan(1); // 1/20419 is ~0.005%
       expect(result.summary).not.toContain('missing required fields');
     });
 

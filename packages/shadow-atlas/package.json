@@ -36,6 +36,7 @@
         "freshness:check": "tsx src/scripts/check-freshness.ts",
         "freshness:revalidate": "tsx src/scripts/check-freshness.ts --revalidate",
         "changes:check": "tsx src/scripts/check-changes.ts",
+        "sources:probe": "tsx src/scripts/probe-sources.ts",
         "plan:expansion": "tsx src/scripts/plan-expansion.ts",
         "plan:100": "tsx src/scripts/plan-expansion.ts 100",
         "plan:1000": "tsx src/scripts/plan-expansion.ts 1000",

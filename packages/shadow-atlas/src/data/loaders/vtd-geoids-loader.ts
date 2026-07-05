@@ -1,8 +1,9 @@
 /**
  * VTD GEOID Data Loader
  *
- * Provides lazy-loaded access to canonical VTD GEOIDs extracted from
- * Census TIGER/Line 2024 via Redistricting Data Hub (VEST 2020/2022).
+ * Provides lazy-loaded access to canonical VTD GEOIDs, vintage 2020
+ * Redistricting cycle (frozen until 2030), sourced from TIGER 2020 PL VTD
+ * (Census Bureau 94-171 redistricting product).
  *
  * This loader replaces the 1.6MB hardcoded TypeScript file with a
  * JSON data file and runtime loading, reducing bundle size.

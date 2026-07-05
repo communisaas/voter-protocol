@@ -52,7 +52,7 @@ describe('TIGERAuthorityRules', () => {
       expect(rule.legalStatus).toBe('binding');
     });
 
-    it('should assign HUB_AGGREGATOR to voting precincts (RDH as primary source)', () => {
+    it('should assign HUB_AGGREGATOR to voting precincts (TIGER 2020 PL VTD as primary source)', () => {
       const rule = getTIGERAuthorityRule('voting_precinct');
       expect(rule.authorityLevel).toBe(AuthorityLevel.HUB_AGGREGATOR);
       expect(rule.legalStatus).toBe('advisory');
@@ -220,10 +220,10 @@ describe('TIGERAuthorityRules', () => {
     });
 
     describe('Non-TIGER boundaries', () => {
-      it('should use redistricting-data-hub for voting precincts', () => {
+      it('should use tiger-2020-pl-vtd for voting precincts', () => {
         const preferredSource = getPreferredSource('voting_precinct');
 
-        expect(preferredSource.source).toBe('redistricting-data-hub');
+        expect(preferredSource.source).toBe('tiger-2020-pl-vtd');
         expect(preferredSource.authority).toBe(AuthorityLevel.HUB_AGGREGATOR);
       });
 

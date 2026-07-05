@@ -68,9 +68,11 @@ export interface ChangeDetectionAdapterResult {
 }
 
 /**
- * US state FIPS codes (for 'all' expansion)
+ * US state FIPS codes (for 'all' expansion). Exported so callers that need
+ * the real per-state FIPS list for TIGER URL construction (e.g. the
+ * source-health probe lane) import this instead of re-typing it by hand.
  */
-const US_STATE_FIPS: readonly string[] = [
+export const US_STATE_FIPS: readonly string[] = [
   '01', '02', '04', '05', '06', '08', '09', '10', '11', '12',
   '13', '15', '16', '17', '18', '19', '20', '21', '22', '23',
   '24', '25', '26', '27', '28', '29', '30', '31', '32', '33',
@@ -78,6 +80,31 @@ const US_STATE_FIPS: readonly string[] = [
   '45', '46', '47', '48', '49', '50', '51', '53', '54', '55',
   '56',
 ] as const;
+
+/**
+ * Build a TIGER per-state layer URL: cd/sldu/sldl/county template.
+ *
+ * @param layer - Layer type (cd, sldu, sldl, county)
+ * @param state - State FIPS code (NOT postal — TIGER file names take FIPS,
+ *   e.g. 'tl_2024_01_cd119.zip' for Alabama, never 'tl_2024_AL_cd119.zip')
+ * @param vintage - TIGER year (the PINNED vintage the pipeline uses, not the
+ *   current calendar year — TIGER{year} publishes long after year start)
+ * @returns Complete TIGER download URL
+ *
+ * Extracted to a standalone function (the class method below delegates to
+ * it) so callers outside ChangeDetectionAdapter — the source-health probe
+ * lane — can import the SAME builder rather than re-deriving the URL
+ * pattern by hand and risking drift.
+ */
+export function buildTigerStateUrl(
+  layer: 'cd' | 'sldu' | 'sldl' | 'county',
+  state: string,
+  vintage: number
+): string {
+  const layerUpper = layer.toUpperCase();
+  const layerLower = layer.toLowerCase();
+  return `https://www2.census.gov/geo/tiger/TIGER${vintage}/${layerUpper}/tl_${vintage}_${state}_${layerLower}.zip`;
+}
 
 /**
  * Change Detection Adapter
@@ -235,10 +262,7 @@ export class ChangeDetectionAdapter {
     state: string,
     vintage: number
   ): string {
-    const layerUpper = layer.toUpperCase();
-    const layerLower = layer.toLowerCase();
-
-    return `https://www2.census.gov/geo/tiger/TIGER${vintage}/${layerUpper}/tl_${vintage}_${state}_${layerLower}.zip`;
+    return buildTigerStateUrl(layer, state, vintage);
   }
 
   /**

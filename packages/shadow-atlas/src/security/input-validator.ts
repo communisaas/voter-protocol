@@ -259,9 +259,6 @@ const ALLOWED_DOMAINS = [
   'geodata.hawaii.gov',
   'pasda.psu.edu',
 
-  // Redistricting Data Hub
-  'redistrictingdatahub.org',
-
   // International sources
   'geoportal.statistics.gov.uk', // UK ONS
   'represent.opennorth.ca', // Canada Open North

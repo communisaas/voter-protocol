@@ -1,0 +1,667 @@
+name: Shadow Atlas Agentic Remediation
+
+# Self-healing data ops §The agentic lane / §Guardrails / §Rollout
+# (commons/docs/design/SELF-HEALING-DATA-OPS.md). Steady-state cost is $0 —
+# this workflow does nothing until a breach exists.
+#
+# GUARDRAILS (verbatim from the founder directive, commons design doc
+# §Guardrails): "the agent lane fixes SOURCE-ACQUISITION config/code via
+# TEST-GATED PRs only; it NEVER touches published artifacts, the signed
+# manifest, trust pins, or the operator-dispatched publish; escalation must
+# carry evidence (what failed, what was tried, proposed fix)."
+#
+# ---------------------------------------------------------------------------
+# WHY THIS IS `workflow_call`, NOT `issues: types: [labeled]` (TRIGGER TRUTH)
+# ---------------------------------------------------------------------------
+# GitHub documented behavior: events generated using the built-in GITHUB_TOKEN
+# do NOT trigger new workflow runs (https://docs.github.com/en/actions/using-
+# workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow —
+# "When you use the repository's GITHUB_TOKEN to perform tasks, events
+# triggered by the GITHUB_TOKEN... will not create a new workflow run").
+# shadow-atlas-change-check.yml raises + labels `atlas-slo-breach` issues
+# using `${{ github.token }}` (its own GITHUB_TOKEN) — so an `issues:
+# types: [labeled]` trigger on THIS file would NEVER fire from the real
+# producer. It would only ever fire from a human manually applying the
+# label, which defeats the entire "agentic" premise. DO NOT reintroduce an
+# `issues:` trigger here believing it will catch the automated breach path —
+# it will not, and this is not a hypothetical: it is documented GitHub
+# platform behavior, verified against this exact repo's token usage in
+# shadow-atlas-change-check.yml's breach-issue step.
+#
+# The fix: this is a REUSABLE workflow (`workflow_call`). The real producer
+# (shadow-atlas-change-check.yml) calls it DIRECTLY in the same run, gated on
+# `breach_count > 0`, right after it raises the breach issues — no event-
+# trigger indirection, so there is nothing for GITHUB_TOKEN-suppression to
+# intercept. `workflow_dispatch` stays for operator-driven manual runs
+# (dry-run diagnosis of a specific source, or a manual armed run).
+# ---------------------------------------------------------------------------
+#
+# Operationalized guardrails:
+#   - DRY-RUN BY DEFAULT. `dry_run` input defaults to the string 'true' on
+#     both entry points. The caller job in shadow-atlas-change-check.yml
+#     resolves it from the `REMEDIATE_ARMED` repository variable (default
+#     dry-run when that variable is unset or not exactly 'true') — arming
+#     production remediation is an operator flipping a repo variable, not an
+#     inline code change to either workflow.
+#   - TWO JOBS, FULLY SEPARATE `permissions:` BLOCKS. Neither job is ever
+#     granted `actions:` (cannot dispatch shadow-atlas-quarterly.yml, cannot
+#     even read the Actions run log — the daily run cap is tracked via issue
+#     comments instead, so `actions:` never has to appear in this file at
+#     all) or `id-token:`.
+#   - EDIT SURFACE ALLOWLIST enforced twice, via COMMITTED, UNIT-TESTED
+#     scripts (packages/shadow-atlas/scripts/remediation/), not inline
+#     heredocs: `--allowedTools` scoping AND an independent diff-based
+#     deny-check step (deny-check.sh) that fails the job if a pushed branch
+#     touches anything outside the declared edit surface.
+#   - THE THREE PR GATES ARE WORKFLOW STEPS, NOT AGENT-RUN. The agent
+#     proposes a branch; the workflow — not the agent — runs the acquisition
+#     vitest suite, `changes:check` against a fresh DB, and a live curl -I
+#     probe, and ONLY THEN opens the PR via `gh pr create` as a workflow
+#     step. If any gate fails, no PR is opened and the run escalates with
+#     the full transcript instead.
+#   - ONE OPEN PR PER SOURCE, 72h COOLDOWN, 3 RUNS/DAY CAP — guard.sh (a
+#     committed, unit-tested script) no-ops (exit early with
+#     `proceed=false`) before doing anything else. Both jobs source the
+#     SAME script — no duplicated heredocs.
+#   - AUTO-MERGE NEVER. A human always merges. This workflow never creates
+#     or references any auto-merge configuration.
+#   - R2 / secret names NEVER appear in the agent's env or prompt, and never
+#     appear anywhere in this file (grep-verified below).
+#   - Every PR body carries the breach record + diagnosis evidence.
+#
+# NEVER edited by this workflow: shadow-atlas-quarterly.yml (the
+# operator-dispatched publish + its manifest-signing / trust-pin /
+# R2-artifact chain). shadow-atlas-change-check.yml calls INTO this workflow
+# (workflow_call) but this workflow never edits that file or any other
+# workflow file — enforced by deny-check.sh denying .github/workflows/**
+# unconditionally.
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        description: 'Breach issue number to remediate.'
+        required: true
+        type: string
+      source_id:
+        description: 'SOURCE_REGISTRY id to remediate (e.g. tiger-cd119).'
+        required: true
+        type: string
+      dry_run:
+        description: "true = diagnose only (post a comment, never push/PR). false = armed (opens a test-gated fix PR or escalates)."
+        required: false
+        type: string
+        default: 'true'
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Breach issue number to remediate (required).'
+        required: true
+        type: string
+      source_id:
+        description: 'SOURCE_REGISTRY id to remediate (e.g. tiger-cd119, required).'
+        required: true
+        type: string
+      dry_run:
+        description: "true = diagnose only (post a comment, never push/PR). false = armed (opens a test-gated fix PR or escalates)."
+        required: false
+        type: string
+        default: 'true'
+
+# One in-flight remediation run per source at a time — a second dispatch or
+# workflow_call for the same source waits rather than racing the pre-flight
+# guard against a run that hasn't finished writing its dedupe markers yet.
+concurrency:
+  group: shadow-atlas-remediate-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+env:
+  # Repo facts threaded into the prompt contract — never a secret, safe in a
+  # shared env block for both jobs.
+  EDIT_SURFACE: 'packages/shadow-atlas/src/{acquisition,providers,hydration,config,scripts}'
+  BRANCH_PREFIX: 'remediate'
+  PACKAGE_MANAGER: 'npm'
+
+jobs:
+  # ===========================================================================
+  # DIAGNOSE (dry-run). Runs when dry_run != 'false'. Structurally cannot
+  # push: its permissions block has no `contents: write`, and its
+  # --allowedTools list has no Edit/Write/git/pr-create tools — even a
+  # compromised or over-eager prompt cannot cause a write.
+  # ===========================================================================
+  diagnose:
+    name: Diagnose (dry-run)
+    if: inputs.dry_run != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pre-flight guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_PREFIX: ${{ env.BRANCH_PREFIX }}
+          # Routed through env: (not inline ${{ }} in the run: args) so
+          # typed workflow inputs never interpolate directly into a shell
+          # command line, consistent with every other step in this file.
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          result=$(bash packages/shadow-atlas/scripts/remediation/guard.sh \
+            "$SOURCE_ID" \
+            "$ISSUE_NUMBER")
+          echo "Guard result: $result"
+          proceed="${result%%:*}"
+          proceed="${proceed#proceed=}"
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble diagnosis prompt contract
+        id: contract
+        if: steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          # Extract the fenced ```json breach record from the issue body.
+          gh issue view "$ISSUE_NUMBER" --json body --jq '.body' > /tmp/issue-body.md
+          awk '/```json/{flag=1; next} /```/{flag=0} flag' /tmp/issue-body.md > /tmp/breach-record.json
+          if [ ! -s /tmp/breach-record.json ]; then
+            echo "::error::Could not extract a fenced json breach record from issue #$ISSUE_NUMBER body." >&2
+            exit 1
+          fi
+
+          # Pull the matching SOURCE_REGISTRY row (including configSite) via
+          # the committed lookup script — NOT an inline `npx tsx -e` eval.
+          # (Round-1 defect: `npx tsx -e "import ... source-health.js"`
+          # MODULE_NOT_FOUNDs — tsx's .js->.ts extension remap requires a TS
+          # parent module, and an `-e` eval parent is neither. Verified fix:
+          # `npx tsx packages/shadow-atlas/scripts/remediation/registry-lookup.ts
+          # <id>` resolves the real .ts file directly and exits 0.)
+          npx tsx packages/shadow-atlas/scripts/remediation/registry-lookup.ts "$SOURCE_ID" > /tmp/registry-row.json
+
+          cat > /tmp/prompt.md <<PROMPT_EOF
+          You are diagnosing a Shadow Atlas source-freshness SLO breach in DRY-RUN mode.
+          You may ONLY read and comment — you have no ability to write files, run git, or open a PR in this job.
+
+          # Repo facts
+          - Package manager: npm (NOT pnpm/yarn).
+          - Acquisition test command: npx vitest run packages/shadow-atlas/src/__tests__/unit/acquisition/
+          - Edit surface an armed remediation would use: ${EDIT_SURFACE}
+          - Branch naming an armed remediation would use: remediate/${SOURCE_ID}/<YYYYMMDD>
+
+          # Guardrails (verbatim, non-negotiable)
+          > the agent lane fixes SOURCE-ACQUISITION config/code via TEST-GATED PRs only; it NEVER
+          > touches published artifacts, the signed manifest, trust pins, or the operator-
+          > dispatched publish; escalation must carry evidence (what failed, what was tried,
+          > proposed fix).
+
+          # Breach record (verbatim)
+          \`\`\`json
+          $(cat /tmp/breach-record.json)
+          \`\`\`
+
+          # Source registry row (verbatim)
+          \`\`\`json
+          $(cat /tmp/registry-row.json)
+          \`\`\`
+
+          # Task
+          Diagnose the failure using only Read/Grep/Glob (repo) and curl -I (live reachability probes of
+          candidate URLs). Do NOT modify any file. Produce a diagnosis comprising:
+          1. What failed (root cause hypothesis, citing the configSite file:line).
+          2. What you tried (probe transcript, if any).
+          3. A proposed fix (concrete, or "no automatable fix: <reason>" if none applies).
+
+          Post this diagnosis as a SINGLE comment on issue #${ISSUE_NUMBER} using exactly:
+            gh issue comment ${ISSUE_NUMBER} --body-file <path>
+          Prefix the comment body with the literal marker line
+          "<!-- remediate-diagnosis-run:${GITHUB_RUN_ID} -->" so this run's outcome-assert can
+          distinguish a fresh diagnosis from a stale comment left by a previous run.
+          Do not use any other tool to modify GitHub state. Do not attempt to open a PR or push a branch.
+          PROMPT_EOF
+
+          {
+            echo "prompt<<PROMPT_OUTPUT_EOF_${GITHUB_RUN_ID}"
+            cat /tmp/prompt.md
+            echo "PROMPT_OUTPUT_EOF_${GITHUB_RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run diagnosis agent
+        if: steps.guard.outputs.proceed == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.contract.outputs.prompt }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(curl -I *),Bash(gh issue comment *)"
+            --max-turns 30
+
+      - name: Assert exactly one outcome (diagnosis comment posted THIS run)
+        if: always() && steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          # Scoped to THIS run's marker (see the prompt's mandated prefix
+          # above) — matching any historical "diagnosis" text would
+          # false-pass on a re-run where the agent posted nothing new.
+          # NOTE: `gh`'s `--jq` flag does NOT accept jq's `--arg` (verified:
+          # "unknown arguments" exit 1) — pipe --json output to the real jq
+          # binary instead, which does. This is the exact defect a prior
+          # revision of this workflow had, silently masked by `|| echo 0`.
+          count=$(gh issue view "$ISSUE_NUMBER" --json comments \
+            | jq --arg m "remediate-diagnosis-run:${GITHUB_RUN_ID}" \
+              '[.comments[] | select(.body | contains($m))] | length')
+          if [ "${count:-0}" -lt 1 ]; then
+            echo "::error::No diagnosis comment carrying this run's marker found on issue #${ISSUE_NUMBER}." >&2
+            exit 1
+          fi
+          echo "Outcome-assert OK: diagnosis comment present on issue #${ISSUE_NUMBER} for run ${GITHUB_RUN_ID}."
+
+  # ===========================================================================
+  # REMEDIATE (armed). Runs when dry_run == 'false'. The agent PROPOSES a
+  # branch; this job's own steps — not the agent — VERIFY the three test
+  # gates and OPEN the PR. If any gate fails, no PR opens and the run
+  # escalates instead, carrying the gate transcript as evidence.
+  # ===========================================================================
+  remediate:
+    name: Remediate (armed — test-gated fix PR or escalation)
+    if: inputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Explicitly NOTHING else: no `actions:` (cannot dispatch the quarterly
+    # publish, and never needs to read the Actions run log either — the
+    # daily cap is tracked via issue comments in guard.sh), no `id-token:`.
+    # R2 secret names never appear in this job's env or anywhere in this
+    # file.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity for the agent's local commit
+        run: |
+          git config user.name "shadow-atlas-remediate[bot]"
+          git config user.email "shadow-atlas-remediate@users.noreply.github.com"
+
+      - name: Run pre-flight guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_PREFIX: ${{ env.BRANCH_PREFIX }}
+          # Routed through env: (not inline ${{ }} in the run: args) so
+          # typed workflow inputs never interpolate directly into a shell
+          # command line, consistent with every other step in this file.
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          result=$(bash packages/shadow-atlas/scripts/remediation/guard.sh \
+            "$SOURCE_ID" \
+            "$ISSUE_NUMBER")
+          echo "Guard result: $result"
+          proceed="${result%%:*}"
+          proceed="${proceed#proceed=}"
+          echo "proceed=$proceed" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble remediation prompt contract
+        id: contract
+        if: steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          gh issue view "$ISSUE_NUMBER" --json body --jq '.body' > /tmp/issue-body.md
+          awk '/```json/{flag=1; next} /```/{flag=0} flag' /tmp/issue-body.md > /tmp/breach-record.json
+          if [ ! -s /tmp/breach-record.json ]; then
+            echo "::error::Could not extract a fenced json breach record from issue #$ISSUE_NUMBER body." >&2
+            exit 1
+          fi
+
+          BRANCH="remediate/${SOURCE_ID}/$(date -u +%Y%m%d)"
+          # Written to a plain file (not $GITHUB_OUTPUT) — sidesteps the
+          # round-1 GITHUB_OUTPUT-injection class entirely (a static heredoc
+          # delimiter wrapping issue-body-derived text could be overridden by
+          # a crafted issue body). The branch name is workflow-computed from
+          # trusted inputs only (SOURCE_ID + date), never issue-body content.
+          echo -n "$BRANCH" > /tmp/branch-name.txt
+
+          # Committed lookup script — see the diagnose job's comment for why
+          # this replaces the round-1 `npx tsx -e ".../source-health.js"` (a
+          # dead-on-arrival MODULE_NOT_FOUND import).
+          npx tsx packages/shadow-atlas/scripts/remediation/registry-lookup.ts "$SOURCE_ID" > /tmp/registry-row.json
+
+          cat > /tmp/prompt.md <<PROMPT_EOF
+          You are proposing a remediation for a Shadow Atlas source-freshness SLO breach.
+          You must produce EXACTLY ONE of the following two outcomes — never both, never neither.
+          You do NOT run the test gates and you do NOT open the PR yourself — the workflow does
+          both, after you push your branch. Your job is to propose a correct, test-passable fix.
+
+          OUTCOME A — Propose a fix (the workflow gates + opens the PR after you push):
+            1. git checkout -b ${BRANCH}
+            2. Edit ONLY files under: ${EDIT_SURFACE} (config/code) and their tests.
+               NEVER edit .github/workflows/**, any signing/manifest/pin/publish code,
+               output/**, or dist/**.
+            3. Write a file at /tmp/pr-sections.md containing exactly these sections, in
+               order, as your proposed PR body content: "## Breach evidence" (the breach
+               record JSON verbatim, given below), "## Diagnosis", "## What was tried"
+               (probe transcript), "## Fix" (what you changed and why), "## Rollback note".
+               Do NOT write a "## Proof" section yourself — the workflow appends the real
+               gate output (vitest, changes:check, curl -I) to the PR body after verifying
+               it independently; a self-reported Proof section would not be evidence.
+            4. git add <only the files you edited># then git commit -m "..."
+            5. git push origin ${BRANCH}
+            6. Stop. Do not run gh pr create — the workflow verifies your branch and opens
+               the PR itself only if all three gates pass.
+
+          OUTCOME B — Escalation (use this if no automatable fix exists — upstream discontinued,
+          licensing wall, CAPTCHA, requires human judgment):
+            gh issue comment ${ISSUE_NUMBER} --body-file <path> with a body containing: what failed,
+            what was tried, proposed fix (or "no automatable fix: <reason>"). Prefix the comment with
+            the literal marker line "<!-- remediate-escalation-run:${GITHUB_RUN_ID} -->".
+            Then apply the label: gh issue edit ${ISSUE_NUMBER} --add-label atlas-needs-human
+
+          NEVER configure auto-merge on any PR (you are not creating the PR in this job anyway).
+          NEVER edit files outside the allowlist above. NEVER push any branch other than ${BRANCH}.
+          NEVER use a refspec push (e.g. "git push origin ${BRANCH}:main") — push ${BRANCH} to itself
+          only. A human will review and merge the eventual PR — you do not merge.
+
+          # Repo facts
+          - Package manager: npm (NOT pnpm/yarn).
+          - Edit surface: ${EDIT_SURFACE}
+          - Branch: ${BRANCH}
+          - The workflow's gates after your push (all three must pass before a PR opens):
+            npx vitest run packages/shadow-atlas/src/__tests__/unit/acquisition/ (green);
+            npm run changes:check -w @voter-protocol/shadow-atlas -- --db /tmp/fresh.db --summary /tmp/s.json (exit 0);
+            curl -I of your corrected URL (2xx/3xx).
+
+          # Guardrails (verbatim, non-negotiable)
+          > the agent lane fixes SOURCE-ACQUISITION config/code via TEST-GATED PRs only; it NEVER
+          > touches published artifacts, the signed manifest, trust pins, or the operator-
+          > dispatched publish; escalation must carry evidence (what failed, what was tried,
+          > proposed fix).
+
+          # Breach record (verbatim)
+          \`\`\`json
+          $(cat /tmp/breach-record.json)
+          \`\`\`
+
+          # Source registry row (verbatim, configSite is your edit target)
+          \`\`\`json
+          $(cat /tmp/registry-row.json)
+          \`\`\`
+          PROMPT_EOF
+
+          {
+            echo "prompt<<PROMPT_OUTPUT_EOF_${GITHUB_RUN_ID}"
+            cat /tmp/prompt.md
+            echo "PROMPT_OUTPUT_EOF_${GITHUB_RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Run remediation agent (proposes a branch OR escalates — never opens a PR itself)
+        if: steps.guard.outputs.proceed == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.contract.outputs.prompt }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git checkout -b remediate/*),Bash(git add *),Bash(git commit *),Bash(git push origin remediate/*),Bash(gh issue comment *),Bash(gh issue edit *)"
+            --max-turns 30
+
+      - name: Fetch the proposed branch (if pushed)
+        id: fetch_branch
+        if: always() && steps.guard.outputs.proceed == 'true'
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------------------------------------------------------------------
+      # REAL GATES — workflow steps, not agent-run. The agent's prompt tells
+      # it what these gates are, but it never runs or self-certifies them:
+      # these steps do, against the agent's actual pushed branch, and the PR
+      # only opens (further below) if every one of them passed.
+      # ---------------------------------------------------------------------
+      - name: "Gate 1/3: acquisition vitest suite (green required)"
+        id: gate_vitest
+        if: always() && steps.guard.outputs.proceed == 'true' && steps.fetch_branch.outputs.pushed == 'true'
+        run: |
+          set -euo pipefail
+          git checkout "origin/${{ steps.contract.outputs.branch }}" -- . 2>/dev/null || \
+            git checkout "${{ steps.contract.outputs.branch }}"
+          npx vitest run packages/shadow-atlas/src/__tests__/unit/acquisition/ --reporter=dot 2>&1 | tee /tmp/gate-vitest.log
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: "Gate 2/3: changes:check exits 0 on a fresh DB"
+        id: gate_changes_check
+        if: always() && steps.guard.outputs.proceed == 'true' && steps.fetch_branch.outputs.pushed == 'true'
+        run: |
+          set -euo pipefail
+          rm -f /tmp/fresh.db /tmp/s.json
+          npm run changes:check -w @voter-protocol/shadow-atlas -- --db /tmp/fresh.db --summary /tmp/s.json 2>&1 | tee /tmp/gate-changes-check.log
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: "Gate 3/3: live curl -I probe of the corrected URL"
+        id: gate_curl
+        if: always() && steps.guard.outputs.proceed == 'true' && steps.fetch_branch.outputs.pushed == 'true'
+        env:
+          SOURCE_ID: ${{ inputs.source_id }}
+        run: |
+          set -euo pipefail
+          # Re-resolve the (possibly agent-corrected) registry row from the
+          # PROPOSED branch's checked-out tree, so the probe targets the
+          # fix, not the pre-fix URL.
+          url=$(npx tsx packages/shadow-atlas/scripts/remediation/registry-lookup.ts "$SOURCE_ID" \
+            | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const r=JSON.parse(d);const u=typeof r.url==='string'?r.url:(r.url&&r.url.template)||'';console.log(u);});")
+          if [ -z "$url" ]; then
+            echo "::error::Could not resolve a probe URL from the registry row." >&2
+            exit 1
+          fi
+          status=$(curl -s -o /dev/null -w '%{http_code}' -I "$url" || echo "000")
+          echo "curl -I $url -> HTTP $status" | tee /tmp/gate-curl.log
+          if ! echo "$status" | grep -Eq '^(2|3)[0-9][0-9]$'; then
+            echo "::error::Probe returned HTTP $status (expected 2xx/3xx)." >&2
+            exit 1
+          fi
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deny-enforcement (edit-surface check on the proposed branch)
+        id: denycheck
+        if: always() && steps.guard.outputs.proceed == 'true' && steps.fetch_branch.outputs.pushed == 'true'
+        env:
+          BRANCH: ${{ steps.contract.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "origin/main...origin/${BRANCH}" > /tmp/changed-paths.txt
+          bash packages/shadow-atlas/scripts/remediation/deny-check.sh /tmp/changed-paths.txt | tee /tmp/gate-denycheck.log
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open the test-gated fix PR (workflow step, not the agent)
+        id: open_pr
+        if: >-
+          always() && steps.guard.outputs.proceed == 'true' &&
+          steps.fetch_branch.outputs.pushed == 'true' &&
+          steps.gate_vitest.outputs.passed == 'true' &&
+          steps.gate_changes_check.outputs.passed == 'true' &&
+          steps.gate_curl.outputs.passed == 'true' &&
+          steps.denycheck.outputs.passed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          BRANCH: ${{ steps.contract.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git checkout "${BRANCH}"
+
+          {
+            if [ -f /tmp/pr-sections.md ]; then
+              cat /tmp/pr-sections.md
+            else
+              echo "## Breach evidence"
+              echo
+              echo '```json'
+              cat /tmp/breach-record.json 2>/dev/null || echo '{}'
+              echo '```'
+            fi
+            echo
+            echo "## Proof"
+            echo '(workflow-verified — not agent-reported)'
+            echo
+            echo '### Acquisition vitest suite'
+            echo '```'
+            tail -n 40 /tmp/gate-vitest.log
+            echo '```'
+            echo
+            echo '### changes:check (fresh DB)'
+            echo '```'
+            tail -n 40 /tmp/gate-changes-check.log
+            echo '```'
+            echo
+            echo '### Live probe'
+            echo '```'
+            cat /tmp/gate-curl.log
+            echo '```'
+          } > /tmp/pr-body.md
+
+          gh pr create \
+            --title "fix(shadow-atlas): remediate ${SOURCE_ID}" \
+            --head "${BRANCH}" \
+            --base main \
+            --body-file /tmp/pr-body.md
+          echo "opened=true" >> "$GITHUB_OUTPUT"
+
+      - name: Escalate if any gate failed, or the agent chose escalation
+        if: >-
+          always() && steps.guard.outputs.proceed == 'true' &&
+          (steps.fetch_branch.outputs.pushed != 'true' ||
+           steps.gate_vitest.outputs.passed != 'true' ||
+           steps.gate_changes_check.outputs.passed != 'true' ||
+           steps.gate_curl.outputs.passed != 'true' ||
+           steps.denycheck.outputs.passed != 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          SOURCE_ID: ${{ inputs.source_id }}
+        run: |
+          set -euo pipefail
+          # Only escalate here if the agent didn't already escalate itself
+          # (Outcome B) — check for its marker first so this doesn't post a
+          # redundant second escalation comment. (Same `--jq --arg` fix as
+          # the diagnose job's outcome-assert: pipe to real jq, not gh --jq.)
+          already_escalated=$(gh issue view "$ISSUE_NUMBER" --json comments \
+            | jq --arg m "remediate-escalation-run:${GITHUB_RUN_ID}" \
+              '[.comments[] | select(.body | contains($m))] | length')
+          if [ "${already_escalated:-0}" -gt 0 ]; then
+            echo "Agent already escalated this run (Outcome B) — not posting a duplicate."
+            exit 0
+          fi
+
+          {
+            echo "<!-- remediate-gate-failure-run:${GITHUB_RUN_ID} -->"
+            echo "Automated remediation for \`${SOURCE_ID}\` did not produce a mergeable fix this run."
+            echo
+            echo "**What failed:** one or more workflow gates did not pass (or no branch was pushed)."
+            echo
+            echo "| Gate | Result |"
+            echo "|---|---|"
+            echo "| Branch pushed | ${{ steps.fetch_branch.outputs.pushed || 'false' }} |"
+            echo "| Acquisition vitest | ${{ steps.gate_vitest.outputs.passed || 'false' }} |"
+            echo "| changes:check (fresh DB) | ${{ steps.gate_changes_check.outputs.passed || 'false' }} |"
+            echo "| Live curl probe | ${{ steps.gate_curl.outputs.passed || 'false' }} |"
+            echo "| Edit-surface deny-check | ${{ steps.denycheck.outputs.passed || 'false' }} |"
+            echo
+            echo "**Transcript:**"
+            echo '```'
+            for f in /tmp/gate-vitest.log /tmp/gate-changes-check.log /tmp/gate-curl.log /tmp/gate-denycheck.log; do
+              if [ -f "$f" ]; then
+                echo "--- $f ---"
+                tail -n 60 "$f"
+              fi
+            done
+            echo '```'
+          } > /tmp/escalation-body.md
+
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/escalation-body.md
+          gh issue edit "$ISSUE_NUMBER" --add-label atlas-needs-human
+
+      - name: Outcome-assert (exactly one of PR / escalation, never both, never neither)
+        if: always() && steps.guard.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          pr_count=$(gh pr list --state open --json headRefName \
+            | jq --arg p "remediate/${SOURCE_ID}/" '[.[] | select(.headRefName | startswith($p))] | length')
+
+          escalated=$(gh issue view "$ISSUE_NUMBER" --json labels \
+            --jq '[.labels[].name] | index("atlas-needs-human") != null')
+
+          pr_exists="false"
+          if [ "${pr_count:-0}" -gt 0 ]; then pr_exists="true"; fi
+
+          if [ "$pr_exists" = "true" ] && [ "$escalated" = "true" ]; then
+            echo "::error::Both a fix PR AND an escalation exist for ${SOURCE_ID} — invariant violated." >&2
+            exit 1
+          fi
+          if [ "$pr_exists" = "false" ] && [ "$escalated" = "false" ]; then
+            echo "::error::Neither a fix PR NOR an escalation exists for ${SOURCE_ID} after the remediate job ran." >&2
+            exit 1
+          fi
+
+          # Stamp the 72h cooldown marker on the issue regardless of which
+          # outcome fired, so a second attempt on this source waits 72h even
+          # if the fix later fails to heal.
+          {
+            echo "<!-- remediate-cooldown-marker -->"
+            echo "Remediation attempt completed for \`${SOURCE_ID}\` (run ${GITHUB_RUN_ID})."
+          } > /tmp/cooldown-comment.md
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/cooldown-comment.md
+
+          echo "Outcome-assert OK: exactly one of {PR, escalation} exists for ${SOURCE_ID}."

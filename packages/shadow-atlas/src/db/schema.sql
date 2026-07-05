@@ -94,3 +94,38 @@ CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_events_muni ON events(muni_id);
 CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind);
 CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);
+
+-- source_health: per-source freshness/reachability ledger (self-healing
+-- data ops, docs/design/SELF-HEALING-DATA-OPS.md #Health ledger). One row
+-- per SourceHealthConfig.id; vintage sources additionally get a derived
+-- "<id>@next-vintage" row (same table, no schema change) for the
+-- window-gated next-vintage probe. Populated by BOTH the fetch lane
+-- (change-detector.ts, via check-changes.ts) and the probe lane
+-- (source-prober.ts) — never both for the same source_id in one run.
+--
+-- probe_consecutive_failures / last_probe_at are a SEPARATE reachability
+-- clock: fetch-lane rows (muni sources + the 2 congressional seeds) are
+-- content-checked only when due (annual triggers), but MAY additionally get
+-- a daily reachability probe. That probe writes ONLY these two columns —
+-- never consecutive_failures/last_success_at/last_error, which the content
+-- clock alone owns. A probe 200 can never mask (and a probe failure can
+-- never fabricate) a content-fetch outcome.
+--
+-- registered_at stamps the first time this module ever recorded ANY
+-- attempt (success, failure, or probe) for source_id, so the never-
+-- succeeded staleness grace period (evaluateSourceHealth's opts.registeredAt)
+-- has a real, persisted anchor instead of re-deriving "now" every run.
+CREATE TABLE IF NOT EXISTS source_health (
+  source_id            TEXT PRIMARY KEY,      -- matches SourceHealthConfig.id
+  last_attempt_at      TEXT,
+  last_success_at      TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  last_error           TEXT,                  -- 'HTTP 404 …' / 'timeout' / 'parse: …'
+  breach_state         TEXT NOT NULL DEFAULT 'ok',
+                       -- ok | breached | remediating | escalated | manual
+  breach_opened_at     TEXT,
+  remediation_ref      TEXT,                  -- breach-issue / fix-PR URL
+  probe_consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  last_probe_at         TEXT,
+  registered_at         TEXT                  -- first attempt of any kind, ever
+);

@@ -332,6 +332,14 @@ export const US_JURISDICTION: JurisdictionConfig = {
     // Tribal / Native governance
     'aiannh': 22,
 
+    // Statistical (not governance) — Census tracts, overflow slot 23
+    'statistical': 23, 'tract': 23,
+
+    // Hydrologic (not governance) — USGS Watershed Boundary Dataset, slot 17
+    // (Conservation slot; hydrologic units are labeled distinctly from
+    // elected conservation districts in per-district provenance)
+    'hydrologic': 17, 'huc': 17, 'watershed': 17,
+
     // Overflow
     'overflow_1': 22, 'overflow_2': 23,
   },

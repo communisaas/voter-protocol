@@ -213,6 +213,25 @@ export interface ProviderSourceMetadata {
 
   /** How updates are monitored */
   updateMonitoring: UpdateMonitoringMethod;
+
+  /**
+   * Publish-exclusion gate (P17-wave1-ingest, 2026-07-04). When set, this
+   * source's districts MUST be excluded from any SIGNED publish artifact
+   * until the named confirmation is recorded — ingest-dev and unsigned
+   * local builds may still proceed. Optional/additive: absent means no
+   * exclusion (the pre-existing default for every prior source).
+   *
+   * The publish pipeline (scripts/publish-source.ts) is the enforcement
+   * point — it must filter out any NormalizedBoundary whose
+   * source.publishExclusion is set before signing, and MISSING-SLOTS-
+   * SOURCING.md (commons repo) is the one place a confirmation is recorded
+   * to lift the gate (never inferred from code alone).
+   */
+  publishExclusion?: {
+    readonly reason: string;
+    /** Human-readable pointer to the confirmation gate (operator node id or doc anchor). */
+    readonly pendingConfirmation: string;
+  };
 }
 
 /**

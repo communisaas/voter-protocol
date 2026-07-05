@@ -142,10 +142,6 @@ DB_PATH=/data/shadow-atlas.db
 # IPFS (Storacha gateway)
 IPFS_GATEWAY=https://w3s.link
 
-# RDH API (Redistricting Data Hub) - Optional
-RDH_USERNAME=  # Get from vault
-RDH_PASSWORD=  # Get from vault
-
 # Optional
 CORS_ORIGINS=*
 RATE_LIMIT_PER_MINUTE=60

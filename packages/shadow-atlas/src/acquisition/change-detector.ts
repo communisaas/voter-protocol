@@ -136,7 +136,7 @@ interface SafeCheckResult {
  * sources whose URL would otherwise misclassify — e.g. a githubusercontent feed
  * that is congressional in nature but not a TIGER URL).
  */
-interface CanonicalSourceSeed {
+export interface CanonicalSourceSeed {
   readonly id: string;
   readonly url: string;
   readonly boundaryType?: string;
@@ -151,7 +151,7 @@ interface CanonicalSourceSeed {
  * source -> selection -> muni walk. URLs are byte-identical to the live ingest
  * paths (us-provider / ingest-legislators / tiger-manifest).
  */
-const CONGRESSIONAL_CANONICAL_SOURCES: readonly CanonicalSourceSeed[] = [
+export const CONGRESSIONAL_CANONICAL_SOURCES: readonly CanonicalSourceSeed[] = [
   {
     // congress-legislators current roster (YAML). Not a TIGER URL, so
     // classifyBoundaryType would mislabel it 'municipal' — set explicitly.
@@ -174,6 +174,25 @@ const CONGRESSIONAL_CANONICAL_SOURCES: readonly CanonicalSourceSeed[] = [
 ];
 
 /**
+ * Health-ledger attempt outcome, reported per `checkForChange` call.
+ *
+ * Additive observation only (self-healing data ops, §Health ledger): this
+ * hook fires on EVERY checkForChange attempt, success or failure, so a
+ * fetch error can no longer die silently inside the try/catch. It carries
+ * NO change-detection semantics of its own — `success` here means "we got a
+ * usable validator from upstream", independent of whether that validator
+ * differs from the previously stored one (that comparison still decides
+ * changeType/ChangeReport untouched).
+ */
+export interface SourceAttemptOutcome {
+  readonly sourceId: string;
+  readonly success: boolean;
+  readonly error?: string;
+}
+
+export type SourceAttemptHook = (outcome: SourceAttemptOutcome) => void;
+
+/**
  * Change Detector
  *
  * Event-driven change detection using HTTP headers.
@@ -185,7 +204,8 @@ export class ChangeDetector {
   constructor(
     private readonly db: DatabaseAdapter,
     private readonly retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG,
-    batchConfig: Partial<BatchConfig> = {}
+    batchConfig: Partial<BatchConfig> = {},
+    private readonly onAttempt?: SourceAttemptHook
   ) {
     this.batchConfig = {
       ...DEFAULT_BATCH_CONFIG,
@@ -215,8 +235,23 @@ export class ChangeDetector {
         (await this.fetchContentHash(source.url));
 
       if (!newChecksum) {
+        // No validator served — checksum semantics unchanged (still "no
+        // change"), but the ledger hook still counts this as a fetch outcome:
+        // an upstream that stops sending validators looks the same to a
+        // health ledger as one that 404s, and the design's error-swallow
+        // fix must catch it too.
+        this.onAttempt?.({
+          sourceId: source.id,
+          success: false,
+          error: 'no validator served (no etag/last-modified/body)',
+        });
         return null;
       }
+
+      // Reaching here means upstream served a usable validator — a real
+      // fetch-lane success, independent of whether it differs from the
+      // previously stored checksum.
+      this.onAttempt?.({ sourceId: source.id, success: true });
 
       // Compare with stored checksum
       if (source.lastChecksum === newChecksum) {
@@ -242,6 +277,10 @@ export class ChangeDetector {
         sourceId: source.id,
         error: message,
       });
+      // Health-ledger observation ONLY (self-healing data ops, §Health
+      // ledger) — this is additive; it does not alter the return value,
+      // does not throw, and does not change what counts as a "change".
+      this.onAttempt?.({ sourceId: source.id, success: false, error: message });
       return null;
     }
   }
@@ -643,8 +682,16 @@ export class ChangeDetector {
    * - A separate canonical_sources table with trigger configuration
    * - Proper source classification by boundary type
    * - Configurable update schedules per source type
+   *
+   * Public (not just an internal helper): this is the authoritative
+   * "fetch lane" surface — the health-ledger lane-exclusivity assertion
+   * (source-prober.ts) reads it back by id to verify every registry row
+   * declared `lane: 'fetch'` is actually reachable through this walk,
+   * recording a config breach otherwise. No behavior change from making
+   * this callable externally; it was already the surface checkForChange's
+   * callers rely on implicitly.
    */
-  private async getAllCanonicalSources(): Promise<readonly CanonicalSource[]> {
+  async getAllCanonicalSources(): Promise<readonly CanonicalSource[]> {
     // Get all municipalities to find their sources
     const municipalities = await this.db.listMunicipalities(10000, 0);
     const canonicalSources: CanonicalSource[] = [];

@@ -138,29 +138,6 @@ export const DC_URLS = {
 } as const;
 
 // ============================================================================
-// Redistricting Data Hub (RDH)
-// ============================================================================
-
-/**
- * Redistricting Data Hub endpoints
- *
- * Authority: Princeton Gerrymandering Project (research-institution)
- * License: Varies by dataset
- * Cost: $0
- * Update Frequency: Post-election (Q1) and post-redistricting
- */
-export const RDH_URLS = {
-  /** RDH main site */
-  mainSite: 'https://redistrictingdatahub.org',
-
-  /** RDH download page */
-  downloads: 'https://redistrictingdatahub.org/data/download-data',
-
-  /** RDH API endpoint (requires authentication) */
-  api: 'https://redistrictingdatahub.org/wp-json/download/list',
-} as const;
-
-// ============================================================================
 // IPFS Gateways
 // ============================================================================
 
