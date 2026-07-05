@@ -436,6 +436,16 @@ export interface SplitOversizedChunkResult {
   shards: number;
   /** Per-shard written artifacts, index-aligned with shard number. */
   shardArtifacts: WrittenArtifact[];
+  /**
+   * Set when the split converged on an irreducible shard above the headroom
+   * target: a single street whose own serialized ranges exceed
+   * `targetBytes / SPLIT_HEADROOM` (a street's ranges are never split across
+   * shards, so no shard count isolates it further). Accepted — not thrown —
+   * because the §1 contract's HARD limits are the corpus-wide p95 and the
+   * per-file max, both still enforced by `chunkSizeGuard` over every emitted
+   * file; the headroom target is the splitter's aim, not the contract line.
+   */
+  floorAccepted?: { worstShardBytes: number; shards: number };
 }
 
 /**
@@ -451,11 +461,18 @@ export interface SplitOversizedChunkResult {
  * N grows. It CANNOT help a single street whose own serialized ranges alone
  * exceed the target: that street's entire byte weight lands in one shard
  * bucket no matter how large N gets (a street's ranges are never split
- * across shards). Hitting `MAX_SHARDS` without converging is exactly that
- * case — a single oversized street, not a shardable skew — so this throws
- * rather than silently publishing a shard that still breaches the guard.
- * Nothing is written to `addressesDir` on this path (the failure is detected
- * before any file touches disk).
+ * across shards). Such an irreducible shard is ACCEPTED (with
+ * `floorAccepted` set so the caller can log it) as long as it clears the
+ * hard per-file `CHUNK_MAX_LIMIT_BYTES` — the headroom target is the
+ * splitter's aim, while the contract's real lines are the corpus-wide p95
+ * and the per-file max, both still enforced by `chunkSizeGuard` over every
+ * emitted file. (Real case: a national build surfaced a ~245KB single-street
+ * shard — within both hard limits; refusing to publish it was over-strict.)
+ * This throws ONLY when the irreducible shard exceeds the hard max itself —
+ * that would breach the contract no matter how the split is arranged, and
+ * would need range-level splitting (a v3 scheme change). Nothing is written
+ * to `addressesDir` on the throw path (the failure is detected before any
+ * file touches disk).
  *
  * Deterministic by contract: same input chunk → same N → same bytes on every
  * re-run (no randomness, no wall-clock, no Map/Set iteration-order
@@ -473,21 +490,28 @@ export function splitOversizedChunk(
   let buckets: Record<string, StreetRecords>[];
   let serialized: Buffer[];
   let worst: number;
+  let worstIsIrreducible: boolean;
   for (;;) {
     buckets = partitionStreets(chunk, shards);
     serialized = buckets.map((streets, i) => serializeShard(chunk.zip, i, shards, streets));
     worst = Math.max(...serialized.map((b) => b.length));
-    if (worst <= targetBytes / SPLIT_HEADROOM || shards >= MAX_SHARDS) break;
+    const worstIdx = serialized.findIndex((b) => b.length === worst);
+    // A worst shard holding exactly one street cannot shrink with more
+    // shards — a street's ranges are never split across shards.
+    worstIsIrreducible = Object.keys(buckets[worstIdx]).length <= 1;
+    if (worst <= targetBytes / SPLIT_HEADROOM || worstIsIrreducible || shards >= MAX_SHARDS) break;
     shards *= 2;
   }
 
-  if (worst > targetBytes / SPLIT_HEADROOM) {
+  if (worst > CHUNK_MAX_LIMIT_BYTES) {
     throw new Error(
-      `chunk split guard: ZIP ${chunk.zip} still has a ${worst.toLocaleString()}B shard at ` +
-        `${shards.toLocaleString()} shards (target ${Math.round(targetBytes / SPLIT_HEADROOM).toLocaleString()}B) — ` +
-        `a single street's own bytes exceed the target; doubling cannot help. Producer bug, do not publish.`
+      `chunk split guard: ZIP ${chunk.zip} has an irreducible ${worst.toLocaleString()}B shard ` +
+        `(hard max ${CHUNK_MAX_LIMIT_BYTES.toLocaleString()}B) — a single street's own bytes exceed the ` +
+        `per-file contract limit; sharding cannot help. Producer bug (needs range-level splitting), do not publish.`
     );
   }
+  const floorAccepted =
+    worst > targetBytes / SPLIT_HEADROOM ? { worstShardBytes: worst, shards } : undefined;
 
   const shardArtifacts: WrittenArtifact[] = serialized.map((buf, i) => {
     const path = join(addressesDir, `${chunk.zip}.${i}.json`);
@@ -507,7 +531,7 @@ export function splitOversizedChunk(
   const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
   writeFileSync(join(addressesDir, `${chunk.zip}.json`), stubBuf);
 
-  return { stub, shards, shardArtifacts };
+  return { stub, shards, shardArtifacts, ...(floorAccepted ? { floorAccepted } : {}) };
 }
 
 export interface WriteChunkAutoSplitResult {
@@ -520,6 +544,8 @@ export interface WriteChunkAutoSplitResult {
    * 1 + shards for a split chunk (stub + every shard).
    */
   emittedFileBytes: number[];
+  /** Present when the split accepted an irreducible over-target shard — see `SplitOversizedChunkResult.floorAccepted`. */
+  floorAccepted?: { worstShardBytes: number; shards: number };
 }
 
 /**
@@ -540,7 +566,7 @@ export function writeChunkFileAutoSplit(
     const entry = writeChunkFile(addressesDir, chunk);
     return { entry, emittedFileBytes: [entry.bytes] };
   }
-  const { stub, shardArtifacts } = splitOversizedChunk(addressesDir, chunk, targetBytes);
+  const { stub, shardArtifacts, floorAccepted } = splitOversizedChunk(addressesDir, chunk, targetBytes);
   const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
   const entry: ChunkIndexEntry = {
     streetCount: Object.keys(chunk.streets).length,
@@ -550,6 +576,7 @@ export function writeChunkFileAutoSplit(
   return {
     entry,
     emittedFileBytes: [stubBuf.length, ...shardArtifacts.map((a) => a.bytes)],
+    ...(floorAccepted ? { floorAccepted } : {}),
   };
 }
 
