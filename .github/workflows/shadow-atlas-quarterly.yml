@@ -76,10 +76,10 @@ on:
         type: string
         default: 'unknown'
       nad_url:
-        description: 'NAD text-release zip URL (streamed through funzip, never stored on disk). Empty skips NAD (src:0) and builds a ranges-only index.'
+        description: 'NAD text-release zip URL (streamed through funzip, never stored on disk). Empty (default) skips NAD (src:0) and builds a robust ranges-only index; pass the DOT release URL only when that upstream is healthy. Default was the DOT URL until its service outage made a fragile external the publish default.'
         required: false
         type: string
-        default: 'https://data.transportation.gov/download/fc2s-wawr/application/x-zip-compressed'
+        default: ''
       address_states:
         description: 'CSV of states for the address index (e.g. DE,RI,DC). Empty = all states.'
         required: false
