@@ -370,4 +370,18 @@ export class SQLiteAdapter implements DatabaseAdapter {
   async close(): Promise<void> {
     this.db.close();
   }
+
+  /**
+   * Escape hatch to the underlying better-sqlite3 connection.
+   *
+   * The event-sourced DatabaseAdapter interface has no notion of the
+   * source_health ledger (it is a separate, additive concern — see
+   * src/acquisition/source-health.ts). Rather than widen the DatabaseAdapter
+   * interface for one table, callers that need direct ledger access (the
+   * health-ledger store, the prober) share this same connection so writes
+   * land in the identical DB file/transaction scope as the event log.
+   */
+  rawDb(): Database.Database {
+    return this.db;
+  }
 }

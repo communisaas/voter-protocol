@@ -224,3 +224,18 @@ export {
   getPlaceGEOIDs,
   getExpectedPlaceCount,
 } from './place-geoids.js';
+
+// Wave-1 expected counts (P17-wave1-ingest): judicial districts, EPA CWS SAB,
+// EIA territories, USGS WBD HUC-8. See tiger-expected-counts.ts for the
+// TIGER-native vtd/tract counts this wave also relies on (unchanged).
+export {
+  EXPECTED_JUDICIAL_DISTRICT_COUNT,
+  EXPECTED_EPA_CWS_COUNT_RANGE,
+  EXPECTED_EIA_TERRITORY_COUNT_RANGE,
+  EXPECTED_WBD_HUC8_COUNT,
+  validateJudicialDistrictCount,
+  validateEpaCwsCount,
+  validateEiaTerritoryCount,
+  validateWbdHuc8Count,
+  type CountValidation,
+} from './wave1-expected-counts.js';

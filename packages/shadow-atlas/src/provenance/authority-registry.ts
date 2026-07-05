@@ -548,12 +548,14 @@ const AUTHORITY_DATA: Record<BoundaryType, AuthorityEntry> = {
     authorityEntity: 'County Elections Office',
     legalBasis: 'State Election Code',
     primarySources: [
-      // National aggregator - best comprehensive source for VTD data
+      // National source - TIGER 2020 PL 94-171 redistricting data product.
+      // 2020-vintage VTD, frozen until the 2030 cycle; MT/OR have partial coverage.
+      // Not the annual TIGER/Line release (which omits VTDs) - the PL product.
       {
-        name: 'Redistricting Data Hub',
-        entity: 'Princeton Gerrymandering Project',
-        jurisdiction: '*', // All states
-        url: 'https://redistrictingdatahub.org/data/download-data/',
+        name: 'TIGER 2020 PL VTD',
+        entity: 'US Census Bureau',
+        jurisdiction: '*', // All states (MT/OR partial)
+        url: 'https://www2.census.gov/geo/tiger/TIGER2020PL/',
         format: 'shapefile',
         machineReadable: true,
       },
@@ -599,7 +601,7 @@ const AUTHORITY_DATA: Record<BoundaryType, AuthorityEntry> = {
         machineReadable: true,
       },
     ],
-    aggregatorSources: [], // VTDs not in TIGER - correct
+    aggregatorSources: [], // TIGER 2020 PL VTD is carried as a primary source above, not an aggregator
     updateTriggers: [
       { type: 'redistricting', years: REDISTRICTING_YEARS },
       { type: 'event', description: 'Post-election precinct consolidation' },

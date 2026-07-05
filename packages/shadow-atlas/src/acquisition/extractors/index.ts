@@ -12,14 +12,4 @@
  * REPLACES: Orphaned scripts/ folder with proper architectural integration
  */
 
-export {
-  RDHVTDExtractor,
-  type RDHCredentials,
-  type RDHDataset,
-  type VTDExtractionResult,
-  type VTDExtractorOptions,
-  loadRDHCredentials,
-  createRDHVTDExtractor,
-  STATE_FIPS,
-  STATE_CODES,
-} from './rdh-vtd-extractor.js';
+export {};

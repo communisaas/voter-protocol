@@ -208,12 +208,6 @@ export const URL_ALLOWLIST_PATTERNS: readonly URLPattern[] = Object.freeze([
     description: 'Federal open data catalog',
     organization: 'US Government',
   },
-  {
-    type: 'exact',
-    domain: 'redistrictingdatahub.org',
-    description: 'Redistricting Data Hub',
-    organization: 'Redistricting Data Hub',
-  },
 
   // International sources
   {

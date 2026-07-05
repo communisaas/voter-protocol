@@ -266,9 +266,12 @@ US:
         lag: "6-18 months during redistricting"
         release_month: 7
 
-      - name: "Redistricting Data Hub"
-        url: "https://redistrictingdatahub.org/"
-        lag: "Near-realtime during redistricting"
+      # "Redistricting Data Hub" (https://redistrictingdatahub.org/) was
+      # removed as a live aggregator source: its license forbids commercial
+      # redistribution, and its precinct-level inputs were stale. The live
+      # authority registry (packages/shadow-atlas/src/provenance/authority-registry.ts)
+      # carries no RDH entry for `congressional` - Census TIGER is the sole
+      # aggregator. This entry is kept only as a historical record.
 
   city_council:
     authority_entity: "City Council"

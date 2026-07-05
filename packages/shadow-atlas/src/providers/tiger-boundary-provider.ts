@@ -54,7 +54,7 @@ import type {
 } from '../core/types/provider.js';
 import type { FeatureCollection } from 'geojson';
 import type { TIGERLayerType } from '../core/types.js';
-import { STATE_ABBR_TO_FIPS } from '../core/types.js';
+import { STATE_ABBR_TO_FIPS, STATE_FIPS_TO_NAME } from '../core/types.js';
 import { getExpectedCount, NATIONAL_TOTALS } from '../validators/tiger-expected-counts.js';
 import type { DownloadDLQ } from '../acquisition/download-dlq.js';
 import { logger } from '../core/utils/logger.js';
@@ -1376,10 +1376,37 @@ export class TIGERBoundaryProvider implements BoundaryProvider {
    * Get FTP URL for state file
    */
   private getStateFileUrl(layer: TIGERLayer, stateFips: string, year: number): string {
+    // VTD (Voting Districts) is a 2020 PL 94-171 redistricting product, not
+    // an annual TIGER/Line layer — it lives under a wholly different FTP
+    // tree (TIGER2020PL/STATE/{fips}_{STATE_NAME}/{fips}/tl_2020_{fips}_
+    // vtd20.zip) regardless of the requested `year`. The plain TIGER{year}/
+    // VTD/... path this function used to build for every layer 404s for
+    // vtd (verified live 2026-07-04: TIGER2024/VTD/tl_2024_44_vtd.zip and
+    // TIGER2020PL/STATE/2020/44/tl_2020_44_vtd20.zip both 404; the real
+    // path was confirmed live via TIGER2020PL/STATE/'s own directory
+    // listing). MT/OR partial coverage is a data-completeness fact of the
+    // 2020 PL product itself, not a URL-construction gap.
+    if (layer === 'vtd') {
+      return this.getVtd2020PlUrl(stateFips);
+    }
     const metadata = TIGER_FTP_LAYERS[layer];
     // Congressional Districts use cd119 suffix (119th Congress)
     const layerSuffix = layer === 'cd' ? 'cd119' : layer;
     return `https://www2.census.gov/geo/tiger/TIGER${year}/${metadata.ftpDir}/tl_${year}_${stateFips}_${layerSuffix}.zip`;
+  }
+
+  /**
+   * Get the FTP URL for a state's 2020 PL 94-171 VTD (Voting District) file.
+   * Frozen at the 2020 vintage until the 2030 redistricting cycle — the
+   * `year` parameter elsewhere in this class does not apply to this layer.
+   */
+  private getVtd2020PlUrl(stateFips: string): string {
+    const stateName = STATE_FIPS_TO_NAME[stateFips];
+    if (!stateName) {
+      throw new Error(`getVtd2020PlUrl: unknown state FIPS "${stateFips}" (no entry in STATE_FIPS_TO_NAME)`);
+    }
+    const dirSegment = `${stateFips}_${stateName.toUpperCase().replace(/\s+/g, '_')}`;
+    return `https://www2.census.gov/geo/tiger/TIGER2020PL/STATE/${dirSegment}/${stateFips}/tl_2020_${stateFips}_vtd20.zip`;
   }
 
   /**

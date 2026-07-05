@@ -83,7 +83,7 @@ export type SourceProvider =
   | 'county-gis'
   | 'municipal-gis'
   | 'arcgis-hub'
-  | 'redistricting-data-hub'
+  | 'tiger-2020-pl-vtd'
   | 'osm';
 
 /**
@@ -334,11 +334,12 @@ export const TIGER_AUTHORITY_RULES: Record<TIGERBoundaryType, TIGERAuthorityRule
       validMonths: 12,
     },
     precedence: [
-      // TIGER does NOT provide voting precincts (VTDs)
+      // Annual TIGER/Line does NOT provide voting precincts (VTDs)
       // County elections offices are authoritative (3,143 counties)
-      // Best aggregated source: Redistricting Data Hub (Princeton Gerrymandering Project)
+      // Best national aggregated source: TIGER 2020 PL VTD (Census Bureau
+      // 94-171 redistricting product; 2020-vintage, frozen until 2030 cycle)
       {
-        source: 'redistricting-data-hub',
+        source: 'tiger-2020-pl-vtd',
         authority: AuthorityLevel.HUB_AGGREGATOR,
         preference: 1,
       },
@@ -408,7 +409,12 @@ export const REDISTRICTING_AFFECTED_TYPES = new Set<TIGERBoundaryType>([
 ]);
 
 /**
- * Boundary types where TIGER does NOT provide data
+ * Boundary types where the annual TIGER/Line release does NOT provide data
+ *
+ * NOTE: 'voting_precinct' is absent from the annual TIGER/Line release, but
+ * IS present in the separate TIGER 2020 PL 94-171 redistricting product
+ * (see 'tiger-2020-pl-vtd' precedence entry above). This set tracks the
+ * annual-release gap that the census-tiger/doesTIGERProvide() helpers assume.
  */
 export const TIGER_NOT_PROVIDED_TYPES = new Set<TIGERBoundaryType>([
   'voting_precinct',

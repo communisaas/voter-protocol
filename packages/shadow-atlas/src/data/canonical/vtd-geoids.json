@@ -1,10 +1,10 @@
 {
   "meta": {
-    "source": "Census TIGER/Line 2024 (Redistricting Data Hub VEST 2020/2022)",
+    "source": "TIGER 2020 PL VTD (Census Bureau 94-171 redistricting product); originally extracted via VEST 2020/2022 precinct shapefiles, pending re-derivation directly from TIGER 2020 PL",
     "generated": "2026-01-10",
     "totalCount": 124179,
     "stateCount": 50,
-    "description": "Real VTD GEOIDs extracted from Redistricting Data Hub (VEST precinct shapefiles)",
+    "description": "Real VTD GEOIDs; vintage 2020 Redistricting cycle, frozen until 2030",
     "notes": [
       "These are actual voting tabulation district identifiers - DO NOT use Array.from() or sequential generation",
       "Format: SSCCCPPPPPP (State 2 + County 3 + Precinct 6)",

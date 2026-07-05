@@ -134,7 +134,7 @@ describe('AuthorityRegistry', () => {
     it('should return wildcard sources for states without state-specific sources', () => {
       // ZZ is invalid, but wildcard jurisdiction '*' matches all states
       const sources = registry.getPrimarySourcesForState('ZZ');
-      // Should return sources with jurisdiction='*' (e.g., RDH for VTDs)
+      // Should return sources with jurisdiction='*' (e.g., TIGER 2020 PL VTD)
       expect(sources.length).toBeGreaterThan(0);
       expect(sources.every((s) => s.jurisdiction === '*')).toBe(true);
     });
@@ -250,13 +250,13 @@ describe('AuthorityRegistry', () => {
       const entry = registry.getAuthority('voting_precinct');
       expect(entry.primarySources.length).toBeGreaterThan(0);
 
-      // RDH should be first source with wildcard jurisdiction
-      const rdhSource = entry.primarySources.find(
-        (s) => s.name === 'Redistricting Data Hub'
+      // TIGER 2020 PL VTD should be first source with wildcard jurisdiction
+      const nationalSource = entry.primarySources.find(
+        (s) => s.name === 'TIGER 2020 PL VTD'
       );
-      expect(rdhSource).toBeDefined();
-      expect(rdhSource?.jurisdiction).toBe('*');
-      expect(rdhSource?.entity).toContain('Princeton');
+      expect(nationalSource).toBeDefined();
+      expect(nationalSource?.jurisdiction).toBe('*');
+      expect(nationalSource?.entity).toContain('Census Bureau');
     });
 
     it('should have TIGER aggregator for county boundaries', () => {
@@ -791,15 +791,15 @@ describe('AuthorityRegistry', () => {
   });
 
   describe('VTD Authority Configuration', () => {
-    it('should have Redistricting Data Hub as first primary source', () => {
+    it('should have TIGER 2020 PL VTD as first primary source', () => {
       const entry = registry.getAuthority('voting_precinct');
       expect(entry.primarySources.length).toBeGreaterThan(0);
 
       const firstSource = entry.primarySources[0];
-      expect(firstSource.name).toBe('Redistricting Data Hub');
-      expect(firstSource.entity).toBe('Princeton Gerrymandering Project');
-      expect(firstSource.jurisdiction).toBe('*'); // All states
-      expect(firstSource.url).toBe('https://redistrictingdatahub.org/data/download-data/');
+      expect(firstSource.name).toBe('TIGER 2020 PL VTD');
+      expect(firstSource.entity).toBe('US Census Bureau');
+      expect(firstSource.jurisdiction).toBe('*'); // All states (MT/OR partial)
+      expect(firstSource.url).toBe('https://www2.census.gov/geo/tiger/TIGER2020PL/');
       expect(firstSource.format).toBe('shapefile');
       expect(firstSource.machineReadable).toBe(true);
     });
@@ -858,9 +858,9 @@ describe('AuthorityRegistry', () => {
       // The wildcard source should appear for any state query
       const sources = registry.getPrimarySourcesForState('CA');
 
-      // Should include RDH (wildcard) and CA-specific source
-      const rdhSource = sources.find((s) => s.name === 'Redistricting Data Hub');
-      expect(rdhSource).toBeDefined();
+      // Should include the national wildcard source and the CA-specific source
+      const nationalSource = sources.find((s) => s.name === 'TIGER 2020 PL VTD');
+      expect(nationalSource).toBeDefined();
 
       const caSource = sources.find(
         (s) => s.name === 'California Statewide Database'

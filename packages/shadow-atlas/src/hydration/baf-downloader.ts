@@ -46,7 +46,18 @@ export const STATE_FIPS: ReadonlyMap<string, string> = new Map([
   ['60', 'AS'], ['66', 'GU'], ['69', 'MP'], ['72', 'PR'], ['78', 'VI'],
 ]);
 
-const BAF_BASE_URL = 'https://www2.census.gov/geo/docs/maps-data/data/baf2020';
+export const BAF_BASE_URL = 'https://www2.census.gov/geo/docs/maps-data/data/baf2020';
+
+/**
+ * Build the real BAF-2020 zip URL for a state, from its FIPS code + postal
+ * abbreviation. This is the ONE place the `BlockAssign_ST{fips}_{abbr}.zip`
+ * naming pattern is defined — importers (e.g. the source-health probe lane)
+ * call this rather than re-deriving the pattern by hand, so the probe target
+ * can never drift from what this downloader actually fetches.
+ */
+export function buildBafUrl(fips: string, abbr: string): string {
+  return `${BAF_BASE_URL}/BlockAssign_ST${fips}_${abbr}.zip`;
+}
 
 // ============================================================================
 // Download Logic
@@ -133,7 +144,7 @@ export async function downloadBAFs(
 
     // Download with retry
     const zipName = `BlockAssign_ST${fips}_${abbr}.zip`;
-    const url = `${BAF_BASE_URL}/${zipName}`;
+    const url = buildBafUrl(fips, abbr);
 
     log(`[${i + 1}/${states.length}] Downloading ${zipName}...`);
 

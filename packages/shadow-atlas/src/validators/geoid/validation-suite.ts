@@ -111,16 +111,17 @@ export const GEOID_FORMATS: Record<ValidatableLayer, {
     example: '06001',
   },
   vtd: {
-    // NOTE: VTD data from Redistricting Data Hub (VEST) uses raw precinct identifiers,
-    // NOT standardized 11-digit Census GEOIDs. Format varies by state:
+    // NOTE: VTD precinct identifiers (originally sourced via VEST shapefiles,
+    // now TIGER 2020 PL VTD) are NOT standardized 11-digit Census GEOIDs in
+    // all states. Format varies by state:
     // - Delaware: "01-01", "01-02" (hyphenated)
     // - Florida: "0", "0000" (numeric)
     // - Iowa: "1-GR", "1NW" (alphanumeric with dashes)
     // - Illinois: "1700500BG01" (block group based)
-    // Accept any non-empty string for VEST precinct identifiers.
-    description: 'Voting Tabulation Districts (VEST precinct ID)',
+    // Accept any non-empty string for local precinct identifiers.
+    description: 'Voting Tabulation Districts (local precinct ID)',
     length: 'variable',
-    pattern: /^.+$/, // Any non-empty string (VEST uses local precinct formats)
+    pattern: /^.+$/, // Any non-empty string (local precinct formats vary by state)
     example: '06001000100',
   },
 } as const;

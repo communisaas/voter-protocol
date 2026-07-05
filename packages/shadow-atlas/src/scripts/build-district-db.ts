@@ -34,6 +34,11 @@ import { BatchOrchestrator } from '../services/batch-orchestrator.js';
 import type { StatewideWardState } from '../services/batch-orchestrator.types.js';
 import { SPECIAL_DISTRICT_PROVIDERS } from '../providers/special-district-provider.js';
 import type { NormalizedSpecialDistrict } from '../providers/special-district-provider.js';
+import { EPACWSServiceAreaProvider } from '../providers/epa-cws-provider.js';
+import { EIATerritoriesProvider } from '../providers/eia-territories-provider.js';
+import { USGSWatershedBoundaryProvider } from '../providers/usgs-wbd-provider.js';
+import { filterPublishExclusions } from '../providers/publish-exclusion-filter.js';
+import type { CountyFeatureInput } from '../providers/judicial-district-provider.js';
 
 // ============================================================================
 // CLI Args
@@ -54,6 +59,8 @@ const { values: args } = parseArgs({
     wards: { type: 'boolean', default: false },  // Include city council wards from portal registry
     'state-gis': { type: 'boolean', default: false },  // Include authoritative statewide ward data (WI LTSB, MassGIS)
     'special-districts': { type: 'boolean', default: false },  // Include special districts (fire, water, transit, etc.)
+    wave1: { type: 'boolean', default: false },  // Include Wave-1 national single-layer providers (judicial, EPA CWS, EIA territories, USGS WBD)
+    'exclude-unlicensed': { type: 'boolean', default: false },  // Signed-publish posture: drop any boundary carrying a pending publishExclusion gate (O8-license-confirms)
   },
   strict: false,
 });
@@ -86,6 +93,8 @@ const includeNZ = args.nz as boolean;
 const includeWards = args.wards as boolean;
 const includeStateGIS = args['state-gis'] as boolean;
 const includeSpecialDistricts = args['special-districts'] as boolean;
+const includeWave1 = args.wave1 as boolean;
+const excludeUnlicensed = args['exclude-unlicensed'] as boolean;
 
 // ============================================================================
 // Helpers
@@ -174,6 +183,7 @@ async function main() {
   console.log(`  Wards:   ${includeWards ? 'ENABLED (portal registry)' : 'disabled'}`);
   console.log(`  StateGIS:${includeStateGIS ? ' ENABLED (WI LTSB + MassGIS, authority=100%)' : ' disabled'}`);
   console.log(`  Special: ${includeSpecialDistricts ? `ENABLED (${SPECIAL_DISTRICT_PROVIDERS.size} providers registered)` : 'disabled'}`);
+  console.log(`  Wave1:   ${includeWave1 ? `ENABLED (judicial, EPA CWS, EIA territories, USGS WBD)${excludeUnlicensed ? ' [--exclude-unlicensed: O8-gated sources dropped]' : ''}` : 'disabled'}`);
   console.log(`  Canada:  ${noCanada ? 'DISABLED' : 'enabled'}`);
   console.log(`  UK:      ${includeUK ? 'ENABLED' : 'disabled'}`);
   console.log(`  AU:      ${includeAU ? 'ENABLED' : 'disabled'}`);
@@ -700,6 +710,185 @@ async function main() {
     const specialDuration = performance.now() - specialStart;
     layerStats.push({ layer: 'special', raw: SPECIAL_DISTRICT_PROVIDERS.size, normalized: specialCount, duration: specialDuration });
     console.log(`    → ${specialCount} special districts indexed (${(specialDuration / 1000).toFixed(1)}s)`);
+  }
+
+  // ---- Wave 1: national single-layer providers (judicial, EPA CWS, EIA, USGS WBD) ----
+  // docs/design/MISSING-SLOTS-SOURCING.md (commons repo), ranks 3-5 + addendum
+  // rank 14. VTD (rank 1) and tract (rank 2) reuse the existing TIGER `--layers
+  // vtd,tract` path above and need no code here. `--exclude-unlicensed` applies
+  // the O8-license-confirms publish-exclusion gate (EPA/EIA carry it; USGS WBD
+  // does not) — the DEFAULT posture keeps every wave-1 boundary, matching every
+  // other ingest-dev flag in this script; only a signed-publish build should
+  // pass --exclude-unlicensed.
+  if (includeWave1) {
+    const wave1Start = performance.now();
+    console.log(`\n[${'▶'.padEnd(3)}] Ingesting Wave-1 national layers (judicial, EPA CWS, EIA territories, USGS WBD)...`);
+
+    let wave1Raw: NormalizedBoundary[] = [];
+
+    // Judicial districts dissolve TIGER counties already collected into
+    // allDistricts by the `county` layer above (id `county-{GEOID}`,
+    // jurisdiction `USA/{stateFips}`) — no second county fetch. Honest skip
+    // (not a fabricated dissolve) if `county` wasn't in --layers.
+    const countyDistricts = allDistricts.filter((d) => d.id.startsWith('county-'));
+    if (countyDistricts.length === 0) {
+      console.warn('    ⚠ judicial dissolve skipped — no county-layer districts in allDistricts (pass --layers county,... or --layers all)');
+    } else {
+      const { dissolveJudicialDistricts } = await import('../providers/judicial-district-provider.js');
+      const counties: CountyFeatureInput[] = countyDistricts
+        .filter((d): d is typeof d & { geometry: Polygon | MultiPolygon } => d.geometry.type === 'Polygon' || d.geometry.type === 'MultiPolygon')
+        .map((d) => ({
+          geoid: d.id.slice('county-'.length),
+          stateFips: d.jurisdiction.split('/')[1] ?? '',
+          geometry: d.geometry,
+        }));
+      // Single-district composition dissolve is a per-county union; a real
+      // turf union keeps deterministic output (dissolveJudicialDistricts sorts
+      // by composition-table order, not discovery order).
+      const { union: turfUnion } = await import('@turf/union');
+      const { polygon, multiPolygon } = await import('@turf/helpers');
+      const unionFn = (geoms: readonly (Polygon | MultiPolygon)[]): Polygon | MultiPolygon | null => {
+        if (geoms.length === 0) return null;
+        if (geoms.length === 1) return geoms[0];
+        const features = geoms.map((g) =>
+          g.type === 'Polygon' ? polygon(g.coordinates) : multiPolygon(g.coordinates),
+        );
+        // Built directly (not via @turf/helpers's featureCollection(), whose
+        // generic signature over-narrows a mixed Polygon|MultiPolygon array)
+        // — a plain FeatureCollection literal is exactly what @turf/union's
+        // own type declares it accepts.
+        const fc: import('geojson').FeatureCollection<Polygon | MultiPolygon> = {
+          type: 'FeatureCollection',
+          features,
+        };
+        const result = turfUnion(fc);
+        return (result?.geometry as Polygon | MultiPolygon | undefined) ?? null;
+      };
+      const judicialDistricts = dissolveJudicialDistricts(counties, unionFn);
+      for (const jd of judicialDistricts) {
+        wave1Raw.push({
+          id: jd.id,
+          name: jd.name,
+          level: 'district',
+          geometry: jd.geometry,
+          properties: { layer: 'judicial', provenanceLabel: 'derived:statute' },
+          source: {
+            provider: 'FederalJudicialDistrictProvider',
+            url: jd.provenance.source,
+            version: '1',
+            license: 'public-domain',
+            updatedAt: new Date().toISOString(),
+            checksum: '',
+            authorityLevel: 'federal-mandate',
+            legalStatus: 'official',
+            collectionMethod: 'portal-discovery',
+            lastVerified: new Date().toISOString(),
+            verifiedBy: 'automated',
+            topologyValidated: false,
+            geometryRepaired: false,
+            coordinateSystem: 'EPSG:4326',
+            updateMonitoring: 'none',
+          },
+        });
+      }
+      console.log(`    judicial: ${judicialDistricts.length} statute-dissolved districts (of ${countyDistricts.length} county inputs)`);
+    }
+
+    // Single-national-layer providers: EPA CWS SAB, EIA territories, USGS WBD.
+    // Each is a real network download of a full national layer — this path is
+    // reachable only behind --wave1 (opt-in, never the default `--layers`
+    // shorthand), so a national pull here is an explicit operator choice, not
+    // an accidental one triggered by a bare `npm run build:districts`.
+    const nationalProviders: Array<{ key: string; provider: { download(p: { level: 'district' }): Promise<unknown>; transform(raw: never): Promise<NormalizedBoundary[]> } }> = [
+      { key: 'epa-cws-sab', provider: new EPACWSServiceAreaProvider() as never },
+      { key: 'eia-territories', provider: new EIATerritoriesProvider() as never },
+      { key: 'usgs-wbd', provider: new USGSWatershedBoundaryProvider() as never },
+    ];
+    for (const { key, provider } of nationalProviders) {
+      try {
+        console.log(`    Downloading ${key}...`);
+        const raw = await provider.download({ level: 'district' });
+        const boundaries = await provider.transform(raw as never);
+        console.log(`    ${key}: ${boundaries.length} boundaries`);
+        wave1Raw.push(...boundaries);
+      } catch (error) {
+        console.error(`    ✗ ${key} FAILED: ${(error as Error).message}`);
+      }
+    }
+
+    // Deterministic ordering: sort the whole wave-1 batch by id before the
+    // publish-exclusion filter and before pushing into allDistricts, so a
+    // byte-identical re-run produces byte-identical R-tree insertion order
+    // regardless of network response ordering (ArcGIS pagination, dissolve
+    // Map iteration) or which providers succeeded/failed this run.
+    wave1Raw = [...wave1Raw].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+    const filterResult = filterPublishExclusions(wave1Raw);
+    const toIndex = excludeUnlicensed ? filterResult.included : wave1Raw;
+    if (excludeUnlicensed && filterResult.excluded.length > 0) {
+      console.log(`    --exclude-unlicensed: dropping ${filterResult.excluded.length} boundaries pending O8-license-confirms:`);
+      for (const s of filterResult.exclusionSummary) {
+        console.log(`      ${s.provider}: ${s.count} boundaries — ${s.pendingConfirmation}`);
+      }
+    } else if (filterResult.excluded.length > 0) {
+      console.log(`    (${filterResult.excluded.length} boundaries carry a pending O8 publish-exclusion gate — included here because --exclude-unlicensed was not passed; a signed publish build must pass it)`);
+    }
+
+    let wave1Count = 0;
+    for (const boundary of toIndex) {
+      const geom = boundary.geometry;
+      if (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon') continue;
+      const layer = (boundary.properties.layer as string) ?? 'wave1';
+      allDistricts.push({
+        id: boundary.id.includes('-') ? boundary.id : `${layer}-${boundary.id}`,
+        name: boundary.name,
+        jurisdiction: 'USA',
+        districtType: 'municipal',
+        geometry: geom,
+        provenance: {
+          source: boundary.source.url,
+          authority: 'federal' as const,
+          timestamp: Date.now(),
+          method: 'wave1-national-provider',
+          responseHash: boundary.source.checksum ?? '',
+          jurisdiction: 'USA',
+          httpStatus: 200,
+          license: boundary.source.license ?? 'public-domain',
+          featureCount: 1,
+          geometryType: geom.type as 'Polygon' | 'MultiPolygon',
+          coordinateSystem: 'EPSG:4326',
+        },
+        bbox: computeBBox(geom),
+      });
+      wave1Count++;
+    }
+
+    const wave1Duration = performance.now() - wave1Start;
+    layerStats.push({ layer: 'wave1', raw: wave1Raw.length, normalized: wave1Count, duration: wave1Duration });
+    console.log(`    → ${wave1Count} Wave-1 districts indexed (${(wave1Duration / 1000).toFixed(1)}s)`);
+
+    // Per-layer expected-count validators (non-blocking — a partial/scoped
+    // run, e.g. --state 44, legitimately produces far fewer than the
+    // national totals; this is operator-visible signal, not a hard gate).
+    const {
+      validateEpaCwsCount,
+      validateEiaTerritoryCount,
+      validateWbdHuc8Count,
+    } = await import('../validators/wave1-expected-counts.js');
+    const epaCount = toIndex.filter((b) => b.properties.layer === 'water_sewer').length;
+    const eiaCount = toIndex.filter((b) => b.properties.layer === 'utility').length;
+    const wbdCount = toIndex.filter((b) => b.properties.layer === 'hydrologic').length;
+    for (const [label, count, validate] of [
+      ['epa-cws-sab', epaCount, validateEpaCwsCount],
+      ['eia-territories', eiaCount, validateEiaTerritoryCount],
+      ['usgs-wbd (HUC-8 default level)', wbdCount, validateWbdHuc8Count],
+    ] as const) {
+      if (count === 0) continue; // provider failed or was scoped out — already logged above
+      const result = validate(count);
+      if (!result.valid) {
+        console.warn(`    ⚠ ${label} count check: ${result.reason}`);
+      }
+    }
   }
 
   if (allDistricts.length === 0) {

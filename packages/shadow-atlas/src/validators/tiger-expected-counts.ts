@@ -674,16 +674,16 @@ export const EXPECTED_ELSD_BY_STATE: Record<string, number> = {
 
 /**
  * Voting Tabulation District (VTD) counts by state
- * Source: Redistricting Data Hub (VEST 2020/2022 precinct shapefiles)
+ * Source: TIGER 2020 PL VTD (Census Bureau 94-171 redistricting product)
  *
  * VTD boundaries are defined by states for Census enumeration and correspond
  * to voting precincts, election districts, or similar election-related areas.
  * Counts change with each redistricting cycle (after decennial census).
  *
  * DOCUMENTATION SOURCES:
- * - Redistricting Data Hub: https://redistrictingdatahub.org (VEST precinct shapefiles)
- * - Census Bureau VTD FAQ: https://www.census.gov/programs-surveys/decennial-census/about/voting-districts.html
- * - TIGER/Line VTD Files: https://www2.census.gov/geo/tiger/TIGER2024/VTD/
+ * - TIGER 2020 PL VTD: https://www2.census.gov/geo/tiger/TIGER2020PL/ (94-171 redistricting product)
+ * - TIGER 2020 PL VTD layer listing: https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/VTD/2020/
+ * - Census Redistricting Data Program summary files: https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html
  *
  * REDISTRICTING CYCLE:
  * - These counts are valid for the 2020-2030 redistricting cycle
@@ -693,14 +693,26 @@ export const EXPECTED_ELSD_BY_STATE: Record<string, number> = {
  * - California (20,419): Most VTDs, reflecting high population + precinct fragmentation
  * - New York (15,356): Second highest, large population with local precinct autonomy
  * - Massachusetts (53): Lowest among states with data, uses town-based precincts
- * - Utah (FIPS 49): EXCLUDED - Uses non-standard field names (vistapre)
+ * - Utah (FIPS 49): EXCLUDED from this table - uses non-standard field names (vistapre);
+ *   its 2,424 GEOIDs are present in src/data/canonical/vtd-geoids.json (meta.actualByState)
+ *   but have no entry in this VEST-derived expected-count table
  * - DC (FIPS 11): EXCLUDED - Single voting jurisdiction, no VTD subdivisions
  *
- * NOTE: These counts represent ACTUAL extracted VTD GEOIDs from VEST shapefiles.
- * Total: 121,755 VTDs across 49 states (excludes UT and DC).
+ * NOTE: These counts were originally derived from VEST 2020/2022 precinct
+ * shapefiles obtained via a now-removed third-party aggregator path, not yet
+ * re-verified against the TIGER 2020 PL 94-171 product directly. Within
+ * src/data/canonical/vtd-geoids.json itself these counts are internally
+ * consistent: meta.expectedByState, meta.actualByState, and each state's
+ * geoids[state].length agree exactly (California: 20,419 in all three;
+ * zero mismatches across every state present in expectedByState).
+ * Re-derivation directly from the TIGER 2020 PL product is still needed to
+ * confirm the VEST-derived figures against the source, and to add the
+ * missing Utah entry - not to resolve any internal inconsistency, since
+ * there is none.
+ * Total: 121,755 VTDs across the 49 states in this table (excludes UT and DC).
  *
  * Last Updated: 2026-01-09
- * Data Vintage: VEST 2020/2022 Redistricting Data Hub
+ * Data Vintage: VEST 2020/2022 (pending re-derivation from TIGER 2020 PL)
  */
 export const EXPECTED_VTD_BY_STATE: Record<string, number> = {
   '01': 1972,   // Alabama (AL)

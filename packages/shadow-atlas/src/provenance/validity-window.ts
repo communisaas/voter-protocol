@@ -313,7 +313,7 @@ export class DefaultValidityWindowCalculator implements ValidityWindowCalculator
 
   /**
    * Calculate aggregator validity window
-   * Aggregators (like Redistricting Data Hub) inherit TIGER-like behavior
+   * Aggregators (like TIGER 2020 PL VTD) inherit TIGER-like behavior
    */
   private calculateAggregatorWindow(
     sourceId: string,

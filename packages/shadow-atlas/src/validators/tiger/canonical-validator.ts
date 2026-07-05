@@ -20,7 +20,9 @@
  * - elsd: Elementary School Districts
  * - scsd: Secondary School Districts
  *
- * NOTE: VTD is not cross-validated against TIGER (comes from RDH).
+ * NOTE: VTD is not cross-validated here - it comes from the separate TIGER
+ * 2020 PL 94-171 redistricting product, not the annual TIGER/Line layers
+ * this validator fetches via TIGERBoundaryProvider.
  *
  * @example
  * ```typescript
@@ -186,7 +188,8 @@ export interface TIGERCanonicalValidatorOptions {
 /**
  * Map ValidatableLayer to TIGERLayer
  *
- * VTD is excluded because it comes from RDH, not TIGER.
+ * VTD is excluded because it comes from the separate TIGER 2020 PL VTD
+ * product, not the annual TIGER/Line layers this map targets.
  */
 const VALIDATABLE_TO_TIGER_LAYER: Record<Exclude<ValidatableLayer, 'vtd'>, TIGERLayer> = {
   cd: 'cd',
@@ -199,8 +202,8 @@ const VALIDATABLE_TO_TIGER_LAYER: Record<Exclude<ValidatableLayer, 'vtd'>, TIGER
 };
 
 /**
- * Layers that can be cross-validated against TIGER
- * (excludes VTD which comes from RDH)
+ * Layers that can be cross-validated against annual TIGER/Line
+ * (excludes VTD, which comes from the separate TIGER 2020 PL VTD product)
  */
 type CrossValidatableLayer = Exclude<ValidatableLayer, 'vtd'>;
 

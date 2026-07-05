@@ -97,16 +97,18 @@ This document catalogs the complete attack surface of voter-protocol and shadow-
 - `packages/shadow-atlas/.env` - EXPOSED CREDENTIALS
 - `deploy/scripts/deploy.sh` - Deployment automation
 
-**Critical Finding:**
+**Critical Finding (resolved):**
 ```
-# packages/shadow-atlas/.env - REAL CREDENTIALS IN REPO
-RDH_USERNAME=ejmockler
-RDH_PASSWORD=!Mocklee1337
+# packages/shadow-atlas/.env - REAL CREDENTIALS WERE COMMITTED IN THIS DOC
+# RDH_USERNAME / RDH_PASSWORD - redacted; the RDH account itself has been
+# abandoned (RDH was removed as a live data source; see
+# packages/shadow-atlas/docs/VTD_CANONICAL_GEOIDS.md), and the leaked
+# password must be treated as burned - never reused for any other account.
 ```
 
 **Immediate Actions Required:**
 1. Remove .env from git history
-2. Rotate RDH credentials
+2. Treat the leaked RDH password as burned (account abandoned, credentials removed from this doc); confirm it is not reused anywhere else
 3. Rotate testnet private keys
 4. Add pre-commit secret scanning
 

@@ -1276,7 +1276,8 @@ All actions logged with:
 - **PACER:** https://pacer.uscourts.gov/
 - **RECAP Archive:** https://www.courtlistener.com/recap/
 - **Census TIGER:** https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
-- **Redistricting Data Hub:** https://redistrictingdatahub.org/
+- **TIGER 2020 PL VTD** (voting precincts, 94-171 redistricting product): https://www2.census.gov/geo/tiger/TIGER2020PL/
+- ~~Redistricting Data Hub~~ - removed as a live source (license forbids commercial redistribution; precinct data stale); historical mention only, retained for context
 
 ### 14.3 Related Specifications
 

@@ -45,6 +45,9 @@ jobs:
     permissions:
       issues: write
       contents: read
+    outputs:
+      breach_count: ${{ steps.health.outputs.breaches }}
+      breach_matrix: ${{ steps.breach_matrix.outputs.matrix }}
     defaults:
       run:
         working-directory: packages/shadow-atlas
@@ -89,12 +92,34 @@ jobs:
             --endpoint-url "$R2_ENDPOINT" \
             ./shadow-atlas.db || true
 
+      - name: Probe registry sources for reachability (daily probe lane)
+        # Self-healing data ops §Daily probe lane. Reachability-only: issues
+        # method-appropriate probes (HEAD / conditional-GET / range-GET
+        # fallback) for every SOURCE_REGISTRY row the fetch lane below never
+        # content-checks (NAD, ADDRFEAT, BAF, tract-centroids, TIGER national
+        # layers, tigerweb-cd, international officials...), PLUS a separate
+        # daily reachability probe of the fetch lane itself (the 2
+        # congressional seeds, always, + a bounded date-rotated sample of
+        # muni sources) into probe-only ledger columns that never touch the
+        # content clock. Runs BEFORE the
+        # fetch-lane check + breach evaluation so this run's probe attempts
+        # are visible to that evaluation. Never computes a checksum, never
+        # emits a change event. --config-breach-summary persists the
+        # startup lane-exclusivity assertion's findings (a declared
+        # lane:'fetch' row with no real counterpart this run) for the
+        # check-changes.ts step to fold into health-summary.json.
+        run: npm run sources:probe -- --db ./shadow-atlas.db --config-breach-summary ./config-breach-summary.json
+
       - name: Check boundary sources for changes
         # Reuse the existing script + its --db flag. Runs unconditionally;
         # with no restored DB it simply starts from an empty local DB.
         # --summary emits a machine-readable detection count + change list
         # for the alert step; detections never turn this step red.
-        run: npm run changes:check -- --db ./shadow-atlas.db --summary ./change-summary.json
+        # --health-summary emits the SLO breach-evaluation record (fetch lane
+        # + probe lane + any config breaches from the prior step, combined)
+        # for the atlas-slo-breach alert step below; exit code stays 0
+        # regardless of breach count.
+        run: npm run changes:check -- --db ./shadow-atlas.db --summary ./change-summary.json --health-summary ./health-summary.json --config-breach-summary ./config-breach-summary.json
 
       - name: Persist change-detection DB back to R2
         # Round-trip the updated DB back to the dedicated key so the next run
@@ -151,3 +176,112 @@ jobs:
               --label atlas-change-alert \
               --body-file ./alert-body.md
           fi
+
+      - name: Extract SLO breach count
+        # Self-healing data ops §Breach evaluation. jq is preinstalled on
+        # ubuntu-latest — no new dependency.
+        id: health
+        run: echo "breaches=$(jq '.breaches|length' ./health-summary.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Raise SLO breach issues (observe-only — no remediation)
+        # One deduped `atlas-slo-breach` issue PER SOURCE (not one issue per
+        # run, unlike the change-alert above) — each breach's structured
+        # record is P15's future machine-readable trigger input. This step
+        # only observes and reports; it never invokes or triggers any
+        # remediation lane. Gated on the R2 secret so alerts NEVER fire on
+        # secretless fresh-DB runs (same reasoning as the change-alert step).
+        if: env.R2_ACCESS_KEY_ID != '' && steps.health.outputs.breaches > 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Idempotent label creation — exists-already is fine.
+          gh label create atlas-slo-breach \
+            --description "Source freshness/reachability SLO breach" || true
+
+          jq -c '.breaches[]' ./health-summary.json | while IFS= read -r breach; do
+            sourceId=$(echo "$breach" | jq -r '.sourceId')
+
+            {
+              echo "SLO breach detected for source \`$sourceId\`."
+              echo
+              echo '```json'
+              echo "$breach" | jq '.'
+              echo '```'
+            } > ./slo-breach-body.md
+
+            # Per-source dedupe: comment on the open issue titled for this
+            # sourceId if one exists, otherwise create it. One open issue
+            # per source, never one per run.
+            n=$(gh issue list --label atlas-slo-breach --state open \
+              --search "SLO breach: $sourceId in:title" --json number --jq '.[0].number')
+            if [ -n "$n" ]; then
+              gh issue comment "$n" --body-file ./slo-breach-body.md
+            else
+              n=$(gh issue create \
+                --title "SLO breach: $sourceId" \
+                --label atlas-slo-breach \
+                --body-file ./slo-breach-body.md \
+                | grep -oE '[0-9]+$')
+            fi
+
+            # Record {sourceId, issueNumber} so the remediation-call job
+            # below (workflow_call — see TRIGGER TRUTH note there) knows
+            # exactly which issues to remediate, without re-querying GitHub.
+            jq -n --arg sourceId "$sourceId" --arg issueNumber "$n" \
+              '{sourceId: $sourceId, issueNumber: $issueNumber}' >> ./breach-matrix.ndjson
+          done
+
+      - name: Emit breach source/issue matrix (for the remediation-call job)
+        id: breach_matrix
+        # Runs even when the raise-issues step above was skipped (R2 secret
+        # absent, or zero breaches) — emits an empty array rather than no
+        # output, so the downstream job's `if: breach_count > 0` gate is the
+        # single source of truth for whether remediation runs at all.
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f ./breach-matrix.ndjson ]; then
+            matrix=$(jq -s -c '.' ./breach-matrix.ndjson)
+          else
+            matrix='[]'
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  # =============================================================================
+  # REMEDIATE-ON-BREACH — calls shadow-atlas-remediate.yml DIRECTLY as a
+  # reusable workflow (`workflow_call`) in THIS SAME RUN, immediately after
+  # changes-check raises the atlas-slo-breach issues above.
+  #
+  # TRIGGER TRUTH (why this is a same-run job call, not an `issues: labeled`
+  # trigger on shadow-atlas-remediate.yml): the breach issues above are
+  # created/labeled using `${{ github.token }}` — GitHub's own GITHUB_TOKEN.
+  # GitHub documents that "events triggered by the GITHUB_TOKEN... will not
+  # create a new workflow run" (https://docs.github.com/en/actions/using-
+  # workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow).
+  # An `issues: types: [labeled]` trigger on shadow-atlas-remediate.yml would
+  # therefore NEVER fire from this real producer — only from a human
+  # manually re-applying the label, which is not "agentic". Calling the
+  # reusable workflow directly, in-run, sidesteps event-trigger suppression
+  # entirely: there is no event for GITHUB_TOKEN-suppression to intercept.
+  #
+  # `dry_run` is resolved from the `REMEDIATE_ARMED` repository variable
+  # (Settings -> Variables -> Actions), NOT hardcoded: unset or any value
+  # other than the literal string 'true' means dry-run (the safe default,
+  # per §Rollout step 2 — "Ship shadow-atlas-remediate.yml with `dry_run`
+  # defaulting `true`... Arm. Flip the default to `dry_run: false`" — arming
+  # is now an operator flipping this repo variable, not editing YAML).
+  # =============================================================================
+  remediate-on-breach:
+    name: Remediate on breach (calls shadow-atlas-remediate.yml)
+    needs: changes-check
+    if: needs.changes-check.outputs.breach_count > 0
+    strategy:
+      fail-fast: false
+      matrix:
+        breach: ${{ fromJson(needs.changes-check.outputs.breach_matrix) }}
+    uses: ./.github/workflows/shadow-atlas-remediate.yml
+    with:
+      source_id: ${{ matrix.breach.sourceId }}
+      issue_number: ${{ matrix.breach.issueNumber }}
+      dry_run: ${{ vars.REMEDIATE_ARMED == 'true' && 'false' || 'true' }}
+    secrets: inherit

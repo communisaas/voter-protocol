@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "description": "Utah VEST 2020 field mapping - non-standard CountyID and vistapre fields",
   "source": {
-    "name": "Utah VEST 2020 Redistricting Data",
-    "url": "https://redistrictingdatahub.org/dataset/utah-election-results-precinct-level-2020/",
-    "notes": "CountyID is sequential 1-29 (not FIPS). Utah counties use odd FIPS codes 001-057."
+    "name": "Utah VEST 2020 Redistricting Data (historical - original upstream removed)",
+    "url": "https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/VTD/2020/tl_2020_49_vtd20.zip",
+    "notes": "CountyID is sequential 1-29 (not FIPS). Utah counties use odd FIPS codes 001-057. The 2,424 Utah GEOIDs currently in src/data/canonical/vtd-geoids.json were originally extracted from a re-hosted copy of the VEST 2020 dataset via this profile's vistapre/CountyID field mapping. That upstream was removed as a live source (its license forbids commercial redistribution and its precinct data is stale; full removal record in docs/VTD_CANONICAL_GEOIDS.md) - this profile's transform logic is retained as the historical record of how the existing Utah GEOIDs were derived, not as a current live-fetch path. Re-ingesting Utah VTDs from the TIGER 2020 PL product above would use standard GEOID20/VTDST20 fields and would not need this profile's vistapre/CountyID lookup transforms."
   },
   "fields": {
     "vistapre": "localPrecinct"
@@ -87,12 +87,20 @@
     },
     "GEOID": {
       "type": "concat",
-      "sourceFields": ["stateFips", "countyFips", "localPrecinct"],
+      "sourceFields": [
+        "stateFips",
+        "countyFips",
+        "localPrecinct"
+      ],
       "separator": ""
     }
   },
   "validation": {
-    "requiredFields": ["GEOID", "countyFips", "localPrecinct"],
+    "requiredFields": [
+      "GEOID",
+      "countyFips",
+      "localPrecinct"
+    ],
     "skipInvalid": false
   }
 }

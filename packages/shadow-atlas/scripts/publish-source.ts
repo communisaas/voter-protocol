@@ -414,13 +414,10 @@ async function verifyR2Slices(
  * or any other secret to .env. The allowlist forces the inverse:
  * unenumerated vars are dropped by default.
  *
- * Build dependencies (verified from src/scripts/build-district-db.ts and
- * src/acquisition/extractors/rdh-vtd-extractor.ts):
+ * Build dependencies (verified from src/scripts/build-district-db.ts):
  *   - System: PATH, HOME, USER, SHELL, TERM, TMPDIR, LANG, LC_*
  *   - Node: NODE_OPTIONS, NODE_ENV, NODE_PATH, npm_*, NPM_*
  *   - Shadow Atlas: BAF_CACHE_DIR, DATA_DIR
- *   - VTD extraction: RDH_USERNAME, RDH_PASSWORD (these ARE credentials
- *     but they are credentials the build legitimately needs)
  */
 function runBuild(): void {
 	const ALLOW_EXACT = new Set([
@@ -440,8 +437,6 @@ function runBuild(): void {
 		'NODE_PATH',
 		'BAF_CACHE_DIR',
 		'DATA_DIR',
-		'RDH_USERNAME',
-		'RDH_PASSWORD',
 	]);
 	const ALLOW_PREFIX = ['LC_', 'npm_', 'NPM_'];
 

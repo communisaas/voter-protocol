@@ -594,4 +594,55 @@ describe('TIGERBoundaryProvider', () => {
       expect((provider as any).retryDelayMs).toBe(2000);
     });
   });
+
+  describe('VTD URL construction (P17-wave1-ingest fix)', () => {
+    // Regression guard: getStateFileUrl() used to build a plain
+    // TIGER{year}/VTD/tl_{year}_{state}_vtd.zip URL for the vtd layer, same
+    // as every other layer. That 404s — VTD is the 2020 PL 94-171 product,
+    // not an annual TIGER/Line layer, and lives under a completely
+    // different FTP tree. Verified live 2026-07-04: the real, working URL
+    // for Rhode Island is https://www2.census.gov/geo/tiger/TIGER2020PL/
+    // STATE/44_RHODE_ISLAND/44/tl_2020_44_vtd20.zip (HTTP 200, 423 real
+    // features when downloaded and parsed).
+    test('vtd layer builds the 2020 PL FTP path, not the plain annual-layer path', () => {
+      const provider = new TIGERBoundaryProvider();
+      const url = (provider as any).getStateFileUrl('vtd', '44', 2024);
+      expect(url).toBe(
+        'https://www2.census.gov/geo/tiger/TIGER2020PL/STATE/44_RHODE_ISLAND/44/tl_2020_44_vtd20.zip',
+      );
+    });
+
+    test('vtd URL ignores the requested year — always the 2020 vintage', () => {
+      const provider = new TIGERBoundaryProvider();
+      const url2024 = (provider as any).getStateFileUrl('vtd', '44', 2024);
+      const url2020 = (provider as any).getStateFileUrl('vtd', '44', 2020);
+      expect(url2024).toBe(url2020);
+      expect(url2024).toContain('TIGER2020PL');
+    });
+
+    test('multi-word state names collapse to underscores (New Hampshire)', () => {
+      const provider = new TIGERBoundaryProvider();
+      const url = (provider as any).getStateFileUrl('vtd', '33', 2024);
+      expect(url).toContain('33_NEW_HAMPSHIRE');
+    });
+
+    test('District of Columbia and Puerto Rico resolve correctly', () => {
+      const provider = new TIGERBoundaryProvider();
+      const dcUrl = (provider as any).getStateFileUrl('vtd', '11', 2024);
+      const prUrl = (provider as any).getStateFileUrl('vtd', '72', 2024);
+      expect(dcUrl).toContain('11_DISTRICT_OF_COLUMBIA');
+      expect(prUrl).toContain('72_PUERTO_RICO');
+    });
+
+    test('unknown state FIPS throws rather than silently building a broken URL', () => {
+      const provider = new TIGERBoundaryProvider();
+      expect(() => (provider as any).getStateFileUrl('vtd', '99', 2024)).toThrow(/unknown state FIPS/i);
+    });
+
+    test('non-vtd layers are unaffected (still use the plain annual-layer path)', () => {
+      const provider = new TIGERBoundaryProvider();
+      const url = (provider as any).getStateFileUrl('county', '44', 2024);
+      expect(url).toBe('https://www2.census.gov/geo/tiger/TIGER2024/COUNTY/tl_2024_44_county.zip');
+    });
+  });
 });
