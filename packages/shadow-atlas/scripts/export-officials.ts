@@ -30,7 +30,12 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  CONGRESSIONAL_DISTRICTS,
+  NON_VOTING_DELEGATES,
+} from '../src/core/registry/official-district-counts.js';
 import { TERRITORIES } from '../src/db/fips-codes.js';
 
 // ============================================================================
@@ -58,6 +63,7 @@ interface OfficialsFile {
   district_code: string;
   officials: Official[];
   generated: string;
+  houseSeatVacant?: boolean;
 }
 
 interface ManifestEntry {
@@ -315,7 +321,38 @@ function exportByDistrict<TRow>(
 /** @deprecated Use ExportResult — kept as alias for backward compat */
 type USExportResult = ExportResult;
 
-function exportUSofficials(
+function congressionalDistrictCode(state: string, district: string | null): string {
+  const districtLabel =
+    district === null || district === '00' || district === 'AL'
+      ? 'AL'
+      : district.padStart(2, '0');
+  return `${state}-${districtLabel}`;
+}
+
+function expectedUSDistrictCodes(): string[] {
+  const codes: string[] = [];
+  const nonVotingDelegateCodes = new Set(Object.keys(NON_VOTING_DELEGATES));
+
+  for (const [state, districtCount] of Object.entries(CONGRESSIONAL_DISTRICTS)) {
+    if (nonVotingDelegateCodes.has(state)) continue;
+
+    if (districtCount === 1) {
+      codes.push(`${state}-AL`);
+    } else {
+      for (let i = 1; i <= districtCount; i += 1) {
+        codes.push(`${state}-${String(i).padStart(2, '0')}`);
+      }
+    }
+  }
+
+  for (const code of Object.keys(NON_VOTING_DELEGATES)) {
+    codes.push(`${code}-AL`);
+  }
+
+  return codes.sort();
+}
+
+export function exportUSofficials(
   db: Database.Database,
   outputDir: string,
   generated: string,
@@ -348,45 +385,49 @@ function exportUSofficials(
     arr.push(s);
   }
 
-  // Collect unique district codes from house members
-  // Each house member defines a district: state + district number
-  const districtMap = new Map<string, RawMemberRow>(); // districtCode -> house rep
+  // Seated members are looked up by canonical district code; vacant House
+  // seats still emit district files carrying the state's senators.
+  const houseRepsByDistrict = new Map<string, RawMemberRow>();
   for (const m of houseMembers) {
-    const districtLabel =
-      m.district === '00' ? 'AL' : (m.district ?? 'AL');
-    const districtCode = `${m.state}-${districtLabel}`;
-    districtMap.set(districtCode, m);
+    houseRepsByDistrict.set(
+      congressionalDistrictCode(m.state, m.district),
+      m,
+    );
   }
 
+  const districtCodes = expectedUSDistrictCodes();
   const manifestEntries: ManifestEntry[] = [];
   let totalOfficials = 0;
 
-  for (const [districtCode, houseRep] of districtMap) {
+  for (const districtCode of districtCodes) {
     if (!/^[A-Za-z0-9._-]+$/.test(districtCode)) {
       console.warn(`Skipping invalid district code: ${districtCode}`);
       continue;
     }
-    const state = houseRep.state;
+    const state = districtCode.split('-')[0];
     const isTerritory = TERRITORIES.has(state);
+    const houseRep = houseRepsByDistrict.get(districtCode);
 
     // Build officials list: house rep + state senators (no senators for territories)
     const officials: Official[] = [];
 
     // Add house representative / delegate
-    officials.push({
-      id: houseRep.bioguide_id,
-      name: houseRep.name,
-      party: houseRep.party,
-      chamber: houseRep.chamber,
-      state: houseRep.state,
-      district: houseRep.district,
-      phone: houseRep.phone,
-      office_address: houseRep.office_address,
-      contact_form_url: houseRep.contact_form_url,
-      website_url: houseRep.website_url,
-      is_voting: houseRep.is_voting === 1,
-      delegate_type: houseRep.delegate_type,
-    });
+    if (houseRep) {
+      officials.push({
+        id: houseRep.bioguide_id,
+        name: houseRep.name,
+        party: houseRep.party,
+        chamber: houseRep.chamber,
+        state: houseRep.state,
+        district: houseRep.district,
+        phone: houseRep.phone,
+        office_address: houseRep.office_address,
+        contact_form_url: houseRep.contact_form_url,
+        website_url: houseRep.website_url,
+        is_voting: houseRep.is_voting === 1,
+        delegate_type: houseRep.delegate_type,
+      });
+    }
 
     // Add senators (territories have no senators)
     if (!isTerritory) {
@@ -415,6 +456,7 @@ function exportUSofficials(
       district_code: districtCode,
       officials,
       generated,
+      houseSeatVacant: houseRep === undefined,
     };
 
     const fileName = `${districtCode}.json`;
@@ -432,7 +474,7 @@ function exportUSofficials(
   }
 
   return {
-    districtCount: districtMap.size,
+    districtCount: districtCodes.length,
     officialCount: totalOfficials,
     manifestEntries,
   };
@@ -850,4 +892,10 @@ function main(): void {
   console.log('Done.');
 }
 
-main();
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (invokedDirectly) {
+  main();
+}
