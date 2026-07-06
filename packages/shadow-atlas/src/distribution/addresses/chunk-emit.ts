@@ -368,6 +368,8 @@ export interface AddressChunkStubV2 {
   state: string;
   zipCentroid: [number, number];
   shards: number;
+  /** Integrity pins for `addresses/{zip5}.{i}.json`; array index is the shard number. */
+  shardHashes: { bytes: number; sha256: string }[];
 }
 
 /** One shard file at `addresses/{zip5}.{shard}.json` — the streets subset only. */
@@ -527,6 +529,7 @@ export function splitOversizedChunk(
     state: chunk.state,
     zipCentroid: chunk.zipCentroid,
     shards,
+    shardHashes: shardArtifacts.map((a) => ({ bytes: a.bytes, sha256: a.sha256 })),
   };
   const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
   writeFileSync(join(addressesDir, `${chunk.zip}.json`), stubBuf);
@@ -570,7 +573,7 @@ export function writeChunkFileAutoSplit(
   const stubBuf = Buffer.from(JSON.stringify(stub), 'utf-8');
   const entry: ChunkIndexEntry = {
     streetCount: Object.keys(chunk.streets).length,
-    bytes: Math.max(stubBuf.length, ...shardArtifacts.map((a) => a.bytes)),
+    bytes: stubBuf.length,
     sha256: createHash('sha256').update(stubBuf).digest('hex'),
   };
   return {

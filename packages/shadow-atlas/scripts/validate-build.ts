@@ -33,6 +33,7 @@ import {
   statSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cellToParent } from 'h3-js';
 import {
   US_JURISDICTION,
@@ -105,7 +106,7 @@ interface ManifestFile {
   addressIndex?: AddressIndexSection;
 }
 
-/** manifest.addressIndex — SEAM-CONTRACT v1 (atlas-address-index) §4. */
+/** manifest.addressIndex — SEAM-CONTRACT atlas-address-index §4. */
 interface AddressIndexSection {
   schemaVersion: number;
   normVersion: number;
@@ -125,6 +126,12 @@ type AddressChunkIndex = Record<
   string,
   { streetCount: number; bytes: number; sha256: string }
 >;
+
+interface AddressChunkStubV2 {
+  v: 2;
+  shards: number;
+  shardHashes: { bytes: number; sha256: string }[];
+}
 
 interface ChunkManifestEntry {
   path: string;
@@ -1008,7 +1015,7 @@ const ADDRESS_HASH_SPOT_LIMIT = 500;
  * A manifest WITHOUT an addressIndex section is a boundary-only build — the
  * check warns (and fails under --strict) instead of failing outright.
  */
-function checkAddressIndex(
+export function checkAddressIndex(
   outputDir: string,
   country: string,
   manifest: ManifestFile,
@@ -1028,8 +1035,8 @@ function checkAddressIndex(
   const failures: string[] = [];
 
   // --- Section fields ---
-  if (ai.schemaVersion !== 1) {
-    failures.push(`addressIndex.schemaVersion=${ai.schemaVersion}, expected 1`);
+  if (ai.schemaVersion !== 1 && ai.schemaVersion !== 2) {
+    failures.push(`addressIndex.schemaVersion=${ai.schemaVersion}, expected 1 or 2`);
   }
   if (ai.normVersion !== 1) {
     failures.push(`addressIndex.normVersion=${ai.normVersion}, expected 1`);
@@ -1152,14 +1159,78 @@ function checkAddressIndex(
         bytesVerified++;
 
         const spotCheck = i % hashStride === 0 || i === entries.length - 1;
+        let chunkBuf: Buffer | null = null;
         if (spotCheck) {
-          const actualHash = createHash('sha256').update(readFileSync(chunkPath)).digest('hex');
+          chunkBuf = readFileSync(chunkPath);
+          const actualHash = createHash('sha256').update(chunkBuf).digest('hex');
           if (actualHash !== entry.sha256) {
             failures.push(
               `addresses/${zip}.json: sha256 mismatch (expected ${entry.sha256.slice(0, 12)}..., got ${actualHash.slice(0, 12)}...)`,
             );
           } else {
             hashesVerified++;
+          }
+        }
+
+        let parsedChunk: unknown = null;
+        try {
+          chunkBuf ??= readFileSync(chunkPath);
+          parsedChunk = JSON.parse(chunkBuf.toString('utf-8'));
+        } catch (err) {
+          failures.push(`addresses/${zip}.json: invalid JSON — ${(err as Error).message}`);
+          if (failures.length >= 50) break;
+          continue;
+        }
+
+        if (
+          parsedChunk &&
+          typeof parsedChunk === 'object' &&
+          (parsedChunk as { v?: unknown }).v === 2
+        ) {
+          const stub = parsedChunk as Partial<AddressChunkStubV2>;
+          if (typeof stub.shards !== 'number' || !Number.isInteger(stub.shards) || stub.shards < 0) {
+            failures.push(`addresses/${zip}.json: v2 stub has invalid shards=${JSON.stringify(stub.shards)}`);
+          } else if (!Array.isArray(stub.shardHashes)) {
+            failures.push(`addresses/${zip}.json: v2 stub missing shardHashes`);
+          } else {
+            if (stub.shardHashes.length !== stub.shards) {
+              failures.push(
+                `addresses/${zip}.json: shardHashes has ${stub.shardHashes.length} entries, stub shards=${stub.shards}`,
+              );
+            }
+            for (let shard = 0; shard < stub.shards; shard++) {
+              const pin = stub.shardHashes[shard];
+              if (!pin || typeof pin.bytes !== 'number' || typeof pin.sha256 !== 'string') {
+                failures.push(`addresses/${zip}.${shard}.json: missing bytes/sha256 in stub shardHashes`);
+                if (failures.length >= 50) break;
+                continue;
+              }
+              const shardPath = join(countryRoot, 'addresses', `${zip}.${shard}.json`);
+              if (!existsSync(shardPath)) {
+                failures.push(`shard missing on disk: addresses/${zip}.${shard}.json`);
+                if (failures.length >= 50) break;
+                continue;
+              }
+              const shardStat = statSync(shardPath);
+              if (shardStat.size !== pin.bytes) {
+                failures.push(
+                  `addresses/${zip}.${shard}.json: ${shardStat.size} bytes on disk, stub pins ${pin.bytes}`,
+                );
+                if (failures.length >= 50) break;
+                continue;
+              }
+              if (spotCheck) {
+                const actualShardHash = createHash('sha256').update(readFileSync(shardPath)).digest('hex');
+                if (actualShardHash !== pin.sha256) {
+                  failures.push(
+                    `addresses/${zip}.${shard}.json: sha256 mismatch (expected ${pin.sha256.slice(0, 12)}..., got ${actualShardHash.slice(0, 12)}...)`,
+                  );
+                } else {
+                  hashesVerified++;
+                }
+              }
+              if (failures.length >= 50) break;
+            }
           }
         }
 
@@ -1399,4 +1470,10 @@ function main(): void {
   process.exit(passed ? 0 : 1);
 }
 
-main();
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (invokedDirectly) {
+  main();
+}
