@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -78,10 +79,17 @@ describe('oversized ZIP5 split (§1 v2)', () => {
     expect(stub.shards).toBe(shards);
     expect(shards).toBeGreaterThanOrEqual(2);
     expect(shardArtifacts.length).toBe(shards);
+    expect(stub.shardHashes).toHaveLength(shards);
 
     const target = CHUNK_P95_LIMIT_BYTES / 1.3; // §1 headroom
-    for (const artifact of shardArtifacts) {
+    for (let i = 0; i < shardArtifacts.length; i++) {
+      const artifact = shardArtifacts[i];
       expect(artifact.bytes).toBeLessThanOrEqual(target);
+      const shardBuf = readFileSync(join(outDir, `94999.${i}.json`));
+      expect(stub.shardHashes[i]).toEqual({
+        bytes: shardBuf.length,
+        sha256: createHash('sha256').update(shardBuf).digest('hex'),
+      });
     }
 
     // The guard itself, run over every emitted file, passes.
@@ -246,6 +254,25 @@ describe('oversized ZIP5 split (§1 v2)', () => {
     expect(written.version).toBe(1);
     expect(written.v).toBeUndefined();
     expect(written.shards).toBeUndefined();
+  });
+
+  it('writeChunkFileAutoSplit pins the split stub in chunk-index and keeps all emitted file sizes for the guard', () => {
+    const chunk = buildOversizedChunk('94999', 800, 40);
+    const result = writeChunkFileAutoSplit(outDir, chunk);
+    const stubBuf = readFileSync(join(outDir, '94999.json'));
+    const stub: AddressChunkStubV2 = JSON.parse(stubBuf.toString('utf-8'));
+    const shardSizes = Array.from({ length: stub.shards }, (_, i) => statSync(join(outDir, `94999.${i}.json`)).size);
+
+    expect(result.entry.bytes).toBe(stubBuf.length);
+    expect(result.entry.sha256).toBe(createHash('sha256').update(stubBuf).digest('hex'));
+    expect(result.entry.bytes).toBeLessThan(Math.max(...shardSizes));
+    expect(result.emittedFileBytes).toEqual([stubBuf.length, ...shardSizes]);
+    expect(stub.shardHashes).toEqual(
+      shardSizes.map((bytes, i) => {
+        const shardBuf = readFileSync(join(outDir, `94999.${i}.json`));
+        return { bytes, sha256: createHash('sha256').update(shardBuf).digest('hex') };
+      })
+    );
   });
 
   it('consumer resolves a street from a sharded ZIP via the shared vectors', () => {

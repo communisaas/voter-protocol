@@ -425,8 +425,8 @@ function main(): void {
   if (!ai) {
     integrityFailures.push('US/manifest.json has no addressIndex section');
   } else {
-    if (ai.schemaVersion !== 1) {
-      integrityFailures.push(`manifest addressIndex.schemaVersion=${ai.schemaVersion}, expected 1`);
+    if (ai.schemaVersion !== 1 && ai.schemaVersion !== 2) {
+      integrityFailures.push(`manifest addressIndex.schemaVersion=${ai.schemaVersion}, expected 1 or 2`);
     }
     if (ai.normVersion !== corpus.normVersion) {
       integrityFailures.push(
