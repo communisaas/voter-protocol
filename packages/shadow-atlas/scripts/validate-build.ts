@@ -44,6 +44,7 @@ import {
   PROTOCOL_DISTRICT_SLOTS,
 } from '../src/jurisdiction.js';
 import type { JurisdictionConfig } from '../src/jurisdiction.js';
+import { STATE_ABBR_TO_FIPS } from '../src/core/types/fips.js';
 
 // ============================================================================
 // ANSI Color Codes
@@ -86,7 +87,7 @@ interface ChunkFile {
   cells: Record<string, (string | null)[]>;
 }
 
-interface ManifestFile {
+export interface ManifestFile {
   version: 1;
   generated: string;
   country: string;
@@ -154,7 +155,7 @@ interface OfficialsFile {
   generated: string;
 }
 
-interface CheckResult {
+export interface CheckResult {
   name: string;
   status: 'pass' | 'fail' | 'warn';
   message: string;
@@ -173,7 +174,7 @@ interface ValidationResult {
  * Accumulates all data from a single pass over every chunk file.
  * Used to synthesize CheckResult objects for checks 2, 3, 4, 5 (chunk part), and 7.
  */
-interface ChunkAccumulator {
+export interface ChunkAccumulator {
   // Check 2: Checksums
   sha256Verified: number;
   sha256Mismatches: number;
@@ -287,6 +288,34 @@ const EXPECTED_CELLS: Record<string, number | null> = {
   AU: null,
   NZ: null,
 };
+
+const FIPS_TO_POSTAL: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(STATE_ABBR_TO_FIPS).map(([abbr, fips]) => [fips, abbr]),
+);
+
+export function congressionalSlotToOfficialDistrictCode(slotValue: string): string | null {
+  if (!slotValue.startsWith('cd-')) {
+    return null;
+  }
+
+  const token = slotValue.slice(3);
+  const fips = token.slice(0, 2);
+  const district = token.slice(2);
+  const postal = FIPS_TO_POSTAL[fips];
+  if (!postal) {
+    return null;
+  }
+
+  if (district === '00' || district === '98') {
+    return `${postal}-AL`;
+  }
+
+  if (!/^\d+$/.test(district)) {
+    return null;
+  }
+
+  return `${postal}-${String(Number.parseInt(district, 10)).padStart(2, '0')}`;
+}
 
 /** Per-country deviation thresholds. Mature countries get tighter bounds. */
 const DEVIATION_THRESHOLDS: Record<string, number> = {
@@ -764,7 +793,7 @@ function synthesizeCrossChunkConsistency(
 // Check 5: Officials Completeness (reads officials files + uses accumulator)
 // ============================================================================
 
-function checkOfficialsCompleteness(
+export function checkOfficialsCompleteness(
   outputDir: string,
   country: string,
   acc: ChunkAccumulator,
@@ -813,6 +842,7 @@ function checkOfficialsCompleteness(
 
   const failures: string[] = [];
   const warnings: string[] = [];
+  const emptyOfficials: string[] = [];
   let validFiles = 0;
   let hashesVerified = 0;
   const officialDistrictCodes = new Set<string>();
@@ -868,7 +898,7 @@ function checkOfficialsCompleteness(
     }
 
     if (officials.officials.length === 0) {
-      warnings.push(`${fileName}: district ${officials.district_code} has 0 officials`);
+      emptyOfficials.push(`${fileName}: district ${officials.district_code} has 0 officials`);
     }
 
     officialDistrictCodes.add(officials.district_code);
@@ -876,19 +906,26 @@ function checkOfficialsCompleteness(
   }
 
   // Cross-reference primary districts from chunk slot[0] data against officials files
+  const vacantOrMissing: string[] = [];
+  let vacantOrMissingCount = 0;
   if (acc.primaryDistricts.size > 0) {
-    const missingOfficials: string[] = [];
     for (const cd of acc.primaryDistricts) {
-      if (!officialDistrictCodes.has(cd)) {
-        if (missingOfficials.length < 10) {
-          missingOfficials.push(cd);
+      const districtCode = congressionalSlotToOfficialDistrictCode(cd);
+      if (!districtCode) {
+        continue;
+      }
+
+      if (!officialDistrictCodes.has(districtCode)) {
+        vacantOrMissingCount++;
+        if (vacantOrMissing.length < 10) {
+          vacantOrMissing.push(`${cd} -> ${districtCode}`);
         }
       }
     }
 
-    if (missingOfficials.length > 0) {
+    if (vacantOrMissingCount > 25) {
       warnings.push(
-        `${missingOfficials.length} district(s) in mapping have no officials file (e.g., ${missingOfficials.slice(0, 5).join(', ')})`,
+        `${vacantOrMissingCount} mapped districts have no officials file (exceeds vacancy threshold — possible export/format break)`,
       );
     }
   }
@@ -898,7 +935,16 @@ function checkOfficialsCompleteness(
       name,
       status: 'fail',
       message: `${failures.length} officials file(s) have errors`,
-      details: { validFiles, totalFiles: entries.length, hashesVerified, failures: failures.slice(0, 10), warnings: warnings.slice(0, 10) },
+      details: {
+        validFiles,
+        totalFiles: entries.length,
+        hashesVerified,
+        failures: failures.slice(0, 10),
+        warnings: warnings.slice(0, 10),
+        emptyOfficials: emptyOfficials.slice(0, 10),
+        vacantOrMissing,
+        vacantOrMissingCount,
+      },
     };
   }
 
@@ -907,7 +953,15 @@ function checkOfficialsCompleteness(
       name,
       status: 'warn',
       message: `${validFiles} officials files valid; ${warnings.length} warning(s)`,
-      details: { validFiles, totalFiles: entries.length, hashesVerified, warnings: warnings.slice(0, 10) },
+      details: {
+        validFiles,
+        totalFiles: entries.length,
+        hashesVerified,
+        warnings: warnings.slice(0, 10),
+        emptyOfficials: emptyOfficials.slice(0, 10),
+        vacantOrMissing,
+        vacantOrMissingCount,
+      },
     };
   }
 
@@ -915,7 +969,15 @@ function checkOfficialsCompleteness(
     name,
     status: 'pass',
     message: `All ${validFiles} officials files valid, ${hashesVerified} SHA-256 hashes verified`,
-    details: { validFiles, totalFiles: entries.length, hashesVerified, districtsCovered: officialDistrictCodes.size },
+    details: {
+      validFiles,
+      totalFiles: entries.length,
+      hashesVerified,
+      districtsCovered: officialDistrictCodes.size,
+      emptyOfficials: emptyOfficials.slice(0, 10),
+      vacantOrMissing,
+      vacantOrMissingCount,
+    },
   };
 }
 
