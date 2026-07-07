@@ -375,6 +375,106 @@
       "streetKey": "WASHINGTON ST",
       "shards": 32,
       "shard": 6
+    },
+    {
+      "streetKey": "ŁÓDŹ ST",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "ŁÓDŹ ST",
+      "shards": 4,
+      "shard": 1
+    },
+    {
+      "streetKey": "ŁÓDŹ ST",
+      "shards": 8,
+      "shard": 5
+    },
+    {
+      "streetKey": "ŁÓDŹ ST",
+      "shards": 16,
+      "shard": 5
+    },
+    {
+      "streetKey": "ØSTER AVE",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "ØSTER AVE",
+      "shards": 4,
+      "shard": 1
+    },
+    {
+      "streetKey": "ØSTER AVE",
+      "shards": 8,
+      "shard": 1
+    },
+    {
+      "streetKey": "ØSTER AVE",
+      "shards": 16,
+      "shard": 9
+    },
+    {
+      "streetKey": "STRAßE WEG",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "STRAßE WEG",
+      "shards": 4,
+      "shard": 2
+    },
+    {
+      "streetKey": "STRAßE WEG",
+      "shards": 8,
+      "shard": 6
+    },
+    {
+      "streetKey": "STRAßE WEG",
+      "shards": 16,
+      "shard": 14
+    },
+    {
+      "streetKey": "CAFÉ BLVD",
+      "shards": 2,
+      "shard": 0
+    },
+    {
+      "streetKey": "CAFÉ BLVD",
+      "shards": 4,
+      "shard": 0
+    },
+    {
+      "streetKey": "CAFÉ BLVD",
+      "shards": 8,
+      "shard": 0
+    },
+    {
+      "streetKey": "CAFÉ BLVD",
+      "shards": 16,
+      "shard": 0
+    },
+    {
+      "streetKey": "ÑU LN",
+      "shards": 2,
+      "shard": 1
+    },
+    {
+      "streetKey": "ÑU LN",
+      "shards": 4,
+      "shard": 3
+    },
+    {
+      "streetKey": "ÑU LN",
+      "shards": 8,
+      "shard": 3
+    },
+    {
+      "streetKey": "ÑU LN",
+      "shards": 16,
+      "shard": 11
     }
   ]
 }

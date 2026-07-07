@@ -31,10 +31,13 @@
 
 /**
  * FNV-1a 32-bit hash of a UTF-16 string, taken code-unit-by-code-unit (NOT
- * UTF-8 byte-by-byte). Normalized street keys are pure ASCII by construction
- * (§3 step 1 uppercases and strips combining marks), so UTF-16 code units and
- * UTF-8 bytes coincide for every real input — this is a plain, dependency-free
- * 32-bit computation identical on both sides regardless of JS engine.
+ * UTF-8 byte-by-byte). The cross-repo invariant is NOT "inputs are ASCII"
+ * (§3 normalization strips combining marks but keeps non-decomposing
+ * letters like Ł or Ø): it is that BOTH sides run this exact code-unit
+ * computation — identical for every string, ASCII or not, on any JS engine
+ * (Math.imul is exact 32-bit). The shared vectors file pins this with
+ * non-ASCII cases; a reimplementation over UTF-8 bytes fails those vectors
+ * loudly instead of silently routing resolves to the wrong shard.
  */
 export function fnv1a32(input: string): number {
   let hash = 0x811c9dc5; // FNV offset basis (32-bit)
