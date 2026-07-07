@@ -807,8 +807,8 @@ jobs:
             #
             # Disk math: the ~7.6 GB zip plus the ~2.8 GB ADDRFEAT cache
             # fit comfortably within ubuntu-latest's free disk. The ~30 GB
-            # uncompressed NAD text still never touches disk — funzip
-            # streams it straight into the build below, exactly as before.
+            # uncompressed NAD text still never touches disk — unzip -p
+            # streams it straight into the build below.
             NAD_ZIP="data/nad-release.zip"
             rm -f "$NAD_ZIP"
 
@@ -890,7 +890,16 @@ jobs:
 
             echo "- **NAD zip sha256 (computed):** $(sha256sum "$NAD_ZIP" | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
 
-            funzip < "$NAD_ZIP" \
+            # The NAD release is ZIP64 (version-needed 45: its single member
+            # exceeds 4 GiB). funzip's 32-bit length bookkeeping exits 4
+            # AFTER streaming the whole member byte-perfectly, which under
+            # pipefail fails the step even when the build succeeded. unzip
+            # 6.0 reads the central directory (the zip is on disk anyway)
+            # and streams ZIP64 members correctly. The first member is named
+            # explicitly to preserve funzip's first-member-only semantics.
+            NAD_MEMBER="$(unzip -Z1 "$NAD_ZIP" | head -n 1)"
+            echo "NAD member: $NAD_MEMBER"
+            unzip -p "$NAD_ZIP" "$NAD_MEMBER" \
               | npx tsx scripts/build-address-index.ts --nad - \
                   --nad-vintage "${{ inputs.nad_vintage || 'unknown' }}" \
                   "${ARGS[@]}"
