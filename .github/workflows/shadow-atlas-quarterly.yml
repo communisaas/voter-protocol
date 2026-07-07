@@ -995,7 +995,11 @@ jobs:
   upload-r2:
     name: Upload to R2
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The timeout covers the WHOLE job (npm ci + multi-GB artifact download
+    # + upload + S3 verification). The address index with NAD points pushed
+    # the upload past the old 30-minute ceiling (the ranges-only build took
+    # ~17 min end-to-end); 90 gives the bigger artifact honest headroom.
+    timeout-minutes: 90
     needs: [resolve-source, validate-build]
     outputs:
       atlas_base_url: ${{ steps.upload.outputs.atlas_base_url }}
@@ -1032,6 +1036,9 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: shadow-atlas
           R2_PUBLIC_URL: https://atlas.commons.email
+          # I/O-bound PUTs against R2; the default 16 was sized for the
+          # pre-address-index artifact. 48 stays under the script's 64 cap.
+          UPLOAD_CONCURRENCY: '48'
         run: |
           npx tsx scripts/upload-to-r2.ts \
             --directory output/chunked/ \
