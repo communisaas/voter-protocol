@@ -247,7 +247,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           prompt: ${{ steps.contract.outputs.prompt }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           claude_args: |
             --allowedTools "Read,Grep,Glob,Bash(curl -I *),Bash(gh issue comment *)"
@@ -438,7 +438,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           prompt: ${{ steps.contract.outputs.prompt }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           claude_args: |
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git checkout -b remediate/*),Bash(git add *),Bash(git commit *),Bash(git push origin remediate/*),Bash(gh issue comment *),Bash(gh issue edit *)"
