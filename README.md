@@ -22,7 +22,7 @@ VOTER Protocol creates infrastructure where authentic civic participation pays. 
 
 **Zero-knowledge cryptography** proves you're a constituent without revealing where you live. Your browser generates proof that congressional offices verify on-chain. Your address never leaves your device, never touches any database. Data brokers monitoring advocacy platforms see cryptographic proofs scroll by. They can't reverse-engineer your location from zero-knowledge proofs any more than they can factor 2048-bit RSA keys. Employers can't subpoena databases that don't contain identity mappings. The surveillance surface doesn't exist by design.
 
-**Challenge markets** make false claims expensive. Anyone can stake tokens challenging questionable facts—not opinions, only verifiable claims like voting records or policy impacts. Diverse AI models across major providers (OpenAI, Anthropic, xAI, Gemini) evaluate evidence independently. 67% consensus required. Quadratic weighting means one person staking $1,000 loses to a hundred citizens staking $10 each. Rich people can't buy truth. Bad faith actors literally fund quality discourse through forfeited stakes.
+**Challenge markets** make false claims expensive. Anyone can put a dollar behind their words to challenge questionable facts—not opinions, only verifiable claims like voting records or policy impacts. Diverse AI models across major providers evaluate evidence independently. 67% consensus required. Quadratic weighting means one person staking $1,000 loses to a hundred citizens staking $10 each. Rich people can't buy truth. Bad faith actors literally fund quality discourse through forfeited stakes.
 
 **Outcome markets** let citizens financially compete with corporate lobbying. Stake on "Will Austin pass 4-day work week ordinance by Q4 2025?" Corporate lobbying kills it → you lose stake but win politically. Lobbying fails and ordinance passes → policy victory plus market payout offsets any business harm.
 
@@ -114,7 +114,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 - `packages/shadow-atlas` — Census-based Merkle tree builder, serving API, engagement pipeline, chain scanner
 - `specs/` — Canonical architecture specs (CRYPTOGRAPHY-SPEC for ZK/crypto, REPUTATION-ARCHITECTURE-SPEC for engagement, SHADOW-ATLAS-SPEC for geographic data)
 
-**Communique Repository** (Frontend — SvelteKit 5):
+**Commons Repository** (Frontend — SvelteKit 5):
 - User-facing web application on Cloudflare Pages
 - Template browser and message composition
 - Identity verification (self.xyz NFC passport, didit.me)
@@ -130,7 +130,7 @@ Not everyone suddenly engaging with democracy. The set of people for whom partic
 
 Traditional advocacy created the problem: participation requires surveillance, lobbying requires millions, impact goes unverified, bad faith costs nothing, offices dismiss digital contact as spam because they can't distinguish quality.
 
-VOTER solves all five simultaneously. Cryptographic privacy eliminates surveillance. Outcome markets let citizens financially compete with corporate lobbying. Smart contracts provide immediate verified rewards. Challenge markets make bad faith expensive. Verification infrastructure gives staffers quality signals they're desperately asking for.
+Commons solves all five simultaneously. Cryptographic privacy eliminates surveillance. Outcome markets let citizens financially compete with corporate lobbying. Smart contracts provide immediate verified rewards. Challenge markets make bad faith expensive. Verification infrastructure gives staffers quality signals they're desperately asking for.
 
 The system doesn't ask democracy to suddenly become engaging through moral appeals. It creates mathematical and economic architecture where authentic civic labor pays, bad faith actors lose money, privacy is guaranteed by cryptography—not policy promises platforms inevitably break—and offices can finally distinguish valuable constituent expertise from spam.
 
@@ -153,4 +153,4 @@ Peer implementations and federations are welcome. The protocol is not bound to a
 
 -----
 
-*Communiqué PBC | Initial maintainer of the VOTER Protocol reference implementation | 2024-2026*
+*Commons PBC | 2024-2026*
