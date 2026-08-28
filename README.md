@@ -14,7 +14,6 @@ Democracy offers: 40-day response times. Form letters from offices where [staff 
 
 **Economic Powerlessness.** Pharmaceutical companies spent [$384.5 million lobbying in 2024](https://www.statista.com/statistics/1377721/lobbying-spending-on-pharmaceuticals-and-health-products-in-the-us/). When Medicare won the right to negotiate drug prices—overwhelmingly popular policy—industry responded with [nine ongoing lawsuits](https://www.kff.org/medicare/faqs-about-the-inflation-reduction-acts-medicare-drug-price-negotiation-program/). Total corporate lobbying hit [$4.4 billion in 2024](https://www.tucsonsentinel.com/nationworld/report/021325_lobbying_record/). Your message generates a form letter.
 
-Citizens who say politics is too complicated mastered DeFi in a weekend. They learned liquidity pools while their congressional district stayed a mystery. [Only 36% of young people](https://now.tufts.edu/2025/04/11/most-young-people-support-democracy-many-are-skeptical-it-works-them) think democracy can address the country's issues.
 
 ## The Solution
 
